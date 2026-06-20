@@ -82,6 +82,17 @@ recoverable directly).
 | `CTSBigPistolAmmo` | 1 |  |
 | `CInfoBreakable` | 1 |  |
 
+## Status (live — update as classes land)
+
+| Class | File | State |
+|---|---|---|
+| `CTSTimer` | `dlls/ts_timer.cpp` | ✅ built into hl.so, `ts_timer` factory exported (runtime untested) |
+| `TSHudMessageAll` (helper) | `dlls/ts_utils.cpp` | ✅ built (shared HUD broadcast) |
+| `CTSSlowMotion` | `dlls/ts_slowmotion.cpp` | 📝 draft, NOT in build — deps: `CTSGameRules::GlobalSlowMotion2`, TS player slow-motion virtuals |
+
+Everything else in the table above is **not started**. Full history in the
+Serena ledger (`.serena/memories/ledger.md`).
+
 ## Notes
 
 - Work biggest-first within a subsystem: `CTSGameRules` (game mode) and
