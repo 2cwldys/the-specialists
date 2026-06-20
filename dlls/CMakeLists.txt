@@ -104,6 +104,8 @@ target_sources(hl PRIVATE
 	tentacle.cpp
 	triggers.cpp
 	tripmine.cpp
+	ts_utils.cpp
+	ts_timer.cpp
 	turret.cpp
 	UserMessages.cpp
 	util.cpp
