@@ -20,6 +20,10 @@ import ghidra.program.model.listing.FunctionIterator;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,11 +42,30 @@ public class DecompExport extends GhidraScript {
         return "_free";   // non-member / unparseable
     }
 
+    // mangled-name => demangled C++ prototype (from gnv2demangle.py)
+    private Map<String,String> loadSigMap(String path) throws Exception {
+        Map<String,String> m = new HashMap<>();
+        if (path == null) return m;
+        File f = new File(path);
+        if (!f.exists()) { println("sig map not found: " + path); return m; }
+        BufferedReader br = new BufferedReader(new FileReader(f));
+        String line;
+        while ((line = br.readLine()) != null) {
+            int k = line.indexOf("  =>  ");
+            if (k > 0) m.put(line.substring(0, k).trim(), line.substring(k + 6).trim());
+        }
+        br.close();
+        println("loaded " + m.size() + " demangled signatures");
+        return m;
+    }
+
     @Override
     public void run() throws Exception {
         String[] args = getScriptArgs();
         String outDir = args.length > 0 ? args[0] : "/tmp/ghidra-out";
         String filter = args.length > 1 && !args[1].isEmpty() ? args[1] : null;
+        String sigPath = args.length > 2 && !args[2].isEmpty() ? args[2] : null;
+        Map<String,String> sigs = loadSigMap(sigPath);
         File od = new File(outDir);
         od.mkdirs();
 
@@ -73,6 +96,8 @@ public class DecompExport extends GhidraScript {
 
             File out = new File(od, ownerClass(name) + ".c");
             PrintWriter pw = new PrintWriter(new FileWriter(out, true));
+            String proto = sigs.get(name);
+            if (proto != null) pw.println("// " + proto);
             pw.println("/* " + name + "  @ " + f.getEntryPoint()
                        + "  (" + f.getBody().getNumAddresses() + " bytes) */");
             pw.println(df.getC());

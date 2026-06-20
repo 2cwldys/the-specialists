@@ -24,8 +24,11 @@ PROJ="$(mktemp -d /tmp/ghproj.XXXXXX)"
 
 trap 'rm -rf "$PROJ"' EXIT
 
-post=(-postScript DecompExport.java "$OUT_ABS")
-[ -n "$FILTER" ] && post+=("$FILTER")
+# demangled-prototype map (mangled => C++ sig); annotates each exported function
+SIGMAP="${SIGMAP:-$ROOT/reference/signatures-gcc2.map}"
+[ -f "$SIGMAP" ] || SIGMAP=""
+# postScript args are positional: <outDir> <filter> <sigMap>
+post=(-postScript DecompExport.java "$OUT_ABS" "$FILTER" "$SIGMAP")
 
 "$GHIDRA" "$PROJ" tsdecomp \
   -import "$BIN_ABS" \
