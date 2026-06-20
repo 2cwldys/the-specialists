@@ -5,3 +5,7 @@
 
 # CMake build folder
 build
+
+# mod-ts per-arch build dirs
+build-*/
+build_*/
