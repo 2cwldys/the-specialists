@@ -5,70 +5,66 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
-## 2026-06-20 (cont. 2) — GNU-v2 demangler + prototype-annotated decompiles
+## 2026-06-20 (cont. 3) — First reconstructed class: CTSSlowMotion (draft)
 
 **Done**
-- `scripts/gnv2demangle.py` — our own GNU g++ 2.x ("gnu-v2") demangler (this
-  host's c++filt dropped that dialect). Needed because `mp.dll`'s 159 MSVC
-  exports are mostly STOCK classes — the big TS targets (CTSGameRules, CTSGun,
-  CTSStunt, CTSSlowMotion) are NOT exported, so MSVC prototypes are thin for
-  exactly the code we need. The GCC2 names encode full param types for ALL 2426
-  funcs. Handles member/global/ctor/dtor, P/R/C/U/G prefixes, N repeat-args,
-  T (0-based) backrefs.
-- Coverage: **1788/2426 (74%)** typed signatures → `reference/signatures-gcc2.map`
-  (mangled => sig) + `reference/signatures-gcc2.txt`. Remaining 638 = ~444 plain
-  C/CRT (legit) + ~194 array/edge-case mangling. ~60 residual `T?` backrefs.
-- `DecompExport.java` enhanced: loads the sig map, annotates each decompiled
-  function with its recovered C++ prototype (`// CTSGun::AkimboFire()`).
-  `decompile.sh` passes the map automatically.
+- `dlls/ts_slowmotion.cpp` — first-draft reconstruction of `CTSSlowMotion`
+  (+ behaviour of the helper `CTSSlowMotionPoint`, not yet split out).
+- Recovered from the decompile (recovered/server/CTSSlowMotion.c) + FGD:
+  - `CTSSlowMotion : public CBaseEntity`, brush trigger (`@SolidClass`).
+  - Members (offset-annotated): m_iToggledOn(0x64), m_flStopTime(0x68),
+    m_pPlayers[33](0x70), m_flRadius(0xf4), m_flDuration(0xf8 = "duration"),
+    m_flSlowAmount(0xfc = "slowamt"), m_iAllMap(0x100 = SF "All map"),
+    m_bSlowBullets(0x104 = SF "Slow bullets").
+  - Methods: Spawn, KeyValue, Use, ActivateSlow, DeactivateSlow, WaitTouch,
+    WaitThink, CheckPlayersDistance, Save/Restore (m_SaveData, 2 fields),
+    ObjectCaps. LINK_ENTITY_TO_CLASS(ts_slowmotion, CTSSlowMotion).
+  - Behaviour: slows players in range (per-player, tracks up to 33) OR globally
+    via CTSGameRules::GlobalSlowMotion2 when "All map" set; duration>0 = timed,
+    else toggle; fires pev->target + TSHudMessageAll on Use.
 
-**Verified**
-- Demangler correct on known cases: `UTIL_SetSize(entvars_s*, const Vector&,
-  const Vector&)`, `CBasePlayer::ShootBulletsPlayer(unsigned char, Vector,
-  Vector, Vector, float, int, int, int)`, `CTSGun::DropWeapon(int, bool)`.
-- Re-ran CTSSlowMotion decompile: 28 funcs, prototypes annotated (12/14 in
-  CTSSlowMotion.c).
+**NOT done / caveats (honest)**
+- NOT compiled, NOT ABI-verified, NOT in dlls/CMakeLists.txt (explicit source
+  list, so safe to leave out). Depends on un-reconstructed classes:
+  CTSGameRules::GlobalSlowMotion2, TS player slow-motion virtuals
+  (vtbl+0x14/0x18 — names VERIFY), TSHudMessageAll, FireTargets.
+- VERIFY tags in the file: exact m_SaveData fields, m_flRadius source, the
+  player slow-motion virtual names/indices, pev->message/target offsets,
+  CheckPlayersDistance distance math (decompile was heavy stack arithmetic —
+  reconstructed from intent).
 
 **Next**
-- (Optional) apply prototypes as actual Ghidra function signatures (param
-  typing) — heavier; the comment annotation already gives the prototype.
-- Start real reconstruction: CTSGameRules / CTSGun, writing SDK-style C++.
+- Reconstruct CTSGameRules (esp. GlobalSlowMotion2) + the TS player slow-motion
+  virtuals so CTSSlowMotion's deps resolve, then compile + ABI-verify.
 
 ---
 
-## 2026-06-20 (cont.) — Authorization + Ghidra decompile pipeline working
+## 2026-06-20 (cont. 2) — GNU-v2 demangler + prototype-annotated decompiles
 
-**Authorization (provenance):** original author **Vino ("Vinoisnotozou")** gave
-the project owner the go-ahead; original source is lost/irrecoverable — binary
-reconstruction is the only path. Recorded in `reference/README.md`.
+- `scripts/gnv2demangle.py`: gnu-v2 demangler (c++filt dropped it). 1788/2426
+  (74%) typed signatures -> `reference/signatures-gcc2.{map,txt}`, incl. the TS
+  classes mp.dll never exported. Handles member/global/ctor/dtor, P/R/C/U/G,
+  N repeat-args, 0-based T backrefs.
+- `DecompExport.java` annotates each decompiled function with its recovered
+  prototype; `decompile.sh` feeds the map automatically.
 
-**Done**
-- Ghidra headless decompile pipeline (Java post-script — Ghidra 12.1 dropped
-  Jython, ships PyGhidra; Java is zero-setup):
-  - `scripts/ghidra/DecompExport.java` — decompiles, groups C by owning class.
-  - `scripts/decompile.sh <binary> <outDir> [classFilter]` — analyzeHeadless
-    wrapper (temp project, import+auto-analyze applies symtab, runs post-script).
-- Smoke test on CTSSlowMotion: 38s analysis, 28 funcs decompiled, 0 failures;
-  output named & readable (Spawn shows pev->classname=MAKE_STRING("ts_slowmotion"),
-  precache, UTIL_SetSize, recoverable member offsets).
+## 2026-06-20 (cont.) — Authorization + Ghidra pipeline
 
----
+- Authorization: author **Vino ("Vinoisnotozou")** OK'd reconstruction; original
+  source lost. (reference/README.md)
+- Ghidra headless pipeline: `scripts/ghidra/DecompExport.java` +
+  `scripts/decompile.sh`. Smoke test CTSSlowMotion: 28 funcs, 0 failures.
 
-## 2026-06-20 — Repo scaffolding, reference capture, tooling, work-list
+## 2026-06-20 — Scaffolding, reference, tooling, work-list
 
-**Done**
-- Created private `goldsrc-net/mod-ts`, fork of `halflife-updated@64bit-demo`.
-  origin=mod-ts, upstream=halflife-updated, branch main, at `~/Projects/goldsrc.net/mod-ts`.
-- Standalone mod layout: `game/ts/liblist.gam` (`-game ts`, fallback valve).
-- `reference/`: ts_i386.so (GCC2, not stripped, 2426 funcs), mp.dll (MSVC server,
-  159 exports), client.dll (MSVC client, ~1013), ts_fgd.fgd; `dump-signatures.sh`.
-- Build: clean separation — mod-ts is NOT a buildchain submodule; builds via the
-  `hlds64-buildchain:debian10` image (`scripts/build.sh <arch>`). (Earlier wired
-  as submodule + Makefile, then REVERTED — buildchain stays provenance-only.)
-- Tooling: Ghidra 12.1.2 (`~/Tools/ghidra`, PATH Ghidra/ghidra/analyzeHeadless,
-  JDK 21); rizin rz-* static (`~/Tools/rizin`, no main REPL in pkg).
-- Work-list `reference/RECONSTRUCTION.md`: 437 stock SDK classes, 216 in binary,
-  **60 TS-specific to RE** (~386 funcs), 23 FGD-backed. CTSGun(44), CTSGameRules(41).
+- Private `goldsrc-net/mod-ts`, fork of `halflife-updated@64bit-demo`, at
+  `~/Projects/goldsrc.net/mod-ts`. Standalone `ts/` game dir.
+- `reference/`: ts_i386.so, mp.dll, client.dll, ts_fgd.fgd + dump-signatures.sh.
+- Build: clean separation; `scripts/build.sh <arch>` via hlds64-buildchain image
+  (NOT a buildchain submodule — reverted).
+- Tooling: Ghidra 12.1.2 + rizin rz-* on PATH.
+- Work-list `reference/RECONSTRUCTION.md`: 60 TS-specific classes (~386 funcs),
+  23 FGD-backed. CTSGun(44), CTSGameRules(41), CTSStunt(25).
 
-**Convention:** NO `Co-Authored-By` trailer (user pref, all goldsrc-net repos).
-CLAUDE.md is local-only (global gitignore). In auto mode: halt & ask on a block.
+**Conventions:** NO `Co-Authored-By` trailer. CLAUDE.md local-only. Auto mode:
+halt & ask on a block.
