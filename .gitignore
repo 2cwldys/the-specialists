@@ -9,3 +9,6 @@ build
 # mod-ts per-arch build dirs
 build-*/
 build_*/
+
+# WIP decompiler output (not committed until it becomes real source)
+recovered/

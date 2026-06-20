@@ -39,4 +39,9 @@ Produces, in this folder:
 ## Provenance
 
 Copied from `~/Packages/xash3d-fwgs/rodir/ts/` (a prior iteration's runtime
-tree). Third-party mod content — reconstruction work assumes proper rights.
+tree).
+
+**Authorization:** the original author (Vino / "Vinoisnotozou") gave the
+project owner the go-ahead to reconstruct the mod. The original source is
+lost and irrecoverable — recovering it from these shipped binaries is the
+only remaining path.
