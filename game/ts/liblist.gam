@@ -1,0 +1,16 @@
+//-- mod-ts : standalone GoldSrc mod (fork of halflife-updated @ 64bit-demo)
+//
+// Mounts as its own game directory `ts/` and falls back to valve/ for any
+// asset it does not override, so the base Half-Life content is reused and
+// only this mod's hl.so (+ whatever assets we add) live here.
+game "mod-ts"
+gamedir "ts"
+fallback_dir "valve"
+startmap "c0a0"
+trainmap "t0a0"
+mpentity "info_player_deathmatch"
+gamedll "dlls\hl.dll"
+gamedll_linux "dlls/hl.so"
+type "multiplayer_only"
+nomodels "0"
+mlock "0"
