@@ -41,6 +41,13 @@ public:
 	// leave a fading corpse).
 	void PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor) override;
 
+	// @ TeamWin — declare `team` the round winner: bump its score, announce, and schedule a
+	// round restart (respawn everyone + re-arm objectives). Called by CTSWinGiver.
+	void TeamWin(int team);
+
+	int   m_teamScore[4] = {};    // per-team round wins
+	float m_flRoundRestart = 0;   // >0 = a restart is pending at this time
+
 	// @ PutPowerUp(type) — spawn a powerup of `type` at a random info_player_deathmatch
 	// (skipped if a powerup is already nearby). Returns true if one was spawned.
 	bool PutPowerUp(int type);

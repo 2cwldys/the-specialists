@@ -7,7 +7,9 @@
 #include "cbase.h"
 #include "player.h"
 #include "gamerules.h"
+#include "client.h"     // respawn()
 #include "ts_gamerules.h"
+#include "ts_utils.h"   // TSHudMessageAll
 
 // DAT_0017da25 in the original: a cached flag that, when nonzero, removes the
 // low-gravity (0x100) powerup from the random pool. Zero-init in the binary, so
@@ -56,6 +58,40 @@ void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvar
 	TSCreateDeadCorpse(pVictim, 15.0f);
 }
 
+// @ TeamWin — record the win + announce it, then schedule a round restart 3s out (the .so
+// uses param_1+0xc = time+3). // SLICE: faithful TeamWin also awards victory/defeat cash to
+// each team + drives the round-time HUD; here it's the score + restart.
+void CTSGameRules::TeamWin(int team)
+{
+	if (team >= 0 && team < 4)
+		m_teamScore[team]++;
+
+	const char *who = (team == 0) ? "Team 1" : (team == 1) ? "Team 2"
+		: (team == 3) ? "Team 3" : (team == 4) ? "Team 4" : "Nobody";
+	TSHudMessageAll(0, 0xff, 0, 8, 50,
+		UTIL_VarArgs("%s wins the round!  (%d - %d)", who, m_teamScore[0], m_teamScore[1]));
+
+	m_flRoundRestart = gpGlobals->time + 3.0f;
+}
+
+// Re-spawn everyone + re-arm the objective entities for a fresh round.
+static void TSRestartRound()
+{
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
+		if (p)
+			respawn(p->pev, false);
+	}
+	CBaseEntity *e = nullptr;
+	while ((e = UTIL_FindEntityByClassname(e, "ts_wingiver")) != nullptr)
+		e->Spawn();
+	e = nullptr;
+	while ((e = UTIL_FindEntityByClassname(e, "ts_hack")) != nullptr)
+		e->Spawn();
+	TSHudMessageAll(0, 0xff, 0, 8, 30, "Round restart!");
+}
+
 // @ PutPowerUp__12CTSGameRulesi — spawn a powerup at a random info_player_deathmatch
 // spawn point. Skips the spot if a ts_powerup is already nearby (so dynamically-spawned
 // powerups don't stack). Returns true if one was created.
@@ -89,6 +125,13 @@ bool CTSGameRules::PutPowerUp(int type)
 void CTSGameRules::Think()
 {
 	CHalfLifeMultiplay::Think();
+
+	// A scheduled round restart (from TeamWin) fires once its delay elapses.
+	if (m_flRoundRestart != 0 && gpGlobals->time >= m_flRoundRestart)
+	{
+		m_flRoundRestart = 0;
+		TSRestartRound();
+	}
 
 	if (gpGlobals->time < m_flNextPowerupSpawn)
 		return;

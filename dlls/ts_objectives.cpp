@@ -17,7 +17,9 @@
 #include "util.h"
 #include "cbase.h"
 #include "player.h"
-#include "ts_utils.h" // TSHudMessageAll
+#include "ts_utils.h"     // TSHudMessageAll
+#include "gamerules.h"
+#include "ts_gamerules.h" // TSGameRules()->TeamWin
 
 #define SF_TS_REMOVE_ON_FIRE 1
 
@@ -286,9 +288,11 @@ void CTSWinGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE us
 		return;
 
 	m_bDone = true;
-	const char *msg = !FStringNull(pev->message) ? STRING(pev->message)
-		: (m_winnerTeam == 0 ? "Team 1 wins!" : m_winnerTeam == 1 ? "Team 2 wins!" : "Round over");
-	TSHudMessageAll(0, 0xff, 0, 8, 50, msg);
-	// SLICE: faithful calls CTSGameRules::TeamWin(m_winnerTeam, victory/defeat cash, …) to
-	// award cash + restart the round. The team round/score subsystem isn't built yet.
+	if (!FStringNull(pev->message))
+		TSHudMessageAll(0, 0xff, 0, 8, 50, STRING(pev->message));
+
+	// Declare the win through the game rules: scores the team + announces + restarts the round.
+	if (TSGameRules())
+		TSGameRules()->TeamWin(m_winnerTeam);
+	// SLICE: faithful TeamWin also awards victory/defeat cash (m_victoryCash/m_defeatCash).
 }
