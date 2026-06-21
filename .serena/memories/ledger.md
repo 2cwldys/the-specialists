@@ -5,6 +5,41 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 40) — CTSBomb: the defuse / wire-cut objective
+
+**Done — `dlls/ts_bomb.cpp` (ts_bomb).** A self-contained team objective: a planted bomb that counts
+down and explodes unless defused. FGD-backed (`@SolidClass`, base tsobjective). 0 stock placements →
+synthetic-verified (like ts_dmhill cont.32 / ts_trigger cont.34).
+
+RE (recovered/bomb/CTSBomb.c): Spawn @0x8c470, Precache @0x8c570 (misc/beep2.wav), SetRandomWires
+@0x8c598 (3 wires: one DEFUSE(1), one BOOBYTRAP(2), rest NEUTRAL(3)), EnableObjective @0x8c608 (arm/
+safe), CutWire @0x8c70c (1→defuse+fire target/msg, 2→fast countdown, 3→timer to 0 = detonate),
+WaitThink @0x8c860 (−1/tick, 1s or 0.1s when fast, beep rising pitch, detonate at 0 = TSExplosion),
+Use @0x8c9a4 (hold USE `defusetime`s → defuse, FCAP_CONTINUOUS_USE=0x10), KeyValue defusetime/cutwires.
+Functional reconstruction onto the stock SDK:
+- `CTSBomb : CBaseEntity` (brush, inlined attackerteam gate like ts_objectives.cpp). Arms on Spawn
+  (SLICE: faithful enable is gamerules InitObjectives). EnableObjective(true)=arm+SetRandomWires+
+  WaitThink; (false)=safe.
+- WaitThink: countdown −1/tick (1s, or 0.1s after a boobytrap), beep, `Explode` at 0 via
+  `ExplosionCreate` (the SDK env_explosion blast — assets already precached by the weapon/grenade path).
+- CutWire(0..2): defuse → FireTargets(target)+HUD msg+safe; boobytrap → m_bFast; neutral → timer≈0
+  (next WaitThink detonates). `tscutwire <n>` console command (cl_dll wire UI is a SLICE).
+- Use: continuous-USE accumulator over defusetime → defuse (FireTargets+msg).
+- misc/beep2.wav added to PrecacheAllTSWeapons (map load) — a runtime-armed bomb's PRECACHE_SOUND
+  Host_Errors (gdb/log-caught, same class as cont.38); dropped the Spawn-time Precache() call.
+
+**Verified RUNTIME (rcbot, tm_avana, SYNTHETIC — temp probe reverted):** armed bomb wires=[2 1 3]
+(one each); cut DEFUSE wire → enabled=0 (defused); cut NEUTRAL wire → timer 0.01 → WaitThink Explode
+(ExplosionCreate runs at runtime, enabled=0, no crash); cut BOOBYTRAP wire → fast=1 still armed. No
+crash; clean regression (tm_avana + ctb_deadheat 0 Can't init, ts_wyndham only ts_emitter/ts_particle).
+(Test ran on -port 27018; 27015 was held by an unrelated app.)
+
+**SLICE:** bomb countdown is a fixed 45s (the .so reads a bomb-time global DAT_001781a8 — VERIFY);
+faithful arm is gamerules-driven (here Spawn); wire-cut needs the cl_dll UI (console-driven); no
+Save/Restore (the .so has CTSBomb m_SaveData); detonation doesn't end the round / score (just blasts).
+
+---
+
 ## 2026-06-21 (cont. 39) — CTSBriefcase: the CTF base/capture zone (seeds CTSFlag on a real map)
 
 **Done — `dlls/ts_briefcase.cpp` (ts_briefcase).** The map-placed CTF objective that pairs with the

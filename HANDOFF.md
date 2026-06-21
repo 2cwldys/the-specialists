@@ -13,7 +13,7 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-21, through cont.39)
+## Where things stand (2026-06-21, through cont.40)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`** → **run in-engine** (with bots for player-needing code) →
 **gdb** any crash. Everything below is committed (`git log`); `recovered/` is
@@ -210,10 +210,13 @@ finish team mode:
    zone: seeds its team's CTSFlag at base (FlagFall) + captures a carrier at their own briefcase.
    Verified on the real stock map **`ctb_deadheat`** (2 briefcases each seed their flag, team 0 + 1).
    This replaces CTSFlag's `tsspawnflag` console stand-in for CTB maps.
-   **Still TODO:** `CTSBomb` (10 — defuse/wire-cut objective, FGD-backed), `CTSTeamEscape` (8),
-   `CVipEscape` (3), `CTSSellZone` (3, uses the cont.36 cash), `CTSScoreGiver` (3). Build like the
-   cont.25 objectives. Note CTF capture currently scores via `TeamWin` (which restarts the round) —
-   faithfully a capture awards cash + a HUD pointer without ending the round.
+   ✅ **`CTSBomb` DONE (cont.40, `dlls/ts_bomb.cpp`)** — the defuse/wire-cut objective: a planted
+   bomb counts down + explodes unless defused (hold USE, or cut the right of 3 wires via the
+   `tscutwire <n>` console command — the wire UI is cl_dll). Synthetic-verified (0 stock placements).
+   **Still TODO:** `CTSTeamEscape` (8), `CVipEscape` (3), `CTSSellZone` (3, uses the cont.36 cash),
+   `CTSScoreGiver` (3). Build like the cont.25 objectives. Note CTF capture currently scores via
+   `TeamWin` (which restarts the round) — faithfully a capture awards cash + a HUD pointer without
+   ending the round; and CTSBomb's detonation just blasts (doesn't yet score/end the round).
 
 **Track B — stand up a cl_dll reconstruction (there is NONE yet — this is the other half of TS).**
 The server already registers + sends the user messages; the client just isn't built. This unlocks:

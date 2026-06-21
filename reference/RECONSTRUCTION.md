@@ -116,6 +116,8 @@ recoverable directly).
 
 | `CTSBriefcase` | `dlls/ts_briefcase.cpp` | ✅✅ **runtime-verified (cont.39, real map)** — the CTF base + capture zone (`ts_briefcase`, brush, FGD ownerteam 1..4 → 0-based). Seeds its team's CTSFlag at base (FlagFall) + captures a flag-carrier who reaches their own briefcase (CaptureTouch → return + score). Pairs with cont.38 CTSFlag; replaces its `tsspawnflag` console stand-in. **Verified on `ctb_deadheat` (a real stock CTB map):** 2 briefcases each seed their flag at base (team 0 + team 1), 0 Can't init, no crash. SLICE: gmsgTSHaveFlag HUD server-only, capture scores via TeamWin (restarts round), no Save/Restore. |
 
+| `CTSBomb` | `dlls/ts_bomb.cpp` | ✅✅ **built + synthetic-verified (cont.40)** — the defuse/wire-cut objective (`ts_bomb`, brush, FGD defusetime/cutwires). A planted bomb counts down (WaitThink, rising beep) + explodes (ExplosionCreate) unless defused: hold USE for `defusetime` (FCAP_CONTINUOUS_USE) or cut the right of 3 wires (SetRandomWires: 1 defuse / 2 boobytrap→fast / 3 neutral→detonate); defuse fires target+message. `tscutwire <n>` console-drives the wires (UI is cl_dll). 0 stock placements → synthetic: cut-defuse→safe, cut-neutral→detonate, cut-boobytrap→fast, no crash. SLICE: fixed 45s countdown, arms on Spawn (faithful enable is gamerules), no Save/Restore. |
+
 Everything else in the table above is **not started**. Full history in the
 Serena ledger (`.serena/memories/ledger.md`).
 
