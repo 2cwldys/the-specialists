@@ -107,6 +107,9 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   (`dlls/ts_corpse.cpp`, the frozen studio pose, fades over 15s). Verified: kill a bot → 1 corpse
   + its weapons + an ammo pack drop (USE to grab guns; walk over the pack). SLICE: live-pose copy,
   no gib/blood, melee not dropped.
+- **Objective win → round restart (cont.31):** `CTSGameRules::TeamWin` (`ts_gamerules.cpp`) — a
+  `ts_wingiver` completing now scores the team + announces + restarts the round (respawn all +
+  re-arm objectives) after 3s. SLICE: no cash, no round-timer HUD, no per-player team assignment.
   **SLICE limits:** akimbo is a single active clip (not a true left/right barrel split) with
   no IN_ATTACK2 "fire both barrels at once"; no buy menu (start reserve = clip*3); no
   client-side fire-mode/ammo HUD.
@@ -186,11 +189,13 @@ deepen toward faithful behaviour, in rough order:
      maps (0 Can't init). SLICE: the team-rules integration (below).
 3. **The `CTSGameRules` team subsystem** — the biggest remaining gameplay unlock (turns the
    cont.25 objective entities into a scored team mode + unblocks the rest of the `tm_` maps:
-   `ts_briefcase`/`ts_bomb`/`ts_flag` CTF). Server-side, verifiable. Core: team assignment
-   (player→team), `SetTeamList`/`SetTeamModelList`, `UpdateTeamScores`/`InitTeamScore`,
-   `RestartRound`/`ResetRestartRound`, and **`TeamWin`** (@0x68a08, 1564 bytes — declare the
-   winner, award victory/defeat cash, restart). `CTSObjective::Freeze`→`ShowObjectiveOnHud` and
-   `CTSWinGiver::Use`→`TeamWin` are the SLICE hooks waiting on it.
+   `ts_briefcase`/`ts_bomb`/`ts_flag` CTF). Server-side, verifiable. **A functional `TeamWin` +
+   round-restart is in (cont.31)** — what's left to make it faithful: **team assignment**
+   (player→team; the join/class menu, then `pev->team`), `SetTeamList`/`SetTeamModelList`,
+   `UpdateTeamScores`/`InitTeamScore`, the full `RestartRound`@0x67920 (round timer + the
+   game-mode member + `InitObjectives`/`SetObjective`), the per-player CASH economy, and
+   `CTSObjective::Freeze`→`ShowObjectiveOnHud`. Once teams exist, the CTF entities + the buy
+   menu's cash both light up.
 4. **The buy menu** (server half): the armament system (`AddItemToArmament`@0x83ea4 /
    `BuyArmament`@0x83f10 — a pending per-player loadout at CBasePlayer+0x554/+0x594) +
    `BuyWeapon`@0x845bc (checks `CashBased()`, weapon price `s_weapon_info+0xd8`, player cash

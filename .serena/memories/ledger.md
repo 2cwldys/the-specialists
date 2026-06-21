@@ -5,6 +5,28 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 31) — CTSGameRules::TeamWin + round restart (objective win ends the round)
+
+**Done — the objective→win→round-restart chain.** Completes cont.25, where `CTSWinGiver::Use`
+was a SLICE that only announced. The win now goes through the game rules (first piece of the
+team subsystem).
+- `CTSGameRules::TeamWin(team)`: bump `m_teamScore[team]`, announce the winner (TSHudMessageAll),
+  schedule a restart 3s out (`m_flRoundRestart`; the .so TeamWin @0x68e00 uses param_1+0xc = time+3).
+- `CTSGameRules::Think`: when `m_flRoundRestart` elapses, `TSRestartRound` respawns every player
+  (SDK `respawn()`) + re-arms the objectives (re-Spawn each ts_wingiver/ts_hack) + announces.
+- `CTSWinGiver::Use` → `TSGameRules()->TeamWin(m_winnerTeam)` (the inline announce removed).
+
+**Verified RUNTIME (tm_avana, temp probe reverted):** firing the wingiver (winnerteam 2 = draw →
+teams 0/1 unchanged, correct) scheduled a restart (pending=12.0); 3s later it fired → players
+respawned + the wingiver re-armed (done=0). No crash; clean regression (ts_wyndham + tm_avana).
+
+**SLICE:** faithful TeamWin awards victory/defeat cash + drives the round-time HUD; the full round
+timer + the TS game-mode member + InitObjectives/SetObjective remain the team-subsystem TODO
+(RestartRound @0x67920 ~1100 bytes, TeamWin @0x68e00 ~1564). No team ASSIGNMENT yet (scores track
+the winnerteam the objective names, not per-player teams).
+
+---
+
 ## 2026-06-21 (cont. 30) — CTSAmmoPack (drop ammo on death; consumable per-caliber pack)
 
 **Done — `dlls/ts_ammopack.cpp`.** Completes the death-loot story: weapons (cont.27) + corpse
