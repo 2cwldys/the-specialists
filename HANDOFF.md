@@ -45,8 +45,9 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   **Instant powerups real** (kungfu/lowgrav/health/armor/grenade/inf-clip), **timed
   ones held** (`m_iHeldPowerup` + duration). **SLICE:** armor/inf-clip/grenade use
   functional substitutes (no `TakeArmor`/`MultiplyClips`/`PickUpWeapon`);
-  `gmsgTSPowerUp` HUD + lowgrav physics-key deferred (client.dll side);
-  `CTSGameRules::PutPowerUp` (dynamic spawner) not wired yet.
+  `gmsgTSPowerUp` HUD + lowgrav physics-key deferred (client.dll side).
+  **Dynamic spawning done (cont.26):** `CTSGameRules::PutPowerUp` + a `Think` override spawn
+  a random powerup at a DM spawn every ~20s (DM maps only).
 - **Powerup activation — runtime-verified (slice):** `CBasePlayer::UsePowerUp`
   (`usepowerup` console command) + `UpdatePowerUpState` (per-frame in `PreThink`) +
   `DeactivateSlowMotionFlow`, all in `ts_player.cpp`. A held timed powerup activates
@@ -185,8 +186,8 @@ deepen toward faithful behaviour, in rough order:
    `BuyWeapon`@0x845bc (checks `CashBased()`, weapon price `s_weapon_info+0xd8`, player cash
    `+0x540`, restrictions). The menu UI itself is cl_dll. Directly reuses GiveTSWeapon/AddAmmo.
 5. **`CTSSharedEmitter`** for `ts_emitter`/`ts_particle` (networked particle system; needs a
-   cl_dll side for the visible effect). Niche cleanup: `CTSGameRules::PutPowerUp` (@0x9797c)
-   to dynamically spawn powerups at `info_player_deathmatch` (wire to a rules Think).
+   cl_dll side for the visible effect). (`CTSGameRules::PutPowerUp` dynamic spawner — DONE
+   cont.26.)
 
 Loop per class: decompile → write `dlls/*.cpp` → add to `dlls/CMakeLists.txt` →
 `scripts/build.sh amd64` → `cp` into the rig → boot a map that uses it (frequency

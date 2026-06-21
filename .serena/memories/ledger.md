@@ -5,6 +5,26 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 26) — CTSGameRules::PutPowerUp (dynamic deathmatch powerup spawning)
+
+**Done — the dynamic powerup spawner.** Un-SLICEs the `CTSGameRules::PutPowerUp` (@0x9797c)
+niche left in cont.13. DM maps now spawn powerups dynamically even without ts_powerup placements.
+- `CTSGameRules::PutPowerUp(type)`: collect `info_player_deathmatch` spots (cap 32), pick a
+  random one, skip if a `ts_powerup` is already within 128u, else create a powerup there via a
+  new `TSCreatePowerUpAt(type, origin)` free helper (ts_powerup.cpp; wraps
+  `CTSPowerUp::CreatePowerUp` + UTIL_SetOrigin so it drops from the spot).
+- `CTSGameRules::Think` override (the rules object now runs TS think): `CHalfLifeMultiplay::Think()`
+  then, in DM only, roll `GetRandomPowerup(0x1ff)` every ~20s and PutPowerUp it (1s retry on
+  fail). Mirrors the .so Think powerup block (`if mode<2 … every 20s`). DM gate = `!IsTeamplay()`
+  AND no `ts_objective_manager` present (a functional proxy — the real TS game-mode member @+0
+  isn't reconstructed; objective maps place their own pickups).
+
+**Verified RUNTIME (temp probe reverted):** ts_wyndham (DM) spawned a random powerup every 20s
+(t=1 kungfu, t=21 slowmo, t=41 kungfu); tm_avana (objective map) correctly skipped (0 spawns).
+No crash; clean regression.
+
+---
+
 ## 2026-06-21 (cont. 25) — Objective subsystem (ts_hack/wingiver/manager/ptr) — team-mode maps
 
 **Done — `dlls/ts_objectives.cpp`: the 4 objective entity types the `tm_` maps place.** Loading
