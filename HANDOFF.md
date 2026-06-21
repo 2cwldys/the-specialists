@@ -82,7 +82,8 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   bullets). Full `s_weapon_info` table in `ts_weapons.{h,cpp}` (incl. `flFireRate`/
   `flSpread`/`flRecoil`). Roster precached at map load via `CWorld::Precache`.
   Powerup hooks wired: inf-clip `MultiplyClips`, double-firerate halves `flFireRate`.
-  **Grenade fire-type (2) throws an M61** (`CM61Grenade`, `ts_grenade.cpp`).
+  **Grenade fire-type (2) throws an M61** (`CM61Grenade`, `ts_grenade.cpp`); its blast now
+  throws a **`CTSShrapnel`** fragment burst (cont.29).
   **Akimbo fire-types (4/5) dual-wield** (cont.21): picking up a 2nd of a single pistol you
   already hold upgrades that arsenal slot in place to its akimbo variant (doubled clip),
   via the recovered `s_weapon_info` +0xc8/+0xcc pairing; `AkimboFire` fires full-auto-feel

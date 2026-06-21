@@ -5,6 +5,30 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 29) — CTSShrapnel (grenade-blast fragments)
+
+**Done — `CTSShrapnel` in `dlls/ts_grenade.cpp`.** The grenade explosion (cont.20 CM61Grenade)
+now throws damaging fragments, matching the .so (a grenade Detonate spawns CTSShrapnel).
+
+RE (from the .so): `CTSShrapnel : CTSPhysicObject` (Create @0x7bf9c, Spawn @0x7c0a0 with
+`models/shrapnel.mdl` + `movetype=10` MOVETYPE_BOUNCE + `solid=2`, BounceTouch @0x7c200
+TraceAttacks on contact, WaitThink @0x7c678 lifetime). FUNCTIONAL reconstruction on the stock SDK
+(no CTSPhysicObject):
+- `CTSShrapnel : CBaseEntity` (ts_shrapnel): MOVETYPE_BOUNCE + SOLID_BBOX; BounceTouch TraceAttacks
+  a damageable hit (14 dmg DMG_BULLET, then remove) or bounces off the world ≤2× before expiring;
+  1.5s FadeThink. `Create(owner, origin, velocity)`.
+- `CM61Grenade::M61Tumble`/`M61Detonate` replace the stock TumbleThink→Detonate: tumble in flight,
+  then at the fuse spawn 10 random-direction fragments + `CGrenade::Detonate` (stock area blast).
+- `models/shrapnel.mdl` precached at map load (PrecacheAllTSWeapons; valve fallback model).
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** a thrown grenade detonated and
+spawned the shrapnel burst (fragments bounce, several alive post-blast), no crash; clean
+regression (factory `ts_shrapnel` exported).
+
+**SLICE:** no CTSPhysicObject bounce, fixed 10 fragments/14 dmg, no fragment trail/sound.
+
+---
+
 ## 2026-06-21 (cont. 28) — Death handling: CTSDeadCorpse + drop-arsenal-on-death
 
 **Done — `dlls/ts_corpse.cpp` + a `CTSGameRules::PlayerKilled` hook.** Completes the on-death side
