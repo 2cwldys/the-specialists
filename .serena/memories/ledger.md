@@ -5,6 +5,30 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 30) — CTSAmmoPack (drop ammo on death; consumable per-caliber pack)
+
+**Done — `dlls/ts_ammopack.cpp`.** Completes the death-loot story: weapons (cont.27) + corpse
+(cont.28) + now ammo. The dead player's per-caliber reserve drops as one consumable pack.
+
+RE (from the .so): `CTSAmmoPack` (CreateAmmoPack @0xa1334 copies a 16-int per-caliber array;
+Spawn @0xa13f4 model `ammopack.mdl` + `movetype=6` TOSS + `solid=2`; WaitTouch @0xa16c0 loops the
+16 calibers calling `CTSGun::AddAmmo` and ZEROES each given entry — CONSUMABLE, vs the persistent
+CTSGroundAmmo station cont.17). FUNCTIONAL reconstruction on the stock SDK (no CTSPhysicObject):
+- `CTSAmmoPack : CBaseEntity` (ts_ammopack) carrying `m_ammo[16]`: MOVETYPE_TOSS → FallThink settle
+  → SOLID_TRIGGER + WaitTouch. WaitTouch: for a TS-gun holder, `TSAddAmmo` each caliber, zero what
+  was taken, UTIL_Remove when emptied. `TSCreateAmmoPack(owner, counts[16], origin, vel)`.
+- `TSDropAmmoOnDeath(player)` (ts_gun.cpp): drop the gun's `m_ammoReserve[16]` as one pack.
+- `CTSGameRules::PlayerKilled` now also calls it. `ammopack.mdl` precached at map load.
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** killing a beretta-holding bot
+dropped a pack carrying 9mm=45; a live tsgun holder touching it received the 9mm (pack m_ammo[1]
+45→0) and the emptied pack was UTIL_Remove'd (deferred to frame end). No crash; clean regression
+(factory `ts_ammopack` exported).
+
+**SLICE:** no CTSPhysicObject bounce; one pack for the whole reserve (not per-mag); no thrown-pack.
+
+---
+
 ## 2026-06-21 (cont. 29) — CTSShrapnel (grenade-blast fragments)
 
 **Done — `CTSShrapnel` in `dlls/ts_grenade.cpp`.** The grenade explosion (cont.20 CM61Grenade)
