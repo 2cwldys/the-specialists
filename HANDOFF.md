@@ -97,6 +97,10 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   `TSAddAmmo`.
   **Shotguns** (cont.24): fire the real **8 pellets** (`iPellets` = `s_weapon_info+0x24`);
   mossberg/sawedoff fire-types fixed (1 pump / 8 semi).
+  **Dropped weapons** (cont.27, `dlls/ts_worldgun.cpp`): `CTSWorldGun` + the `dropweapon`
+  command — drop the active weapon into the world (`RemoveActiveWeapon`), it falls/settles,
+  another player presses **USE** to pick it up (`TSPickUpWeapon`). SLICE: carries type+clip
+  only, no on-death drop / CTSPhysicObject bounce.
   **SLICE limits:** akimbo is a single active clip (not a true left/right barrel split) with
   no IN_ATTACK2 "fire both barrels at once"; no buy menu (start reserve = clip*3); no
   client-side fire-mode/ammo HUD.

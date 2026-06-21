@@ -5,6 +5,35 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 27) — CTSWorldGun (player-dropped weapons: drop + USE-pickup)
+
+**Done — `dlls/ts_worldgun.cpp`: the dropped-weapon-in-the-world entity.** Completes the weapon
+lifecycle (map pickups via CTSGroundWeapon cont.11; player drops here).
+
+RE (from the .so): `CTSWorldGun : CTSPhysicObject` carries a tsweapon_t (+0x88) + the full
+s_weapon_status (14 ints); created by `CBasePlayer::DropWeapon`/`ThrowWeapon` -> `CTSGun::DropWeapon`
+(removes from the arsenal) -> `CTSWorldGun::CreateWeapon`. `GetWeapon` (@0xa1198) -> `PickUpWeapon`;
+`WaitTouch` (@0xa1250) gates pickup on `pev->button & IN_USE` (0x20) (or auto for the flag, type 0x1d).
+FUNCTIONAL reconstruction on the stock SDK (CM61Grenade-style; no CTSPhysicObject):
+- `CTSWorldGun : CBaseEntity` carrying type + loaded clip. Spawn: w_model + MOVETYPE_TOSS;
+  FallThink settles on FL_ONGROUND -> SOLID_TRIGGER + WaitTouch. WaitTouch: living player pressing
+  IN_USE -> TSPickUpWeapon + UTIL_Remove.
+- `TSCreateWorldGun(type, clip, origin, vel)` = the drop side.
+- `CTSGun::RemoveActiveWeapon(type, clip)` (@DropWeapon 0x8094c): shift the active slot out of the
+  arsenal (requires >=2 weapons — no unarmed state, SLICE), wield the next; free `TSDropActiveWeapon`/
+  `TSPickUpWeapon` (the latter re-adds via GiveTSWeapon + restores the carried clip).
+- `dropweapon` ClientCommand drops the active weapon forward (250u + player velocity).
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** a bot holding {beretta, uzi} dropped
+the uzi (type 3, clip 32; arsenal 2->1) -> ts_worldgun spawned + settled (SOLID_TRIGGER); a forced
+USE-touch handed the uzi back (holds weapon_tsgun, world gun removed). No crash; clean regression
+(factory `ts_worldgun` exported).
+
+**SLICE:** no CTSPhysicObject bounce, carries type+clip only (the shared caliber reserve stays with
+the dropper), no on-death auto-drop, no flag auto-pickup, no throw arc.
+
+---
+
 ## 2026-06-21 (cont. 26) — CTSGameRules::PutPowerUp (dynamic deathmatch powerup spawning)
 
 **Done — the dynamic powerup spawner.** Un-SLICEs the `CTSGameRules::PutPowerUp` (@0x9797c)
