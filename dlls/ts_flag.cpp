@@ -242,3 +242,21 @@ void TSDropFlag(CBasePlayer *pPlayer)
 		pFlag->DropAt(pPlayer->pev->origin);
 }
 
+// @ HaveFlag — is this player carrying a CTF flag? (Used by CTSBriefcase capture.)
+bool TSPlayerHasFlag(CBasePlayer *pPlayer)
+{
+	return (CBaseEntity *)pPlayer->m_hCarriedFlag != NULL;
+}
+
+// Return the flag a player is carrying to its base (the capture side; the caller scores). No-op
+// if none. Used by CTSBriefcase::CaptureTouch.
+void TSReturnCarriedFlag(CBasePlayer *pPlayer)
+{
+	CTSFlag *pFlag = (CTSFlag *)(CBaseEntity *)pPlayer->m_hCarriedFlag;
+	if (pFlag)
+	{
+		pPlayer->m_hCarriedFlag = NULL;
+		pFlag->ReturnToBase();
+	}
+}
+
