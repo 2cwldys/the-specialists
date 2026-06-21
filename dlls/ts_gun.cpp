@@ -23,7 +23,16 @@
 
 #define TSGUN_WEAPON_ID 16 // CTSGun::GetItemInfo @0x85dd0 sets iId = 0x10
 #define TSGUN_WEIGHT 15
+#define TS_MAX_ARSENAL 12 // owned-weapon slots (the original items[] is unbounded-ish)
 
+// The single weapon_tsgun (id 16) IS the player's whole TS arsenal. The original
+// keeps a `s_weapon_status` items[] array (0x38-byte entries) with m_pActiveItem
+// (@0xcc) pointing at the wielded one + weapon/ammo-group masks + akimbo pairing.
+// This is a clean MODERN reconstruction of that behaviour (not the byte layout):
+// a parallel array of owned weapon types, each with its own clip + reserve, and an
+// active slot. m_weaponType tracks the active slot so the fire-type dispatch +
+// Deploy keep working. SLICE: no akimbo pairing (a single active slot), no
+// weapon/ammo groups, no fire-mode/burst state, no buy menu yet.
 class CTSGun : public CBasePlayerWeapon
 {
 public:
@@ -38,10 +47,30 @@ public:
 
 	void MeleeAttack(const s_weapon_info *wi); // knife/katana fire-types
 
-	int m_weaponType = TSW_BERETTA; // tsweapon_t; map-placed weapon_tsgun defaults to beretta
+	// arsenal (the items-array). @ AddItem/SelectWeapon/TakeWeapon__6CTSGun.
+	int FindSlot(tsweapon_t type);   // owned-slot index, or -1
+	void AddWeapon(tsweapon_t type); // add to the arsenal (or resupply) + wield it
+	void SelectSlot(int slot);       // wield an owned slot (saves/loads its clip)
+
+	int m_weaponType = TSW_BERETTA; // ACTIVE tsweapon_t (= m_arsenalType[m_active])
+	int m_arsenalType[TS_MAX_ARSENAL] = {};
+	int m_arsenalClip[TS_MAX_ARSENAL] = {};    // saved loaded rounds per slot
+	int m_arsenalReserve[TS_MAX_ARSENAL] = {}; // spare rounds per slot
+	int m_arsenalCount = 0;
+	int m_active = 0;
 };
 
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
+
+// The one weapon_tsgun in a player's inventory (the whole TS arsenal), or NULL.
+static CTSGun *GetPlayerTSGun(CBasePlayer *pPlayer)
+{
+	for (int i = 0; i < MAX_ITEM_TYPES; i++)
+		for (CBasePlayerItem *p = pPlayer->m_rgpPlayerItems[i]; p; p = p->m_pNext)
+			if (FClassnameIs(p->pev, "weapon_tsgun"))
+				return (CTSGun *)p;
+	return NULL;
+}
 
 // @ Spawn__6CTSGun — classname weapon_tsgun, id 16, fall-init as a pickup.
 void CTSGun::Spawn()
@@ -51,12 +80,66 @@ void CTSGun::Spawn()
 	m_iId = TSGUN_WEAPON_ID;
 
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+
+	// Seed the arsenal with the placed/initial weapon type.
+	m_arsenalCount = 1;
+	m_active = 0;
+	m_arsenalType[0] = m_weaponType;
+	m_arsenalClip[0] = wi->iClip;
+	m_arsenalReserve[0] = wi->iClip * 3;
+	m_iClip = wi->iClip; // SLICE: deploy loaded
+
 	const char *world = wi->pszWorldModel ? wi->pszWorldModel : "models/w_weaponbox.mdl";
 	SET_MODEL(ENT(pev), world);
 
 	m_iDefaultAmmo = wi->iClip; // SLICE: stock ammo; TS runs its own ammo system
-	m_iClip = wi->iClip;        // SLICE: deploy loaded
 	FallInit();
+}
+
+// @ FindSlot — owned-weapon slot index for `type`, or -1.
+int CTSGun::FindSlot(tsweapon_t type)
+{
+	for (int i = 0; i < m_arsenalCount; i++)
+		if (m_arsenalType[i] == (int)type)
+			return i;
+	return -1;
+}
+
+// @ AddItem__6CTSGun — add a weapon to the arsenal (or resupply if owned), wield it.
+void CTSGun::AddWeapon(tsweapon_t type)
+{
+	const s_weapon_info *wi = get_weapon_info(type);
+	int slot = FindSlot(type);
+	if (slot < 0)
+	{
+		if (m_arsenalCount >= TS_MAX_ARSENAL)
+			return; // arsenal full
+		slot = m_arsenalCount++;
+		m_arsenalType[slot] = type;
+		m_arsenalClip[slot] = wi->iClip;
+		m_arsenalReserve[slot] = wi->iClip * 3;
+	}
+	else
+	{
+		m_arsenalReserve[slot] = wi->iClip * 3; // already owned -> resupply
+	}
+	SelectSlot(slot);
+}
+
+// @ SelectWeapon__6CTSGun — wield an owned slot (save the current clip, load the new).
+void CTSGun::SelectSlot(int slot)
+{
+	if (slot < 0 || slot >= m_arsenalCount)
+		return;
+
+	m_arsenalClip[m_active] = m_iClip; // save the wielded weapon's clip
+	m_active = slot;
+	m_weaponType = m_arsenalType[slot];
+	m_iClip = m_arsenalClip[slot];
+
+	// Re-deploy the new active weapon if we're the player's held item.
+	if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
+		Deploy();
 }
 
 // @ Precache__6CTSGun — faithful precaches 11 event scripts. Models for the whole
@@ -187,10 +270,22 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 	}
 }
 
+// Reload the active weapon from its own per-slot reserve (the original draws from
+// the per-caliber armament; here each arsenal slot carries its own spare rounds).
 void CTSGun::Reload()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	DefaultReload(wi->iClip, 0, 1.5f);
+	if (m_iClip >= wi->iClip || m_arsenalReserve[m_active] <= 0)
+		return;
+
+	int need = wi->iClip - m_iClip;
+	int take = (need < m_arsenalReserve[m_active]) ? need : m_arsenalReserve[m_active];
+	m_iClip += take;
+	m_arsenalReserve[m_active] -= take;
+
+	m_flNextPrimaryAttack = GetNextAttackDelay(1.5);
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
+	// SLICE: no reload animation/event.
 }
 
 void CTSGun::WeaponIdle()
@@ -198,10 +293,17 @@ void CTSGun::WeaponIdle()
 	ResetEmptySound();
 }
 
-// Create a CTSGun of `type` and hand it to the player (mirrors GiveNamedItem but
-// sets m_weaponType before Spawn so the weapon configures to the right type).
+// Give a player a TS weapon of `type`. If they already hold the weapon_tsgun (the
+// arsenal), add the type to it; otherwise create the weapon_tsgun and pick it up.
 CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
 {
+	CTSGun *pHeld = GetPlayerTSGun(pPlayer);
+	if (pHeld)
+	{
+		pHeld->AddWeapon(type);
+		return pHeld;
+	}
+
 	edict_t *pent = CREATE_NAMED_ENTITY(MAKE_STRING("weapon_tsgun"));
 	if (FNullEnt(pent))
 		return NULL;
@@ -213,4 +315,13 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
 	DispatchSpawn(pent);
 	DispatchTouch(pent, pPlayer->edict());
 	return pGun;
+}
+
+// Cycle to the next weapon in the player's TS arsenal (the `tsnextweapon` command).
+void TSCycleWeapon(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (!pGun || pGun->m_arsenalCount <= 1)
+		return;
+	pGun->SelectSlot((pGun->m_active + 1) % pGun->m_arsenalCount);
 }

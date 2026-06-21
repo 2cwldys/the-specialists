@@ -106,4 +106,7 @@ class CBaseEntity;
 class CBasePlayer;
 CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type);
 
+// Cycle to the next weapon in the player's TS arsenal (the `tsnextweapon` command).
+void TSCycleWeapon(CBasePlayer *pPlayer);
+
 #endif // TS_WEAPONS_H

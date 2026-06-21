@@ -103,9 +103,8 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 		return;
 
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	if (pPlayer->HasNamedPlayerItem("weapon_tsgun"))
-		return; // SLICE: shared weapon id -> one TS weapon held at a time
-
+	// GiveTSWeapon adds to the player's existing TS arsenal (or creates it), so a
+	// player can now carry several TS weapons and switch between them.
 	GiveTSWeapon(pPlayer, (tsweapon_t)m_weaponType);
 	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
 

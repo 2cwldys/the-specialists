@@ -5,6 +5,42 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 18) — CTSGun weapon arsenal (the items-array, modern reconstruction)
+
+**Done — the player's weapon_tsgun now holds a multi-weapon ARSENAL.** A clean
+MODERN reconstruction of the original items-array (the faithful one is a 0x38-byte
+s_weapon_status items[] @CTSGun+0x114 with m_pActiveItem@0xcc / m_pActiveInfo@0xd0 +
+weapon/ammo-group masks + akimbo pairing — heavy byte layout, reconstructed from
+intent, not transcribed).
+- `dlls/ts_gun.cpp` CTSGun: added parallel arrays `m_arsenalType/Clip/Reserve[12]` +
+  `m_arsenalCount` + `m_active`. `m_weaponType` now tracks the active slot (so the
+  fire-type dispatch + Deploy are unchanged).
+- `FindSlot(type)` / `AddWeapon(type)` (@AddItem__6CTSGun: add a slot or resupply,
+  then wield) / `SelectSlot(slot)` (@SelectWeapon__6CTSGun: save the wielded clip,
+  load the new slot's, re-Deploy if held).
+- `Spawn` seeds the arsenal with the placed type (clip full, reserve = 3 clips).
+- `PrimaryAttack` unchanged (operates on m_iClip = the active slot's clip). `Reload`
+  now refills m_iClip from the active slot's own reserve (not DefaultReload).
+- `GiveTSWeapon(player, type)`: if the player already holds weapon_tsgun, AddWeapon
+  to it; else create + pick up. (Helper `GetPlayerTSGun` walks m_rgpPlayerItems.)
+- `CTSGroundWeapon::GetWeapon`: dropped the "one TS weapon at a time" guard — picking
+  up a ground weapon now ADDS it to the arsenal.
+- `tsnextweapon` ClientCommand → `TSCycleWeapon` cycles the active slot.
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** a bot built a 3-weapon
+arsenal (beretta→+uzi→+knife), `tsnextweapon` cycled 0→1→2→0 through all three, each
+deploying its own view model with its own clip/reserve (beretta 15/45, uzi 32/96,
+knife 18/54). PER-SLOT CLIP PERSISTS: the bot fired the uzi (clip 32→30) and the count
+survived switching away+back. No crash; clean regression (0 Can't init, 0 crashes).
+
+**SLICE/deferred:** no akimbo pairing (single active slot — the faithful engine wields
+two for fire-types 4/5), no weapon/ammo-groups, no fire-mode/burst state, no buy menu
+(`BuyWeapon`/`BuyArmament`); the per-caliber ammo reserve is still per-slot generic (not
+wired to CTSGroundAmmo's calibers). The grenade/akimbo PrimaryAttack fire-types still
+fall back to bullets.
+
+---
+
 ## 2026-06-21 (cont. 17) — CTSGroundAmmo (ts_groundammo refill pack, 16 placements)
 
 **Done — `dlls/ts_groundammo.cpp` CTSGroundAmmo : CBaseEntity.** A map-placed ammo

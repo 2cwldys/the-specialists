@@ -34,6 +34,7 @@
 #include "com_model.h"
 #include "saverestore.h"
 #include "player.h"
+#include "ts_weapons.h" // TSCycleWeapon (tsnextweapon command)
 #include "spectator.h"
 #include "client.h"
 #include "soundent.h"
@@ -524,6 +525,10 @@ void ClientCommand(edict_t* pEntity)
 	else if (FStrEq(pcmd, "usepowerup")) // TS: activate the held timed powerup
 	{
 		player->UsePowerUp();
+	}
+	else if (FStrEq(pcmd, "tsnextweapon")) // TS: cycle the weapon arsenal
+	{
+		TSCycleWeapon(player);
 	}
 	else if (FStrEq(pcmd, "fullupdate"))
 	{
