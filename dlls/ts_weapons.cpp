@@ -32,6 +32,8 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->flFireRate = rate;
 	w->flSpread = spread;
 	w->flRecoil = recoil;
+	w->iAkimboType = -1; // default: no akimbo upgrade (set in compile_weapons_info)
+	w->iSingleType = -1;
 }
 
 // @ compile_weapons_info__Fv — populate the weapon table (indices == tsweapon_t).
@@ -74,7 +76,28 @@ static void compile_weapons_info()
   Write(&g_weaponInfo[35], nullptr, "models/v_sealknife.mdl", "models/p_sealknife.mdl", "models/w_sealknife.mdl", nullptr, nullptr, 1, 20.0f, 3, 0.25f, 0.1f, 0.0f); // sealknife
   Write(&g_weaponInfo[36], "Contender G2", "models/v_contender.mdl", "models/p_contender.mdl", "models/w_contender.mdl", "onehanded", "weapons/contender/fire.wav", 1, 95.0f, 8, 0.25f, 0.001f, 0.0f); // contender
   Write(&g_weaponInfo[37], "Akimbo Skorpions", "models/v_skorpion_ak.mdl", "models/p_skorpion_ak.mdl", "models/w_skorpion.mdl", "akimbo", "weapons/tmp/fire.wav", 40, 16.0f, 4, 0.07f, 0.035f, 0.0025f); // skorpion_akimbo
-	g_weaponInfoCompiled = true;
+
+  // Akimbo pairing (s_weapon_info +0xc8 / +0xcc, recovered from each Write_<weapon>).
+  // A non-akimbo gun is its own single base; the 5 combinable pistols name their
+  // akimbo upgrade; each akimbo names its single base. Gold colts (fire-type 5) are
+  // akimbo-only and have no single (iSingleType stays -1).
+  for (int i = 0; i < TSW_COUNT; i++)
+    g_weaponInfo[i].iSingleType = i; // default: weapon is its own single base
+
+  g_weaponInfo[TSW_BERETTA].iAkimboType  = TSW_BERETTA_AKIMBO;  // 2 -> 8
+  g_weaponInfo[TSW_UZI].iAkimboType      = TSW_UZI_AKIMBO;      // 3 -> 16
+  g_weaponInfo[TSW_MK23].iAkimboType     = TSW_MK23_AKIMBO;     // 9 -> 10
+  g_weaponInfo[TSW_FNH].iAkimboType      = TSW_FNH_AKIMBO;      // 14 -> 30
+  g_weaponInfo[TSW_SKORPION].iAkimboType = TSW_SKORPION_AKIMBO; // 17 -> 37
+
+  g_weaponInfo[TSW_BERETTA_AKIMBO].iSingleType  = TSW_BERETTA;  // 8 -> 2
+  g_weaponInfo[TSW_MK23_AKIMBO].iSingleType     = TSW_MK23;     // 10 -> 9
+  g_weaponInfo[TSW_UZI_AKIMBO].iSingleType      = TSW_UZI;      // 16 -> 3
+  g_weaponInfo[TSW_FNH_AKIMBO].iSingleType      = TSW_FNH;      // 30 -> 14
+  g_weaponInfo[TSW_SKORPION_AKIMBO].iSingleType = TSW_SKORPION; // 37 -> 17
+  g_weaponInfo[TSW_GOLD].iSingleType            = -1;           // gold: akimbo-only (ft 5)
+
+  g_weaponInfoCompiled = true;
 }
 
 // @ get_weapon_info__F10tsweapon_t

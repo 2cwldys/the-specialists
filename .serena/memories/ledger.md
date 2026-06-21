@@ -5,6 +5,49 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 21) — Akimbo (fire-types 4/5): dual-wield upgrade + AkimboFire
+
+**Done — akimbo dual-wielding.** Un-SLICEs fire-types 4 (combinable) & 5 (gold-only),
+the last unhandled PrimaryAttack fire-type.
+
+RE findings (from the .so):
+- `IsWeaponAkimbo(t)` = `get_weapon_info(t)->iFireType==4`; `IsOnlyAkimbo(t)` = `==5`
+  (objdump @0x7019c/0x701d4 — both just compare the +0x348 fire-type byte).
+- Akimbo PAIRING fields in s_weapon_info: **+0xc8** = the akimbo variant a single pistol
+  upgrades into (-1 if none); **+0xcc** = the single base of an akimbo (= self for
+  non-akimbo). Read from each `Write_<weapon>` (`movl $imm,0xc8/0xcc(%eax)`; the table is
+  .bss so file reads are garbage — must read the Write_ funcs). Pairs: 2↔8 (beretta),
+  3↔16 (uzi), 9↔10 (mk23), 14↔30 (fnh), 17↔37 (skorpion); gold(21) is ft-5, no single.
+- `TakeWeapon` (@0x80a04): owning the single + picking up an identical 2nd → `local_12`
+  becomes the +0xc8 akimbo → combines in place (clip = sum of both barrels). `AkimboFire`
+  (@0x829c0) splits the clip into left/right barrels (m_pActiveItem+0x1c/+0x20), alternates
+  the firing barrel (one per IN_ATTACK/IN_ATTACK2) from a ±5u right-vector muzzle offset;
+  rate = flFireRate, or fixed 0.1 in alternating fire-mode.
+
+Functional reconstruction (on the cont.18 single-clip arsenal):
+- `ts_weapons.{h,cpp}`: s_weapon_info gains `iAkimboType`/`iSingleType`; set in
+  compile_weapons_info. Added `TSFT_AKIMBO_ONLY=5`.
+- `CTSGun::AddWeapon`: if you already hold the single + it has an akimbo upgrade + don't
+  hold the akimbo → upgrade the slot in place (SelectSlot first so m_iClip is live, then
+  type→akimbo, clip = single's rounds + a 2nd pistol capped at the doubled clip, reserve
+  += a 2nd pistol, re-Deploy). Slot count stays the same (not a new slot).
+- `CTSGun::AkimboFire(wi)` (dispatched for ft 4/5): full-auto-feel (fires while held — no
+  IN_ATTACK2 plumbed), `m_akimboSide ^= 1` each shot → ±5u v_right muzzle offset, one
+  bullet/clip-- per shot, flSpread/flDamage/flFireRate (+ DoubleFireRate powerup halving).
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** gave a bot beretta, then a
+2nd beretta → upgraded in place to **type 8 (beretta_akimbo), clip 30** (15+15 capped),
+reserve 60, arsenal count stayed 1. Held trigger → AkimboFire fired (clip 30→26→16→6, then
+reload from reserve → 26, side toggled 0↔1), active item = the gun. No crash; clean
+regression (0 crashes; only the known `ts_emitter`/`ts_particle` Can't-init remain).
+
+**SLICE/deferred:** single active clip (not a true L/R barrel split); no IN_ATTACK2
+"fire both barrels at once" (firemode 5 path); no per-barrel reload; the akimbo's separate
+view-model akimbo animation events are not wired. Fire-mode/burst (`SwitchFireMode`) and the
+buy menu remain the next weapon-engine items.
+
+---
+
 ## 2026-06-21 (cont. 20) — CM61Grenade (grenade fire-type 2 throws a grenade)
 
 **Done — `dlls/ts_grenade.cpp` CM61Grenade + the grenade fire-type.** Un-SLICEs

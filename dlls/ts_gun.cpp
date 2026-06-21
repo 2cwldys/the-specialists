@@ -48,6 +48,7 @@ public:
 
 	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
 	void GrenadeThrow(const s_weapon_info *wi);  // grenade fire-type
+	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
 
 	// arsenal (the items-array). @ AddItem/SelectWeapon/TakeWeapon__6CTSGun.
 	int FindSlot(tsweapon_t type);   // owned-slot index, or -1
@@ -61,6 +62,7 @@ public:
 	int m_arsenalReserve[TS_MAX_ARSENAL] = {}; // spare rounds per slot
 	int m_arsenalCount = 0;
 	int m_active = 0;
+	int m_akimboSide = 0; // which barrel fired last (alternates muzzle L/R for akimbo)
 };
 
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
@@ -108,10 +110,37 @@ int CTSGun::FindSlot(tsweapon_t type)
 	return -1;
 }
 
-// @ AddItem__6CTSGun — add a weapon to the arsenal (or resupply if owned), wield it.
+// @ AddItem__6CTSGun / TakeWeapon — add a weapon to the arsenal (or resupply if owned),
+// wield it. Akimbo upgrade (TakeWeapon @0x80a04): picking up a 2nd of a single pistol you
+// already hold combines the pair into its akimbo variant (s_weapon_info+0xc8, doubled clip).
 void CTSGun::AddWeapon(tsweapon_t type)
 {
 	const s_weapon_info *wi = get_weapon_info(type);
+
+	// Already hold the single version + it has an akimbo upgrade + don't hold the akimbo
+	// yet -> upgrade the slot in place to the akimbo (combine the two pistols).
+	int single = FindSlot(type);
+	if (single >= 0 && wi->iAkimboType >= 0 &&
+		FindSlot((tsweapon_t)wi->iAkimboType) < 0)
+	{
+		const s_weapon_info *aki = get_weapon_info((tsweapon_t)wi->iAkimboType);
+		// Wield the single first so m_iClip reflects its live loaded rounds, then upgrade
+		// the slot in place: the akimbo's loaded clip = the single's rounds + a fresh 2nd
+		// pistol (capped at the doubled clip), reserve carries the 2nd pistol's spares.
+		SelectSlot(single);
+		int loaded = m_iClip + wi->iClip;
+		if (loaded > aki->iClip)
+			loaded = aki->iClip;
+		m_arsenalType[single] = wi->iAkimboType;
+		m_weaponType = wi->iAkimboType;
+		m_arsenalClip[single] = loaded;
+		m_iClip = loaded;
+		m_arsenalReserve[single] += wi->iClip;
+		if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
+			Deploy(); // re-deploy with the akimbo view model
+		return;
+	}
+
 	int slot = FindSlot(type);
 	if (slot < 0)
 	{
@@ -208,8 +237,8 @@ bool CTSGun::Deploy()
 // Faithful dispatch by the weapon's fire-type, using the recovered per-weapon
 // rate/spread (StandardFire reads s_weapon_info+0x18 rate / +0x28 spread / +0x348
 // fire-type). SLICE: the faithful path dispatches on the dual-wield items-array
-// (m_pActiveItem/m_pActiveInfo) — here we dispatch on the single held m_weaponType;
-// grenade/akimbo fall back to bullets (need the throw entity / dual-wield engine).
+// (m_pActiveItem/m_pActiveInfo) — here we dispatch on the single held m_weaponType.
+// Melee/grenade/akimbo split out to MeleeAttack/GrenadeThrow/AkimboFire.
 void CTSGun::PrimaryAttack()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
@@ -225,6 +254,13 @@ void CTSGun::PrimaryAttack()
 	if (wi->iFireType == TSFT_GRENADE)
 	{
 		GrenadeThrow(wi);
+		return;
+	}
+
+	// Akimbo fire-types (4 combinable, 5 gold-only) dual-wield: alternating muzzle.
+	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+	{
+		AkimboFire(wi);
 		return;
 	}
 
@@ -326,6 +362,47 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 	m_flNextPrimaryAttack = GetNextAttackDelay(1.0);
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+}
+
+// @ AkimboFire__6CTSGun — the dual-wield fire-types (4 combinable, 5 gold-only). The
+// faithful engine splits the clip into a left/right barrel (m_pActiveItem+0x1c/+0x20)
+// and, in alternating fire-mode, fires one barrel per trigger (IN_ATTACK vs IN_ATTACK2)
+// from a ±5u muzzle offset. FUNCTIONAL reconstruction on our single-clip arsenal: two
+// guns fire continuously while held, alternating the muzzle side each shot.
+void CTSGun::AkimboFire(const s_weapon_info *wi)
+{
+	if (m_iClip <= 0)
+	{
+		PlayEmptySound();
+		m_flNextPrimaryAttack = GetNextAttackDelay(0.2);
+		return;
+	}
+
+	m_iClip--;
+	m_akimboSide ^= 1; // alternate barrels (left/right gun)
+
+	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
+	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
+
+	if (wi->pszFireSound)
+		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, wi->pszFireSound, VOL_NORM, ATTN_NORM);
+
+	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
+	// Muzzle offset to the firing gun's side (+5u right / -5u left), like the original.
+	const float side = m_akimboSide ? 5.0f : -5.0f;
+	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_right * side;
+	Vector vecAiming = gpGlobals->v_forward;
+	const float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.02f;
+
+	m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
+		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
+		0, (int)wi->flDamage, m_pPlayer->pev, m_pPlayer->random_seed);
+
+	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
+	if (DoubleFireRate(m_pPlayer))
+		flRate *= 0.5f;
+	m_flNextPrimaryAttack = GetNextAttackDelay(flRate);
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 }
 

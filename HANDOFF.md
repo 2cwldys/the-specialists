@@ -76,10 +76,14 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   `flSpread`/`flRecoil`). Roster precached at map load via `CWorld::Precache`.
   Powerup hooks wired: inf-clip `MultiplyClips`, double-firerate halves `flFireRate`.
   **Grenade fire-type (2) throws an M61** (`CM61Grenade`, `ts_grenade.cpp`).
-  **SLICE limits:** no akimbo pairing (single active slot — fire-types 4/5 still fall
-  back to bullets), weapon/ammo-groups, fire-mode/burst, or buy menu; per-slot reserve
-  is generic (not wired to CTSGroundAmmo's calibers); pellet count fixed 6 +
-  mossberg/sawedoff fire-type data gap.
+  **Akimbo fire-types (4/5) dual-wield** (cont.21): picking up a 2nd of a single pistol you
+  already hold upgrades that arsenal slot in place to its akimbo variant (doubled clip),
+  via the recovered `s_weapon_info` +0xc8/+0xcc pairing; `AkimboFire` fires full-auto-feel
+  alternating the muzzle side (±5u `v_right`).
+  **SLICE limits:** akimbo is a single active clip (not a true left/right barrel split) with
+  no IN_ATTACK2 "fire both barrels at once"; no weapon/ammo-groups, fire-mode/burst, or buy
+  menu; per-slot reserve is generic (not wired to CTSGroundAmmo's calibers); pellet count
+  fixed 6 + mossberg/sawedoff fire-type data gap.
 - **WATCH OUT:** `recovered/` decompiles can be **truncated** by Ghidra noreturn
   artifacts (cut `CTSModel::Spawn` at `UTIL_SetSize`, `CTSPowerUp::Spawn`/`OnGround`
   at `UTIL_SetOrigin` — the cut tail held a `nextthink` set + the `SetTouch`/`SetThink`
@@ -135,20 +139,21 @@ deepen toward faithful behaviour, in rough order:
    trigger-setup + `m_flRadius` against the real engine behaviour.
 2. **Deepen the weapon arsenal** — fire-type dispatch (cont.16) + the multi-weapon
    arsenal (cont.18, `m_arsenalType/Clip/Reserve[]` + active slot, the modern stand-in
-   for `items[]`/`m_pActiveItem`) are now done. What's left of the faithful engine:
-   **akimbo** (fire-types 4/5 wield two slots at once — needs a second active slot +
-   AkimboFire), **grenade-throw** (fire-type 2 → a thrown CM61Grenade entity), **fire-
-   mode/burst** (`SwitchFireMode`, the per-weapon status byte), the **buy menu**
-   (`CBasePlayer::BuyWeapon`/`BuyArmament` + the `buyable` ground weapons + dead-state
-   kung-fu loadout), and wiring the **per-caliber ammo** (CTSGroundAmmo's mags → the
-   arsenal reserve by caliber, via `CTSGun::AddAmmo`). (Done cont.18/19: the arsenal,
-   `MultiplyClips` inf-clip powerup, and `DoubleFireRate` halving `flFireRate`.) Data
-   gaps: mossberg/sawedoff fire-type extracted as 0 (are shotguns); shotgun pellet count
+   for `items[]`/`m_pActiveItem`) are done; **all PrimaryAttack fire-types now handled**
+   (semi/auto/pump/melee + grenade cont.20 + akimbo cont.21). What's left of the faithful
+   engine: **fire-mode/burst** (`SwitchFireMode`, the per-weapon status byte at
+   `m_pActiveItem+2`: 0 full-auto / 1 semi / 2 burst / 3 / 4 — drives the per-shot rate),
+   the **buy menu** (`CBasePlayer::BuyWeapon`/`BuyArmament` + the `buyable` ground weapons +
+   dead-state kung-fu loadout), and wiring the **per-caliber ammo** (CTSGroundAmmo's mags →
+   the arsenal reserve by caliber, via `CTSGun::AddAmmo`). (Done cont.18/19: the arsenal,
+   `MultiplyClips` inf-clip powerup, `DoubleFireRate` halving `flFireRate`.) Data gaps:
+   mossberg/sawedoff fire-type extracted as 0 (are shotguns); shotgun pellet count
    hard-coded 6 (find the real field).
-   - **Grenade-throw (fire-type 2)** — DONE (cont.20): `CM61Grenade` on the SDK
-     `CGrenade` (`dlls/ts_grenade.cpp`); `CTSGun::GrenadeThrow` tosses an M61. Still left:
-     **akimbo** (fire-types 4/5) is the main remaining fire-type — needs a second active
-     arsenal slot wielded at once + `AkimboFire` (alternating two weapons).
+   - **Grenade-throw (fire-type 2)** — DONE (cont.20): `CM61Grenade` on the SDK `CGrenade`.
+   - **Akimbo (fire-types 4/5)** — DONE (cont.21): the `s_weapon_info` +0xc8/+0xcc pairing
+     (single↔akimbo) + `AddWeapon` in-place upgrade-on-2nd-pickup + `CTSGun::AkimboFire`
+     (alternating muzzle). SLICE: single active clip, no IN_ATTACK2 both-barrel fire. The
+     remaining fire-type depth is **fire-mode/burst** (`SwitchFireMode`).
 3. **`CTSSharedEmitter`** for `ts_emitter`/`ts_particle` (networked particle system;
    also needs a cl_dll side). Niche cleanup: `CTSGameRules::PutPowerUp` (@0x9797c)
    to dynamically spawn powerups at `info_player_deathmatch` (wire to a rules Think).

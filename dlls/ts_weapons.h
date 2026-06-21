@@ -77,6 +77,12 @@ struct s_weapon_info
 	float flFireRate;  // seconds between shots (s_weapon_info+0x18)
 	float flSpread;    // base bullet spread cone (s_weapon_info+0x28)
 	float flRecoil;    // recoil / spread-scale factor (s_weapon_info+0x34)
+	// Akimbo pairing (recovered from Write_<weapon>): s_weapon_info+0xc8 = the akimbo
+	// variant this single upgrades into when a 2nd identical gun is picked up (-1 if
+	// none); +0xcc = the single-pistol base of an akimbo (= self for non-akimbo, -1
+	// for the only-akimbo gold colts). Set in compile_weapons_info (see ts_weapons.cpp).
+	int   iAkimboType; // +0xc8 — single -> akimbo upgrade target, or TSW_MELEE-sentinel -1
+	int   iSingleType; // +0xcc — akimbo -> single base
 };
 
 // Fire-type (s_weapon_info+0x348) — drives CTSGun::PrimaryAttack dispatch.
@@ -86,7 +92,8 @@ enum tsfiretype_t
 	TSFT_PUMP = 1,       // pump shotgun (pellets, one per trigger)
 	TSFT_GRENADE = 2,    // thrown grenade
 	TSFT_KNIFE = 3,      // melee slash
-	TSFT_AKIMBO = 4,     // dual-wield (also 5)
+	TSFT_AKIMBO = 4,     // dual-wield (combinable: beretta/uzi/mk23/fnh/skorpion)
+	TSFT_AKIMBO_ONLY = 5,// dual-wield only (gold colts — no single counterpart)
 	TSFT_AUTOSHOTGUN = 6,// full-auto (incl. auto shotguns)
 	TSFT_SNIPER = 7,     // bolt/zoom single shot
 	TSFT_SEMI8 = 8,      // semi-auto (pistols)
