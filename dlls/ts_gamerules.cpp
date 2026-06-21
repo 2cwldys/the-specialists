@@ -41,6 +41,18 @@ int CTSGameRules::GetRandomPowerup(int mask)
 
 // Defined in ts_powerup.cpp — create a temporary powerup of `type` at `vecOrigin`.
 CBaseEntity *TSCreatePowerUpAt(int type, const Vector &vecOrigin);
+// Defined in ts_corpse.cpp / ts_gun.cpp — the TS death effects.
+CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime);
+void TSDropWeaponsOnDeath(CBasePlayer *pPlayer);
+
+// @ PlayerKilled — run the inherited MP scoring/death-notice, then the TS death effects:
+// scatter the dead player's weapons into the world + leave a fading corpse.
+void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor)
+{
+	CHalfLifeMultiplay::PlayerKilled(pVictim, pKiller, pInflictor);
+	TSDropWeaponsOnDeath(pVictim);
+	TSCreateDeadCorpse(pVictim, 15.0f);
+}
 
 // @ PutPowerUp__12CTSGameRulesi — spawn a powerup at a random info_player_deathmatch
 // spawn point. Skips the spot if a ts_powerup is already nearby (so dynamically-spawned

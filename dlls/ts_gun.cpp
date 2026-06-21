@@ -623,6 +623,25 @@ bool TSDropActiveWeapon(CBasePlayer *pPlayer, int &type, int &clip)
 	return pGun ? pGun->RemoveActiveWeapon(type, clip) : false;
 }
 
+// On death, scatter the player's whole arsenal into the world as CTSWorldGuns (the dead
+// player's arsenal is discarded on respawn, so no removal bookkeeping is needed).
+void TSDropWeaponsOnDeath(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (!pGun)
+		return;
+	for (int i = 0; i < pGun->m_arsenalCount; i++)
+	{
+		int type = pGun->m_arsenalType[i];
+		int clip = (i == pGun->m_active) ? pGun->m_iClip : pGun->m_arsenalClip[i];
+		const s_weapon_info *wi = get_weapon_info((tsweapon_t)type);
+		if (!wi->pszWorldModel) // skip melee/things without a droppable world model
+			continue;
+		Vector vecVel(RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(80, 140));
+		TSCreateWorldGun(type, clip, pPlayer->pev->origin + Vector(0, 0, 20), vecVel);
+	}
+}
+
 // Pick up a dropped weapon of `type` carrying `clip` loaded rounds (CTSWorldGun pickup):
 // add it to the arsenal, then restore the carried clip on that slot.
 void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip)

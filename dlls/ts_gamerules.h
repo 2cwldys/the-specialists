@@ -37,6 +37,10 @@ public:
 	// inherited CHalfLifeMultiplay round/spawn logic.
 	void Think() override;
 
+	// On death: the MP scoring, plus the TS death effects (drop the arsenal as world guns +
+	// leave a fading corpse).
+	void PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor) override;
+
 	// @ PutPowerUp(type) — spawn a powerup of `type` at a random info_player_deathmatch
 	// (skipped if a powerup is already nearby). Returns true if one was spawned.
 	bool PutPowerUp(int type);

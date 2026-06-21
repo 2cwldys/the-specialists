@@ -161,6 +161,7 @@ bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count);
 // (held <2 weapons). Pick up a dropped weapon of `type`/`clip`. (CTSWorldGun + dropweapon.)
 bool TSDropActiveWeapon(CBasePlayer *pPlayer, int &type, int &clip);
 void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip);
+void TSDropWeaponsOnDeath(CBasePlayer *pPlayer); // scatter the arsenal on death
 
 // Spawn a dropped weapon entity (CTSWorldGun) carrying `type`/`clip`. Defined in ts_worldgun.cpp.
 CBaseEntity *TSCreateWorldGun(int type, int clip, const Vector &origin, const Vector &velocity);
