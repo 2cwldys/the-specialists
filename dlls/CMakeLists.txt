@@ -119,6 +119,7 @@ target_sources(hl PRIVATE
 	ts_gun.cpp
 	ts_ammopack.cpp
 	ts_corpse.cpp
+	ts_dmhill.cpp
 	ts_objectives.cpp
 	ts_powerup.cpp
 	ts_worldgun.cpp
