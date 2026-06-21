@@ -545,6 +545,34 @@ void ClientCommand(edict_t* pEntity)
 			TSCreateWorldGun(type, clip, vecSrc, vecVel);
 		}
 	}
+	else if (FStrEq(pcmd, "tsbuy")) // TS: buy a weapon (free; restriction-gated). SLICE: cl_dll menu
+	{
+		if (CMD_ARGC() > 1)
+			player->BuyWeapon(atoi(CMD_ARGV(1)));
+	}
+	else if (FStrEq(pcmd, "tsbuyammo")) // TS: buy ammo for a caliber. `tsbuyammo <caliber> <rounds>`
+	{
+		if (CMD_ARGC() > 2)
+			player->BuyAmmo(atoi(CMD_ARGV(1)), atoi(CMD_ARGV(2)));
+	}
+	else if (FStrEq(pcmd, "tsarm")) // TS: queue a weapon into the armament. `tsarm <type> [count]`
+	{
+		if (CMD_ARGC() > 1)
+			player->AddItemToArmament(atoi(CMD_ARGV(1)), CMD_ARGC() > 2 ? atoi(CMD_ARGV(2)) : 1, false);
+	}
+	else if (FStrEq(pcmd, "tsarmammo")) // TS: queue ammo into the armament. `tsarmammo <caliber> <rounds>`
+	{
+		if (CMD_ARGC() > 2)
+			player->AddAmmoToArmament(atoi(CMD_ARGV(1)), atoi(CMD_ARGV(2)));
+	}
+	else if (FStrEq(pcmd, "tsbuyarmament")) // TS: apply the queued armament loadout
+	{
+		player->BuyArmament();
+	}
+	else if (FStrEq(pcmd, "tsresetarmament")) // TS: clear the queued armament
+	{
+		player->ResetArmament();
+	}
 	else if (FStrEq(pcmd, "fullupdate"))
 	{
 		player->ForceClientDllUpdate();

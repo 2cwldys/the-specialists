@@ -373,6 +373,23 @@ public:
 	byte m_iKungFu = 0;               // 0x74e — kung-fu state
 	byte m_bLowGravity = 0;           // 0x74f — low-gravity powerup active
 
+	// TS cash + buy/armament loadout (ts_buy.cpp). In the shipped game CashBased() is
+	// hardcoded false (weapons are FREE), so the "buy" system is really a free loadout
+	// selector the client menu drives; cash is tracked (cash-for-win/lose) but never charged.
+	int m_iCash = 0;                  // 0x540 — player cash (clamped 0..30000)
+	int m_iGrenadeBuys = 0;           // 0x714 — M61 grenades bought this life (cap 2)
+	int m_armamentAmmo[16] = {};      // 0x554 — pending per-caliber ammo loadout (rounds)
+	struct s_armament_item { int type = 0; int count = 0; bool gift = false; };
+	s_armament_item m_armament[32];   // 0x594 — pending weapon loadout (stride 0xc ×32)
+
+	int  GiveCash(int amount);                            // add cash (clamped 0..30000)
+	void ResetArmament();                                 // clear the pending loadout
+	void AddItemToArmament(int type, int count, bool gift); // queue a weapon into the loadout
+	void AddAmmoToArmament(int caliber, int rounds);      // queue ammo into the loadout
+	bool BuyWeapon(int type);                             // give a weapon (free; restriction-gated)
+	bool BuyAmmo(int caliber, int rounds);               // give ammo (free)
+	void BuyArmament();                                   // apply the pending loadout
+
 	// TS powerup activation state machine (ts_player.cpp). UpdatePowerUpState runs
 	// each frame from PreThink; UsePowerUp is the `usepowerup` command handler.
 	bool UsePowerUp();           // activate the held timed powerup
