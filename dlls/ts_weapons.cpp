@@ -193,6 +193,7 @@ void PrecacheAllTSWeapons()
 	PRECACHE_MODEL("models/briefcase.mdl");
 	PRECACHE_SOUND("items/gunpickup2.wav");
 	PRECACHE_SOUND("items/weapondrop1.wav");
+	PRECACHE_SOUND("misc/beep2.wav"); // CTSBomb countdown beep (runtime-armed bomb)
 
 	// weapon event scripts (CTSGun::Precache @0x80660) — must be precached at map
 	// load so a runtime weapon give doesn't precache an event mid-game.

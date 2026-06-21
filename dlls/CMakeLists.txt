@@ -115,6 +115,7 @@ target_sources(hl PRIVATE
 	ts_buy.cpp
 	ts_flag.cpp
 	ts_briefcase.cpp
+	ts_bomb.cpp
 	ts_player.cpp
 	ts_slowmotion.cpp
 	ts_slowmotionpoint.cpp

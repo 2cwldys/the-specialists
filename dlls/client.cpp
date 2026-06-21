@@ -579,6 +579,12 @@ void ClientCommand(edict_t* pEntity)
 		int team = CMD_ARGC() > 1 ? atoi(CMD_ARGV(1)) : -1;
 		TSCreateFlag(team, player->pev->origin);
 	}
+	else if (FStrEq(pcmd, "tscutwire")) // TS bomb: cut a wire (0..2). `tscutwire <n>` (cl_dll UI is a SLICE)
+	{
+		extern void TSCutWire(CBasePlayer *pPlayer, int wire);
+		if (CMD_ARGC() > 1)
+			TSCutWire(player, atoi(CMD_ARGV(1)));
+	}
 	else if (FStrEq(pcmd, "fullupdate"))
 	{
 		player->ForceClientDllUpdate();
