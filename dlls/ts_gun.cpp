@@ -46,7 +46,8 @@ public:
 	void Reload() override;
 	void WeaponIdle() override;
 
-	void MeleeAttack(const s_weapon_info *wi); // knife/katana fire-types
+	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
+	void GrenadeThrow(const s_weapon_info *wi);  // grenade fire-type
 
 	// arsenal (the items-array). @ AddItem/SelectWeapon/TakeWeapon__6CTSGun.
 	int FindSlot(tsweapon_t type);   // owned-slot index, or -1
@@ -220,6 +221,13 @@ void CTSGun::PrimaryAttack()
 		return;
 	}
 
+	// Grenade fire-type throws an M61 instead of firing bullets.
+	if (wi->iFireType == TSFT_GRENADE)
+	{
+		GrenadeThrow(wi);
+		return;
+	}
+
 	if (m_iClip <= 0)
 	{
 		PlayEmptySound();
@@ -295,6 +303,32 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 
 // Reload the active weapon from its own per-slot reserve (the original draws from
 // the per-caliber armament; here each arsenal slot carries its own spare rounds).
+// @ GrenadeFire__6CTSGun — toss an M61 grenade (one per trigger pull).
+void CTSGun::GrenadeThrow(const s_weapon_info *wi)
+{
+	if (!(m_pPlayer->m_afButtonPressed & IN_ATTACK))
+		return; // one throw per press
+
+	if (m_iClip <= 0)
+	{
+		PlayEmptySound();
+		m_flNextPrimaryAttack = GetNextAttackDelay(0.5);
+		return;
+	}
+	m_iClip--;
+
+	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
+	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_forward * 16;
+	Vector vecVel = gpGlobals->v_forward * 800 + m_pPlayer->pev->velocity;
+	// w_m61 table damage is the per-pickup value; the explosion is area damage.
+	float dmg = (wi->flDamage > 0) ? wi->flDamage * 4.0f : 120.0f;
+	TSThrowM61(m_pPlayer->pev, vecSrc, vecVel, 4.0f, dmg);
+
+	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
+	m_flNextPrimaryAttack = GetNextAttackDelay(1.0);
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+}
+
 void CTSGun::Reload()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);

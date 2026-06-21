@@ -112,4 +112,9 @@ void TSCycleWeapon(CBasePlayer *pPlayer);
 // Infinite-clip powerup: multiply the held weapon's reserve. Returns true if applied.
 bool TSMultiplyClips(CBasePlayer *pPlayer);
 
+// Toss an M61 grenade (the grenade fire-type / grenade powerup). Defined in ts_grenade.cpp.
+struct entvars_s;
+CBaseEntity *TSThrowM61(struct entvars_s *pevOwner, const Vector &vecStart,
+	const Vector &vecVelocity, float fuse, float damage);
+
 #endif // TS_WEAPONS_H

@@ -74,10 +74,12 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   (held), **pump shotgun** (6 pellets), **melee** (knife 48u/katana 64u hull-trace, no
   bullets). Full `s_weapon_info` table in `ts_weapons.{h,cpp}` (incl. `flFireRate`/
   `flSpread`/`flRecoil`). Roster precached at map load via `CWorld::Precache`.
-  **SLICE limits:** no akimbo pairing (single active slot), weapon/ammo-groups,
-  fire-mode/burst, or buy menu; grenade(2)/akimbo(4/5) fire-types fall back to bullets;
-  per-slot reserve is generic (not wired to CTSGroundAmmo's calibers); pellet count
-  fixed 6 + mossberg/sawedoff fire-type data gap.
+  Powerup hooks wired: inf-clip `MultiplyClips`, double-firerate halves `flFireRate`.
+  **Grenade fire-type (2) throws an M61** (`CM61Grenade`, `ts_grenade.cpp`).
+  **SLICE limits:** no akimbo pairing (single active slot — fire-types 4/5 still fall
+  back to bullets), weapon/ammo-groups, fire-mode/burst, or buy menu; per-slot reserve
+  is generic (not wired to CTSGroundAmmo's calibers); pellet count fixed 6 +
+  mossberg/sawedoff fire-type data gap.
 - **Draft, not in build:** `CTSSlowMotion` (`dlls/ts_slowmotion.cpp`) — needs
   `CTSGameRules::GlobalSlowMotion2` + TS player slow-motion virtuals; still int-
   return sigs (reconcile to modern `bool`).
@@ -146,10 +148,10 @@ deepen toward faithful behaviour, in rough order:
    `MultiplyClips` inf-clip powerup, and `DoubleFireRate` halving `flFireRate`.) Data
    gaps: mossberg/sawedoff fire-type extracted as 0 (are shotguns); shotgun pellet count
    hard-coded 6 (find the real field).
-   - **Grenade-throw (fire-type 2)** is its own sub-task: the faithful `CM61Grenade` is
-     `CM61Grenade : CTSGrenade : CTSPhysicObject` (TS physics base classes, not built) +
-     event-driven creation. A functional version can subclass the SDK `CGrenade`
-     (arc/bounce/timed-explode) — `GrenadeFire` throws one from the gun position.
+   - **Grenade-throw (fire-type 2)** — DONE (cont.20): `CM61Grenade` on the SDK
+     `CGrenade` (`dlls/ts_grenade.cpp`); `CTSGun::GrenadeThrow` tosses an M61. Still left:
+     **akimbo** (fire-types 4/5) is the main remaining fire-type — needs a second active
+     arsenal slot wielded at once + `AkimboFire` (alternating two weapons).
 3. **`CTSSharedEmitter`** for `ts_emitter`/`ts_particle` (networked particle system;
    also needs a cl_dll side). Niche cleanup: `CTSGameRules::PutPowerUp` (@0x9797c)
    to dynamically spawn powerups at `info_player_deathmatch` (wire to a rules Think).

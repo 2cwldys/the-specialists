@@ -5,6 +5,33 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 20) — CM61Grenade (grenade fire-type 2 throws a grenade)
+
+**Done — `dlls/ts_grenade.cpp` CM61Grenade + the grenade fire-type.** Un-SLICEs
+fire-type 2 (was falling back to bullets) + makes the grenade powerup useful.
+- The faithful CM61Grenade is `CM61Grenade : CTSGrenade : CTSPhysicObject` (TS physics
+  base classes, not built) with event-driven creation + a custom WaitThink (traces 64u
+  ahead for near-impact detonation). FUNCTIONAL reconstruction onto the stock SDK
+  `CGrenade` instead (which already does arc/bounce/timed-detonate): `CM61Grenade::Throw`
+  replicates `CGrenade::ShootTimed` but with `w_m61.mdl` (so no models/grenade.mdl
+  precache dependency) — MOVETYPE_BOUNCE, `CGrenade::BounceTouch`, `TumbleThink`→
+  `Detonate` at dmgtime, gravity 0.5/friction 0.8. Free `TSThrowM61(pevOwner, src, vel,
+  fuse, dmg)`.
+- `CTSGun::PrimaryAttack` dispatches TSFT_GRENADE (2) → new `GrenadeThrow(wi)`: one throw
+  per press, decrement clip, toss from gun-pos+16 forward at 800u + player velocity, 4s
+  fuse, damage = table flDamage*4 (~120). (m61 table dmg 30 is the per-pickup value; the
+  explosion is area damage.)
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** a bot with the M61 threw
+100 grenades over 30s (valid entities, clip decrementing); TumbleThink switches to
+Detonate at dmgtime (model-independent: `if (dmgtime <= time) SetThink(Detonate)`), so
+they arc/bounce/explode. No crash; clean regression.
+
+**SLICE/deferred:** no CTSPhysicObject physics, no impact-trace early detonation, no
+throw event/animation; akimbo (fire-types 4/5) still falls back to bullets.
+
+---
+
 ## 2026-06-21 (cont. 19) — Powerup→weapon wiring: MultiplyClips + DoubleFireRate
 
 **Done — two now-easy powerup effects, faithful on the cont.18 arsenal.** Completes
