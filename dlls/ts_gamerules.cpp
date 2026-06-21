@@ -136,9 +136,10 @@ void CTSGameRules::Think()
 	if (gpGlobals->time < m_flNextPowerupSpawn)
 		return;
 
-	// Only deathmatch maps get dynamic powerups (the .so gates on the TS game-mode member,
-	// not yet reconstructed). Proxy: skip team-play and any map running an objective manager.
-	if (IsTeamplay() || UTIL_FindEntityByClassname(nullptr, "ts_objective_manager") != nullptr)
+	// Only deathmatch maps get dynamic powerups. IsTeamplay() now resolves to the team-mode
+	// proxy (a ts_objective_manager present — see CTSGameRules::IsTeamMode), so the old
+	// explicit objective-manager scan is folded into it.
+	if (IsTeamplay())
 	{
 		m_flNextPowerupSpawn = gpGlobals->time + 20.0f;
 		return;

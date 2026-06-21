@@ -111,6 +111,7 @@ target_sources(hl PRIVATE
 	ts_fog.cpp
 	ts_mapglobals.cpp
 	ts_gamerules.cpp
+	ts_teams.cpp
 	ts_player.cpp
 	ts_slowmotion.cpp
 	ts_slowmotionpoint.cpp

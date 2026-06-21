@@ -27,11 +27,49 @@
 #define TS_PWUP_LOWGRAV   (1 << 8) // 0x100
 #define TS_PWUP_ALL       0x1ff
 
+// --- Team subsystem (cont.35) ---
+// TS supports up to 4 teams; team mode uses 2 ("Specialists;Mercenaries"). Team
+// indices are 0-based to match the FGD attackerteam/winnerteam convention the
+// objective entities already gate on (0 Team1/spec, 1 Team2/merc — see ts_objectives.cpp).
+#define TS_MAX_TEAMS    4
+#define TS_TEAMNAME_LEN 32
+
 class CTSGameRules : public CHalfLifeMultiplay
 {
 public:
 	// Pick a random permitted powerup bit out of `mask`, or 0 if none qualify.
 	int GetRandomPowerup(int mask);
+
+	// --- Team subsystem (cont.35) ---
+	// The map is a team-mode map. Faithful gate is the TS game-mode member (@+0 == 2/3),
+	// not reconstructed; functional proxy = a ts_objective_manager is present. Lazily
+	// resolved + cached (worldspawn installs the rules before objective ents spawn).
+	bool IsTeamMode();
+	bool IsTeamplay() override;          // teamplay iff IsTeamMode()
+
+	// Team roster (mirrors CHalfLifeTeamplay). InitTeams seeds the TS default list when
+	// team mode is first detected; RecountTeams tokenizes it into m_teamNames/m_numTeams.
+	void  InitTeams();
+	void  RecountTeams();
+	int   GetTeamIndex(const char *pTeamName) override;     // 0-based, -1 = no match
+	const char *GetIndexedTeamName(int teamIndex) override; // "" if out of range
+	const char *GetTeamID(CBaseEntity *pEntity) override;   // the entity's team name string
+	const char *TeamWithFewestPlayers();                    // auto-balance pick
+
+	// Put `pPlayer` on `pTeamName`: pev->team (0-based) + m_szTeamName + model/team
+	// infokeys, and broadcast the HUD team/score info. The server-side stand-in for the
+	// faithful client class-selection menu (cl_dll, not built).
+	void  AssignToTeam(CBasePlayer *pPlayer, const char *pTeamName);
+
+	// Auto-balance assignment is driven from spawn (override of the MP spawn).
+	void  PlayerSpawn(CBasePlayer *pPlayer) override;
+	void  InitHUD(CBasePlayer *pPlayer) override;           // send the team roster to a client
+
+	char  m_szTeamList[256] = {};
+	char  m_teamNames[TS_MAX_TEAMS][TS_TEAMNAME_LEN] = {};
+	char  m_teamModels[TS_MAX_TEAMS][TS_TEAMNAME_LEN] = {};
+	int   m_numTeams = 0;
+	int   m_iTeamMode = -1;              // tri-state cache: -1 unknown, 0 DM, 1 team
 
 	// Per-frame: drives the dynamic deathmatch powerup spawner (PutPowerUp) on top of the
 	// inherited CHalfLifeMultiplay round/spawn logic.
