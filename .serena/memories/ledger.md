@@ -5,6 +5,37 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 41) — CTSSellZone (sell dropped weapons for cash) + a powerup-precache fix
+
+**Done — `dlls/ts_sellzone.cpp` (ts_sellzone).** The one entity that makes the cont.36 cash actually
+flow: a brush zone that sells dropped weapons. FGD-backed (`@SolidClass`, base tsobjective; ts_dust2
+places one).
+
+RE (recovered/sellzone/CTSSellZone.c): KeyValue @0x726c0 (attackerteam), Spawn @0x72720 (brush
+SET_MODEL + SetSize + SetTouch), SellTouch @0x727e8 — a ~61-byte NEAR-STUB that only does
+`strcmp(toucher->classname, "WorldGun")`. Consistent with cont.36 (CashBased OFF → the sell economy
+is vestigial in the shipped binary). Functional reconstruction:
+- `CTSSellZone : CBaseEntity` (brush SOLID_TRIGGER). SellTouch: a touching `ts_worldgun` (a dropped
+  weapon, cont.27) → credit the nearest living player (on the zone's team, if set) a flat
+  SELLZONE_VALUE ($500) via `CBasePlayer::GiveCash` + a center-print, then UTIL_Remove the gun.
+
+**Also fixed a pre-existing latent crash (surfaced by ts_dust2):** the dynamic DM powerup spawner
+(cont.26 PutPowerUp → CTSPowerUp::Spawn) PRECACHE_MODELs `models/powerup.mdl` at RUNTIME — fine on
+maps with ts_powerup placements (precached at load), but Host_Errors on a DM map with none (ts_dust2:
+no ts_powerup, no objective_manager → DM → spawner runs → crash). Added `models/powerup.mdl` to
+PrecacheAllTSWeapons (map load), same fix pattern as cont.38/40.
+
+**Verified RUNTIME (rcbot, ts_dust2 — a REAL map with a sell zone, temp probe reverted):** the zone
+spawns (0 Can't init, was 1 + the powerup crash gone); a dropped beretta worldgun dropped at a player
+→ SellTouch credited the player cash 0→500 + marked the gun removed (FL_KILLME). No crash; clean
+regression (ts_dust2 + tm_avana + ctb_deadheat all 0 Can't init).
+
+**SLICE:** flat sale value (the per-weapon price s_weapon_info+0xd8 isn't extracted + is dead while
+CashBased off); the dropped gun records no seller (no pev->owner) so the nearest player is credited;
+no team-score / round effect.
+
+---
+
 ## 2026-06-21 (cont. 40) — CTSBomb: the defuse / wire-cut objective
 
 **Done — `dlls/ts_bomb.cpp` (ts_bomb).** A self-contained team objective: a planted bomb that counts

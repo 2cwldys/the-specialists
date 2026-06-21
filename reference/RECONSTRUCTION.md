@@ -118,6 +118,8 @@ recoverable directly).
 
 | `CTSBomb` | `dlls/ts_bomb.cpp` | ✅✅ **built + synthetic-verified (cont.40)** — the defuse/wire-cut objective (`ts_bomb`, brush, FGD defusetime/cutwires). A planted bomb counts down (WaitThink, rising beep) + explodes (ExplosionCreate) unless defused: hold USE for `defusetime` (FCAP_CONTINUOUS_USE) or cut the right of 3 wires (SetRandomWires: 1 defuse / 2 boobytrap→fast / 3 neutral→detonate); defuse fires target+message. `tscutwire <n>` console-drives the wires (UI is cl_dll). 0 stock placements → synthetic: cut-defuse→safe, cut-neutral→detonate, cut-boobytrap→fast, no crash. SLICE: fixed 45s countdown, arms on Spawn (faithful enable is gamerules), no Save/Restore. |
 
+| `CTSSellZone` | `dlls/ts_sellzone.cpp` | ✅✅ **runtime-verified (cont.41, real map)** — the weapon sell zone (`ts_sellzone`, brush, base tsobjective). A dropped weapon (ts_worldgun) touching it is sold: the nearest player gets cash (cont.36 `GiveCash`) + the gun is consumed. The .so's SellTouch is a ~61-byte near-stub (cash is vestigial — CashBased off). **Verified on `ts_dust2`:** zone spawns (0 Can't init), a dropped beretta → player cash 0→500 + gun removed. Also fixed a pre-existing crash: the dynamic powerup spawner runtime-precached `models/powerup.mdl` → moved to map-load precache. SLICE: flat $500 (no per-weapon price), nearest-player credit (no recorded seller). |
+
 Everything else in the table above is **not started**. Full history in the
 Serena ledger (`.serena/memories/ledger.md`).
 
