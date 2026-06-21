@@ -112,6 +112,7 @@ target_sources(hl PRIVATE
 	ts_mapglobals.cpp
 	ts_gamerules.cpp
 	ts_player.cpp
+	ts_groundweapon.cpp
 	ts_gun.cpp
 	ts_weapons.cpp
 	turret.cpp

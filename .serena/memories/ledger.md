@@ -5,6 +5,36 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 11) — CTSGroundWeapon (weapon pickups) + tsweapon_t fix
+
+**FIXED tsweapon_t indices (cont.10 enum was WRONG).** The Write_<weapon> calls in
+compile_weapons_info are NOT in table-index order. Real index = (lea offset −
+0x7d30)/0x3DC, and it MATCHES the FGD `tsweaponid` choices exactly. Corrected
+ts_weapons.h: beretta=2 (was 9), uzi=3, mk23=9, knife=25, etc. (full list in the
+enum). Index 29 = flag (CTF; not in compile_weapons_info). Build self-consistent so
+the beretta slice still worked, but the indices are now faithful + FGD-aligned.
+
+**Done — `dlls/ts_groundweapon.cpp` CTSGroundWeapon (ts_groundweapon, 65 map placements)**
+- KeyValue: tsweaponid->m_weaponType (this+0xa4), wduration->m_respawnTime,
+  wextraclip, buyable. Spawn: precache + world model (get_weapon_info; null-guarded
+  -> w_weaponbox fallback since only beretta data is filled) + SOLID_TRIGGER/
+  MOVETYPE_TOSS + SetTouch(GetWeapon). Precache calls UTIL_PrecacheOther("weapon_
+  tsgun") at MAP LOAD -> fixes the runtime-precache crash from cont.10.
+- GetWeapon (touch): SLICE gives weapon_tsgun (faithful uses CBasePlayer::
+  PickUpWeapon armament — deferred); respawn after wduration (hide -> Materialize).
+
+**Verified RUNTIME (rcbot bots, ts_wyndham):**
+- `Can't init ts_groundweapon` GONE (15 map weapons spawn) AND `Can't create entity:
+  ts_groundweapon` GONE (rcbot's bot-arming path unblocked). No crash.
+- Pickup works: temp hook teleported bots onto ground weapons -> "ts_groundweapon
+  (type 25) picked up by Sean/Kyle" -> GiveNamedItem weapon_tsgun, no crash. (Temp
+  hook + probe reverted; client.cpp clean.)
+- SLICE limitation: gives beretta regardless of m_weaponType (CTSGun is hardcoded
+  beretta + only beretta data filled). Honoring the real type needs CTSGun to take a
+  weaponType + more Write_<weapon> data. Faithful PickUpWeapon (armament/buy) TODO.
+
+---
+
 ## 2026-06-20 (cont. 10) — CTSGun recon + weapon data layer (vertical-slice start)
 
 **Decision:** tackle the weapon subsystem as a VERTICAL SLICE (one weapon

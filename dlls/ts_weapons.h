@@ -11,48 +11,51 @@
 #ifndef TS_WEAPONS_H
 #define TS_WEAPONS_H
 
-// The Specialists weapon roster (38 weapons, indices 0..37).
+// The Specialists weapon roster. Indices are the real get_weapon_info() table
+// indices (= each Write_<weapon>'s table slot in compile_weapons_info @0x6fe28),
+// which equal the FGD tsweaponid choices (ts_groundweapon "Weapon"). NOTE these
+// are NOT the order the Write_ functions are *called* in.
 enum tsweapon_t
 {
 	TSW_MELEE = 0,
-	TSW_GLOCK18,
-	TSW_UZI,
-	TSW_UZI_AKIMBO,
-	TSW_BENELLIM3,
-	TSW_M4,
-	TSW_MP5SD,
-	TSW_MP5K,
-	TSW_BERETTA_AKIMBO,
-	TSW_BERETTA,        // 9 — vertical-slice reference weapon
-	TSW_MK23,
-	TSW_MK23_AKIMBO,
-	TSW_USAS12,
-	TSW_DESERT,
-	TSW_AK47,
-	TSW_FNH,
-	TSW_AUG,
-	TSW_SKORPION,
-	TSW_BARRETT,
-	TSW_PDW,
-	TSW_SPAS12,
-	TSW_GOLD,
-	TSW_GLOCK22,
-	TSW_MAC10,
-	TSW_M61,
-	TSW_KNIFE,          // 25
-	TSW_MOSSBERG,
-	TSW_M16,
-	TSW_RUGER,
-	TSW_FNH_AKIMBO,
-	TSW_BULL,
-	TSW_M60,
-	TSW_SAWEDOFF,
-	TSW_KATANA,
-	TSW_SEALKNIFE,
-	TSW_CONTENDER,
-	TSW_SKORPION_AKIMBO,
-	TSW_FLAG,           // 37
-	TSW_COUNT
+	TSW_GLOCK18 = 1,
+	TSW_BERETTA = 2,         // vertical-slice reference weapon
+	TSW_UZI = 3,            // "Mini Uzi"
+	TSW_BENELLIM3 = 4,
+	TSW_M4 = 5,
+	TSW_MP5SD = 6,
+	TSW_MP5K = 7,
+	TSW_BERETTA_AKIMBO = 8,
+	TSW_MK23 = 9,
+	TSW_MK23_AKIMBO = 10,
+	TSW_USAS12 = 11,
+	TSW_DESERT = 12,
+	TSW_AK47 = 13,
+	TSW_FNH = 14,           // "FiveSeveN"
+	TSW_AUG = 15,
+	TSW_UZI_AKIMBO = 16,
+	TSW_SKORPION = 17,
+	TSW_BARRETT = 18,
+	TSW_PDW = 19,
+	TSW_SPAS12 = 20,
+	TSW_GOLD = 21,         // "Akimbo colts"
+	TSW_GLOCK22 = 22,      // "Glock 20"
+	TSW_MAC10 = 23,        // "HK UMP"
+	TSW_M61 = 24,          // grenade
+	TSW_KNIFE = 25,
+	TSW_MOSSBERG = 26,
+	TSW_M16 = 27,
+	TSW_RUGER = 28,
+	TSW_FLAG = 29,         // CTF flag — not in compile_weapons_info (separate)
+	TSW_FNH_AKIMBO = 30,
+	TSW_BULL = 31,
+	TSW_M60 = 32,
+	TSW_SAWEDOFF = 33,
+	TSW_KATANA = 34,
+	TSW_SEALKNIFE = 35,
+	TSW_CONTENDER = 36,
+	TSW_SKORPION_AKIMBO = 37,
+	TSW_COUNT = 38
 };
 
 // Weapon stats. A clean modern subset of the original 988-byte s_weapon_info;
