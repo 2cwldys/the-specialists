@@ -13,7 +13,7 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-21, through cont.37)
+## Where things stand (2026-06-21, through cont.38)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`** → **run in-engine** (with bots for player-needing code) →
 **gdb** any crash. Everything below is committed (`git log`); `recovered/` is
@@ -34,7 +34,8 @@ time-dilation, the particle system, stunts, HUDs) — there is **no cl_dll recon
   `CTSSlowMotion` (`ts_slowmotion` zones, 4 on `ts_wyndham`). Built + synthetic/factory-only
   (no stock map hits them): `CTSFog`, `CTSTimer`, `CTSCustomTarget`, `CTSDMHill` (cont.32),
   `CTSTrigger` (cont.34), `CTSSlowMotionPoint`/`CTSShrapnel`/`CTSWorldGun`/`CTSAmmoPack`/
-  `CTSDeadCorpse` (runtime-created, not map-placed).
+  `CTSDeadCorpse`/`CTSFlag` (cont.38, the CTF flag — carry/capture/drop) (runtime-created, not
+  map-placed).
 - **Objective entities (team-mode maps) — runtime-verified:** `dlls/ts_objectives.cpp` —
   `CTSObjectiveManager`/`CTSObjectivePointer`/`CTSHack`/`CTSWinGiver`/`CTSTrigger` (+ the
   `CTSObjective` base). All spawn on `tm_avana` (0 Can't init, was 7) + `tm_corporate`; CTSHack
@@ -202,9 +203,14 @@ finish team mode:
    `m_teamScore[]`), the round timer (`gmsgTSRoundTime`) + the full `RestartRound`@0x67920 (game-mode
    member + `InitObjectives`/`SetObjective`), `CTSObjective::Freeze`→`ShowObjectiveOnHud`, and the
    just-respawned grace + the CTB (mode-3) and last-man-standing branches in CheckDeads.
-4. Once teams exist, the **CTF/escape entities light up** (all need teams): `CTSFlag` (13),
-   `CTSBriefcase` (7), `CTSBomb` (10), `CTSTeamEscape` (8), `CVipEscape` (3), `CTSSellZone` (3,
-   needs cash), `CTSScoreGiver` (3). Build them like the cont.25 objectives.
+4. The **CTF/escape entities** (all need teams; ≈0 stock BSP placements → synthetic-verify only):
+   ✅ **`CTSFlag` DONE (cont.38, `dlls/ts_flag.cpp`)** — the carry/capture/drop CTF loop, team-gated,
+   console-seeded (`tsspawnflag <team>`) since the map-placed creator (`CTSBriefcase`) isn't built.
+   **Still TODO:** `CTSBriefcase` (7 — the map objective that seeds + holds flags/cases; would let a
+   stock CTF map place flags instead of the console stand-in), `CTSBomb` (10), `CTSTeamEscape` (8),
+   `CVipEscape` (3), `CTSSellZone` (3, uses the cont.36 cash), `CTSScoreGiver` (3). Build like the
+   cont.25 objectives. Note CTSFlag's capture currently scores via `TeamWin` (which restarts the
+   round) — faithfully a flag capture awards cash + a HUD pointer without ending the round.
 
 **Track B — stand up a cl_dll reconstruction (there is NONE yet — this is the other half of TS).**
 The server already registers + sends the user messages; the client just isn't built. This unlocks:

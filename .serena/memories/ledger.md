@@ -5,6 +5,42 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 38) — CTSFlag: the CTF flag (carry / capture / drop), unblocked by teams
+
+**Done — `dlls/ts_flag.cpp` (ts_flag).** The first CTF entity, now possible because team
+assignment (cont.35) gives a real pev->team. The classic capture-the-flag loop, gated on team.
+
+RE (recovered/flag/CTSFlag.c): `CTSFlag : CTSPhysicObject`, model `briefcase.mdl`, runtime-created
+(CreateFlag @0x9d874 — NOT map-placed: no FGD entity, 0 BSP placements; the CTSBriefcase map
+objective seeds the bases). m_iFlagTeam @+0x9c, carrier EHANDLE @+0xa4, s_flag_status (7 ints @+0x90)
+mirrored onto the carrier (player+0x7d0) via CBasePlayer::TakeFlag @0x93830 / DropFlag @0x9334c +
+GetSpeedBySlots (carrying slows you). CanInteract @0x9e2d4 = flag.team==-1 || ==player.team.
+PlayerTakeFlag @0x9e330 (Use/WaitTouch): living player; own-team flag → capture/return branch, else
+TakeFlag (grab). FUNCTIONAL reconstruction onto the stock SDK (no CTSPhysicObject, no speed-by-slots):
+- `CTSFlag : CBaseEntity` with a team + a 3-state machine (AT_BASE / CARRIED / DROPPED).
+- FlagTouch: an enemy/neutral flag + a non-carrying living player → AttachTo (carry: SOLID_NOT,
+  CarryThink rides the carrier's back, follows + drops if the carrier dies/leaves). Own-team flag at
+  base + you're carrying the enemy flag → CAPTURE (return the carried flag + score via TeamWin).
+- DropAt (the PlayerKilled `TSDropFlag` hook + CarryThink-on-death): flag falls where the carrier
+  died, SOLID_TRIGGER, ReturnThink auto-returns it to base after 30s. ReturnToBase resets it home.
+- `CTSFlag::Create(team, base)` + free `TSCreateFlag`/`TSDropFlag`; a `tsspawnflag <team>` console
+  command seeds bases (stand-in for the CTSBriefcase map objective). briefcase.mdl + the pickup/drop
+  sounds added to PrecacheAllTSWeapons (map-load) — a runtime PRECACHE_MODEL Host_Errors (gdb-caught:
+  PF_precache_model_I → Host_Error → ShutdownServer; same class of bug as cont.12).
+
+**Verified RUNTIME (rcbot, tm_avana, SYNTHETIC — temp probe reverted):** seeded a spec(0) + merc(1)
+flag at a merc bot; merc touches the spec flag → carried=1 state=CARRIED; merc (carrying) touches its
+own merc flag at base → CAPTURE: spec flag returned to base (state=AT_BASE), team-1 score 0→1; re-grab
+→ TSDropFlag → state=DROPPED, carrier cleared. No crash; clean regression (tm_avana 0 Can't init,
+ts_wyndham only the known ts_emitter/ts_particle).
+
+**SLICE:** carrying doesn't slow the carrier (no GetSpeedBySlots / s_flag_status); no CTSPhysicObject
+bounce physics; capture scores via TeamWin's team score (which also schedules a round restart — the
+faithful capture awards cash + a HUD pointer without ending the round); flags are console-seeded (the
+map-placed CTSBriefcase that creates them isn't built); no flag HUD/carrier icon (cl_dll).
+
+---
+
 ## 2026-06-21 (cont. 37) — CheckDeads: team-round elimination win condition
 
 **Done — `CTSGameRules::CheckDeads`/`CallCheckDeads` (ts_gamerules.{h,cpp}).** The automatic team-
