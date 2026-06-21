@@ -36,6 +36,7 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iSingleType = -1;
 	w->iFireModes = 2;   // default: semi only (overridden in compile_weapons_info)
 	w->iCaliber = 0;     // default: no caliber (overridden in compile_weapons_info)
+	w->iPellets = 1;     // default: one bullet (overridden in compile_weapons_info)
 }
 
 // Max per-caliber reserve (rounds), s_ammo_info+0x20 from compile_ammo_info (@0x6f51c).
@@ -90,13 +91,13 @@ static void compile_weapons_info()
   Write(&g_weaponInfo[23], nullptr, "models/v_ump.mdl", "models/p_ump.mdl", "models/w_ump.mdl", "twohanded", "weapons/ump/ump-fire.wav", 25, 30.0f, 9, 0.092f, 0.028f, 0.003f); // mac10
   Write(&g_weaponInfo[24], "M61 Grenade", "models/v_m61.mdl", "models/p_m61.mdl", "models/w_m61.mdl", nullptr, nullptr, 25, 30.0f, 2, 0.092f, 0.028f, 0.003f); // m61
   Write(&g_weaponInfo[25], nullptr, "models/v_knife.mdl", "models/p_knife.mdl", "models/w_knife.mdl", nullptr, nullptr, 18, 40.0f, 3, 0.07f, 0.1f, 0.0f); // knife
-  Write(&g_weaponInfo[26], "Mossberg 500", "models/v_mossberg.mdl", "models/p_mossberg.mdl", "models/w_mossberg.mdl", "twohanded", nullptr, 8, 16.0f, 0, 0.25f, 0.06f, 0.0f); // mossberg
+  Write(&g_weaponInfo[26], "Mossberg 500", "models/v_mossberg.mdl", "models/p_mossberg.mdl", "models/w_mossberg.mdl", "twohanded", nullptr, 8, 16.0f, 1, 0.25f, 0.06f, 0.0f); // mossberg (pump)
   Write(&g_weaponInfo[27], nullptr, "models/v_m16.mdl", "models/p_m16.mdl", "models/w_m16.mdl", "twohanded", "weapons/m16/fire.wav", 18, 40.0f, 0, 0.07f, 0.003f, 0.0001f); // m16
   Write(&g_weaponInfo[28], "Ruger-MK1", "models/v_ruger.mdl", nullptr, "models/w_ruger.mdl", "onehanded", nullptr, 17, 16.0f, 8, 0.1f, 0.005f, 0.0f); // ruger
   Write(&g_weaponInfo[30], "Akimbo Five-seveN", "models/v_fnh_akimbo.mdl", "models/p_fnh_akimbo.mdl", "models/w_fnh.mdl", "akimbo", "weapons/fnh/fnh-fire.wav", 40, 21.0f, 4, 0.1f, 0.0125f, 0.0f); // fnhakimbo
   Write(&g_weaponInfo[31], "Raging Bull", "models/v_bull.mdl", "models/p_bull.mdl", "models/w_bull.mdl", "onehanded", "weapons/bull/fire01.wav", 5, 85.0f, 8, 0.15f, 0.0075f, 0.0f); // bull
   Write(&g_weaponInfo[32], nullptr, "models/v_m60.mdl", "models/p_m60.mdl", "models/w_m60.mdl", "twohanded", "weapons/m60/m60-fire.wav", 100, 39.0f, 6, 0.109f, 0.02f, 0.009f); // m60
-  Write(&g_weaponInfo[33], "Sawed-off", "models/v_sawedoff.mdl", "models/p_sawedoff.mdl", "models/w_sawedoff.mdl", "twohanded", "weapons/sawedoff/fire.wav", 2, 23.0f, 0, 0.1f, 0.13f, 0.0f); // sawedoff
+  Write(&g_weaponInfo[33], "Sawed-off", "models/v_sawedoff.mdl", "models/p_sawedoff.mdl", "models/w_sawedoff.mdl", "twohanded", "weapons/sawedoff/fire.wav", 2, 23.0f, 8, 0.1f, 0.13f, 0.0f); // sawedoff (semi, 2 barrels)
   Write(&g_weaponInfo[34], nullptr, "models/v_katana.mdl", "models/p_katana.mdl", "models/w_katana.mdl", nullptr, nullptr, 1, 30.0f, 10, 0.4f, 0.1f, 0.0f); // katana
   Write(&g_weaponInfo[35], nullptr, "models/v_sealknife.mdl", "models/p_sealknife.mdl", "models/w_sealknife.mdl", nullptr, nullptr, 1, 20.0f, 3, 0.25f, 0.1f, 0.0f); // sealknife
   Write(&g_weaponInfo[36], "Contender G2", "models/v_contender.mdl", "models/p_contender.mdl", "models/w_contender.mdl", "onehanded", "weapons/contender/fire.wav", 1, 95.0f, 8, 0.25f, 0.001f, 0.0f); // contender
@@ -145,6 +146,18 @@ static void compile_weapons_info()
   };
   for (int i = 0; i < TSW_COUNT; i++)
     g_weaponInfo[i].iCaliber = kCaliber[i];
+
+  // Bullets per shot (s_weapon_info+0x24): 8 for the shotguns, 1 otherwise (extracted from
+  // each Write_<weapon>). Melee/grenade values are unused (those paths don't fire bullets).
+  static const int kPellets[TSW_COUNT] = {
+    /* 0*/ 1, /* 1*/ 1, /* 2*/ 1, /* 3*/ 1, /* 4*/ 8, /* 5*/ 1, /* 6*/ 1, /* 7*/ 1,
+    /* 8*/ 1, /* 9*/ 1, /*10*/ 1, /*11*/ 8, /*12*/ 1, /*13*/ 1, /*14*/ 1, /*15*/ 1,
+    /*16*/ 1, /*17*/ 1, /*18*/ 1, /*19*/ 1, /*20*/ 8, /*21*/ 1, /*22*/ 1, /*23*/ 1,
+    /*24*/ 1, /*25*/ 1, /*26*/ 8, /*27*/ 1, /*28*/ 1, /*29*/ 1, /*30*/ 1, /*31*/ 1,
+    /*32*/ 1, /*33*/ 8, /*34*/ 1, /*35*/ 1, /*36*/ 1, /*37*/ 1,
+  };
+  for (int i = 0; i < TSW_COUNT; i++)
+    g_weaponInfo[i].iPellets = kPellets[i];
 
   g_weaponInfoCompiled = true;
 }

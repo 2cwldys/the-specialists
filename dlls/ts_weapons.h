@@ -90,6 +90,9 @@ struct s_weapon_info
 	// weapon draws from. 0 = none (melee/grenade). Reserves are shared across all weapons
 	// of the same caliber (so akimbo berettas + a single beretta share the 9mm pool).
 	int   iCaliber;    // +0x8 — ammo caliber index (0..15)
+	// Bullets fired per shot (s_weapon_info+0x24): 1 for most guns, 8 for the shotguns
+	// (benelli/usas/spas/mossberg/sawed-off). Drives the FireBulletsPlayer pellet count.
+	int   iPellets;    // +0x24 — bullets/pellets per shot
 };
 
 // Per-caliber ammo: the 16 calibers, the mag/magazine size, and the max reserve (rounds),

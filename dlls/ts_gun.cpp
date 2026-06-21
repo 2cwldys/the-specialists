@@ -344,7 +344,7 @@ void CTSGun::Fire()
 // uses 0.03 / 0.2; StandardFire @0x824a4).
 void CTSGun::StandardFire(const s_weapon_info *wi)
 {
-	const int cPellets = (wi->iFireType == TSFT_PUMP) ? 6 : 1; // VERIFY: pellet count not yet mapped
+	const int cPellets = wi->iPellets > 0 ? wi->iPellets : 1; // 8 for shotguns (s_weapon_info+0x24)
 	const float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.01f;
 
 	m_iClip--;
