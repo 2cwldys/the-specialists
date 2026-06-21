@@ -107,6 +107,16 @@ bool CBasePlayer::UsePowerUp()
 	WRITE_BYTE((int)(m_flPowerupExpireTime - gpGlobals->time + 0.5f));
 	MESSAGE_END();
 
+	// Slow-motion drops nearby players (line of sight) into slow-motion for the duration —
+	// the SlowMotionFlow propagation, via a CTSSlowMotionPoint at this player (cont.15 GoSlow).
+	if (m_iPowerups & (TS_PWUP_SLOWMO | TS_PWUP_SLOWPAUSE))
+	{
+		extern CBaseEntity *TSCreateSlowMotionPoint(const Vector &, float, float, int, CBaseEntity *);
+		float scale = (m_iPowerups & TS_PWUP_SLOWPAUSE) ? 0.8f : 0.6f;
+		TSCreateSlowMotionPoint(pev->origin, scale, m_flPowerupExpireTime - gpGlobals->time,
+			(m_iPowerups & TS_PWUP_SLOWMO) ? 1 : 0, this);
+	}
+
 	// Slow-motion / slow-pause kick off the motion-blur effect (1 / 2).
 	int blur = 0;
 	if (m_iPowerups & TS_PWUP_SLOWMO)
