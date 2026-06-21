@@ -5,6 +5,41 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 25) — Objective subsystem (ts_hack/wingiver/manager/ptr) — team-mode maps
+
+**Done — `dlls/ts_objectives.cpp`: the 4 objective entity types the `tm_` maps place.** Loading
+a team-mode map (tm_avana) showed 7 Can't-inits: ts_hack(2), ts_objective_manager(1),
+ts_objective_ptr(1), ts_wingiver(3). All cleared.
+
+RE (from the .so): these are point/brush entities tied into a CTSGameRules team subsystem
+(`TeamWin` @0x68a08 1564 bytes, `ShowObjectiveOnHud`, `AddObjectiveInList`) that ISN'T built —
+the interaction "who is hacking" + the win scoring/round-restart are gamerules-driven. Built a
+FUNCTIONAL standalone reconstruction instead:
+- `CTSObjective` (base @0x8c2b0): `attackerteam` keyvalue (+0x68, -1=any) + CanInteract(team)/
+  Freeze(bool). (.so Freeze also calls ShowObjectiveOnHud — SLICE.)
+- `CTSObjectiveManager` (@0x8b7bc, ts_objective_manager): objptargeta..h / messagea..d /
+  targeton{timeleft,specdead,mercdead} keyvalues; `Reset()` HUDs the messages + FireTargets the
+  8 objptargets (matches @Reset 0x8b850).
+- `CTSObjectivePointer` (@0x8bb44, ts_objective_ptr): per-team objmsg{spec,merc,team3,team4,all}
+  (the visible HUD arrow is cl_dll — server stub).
+- `CTSHack` (@0x8cccc, ts_hack): brush; SET_MODEL + SOLID_TRIGGER; an attacker-team living player
+  in the volume (HackTouch) drives a `hackingtime` countdown (WaitThink, 1s cadence like the .so);
+  on 0 → fire pev->target + HUD pev->message + Freeze. SLICE: faithful start-hack is gamerules-driven.
+- `CTSWinGiver` (@0x8bf10, ts_wingiver): Use'd `callsnumber` times → declares `winnerteam` (HUD).
+  SLICE: faithful Use → CTSGameRules::TeamWin(team, victory/defeat cash, …) + round restart.
+
+**Verified RUNTIME (tm_avana, temp probe reverted):** 2 hack / 3 wingiver / 1 manager / 1 ptr
+spawn (0 Can't init, was 7); keyvalues parse (hack time=10 attackerteam=-1, wingiver team=2
+calls 1); a forced-hacker hack counted 10→0 and completed (done=1); wingiver Use → declares the
+winner (done=1). tm_corporate also 0 Can't init. No crash; clean.
+
+**Next:** the real payoff is the **CTSGameRules team subsystem** (TeamWin/team assignment/scores/
+RestartRound) — it turns these standalone entities into an actual scored team game mode and
+unblocks the rest of the tm_ maps (ts_briefcase/ts_bomb/ts_flag CTF). Still also: the buy menu,
+CTSSharedEmitter (cl_dll), the visible slow-motion (cl_dll).
+
+---
+
 ## 2026-06-21 (cont. 24) — Shotgun fidelity: 8-pellet count + mossberg/sawedoff fire-types
 
 **Done — closed the two known weapon data gaps.**

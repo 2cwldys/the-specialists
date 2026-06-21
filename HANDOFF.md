@@ -25,6 +25,12 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   `CTSGroundAmmo` (`ts_groundammo` refill pack, 6 on `ts_supertimor_d3`),
   `CTSSlowMotion` (`ts_slowmotion` zones, 4 on `ts_wyndham`). Built + factory-only
   (no stock map hits them): `CTSFog`, `CTSTimer`, `CTSCustomTarget`.
+- **Objective entities (team-mode maps) — runtime-verified:** `dlls/ts_objectives.cpp` —
+  `CTSObjectiveManager`/`CTSObjectivePointer`/`CTSHack`/`CTSWinGiver` (+ the `CTSObjective`
+  base). All spawn on `tm_avana` (0 Can't init, was 7) + `tm_corporate`; CTSHack counts
+  `hackingtime` down to completion (fire target+HUD), CTSWinGiver Use declares the
+  `winnerteam`. **SLICE:** the `CTSGameRules` team subsystem (TeamWin cash/round-restart,
+  ShowObjectiveOnHud, the gamerules interaction loop) + the client objective HUD are deferred.
 - **Game rules:** `CTSGameRules : CHalfLifeMultiplay` IS the live `g_pGameRules`
   (`ts_gamerules.{h,cpp}` + `InstallGameRules`). Only `GetRandomPowerup` is real;
   the other 40 methods inherit MP. `TSGameRules()` accessor + `TS_PWUP_*` bits.
@@ -162,12 +168,24 @@ deepen toward faithful behaviour, in rough order:
      `PrimaryAttack`, cycled by `SwitchFireMode`/`tsfiremode` over the +0xc mode mask.
    - **Per-caliber ammo** — DONE (cont.23): `m_ammoReserve[16]` pooled by the `s_weapon_info+0x8`
      caliber, capped at the `compile_ammo_info` max table; Reload/MultiplyClips/CTSGroundAmmo
-     wired. The weapon engine is now functionally complete bar the buy menu + the client HUD.
-     Next subsystems: the **buy menu** (server side), the **objective/CTF entities**
-     (`CTSHack`/`CTSBriefcase`/`CTSBomb`/`CTSFlag`/`CTSWinGiver`) for team modes, or
-     `CTSSharedEmitter` (unblocks the `ts_emitter`/`ts_particle` Can't-inits, needs a cl_dll).
-3. **`CTSSharedEmitter`** for `ts_emitter`/`ts_particle` (networked particle system;
-   also needs a cl_dll side). Niche cleanup: `CTSGameRules::PutPowerUp` (@0x9797c)
+     wired. The weapon engine is now functionally complete (shotgun pellets/fire-types
+     fixed cont.24); only the buy menu + the client HUD remain.
+   - **Objective entities** — DONE (cont.25, `dlls/ts_objectives.cpp`): `ts_hack`/`ts_wingiver`/
+     `ts_objective_manager`/`ts_objective_ptr` spawn + run standalone behaviour on the `tm_`
+     maps (0 Can't init). SLICE: the team-rules integration (below).
+3. **The `CTSGameRules` team subsystem** — the biggest remaining gameplay unlock (turns the
+   cont.25 objective entities into a scored team mode + unblocks the rest of the `tm_` maps:
+   `ts_briefcase`/`ts_bomb`/`ts_flag` CTF). Server-side, verifiable. Core: team assignment
+   (player→team), `SetTeamList`/`SetTeamModelList`, `UpdateTeamScores`/`InitTeamScore`,
+   `RestartRound`/`ResetRestartRound`, and **`TeamWin`** (@0x68a08, 1564 bytes — declare the
+   winner, award victory/defeat cash, restart). `CTSObjective::Freeze`→`ShowObjectiveOnHud` and
+   `CTSWinGiver::Use`→`TeamWin` are the SLICE hooks waiting on it.
+4. **The buy menu** (server half): the armament system (`AddItemToArmament`@0x83ea4 /
+   `BuyArmament`@0x83f10 — a pending per-player loadout at CBasePlayer+0x554/+0x594) +
+   `BuyWeapon`@0x845bc (checks `CashBased()`, weapon price `s_weapon_info+0xd8`, player cash
+   `+0x540`, restrictions). The menu UI itself is cl_dll. Directly reuses GiveTSWeapon/AddAmmo.
+5. **`CTSSharedEmitter`** for `ts_emitter`/`ts_particle` (networked particle system; needs a
+   cl_dll side for the visible effect). Niche cleanup: `CTSGameRules::PutPowerUp` (@0x9797c)
    to dynamically spawn powerups at `info_player_deathmatch` (wire to a rules Think).
 
 Loop per class: decompile → write `dlls/*.cpp` → add to `dlls/CMakeLists.txt` →
