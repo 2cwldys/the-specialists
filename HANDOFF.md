@@ -13,27 +13,41 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-21)
+## Where things stand (2026-06-21, through cont.34)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`** → **run in-engine** (with bots for player-needing code) →
 **gdb** any crash. Everything below is committed (`git log`); `recovered/` is
 gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
 
+**Big picture: ~25 TS classes reconstructed; the self-contained, server-side gameplay is
+essentially complete.** Weapons (full engine), powerups (incl. dynamic spawn + the slow-motion
+bubble), the death loop (drop weapons/ammo/corpse + grenade shrapnel), objectives (incl. a
+functional win→round-restart), and the map/relay entities are all in + verified. **What remains
+is large or client-entangled** — see "Recommended next steps": (A) the faithful team subsystem +
+cash economy (unblocks the CTF entities + the buy menu), and (B) the cl_dll side (the *visible*
+time-dilation, the particle system, stunts, HUDs) — there is **no cl_dll reconstructed yet**.
+
 - **Map entities — runtime-verified:** `CTSModel` (108 on `ts_kissmeyerbasic`),
   `CTSMapGlobals` (weapon-restriction on `ts_trinityfall`), `CTSGroundWeapon`
   (`ts_wyndham` pickups), `CTSPowerUp` (22 on `ts_theatre`, bots pick up),
   `CTSGroundAmmo` (`ts_groundammo` refill pack, 6 on `ts_supertimor_d3`),
-  `CTSSlowMotion` (`ts_slowmotion` zones, 4 on `ts_wyndham`). Built + factory-only
-  (no stock map hits them): `CTSFog`, `CTSTimer`, `CTSCustomTarget`.
+  `CTSSlowMotion` (`ts_slowmotion` zones, 4 on `ts_wyndham`). Built + synthetic/factory-only
+  (no stock map hits them): `CTSFog`, `CTSTimer`, `CTSCustomTarget`, `CTSDMHill` (cont.32),
+  `CTSTrigger` (cont.34), `CTSSlowMotionPoint`/`CTSShrapnel`/`CTSWorldGun`/`CTSAmmoPack`/
+  `CTSDeadCorpse` (runtime-created, not map-placed).
 - **Objective entities (team-mode maps) — runtime-verified:** `dlls/ts_objectives.cpp` —
-  `CTSObjectiveManager`/`CTSObjectivePointer`/`CTSHack`/`CTSWinGiver` (+ the `CTSObjective`
-  base). All spawn on `tm_avana` (0 Can't init, was 7) + `tm_corporate`; CTSHack counts
-  `hackingtime` down to completion (fire target+HUD), CTSWinGiver Use declares the
-  `winnerteam`. **SLICE:** the `CTSGameRules` team subsystem (TeamWin cash/round-restart,
-  ShowObjectiveOnHud, the gamerules interaction loop) + the client objective HUD are deferred.
+  `CTSObjectiveManager`/`CTSObjectivePointer`/`CTSHack`/`CTSWinGiver`/`CTSTrigger` (+ the
+  `CTSObjective` base). All spawn on `tm_avana` (0 Can't init, was 7) + `tm_corporate`; CTSHack
+  counts `hackingtime` down to completion (fire target+HUD); CTSWinGiver Use declares the
+  `winnerteam` → **`CTSGameRules::TeamWin` scores + restarts the round (cont.31)**; CTSTrigger
+  fires its target on a valid team-gated touch (cont.34). **SLICE:** TeamWin cash + the per-player
+  team ASSIGNMENT + `ShowObjectiveOnHud` + the client objective HUD pointer are deferred.
 - **Game rules:** `CTSGameRules : CHalfLifeMultiplay` IS the live `g_pGameRules`
-  (`ts_gamerules.{h,cpp}` + `InstallGameRules`). Only `GetRandomPowerup` is real;
-  the other 40 methods inherit MP. `TSGameRules()` accessor + `TS_PWUP_*` bits.
+  (`ts_gamerules.{h,cpp}` + `InstallGameRules`). Real TS overrides now: `GetRandomPowerup`,
+  `Think` (dynamic powerups), `PlayerKilled` (death loot), `TeamWin` + round-restart,
+  `GlobalSlowMotion2`/`SetGlobalSlowMotion`, `PutPowerUp`. The team/score/objective methods
+  (`SetTeamList`, `UpdateTeamScores`, the full `RestartRound`) still inherit MP. `TSGameRules()`
+  accessor + `TS_PWUP_*` bits.
 - **Player:** no `CTSPlayer` — TS state lives on `CBasePlayer` (`player.h` member
   block `m_iPowerups`/`m_iHeldPowerup`/`m_flPowerupTime`/`m_flPowerupExpireTime`/
   `m_flHealthRegen`/`m_iKungFu`/`m_bLowGravity`) + accessors in `ts_player.{h,cpp}`.
@@ -74,15 +88,16 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   client motion-blur HUD; the on-death powerup re-drop. `CTSSlowMotion`'s exact Spawn
   trigger-setup + `m_flRadius` are inferred (// VERIFY).
 - **Weapons — runtime-verified, arsenal + all 38 types + fire-type dispatch (slice):**
-  `CTSGun` (`ts_gun.cpp`, entity `weapon_tsgun`, id 16) now holds a multi-weapon
-  **arsenal** (`m_arsenalType/Clip/Reserve[]` + active slot — a modern stand-in for the
-  original `items[]`/`m_pActiveItem`). `AddWeapon`/`SelectSlot`; `GiveTSWeapon` adds to
-  the held gun; the `tsnextweapon` command cycles; per-slot clip/reserve persist across
-  switches; ground-weapon pickups stack into the arsenal. `PrimaryAttack` dispatches by
-  **fire-type** with recovered per-weapon rate/spread: **semi** (one/press), **full-auto**
-  (held), **pump shotgun** (6 pellets), **melee** (knife 48u/katana 64u hull-trace, no
-  bullets). Full `s_weapon_info` table in `ts_weapons.{h,cpp}` (incl. `flFireRate`/
-  `flSpread`/`flRecoil`). Roster precached at map load via `CWorld::Precache`.
+  `CTSGun` (`ts_gun.cpp`, entity `weapon_tsgun`, id 16) holds a multi-weapon
+  **arsenal** (`m_arsenalType/Clip/Mode[]` + active slot — a modern stand-in for the
+  original `items[]`/`m_pActiveItem`; **ammo is per-CALIBER, `m_ammoReserve[16]`, shared**).
+  `AddWeapon`/`SelectSlot`; `GiveTSWeapon` adds to the held gun; the `tsnextweapon` command
+  cycles; per-slot clip/mode persist across switches; ground-weapon pickups stack into the
+  arsenal. `PrimaryAttack` → fire-mode gate → `Fire()` dispatches by **fire-type** with
+  recovered per-weapon rate/spread: **semi** (one/press), **full-auto** (held), **shotgun**
+  (8 pellets), **melee** (knife 48u/katana 64u hull-trace, no bullets). Full `s_weapon_info`
+  table in `ts_weapons.{h,cpp}` (incl. `flFireRate`/`flSpread`/`flRecoil`/`iCaliber`/`iPellets`/
+  `iFireModes`). Roster precached at map load via `CWorld::Precache`.
   Powerup hooks wired: inf-clip `MultiplyClips`, double-firerate halves `flFireRate`.
   **Grenade fire-type (2) throws an M61** (`CM61Grenade`, `ts_grenade.cpp`); its blast now
   throws a **`CTSShrapnel`** fragment burst (cont.29).
@@ -153,61 +168,43 @@ the `.so`, `scripts/extract_weapons.py` is the pattern (PIC string + numeric
 extraction → C table).
 
 ## Recommended next steps
-Map leaves done; the **core monolith** (`CTSGameRules ↔ CBasePlayer ↔ CTSGun ↔
-powerups`) is up to a functional-minimal **slice** — weapons deploy+fire, ground
-weapons hand out the right gun, powerups spawn + apply + **activate/expire**. To
-deepen toward faithful behaviour, in rough order:
-1. **The visible slow-motion time-dilation** (the slow-motion *state* now works —
-   `GoSlow`/`InSlow`/`GlobalSlowMotion2`/`CTSSlowMotion` are in + verified — but
-   nothing yet *reads* the slow fields to actually slow time). What's left, all
-   client-entangled: (a) apply the per-player time-dilation in movement — the client
-   `pm_shared`/prediction scales frametime by `m_flSlowMotionGo` (needs the **cl_dll**,
-   not reconstructed); (b) promote `GoSlow`/`InSlow` to **CBaseEntity** virtuals so
-   `GlobalSlowMotion2` can also slow `grenade`/`WorldGun` projectiles; (c) reconstruct
-   `SlowMotionFlow` (@0x86bb0, 1758 bytes — the powerup→`GoSlow` propagation between
-   nearby players via traceline; this is what makes an *activated slowmo powerup*
-   actually call `GoSlow`, vs just setting `m_flSlowMotionScale`) + `InterpolateSlowMotion`
-   (@0x8910c — ramp toward target by `min(rate*7,1)` when `|delta|>0.05`); (d) the
-   `cl_dll` motion-blur HUD for `gmsgTSMotionBlur`/`gmsgTSPowerUpTime` (already
-   registered + sent server-side). Also verify `CTSSlowMotion`'s inferred Spawn
-   trigger-setup + `m_flRadius` against the real engine behaviour.
-2. **Deepen the weapon arsenal** — fire-type dispatch (cont.16) + the multi-weapon
-   arsenal (cont.18, `m_arsenalType/Clip/Reserve[]` + active slot, the modern stand-in
-   for `items[]`/`m_pActiveItem`) are done; **all PrimaryAttack fire-types now handled**
-   (semi/auto/pump/melee + grenade cont.20 + akimbo cont.21). What's left of the faithful
-   engine: the **buy menu** (`CBasePlayer::BuyWeapon`/`BuyArmament` + the `buyable` ground
-   weapons + dead-state kung-fu loadout — needs a client-side menu, so server-side only for
-   now), and the visible client side (fire-mode/ammo HUD). (Done cont.18/19: the arsenal,
-   `MultiplyClips` inf-clip powerup, `DoubleFireRate` halving `flFireRate`; cont.24: real
-   8-pellet shotguns + mossberg/sawedoff fire-types — the weapon data gaps are now closed.)
-   - **Grenade-throw (fire-type 2)** — DONE (cont.20): `CM61Grenade` on the SDK `CGrenade`.
-   - **Akimbo (fire-types 4/5)** — DONE (cont.21): the `s_weapon_info` +0xc8/+0xcc pairing
-     (single↔akimbo) + `AddWeapon` in-place upgrade-on-2nd-pickup + `CTSGun::AkimboFire`.
-   - **Fire-mode/burst** — DONE (cont.22): per-slot auto/semi/burst/pump gating in
-     `PrimaryAttack`, cycled by `SwitchFireMode`/`tsfiremode` over the +0xc mode mask.
-   - **Per-caliber ammo** — DONE (cont.23): `m_ammoReserve[16]` pooled by the `s_weapon_info+0x8`
-     caliber, capped at the `compile_ammo_info` max table; Reload/MultiplyClips/CTSGroundAmmo
-     wired. The weapon engine is now functionally complete (shotgun pellets/fire-types
-     fixed cont.24); only the buy menu + the client HUD remain.
-   - **Objective entities** — DONE (cont.25, `dlls/ts_objectives.cpp`): `ts_hack`/`ts_wingiver`/
-     `ts_objective_manager`/`ts_objective_ptr` spawn + run standalone behaviour on the `tm_`
-     maps (0 Can't init). SLICE: the team-rules integration (below).
-3. **The `CTSGameRules` team subsystem** — the biggest remaining gameplay unlock (turns the
-   cont.25 objective entities into a scored team mode + unblocks the rest of the `tm_` maps:
-   `ts_briefcase`/`ts_bomb`/`ts_flag` CTF). Server-side, verifiable. **A functional `TeamWin` +
-   round-restart is in (cont.31)** — what's left to make it faithful: **team assignment**
-   (player→team; the join/class menu, then `pev->team`), `SetTeamList`/`SetTeamModelList`,
-   `UpdateTeamScores`/`InitTeamScore`, the full `RestartRound`@0x67920 (round timer + the
-   game-mode member + `InitObjectives`/`SetObjective`), the per-player CASH economy, and
-   `CTSObjective::Freeze`→`ShowObjectiveOnHud`. Once teams exist, the CTF entities + the buy
-   menu's cash both light up.
-4. **The buy menu** (server half): the armament system (`AddItemToArmament`@0x83ea4 /
-   `BuyArmament`@0x83f10 — a pending per-player loadout at CBasePlayer+0x554/+0x594) +
-   `BuyWeapon`@0x845bc (checks `CashBased()`, weapon price `s_weapon_info+0xd8`, player cash
-   `+0x540`, restrictions). The menu UI itself is cl_dll. Directly reuses GiveTSWeapon/AddAmmo.
-5. **`CTSSharedEmitter`** for `ts_emitter`/`ts_particle` (networked particle system; needs a
-   cl_dll side for the visible effect). (`CTSGameRules::PutPowerUp` dynamic spawner — DONE
-   cont.26.)
+The self-contained, server-side gameplay is done (weapons, powerups, death loop, objectives,
+map entities — see "Where things stand"). The remaining work is **two big tracks**, both larger
+than a single self-contained increment. Pick one deliberately; expect multiple commits.
+
+**Track A — the `CTSGameRules` team subsystem + cash (server-side, the biggest gameplay unlock).**
+A functional `TeamWin` + round-restart already exists (cont.31). To make team mode real:
+1. **Team assignment** — the keystone. Players need `pev->team` set. Faithful flow is the
+   client join/class menu; the server-only substitute is auto-balance on spawn (override
+   `CTSGameRules::PlayerSpawn` → assign the team with fewest players). `CTSGameRules::GetTeamIndex`/
+   `SetTeamList`/`SetTeamModelList` mirror `CHalfLifeTeamplay`. Verifiable: bots get balanced teams.
+2. **The cash economy** — player cash (`CBasePlayer+0x540`), `CashBased()` mode, per-weapon price
+   (`s_weapon_info+0xd8`). Then the **buy menu** server half: the armament system
+   (`AddItemToArmament`@0x83ea4 / `BuyArmament`@0x83f10 — a pending loadout at `CBasePlayer+0x554/
+   +0x594`) + `BuyWeapon`@0x845bc. Directly reuses `GiveTSWeapon`/`AddAmmo`. (Menu UI is cl_dll.)
+3. **Team scores + the full round** — `UpdateTeamScores`/`InitTeamScore`, the faithful
+   `RestartRound`@0x67920 (round timer + game-mode member + `InitObjectives`/`SetObjective`),
+   `CTSObjective::Freeze`→`ShowObjectiveOnHud`.
+4. Once teams exist, the **CTF/escape entities light up** (all need teams): `CTSFlag` (13),
+   `CTSBriefcase` (7), `CTSBomb` (10), `CTSTeamEscape` (8), `CVipEscape` (3), `CTSSellZone` (3,
+   needs cash), `CTSScoreGiver` (3). Build them like the cont.25 objectives.
+
+**Track B — stand up a cl_dll reconstruction (there is NONE yet — this is the other half of TS).**
+The server already registers + sends the user messages; the client just isn't built. This unlocks:
+- The **visible slow-motion time-dilation** — the server state is complete (`GoSlow`/`InSlow`/
+  `CTSSlowMotionPoint`/`GlobalSlowMotion2`), but nothing *reads* the slow fields to scale time. The
+  client `pm_shared`/prediction must scale frametime by `m_flSlowMotionGo`; also the motion-blur HUD
+  (`gmsgTSMotionBlur`/`gmsgTSPowerUpTime`), the ammo/fire-mode HUDs, the objective HUD pointer.
+- The **particle system**: `CTSSharedEmitter` (12) + `CTSEmitter`/`CTSParticle` (the `ts_emitter`/
+  `ts_particle` Can't-inits, ~32 placements — the most common remaining) + `CTSWind` (snow), all via
+  `gmsgTSParticleSystem`. Needs the cl_dll renderer.
+- `CTSStunt` (25 — the signature acrobatics: dives/rolls/wall-flips) is movement prediction →
+  client-entangled; `CTSAnimation` (14) similar. `reference/client.dll` (~1,013 exports) is the
+  spine — see CLAUDE.md §2.
+
+**Small server-side leftovers** (optional, low value): `CTSPlayerAmount` (player-count relay),
+`CTSScoreGiver`, `CTSSuperJump`, `CInfoBreakable`, `CBulletManager`; the per-weapon leaf classes
+(`CTSPistolAmmo` etc.) are redundant with the unified `CTSGun`/`ts_weapons` table.
 
 Loop per class: decompile → write `dlls/*.cpp` → add to `dlls/CMakeLists.txt` →
 `scripts/build.sh amd64` → `cp` into the rig → boot a map that uses it (frequency
