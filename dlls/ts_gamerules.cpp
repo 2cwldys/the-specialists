@@ -43,6 +43,8 @@ int CTSGameRules::GetRandomPowerup(int mask)
 
 // Defined in ts_powerup.cpp — create a temporary powerup of `type` at `vecOrigin`.
 CBaseEntity *TSCreatePowerUpAt(int type, const Vector &vecOrigin);
+// Defined in ts_flag.cpp — drop a carried CTF flag on death.
+void TSDropFlag(CBasePlayer *pPlayer);
 // Defined in ts_corpse.cpp / ts_gun.cpp — the TS death effects.
 CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime);
 void TSDropWeaponsOnDeath(CBasePlayer *pPlayer);
@@ -53,6 +55,7 @@ void TSDropAmmoOnDeath(CBasePlayer *pPlayer);
 void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor)
 {
 	CHalfLifeMultiplay::PlayerKilled(pVictim, pKiller, pInflictor);
+	TSDropFlag(pVictim); // CTF: a killed carrier drops the flag where they fell
 	TSDropWeaponsOnDeath(pVictim);
 	TSDropAmmoOnDeath(pVictim);
 	TSCreateDeadCorpse(pVictim, 15.0f);

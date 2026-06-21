@@ -573,6 +573,12 @@ void ClientCommand(edict_t* pEntity)
 	{
 		player->ResetArmament();
 	}
+	else if (FStrEq(pcmd, "tsspawnflag")) // TS CTF: seed a team flag at the player. `tsspawnflag <team>`
+	{
+		extern CBaseEntity *TSCreateFlag(int team, const Vector &vecBase);
+		int team = CMD_ARGC() > 1 ? atoi(CMD_ARGV(1)) : -1;
+		TSCreateFlag(team, player->pev->origin);
+	}
 	else if (FStrEq(pcmd, "fullupdate"))
 	{
 		player->ForceClientDllUpdate();

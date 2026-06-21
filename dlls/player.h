@@ -382,6 +382,8 @@ public:
 	struct s_armament_item { int type = 0; int count = 0; bool gift = false; };
 	s_armament_item m_armament[32];   // 0x594 — pending weapon loadout (stride 0xc ×32)
 
+	EHANDLE m_hCarriedFlag;           // the CTSFlag this player is carrying (CTF), if any
+
 	int  GiveCash(int amount);                            // add cash (clamped 0..30000)
 	void ResetArmament();                                 // clear the pending loadout
 	void AddItemToArmament(int type, int count, bool gift); // queue a weapon into the loadout

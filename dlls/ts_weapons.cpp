@@ -186,9 +186,13 @@ void PrecacheAllTSWeapons()
 	}
 
 	// the grenade's shrapnel fragments (CM61Grenade detonation) + the death-dropped ammo pack
-	// — precached here so a mid-game spawn (detonation / death) doesn't precache after spawn.
+	// + the CTF flag (CTSFlag, runtime-created) — precached here so a mid-game spawn
+	// (detonation / death / flag create) doesn't precache after spawn.
 	PRECACHE_MODEL("models/shrapnel.mdl");
 	PRECACHE_MODEL("models/ammopack.mdl");
+	PRECACHE_MODEL("models/briefcase.mdl");
+	PRECACHE_SOUND("items/gunpickup2.wav");
+	PRECACHE_SOUND("items/weapondrop1.wav");
 
 	// weapon event scripts (CTSGun::Precache @0x80660) — must be precached at map
 	// load so a runtime weapon give doesn't precache an event mid-game.
