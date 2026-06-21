@@ -114,6 +114,8 @@ recoverable directly).
 
 | `CTSFlag` | `dlls/ts_flag.cpp` | ✅✅ **runtime-verified (cont.38, synthetic)** — the CTF flag (`ts_flag`, briefcase.mdl, runtime-created), unblocked by team assignment. A team-owned 3-state flag (AT_BASE/CARRIED/DROPPED): an enemy/neutral player touches → carries it (follows them, drops if they die); a carrier touching their own flag at base → capture (return + score via TeamWin); a killed carrier drops it (PlayerKilled `TSDropFlag`), auto-returns after 30s. `tsspawnflag <team>` console-seeds bases (stand-in for the unbuilt CTSBriefcase). Verified on tm_avana: pickup→capture(score 0→1)→drop. SLICE: no carry-slow/CTSPhysicObject, capture scores via TeamWin (also restarts round), console-seeded, no flag HUD (cl_dll). |
 
+| `CTSBriefcase` | `dlls/ts_briefcase.cpp` | ✅✅ **runtime-verified (cont.39, real map)** — the CTF base + capture zone (`ts_briefcase`, brush, FGD ownerteam 1..4 → 0-based). Seeds its team's CTSFlag at base (FlagFall) + captures a flag-carrier who reaches their own briefcase (CaptureTouch → return + score). Pairs with cont.38 CTSFlag; replaces its `tsspawnflag` console stand-in. **Verified on `ctb_deadheat` (a real stock CTB map):** 2 briefcases each seed their flag at base (team 0 + team 1), 0 Can't init, no crash. SLICE: gmsgTSHaveFlag HUD server-only, capture scores via TeamWin (restarts round), no Save/Restore. |
+
 Everything else in the table above is **not started**. Full history in the
 Serena ledger (`.serena/memories/ledger.md`).
 

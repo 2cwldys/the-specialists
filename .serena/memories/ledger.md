@@ -5,6 +5,41 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 39) — CTSBriefcase: the CTF base/capture zone (seeds CTSFlag on a real map)
+
+**Done — `dlls/ts_briefcase.cpp` (ts_briefcase).** The map-placed CTF objective that pairs with the
+cont.38 CTSFlag: each team's briefcase seeds its flag at base and is the capture zone. Replaces
+cont.38's `tsspawnflag` console stand-in — **first CTF entity verified on a real stock map**
+(ctb_deadheat). FGD-backed `@SolidClass` (brush), ownerteam 1..4.
+
+RE (recovered/briefcase/CTSBriefcase.c): ctor @0x8d788 (per-briefcase flag id s_nextFlagID 1..15,
+team @+0x68 = -1, s_flag_status @+0x90), KeyValue @0x8d7f4 (contents/message/ownerteam), Spawn
+@0x8d88c (brush SET_MODEL + SetSize), FlagFall @0x8da00 (CreateFlag(0, &s_flag_status) at the brush
+centre + gmsgTSHaveFlag HUD + WaitThink), CanInteract @0x8db48 (team @+0x68 == player team),
+CaptureTouch @0x8db9c (a living HaveFlag player who CanInteract → capture the carried flag).
+Functional reconstruction onto the cont.38 CTSFlag:
+- `CTSBriefcase : CBaseEntity` (brush SOLID_TRIGGER). KeyValue ownerteam is **1-based** in the FGD →
+  stored 0-based (`m_iOwnerTeam = atoi-1`) to match pev->team / the objective gating; + contents +
+  message (capture announce).
+- Spawn: brush model + SOLID_TRIGGER; SetTouch(CaptureTouch); SetThink(FlagFall) @+0.5s.
+- FlagFall: `TSCreateFlag(m_iOwnerTeam, Center())` — seeds this team's carriable flag at base (delayed
+  so the runtime SET_MODEL follows the precache pass), then idle WaitThink.
+- CaptureTouch: a living player carrying a flag (`TSPlayerHasFlag`) at THEIR own briefcase
+  (`CanInteract`) → `TSReturnCarriedFlag` (return the carried flag) + `TeamWin(team)` + announce
+  pev->message. (New shared helpers `TSPlayerHasFlag`/`TSReturnCarriedFlag` added to ts_flag.cpp.)
+
+**Verified RUNTIME (rcbot, ctb_deadheat — a REAL stock CTB map, temp probe reverted):** 2 briefcases
+spawn (0 Can't init, was 2), each FlagFall-seeds its flag at base with the correct 0-based team —
+team 0 (Specialists) @(128 2048 192) + team 1 (Mercenaries) @(-128 -2048 192) (FGD ownerteam 1/2 →
+0/1). Capture reuses the cont.38-verified TSReturnCarriedFlag + TeamWin. No crash; clean regression
+(ctb_deadheat + tm_avana 0 Can't init, ts_wyndham only the known ts_emitter/ts_particle).
+
+**SLICE:** the per-flag network id + gmsgTSHaveFlag HUD is server-only (no cl_dll flag indicator);
+capture scores via TeamWin (which restarts the round — faithfully a capture awards cash + a HUD
+without ending the round); no s_flag_status / contents drop; Save/Restore not wired (FCAP_DONT_SAVE).
+
+---
+
 ## 2026-06-21 (cont. 38) — CTSFlag: the CTF flag (carry / capture / drop), unblocked by teams
 
 **Done — `dlls/ts_flag.cpp` (ts_flag).** The first CTF entity, now possible because team
