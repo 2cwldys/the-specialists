@@ -5,6 +5,31 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 34) — CTSTrigger (TS brush trigger; team-gated, recheck delay)
+
+**Done — `CTSTrigger` in `dlls/ts_objectives.cpp` (ts_trigger).** A reusable TS brush trigger.
+RE (from the .so): Spawn @0x709b8 (brush SET_MODEL), WaitTouch @0x70ad8 — cooldown gate (param+0x41),
+living-player check, attacker-team gate (GetTeamIndex vs +0x42), "Flag Carrier Only" spawnflag (0x1a0
+& 8 → HaveFlag), FireTargets(target) + a sprintf'd HUD message, re-arm at time + max(0.5, nextcheck).
+Functional reconstruction as `CTSTrigger : CTSObjective` (reuses cont.25's attackerteam + CanInteract):
+KeyValue nextcheck (+ attackerteam); WaitTouch: cooldown → CanInteract(pev->team) → FireTargets +
+TSHudMessageAll → arm next-allowed.
+
+**Verified RUNTIME (rcbot, ts_wyndham, SYNTHETIC — 0 stock placements):** a touch fired + armed the
+cooldown (nextAllowed → t+2); an immediate re-touch was blocked. Factory `ts_trigger` exported; no
+crash; clean regression (tm_avana, 0 Can't init).
+
+**SLICE:** the "Flag Carrier Only" spawnflag needs the CTF flag system (not built) → ignored; the team
+gate uses pev->team (no team ASSIGNMENT yet).
+
+**Session status:** ~25 TS classes reconstructed (the self-contained server-side gameplay is
+essentially complete). Remaining = the big/client-entangled subsystems: faithful team mode + cash
+(team assignment, SetTeamList, scores, the full RestartRound), the buy menu, the CTF entities
+(CTSFlag/CTSBriefcase/CTSBomb/CTSTeamEscape/CVipEscape — need teams), CTSStunt (movement, client),
+and the cl_dll side (visible time-dilation, particles CTSSharedEmitter/CTSEmitter/CTSParticle, HUDs).
+
+---
+
 ## 2026-06-21 (cont. 33) — CTSSlowMotionPoint (the slow-motion bubble; powerup→GoSlow link)
 
 **Done — `dlls/ts_slowmotionpoint.cpp`.** Un-SLICEs the deferred SlowMotionFlow link from
