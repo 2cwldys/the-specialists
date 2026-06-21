@@ -185,9 +185,10 @@ void PrecacheAllTSWeapons()
 		if (wi->pszFireSound)   PRECACHE_SOUND((char *)wi->pszFireSound);
 	}
 
-	// the grenade's shrapnel fragments (CM61Grenade detonation) — precached here so the
-	// burst at a mid-game detonation doesn't precache a model after spawn.
+	// the grenade's shrapnel fragments (CM61Grenade detonation) + the death-dropped ammo pack
+	// — precached here so a mid-game spawn (detonation / death) doesn't precache after spawn.
 	PRECACHE_MODEL("models/shrapnel.mdl");
+	PRECACHE_MODEL("models/ammopack.mdl");
 
 	// weapon event scripts (CTSGun::Precache @0x80660) — must be precached at map
 	// load so a runtime weapon give doesn't precache an event mid-game.

@@ -642,6 +642,16 @@ void TSDropWeaponsOnDeath(CBasePlayer *pPlayer)
 	}
 }
 
+// On death, drop the player's per-caliber ammo reserve as a single CTSAmmoPack.
+void TSDropAmmoOnDeath(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (!pGun)
+		return;
+	Vector vecVel(RANDOM_FLOAT(-40, 40), RANDOM_FLOAT(-40, 40), RANDOM_FLOAT(80, 120));
+	TSCreateAmmoPack(pPlayer->pev, pGun->m_ammoReserve, pPlayer->pev->origin + Vector(0, 0, 20), vecVel);
+}
+
 // Pick up a dropped weapon of `type` carrying `clip` loaded rounds (CTSWorldGun pickup):
 // add it to the arsenal, then restore the carried clip on that slot.
 void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip)
