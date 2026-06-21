@@ -5,6 +5,41 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 37) — CheckDeads: team-round elimination win condition
+
+**Done — `CTSGameRules::CheckDeads`/`CallCheckDeads` (ts_gamerules.{h,cpp}).** The automatic team-
+round win condition: a round ends + the surviving team wins when the other team is wiped out. Builds
+on cont.31's TeamWin/round-restart + cont.35's team assignment — team mode now RESOLVES rounds on its
+own (independent of the objective entities, which remain an alternate win path; both call TeamWin).
+
+RE (recovered/server/CTSGameRules.c): CheckDeads @0x79c00 (1335 bytes), CallCheckDeads @0x79bc0.
+CallCheckDeads: if no restart pending (+0xc==0) schedule CheckDeads at time+1 (+0x5880). CheckDeads
+(team branch, game-mode 2/3): count alive players per team into local_3c[4] via GetTeamIndex(TeamID());
+mode-3 (CTB) fires objective targets; else winner = the team with survivors — local_3c[1]<1 → team 0
+wins, local_3c[0]>0 → return (contested), else team 1 wins; nobody alive → team 2 (draw); then
+TeamWin(winner,0,1). Functional reconstruction:
+- `CallCheckDeads()`: if `m_flRoundRestart==0 && m_flCheckDeads==0` → `m_flCheckDeads = time+1`.
+- `CheckDeads()`: team mode + no restart pending; count alive/present per team (general over
+  m_numTeams); require ≥2 players over ≥2 teams (so warmup/one-sided doesn't insta-win); `teamsAlive>=2`
+  → return (contested); `==1` → TeamWin(lastAliveTeam); `0` → TeamWin(2)=draw.
+- `Think`: fire CheckDeads when `m_flCheckDeads` elapses (before the restart check).
+- `PlayerKilled`: `CallCheckDeads()` after the death loot.
+- `TeamWin` refined: guard against a double-win in a round (`m_flRoundRestart!=0` → return); team 0/1
+  bump m_teamScore + announce `GetIndexedTeamName`, anything else = a draw announce (no score).
+
+**Verified RUNTIME (rcbot, tm_avana, temp probes reverted):** balanced 1v1 → force-killed the
+Mercenary → 1s later CheckDeads (present[1,1] alive[1,0] teamsAlive=1) → TeamWin(0): Specialists
+score [1,0], restart scheduled +3s → round restarted (respawn all + objectives re-armed) → next round
+2v2 = contested (no premature win). No crash; clean regression (tm_avana 0 Can't init, ts_wyndham only
+the known ts_emitter/ts_particle).
+
+**SLICE:** no just-respawned grace window (the .so counts +0x770>=0 as still-alive; we use IsAlive());
+mode-3 (CTB) objective-target firing not reconstructed (treated as plain elimination); no round timer
+(gmsgTSRoundTime) or last-man-standing DM mode (g_lastManStanding branch); TeamWin still lacks the
+faithful UpdateTeamScores/InitTeamScore + the full RestartRound@0x67920 (round timer + game-mode member).
+
+---
+
 ## 2026-06-21 (cont. 36) — Cash + buy/armament system (free loadout; CashBased is OFF)
 
 **Done — `dlls/ts_buy.cpp`: the TS cash + buy/armament loadout (Track A step 2).** Reuses the

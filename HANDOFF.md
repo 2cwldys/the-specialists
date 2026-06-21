@@ -13,7 +13,7 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-21, through cont.36)
+## Where things stand (2026-06-21, through cont.37)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`** → **run in-engine** (with bots for player-needing code) →
 **gdb** any crash. Everything below is committed (`git log`); `recovered/` is
@@ -44,7 +44,8 @@ time-dilation, the particle system, stunts, HUDs) — there is **no cl_dll recon
   **SLICE:** TeamWin cash + `ShowObjectiveOnHud` + the client objective HUD pointer are deferred.
 - **Game rules:** `CTSGameRules : CHalfLifeMultiplay` IS the live `g_pGameRules`
   (`ts_gamerules.{h,cpp}` + `InstallGameRules`). Real TS overrides now: `GetRandomPowerup`,
-  `Think` (dynamic powerups), `PlayerKilled` (death loot), `TeamWin` + round-restart,
+  `Think` (dynamic powerups), `PlayerKilled` (death loot + `CallCheckDeads`), `TeamWin` +
+  round-restart, `CheckDeads`/`CallCheckDeads` (cont.37 — team-round elimination win condition),
   `GlobalSlowMotion2`/`SetGlobalSlowMotion`, `PutPowerUp`. **Team subsystem (cont.35,
   `dlls/ts_teams.cpp`):** `IsTeamMode`/`IsTeamplay` (team mode iff a `ts_objective_manager` is
   present — the same DM proxy cont.26 used), `InitTeams`/`RecountTeams`/`GetTeamIndex`/
@@ -194,9 +195,13 @@ finish team mode:
    tm_avana + DM. **Remaining buy SLICE:** the cl_dll buy menu, the category weapon restriction
    (`IsRestrictedWeapon` over CTSMapGlobals — default 0x1f allows all), starting/win cash, and the
    dead price field (`s_weapon_info+0xd8`, only live if a cash economy is ever turned on).
-3. **Team scores + the full round** — `UpdateTeamScores`/`InitTeamScore`, the faithful
-   `RestartRound`@0x67920 (round timer + game-mode member + `InitObjectives`/`SetObjective`),
-   `CTSObjective::Freeze`→`ShowObjectiveOnHud`.
+3. **Team scores + the full round** — ✅ the elimination win condition is DONE (cont.37):
+   `CheckDeads`/`CallCheckDeads` (`ts_gamerules.cpp`) end a team round when one team is wiped out →
+   `TeamWin` scores the survivors + restarts (verified: kill a team on tm_avana → other team scores +
+   round restarts). **Still TODO:** the faithful `UpdateTeamScores`/`InitTeamScore` (vs the current
+   `m_teamScore[]`), the round timer (`gmsgTSRoundTime`) + the full `RestartRound`@0x67920 (game-mode
+   member + `InitObjectives`/`SetObjective`), `CTSObjective::Freeze`→`ShowObjectiveOnHud`, and the
+   just-respawned grace + the CTB (mode-3) and last-man-standing branches in CheckDeads.
 4. Once teams exist, the **CTF/escape entities light up** (all need teams): `CTSFlag` (13),
    `CTSBriefcase` (7), `CTSBomb` (10), `CTSTeamEscape` (8), `CVipEscape` (3), `CTSSellZone` (3,
    needs cash), `CTSScoreGiver` (3). Build them like the cont.25 objectives.
