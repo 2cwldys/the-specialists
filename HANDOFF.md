@@ -21,8 +21,10 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
 
 - **Map entities — runtime-verified:** `CTSModel` (108 on `ts_kissmeyerbasic`),
   `CTSMapGlobals` (weapon-restriction on `ts_trinityfall`), `CTSGroundWeapon`
-  (`ts_wyndham` pickups), `CTSPowerUp` (22 on `ts_theatre`, bots pick up). Built +
-  factory-only (no stock map hits them): `CTSFog`, `CTSTimer`, `CTSCustomTarget`.
+  (`ts_wyndham` pickups), `CTSPowerUp` (22 on `ts_theatre`, bots pick up),
+  `CTSGroundAmmo` (`ts_groundammo` refill pack, 6 on `ts_supertimor_d3`),
+  `CTSSlowMotion` (`ts_slowmotion` zones, 4 on `ts_wyndham`). Built + factory-only
+  (no stock map hits them): `CTSFog`, `CTSTimer`, `CTSCustomTarget`.
 - **Game rules:** `CTSGameRules : CHalfLifeMultiplay` IS the live `g_pGameRules`
   (`ts_gamerules.{h,cpp}` + `InstallGameRules`). Only `GetRandomPowerup` is real;
   the other 40 methods inherit MP. `TSGameRules()` accessor + `TS_PWUP_*` bits.
