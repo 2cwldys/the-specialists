@@ -106,6 +106,14 @@ target_sources(hl PRIVATE
 	tripmine.cpp
 	ts_utils.cpp
 	ts_timer.cpp
+	ts_customtarget.cpp
+	ts_model.cpp
+	ts_fog.cpp
+	ts_mapglobals.cpp
+	ts_gamerules.cpp
+	ts_player.cpp
+	ts_gun.cpp
+	ts_weapons.cpp
 	turret.cpp
 	UserMessages.cpp
 	util.cpp

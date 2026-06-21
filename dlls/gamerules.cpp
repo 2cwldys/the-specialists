@@ -26,6 +26,7 @@
 #include "skill.h"
 #include "game.h"
 #include "UserMessages.h"
+#include "ts_gamerules.h"
 
 extern edict_t* EntSelectSpawnPoint(CBaseEntity* pPlayer);
 
@@ -391,24 +392,10 @@ CGameRules* InstallGameRules()
 	}
 	else
 	{
-		if (teamplay.value > 0)
-		{
-			// teamplay
-
-			g_teamplay = true;
-			return new CHalfLifeTeamplay;
-		}
-		if ((int)gpGlobals->deathmatch == 1)
-		{
-			// vanilla deathmatch
-			g_teamplay = false;
-			return new CHalfLifeMultiplay;
-		}
-		else
-		{
-			// vanilla deathmatch??
-			g_teamplay = false;
-			return new CHalfLifeMultiplay;
-		}
+		// mod-ts: The Specialists is multiplayer-only and always uses its own
+		// rules (CTSGameRules handles teams itself; for now it derives team/round
+		// behaviour from CHalfLifeMultiplay until that logic is reconstructed).
+		g_teamplay = (teamplay.value > 0);
+		return new CTSGameRules;
 	}
 }

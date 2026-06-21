@@ -15,15 +15,27 @@ ledger + git log are ground truth; fix the docs.
 
 ## Where things stand (2026-06-20)
 - Pipeline is fully working: decompile → recover typed prototypes → write modern
-  C++ → **build into `hl.so`** → verify the entity factory is exported.
-- **Built + verified:** `CTSTimer` (`dlls/ts_timer.cpp`) and the shared helper
-  `TSHudMessageAll` (`dlls/ts_utils.{h,cpp}`). `nm -D build-amd64/dlls/hl.so`
-  shows `T ts_timer`. Runtime/behaviour in-engine is **not** yet tested.
+  C++ → **build into `hl.so`** → verify factory export → **run in-engine**.
+- **Runtime-verified in-engine:** `CTSModel` (108 `ts_model` spawned on
+  `ts_kissmeyerbasic`) and `CTSMapGlobals` (weapon-restriction correct on
+  `ts_trinityfall`). Test-rig section in `reference/RECONSTRUCTION.md`.
+- **Foundation installed:** `CTSGameRules : CHalfLifeMultiplay` is now the live
+  `g_pGameRules` (`ts_gamerules.{h,cpp}` + `InstallGameRules`); `GetRandomPowerup`
+  done, rest inherits MP for now. `CBasePlayer` TS member block + powerup
+  accessors (`player.h` + `ts_player.{h,cpp}`) — no regression. `TSHudMessageAll`
+  + `TSHudMessageOne` in `ts_utils`.
+- **Built + factory-verified** (no stock map exercises them yet): `CTSFog`,
+  `CTSTimer`, `CTSCustomTarget`.
 - **Draft, not in build:** `CTSSlowMotion` (`dlls/ts_slowmotion.cpp`) — blocked on
   `CTSGameRules::GlobalSlowMotion2` + the TS player slow-motion virtuals, and
   still uses int-return virtual sigs (reconcile to modern `bool` when you wire it).
 - Decision locked: **functional fidelity, NOT byte/ABI match** (CLAUDE.md mission
   explains why — gcc2 old-ABI original vs Itanium modern build).
+- **WATCH OUT:** the `recovered/` decompiles can be **truncated** by Ghidra
+  noreturn artifacts (it cut `CTSModel::Spawn` off at `UTIL_SetSize`, hiding the
+  whole cycler tail). Cross-check the raw disassembly (`objdump -d` at the
+  symbol's real `.so` address — note Ghidra adds a 0x10000 base vs `nm`) when a
+  decompile looks suspiciously short.
 
 ## The loop (commands that work on this box)
 ```bash
@@ -44,13 +56,27 @@ Tools are on PATH: `Ghidra`/`analyzeHeadless` (12.1.2, `~/Tools/ghidra`), `rz-*`
 `hlds64-buildchain:debian10` is already built.
 
 ## Recommended next steps
-1. **`CTSCustomTarget`** — mostly self-contained (uses `FireTargets` + the now-built
-   `TSHudMessageAll`); already decompiled in `recovered/server/`. Good next class.
-2. Trivial ones to clear quickly: `CTSModel`, `CTSFog` (self-removing stub).
-3. Then the foundation: **`CTSGameRules`** (41 funcs) + the TS player extensions
-   (slow-motion virtuals). These unblock `CTSSlowMotion`'s build and most weapons.
-4. Once a handful of entities are in, do the first **runtime test**: assemble the
-   `ts/` game dir, run the server, spawn an entity, confirm behaviour.
+**The trivial standalone entities are done. The foundation is now the critical
+path** — dep-scanning showed every remaining high-frequency map entity is blocked:
+`CTSPowerUp` (328) needs `CTSGameRules::GetRandomPowerup` + `TSGameRules` global +
+`PlayerAddPowerUp` (TS player) + `TSHudMessageOne`; `CTSEmitter`/`CTSParticle`
+need the networked `CTSSharedEmitter`; `CTSSlowMotion` needs
+`CTSGameRules::GlobalSlowMotion2` + TS player virtuals. (Details + the dep table
+in `reference/RECONSTRUCTION.md`.)
+
+CTSGameRules skeleton + the CBasePlayer member block/accessors are now in (done).
+The core is a monolith — `CTSGameRules ↔ CBasePlayer ↔ CTSGun ↔ powerups` — so:
+1. **`CTSGun`** (44 funcs, biggest class) — the weapon stack. `PlayerAddPowerUp`
+   (decoded @0x87bc8) needs `CTSGun::MultiplyClips` + `CBasePlayer::PickUpWeapon`
+   for the grenade/infinite-clip powerups, so CTSGun gates a full `CTSPowerUp`.
+2. Then `PlayerAddPowerUp` (full) + `PutPowerUp` → **`CTSPowerUp`** (clears the
+   last `Can't init` on the test map; 328 placements).
+3. `GlobalSlowMotion2`/`SetGlobalSlowMotion` → **`CTSSlowMotion`**; then
+   `CTSSharedEmitter` (emitter/particle, also needs a client.dll side).
+
+After each class: rebuild, `cp hl.so` into the rig, boot a map that uses it, grep
+the log for `Can't init <class>` disappearing (+ a temp `ALERT` probe for positive
+proof). Maps per class: frequency table in `reference/RECONSTRUCTION.md`.
 
 ## Live gotchas (don't re-learn these)
 - **gcc2 vs modern ABI**: original has vptr@0x60, gnu-v2 mangling, cdecl-this,

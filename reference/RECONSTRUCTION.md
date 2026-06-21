@@ -86,12 +86,85 @@ recoverable directly).
 
 | Class | File | State |
 |---|---|---|
-| `CTSTimer` | `dlls/ts_timer.cpp` | ✅ built into hl.so, `ts_timer` factory exported (runtime untested) |
-| `TSHudMessageAll` (helper) | `dlls/ts_utils.cpp` | ✅ built (shared HUD broadcast) |
+| `CTSModel` | `dlls/ts_model.cpp` | ✅✅ **runtime-verified** — 108 `ts_model` spawned in-engine on `ts_kissmeyerbasic`, no crash (cycler-style animated studio prop) |
+| `CTSMapGlobals` | `dlls/ts_mapglobals.cpp` | ✅✅ **runtime-verified** — spawned on `ts_trinityfall`; weapon-restriction `0x1f ^ spawnflags` computed correctly in-engine (Save/Restore deferred — MP has no level transitions) |
+| `CTSFog` | `dlls/ts_fog.cpp` | ✅ built into hl.so, `ts_fog` factory exported (self-removing stub; not exercised by a map yet) |
+| `CTSTimer` | `dlls/ts_timer.cpp` | ✅ built into hl.so, `ts_timer` factory exported (no stock map uses it → runtime untested) |
+| `CTSCustomTarget` | `dlls/ts_customtarget.cpp` | ✅ built into hl.so, `ts_customtarget` factory exported (no stock map uses it → runtime untested) |
+| `TSHudMessageAll`/`TSHudMessageOne` (helpers) | `dlls/ts_utils.cpp` | ✅ built (HUD broadcast / per-player) |
+| CBasePlayer TS extensions | `dlls/player.h`, `dlls/ts_player.{h,cpp}` | 🟡 member block (`m_iPowerups`/`m_iKungFu`/…) + accessors (`SlowMotion`/`InfiniteClips`/`SlowPause`/`DoubleFireRate`/`KungFu`) built; no regression (server runs). Powerup application (`PlayerAddPowerUp`) deferred — needs `CTSGun`. |
+| Weapon data layer | `dlls/ts_weapons.{h,cpp}` | 🟡 `tsweapon_t` enum (38, real order) + `s_weapon_info` + `get_weapon_info`; beretta entry filled. Built. |
+| `CTSGun` | `dlls/ts_gun.cpp` | ✅✅ **runtime-verified** — `weapon_tsgun` deployed + fired by rcbot bots in-engine (35 shots, 4 bots, beretta dmg 29, no crash). Faithful `GetItemInfo`/`Spawn`/`Precache`; **functional-minimal** beretta `Deploy`/`PrimaryAttack` (// SLICE, stock SDK mechanics). Faithful dual-wield items-array/akimbo/firemode/networking engine still TODO. |
+| `CTSGameRules` | `dlls/ts_gamerules.{h,cpp}` | 🟡 **skeleton installed + runtime-verified** — `CTSGameRules : CHalfLifeMultiplay` is the live `g_pGameRules` (via `InstallGameRules`); `GetRandomPowerup` done; `TSGameRules()` accessor. The other 40 funcs (Think/teams/objectives/votes/slow-motion) inherit `CHalfLifeMultiplay` for now, filled in incrementally. |
 | `CTSSlowMotion` | `dlls/ts_slowmotion.cpp` | 📝 draft, NOT in build — deps: `CTSGameRules::GlobalSlowMotion2`, TS player slow-motion virtuals |
 
 Everything else in the table above is **not started**. Full history in the
 Serena ledger (`.serena/memories/ledger.md`).
+
+## Entity frequency in the 60 stock TS maps
+
+How often each `ts_*` entity actually appears across `~/Containers/hlds/mods/ts/maps/*.bsp`
+(map-content RE priority — reconstruct high-count ones first so a loaded map
+actually exercises them):
+
+| classname | placements | class | status |
+|---|---:|---|---|
+| `ts_model` | 858 | `CTSModel` | ✅✅ runtime-verified |
+| `ts_powerup` | 328 | `CTSPowerUp` | 🔒 blocked on foundation (see below) |
+| `ts_groundweapon` | 65 | `CTSGroundWeapon` | 🔒 likely blocked (weapon stack) |
+| `ts_emitter` | 19 | `CTSEmitter` | 🔒 needs `CTSSharedEmitter` (networked particle system) |
+| `ts_groundammo` | 16 | `CTSGroundAmmo` | 🔒 likely blocked (pickup/gamerules) |
+| `ts_particle` | 13 | `CTSParticle` | 🔒 needs `CTSSharedEmitter` |
+| `ts_slowmotion` | 11 | `CTSSlowMotion` | 📝 draft (blocked on `CTSGameRules`) |
+| `ts_mapglobals` | 9 | `CTSMapGlobals` | ✅✅ runtime-verified |
+| `ts_wingiver` | 6 | `CTSWinGiver` | — |
+| `ts_hack` | 5 | `CTSHack` | — |
+| `ts_sellzone`/`ts_objective_*`/`ts_briefcase` | 2 each | … | — |
+| `ts_wind`/`ts_fog` | 1 each | `CTSWind`/`CTSFog` | `CTSFog` ✅ built |
+
+`ts_timer`/`ts_customtarget` appear in **0** stock maps (niche mapper relays) —
+build-verified only; need a hand-made test map to exercise at runtime.
+
+### Dependency wall (2026-06-20): foundation is now the critical path
+
+The cheap self-contained entities are done. Dep-scanning the remaining
+high-frequency classes' decompiles shows they all need foundation systems that
+don't exist yet:
+- `CTSPowerUp` (328) → `CTSGameRules::GetRandomPowerup` + `TSGameRules` global,
+  `PlayerAddPowerUp(CBasePlayer*, …)` (TS player code), and a `TSHudMessageOne`
+  helper (one-player variant of the built `TSHudMessageAll`).
+- `CTSEmitter` (19) / `CTSParticle` (13) → `CTSSharedEmitter` (a networked
+  particle/emitter manager: `AddEmitter`/`SV_UpdateClient`/… — needs a user
+  message + the client.dll side).
+- `CTSSlowMotion` (11) → `CTSGameRules::GlobalSlowMotion2` + TS player virtuals.
+
+So the next real unblock is the **foundation**: `CTSGameRules` (41 funcs) + the
+TS player extensions. `InitWeaponRestriction()` = `return 0x1f`;
+`WeaponRestrictionByID(int)` is a small switch (in the .so near 0x66ad8) — both
+part of the weapon-restriction subsystem the game rules consume.
+
+## In-engine test rig (runtime verification)
+
+Real behaviour testing now works against a local 64-bit ReHLDS (the QUIC build):
+
+```bash
+RIG=~/Containers/hlds/hlds-linux64-test          # 64-bit ReHLDS + valve content
+# ts/ game dir = symlinks to original content (~/Containers/hlds/mods/ts) +
+#   ts/dlls/hl.so = OUR build, + a liblist.gam whose gamedll_linux="dlls/hl.so"
+#   (bypasses metamod/mp.dll). Set up once; just recopy hl.so after a rebuild:
+cp ~/Projects/goldsrc.net/mod-ts/build-amd64/dlls/hl.so $RIG/ts/dlls/hl.so
+
+cd $RIG && LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH \
+  timeout -s INT 30 ./hlds_linux -game ts -condebug +developer 1 \
+  +sv_lan 1 +maxplayers 4 +map ts_kissmeyerbasic > /tmp/ts_run.log 2>&1
+```
+- Use **SIGINT** (`timeout -s INT`), NOT SIGKILL — KILL loses buffered stdout.
+- Map-load banners are suppressed; proof signals: `GAME SKILL LEVEL` (DLL+map
+  spawned), `Can't init <class>` (engine's marker for an **unimplemented** TS
+  class — your negative control), and a temporary `ALERT(at_console,…)` probe in
+  a Spawn for positive confirmation (108 hits == 108 `ts_model` on that map).
+- `ts_kissmeyerbasic` has 108 `ts_model`; pick maps from the frequency table to
+  exercise specific classes.
 
 ## Notes
 

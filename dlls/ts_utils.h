@@ -13,4 +13,8 @@ extern int gmsgTSMessage;
 // client-side semantics); text is capped to 127 chars by the original.
 void TSHudMessageAll(byte r, byte g, byte b, int effect, int holdtime, const char *text);
 
+// @ TSHudMessageOne__FUcUcUciiPcP9entvars_s — same payload as TSHudMessageAll but
+// sent MSG_ONE to a single player (pPlayer = that player's pev).
+void TSHudMessageOne(byte r, byte g, byte b, int effect, int holdtime, const char *text, entvars_t *pPlayer);
+
 #endif // TS_UTILS_H

@@ -37,3 +37,26 @@ void TSHudMessageAll(byte r, byte g, byte b, int effect, int holdtime, const cha
 		WRITE_STRING(buf);
 	MESSAGE_END();
 }
+
+// @ TSHudMessageOne__FUcUcUciiPcP9entvars_s — MSG_ONE variant of the above.
+void TSHudMessageOne(byte r, byte g, byte b, int effect, int holdtime, const char *text, entvars_t *pPlayer)
+{
+	if (!text || !text[0] || !pPlayer)
+		return;
+
+	char buf[128];
+	strncpy(buf, text, sizeof(buf));
+	buf[sizeof(buf) - 1] = '\0';
+
+	if (gmsgTSMessage == 0)
+		gmsgTSMessage = REG_USER_MSG("TSMessage", -1);
+
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSMessage, NULL, ENT(pPlayer));
+		WRITE_BYTE(r);
+		WRITE_BYTE(g);
+		WRITE_BYTE(b);
+		WRITE_BYTE(effect);
+		WRITE_BYTE(holdtime);
+		WRITE_STRING(buf);
+	MESSAGE_END();
+}

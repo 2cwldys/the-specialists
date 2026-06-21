@@ -356,6 +356,15 @@ public:
 
 	//True if the player is currently spawning.
 	bool m_bIsSpawning = false;
+
+	// --- mod-ts (The Specialists) additions ---
+	// TS adds its player state directly onto CBasePlayer (there is no CTSPlayer).
+	// Offsets in comments are the original gcc2 layout (provenance, not targets).
+	int m_iPowerups = 0;       // 0x724 — active powerup bitfield (TS_PWUP_*)
+	int m_iHeldPowerup = 0;    // 0x728 — held powerup awaiting activation
+	float m_flPowerupTime = 0; // 0x730 — held/active powerup duration
+	byte m_iKungFu = 0;        // 0x74e — kung-fu state
+	byte m_bLowGravity = 0;    // 0x74f — low-gravity powerup active
 };
 
 inline void CBasePlayer::SetWeaponBit(int id)
