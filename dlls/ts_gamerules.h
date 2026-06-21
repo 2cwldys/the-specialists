@@ -84,7 +84,15 @@ public:
 	void TeamWin(int team);
 
 	int   m_teamScore[4] = {};    // per-team round wins
-	float m_flRoundRestart = 0;   // >0 = a restart is pending at this time
+	float m_flRoundRestart = 0;   // >0 = a restart is pending at this time (the .so's +0xc)
+
+	// @ CheckDeads / CallCheckDeads — the team-round elimination win condition. A player
+	// death schedules CheckDeads ~1s later (CallCheckDeads); it counts live players per team
+	// and, if only one team has survivors, declares that team the round winner via TeamWin
+	// (nobody alive = a draw; two+ teams alive = the round continues).
+	void  CheckDeads();
+	void  CallCheckDeads();
+	float m_flCheckDeads = 0;     // >0 = a deads-check is pending at this time (the .so's +0x5880)
 
 	// @ PutPowerUp(type) — spawn a powerup of `type` at a random info_player_deathmatch
 	// (skipped if a powerup is already nearby). Returns true if one was spawned.

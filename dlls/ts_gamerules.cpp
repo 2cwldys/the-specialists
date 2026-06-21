@@ -56,6 +56,7 @@ void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvar
 	TSDropWeaponsOnDeath(pVictim);
 	TSDropAmmoOnDeath(pVictim);
 	TSCreateDeadCorpse(pVictim, 15.0f);
+	CallCheckDeads(); // team mode: a death may have eliminated a team → resolve the round
 }
 
 // @ TeamWin — record the win + announce it, then schedule a round restart 3s out (the .so
@@ -63,15 +64,80 @@ void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvar
 // each team + drives the round-time HUD; here it's the score + restart.
 void CTSGameRules::TeamWin(int team)
 {
-	if (team >= 0 && team < 4)
+	if (m_flRoundRestart != 0.0f) // a win is already locked in for this round
+		return;
+
+	// team 0/1 are the real TS teams; anything else (e.g. CheckDeads' "nobody alive") is a draw.
+	bool draw = team < 0 || team > 1;
+	if (!draw)
 		m_teamScore[team]++;
 
-	const char *who = (team == 0) ? "Team 1" : (team == 1) ? "Team 2"
-		: (team == 3) ? "Team 3" : (team == 4) ? "Team 4" : "Nobody";
-	TSHudMessageAll(0, 0xff, 0, 8, 50,
-		UTIL_VarArgs("%s wins the round!  (%d - %d)", who, m_teamScore[0], m_teamScore[1]));
+	const char *who = draw ? nullptr : GetIndexedTeamName(team);
+	if (draw || who == nullptr || who[0] == '\0')
+		TSHudMessageAll(0, 0xff, 0, 8, 50,
+			UTIL_VarArgs("Round draw!  (%d - %d)", m_teamScore[0], m_teamScore[1]));
+	else
+		TSHudMessageAll(0, 0xff, 0, 8, 50,
+			UTIL_VarArgs("%s win the round!  (%d - %d)", who, m_teamScore[0], m_teamScore[1]));
 
 	m_flRoundRestart = gpGlobals->time + 3.0f;
+}
+
+// @ CallCheckDeads — schedule a deads-check ~1s out (unless a round restart is already
+// pending). Called on each player death.
+void CTSGameRules::CallCheckDeads()
+{
+	if (m_flRoundRestart == 0.0f && m_flCheckDeads == 0.0f)
+		m_flCheckDeads = gpGlobals->time + 1.0f;
+}
+
+// @ CheckDeads — the team-round elimination resolver. Counts live players per team; if a
+// single team is left standing it wins the round, if nobody is alive it's a draw, and if two
+// or more teams still have survivors the round continues. No-ops outside team mode or while a
+// restart is already pending. Needs >=2 players spread over >=2 teams to resolve (so an empty
+// or one-sided warmup doesn't instantly "win").
+void CTSGameRules::CheckDeads()
+{
+	if (m_flRoundRestart != 0.0f || !IsTeamMode())
+		return;
+
+	int alive[TS_MAX_TEAMS] = {};
+	int present[TS_MAX_TEAMS] = {};
+	int totalPlayers = 0;
+
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBaseEntity *pEnt = UTIL_PlayerByIndex(i);
+		if (!pEnt || !pEnt->IsPlayer())
+			continue;
+		int team = GetTeamIndex(pEnt->TeamID());
+		if (team < 0)
+			continue;
+		present[team]++;
+		totalPlayers++;
+		if (pEnt->IsAlive()) // SLICE: the .so also counts a just-respawned grace window (+0x770)
+			alive[team]++;
+	}
+
+	int teamsPresent = 0, teamsAlive = 0, lastAliveTeam = -1;
+	for (int t = 0; t < m_numTeams; t++)
+	{
+		if (present[t] > 0)
+			teamsPresent++;
+		if (alive[t] > 0)
+		{
+			teamsAlive++;
+			lastAliveTeam = t;
+		}
+	}
+
+	if (totalPlayers < 2 || teamsPresent < 2)
+		return;                 // not enough of a contest to resolve
+
+	if (teamsAlive >= 2)
+		return;                 // round still contested
+
+	TeamWin(teamsAlive == 1 ? lastAliveTeam : 2); // one team left = winner; nobody = draw
 }
 
 // Re-spawn everyone + re-arm the objective entities for a fresh round.
@@ -125,6 +191,13 @@ bool CTSGameRules::PutPowerUp(int type)
 void CTSGameRules::Think()
 {
 	CHalfLifeMultiplay::Think();
+
+	// A scheduled deads-check (from CallCheckDeads, on a player death) resolves the round.
+	if (m_flCheckDeads != 0 && gpGlobals->time >= m_flCheckDeads)
+	{
+		m_flCheckDeads = 0;
+		CheckDeads();
+	}
 
 	// A scheduled round restart (from TeamWin) fires once its delay elapses.
 	if (m_flRoundRestart != 0 && gpGlobals->time >= m_flRoundRestart)
