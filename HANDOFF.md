@@ -80,9 +80,6 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   back to bullets), weapon/ammo-groups, fire-mode/burst, or buy menu; per-slot reserve
   is generic (not wired to CTSGroundAmmo's calibers); pellet count fixed 6 +
   mossberg/sawedoff fire-type data gap.
-- **Draft, not in build:** `CTSSlowMotion` (`dlls/ts_slowmotion.cpp`) — needs
-  `CTSGameRules::GlobalSlowMotion2` + TS player slow-motion virtuals; still int-
-  return sigs (reconcile to modern `bool`).
 - **WATCH OUT:** `recovered/` decompiles can be **truncated** by Ghidra noreturn
   artifacts (cut `CTSModel::Spawn` at `UTIL_SetSize`, `CTSPowerUp::Spawn`/`OnGround`
   at `UTIL_SetOrigin` — the cut tail held a `nextthink` set + the `SetTouch`/`SetThink`
