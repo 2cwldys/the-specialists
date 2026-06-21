@@ -5,6 +5,49 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 12) — Full 38-weapon table + CTSGun by type; gdb debugging
+
+**Done — the whole arsenal is real.**
+- `scripts/extract_weapons.py`: parses each Write_<weapon> in the .so (resolves
+  PIC-relative string leas + immediate numeric fields) -> the full s_weapon_info
+  table. Field offsets: 0x44 name, 0x132 v_model, 0x172 p_model, 0x1f2 w_model,
+  0x232 anim-ext (onehanded/twohanded/akimbo!), 0x2c6 fire snd, 0x04 clip,
+  0x1c damage, 0x348 fire-type. (0xcc = base weapon id, NOT table index — place by
+  compile_weapons_info offset instead.)
+- `ts_weapons.{h,cpp}`: slimmed s_weapon_info to what CTSGun uses + generated
+  37-entry table (idx 29 flag blank). `PrecacheAllTSWeapons()` (models/sounds/
+  events) + `GiveTSWeapon(player, type)`.
+- `ts_gun.cpp`: CTSGun now parameterized by m_weaponType (not hardcoded beretta);
+  Deploy/fire/Spawn use the table; GiveTSWeapon creates a typed CTSGun.
+- `ts_groundweapon.cpp`: GetWeapon -> GiveTSWeapon(player, m_weaponType) so a
+  pickup gives the RIGHT gun. `world.cpp` CWorld::Precache calls
+  UTIL_PrecacheOtherWeapon("weapon_tsgun") at map load (registers ItemInfoArray[16]
+  + precaches roster). Declared UTIL_PrecacheOtherWeapon in util.h.
+
+**Verified RUNTIME (rcbot bots, ts_wyndham):** ground-weapon type 25 -> v_knife.mdl
+dmg 40; type 3 -> v_uzi.mdl dmg 22. Right weapon, right model, right damage, no
+crash. Regression clean.
+
+**Two crashes found+fixed via GDB (not guessing):**
+1. EV_Precache (PRECACHE_EVENT) segfault — events must be precached at MAP LOAD;
+   moved the 3 weapon events into PrecacheAllTSWeapons.
+2. CHalfLifeMultiplay::DeathNotice strncmp segfault on a kill — pszName() reads
+   ItemInfoArray[m_iId], which was never populated because I'd dropped the
+   UTIL_PrecacheOtherWeapon registration. Restored it in CWorld::Precache.
+   (gdb backtrace: PrimaryAttack->FireBulletsPlayer->...->DeathNotice.)
+
+**Debugging note:** use **gdb** on our own hl.so for crashes (the rig keeps debug
+syms; `gdb -batch -ex run -ex bt --args ./hlds_linux ...`). This is the server-side
+counterpart to Ghidra (which reads the *original* .so). Docs updated to mention it.
+
+**SLICE limits still open:** shared weapon id 16 -> one TS weapon held at a time
+(faithful items-array allows the arsenal); per-weapon spread not mapped (0.04
+default); fire-type dispatch (grenade/knife/katana/akimbo) not implemented (all
+semi-auto bullets); names null for a few melee weapons. Faithful PickUpWeapon
+armament + buy menu still TODO.
+
+---
+
 ## 2026-06-21 (cont. 11) — CTSGroundWeapon (weapon pickups) + tsweapon_t fix
 
 **FIXED tsweapon_t indices (cont.10 enum was WRONG).** The Write_<weapon> calls in

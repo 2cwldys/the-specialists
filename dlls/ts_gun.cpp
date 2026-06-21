@@ -1,19 +1,18 @@
 /***
-*  ts_gun.cpp — RECONSTRUCTED CTSGun (vertical slice: beretta deploy + fire).
+*  ts_gun.cpp — RECONSTRUCTED CTSGun (functional-minimal, all weapon types).
 *  Functional/source-faithful goal (see CLAUDE.md). recovered/server/CTSGun.c.
 *
 *  CTSGun is the original's single unified weapon (entity `weapon_tsgun`, id 16)
-*  that morphs by tsweapon_t. The FAITHFUL engine is large and tightly coupled:
-*  a dual-wield "active items" array (m_pActiveItem @0xcc / m_pActiveInfo @0xd0 /
-*  items[] @0x45), client-side weapon-param networking, CTSAnimation, and the
-*  988-byte s_weapon_info table. Deploy/Fire dispatch by the weapon's fire-type
-*  byte (s_weapon_info+0x348; beretta=8 "standard").
+*  that morphs by tsweapon_t. The FAITHFUL engine is a dual-wield "active items"
+*  array (m_pActiveItem@0xcc / m_pActiveInfo@0xd0 / items[]@0x45), client-side
+*  weapon-param networking, CTSAnimation, akimbo/fire-mode/zoom, dispatching by
+*  the fire-type byte (s_weapon_info+0x348).
 *
-*  THIS SLICE is intentionally a *functional-minimal* stand-in for that engine:
-*  it deploys and semi-auto-fires the beretta using stock CBasePlayerWeapon
-*  mechanics so we can prove a TS weapon is holdable + fireable in-engine. The
-*  faithful items-array / akimbo / fire-mode / networking reconstruction replaces
-*  the // SLICE-marked bodies below, incrementally and verified.
+*  THIS SLICE is a functional-minimal stand-in: one CTSGun per weapon (shared id
+*  16, so a player holds one TS weapon at a time), driven by m_weaponType against
+*  the recovered s_weapon_info table — deploys the right view/world model and
+*  semi-auto-fires with the weapon's real damage/clip. The faithful items-array /
+*  akimbo / fire-mode engine replaces the // SLICE bodies incrementally.
 ***/
 #include "extdll.h"
 #include "util.h"
@@ -37,7 +36,7 @@ public:
 	void Reload() override;
 	void WeaponIdle() override;
 
-	tsweapon_t m_weaponType = TSW_BERETTA; // SLICE: fixed to the beretta
+	int m_weaponType = TSW_BERETTA; // tsweapon_t; map-placed weapon_tsgun defaults to beretta
 };
 
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
@@ -49,43 +48,35 @@ void CTSGun::Spawn()
 	Precache();
 	m_iId = TSGUN_WEAPON_ID;
 
-	const s_weapon_info *wi = get_weapon_info(m_weaponType);
-	SET_MODEL(ENT(pev), wi->pszWorldModel);
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	const char *world = wi->pszWorldModel ? wi->pszWorldModel : "models/w_weaponbox.mdl";
+	SET_MODEL(ENT(pev), world);
 
-	m_iDefaultAmmo = wi->iClip; // SLICE: stock ammo model; TS uses its own system
-	m_iClip = wi->iClip;        // SLICE: deploy loaded (TS manages its own ammo)
+	m_iDefaultAmmo = wi->iClip; // SLICE: stock ammo; TS runs its own ammo system
+	m_iClip = wi->iClip;        // SLICE: deploy loaded
 	FallInit();
 }
 
-// @ Precache__6CTSGun — the original precaches 11 event scripts; here we also
-// precache the slice weapon's models/sounds (the faithful version precaches the
-// whole roster via the weapon table).
+// @ Precache__6CTSGun — faithful precaches 11 event scripts. Models for the whole
+// roster are precached at map load (CWorld::Precache -> PrecacheAllTSWeapons), so
+// a runtime give of any weapon type finds them cached (no precache-in-spawn error).
 void CTSGun::Precache()
 {
-	const s_weapon_info *wi = get_weapon_info(m_weaponType);
-	PRECACHE_MODEL((char *)wi->pszViewModel);
-	PRECACHE_MODEL((char *)wi->pszPlayerModel);
-	PRECACHE_MODEL((char *)wi->pszWorldModel);
-	PRECACHE_SOUND((char *)wi->pszFireSound);
-
-	// faithful event scripts (CTSGun::Precache @0x80660)
-	PRECACHE_EVENT(1, "events/fire.sc");
-	PRECACHE_EVENT(1, "events/reload.sc");
-	PRECACHE_EVENT(1, "events/draw.sc");
+	// roster models/sounds/events are precached at map load (CWorld::Precache);
+	// this re-call just resolves the cached indices for a runtime give.
+	PrecacheAllTSWeapons();
 }
 
-// @ GetItemInfo__6CTSGun — recovered: slot 1, pos 2, id 16, weight 1. (The
-// original reports no clip/ammo and runs its own ammo system; the slice gives a
-// stock clip so the demo fires.)
+// @ GetItemInfo__6CTSGun — recovered: slot 1, pos 2, id 16, weight 1.
 bool CTSGun::GetItemInfo(ItemInfo *p)
 {
-	const s_weapon_info *wi = get_weapon_info(m_weaponType);
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	p->pszName = STRING(pev->classname);
 	p->pszAmmo1 = "9mm"; // SLICE
 	p->iMaxAmmo1 = 200;  // SLICE
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
-	p->iMaxClip = wi->iClip; // beretta 15
+	p->iMaxClip = wi->iClip;
 	p->iSlot = 1;
 	p->iPosition = 2;
 	p->iFlags = 0;
@@ -96,10 +87,14 @@ bool CTSGun::GetItemInfo(ItemInfo *p)
 
 bool CTSGun::Deploy()
 {
-	const s_weapon_info *wi = get_weapon_info(m_weaponType);
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	if (!wi->pszViewModel)
+		return false;
 	// SLICE: faithful Deploy uses the items array + GetBodyByItems + a weapon-param
 	// message; here we just show the view/player model via DefaultDeploy.
-	return DefaultDeploy((char *)wi->pszViewModel, (char *)wi->pszPlayerModel, 0, "onehanded");
+	const char *pmodel = wi->pszPlayerModel ? wi->pszPlayerModel : wi->pszViewModel;
+	return DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, 0,
+		(char *)(wi->pszAnimExt ? wi->pszAnimExt : "onehanded"));
 }
 
 // @ PrimaryAttack__6CTSGun -> Fire -> StandardFire (faithful path dispatches by
@@ -113,18 +108,20 @@ void CTSGun::PrimaryAttack()
 		return;
 	}
 
-	const s_weapon_info *wi = get_weapon_info(m_weaponType);
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	m_iClip--;
 
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 
-	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, wi->pszFireSound, VOL_NORM, ATTN_NORM);
+	if (wi->pszFireSound)
+		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, wi->pszFireSound, VOL_NORM, ATTN_NORM);
 
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;
+	const float flSpread = 0.04f; // SLICE: per-weapon spread not yet mapped
 	m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
-		Vector(wi->flSpread, wi->flSpread, wi->flSpread), 8192, BULLET_PLAYER_9MM,
+		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
 		0, (int)wi->flDamage, m_pPlayer->pev, m_pPlayer->random_seed);
 
 	m_flNextPrimaryAttack = GetNextAttackDelay(0.15);
@@ -133,11 +130,28 @@ void CTSGun::PrimaryAttack()
 
 void CTSGun::Reload()
 {
-	const s_weapon_info *wi = get_weapon_info(m_weaponType);
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	DefaultReload(wi->iClip, 0, 1.5f);
 }
 
 void CTSGun::WeaponIdle()
 {
 	ResetEmptySound();
+}
+
+// Create a CTSGun of `type` and hand it to the player (mirrors GiveNamedItem but
+// sets m_weaponType before Spawn so the weapon configures to the right type).
+CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
+{
+	edict_t *pent = CREATE_NAMED_ENTITY(MAKE_STRING("weapon_tsgun"));
+	if (FNullEnt(pent))
+		return NULL;
+
+	CTSGun *pGun = (CTSGun *)CBaseEntity::Instance(pent);
+	pGun->m_weaponType = type;
+	pGun->pev->origin = pPlayer->pev->origin;
+	pGun->pev->spawnflags |= SF_NORESPAWN;
+	DispatchSpawn(pent);
+	DispatchTouch(pent, pPlayer->edict());
+	return pGun;
 }

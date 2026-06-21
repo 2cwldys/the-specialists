@@ -93,8 +93,8 @@ recoverable directly).
 | `CTSCustomTarget` | `dlls/ts_customtarget.cpp` | ✅ built into hl.so, `ts_customtarget` factory exported (no stock map uses it → runtime untested) |
 | `TSHudMessageAll`/`TSHudMessageOne` (helpers) | `dlls/ts_utils.cpp` | ✅ built (HUD broadcast / per-player) |
 | CBasePlayer TS extensions | `dlls/player.h`, `dlls/ts_player.{h,cpp}` | 🟡 member block (`m_iPowerups`/`m_iKungFu`/…) + accessors (`SlowMotion`/`InfiniteClips`/`SlowPause`/`DoubleFireRate`/`KungFu`) built; no regression (server runs). Powerup application (`PlayerAddPowerUp`) deferred — needs `CTSGun`. |
-| Weapon data layer | `dlls/ts_weapons.{h,cpp}` | 🟡 `tsweapon_t` enum (38, real order) + `s_weapon_info` + `get_weapon_info`; beretta entry filled. Built. |
-| `CTSGun` | `dlls/ts_gun.cpp` | ✅✅ **runtime-verified** — `weapon_tsgun` deployed + fired by rcbot bots in-engine (35 shots, 4 bots, beretta dmg 29, no crash). Faithful `GetItemInfo`/`Spawn`/`Precache`; **functional-minimal** beretta `Deploy`/`PrimaryAttack` (// SLICE, stock SDK mechanics). Faithful dual-wield items-array/akimbo/firemode/networking engine still TODO. |
+| Weapon data layer | `dlls/ts_weapons.{h,cpp}` | ✅ full 38-weapon `s_weapon_info` table (models/anim-ext/fire/clip/damage/fire-type), extracted by `scripts/extract_weapons.py`; `tsweapon_t` enum (real indices = FGD ids); `get_weapon_info` + `PrecacheAllTSWeapons` + `GiveTSWeapon`. |
+| `CTSGun` | `dlls/ts_gun.cpp` | ✅✅ **runtime-verified, all types** — parameterized by `m_weaponType`; rcbot bots deploy+fire the right gun (knife→v_knife dmg40, uzi→v_uzi dmg22, beretta 35 shots), no crash. Faithful `GetItemInfo`/`Spawn`/`Precache`; **functional-minimal** `Deploy`/`PrimaryAttack` (// SLICE: semi-auto for all, no fire-type dispatch/akimbo/spread; shared id 16 = one weapon at a time). Faithful dual-wield items-array engine + `PickUpWeapon`/buy menu still TODO. |
 | `CTSGroundWeapon` | `dlls/ts_groundweapon.cpp` | ✅✅ **runtime-verified** — `ts_groundweapon` (65 placements) spawns (Can't init gone), precaches at map load, touch-pickup works on `ts_wyndham` (bots picked up, no crash). // SLICE gives beretta regardless of type; faithful `PickUpWeapon` armament/buy TODO. |
 | `CTSGameRules` | `dlls/ts_gamerules.{h,cpp}` | 🟡 **skeleton installed + runtime-verified** — `CTSGameRules : CHalfLifeMultiplay` is the live `g_pGameRules` (via `InstallGameRules`); `GetRandomPowerup` done; `TSGameRules()` accessor. The other 40 funcs (Think/teams/objectives/votes/slow-motion) inherit `CHalfLifeMultiplay` for now, filled in incrementally. |
 | `CTSSlowMotion` | `dlls/ts_slowmotion.cpp` | 📝 draft, NOT in build — deps: `CTSGameRules::GlobalSlowMotion2`, TS player slow-motion virtuals |
@@ -166,6 +166,30 @@ cd $RIG && LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH \
   a Spawn for positive confirmation (108 hits == 108 `ts_model` on that map).
 - `ts_kissmeyerbasic` has 108 `ts_model`; pick maps from the frequency table to
   exercise specific classes.
+
+### Bots (for anything needing a live player — weapons, powerups)
+
+The 64-bit **metamod + rcbot** stack (built by the buildchain) gives real bot
+players (raw `pfnCreateFakeClient` doesn't complete the connect on this QUIC
+engine). One-time rig setup (already done):
+- `ts/addons/metamod/dlls/metamod_amd64.so` (Metamod-R/build-amd64) as the gamedll
+  (`liblist.gam` gamedll_linux → it); `config.ini` = `gamedll dlls/hl.so` (metamod
+  loads OUR build); `plugins.ini` = `linux addons/metamod/dlls/rcbot_mm_amd64.so`.
+- `<rig>/rcbot/*` configs (rcbotold/rcbot); `bot_config.ini` `config min_bots 2`.
+Boot normally → rcbot auto-adds bots that spawn as real CBasePlayers. To exercise
+a weapon, a temp StartFrame hook can teleport a bot onto a `ts_groundweapon` /
+give + `SelectItem`. (Verified: bots deploy+fire the reconstructed weapons.)
+
+### Debugging our hl.so — use gdb, don't guess
+
+Ghidra reads the *original* `.so`; **gdb debugs our built `hl.so`**. On a segfault:
+```bash
+cd <rig> && LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH gdb -batch -nx \
+  -ex run -ex bt --args ./hlds_linux -game ts +sv_lan 1 +maxplayers 8 +map <map>
+```
+gdb intercepts SIGSEGV before the engine's breakpad handler; the backtrace points
+straight at the faulting function (this found the `EV_Precache` + `DeathNotice`
+crashes). valgrind / rr are heavier complements.
 
 ## Notes
 

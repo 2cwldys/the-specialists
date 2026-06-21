@@ -67,10 +67,9 @@ bool CTSGroundWeapon::KeyValue(KeyValueData *pkvd)
 
 void CTSGroundWeapon::Precache()
 {
-	// Precache the given weapon at map load so the runtime hand-out below is legal
-	// (PRECACHE_MODEL is only allowed during spawn). SLICE: we hand out the stock
-	// CTSGun (beretta); the faithful path precaches the whole roster.
-	UTIL_PrecacheOther("weapon_tsgun");
+	// Precache the whole weapon roster at map load so the runtime hand-out below is
+	// legal (PRECACHE_MODEL is only allowed during the spawn window).
+	PrecacheAllTSWeapons();
 }
 
 void CTSGroundWeapon::Spawn()
@@ -105,9 +104,9 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
 	if (pPlayer->HasNamedPlayerItem("weapon_tsgun"))
-		return;
+		return; // SLICE: shared weapon id -> one TS weapon held at a time
 
-	pPlayer->GiveNamedItem("weapon_tsgun");
+	GiveTSWeapon(pPlayer, (tsweapon_t)m_weaponType);
 	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
 
 	if (pev->target)

@@ -58,30 +58,34 @@ enum tsweapon_t
 	TSW_COUNT = 38
 };
 
-// Weapon stats. A clean modern subset of the original 988-byte s_weapon_info;
-// fields/values recovered from Write_beretta @0x5e4a8 (VERIFY numeric semantics
-// against more weapons as the roster is filled in).
+// Weapon stats — a clean modern subset of the original 988-byte s_weapon_info,
+// holding the fields CTSGun actually uses. Values recovered from each
+// Write_<weapon> (scripts/extract_weapons.py): field offsets 0x44 name,
+// 0x132 v_model, 0x172 p_model, 0x1f2 w_model, 0x232 anim-ext, 0x2c6 fire sound,
+// 0x04 clip, 0x1c damage, 0x348 fire-type.
 struct s_weapon_info
 {
-	const char *pszName;       // display name        e.g. "Beretta 92F"
-	const char *pszHudSprite;  // sprites/weapons/*.spr
-	const char *pszViewModel;  // models/v_*.mdl
+	const char *pszName;        // display name        "Beretta 92F"
+	const char *pszViewModel;   // models/v_*.mdl
 	const char *pszPlayerModel; // models/p_*.mdl
-	const char *pszPlayerModelSil; // models/p_*_sil.mdl (silenced variant)
-	const char *pszWorldModel; // models/w_*.mdl
-	const char *pszFireSound;  // weapons/*/fire.wav
-	const char *pszFireSoundSil; // weapons/*/fire-sil.wav
-
-	int   iClip;      // rounds per clip      (beretta: 15)
-	float flDamage;   // per-bullet damage    (beretta: 29.0)
-	float flSpread;   // base spread          (beretta: 0.015)
-	float flRecoil;   // kickback             (beretta: 3.0)
-	int   iFireRate;  // rounds/min-ish       (beretta: 900) VERIFY
-	int   iAmmoType;  // ammo class           VERIFY
-	int   iFireModes; // available fire modes VERIFY
+	const char *pszWorldModel;  // models/w_*.mdl
+	const char *pszAnimExt;     // DefaultDeploy anim ext: onehanded/twohanded/akimbo
+	const char *pszFireSound;   // weapons/*/fire.wav
+	int   iClip;       // rounds per clip
+	float flDamage;    // per-bullet damage
+	int   iFireType;   // 0/8 standard, 1/6 shotgun/auto, 2 grenade, 3 knife,
+	                   // 4 akimbo, 7 sniper, 10 katana, 11 flag (s_weapon_info+0x348)
 };
 
 // @ get_weapon_info__F10tsweapon_t — stats for a weapon (table[0] if out of range).
 const s_weapon_info *get_weapon_info(tsweapon_t w);
+
+// Precache every weapon's models + sound (call during the map's precache window).
+void PrecacheAllTSWeapons();
+
+// Give a player a CTSGun configured for `type` (used by pickups / future buy menu).
+class CBaseEntity;
+class CBasePlayer;
+CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type);
 
 #endif // TS_WEAPONS_H

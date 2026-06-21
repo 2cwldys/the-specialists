@@ -53,7 +53,11 @@ nm build-amd64/dlls/hl.so | c++filt | grep 'CTSCustomTarget::'
 ```
 Tools are on PATH: `Ghidra`/`analyzeHeadless` (12.1.2, `~/Tools/ghidra`), `rz-*`
 (`~/Tools/rizin`), `scripts/gnv2demangle.py`. The buildchain image
-`hlds64-buildchain:debian10` is already built.
+`hlds64-buildchain:debian10` is already built. Ghidra/rizin/objdump read the
+**original** `ts_i386.so`; **`gdb` debugs our own `hl.so`** — when a runtime test
+segfaults, `gdb -batch -ex run -ex bt --args ./hlds_linux …` for the backtrace
+instead of guessing (it found the `EV_Precache`/`DeathNotice` crashes). See
+CLAUDE.md §4.
 
 ## Recommended next steps
 **The trivial standalone entities are done. The foundation is now the critical

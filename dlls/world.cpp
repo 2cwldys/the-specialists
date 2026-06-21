@@ -32,6 +32,7 @@
 #include "player.h"
 #include "weapons.h"
 #include "gamerules.h"
+#include "ts_weapons.h"
 #include "teamplay_gamerules.h"
 
 CGlobalState gGlobalState;
@@ -689,6 +690,12 @@ void CWorld::Precache()
 	{
 		CVAR_SET_FLOAT("mp_defaultteam", 0);
 	}
+
+	// mod-ts: register + precache the TS weapon at map load so weapons can be
+	// handed out at runtime (pickups / future buy menu) without a precache-in-spawn
+	// error, and so ItemInfoArray[16] (pszName etc.) is populated for DeathNotice.
+	// (This spawns a weapon_tsgun whose Precache precaches the whole roster.)
+	UTIL_PrecacheOtherWeapon("weapon_tsgun");
 }
 
 
