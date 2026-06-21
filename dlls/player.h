@@ -365,8 +365,17 @@ public:
 	float m_flPowerupExpireTime = 0;// 0x72c — active timed-powerup end time
 	float m_flPowerupTime = 0;      // 0x730 — held powerup duration (seconds)
 	float m_flHealthRegen = 0;      // 0x73c — health-powerup regen tick time
+	byte m_bSlowBullets = 0;        // 0x175 — slow-motion also slows bullets
+	float m_flSlowMotionScale = 0;  // 0x17c — current slow-motion time scale (0 = none)
+	float m_flSlowMotionRamp = 0;   // 0x180 — slow-motion interpolation ramp
 	byte m_iKungFu = 0;             // 0x74e — kung-fu state
 	byte m_bLowGravity = 0;         // 0x74f — low-gravity powerup active
+
+	// TS powerup activation state machine (ts_player.cpp). UpdatePowerUpState runs
+	// each frame from PreThink; UsePowerUp is the `usepowerup` command handler.
+	bool UsePowerUp();           // activate the held timed powerup
+	void UpdatePowerUpState();   // per-frame: apply slow-motion fields / expire
+	void DeactivateSlowMotionFlow(); // restore normal speed when slow-motion ends
 };
 
 inline void CBasePlayer::SetWeaponBit(int id)

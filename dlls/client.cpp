@@ -521,6 +521,10 @@ void ClientCommand(edict_t* pEntity)
 	{
 		Host_Say(pEntity, true);
 	}
+	else if (FStrEq(pcmd, "usepowerup")) // TS: activate the held timed powerup
+	{
+		player->UsePowerUp();
+	}
 	else if (FStrEq(pcmd, "fullupdate"))
 	{
 		player->ForceClientDllUpdate();

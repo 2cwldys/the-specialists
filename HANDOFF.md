@@ -35,11 +35,21 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   → respawn); spawnflags = the random-powerup **mask** (not a single type). Picks a
   random type from `GetRandomPowerup`, applies it via free func `PlayerAddPowerUp`.
   **Instant powerups real** (kungfu/lowgrav/health/armor/grenade/inf-clip), **timed
-  ones held** (`m_iHeldPowerup` + duration). **SLICE:** timed-powerup *activation*
-  (`UsePowerUp`/`UpdatePowerUpState`, the slow-motion HUD) deferred to the slow-motion
-  layer; armor/inf-clip/grenade use functional substitutes (no `TakeArmor`/
-  `MultiplyClips`/`PickUpWeapon`); `gmsgTSPowerUp` HUD + lowgrav physics-key deferred
-  (client.dll side); `CTSGameRules::PutPowerUp` (dynamic spawner) not wired yet.
+  ones held** (`m_iHeldPowerup` + duration). **SLICE:** armor/inf-clip/grenade use
+  functional substitutes (no `TakeArmor`/`MultiplyClips`/`PickUpWeapon`);
+  `gmsgTSPowerUp` HUD + lowgrav physics-key deferred (client.dll side);
+  `CTSGameRules::PutPowerUp` (dynamic spawner) not wired yet.
+- **Powerup activation — runtime-verified (slice):** `CBasePlayer::UsePowerUp`
+  (`usepowerup` console command) + `UpdatePowerUpState` (per-frame in `PreThink`) +
+  `DeactivateSlowMotionFlow`, all in `ts_player.cpp`. A held timed powerup activates
+  → `m_iPowerups` set (so `SlowMotion()`/`DoubleFireRate()` accessors flip + the slow
+  fields `m_flSlowMotionScale`/`Ramp`/`m_bSlowBullets` are applied each frame) →
+  expires after its duration → restores. `gmsgTSPowerUpTime`/`gmsgTSMotionBlur`
+  registered + sent. **SLICE — the deeper, client-entangled layer is deferred:** the
+  actual time-dilation *movement*, `SlowMotionFlow` propagation to nearby
+  players/projectiles, the per-entity `SetSlowMotion`/`IsSlowMotion` CBaseEntity
+  virtuals, `CTSGameRules::SetGlobalSlowMotion`/`GlobalSlowMotion2`/`InterpolateSlowMotion`,
+  the client motion-blur HUD, and the on-death powerup re-drop.
 - **Weapons — runtime-verified, all 38 types (slice):** `CTSGun` (`ts_gun.cpp`,
   entity `weapon_tsgun`, id 16) parameterized by `m_weaponType`; bots deploy+fire
   the right gun (knife/uzi/beretta, correct models+damage). Full `s_weapon_info`
@@ -89,18 +99,22 @@ extraction → C table).
 ## Recommended next steps
 Map leaves done; the **core monolith** (`CTSGameRules ↔ CBasePlayer ↔ CTSGun ↔
 powerups`) is up to a functional-minimal **slice** — weapons deploy+fire, ground
-weapons hand out the right gun, powerups spawn + apply. To deepen toward faithful
-behaviour, in rough order:
-1. **Slow-motion layer = the powerup activation** (the natural next unblock — the
-   biggest user-visible TS mechanic, and what makes the held timed powerups *do*
-   something). Reconstruct `CTSGameRules::SetGlobalSlowMotion`/`GlobalSlowMotion2`
-   (@0x6961c) + `InterpolateSlowMotion` (@0x8910c) + the TS player slow-motion
-   virtuals, then `CBasePlayer::UsePowerUp` (@0x95980 — USE-key activates the held
-   powerup: sets `m_iPowerups`, `m_flPowerupExpireTime`, sends `gmsgTSPowerUpTime` +
-   `gmsgTSMotionBlur`) and `UpdatePowerUpState` (@0x95748 — per-frame expiry +
-   `DeactivateSlowMotionFlow` + re-drop). This finishes `CTSPowerUp`'s timed branch
-   (slowmo/slowpause/dblfire) and wires up `CTSSlowMotion` (already drafted at
-   `dlls/ts_slowmotion.cpp`). Needs a `cl_dll` side for the motion-blur/HUD msgs.
+weapons hand out the right gun, powerups spawn + apply + **activate/expire**. To
+deepen toward faithful behaviour, in rough order:
+1. **The slow-motion EFFECT** (the visible payoff of the activation state machine —
+   currently the slow fields are set but nothing reads them). This is a coupled
+   subsystem: add the TS `SetSlowMotion(scale,bullets)`/`IsSlowMotion()` virtuals to
+   **CBaseEntity** (overridden on CBasePlayer + the grenade/WorldGun projectiles);
+   reconstruct `CTSGameRules::SetGlobalSlowMotion` (@0x6961c) + `GlobalSlowMotion2`
+   (@0x69720 — iterates players + "grenade"/"WorldGun" calling the virtual) +
+   `InterpolateSlowMotion` (@0x8910c — ramp toward target by `min(rate*7,1)` when
+   `|delta|>0.05`); apply the per-entity time-dilation (scale animation/movement) and
+   `SlowMotionFlow` (@0x86bb0, 1758 bytes — propagates slow-motion between nearby
+   players via traceline, fills the affected-entity arrays at player+0x188/+0x208).
+   This also lights up the **`CTSSlowMotion`** entity (`ts_slowmotion`, 11 placements;
+   draft at `dlls/ts_slowmotion.cpp`, not yet in the build — depends on these virtuals
+   + `GlobalSlowMotion2`). Needs a `cl_dll` side for the motion-blur/HUD msgs
+   (`gmsgTSMotionBlur`/`gmsgTSPowerUpTime` are already registered + sent server-side).
 2. **Faithful weapon engine** to replace the `// SLICE` bodies in `ts_gun.cpp`:
    the dual-wield items-array (`m_pActiveItem`/`m_pActiveInfo`/items[]), fire-type
    dispatch (`PrimaryAttack` by `s_weapon_info.iFireType`: grenade/knife/katana/
@@ -108,6 +122,8 @@ behaviour, in rough order:
    buy menu (`buyable` ground weapons + dead-state loadout — default = kung-fu).
    This also un-SLICEs `PlayerAddPowerUp`'s inf-clip (`CTSGun::MultiplyClips`,
    @0x71308, needs the items-array) and grenade (`PickUpWeapon`) branches.
+   Note: `DoubleFireRate()` already returns true while a dblfire powerup is active —
+   the weapon code can read it once the fire path is faithful.
 3. **`CTSSharedEmitter`** for `ts_emitter`/`ts_particle` (networked particle system;
    also needs a cl_dll side). Niche cleanup: `CTSGameRules::PutPowerUp` (@0x9797c)
    to dynamically spawn powerups at `info_player_deathmatch` (wire to a rules Think).

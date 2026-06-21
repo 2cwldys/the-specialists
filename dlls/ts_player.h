@@ -19,4 +19,8 @@ bool SlowPause(CBasePlayer *pPlayer);      // @ 0x65fb8 — m_iPowerups & 8
 bool DoubleFireRate(CBasePlayer *pPlayer); // @ 0x65fe4 — m_iPowerups & 0x10
 int  KungFu(CBasePlayer *pPlayer);         // @ 0x65fd8 — m_iKungFu
 
+// TS powerup HUD/effect user messages (registered lazily, like gmsgTSMessage).
+extern int gmsgTSPowerUpTime; // remaining-seconds bar for the active powerup
+extern int gmsgTSMotionBlur;  // slow-motion motion-blur effect (per player)
+
 #endif // TS_PLAYER_H

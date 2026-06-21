@@ -1870,6 +1870,8 @@ void CBasePlayer::PreThink()
 	if (g_fGameOver)
 		return; // intermission or finale
 
+	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame
+
 	UTIL_MakeVectors(pev->v_angle); // is this still used?
 
 	ItemPreFrame();
