@@ -5,6 +5,31 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 33) — CTSSlowMotionPoint (the slow-motion bubble; powerup→GoSlow link)
+
+**Done — `dlls/ts_slowmotionpoint.cpp`.** Un-SLICEs the deferred SlowMotionFlow link from
+cont.14/15: an activated slow-motion powerup now actually drops nearby players into slow-motion.
+
+RE (from the .so): CTSSlowMotionPoint (CreateSlowMotionPoint @0x69c60, ActivateSlow @0x663d0 sets
++0xe8 endtime/+0xec scale/+0xf4 bullets, WaitThink @0x71728). WaitThink polls every 0.5s: for each
+living player, if `!InSlow()` and a TraceLine from the point to the player's eye is clear (LOS) →
+`GoSlow(scale, bullets)` + track; at the end time → DeactivateSlow (restore tracked) + UTIL_Remove.
+A runtime entity (0 FGD placements), created by the powerup/SlowMotionFlow.
+Functional reconstruction on cont.15's CBasePlayer::GoSlow/InSlow:
+- `CTSSlowMotionPoint : CBaseEntity`: ActivateSlow + WaitThink (LOS GoSlow) + DeactivateSlow (restore
+  m_hSlowed[]). `TSCreateSlowMotionPoint(origin, scale, duration, bullets, owner)`.
+- `CBasePlayer::UsePowerUp`: a slow-motion(0.6)/slow-pause(0.8) powerup spawns a bubble at the player
+  (owner = activator, the powerup duration).
+
+**Verified RUNTIME (rcbot, ts_wyndham, SYNTHETIC — 0 stock placements):** a bubble at bot1 (owner)
+with bot2 adjacent → bot2 `InSlow()=1 go=0.60`, owner bot1 `InSlow()=0` (skipped); at expiry the
+bubble removed itself + restored bot2 (InSlow=0). No crash; clean regression (ts_theatre, powerups).
+
+**SLICE:** the visible time-dilation MOVEMENT is still client-side (GoSlow sets server fields only);
+the owner is skipped (stays "fast" = bullet-time feel) vs the .so's exact LOS set; no projectile slow.
+
+---
+
 ## 2026-06-21 (cont. 32) — CTSDMHill (king-of-the-hill brush volume)
 
 **Done — `dlls/ts_dmhill.cpp` (ts_dmhill).** A self-contained DM game-mode entity (no team/client

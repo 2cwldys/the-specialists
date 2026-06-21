@@ -63,12 +63,14 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   11 placements, `ts_slowmotion.cpp`) — touch-slows players, tracks + drops them on
   leave, "All map" mode → `GlobalSlowMotion2`. Verified on `ts_wyndham`: zones spawn,
   `Use()` activates, `GlobalSlowMotion2(0.5)` flips `InSlow()`/`go=0.5`, restore → 1.0.
+- **Powerup→slow propagation DONE (cont.33):** `CTSSlowMotionPoint` (`dlls/ts_slowmotionpoint.cpp`)
+  is the slow-motion bubble — an activated slow-motion/slow-pause powerup spawns one at the player
+  (`UsePowerUp`), and it `GoSlow`s every non-owner player with line of sight for the duration, then
+  restores them. (Un-SLICEs the old "activated slowmo sets `m_flSlowMotionScale` but doesn't `GoSlow`".)
 - **SLICE — the visible time-dilation layer is still deferred (client-entangled):** the
   actual slow-motion *movement* (the client pmove reads the slow fields — no cl_dll
   reconstructed); `GlobalSlowMotion2` slowing projectiles (needs `GoSlow`/`InSlow` as
-  **CBaseEntity** virtuals — currently CBasePlayer-only); `SlowMotionFlow` (@0x86bb0,
-  the powerup→`GoSlow` propagation — so an activated slowmo powerup sets
-  `m_flSlowMotionScale` but doesn't yet call `GoSlow`); `InterpolateSlowMotion`; the
+  **CBaseEntity** virtuals — currently CBasePlayer-only); `InterpolateSlowMotion`; the
   client motion-blur HUD; the on-death powerup re-drop. `CTSSlowMotion`'s exact Spawn
   trigger-setup + `m_flRadius` are inferred (// VERIFY).
 - **Weapons — runtime-verified, arsenal + all 38 types + fire-type dispatch (slice):**
