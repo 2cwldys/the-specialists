@@ -5,6 +5,49 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 22) — Fire-mode system (auto/semi/burst/pump + SwitchFireMode)
+
+**Done — the faithful trigger engine.** Auto/semi/burst/pump is now decided by a per-slot
+FIRE-MODE (orthogonal to fire-type, which still picks the fire *function*) — replacing the
+old fire-type-based auto/semi approximation.
+
+RE findings (from the .so):
+- `PrimaryAttack` (@0x81a20): melee/grenade/katana/flag dispatch by fire-type FIRST (outside
+  the mode system); the bullet/akimbo path then gates on the fire-mode byte `m_pActiveItem+2`:
+  mode 0 full-auto (held), 1 semi (per-press; dblfire powerup → held), 2 burst (set count on
+  press, return — fired by WeaponIdle), 3 pump (held), 4 akimbo-alt (per-press), 5 akimbo-both
+  (held). Burst count = `(weaponType != 0x17) + 2` → **3 rounds, 2 for the MAC-10 (0x17)**.
+- `WeaponIdle` (@0x854dc): while firemode==2 and burst count>0 and the idle timer elapsed →
+  `Fire()` + count-- (this completes a tapped burst after the trigger is released).
+- `StandardFire` (@0x824a4): burst rate = 0.03 between rounds, 0.2 after the last.
+- `SwitchFireMode` (@0x8169c): cycle the mode byte to the next bit set in the weapon's mode
+  MASK at `s_weapon_info+0xc`, modes 0..5 wrapping. Default mode (`TakeWeapon`): auto if
+  offered, else pump, else burst, else semi. Masks extracted from each `Write_<weapon>`
+  (`movl $imm,0xc(%eax)`): e.g. beretta=2 (semi), uzi=3 (auto+semi), m16=6 (semi+burst,
+  defaults burst), mp5sd/mp5k/mac10=7 (auto+semi+burst), akimbos 18/33.
+
+Functional reconstruction:
+- `ts_weapons.{h,cpp}`: s_weapon_info gains `iFireModes` (the +0xc mask, full table extracted);
+  `enum tsfiremode_mode_t`; `TSDefaultFireMode(mask)`.
+- `ts_gun.cpp` CTSGun: per-slot `m_arsenalMode[]` + active `m_fireMode` + `m_burstCount`
+  (saved/loaded by SelectSlot; defaulted in Spawn/AddWeapon/akimbo-upgrade). PrimaryAttack
+  rewritten to gate by m_fireMode → `Fire()` (dispatches by fire-type: AkimboFire or the new
+  `StandardFire`, factored from the old inline bullet code). WeaponIdle drives the burst.
+  `SwitchFireMode()` + free `TSSwitchFireMode` + the `tsfiremode` ClientCommand.
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** default modes correct for all
+masks (beretta→1 semi, uzi→0 auto, m16→2 burst, mp5sd→0 auto); `SwitchFireMode` cycles only
+the available modes (beretta stays 1; uzi 1↔0; m16 1↔2; mp5sd 1→2→0); m16 burst fired exactly
+3 rounds per tap (clip 18→15, burst 3→0). No crash; clean regression (only the known
+`ts_emitter`/`ts_particle` Can't-inits remain).
+
+**SLICE/deferred:** burst sustain depends on the SDK ItemPostFrame/WeaponIdle cadence (a held
+burst fires via PrimaryAttack, a tapped one finishes via WeaponIdle); no client-side fire-mode
+HUD indicator (the .so writes `mode+1` to player+0x49a per weapon); pump (mode 3) doesn't yet
+play a pump-action animation; the dblfire→semi-auto-continuous interaction is approximated.
+
+---
+
 ## 2026-06-21 (cont. 21) — Akimbo (fire-types 4/5): dual-wield upgrade + AkimboFire
 
 **Done — akimbo dual-wielding.** Un-SLICEs fire-types 4 (combinable) & 5 (gold-only),

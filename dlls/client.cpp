@@ -530,6 +530,10 @@ void ClientCommand(edict_t* pEntity)
 	{
 		TSCycleWeapon(player);
 	}
+	else if (FStrEq(pcmd, "tsfiremode")) // TS: cycle the held weapon's fire-mode
+	{
+		TSSwitchFireMode(player);
+	}
 	else if (FStrEq(pcmd, "fullupdate"))
 	{
 		player->ForceClientDllUpdate();

@@ -83,7 +83,28 @@ struct s_weapon_info
 	// for the only-akimbo gold colts). Set in compile_weapons_info (see ts_weapons.cpp).
 	int   iAkimboType; // +0xc8 — single -> akimbo upgrade target, or TSW_MELEE-sentinel -1
 	int   iSingleType; // +0xcc — akimbo -> single base
+	// Fire-mode mask (s_weapon_info+0xc): bitset of the trigger modes this weapon offers,
+	// cycled by CTSGun::SwitchFireMode. Bit N set => mode N (tsfiremode_mode_t) available.
+	int   iFireModes;  // +0xc — available fire-modes bitmask
 };
+
+// Trigger fire-modes (m_pActiveItem+2): which the CURRENT mode is, cycled among the
+// weapon's iFireModes mask. Orthogonal to iFireType (which picks the fire *function*):
+// the mode only gates the trigger (auto/semi/burst/pump) + rate. From SwitchFireMode
+// (@0x8169c) + the TakeWeapon default-mode selection (@0x80a04).
+enum tsfiremode_mode_t
+{
+	TSFM_AUTO = 0,        // full-auto: fire while held
+	TSFM_SEMI = 1,        // semi-auto: one round per trigger pull
+	TSFM_BURST = 2,       // 3-round burst (2 for the MAC-10)
+	TSFM_PUMP = 3,        // pump action: fire while held (shotguns)
+	TSFM_AKIMBO_ALT = 4,  // akimbo, one alternating barrel per pull
+	TSFM_AKIMBO_BOTH = 5, // akimbo, fire while held (both barrels)
+};
+
+// Default fire-mode for a weapon's mode mask (TakeWeapon: auto if available, else pump,
+// else burst if available, else semi).
+int TSDefaultFireMode(int modeMask);
 
 // Fire-type (s_weapon_info+0x348) — drives CTSGun::PrimaryAttack dispatch.
 enum tsfiretype_t
@@ -115,6 +136,9 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type);
 
 // Cycle to the next weapon in the player's TS arsenal (the `tsnextweapon` command).
 void TSCycleWeapon(CBasePlayer *pPlayer);
+
+// Cycle the held weapon's fire-mode (the `tsfiremode` command -> CTSGun::SwitchFireMode).
+void TSSwitchFireMode(CBasePlayer *pPlayer);
 
 // Infinite-clip powerup: multiply the held weapon's reserve. Returns true if applied.
 bool TSMultiplyClips(CBasePlayer *pPlayer);

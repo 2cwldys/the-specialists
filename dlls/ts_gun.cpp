@@ -46,9 +46,12 @@ public:
 	void Reload() override;
 	void WeaponIdle() override;
 
+	void Fire();                                 // dispatch one shot by fire-type
+	void StandardFire(const s_weapon_info *wi);  // bullet/pellet fire (StandardFire/ShotgunFire)
 	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
 	void GrenadeThrow(const s_weapon_info *wi);  // grenade fire-type
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
+	void SwitchFireMode();                       // cycle the held weapon's fire-mode
 
 	// arsenal (the items-array). @ AddItem/SelectWeapon/TakeWeapon__6CTSGun.
 	int FindSlot(tsweapon_t type);   // owned-slot index, or -1
@@ -60,9 +63,12 @@ public:
 	int m_arsenalType[TS_MAX_ARSENAL] = {};
 	int m_arsenalClip[TS_MAX_ARSENAL] = {};    // saved loaded rounds per slot
 	int m_arsenalReserve[TS_MAX_ARSENAL] = {}; // spare rounds per slot
+	int m_arsenalMode[TS_MAX_ARSENAL] = {};    // saved fire-mode per slot
 	int m_arsenalCount = 0;
 	int m_active = 0;
 	int m_akimboSide = 0; // which barrel fired last (alternates muzzle L/R for akimbo)
+	int m_fireMode = TSFM_SEMI; // ACTIVE fire-mode (= m_arsenalMode[m_active])
+	int m_burstCount = 0;       // rounds left in the current burst (m_pActiveItem+8)
 };
 
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
@@ -92,6 +98,8 @@ void CTSGun::Spawn()
 	m_arsenalType[0] = m_weaponType;
 	m_arsenalClip[0] = wi->iClip;
 	m_arsenalReserve[0] = wi->iClip * 3;
+	m_arsenalMode[0] = TSDefaultFireMode(wi->iFireModes);
+	m_fireMode = m_arsenalMode[0];
 	m_iClip = wi->iClip; // SLICE: deploy loaded
 
 	const char *world = wi->pszWorldModel ? wi->pszWorldModel : "models/w_weaponbox.mdl";
@@ -136,6 +144,9 @@ void CTSGun::AddWeapon(tsweapon_t type)
 		m_arsenalClip[single] = loaded;
 		m_iClip = loaded;
 		m_arsenalReserve[single] += wi->iClip;
+		m_arsenalMode[single] = TSDefaultFireMode(aki->iFireModes);
+		m_fireMode = m_arsenalMode[single];
+		m_burstCount = 0;
 		if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
 			Deploy(); // re-deploy with the akimbo view model
 		return;
@@ -150,6 +161,7 @@ void CTSGun::AddWeapon(tsweapon_t type)
 		m_arsenalType[slot] = type;
 		m_arsenalClip[slot] = wi->iClip;
 		m_arsenalReserve[slot] = wi->iClip * 3;
+		m_arsenalMode[slot] = TSDefaultFireMode(wi->iFireModes);
 	}
 	else
 	{
@@ -184,9 +196,12 @@ void CTSGun::SelectSlot(int slot)
 		return;
 
 	m_arsenalClip[m_active] = m_iClip; // save the wielded weapon's clip
+	m_arsenalMode[m_active] = m_fireMode; // and its fire-mode
 	m_active = slot;
 	m_weaponType = m_arsenalType[slot];
 	m_iClip = m_arsenalClip[slot];
+	m_fireMode = m_arsenalMode[slot];
+	m_burstCount = 0;
 
 	// Re-deploy the new active weapon if we're the player's held item.
 	if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
@@ -243,44 +258,79 @@ void CTSGun::PrimaryAttack()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 
-	// Melee fire-types do a hull trace, not bullets.
+	// Fire-types dispatched directly (outside the fire-mode trigger system, like the
+	// original PrimaryAttack @0x81a20): melee hull-traces and the grenade throw.
 	if (wi->iFireType == TSFT_KNIFE || wi->iFireType == TSFT_KATANA)
 	{
 		MeleeAttack(wi);
 		return;
 	}
-
-	// Grenade fire-type throws an M61 instead of firing bullets.
 	if (wi->iFireType == TSFT_GRENADE)
 	{
 		GrenadeThrow(wi);
 		return;
 	}
 
-	// Akimbo fire-types (4 combinable, 5 gold-only) dual-wield: alternating muzzle.
-	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+	// Bullet/akimbo/pellet weapons: the current FIRE-MODE gates the trigger (the fire
+	// *function* is still chosen by fire-type inside Fire()). m_pActiveItem+2 in the .so.
+	const bool held = (m_pPlayer->pev->button & IN_ATTACK) != 0;
+	const bool pressed = (m_pPlayer->m_afButtonPressed & IN_ATTACK) != 0;
+	bool fire = false;
+	switch (m_fireMode)
 	{
-		AkimboFire(wi);
-		return;
+	case TSFM_AUTO:
+	case TSFM_PUMP:
+	case TSFM_AKIMBO_BOTH:
+		fire = held; // full-auto / pump / akimbo-both: fire while held
+		break;
+	case TSFM_SEMI:
+	case TSFM_AKIMBO_ALT:
+		// one round per pull; the double-firerate powerup lets a semi gun fire held.
+		fire = pressed || (DoubleFireRate(m_pPlayer) && held);
+		break;
+	case TSFM_BURST:
+		// 3-round burst (2 for the MAC-10): start on a fresh pull, then run the queue
+		// down (here + in WeaponIdle) so a tap fires the whole burst.
+		if (m_burstCount > 0)
+			fire = true;
+		else if (pressed)
+		{
+			m_burstCount = (m_weaponType == TSW_MAC10) ? 2 : 3;
+			fire = true;
+		}
+		break;
 	}
+
+	if (fire)
+		Fire();
+}
+
+// @ Fire__6CTSGun — fire ONE shot, dispatching by fire-type (the trigger gating happens
+// in PrimaryAttack/WeaponIdle). Akimbo alternates barrels; everything else fires bullets.
+void CTSGun::Fire()
+{
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 
 	if (m_iClip <= 0)
 	{
 		PlayEmptySound();
 		m_flNextPrimaryAttack = GetNextAttackDelay(0.2);
+		m_burstCount = 0;
 		return;
 	}
 
-	// Semi-auto types fire one round per trigger pull (the pump shotgun + pistols +
-	// sniper + SLICE akimbo/grenade); full-auto types (SMG/rifle/auto-shotgun) fire
-	// while the trigger is held.
-	const int ft = wi->iFireType;
-	const bool fullAuto = (ft == TSFT_AUTO || ft == TSFT_AUTOSHOTGUN);
-	if (!fullAuto && !(m_pPlayer->m_afButtonPressed & IN_ATTACK))
-		return;
+	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+		AkimboFire(wi);
+	else
+		StandardFire(wi);
+}
 
-	// Pump shotguns fire a pellet spread; everything else a single bullet.
-	const int cPellets = (ft == TSFT_PUMP) ? 6 : 1; // VERIFY: pellet count not yet mapped
+// @ StandardFire/ShotgunFire — a single bullet (or a pump-shotgun pellet spread), with the
+// weapon's real damage/spread/rate. Burst rounds fire fast then slow on the last (the .so
+// uses 0.03 / 0.2; StandardFire @0x824a4).
+void CTSGun::StandardFire(const s_weapon_info *wi)
+{
+	const int cPellets = (wi->iFireType == TSFT_PUMP) ? 6 : 1; // VERIFY: pellet count not yet mapped
 	const float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.01f;
 
 	m_iClip--;
@@ -296,11 +346,24 @@ void CTSGun::PrimaryAttack()
 		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
 		0, (int)wi->flDamage, m_pPlayer->pev, m_pPlayer->random_seed);
 
-	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
-	if (DoubleFireRate(m_pPlayer)) // double-firerate powerup -> twice as fast
-		flRate *= 0.5f;
+	float flRate;
+	if (m_fireMode == TSFM_BURST)
+	{
+		// one burst round consumed; fast cadence between rounds, slow after the last.
+		if (m_burstCount > 0)
+			m_burstCount--;
+		flRate = (m_burstCount <= 0) ? 0.2f : 0.03f;
+	}
+	else
+	{
+		flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
+		if (DoubleFireRate(m_pPlayer)) // double-firerate powerup -> twice as fast
+			flRate *= 0.5f;
+	}
 	m_flNextPrimaryAttack = GetNextAttackDelay(flRate);
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+	// Short idle during a burst so WeaponIdle drives the remaining rounds; else normal.
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() +
+		((m_fireMode == TSFM_BURST && m_burstCount > 0) ? flRate : 5.0f);
 }
 
 // @ KnifeFire/KatanaFire — a short forward hull trace; on a hit, melee damage.
@@ -422,9 +485,36 @@ void CTSGun::Reload()
 	// SLICE: no reload animation/event.
 }
 
+// @ WeaponIdle__6CTSGun (@0x854dc) — drives the remaining burst rounds: while a burst is
+// queued and the idle timer has elapsed, fire the next round (this is how a tapped burst
+// completes after the trigger is released).
 void CTSGun::WeaponIdle()
 {
+	if (m_fireMode == TSFM_BURST && m_burstCount > 0 &&
+		m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
+	{
+		Fire();
+		return;
+	}
 	ResetEmptySound();
+}
+
+// @ SwitchFireMode__6CTSGun (@0x8169c) — cycle the held weapon's fire-mode to the next one
+// offered in its iFireModes mask (modes 0..5, wrapping), starting just past the current.
+void CTSGun::SwitchFireMode()
+{
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	for (int i = 1; i <= 6; i++)
+	{
+		int mode = (m_fireMode + i) % 6;
+		if (wi->iFireModes & (1 << mode))
+		{
+			m_fireMode = mode;
+			m_arsenalMode[m_active] = mode;
+			m_burstCount = 0;
+			return;
+		}
+	}
 }
 
 // Give a player a TS weapon of `type`. If they already hold the weapon_tsgun (the
@@ -465,4 +555,12 @@ bool TSMultiplyClips(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	return pGun ? pGun->MultiplyClips() : false;
+}
+
+// Cycle the held weapon's fire-mode (the `tsfiremode` command).
+void TSSwitchFireMode(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (pGun)
+		pGun->SwitchFireMode();
 }

@@ -34,6 +34,16 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->flRecoil = recoil;
 	w->iAkimboType = -1; // default: no akimbo upgrade (set in compile_weapons_info)
 	w->iSingleType = -1;
+	w->iFireModes = 2;   // default: semi only (overridden in compile_weapons_info)
+}
+
+// @ TakeWeapon default-mode selection — auto if offered, else pump, else burst, else semi.
+int TSDefaultFireMode(int modeMask)
+{
+	if (modeMask & (1 << TSFM_AUTO))  return TSFM_AUTO;
+	if (modeMask & (1 << TSFM_PUMP))  return TSFM_PUMP;
+	if (modeMask & (1 << TSFM_BURST)) return TSFM_BURST;
+	return TSFM_SEMI;
 }
 
 // @ compile_weapons_info__Fv — populate the weapon table (indices == tsweapon_t).
@@ -96,6 +106,18 @@ static void compile_weapons_info()
   g_weaponInfo[TSW_FNH_AKIMBO].iSingleType      = TSW_FNH;      // 30 -> 14
   g_weaponInfo[TSW_SKORPION_AKIMBO].iSingleType = TSW_SKORPION; // 37 -> 17
   g_weaponInfo[TSW_GOLD].iSingleType            = -1;           // gold: akimbo-only (ft 5)
+
+  // Fire-mode masks (s_weapon_info+0xc), recovered from each Write_<weapon>. Bit N =>
+  // mode N available (0 auto, 1 semi, 2 burst, 3 pump, 4 akimbo-alt, 5 akimbo-both).
+  static const int kFireModes[TSW_COUNT] = {
+    /* 0*/ 2, /* 1*/ 3, /* 2*/ 2, /* 3*/ 3, /* 4*/10, /* 5*/ 3, /* 6*/ 7, /* 7*/ 7,
+    /* 8*/18, /* 9*/ 2, /*10*/18, /*11*/ 1, /*12*/ 2, /*13*/ 3, /*14*/ 2, /*15*/ 3,
+    /*16*/33, /*17*/ 3, /*18*/ 2, /*19*/ 3, /*20*/10, /*21*/18, /*22*/ 2, /*23*/ 7,
+    /*24*/ 1, /*25*/ 1, /*26*/ 8, /*27*/ 6, /*28*/ 2, /*29*/ 2, /*30*/18, /*31*/ 2,
+    /*32*/ 1, /*33*/ 2, /*34*/ 1, /*35*/ 1, /*36*/ 2, /*37*/33,
+  };
+  for (int i = 0; i < TSW_COUNT; i++)
+    g_weaponInfo[i].iFireModes = kFireModes[i];
 
   g_weaponInfoCompiled = true;
 }
