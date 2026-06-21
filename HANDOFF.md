@@ -13,7 +13,7 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-21, through cont.35)
+## Where things stand (2026-06-21, through cont.36)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`** → **run in-engine** (with bots for player-needing code) →
 **gdb** any crash. Everything below is committed (`git log`); `recovered/` is
@@ -185,10 +185,15 @@ finish team mode:
    auto-balance on spawn (`PlayerSpawn` → `TeamWithFewestPlayers`); the team roster + GetTeamIndex/
    GetTeamID mirror `CHalfLifeTeamplay`. Verified: bots get balanced teams. The CTF/escape entities
    (step 4) are now unblocked. (Faithful join/class menu is cl_dll — deferred.)
-2. **The cash economy** — player cash (`CBasePlayer+0x540`), `CashBased()` mode, per-weapon price
-   (`s_weapon_info+0xd8`). Then the **buy menu** server half: the armament system
-   (`AddItemToArmament`@0x83ea4 / `BuyArmament`@0x83f10 — a pending loadout at `CBasePlayer+0x554/
-   +0x594`) + `BuyWeapon`@0x845bc. Directly reuses `GiveTSWeapon`/`AddAmmo`. (Menu UI is cl_dll.)
+2. ✅ **Cash + buy/armament (DONE, cont.36)** — `dlls/ts_buy.cpp`. **Major finding: `CashBased()` is
+   hardcoded OFF in the .so**, so weapons are FREE — the buy system is a free armament (loadout)
+   selector, not an economy. `GiveCash`/cash member kept (cash-for-win/lose, future sell zone) but
+   never charged. `ResetArmament`/`AddItemToArmament`/`AddAmmoToArmament`/`BuyWeapon`/`BuyAmmo`/
+   `BuyArmament` reuse `GiveTSWeapon`/`TSAddAmmo`; M61 is team-mode-only + capped 2/life. Driven by
+   console commands (`tsbuy`/`tsarm`/`tsbuyarmament`/…) since the menu UI is cl_dll. Verified on
+   tm_avana + DM. **Remaining buy SLICE:** the cl_dll buy menu, the category weapon restriction
+   (`IsRestrictedWeapon` over CTSMapGlobals — default 0x1f allows all), starting/win cash, and the
+   dead price field (`s_weapon_info+0xd8`, only live if a cash economy is ever turned on).
 3. **Team scores + the full round** — `UpdateTeamScores`/`InitTeamScore`, the faithful
    `RestartRound`@0x67920 (round timer + game-mode member + `InitObjectives`/`SetObjective`),
    `CTSObjective::Freeze`→`ShowObjectiveOnHud`.

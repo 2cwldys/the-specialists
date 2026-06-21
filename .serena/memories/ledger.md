@@ -5,6 +5,45 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 36) — Cash + buy/armament system (free loadout; CashBased is OFF)
+
+**Done — `dlls/ts_buy.cpp`: the TS cash + buy/armament loadout (Track A step 2).** Reuses the
+built `GiveTSWeapon`/`TSAddAmmo` arsenal.
+
+**KEY RE FINDING:** `CashBased__Fv` @0x66abc is hardcoded `return 0` in the shipped .so — the cash
+economy is COMPILED OUT. Every `if (CashBased())` cost-deduction branch in BuyWeapon/BuyAmmo/AddItem
+is dead, so the buy system gives weapons/ammo **FREE**. The real mechanic is a free ARMAMENT
+(loadout) selector: the client menu queues weapons+ammo and `BuyArmament` applies them. Cash is
+still tracked (the `cashforwin`/`cashforlose` cvars + a future sell zone) but never charged.
+
+RE (recovered/buy/CBasePlayer.c): cash @+0x540 (clamped 0..30000, GiveCash @0x9310c); a pending
+armament = ammo array @+0x554 (16 ints, rounds) + a weapon list @+0x594 (stride 0xc ×32: type/count/
+gift). ResetArmament @0x93e88 (zeroes 0x70 ints), AddItemToArmament @0x93ea4 (first free slot),
+AddAmmoToArmament @0x93ef4, BuyArmament @0x93f10 (each weapon → BuyWeapon or free AddItem; each
+caliber → BuyAmmo), BuyAmmo @0x941e8, BuyWeapon @0x945bc (IsRestrictedWeapon @0x770c8 gate + the M61
+special: type 0x18=24 is team-mode-only `1<TSGameRules` and capped 2/life via player+0x714, else free
+PickUpWeapon). Functional reconstruction onto CBasePlayer + the cont.18 arsenal:
+- `CashBased()` → false; `CBasePlayer::GiveCash` (clamped); members `m_iCash`/`m_iGrenadeBuys`/
+  `m_armamentAmmo[16]`/`m_armament[32]` in player.h.
+- `ResetArmament`/`AddItemToArmament`/`AddAmmoToArmament`/`BuyWeapon`/`BuyAmmo`/`BuyArmament`.
+  `BuyWeapon` = M61 team-mode+cap-2 rule then free `GiveTSWeapon`; `BuyAmmo` = free `TSAddAmmo`.
+- Console drivers in client.cpp (the faithful menu is cl_dll/`menuselect`, a SLICE): `tsbuy <type>`,
+  `tsbuyammo <cal> <rounds>`, `tsarm <type> [count]`, `tsarmammo <cal> <rounds>`, `tsbuyarmament`,
+  `tsresetarmament`.
+
+**Verified RUNTIME (rcbot, temp probe reverted):** tm_avana — queue {beretta(2),uzi(3)} + 50×9mm,
+GiveCash(1000)→1000, BuyArmament → arsenal=2 [2,3], 9mm reserve filled to the cap 80; M61 ×3 → 1,1,0
+(grenadeBuys cap 2). ts_wyndham (DM) — armament still applies free (arsenal=2), M61 ×3 → 0,0,0
+(team-mode block). No crash; clean regression (only the known ts_emitter/ts_particle Can't-inits).
+
+**SLICE/deferred:** weapons are free (faithful — CashBased off); the category-by-bitmask
+`IsRestrictedWeapon` over CTSMapGlobals' restriction isn't wired (default 0x1f allows all → allow-all
+stub is faithful for stock maps); no cl_dll buy menu (console-driven); armament ammo treated as rounds
+(no per-caliber mag-size table); no starting cash / cash-for-win-lose award yet; price field
+(s_weapon_info+0xd8) not extracted (dead while CashBased off).
+
+---
+
 ## 2026-06-21 (cont. 35) — CTSGameRules team subsystem: team ASSIGNMENT (the keystone)
 
 **Done — `dlls/ts_teams.cpp`: a real team layer on CTSGameRules + auto-balance assignment.**
