@@ -534,6 +534,17 @@ void ClientCommand(edict_t* pEntity)
 	{
 		TSSwitchFireMode(player);
 	}
+	else if (FStrEq(pcmd, "dropweapon")) // TS: drop the active weapon into the world
+	{
+		int type, clip;
+		if (TSDropActiveWeapon(player, type, clip))
+		{
+			UTIL_MakeVectors(player->pev->v_angle);
+			Vector vecSrc = player->GetGunPosition() + gpGlobals->v_forward * 16;
+			Vector vecVel = gpGlobals->v_forward * 250 + player->pev->velocity;
+			TSCreateWorldGun(type, clip, vecSrc, vecVel);
+		}
+	}
 	else if (FStrEq(pcmd, "fullupdate"))
 	{
 		player->ForceClientDllUpdate();

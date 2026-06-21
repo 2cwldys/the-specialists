@@ -157,6 +157,14 @@ void TSSwitchFireMode(CBasePlayer *pPlayer);
 // any were added. Used by CTSGroundAmmo (the per-caliber refill station).
 bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count);
 
+// Drop the player's active TS weapon (out: its type + loaded clip); false if it can't drop
+// (held <2 weapons). Pick up a dropped weapon of `type`/`clip`. (CTSWorldGun + dropweapon.)
+bool TSDropActiveWeapon(CBasePlayer *pPlayer, int &type, int &clip);
+void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip);
+
+// Spawn a dropped weapon entity (CTSWorldGun) carrying `type`/`clip`. Defined in ts_worldgun.cpp.
+CBaseEntity *TSCreateWorldGun(int type, int clip, const Vector &origin, const Vector &velocity);
+
 // Infinite-clip powerup: multiply the held weapon's reserve. Returns true if applied.
 bool TSMultiplyClips(CBasePlayer *pPlayer);
 

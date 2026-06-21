@@ -57,6 +57,7 @@ public:
 	int FindSlot(tsweapon_t type);   // owned-slot index, or -1
 	void AddWeapon(tsweapon_t type); // add to the arsenal (or resupply) + wield it
 	void SelectSlot(int slot);       // wield an owned slot (saves/loads its clip)
+	bool RemoveActiveWeapon(int &type, int &clip); // @DropWeapon — drop the active slot
 	bool MultiplyClips();            // infinite-clip powerup: multiply the held reserve
 	bool AddAmmo(int caliber, int count); // @AddAmmo__6CTSGun — add reserve rounds (capped)
 
@@ -582,6 +583,61 @@ void TSSwitchFireMode(CBasePlayer *pPlayer)
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (pGun)
 		pGun->SwitchFireMode();
+}
+
+// @ DropWeapon__6CTSGun — remove the active arsenal slot (for dropping it into the world),
+// returning its type + loaded clip. Requires holding >= 2 weapons (no unarmed state — SLICE);
+// the next slot is wielded.
+bool CTSGun::RemoveActiveWeapon(int &type, int &clip)
+{
+	if (m_arsenalCount < 2)
+		return false;
+
+	type = m_arsenalType[m_active];
+	clip = m_iClip;
+
+	for (int i = m_active; i < m_arsenalCount - 1; i++)
+	{
+		m_arsenalType[i] = m_arsenalType[i + 1];
+		m_arsenalClip[i] = m_arsenalClip[i + 1];
+		m_arsenalMode[i] = m_arsenalMode[i + 1];
+	}
+	m_arsenalCount--;
+	if (m_active >= m_arsenalCount)
+		m_active = 0;
+
+	m_weaponType = m_arsenalType[m_active];
+	m_iClip = m_arsenalClip[m_active];
+	m_fireMode = m_arsenalMode[m_active];
+	m_burstCount = 0;
+	if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
+		Deploy();
+	return true;
+}
+
+// Drop the player's active TS weapon: pull it from the arsenal (out-params type/clip). The
+// caller (the dropweapon command) spawns the CTSWorldGun. Returns false if it can't drop.
+bool TSDropActiveWeapon(CBasePlayer *pPlayer, int &type, int &clip)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	return pGun ? pGun->RemoveActiveWeapon(type, clip) : false;
+}
+
+// Pick up a dropped weapon of `type` carrying `clip` loaded rounds (CTSWorldGun pickup):
+// add it to the arsenal, then restore the carried clip on that slot.
+void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip)
+{
+	GiveTSWeapon(pPlayer, (tsweapon_t)type);
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (!pGun)
+		return;
+	int slot = pGun->FindSlot((tsweapon_t)type);
+	if (slot >= 0)
+	{
+		pGun->m_arsenalClip[slot] = clip;
+		if (slot == pGun->m_active)
+			pGun->m_iClip = clip;
+	}
 }
 
 // Add per-caliber reserve to the player's TS gun (CTSGroundAmmo refill station).

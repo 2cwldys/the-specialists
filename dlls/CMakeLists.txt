@@ -119,6 +119,7 @@ target_sources(hl PRIVATE
 	ts_gun.cpp
 	ts_objectives.cpp
 	ts_powerup.cpp
+	ts_worldgun.cpp
 	ts_weapons.cpp
 	turret.cpp
 	UserMessages.cpp
