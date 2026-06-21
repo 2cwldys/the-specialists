@@ -5,6 +5,49 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 23) — Per-caliber ammo (CTSGun::AddAmmo + CTSGroundAmmo wiring)
+
+**Done — the faithful per-caliber ammo system.** Un-SLICEs the per-slot generic reserve +
+the CTSGroundAmmo 9mm-only refill; ammo is now pooled per caliber and shared across same-
+caliber weapons (a single beretta + akimbo berettas draw from one 9mm pool).
+
+RE findings (from the .so):
+- Each weapon names a CALIBER byte at `s_weapon_info+0x8` (extracted from each Write_<weapon>):
+  0 none(melee/grenade), 1 9x19, 2 .45, 3 SHELLS, 4 5.56, 5 .50AE, 6 7.62, 7 5.7, 8 50BMG,
+  9 10mm, 10 .22, 11 .454, 12 .32, 13 .45LC. The gun holds 16 per-caliber reserves at `+0xd4`.
+- `compile_ammo_info` (@0x6f51c) builds a per-caliber table (stride 0x38): +0x10 = magazine
+  size, **+0x20 = max reserve (rounds)** — 9mm 80, .45 90, shells 90, 5.56 150, 7.62 170,
+  50BMG 200, … (full table extracted).
+- `AddAmmo(caliber,count)` (@0x808ac): `reserve[caliber] = min(reserve+count, max[caliber])`.
+- `ReloadWeapon` (@0x84a14): `take = min(clipSize - clip, reserve[caliber])` → reserve is in
+  ROUNDS, drawn into the clip. (Settled the rounds-vs-mags question.)
+- `CTSGroundAmmo::WaitTouch` (@0xa2f40): loops the 16 calibers calling `AddAmmo(gun, cal,
+  m_mags[cal])` — the FGD `magsN` keyvalues add raw rounds to caliber N (the station persists,
+  topping up on every touch; real maps set magsN = 3–5).
+
+Functional reconstruction:
+- `ts_weapons.{h,cpp}`: s_weapon_info gains `iCaliber` (the +0x8 byte, full table); `kAmmoMax[16]`
+  + `TSAmmoMax(caliber)`.
+- `ts_gun.cpp` CTSGun: **replaced the per-slot `m_arsenalReserve[]` with per-caliber
+  `m_ammoReserve[16]`**. `AddAmmo` method (capped). Spawn/AddWeapon seed the caliber reserve
+  (clip*3); the akimbo upgrade adds the 2nd pistol's rounds to the shared pool; Reload draws
+  from `m_ammoReserve[caliber]`; MultiplyClips (inf-clip powerup) tops the active caliber.
+  Free `TSAddAmmo(player, caliber, count)`.
+- `ts_groundammo.cpp` WaitTouch: per-caliber `TSAddAmmo(player, cal, m_mags[cal-1])` (was the
+  9mm-only SLICE).
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** beretta → clip 15 / 9mm reserve
+45; emptied clip → Reload drew 15 from the 9mm pool → 15/30; 2nd beretta → akimbo (type 8) +
+SHARES the 9mm pool (reserve 30+15=45); +m16 → 5.56 reserve 54, 9mm unchanged (separate pools);
+40× AddAmmo(1,3) capped at max 80. Clean regression on ts_supertimor_d3 (6 ground-ammo packs):
+0 Can't init, 0 crashes.
+
+**SLICE/deferred:** starting reserve = clip*3 (the faithful buy menu / BuyArmament sets the real
+loadout); calibers 12/13 (skorpion/contender) have no ground-ammo magN; no client ammo HUD;
+grenade (caliber 0) still uses its own m_iClip count (no caliber reserve).
+
+---
+
 ## 2026-06-21 (cont. 22) — Fire-mode system (auto/semi/burst/pump + SwitchFireMode)
 
 **Done — the faithful trigger engine.** Auto/semi/burst/pump is now decided by a per-slot

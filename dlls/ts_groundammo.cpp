@@ -24,6 +24,7 @@
 #include "cbase.h"
 #include "player.h"
 #include "weapons.h"
+#include "ts_weapons.h" // TSAddAmmo (per-caliber refill)
 
 #define AMMOPACK_MODEL "models/ammopack.mdl"
 #define SF_AMMO_ON_WALL 16
@@ -159,14 +160,17 @@ void CTSGroundAmmo::WaitTouch(CBaseEntity *pOther)
 	if (!pPlayer->HasNamedPlayerItem("weapon_tsgun"))
 		return; // must be holding a TS weapon (faithful: m_pActiveItem id == 16)
 
-	// SLICE: faithful adds each caliber's mags via CTSGun::AddAmmo; here we top up the
-	// held weapon's 9mm reserve by the total magazine count.
-	int totalMags = 0;
+	// Faithful (@WaitTouch 0x000a2f40): add each caliber's mags to the TS gun's per-caliber
+	// reserve via CTSGun::AddAmmo, capped at the caliber max. m_mags[0..10] = the FGD
+	// mags1..mags11 keyvalues -> calibers 1..11. The station persists (tops players up on
+	// every touch). A sound plays if any caliber actually took ammo.
+	bool added = false;
 	for (int i = 0; i < 11; i++)
-		totalMags += m_mags[i];
-	if (totalMags <= 0)
-		return;
+	{
+		if (m_mags[i] > 0 && TSAddAmmo(pPlayer, i + 1, m_mags[i]))
+			added = true;
+	}
 
-	if (pPlayer->GiveAmmo(totalMags * 30, "9mm", _9MM_MAX_CARRY) != -1)
+	if (added)
 		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/9mmclip1.wav", VOL_NORM, ATTN_NORM);
 }

@@ -84,10 +84,13 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   trigger, cycled by `SwitchFireMode`/the `tsfiremode` command over the recovered
   `s_weapon_info+0xc` mode mask; `PrimaryAttack` → `Fire()` → `StandardFire`/`AkimboFire`;
   burst = 3 rounds (2 for the MAC-10), driven by `WeaponIdle`; defaults per `TakeWeapon`.
+  **Per-caliber ammo** (cont.23): reserves are pooled by the weapon's `s_weapon_info+0x8`
+  caliber (`m_ammoReserve[16]`, shared across same-caliber weapons); `AddAmmo`/Reload draw
+  rounds capped at the `compile_ammo_info` max table; CTSGroundAmmo refills per caliber via
+  `TSAddAmmo`.
   **SLICE limits:** akimbo is a single active clip (not a true left/right barrel split) with
-  no IN_ATTACK2 "fire both barrels at once"; no weapon/ammo-groups or buy menu; no client-side
-  fire-mode HUD; per-slot reserve is generic (not wired to CTSGroundAmmo's calibers); pellet
-  count fixed 6 + mossberg/sawedoff fire-type data gap.
+  no IN_ATTACK2 "fire both barrels at once"; no buy menu (start reserve = clip*3); no
+  client-side fire-mode/ammo HUD; pellet count fixed 6 + mossberg/sawedoff fire-type data gap.
 - **WATCH OUT:** `recovered/` decompiles can be **truncated** by Ghidra noreturn
   artifacts (cut `CTSModel::Spawn` at `UTIL_SetSize`, `CTSPowerUp::Spawn`/`OnGround`
   at `UTIL_SetOrigin` — the cut tail held a `nextthink` set + the `SetTouch`/`SetThink`
@@ -146,21 +149,22 @@ deepen toward faithful behaviour, in rough order:
    for `items[]`/`m_pActiveItem`) are done; **all PrimaryAttack fire-types now handled**
    (semi/auto/pump/melee + grenade cont.20 + akimbo cont.21). What's left of the faithful
    engine: the **buy menu** (`CBasePlayer::BuyWeapon`/`BuyArmament` + the `buyable` ground
-   weapons + dead-state kung-fu loadout), and wiring the **per-caliber ammo** (CTSGroundAmmo's
-   mags → the arsenal reserve by caliber, via `CTSGun::AddAmmo` @0x808ac — the gun holds 16
-   per-caliber reserves at +0xd4, each capped by a max table; each weapon names its caliber).
-   (Done cont.18/19: the arsenal, `MultiplyClips` inf-clip powerup, `DoubleFireRate` halving
-   `flFireRate`.) Data gaps: mossberg/sawedoff fire-type extracted as 0 (are shotguns);
-   shotgun pellet count hard-coded 6 (find the real field).
+   weapons + dead-state kung-fu loadout — needs a client-side menu, so server-side only for
+   now), and the visible client side (fire-mode/ammo HUD). (Done cont.18/19: the arsenal,
+   `MultiplyClips` inf-clip powerup, `DoubleFireRate` halving `flFireRate`.) Data gaps:
+   mossberg/sawedoff fire-type extracted as 0 (are shotguns); shotgun pellet count
+   hard-coded 6 (find the real field).
    - **Grenade-throw (fire-type 2)** — DONE (cont.20): `CM61Grenade` on the SDK `CGrenade`.
    - **Akimbo (fire-types 4/5)** — DONE (cont.21): the `s_weapon_info` +0xc8/+0xcc pairing
-     (single↔akimbo) + `AddWeapon` in-place upgrade-on-2nd-pickup + `CTSGun::AkimboFire`
-     (alternating muzzle). SLICE: single active clip, no IN_ATTACK2 both-barrel fire.
+     (single↔akimbo) + `AddWeapon` in-place upgrade-on-2nd-pickup + `CTSGun::AkimboFire`.
    - **Fire-mode/burst** — DONE (cont.22): per-slot auto/semi/burst/pump gating in
-     `PrimaryAttack`, cycled by `SwitchFireMode`/`tsfiremode` over the `s_weapon_info+0xc`
-     mode mask; burst via `WeaponIdle`. SLICE: no client fire-mode HUD; pump has no
-     pump-action animation. Next weapon-engine items: **per-caliber ammo** (`AddAmmo`) and
-     the **buy menu**.
+     `PrimaryAttack`, cycled by `SwitchFireMode`/`tsfiremode` over the +0xc mode mask.
+   - **Per-caliber ammo** — DONE (cont.23): `m_ammoReserve[16]` pooled by the `s_weapon_info+0x8`
+     caliber, capped at the `compile_ammo_info` max table; Reload/MultiplyClips/CTSGroundAmmo
+     wired. The weapon engine is now functionally complete bar the buy menu + the client HUD.
+     Next subsystems: the **buy menu** (server side), the **objective/CTF entities**
+     (`CTSHack`/`CTSBriefcase`/`CTSBomb`/`CTSFlag`/`CTSWinGiver`) for team modes, or
+     `CTSSharedEmitter` (unblocks the `ts_emitter`/`ts_particle` Can't-inits, needs a cl_dll).
 3. **`CTSSharedEmitter`** for `ts_emitter`/`ts_particle` (networked particle system;
    also needs a cl_dll side). Niche cleanup: `CTSGameRules::PutPowerUp` (@0x9797c)
    to dynamically spawn powerups at `info_player_deathmatch` (wire to a rules Think).

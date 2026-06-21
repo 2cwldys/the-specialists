@@ -86,7 +86,17 @@ struct s_weapon_info
 	// Fire-mode mask (s_weapon_info+0xc): bitset of the trigger modes this weapon offers,
 	// cycled by CTSGun::SwitchFireMode. Bit N set => mode N (tsfiremode_mode_t) available.
 	int   iFireModes;  // +0xc — available fire-modes bitmask
+	// Ammo caliber index (s_weapon_info+0x8): which of the 16 per-caliber reserves this
+	// weapon draws from. 0 = none (melee/grenade). Reserves are shared across all weapons
+	// of the same caliber (so akimbo berettas + a single beretta share the 9mm pool).
+	int   iCaliber;    // +0x8 — ammo caliber index (0..15)
 };
+
+// Per-caliber ammo: the 16 calibers, the mag/magazine size, and the max reserve (rounds),
+// from compile_ammo_info (@0x6f51c). Indices match the weapon iCaliber + the FGD ts_groundammo
+// magsN keyvalues (magN -> caliber N).
+#define TS_NUM_CALIBERS 16
+int TSAmmoMax(int caliber); // max reserve (rounds) for a caliber, 0 if none
 
 // Trigger fire-modes (m_pActiveItem+2): which the CURRENT mode is, cycled among the
 // weapon's iFireModes mask. Orthogonal to iFireType (which picks the fire *function*):
@@ -139,6 +149,10 @@ void TSCycleWeapon(CBasePlayer *pPlayer);
 
 // Cycle the held weapon's fire-mode (the `tsfiremode` command -> CTSGun::SwitchFireMode).
 void TSSwitchFireMode(CBasePlayer *pPlayer);
+
+// Add `count` rounds of `caliber` to the player's TS gun reserve (capped). Returns true if
+// any were added. Used by CTSGroundAmmo (the per-caliber refill station).
+bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count);
 
 // Infinite-clip powerup: multiply the held weapon's reserve. Returns true if applied.
 bool TSMultiplyClips(CBasePlayer *pPlayer);

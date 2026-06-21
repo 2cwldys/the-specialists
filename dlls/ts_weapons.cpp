@@ -35,6 +35,21 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iAkimboType = -1; // default: no akimbo upgrade (set in compile_weapons_info)
 	w->iSingleType = -1;
 	w->iFireModes = 2;   // default: semi only (overridden in compile_weapons_info)
+	w->iCaliber = 0;     // default: no caliber (overridden in compile_weapons_info)
+}
+
+// Max per-caliber reserve (rounds), s_ammo_info+0x20 from compile_ammo_info (@0x6f51c).
+// Index = caliber. 0 = none. Calibers: 1 9x19, 2 .45, 3 SHELLS, 4 5.56, 5 .50AE, 6 7.62,
+// 7 5.7, 8 50BMG, 9 10mm, 10 .22, 11 .454, 12 .32, 13 .45LC.
+static const int kAmmoMax[TS_NUM_CALIBERS] = {
+	0, 80, 90, 90, 150, 90, 170, 100, 200, 90, 70, 20, 40, 170, 0, 0,
+};
+
+int TSAmmoMax(int caliber)
+{
+	if (caliber < 0 || caliber >= TS_NUM_CALIBERS)
+		return 0;
+	return kAmmoMax[caliber];
 }
 
 // @ TakeWeapon default-mode selection — auto if offered, else pump, else burst, else semi.
@@ -118,6 +133,18 @@ static void compile_weapons_info()
   };
   for (int i = 0; i < TSW_COUNT; i++)
     g_weaponInfo[i].iFireModes = kFireModes[i];
+
+  // Ammo caliber per weapon (s_weapon_info+0x8), recovered from each Write_<weapon>.
+  // 0 = none (melee/grenade). Calibers 1..13 map to the per-caliber reserves.
+  static const int kCaliber[TSW_COUNT] = {
+    /* 0*/ 2, /* 1*/ 1, /* 2*/ 1, /* 3*/ 1, /* 4*/ 3, /* 5*/ 4, /* 6*/ 1, /* 7*/ 1,
+    /* 8*/ 1, /* 9*/ 2, /*10*/ 2, /*11*/ 3, /*12*/ 5, /*13*/ 6, /*14*/ 7, /*15*/ 4,
+    /*16*/ 1, /*17*/12, /*18*/ 8, /*19*/ 7, /*20*/ 3, /*21*/ 2, /*22*/ 9, /*23*/ 2,
+    /*24*/ 0, /*25*/ 0, /*26*/ 3, /*27*/ 4, /*28*/10, /*29*/ 0, /*30*/ 7, /*31*/11,
+    /*32*/ 4, /*33*/ 3, /*34*/ 0, /*35*/ 0, /*36*/13, /*37*/12,
+  };
+  for (int i = 0; i < TSW_COUNT; i++)
+    g_weaponInfo[i].iCaliber = kCaliber[i];
 
   g_weaponInfoCompiled = true;
 }

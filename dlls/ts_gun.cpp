@@ -58,12 +58,13 @@ public:
 	void AddWeapon(tsweapon_t type); // add to the arsenal (or resupply) + wield it
 	void SelectSlot(int slot);       // wield an owned slot (saves/loads its clip)
 	bool MultiplyClips();            // infinite-clip powerup: multiply the held reserve
+	bool AddAmmo(int caliber, int count); // @AddAmmo__6CTSGun — add reserve rounds (capped)
 
 	int m_weaponType = TSW_BERETTA; // ACTIVE tsweapon_t (= m_arsenalType[m_active])
 	int m_arsenalType[TS_MAX_ARSENAL] = {};
 	int m_arsenalClip[TS_MAX_ARSENAL] = {};    // saved loaded rounds per slot
-	int m_arsenalReserve[TS_MAX_ARSENAL] = {}; // spare rounds per slot
 	int m_arsenalMode[TS_MAX_ARSENAL] = {};    // saved fire-mode per slot
+	int m_ammoReserve[TS_NUM_CALIBERS] = {};   // spare rounds PER CALIBER (gun+0xd4 in the .so)
 	int m_arsenalCount = 0;
 	int m_active = 0;
 	int m_akimboSide = 0; // which barrel fired last (alternates muzzle L/R for akimbo)
@@ -97,7 +98,7 @@ void CTSGun::Spawn()
 	m_active = 0;
 	m_arsenalType[0] = m_weaponType;
 	m_arsenalClip[0] = wi->iClip;
-	m_arsenalReserve[0] = wi->iClip * 3;
+	AddAmmo(wi->iCaliber, wi->iClip * 3); // seed the caliber's reserve (SLICE: buy menu sets this)
 	m_arsenalMode[0] = TSDefaultFireMode(wi->iFireModes);
 	m_fireMode = m_arsenalMode[0];
 	m_iClip = wi->iClip; // SLICE: deploy loaded
@@ -143,7 +144,7 @@ void CTSGun::AddWeapon(tsweapon_t type)
 		m_weaponType = wi->iAkimboType;
 		m_arsenalClip[single] = loaded;
 		m_iClip = loaded;
-		m_arsenalReserve[single] += wi->iClip;
+		AddAmmo(aki->iCaliber, wi->iClip); // the 2nd pistol's rounds (shared caliber pool)
 		m_arsenalMode[single] = TSDefaultFireMode(aki->iFireModes);
 		m_fireMode = m_arsenalMode[single];
 		m_burstCount = 0;
@@ -160,32 +161,45 @@ void CTSGun::AddWeapon(tsweapon_t type)
 		slot = m_arsenalCount++;
 		m_arsenalType[slot] = type;
 		m_arsenalClip[slot] = wi->iClip;
-		m_arsenalReserve[slot] = wi->iClip * 3;
 		m_arsenalMode[slot] = TSDefaultFireMode(wi->iFireModes);
 	}
-	else
-	{
-		m_arsenalReserve[slot] = wi->iClip * 3; // already owned -> resupply
-	}
+	AddAmmo(wi->iCaliber, wi->iClip * 3); // give/refill the caliber's shared reserve
 	SelectSlot(slot);
 }
 
-// @ MultiplyClips__6CTSGun — the infinite-clip powerup. The original tops the active
-// weapon's caliber reserve up toward 2x a full load; here we double the active slot's
-// own spare rounds (capped). Returns true if anything was added.
+// @ AddAmmo__6CTSGun (@0x808ac) — add `count` rounds to caliber's reserve, capped at the
+// caliber max. Reserves are per-caliber (gun+0xd4) and shared across same-caliber weapons.
+bool CTSGun::AddAmmo(int caliber, int count)
+{
+	if (caliber <= 0 || caliber >= TS_NUM_CALIBERS || count <= 0)
+		return false;
+	int max = TSAmmoMax(caliber);
+	if (m_ammoReserve[caliber] >= max)
+		return false;
+	m_ammoReserve[caliber] += count;
+	if (m_ammoReserve[caliber] > max)
+		m_ammoReserve[caliber] = max;
+	return true;
+}
+
+// @ MultiplyClips__6CTSGun — the infinite-clip powerup. Tops the active weapon's caliber
+// reserve toward 2x a full load (capped at the caliber max). Returns true if anything added.
 bool CTSGun::MultiplyClips()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	int cap = wi->iClip * 6; // ~6 spare clips ceiling
-	int before = m_arsenalReserve[m_active];
+	int caliber = wi->iCaliber;
+	if (caliber <= 0 || caliber >= TS_NUM_CALIBERS)
+		return false;
+	int before = m_ammoReserve[caliber];
 	int want = before * 2;
 	if (want < wi->iClip * 3)
 		want = wi->iClip * 3; // at least bring it back to a full resupply
-	if (want > cap)
-		want = cap;
+	int max = TSAmmoMax(caliber);
+	if (want > max)
+		want = max;
 	if (want <= before)
 		return false;
-	m_arsenalReserve[m_active] = want;
+	m_ammoReserve[caliber] = want;
 	return true;
 }
 
@@ -469,16 +483,21 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 }
 
+// @ Reload/ReloadWeapon — refill the clip from the weapon's CALIBER reserve: take =
+// min(clip-deficit, reserve[caliber]) (@0x84a14).
 void CTSGun::Reload()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	if (m_iClip >= wi->iClip || m_arsenalReserve[m_active] <= 0)
+	int caliber = wi->iCaliber;
+	if (caliber <= 0 || caliber >= TS_NUM_CALIBERS)
+		return;
+	if (m_iClip >= wi->iClip || m_ammoReserve[caliber] <= 0)
 		return;
 
 	int need = wi->iClip - m_iClip;
-	int take = (need < m_arsenalReserve[m_active]) ? need : m_arsenalReserve[m_active];
+	int take = (need < m_ammoReserve[caliber]) ? need : m_ammoReserve[caliber];
 	m_iClip += take;
-	m_arsenalReserve[m_active] -= take;
+	m_ammoReserve[caliber] -= take;
 
 	m_flNextPrimaryAttack = GetNextAttackDelay(1.5);
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
@@ -563,4 +582,11 @@ void TSSwitchFireMode(CBasePlayer *pPlayer)
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (pGun)
 		pGun->SwitchFireMode();
+}
+
+// Add per-caliber reserve to the player's TS gun (CTSGroundAmmo refill station).
+bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	return pGun ? pGun->AddAmmo(caliber, count) : false;
 }
