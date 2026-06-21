@@ -13,7 +13,7 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-21, through cont.34)
+## Where things stand (2026-06-21, through cont.35)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`** → **run in-engine** (with bots for player-needing code) →
 **gdb** any crash. Everything below is committed (`git log`); `recovered/` is
@@ -40,14 +40,20 @@ time-dilation, the particle system, stunts, HUDs) — there is **no cl_dll recon
   `CTSObjective` base). All spawn on `tm_avana` (0 Can't init, was 7) + `tm_corporate`; CTSHack
   counts `hackingtime` down to completion (fire target+HUD); CTSWinGiver Use declares the
   `winnerteam` → **`CTSGameRules::TeamWin` scores + restarts the round (cont.31)**; CTSTrigger
-  fires its target on a valid team-gated touch (cont.34). **SLICE:** TeamWin cash + the per-player
-  team ASSIGNMENT + `ShowObjectiveOnHud` + the client objective HUD pointer are deferred.
+  fires its target on a valid team-gated touch (cont.34) — now driven by real `pev->team` (cont.35).
+  **SLICE:** TeamWin cash + `ShowObjectiveOnHud` + the client objective HUD pointer are deferred.
 - **Game rules:** `CTSGameRules : CHalfLifeMultiplay` IS the live `g_pGameRules`
   (`ts_gamerules.{h,cpp}` + `InstallGameRules`). Real TS overrides now: `GetRandomPowerup`,
   `Think` (dynamic powerups), `PlayerKilled` (death loot), `TeamWin` + round-restart,
-  `GlobalSlowMotion2`/`SetGlobalSlowMotion`, `PutPowerUp`. The team/score/objective methods
-  (`SetTeamList`, `UpdateTeamScores`, the full `RestartRound`) still inherit MP. `TSGameRules()`
-  accessor + `TS_PWUP_*` bits.
+  `GlobalSlowMotion2`/`SetGlobalSlowMotion`, `PutPowerUp`. **Team subsystem (cont.35,
+  `dlls/ts_teams.cpp`):** `IsTeamMode`/`IsTeamplay` (team mode iff a `ts_objective_manager` is
+  present — the same DM proxy cont.26 used), `InitTeams`/`RecountTeams`/`GetTeamIndex`/
+  `GetIndexedTeamName`/`GetTeamID`/`TeamWithFewestPlayers`, `AssignToTeam`, and a `PlayerSpawn`
+  override that **auto-balances** any unassigned player onto the fewest team (server-side stand-in
+  for the faithful client class menu). `pev->team` is **0-based** (0 spec, 1 merc) to match the
+  FGD/objective gating. **Verified:** 5 bots balanced 3/2 on `tm_avana`; DM assigns nothing.
+  Still inheriting MP: cash economy, the buy menu, `UpdateTeamScores`/`InitTeamScore`, the full
+  `RestartRound`, friendly-fire. `TSGameRules()` accessor + `TS_PWUP_*` bits.
 - **Player:** no `CTSPlayer` — TS state lives on `CBasePlayer` (`player.h` member
   block `m_iPowerups`/`m_iHeldPowerup`/`m_flPowerupTime`/`m_flPowerupExpireTime`/
   `m_flHealthRegen`/`m_iKungFu`/`m_bLowGravity`) + accessors in `ts_player.{h,cpp}`.
@@ -173,11 +179,12 @@ map entities — see "Where things stand"). The remaining work is **two big trac
 than a single self-contained increment. Pick one deliberately; expect multiple commits.
 
 **Track A — the `CTSGameRules` team subsystem + cash (server-side, the biggest gameplay unlock).**
-A functional `TeamWin` + round-restart already exists (cont.31). To make team mode real:
-1. **Team assignment** — the keystone. Players need `pev->team` set. Faithful flow is the
-   client join/class menu; the server-only substitute is auto-balance on spawn (override
-   `CTSGameRules::PlayerSpawn` → assign the team with fewest players). `CTSGameRules::GetTeamIndex`/
-   `SetTeamList`/`SetTeamModelList` mirror `CHalfLifeTeamplay`. Verifiable: bots get balanced teams.
+A functional `TeamWin` + round-restart (cont.31) and **team assignment (cont.35)** now exist. To
+finish team mode:
+1. ✅ **Team assignment (DONE, cont.35)** — `dlls/ts_teams.cpp`: `pev->team` set 0-based via
+   auto-balance on spawn (`PlayerSpawn` → `TeamWithFewestPlayers`); the team roster + GetTeamIndex/
+   GetTeamID mirror `CHalfLifeTeamplay`. Verified: bots get balanced teams. The CTF/escape entities
+   (step 4) are now unblocked. (Faithful join/class menu is cl_dll — deferred.)
 2. **The cash economy** — player cash (`CBasePlayer+0x540`), `CashBased()` mode, per-weapon price
    (`s_weapon_info+0xd8`). Then the **buy menu** server half: the armament system
    (`AddItemToArmament`@0x83ea4 / `BuyArmament`@0x83f10 — a pending loadout at `CBasePlayer+0x554/

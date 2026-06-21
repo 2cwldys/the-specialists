@@ -5,6 +5,51 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 35) — CTSGameRules team subsystem: team ASSIGNMENT (the keystone)
+
+**Done — `dlls/ts_teams.cpp`: a real team layer on CTSGameRules + auto-balance assignment.**
+First piece of Track A. Players now get a `pev->team`, which is what the already-built objective/CTF
+gating reads (cont.25/34) — so team mode is no longer just inheriting MP.
+
+RE (from the .so): the team subsystem is a packed 0x8c-byte per-team struct ×4 (cash @+0x1c, scores
+@+0x20/+0x24, name @+0x28, spawn classnames @+0x68/+0x88, model list @+0x38), gated on the TS
+game-mode byte @+0 (2/3 = a team map). InitTeams @0x77f60 builds "Specialists;Mercenaries"
+(models "spec"/"merc") for a team map; GetTeamIndex @0x79b04 = case-insensitive name→index (0-based);
+GetTeamsNum @0x785a8; GetPlayerModel @0x79a08 / GetTeamCash @0x79aac read the per-team struct. The
+faithful trigger for a player landing on a team is the client class-selection menu (cl_dll, NOT built).
+
+Functional reconstruction (modeled naturally, NOT transcribing the byte struct; mirrors the SDK
+`CHalfLifeTeamplay` team half, which is the same logic):
+- `CTSGameRules` keeps `m_szTeamList` + parallel `m_teamNames[]/m_teamModels[]` + `m_numTeams`.
+- `IsTeamMode()` (cached tri-state `m_iTeamMode`): a `ts_objective_manager` is present (the same DM
+  proxy cont.26 used). Resolved lazily — worldspawn installs the rules before objective ents spawn.
+  `IsTeamplay()` override now == `IsTeamMode()`; folds the old explicit objective-manager scan out of
+  the cont.26 Think powerup gate.
+- `InitTeams`/`RecountTeams`/`GetTeamIndex`(override)/`GetIndexedTeamName`(override)/`GetTeamID`
+  (override → TeamID())/`TeamWithFewestPlayers` — mirror the SDK team subsystem.
+- `AssignToTeam(player, name)`: set `pev->team` **0-based** (0 spec, 1 merc — the FGD/objective
+  convention, NOT engine-1-based) + `m_szTeamName` + "model"/"team" infokeys + broadcast gmsgTeamInfo
+  + gmsgScoreInfo. `PlayerSpawn` override: MP spawn, then (team mode, if not yet on a valid team)
+  auto-balance onto `TeamWithFewestPlayers()` — idempotent across respawns/round restarts.
+  `InitHUD` override sends gmsgTeamNames + everyone's team to a connecting client.
+
+**Verified RUNTIME (rcbot, tm_avana, temp probe reverted):** 5 bots auto-balanced fewest-first →
+Specialists{Chuck,Sean,sebastian}=3, Mercenaries{Alec,Matt}=2 (exact alternating 0,1,0,1,0 with
+ties→lower index). 0 Can't init, no crash. DM regression (ts_wyndham): **0** assignments (IsTeamplay
+false), powerup spawner still gated correctly, only the known ts_emitter/ts_particle Can't-inits, no
+crash. Clean rebuild boot of tm_avana: probe gone, 0 Can't init, clean shutdown.
+
+**SLICE/next (rest of Track A):** assignment is server auto-balance (faithful = client class menu,
+cl_dll); the per-team **cash economy** (GetTeamCash/initial_cash @+0x1c, CashBased(), price
+s_weapon_info+0xd8) + the **buy menu** server half (AddItemToArmament@0x83ea4 / BuyArmament@0x83f10 /
+BuyWeapon@0x845bc) are not built; team **scores** still go through cont.31's `m_teamScore[]` (not the
+faithful UpdateTeamScores/InitTeamScore); full `RestartRound`@0x67920 (round timer + game-mode member
++ InitObjectives/SetObjective) deferred; no friendly-fire (FPlayerCanTakeDamage) yet. Now that
+pev->team is real, the **CTF/escape entities** (CTSFlag/CTSBriefcase/CTSBomb/CTSTeamEscape/CVipEscape/
+CTSSellZone/CTSScoreGiver) are unblocked.
+
+---
+
 ## 2026-06-21 (cont. 34) — CTSTrigger (TS brush trigger; team-gated, recheck delay)
 
 **Done — `CTSTrigger` in `dlls/ts_objectives.cpp` (ts_trigger).** A reusable TS brush trigger.
@@ -20,7 +65,7 @@ cooldown (nextAllowed → t+2); an immediate re-touch was blocked. Factory `ts_t
 crash; clean regression (tm_avana, 0 Can't init).
 
 **SLICE:** the "Flag Carrier Only" spawnflag needs the CTF flag system (not built) → ignored; the team
-gate uses pev->team (no team ASSIGNMENT yet).
+gate uses pev->team (now real as of cont.35).
 
 **Session status:** ~25 TS classes reconstructed (the self-contained server-side gameplay is
 essentially complete). Remaining = the big/client-entangled subsystems: faithful team mode + cash
@@ -215,8 +260,7 @@ niche left in cont.13. DM maps now spawn powerups dynamically even without ts_po
 - `CTSGameRules::Think` override (the rules object now runs TS think): `CHalfLifeMultiplay::Think()`
   then, in DM only, roll `GetRandomPowerup(0x1ff)` every ~20s and PutPowerUp it (1s retry on
   fail). Mirrors the .so Think powerup block (`if mode<2 … every 20s`). DM gate = `!IsTeamplay()`
-  AND no `ts_objective_manager` present (a functional proxy — the real TS game-mode member @+0
-  isn't reconstructed; objective maps place their own pickups).
+  (which as of cont.35 == the objective-manager proxy).
 
 **Verified RUNTIME (temp probe reverted):** ts_wyndham (DM) spawned a random powerup every 20s
 (t=1 kungfu, t=21 slowmo, t=41 kungfu); tm_avana (objective map) correctly skipped (0 spawns).
