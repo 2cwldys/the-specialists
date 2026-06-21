@@ -346,6 +346,17 @@ CTSPowerUp *CTSPowerUp::CreatePowerUp(int type, int duration)
 	return pPowerup;
 }
 
+// Free helper for CTSGameRules::PutPowerUp (dynamic deathmatch powerup spawning): create a
+// temporary powerup of `type` at `vecOrigin` (it then falls/settles like a placed one). The
+// origin is set after Spawn so the entity drops from the chosen spawn point. Returns it, or NULL.
+CBaseEntity *TSCreatePowerUpAt(int type, const Vector &vecOrigin)
+{
+	CTSPowerUp *pPowerup = CTSPowerUp::CreatePowerUp(type, -1);
+	if (pPowerup)
+		UTIL_SetOrigin(pPowerup->pev, vecOrigin);
+	return pPowerup;
+}
+
 // @ PlayerAddPowerUp(CBasePlayer*, int type, CTSPowerUp*) — apply a powerup to a
 // player. Returns true if it took (and the powerup should be consumed). Instant
 // powerups are applied immediately; the timed ones (slow-motion/-pause/double-fire)

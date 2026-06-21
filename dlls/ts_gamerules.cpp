@@ -39,6 +39,59 @@ int CTSGameRules::GetRandomPowerup(int mask)
 	return list[RANDOM_LONG(0, count - 1)];
 }
 
+// Defined in ts_powerup.cpp — create a temporary powerup of `type` at `vecOrigin`.
+CBaseEntity *TSCreatePowerUpAt(int type, const Vector &vecOrigin);
+
+// @ PutPowerUp__12CTSGameRulesi — spawn a powerup at a random info_player_deathmatch
+// spawn point. Skips the spot if a ts_powerup is already nearby (so dynamically-spawned
+// powerups don't stack). Returns true if one was created.
+bool CTSGameRules::PutPowerUp(int type)
+{
+	// Collect the deathmatch spawn points (the .so caps at 32).
+	CBaseEntity *spawns[32];
+	int count = 0;
+	CBaseEntity *pSpot = nullptr;
+	while (count < 32 &&
+		(pSpot = UTIL_FindEntityByClassname(pSpot, "info_player_deathmatch")) != nullptr)
+		spawns[count++] = pSpot;
+
+	if (count == 0)
+		return false;
+
+	Vector vecOrigin = spawns[RANDOM_LONG(0, count - 1)]->pev->origin + Vector(0, 0, 16);
+
+	// Don't pile powerups onto a spot that already has one.
+	CBaseEntity *pNear = nullptr;
+	while ((pNear = UTIL_FindEntityInSphere(pNear, vecOrigin, 128.0f)) != nullptr)
+		if (FClassnameIs(pNear->pev, "ts_powerup"))
+			return false;
+
+	return TSCreatePowerUpAt(type, vecOrigin) != nullptr;
+}
+
+// @ CTSGameRules::Think — run the inherited MP think, then (in non-team deathmatch) drive
+// the dynamic powerup spawner: roll a random powerup every ~20s and PutPowerUp it (retry in
+// 1s if no spawn point was free). Mirrors the .so's Think powerup block.
+void CTSGameRules::Think()
+{
+	CHalfLifeMultiplay::Think();
+
+	if (gpGlobals->time < m_flNextPowerupSpawn)
+		return;
+
+	// Only deathmatch maps get dynamic powerups (the .so gates on the TS game-mode member,
+	// not yet reconstructed). Proxy: skip team-play and any map running an objective manager.
+	if (IsTeamplay() || UTIL_FindEntityByClassname(nullptr, "ts_objective_manager") != nullptr)
+	{
+		m_flNextPowerupSpawn = gpGlobals->time + 20.0f;
+		return;
+	}
+
+	int type = GetRandomPowerup(TS_PWUP_ALL);
+	bool spawned = type != 0 && PutPowerUp(type);
+	m_flNextPowerupSpawn = gpGlobals->time + (spawned ? 20.0f : 1.0f);
+}
+
 // @ GlobalSlowMotion2__12CTSGameRulesfb — apply (or clear, scale 0) a global slow-
 // motion to every player. Throttled to ~0.5s except when turning off.
 // SLICE: the original also slows live "grenade"/"WorldGun" projectiles; deferred

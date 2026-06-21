@@ -33,6 +33,16 @@ public:
 	// Pick a random permitted powerup bit out of `mask`, or 0 if none qualify.
 	int GetRandomPowerup(int mask);
 
+	// Per-frame: drives the dynamic deathmatch powerup spawner (PutPowerUp) on top of the
+	// inherited CHalfLifeMultiplay round/spawn logic.
+	void Think() override;
+
+	// @ PutPowerUp(type) — spawn a powerup of `type` at a random info_player_deathmatch
+	// (skipped if a powerup is already nearby). Returns true if one was spawned.
+	bool PutPowerUp(int type);
+
+	float m_flNextPowerupSpawn = 0; // next dynamic-powerup time (DM mode; member @+4 in .so)
+
 	// Global ("all map") slow-motion. GlobalSlowMotion2 applies `scale` to every
 	// player each call (throttled ~0.5s; scale 0 = restore). SetGlobalSlowMotion is
 	// the timed wrapper (cmd_globalslow / the ts_slowmotion "All map" mode).
