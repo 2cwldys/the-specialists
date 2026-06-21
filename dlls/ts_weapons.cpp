@@ -194,6 +194,10 @@ void PrecacheAllTSWeapons()
 	PRECACHE_SOUND("items/gunpickup2.wav");
 	PRECACHE_SOUND("items/weapondrop1.wav");
 	PRECACHE_SOUND("misc/beep2.wav"); // CTSBomb countdown beep (runtime-armed bomb)
+	// the dynamic deathmatch powerup spawner (CTSGameRules::PutPowerUp) creates ts_powerup at
+	// runtime — precache its model here so a DM map with no ts_powerup placements doesn't
+	// PRECACHE_MODEL after spawn (Host_Error, seen on ts_dust2).
+	PRECACHE_MODEL("models/powerup.mdl");
 
 	// weapon event scripts (CTSGun::Precache @0x80660) — must be precached at map
 	// load so a runtime weapon give doesn't precache an event mid-game.
