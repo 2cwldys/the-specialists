@@ -88,9 +88,11 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   caliber (`m_ammoReserve[16]`, shared across same-caliber weapons); `AddAmmo`/Reload draw
   rounds capped at the `compile_ammo_info` max table; CTSGroundAmmo refills per caliber via
   `TSAddAmmo`.
+  **Shotguns** (cont.24): fire the real **8 pellets** (`iPellets` = `s_weapon_info+0x24`);
+  mossberg/sawedoff fire-types fixed (1 pump / 8 semi).
   **SLICE limits:** akimbo is a single active clip (not a true left/right barrel split) with
   no IN_ATTACK2 "fire both barrels at once"; no buy menu (start reserve = clip*3); no
-  client-side fire-mode/ammo HUD; pellet count fixed 6 + mossberg/sawedoff fire-type data gap.
+  client-side fire-mode/ammo HUD.
 - **WATCH OUT:** `recovered/` decompiles can be **truncated** by Ghidra noreturn
   artifacts (cut `CTSModel::Spawn` at `UTIL_SetSize`, `CTSPowerUp::Spawn`/`OnGround`
   at `UTIL_SetOrigin` — the cut tail held a `nextthink` set + the `SetTouch`/`SetThink`
@@ -151,9 +153,8 @@ deepen toward faithful behaviour, in rough order:
    engine: the **buy menu** (`CBasePlayer::BuyWeapon`/`BuyArmament` + the `buyable` ground
    weapons + dead-state kung-fu loadout — needs a client-side menu, so server-side only for
    now), and the visible client side (fire-mode/ammo HUD). (Done cont.18/19: the arsenal,
-   `MultiplyClips` inf-clip powerup, `DoubleFireRate` halving `flFireRate`.) Data gaps:
-   mossberg/sawedoff fire-type extracted as 0 (are shotguns); shotgun pellet count
-   hard-coded 6 (find the real field).
+   `MultiplyClips` inf-clip powerup, `DoubleFireRate` halving `flFireRate`; cont.24: real
+   8-pellet shotguns + mossberg/sawedoff fire-types — the weapon data gaps are now closed.)
    - **Grenade-throw (fire-type 2)** — DONE (cont.20): `CM61Grenade` on the SDK `CGrenade`.
    - **Akimbo (fire-types 4/5)** — DONE (cont.21): the `s_weapon_info` +0xc8/+0xcc pairing
      (single↔akimbo) + `AddWeapon` in-place upgrade-on-2nd-pickup + `CTSGun::AkimboFire`.

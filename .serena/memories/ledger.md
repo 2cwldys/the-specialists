@@ -5,6 +5,32 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 24) — Shotgun fidelity: 8-pellet count + mossberg/sawedoff fire-types
+
+**Done — closed the two known weapon data gaps.**
+- s_weapon_info gains `iPellets` (bullets-per-shot, `s_weapon_info+0x24`): **8 for the five
+  shotguns** (benelli/usas/spas/mossberg/sawed-off), 1 otherwise (extracted from each
+  Write_<weapon>). `StandardFire` uses it instead of the hardcoded `(ft==PUMP)?6:1` guess —
+  which was both wrong (8, not 6) and missed usas/sawedoff (not pump fire-type but 8 pellets).
+- Fixed two fire-types the OLD extract_weapons.py mis-read as 0 (reading the Write_ funcs
+  directly gives the truth): **mossberg 0→1 (pump), sawedoff 0→8 (semi, twin-barrel)**.
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** mossberg fireType=1 pellets=8,
+sawedoff fireType=8 pellets=8, usas fireType=6 pellets=8, beretta control pellets=1; all fire
+without crash. Clean regression.
+
+**Note on the bigger picture:** the weapon engine is now functionally complete (arsenal,
+all fire-types, akimbo, fire-mode/burst, per-caliber ammo, correct pellets). The remaining TS
+gameplay systems are all LARGE/interconnected or client-entangled: the buy menu (cash economy
+@BuyWeapon checks CashBased()/weapon price s_weapon_info+0xd8/player cash +0x540 + a client
+menu UI), the team/objective subsystem (CTSGameRules::TeamWin @0x68a08 is 1564 bytes atop
+SetTeamList/UpdateTeamScores/RestartRound/InitTeamScore — all the ts_wingiver/ts_hack/
+ts_briefcase entities live in tm_ maps needing it), the networked particles (CTSSharedEmitter,
+needs cl_dll), and the visible slow-motion time-dilation (needs cl_dll). Next agent: pick the
+team foundation (biggest gameplay unlock, server-side) or the buy menu server half.
+
+---
+
 ## 2026-06-21 (cont. 23) — Per-caliber ammo (CTSGun::AddAmmo + CTSGroundAmmo wiring)
 
 **Done — the faithful per-caliber ammo system.** Un-SLICEs the per-slot generic reserve +
