@@ -5,6 +5,34 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 28) — Death handling: CTSDeadCorpse + drop-arsenal-on-death
+
+**Done — `dlls/ts_corpse.cpp` + a `CTSGameRules::PlayerKilled` hook.** Completes the on-death side
+left open in cont.27 and adds the TS death body.
+
+RE (from the .so): `CTSDeadCorpse` (Spawn @0x7040c, WaitThink @0x70460) + `TSCreateDeadCorpse`
+(@0x60234). The corpse is `CBaseEntity::Create("…")` copying the player's origin/angles (rep movsl)
++ pev->model (+0xb8), modelindex (+0xb4), sequence/frame (+0x130/+0x1a8), `movetype = 6`
+(MOVETYPE_TOSS @+0x108); WaitThink (0.5s) ramps renderamt down by `((fadeEnd-time)/(lifetime*0.667))*255`
+then UTIL_Remove. Functional reconstruction:
+- `CTSDeadCorpse : CBaseAnimating` (ts_corpse): MOVETYPE_TOSS + SOLID_NOT + kRenderTransTexture;
+  `FadeThink` fades renderamt then removes (15s lifetime). `TSCreateDeadCorpse(player, lifetime)`
+  copies model/origin/angles/sequence/frame(framerate 0 = frozen)/body/skin/colormap.
+- `TSDropWeaponsOnDeath(player)` (ts_gun.cpp): scatter the whole arsenal into the world as
+  CTSWorldGuns (random toss) — the on-death drop noted as SLICE in cont.27.
+- `CTSGameRules::PlayerKilled` override: `CHalfLifeMultiplay::PlayerKilled` (scoring/death-notice),
+  then drop weapons + spawn the corpse.
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** a bot given beretta+uzi then
+force-killed (suicide TakeDamage) produced exactly **1 ts_corpse + 2 ts_worldgun**; no crash; clean
+regression (factory `ts_corpse` exported).
+
+**SLICE:** corpse copies the live pose at PlayerKilled time (no dedicated death-anim capture);
+melee/no-world-model weapons aren't dropped; no gib/blood. The on-death weapon drop now means the
+CTSWorldGuns are reachable in normal play (kill someone → their guns drop, press USE to grab).
+
+---
+
 ## 2026-06-21 (cont. 27) — CTSWorldGun (player-dropped weapons: drop + USE-pickup)
 
 **Done — `dlls/ts_worldgun.cpp`: the dropped-weapon-in-the-world entity.** Completes the weapon

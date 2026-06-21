@@ -99,8 +99,12 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   mossberg/sawedoff fire-types fixed (1 pump / 8 semi).
   **Dropped weapons** (cont.27, `dlls/ts_worldgun.cpp`): `CTSWorldGun` + the `dropweapon`
   command — drop the active weapon into the world (`RemoveActiveWeapon`), it falls/settles,
-  another player presses **USE** to pick it up (`TSPickUpWeapon`). SLICE: carries type+clip
-  only, no on-death drop / CTSPhysicObject bounce.
+  another player presses **USE** to pick it up (`TSPickUpWeapon`).
+- **Death handling — runtime-verified (cont.28):** `CTSGameRules::PlayerKilled` override
+  (`ts_gamerules.cpp`) drops the dead player's arsenal as `CTSWorldGun`s + spawns a fading
+  `CTSDeadCorpse` (`dlls/ts_corpse.cpp`, the dead player's frozen studio pose, fades over 15s).
+  Verified: kill a bot → 1 corpse + its weapons drop (USE to grab). SLICE: live-pose copy, no
+  gib/blood, melee not dropped.
   **SLICE limits:** akimbo is a single active clip (not a true left/right barrel split) with
   no IN_ATTACK2 "fire both barrels at once"; no buy menu (start reserve = clip*3); no
   client-side fire-mode/ammo HUD.
