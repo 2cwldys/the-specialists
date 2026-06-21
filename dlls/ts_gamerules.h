@@ -32,6 +32,17 @@ class CTSGameRules : public CHalfLifeMultiplay
 public:
 	// Pick a random permitted powerup bit out of `mask`, or 0 if none qualify.
 	int GetRandomPowerup(int mask);
+
+	// Global ("all map") slow-motion. GlobalSlowMotion2 applies `scale` to every
+	// player each call (throttled ~0.5s; scale 0 = restore). SetGlobalSlowMotion is
+	// the timed wrapper (cmd_globalslow / the ts_slowmotion "All map" mode).
+	void GlobalSlowMotion2(float scale, int slowBullets);
+	void SetGlobalSlowMotion(float scale, float duration);
+
+	float m_flNextGlobalSlow = 0;   // 0x56c — GlobalSlowMotion2 throttle
+	float m_flGlobalSlowActive = 0; // 0x560 — SetGlobalSlowMotion: active flag
+	float m_flGlobalSlowScale = 0;  // 0x564 — current global slow scale
+	float m_flGlobalSlowEnd = 0;    // 0x568 — global slow end time (0 = no limit)
 };
 
 // In this mod the active rules object is always a CTSGameRules (see

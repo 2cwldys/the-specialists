@@ -365,17 +365,25 @@ public:
 	float m_flPowerupExpireTime = 0;// 0x72c — active timed-powerup end time
 	float m_flPowerupTime = 0;      // 0x730 — held powerup duration (seconds)
 	float m_flHealthRegen = 0;      // 0x73c — health-powerup regen tick time
-	byte m_bSlowBullets = 0;        // 0x175 — slow-motion also slows bullets
-	float m_flSlowMotionScale = 0;  // 0x17c — current slow-motion time scale (0 = none)
-	float m_flSlowMotionRamp = 0;   // 0x180 — slow-motion interpolation ramp
-	byte m_iKungFu = 0;             // 0x74e — kung-fu state
-	byte m_bLowGravity = 0;         // 0x74f — low-gravity powerup active
+	byte m_bSlowBullets = 0;          // 0x175 — slow-motion also slows bullets
+	float m_flSlowMotionGo = 1.0f;    // 0x168 — applied slow factor (1 = normal)
+	float m_flSlowMotionTarget = 1.0f;// 0x170 — target slow factor (1 = normal)
+	float m_flSlowMotionScale = 0;    // 0x17c — powerup-driven slow intensity (0 = none)
+	float m_flSlowMotionRamp = 0;     // 0x180 — slow-motion interpolation ramp
+	byte m_iKungFu = 0;               // 0x74e — kung-fu state
+	byte m_bLowGravity = 0;           // 0x74f — low-gravity powerup active
 
 	// TS powerup activation state machine (ts_player.cpp). UpdatePowerUpState runs
 	// each frame from PreThink; UsePowerUp is the `usepowerup` command handler.
 	bool UsePowerUp();           // activate the held timed powerup
 	void UpdatePowerUpState();   // per-frame: apply slow-motion fields / expire
 	void DeactivateSlowMotionFlow(); // restore normal speed when slow-motion ends
+
+	// TS slow-motion state (GoSlow__11CBasePlayer / InSlow__11CBasePlayer). GoSlow
+	// applies a time-scale to this player; InSlow reports whether it's slowed.
+	// (SLICE: the actual movement time-dilation reads these client-side.)
+	void GoSlow(float scale, int slowBullets);
+	int InSlow();
 };
 
 inline void CBasePlayer::SetWeaponBit(int id)

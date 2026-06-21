@@ -1,143 +1,110 @@
 /***
+*  ts_slowmotion.cpp — RECONSTRUCTED CTSSlowMotion from ts_i386.so + ts_fgd.fgd.
+*  Functional/source-faithful goal (see CLAUDE.md). recovered/server/CTSSlowMotion.c.
 *
-*  ts_slowmotion.cpp — RECONSTRUCTED from ts_i386.so (The Specialists).
+*  @SolidClass base(Targetname, Target) = ts_slowmotion : "TS SlowMotion"
+*    duration (string) "Duration(sec)" def 5   -> m_flDuration   (this+0xf8)
+*    slowamt  (string) "SlowMotion ammount"def 0.5 -> m_flSlowAmount (this+0xfc)
+*    message  (string) -> pev->message (shown to all on Use)
+*    spawnflags: 1 Start ON, 2 All map (-> m_iAllMap, global slow), 4 Slow bullets
 *
-*  Status: FIRST-DRAFT reconstruction. Behaviour recovered from the decompiled
-*  CTSSlowMotion / CTSSlowMotionPoint methods + ts_fgd.fgd. NOT yet in the build
-*  (not listed in dlls/CMakeLists.txt) and NOT yet ABI-verified. Depends on
-*  classes not reconstructed yet: CTSGameRules::GlobalSlowMotion2(), the
-*  TS-extended player slow-motion virtuals, TSHudMessageAll(). Marked VERIFY
-*  where the binary was ambiguous.
+*  A brush slow-motion zone (11 placements across the stock maps). When active, a
+*  player touching it is GoSlow()'d to m_flSlowAmount; CheckPlayersDistance drops
+*  players who leave; the "All map" variant drives CTSGameRules::GlobalSlowMotion2
+*  for every player. duration>0 = timed; duration<=0 = Use-toggled.
 *
-*  Source of truth: reference/ts_i386.so (GCC2, not stripped) — see
-*  recovered/server/CTSSlowMotion.c for the raw decompile and
-*  reference/signatures-gcc2.txt for the prototypes.
-*
-*  Recovered entity (ts_fgd.fgd):
-*    @SolidClass base(Targetname,Target) = ts_slowmotion
-*      duration(string) default "5"      -> m_flDuration
-*      slowamt(string)  default "0.5"    -> m_flSlowAmount
-*      spawnflags: 1 "Start ON", 2 "All map", 4 "Slow bullets"
-*
-****/
-
+*  SLICE: the actual time-dilation MOVEMENT is client-side (GoSlow only sets the
+*  player's slow-motion fields server-side — see CBasePlayer::GoSlow/InSlow).
+***/
 #include "extdll.h"
 #include "util.h"
 #include "cbase.h"
 #include "player.h"
 #include "gamerules.h"
+#include "ts_gamerules.h"
+#include "ts_utils.h" // TSHudMessageAll
 
-#define SF_SLOMO_START_ON     1   // spawnflag bit 1
-#define SF_SLOMO_ALL_MAP      2   // spawnflag bit 2  -> m_iAllMap
-#define SF_SLOMO_SLOW_BULLETS 4   // spawnflag bit 4  -> m_bSlowBullets
+#define SF_SLOMO_START_ON 1
+#define SF_SLOMO_ALL_MAP 2
+#define SF_SLOMO_SLOW_BULLETS 4
 
-#define TS_SLOMO_MAX_PLAYERS  33  // 0x21 — gpGlobals->maxClients + 1
-
-// Player slow-motion is applied through TS-extended CBasePlayer virtuals.
-// In ts_i386.so these are called by vtable offset; exact names are VERIFY:
-//   vtbl+0x14 (player)->SetSlowMotion(float scale, bool slowBullets)
-//   vtbl+0x18 (player)->IsSlowMotion() -> bool        (skip if already slowed)
-// 1.0f scale == restore to normal speed.
+#define TS_SLOMO_MAX_PLAYERS 33 // 0x21 — gpGlobals->maxClients + 1, indexed by ENTINDEX
 
 class CTSSlowMotion : public CBaseEntity
 {
 public:
-	void Spawn(void);
-	void KeyValue(KeyValueData *pkvd);
-	void EXPORT WaitThink(void);
+	void Spawn() override;
+	bool KeyValue(KeyValueData *pkvd) override;
+	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
+	int ObjectCaps() override { return 0; } // @ ObjectCaps__13CTSSlowMotion returns 0
+	bool Save(CSave &save) override;
+	bool Restore(CRestore &restore) override;
+	static TYPEDESCRIPTION m_SaveData[];
+
+	void EXPORT WaitThink();
 	void EXPORT WaitTouch(CBaseEntity *pOther);
-	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value);
-	int  ObjectCaps(void) { return 0; }   // @ ObjectCaps__13CTSSlowMotion returns 0
+	void ActivateSlow();
+	void DeactivateSlow();
+	void CheckPlayersDistance();
 
-	void ActivateSlow(void);
-	void DeactivateSlow(void);
-	void CheckPlayersDistance(void);
-
-	virtual int Save(CSave &save);
-	virtual int Restore(CRestore &restore);
-	static TYPEDESCRIPTION m_SaveData[2];
-
-	// --- recovered members (offsets on `this`, from the decompile) ---
-	int            m_iToggledOn;     // 0x64  toggle state (infinite-duration mode)
-	float          m_flStopTime;     // 0x68  gpGlobals->time + duration; 0 == inactive
-	CBaseEntity   *m_pPlayers[TS_SLOMO_MAX_PLAYERS]; // 0x70  players currently slowed
-	float          m_flRadius;       // 0xf4  per-player range check (VERIFY: set in Spawn)
-	float          m_flDuration;     // 0xf8  "duration" keyvalue
-	float          m_flSlowAmount;   // 0xfc  "slowamt" keyvalue (speed scale)
-	int            m_iAllMap;        // 0x100 SF_SLOMO_ALL_MAP -> global slowmo
-	int            m_bSlowBullets;   // 0x104 SF_SLOMO_SLOW_BULLETS
+	int m_iToggledOn = 0;     // 0x64 — toggle state (duration<=0 mode)
+	float m_flStopTime = 0;   // 0x68 — time the zone shuts off (0 = inactive)
+	EHANDLE m_hPlayers[TS_SLOMO_MAX_PLAYERS]; // 0x70 — players currently slowed
+	float m_flRadius = 0;     // 0xf4 — drop-range for CheckPlayersDistance
+	float m_flDuration = 5;   // 0xf8 — "duration"
+	float m_flSlowAmount = 0.5f; // 0xfc — "slowamt" (GoSlow scale)
+	int m_iAllMap = 0;        // 0x100 — SF_ALL_MAP: global slow-motion
+	int m_bSlowBullets = 0;   // 0x104 — SF_SLOW_BULLETS
 };
 
 LINK_ENTITY_TO_CLASS(ts_slowmotion, CTSSlowMotion);
 
-TYPEDESCRIPTION CTSSlowMotion::m_SaveData[2] =
-{
-	// VERIFY: exact saved fields — the binary saves 2 fields via WriteFields.
+TYPEDESCRIPTION CTSSlowMotion::m_SaveData[] = {
 	DEFINE_FIELD(CTSSlowMotion, m_flDuration, FIELD_FLOAT),
 	DEFINE_FIELD(CTSSlowMotion, m_flSlowAmount, FIELD_FLOAT),
 };
 IMPLEMENT_SAVERESTORE(CTSSlowMotion, CBaseEntity);
 
-void CTSSlowMotion::KeyValue(KeyValueData *pkvd)
+bool CTSSlowMotion::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "duration"))
 	{
 		m_flDuration = atof(pkvd->szValue);
-		pkvd->fHandled = TRUE;
+		return true;
 	}
-	else if (FStrEq(pkvd->szKeyName, "slowamt"))
+	if (FStrEq(pkvd->szKeyName, "slowamt"))
 	{
 		m_flSlowAmount = atof(pkvd->szValue);
-		pkvd->fHandled = TRUE;
+		return true;
 	}
-	else
-	{
-		CBaseEntity::KeyValue(pkvd);
-	}
+	return CBaseEntity::KeyValue(pkvd);
 }
 
-void CTSSlowMotion::Spawn(void)
+void CTSSlowMotion::Spawn()
 {
-	// Brush trigger: classname set, model from the brush, size from the brush.
 	pev->classname = MAKE_STRING("ts_slowmotion");
-	SET_MODEL(ENT(pev), STRING(pev->model));
+	SET_MODEL(ENT(pev), STRING(pev->model)); // brush model
 	UTIL_SetSize(pev, pev->mins, pev->maxs);
 
-	// VERIFY: the decompiler truncated after UTIL_SetSize; the following is the
-	// standard brush-trigger setup + spawnflag latch inferred from the FGD and
-	// the members the other methods read.
-	pev->solid = SOLID_NOT;            // not solid; touch via SetTouch when armed
+	// The original's Spawn is minimal (classname/model/size); a brush trigger needs
+	// the following to detect touches + poll. // VERIFY against engine defaults.
+	pev->solid = SOLID_TRIGGER;
 	pev->movetype = MOVETYPE_NONE;
 	pev->effects |= EF_NODRAW;
 
-	m_iAllMap     = (pev->spawnflags & SF_SLOMO_ALL_MAP) ? 1 : 0;
+	m_iAllMap = (pev->spawnflags & SF_SLOMO_ALL_MAP) ? 1 : 0;
 	m_bSlowBullets = (pev->spawnflags & SF_SLOMO_SLOW_BULLETS) ? 1 : 0;
-	m_iToggledOn  = 0;
-	m_flStopTime  = 0;
+	m_flRadius = pev->size.Length() * 0.5f; // VERIFY: drop-range from the brush bounds
+
+	SetThink(&CTSSlowMotion::WaitThink);
+	pev->nextthink = gpGlobals->time + 0.5f;
 
 	if (pev->spawnflags & SF_SLOMO_START_ON)
 		ActivateSlow();
 }
 
-// Use handler (button/trigger). @ Use__13CTSSlowMotion...USE_TYPEf
-void CTSSlowMotion::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
-{
-	ActivateSlow();
-
-	if (!m_iAllMap)
-	{
-		SetTouch(&CTSSlowMotion::WaitTouch);   // this+0x14/0x18 = m_pfnTouch pmf
-	}
-
-	if (pev->message)   // pev+0x1d4 (VERIFY: pev->message)
-		TSHudMessageAll(0, 255, 0, 8, 30, STRING(pev->message));
-
-	if (pev->target)    // pev+0x1c8 (VERIFY: pev->target)
-		FireTargets(STRING(pev->target), this, this, USE_TOGGLE, 0);
-}
-
-// @ ActivateSlow__13CTSSlowMotion (the 126-byte impl @ 0x71384)
-void CTSSlowMotion::ActivateSlow(void)
+// @ ActivateSlow__13CTSSlowMotion — arm the zone (timed or toggle), set the touch.
+void CTSSlowMotion::ActivateSlow()
 {
 	if (m_flDuration > 0.0f)
 	{
@@ -145,7 +112,6 @@ void CTSSlowMotion::ActivateSlow(void)
 	}
 	else
 	{
-		// duration <= 0: toggle on/off
 		m_flStopTime = 0;
 		m_iToggledOn ^= 1;
 		if (m_iToggledOn == 0)
@@ -156,73 +122,68 @@ void CTSSlowMotion::ActivateSlow(void)
 		SetTouch(&CTSSlowMotion::WaitTouch);
 }
 
-// @ DeactivateSlow__13CTSSlowMotion (the 271-byte impl @ 0x71078)
-void CTSSlowMotion::DeactivateSlow(void)
+// @ DeactivateSlow__13CTSSlowMotion — restore everyone the zone slowed, clear it.
+void CTSSlowMotion::DeactivateSlow()
 {
 	m_flStopTime = 0;
 
 	if (!m_iAllMap)
 	{
-		// restore every tracked player's normal speed, then clear the table
 		for (int i = 0; i < TS_SLOMO_MAX_PLAYERS; i++)
 		{
-			if (m_pPlayers[i])
-			{
-				// VERIFY: player vtbl+0x14 -> SetSlowMotion(1.0f /*normal*/, 0)
-				((CBasePlayer *)m_pPlayers[i])->SetSlowMotion(1.0f, false);
-				m_pPlayers[i] = NULL;
-			}
+			CBaseEntity *pEnt = m_hPlayers[i];
+			if (pEnt && pEnt->IsPlayer())
+				((CBasePlayer *)pEnt)->GoSlow(1.0f, 0);
+			m_hPlayers[i] = NULL;
 		}
 	}
 	else
 	{
-		// global slow-motion off
-		((CTSGameRules *)g_pGameRules)->GlobalSlowMotion2(0, false);
+		TSGameRules()->GlobalSlowMotion2(0, 0);
+		for (int i = 0; i < TS_SLOMO_MAX_PLAYERS; i++)
+			m_hPlayers[i] = NULL;
 	}
-
-	for (int i = 0; i < TS_SLOMO_MAX_PLAYERS; i++)
-		m_pPlayers[i] = NULL;
 }
 
-// @ WaitTouch__13CTSSlowMotionP11CBaseEntity (@ 0x70fdc)
+// @ WaitTouch__13CTSSlowMotion — slow the touching player (if not already slowed).
 void CTSSlowMotion::WaitTouch(CBaseEntity *pOther)
 {
 	if (m_flStopTime == 0.0f && m_iToggledOn == 0)
-		return;   // not active
+		return; // zone not active
 
-	if (!pOther->IsPlayer())          // VERIFY: pOther vtbl+0xc8 -> IsPlayer()
+	if (!pOther->IsPlayer())
 		return;
 
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	if (pPlayer->IsSlowMotion())      // VERIFY: vtbl+0x18 -> already slowed?
-		return;
+	if (pPlayer->InSlow())
+		return; // already slowed (by this or another source)
 
-	pPlayer->SetSlowMotion(m_flSlowAmount, false);   // VERIFY: vtbl+0x14
-	pPlayer->m_bSlowBullets = (m_bSlowBullets != 0);  // player+0x175 (VERIFY name)
+	pPlayer->GoSlow(m_flSlowAmount, 0);
+	pPlayer->m_bSlowBullets = m_bSlowBullets != 0;
 
 	int idx = ENTINDEX(pOther->edict());
-	if (idx < TS_SLOMO_MAX_PLAYERS)
-		m_pPlayers[idx] = pOther;
+	if (idx >= 0 && idx < TS_SLOMO_MAX_PLAYERS)
+		m_hPlayers[idx] = pOther;
 }
 
-// @ WaitThink__13CTSSlowMotion (@ 0x712a4)
-void CTSSlowMotion::WaitThink(void)
+// @ WaitThink__13CTSSlowMotion — poll: keep the slow applied / time it out.
+void CTSSlowMotion::WaitThink()
 {
-	pev->nextthink = gpGlobals->time + 0.5f;   // VERIFY: pev+0x104, +0.5 interval
+	pev->nextthink = gpGlobals->time + 0.5f;
 
 	if (m_iToggledOn)
 	{
 		if (!m_iAllMap)
 			CheckPlayersDistance();
 		else
-			((CTSGameRules *)g_pGameRules)->GlobalSlowMotion2(m_flSlowAmount, m_bSlowBullets != 0);
+			TSGameRules()->GlobalSlowMotion2(m_flSlowAmount, m_bSlowBullets);
 	}
 
 	if (m_flStopTime != 0.0f)
 	{
 		if (m_flStopTime < gpGlobals->time)
 		{
-			SetTouch(NULL);          // this+0x14/0x18 cleared
+			SetTouch(NULL);
 			DeactivateSlow();
 		}
 		else if (!m_iAllMap)
@@ -231,33 +192,47 @@ void CTSSlowMotion::WaitThink(void)
 		}
 		else
 		{
-			((CTSGameRules *)g_pGameRules)->GlobalSlowMotion2(m_flSlowAmount, m_bSlowBullets != 0);
+			TSGameRules()->GlobalSlowMotion2(m_flSlowAmount, m_bSlowBullets);
 		}
 	}
 }
 
-// @ CheckPlayersDistance__13CTSSlowMotion (@ 0x7118c)
-// Iterates the tracked players; any that moved beyond m_flRadius from this
-// entity is restored to normal speed and dropped from the table.
-// (Reconstructed from intent — the decompile is heavy stack-pointer arithmetic.)
-void CTSSlowMotion::CheckPlayersDistance(void)
+// @ CheckPlayersDistance__13CTSSlowMotion — drop tracked players who left the zone
+// (restore them to normal speed). Reconstructed from intent (the decompile is heavy
+// stack arithmetic): distance from the zone centre, beyond m_flRadius -> released.
+void CTSSlowMotion::CheckPlayersDistance()
 {
+	Vector center = Center();
 	for (int i = 0; i < TS_SLOMO_MAX_PLAYERS; i++)
 	{
-		CBaseEntity *pEnt = m_pPlayers[i];
-		if (!pEnt)
+		CBaseEntity *pEnt = m_hPlayers[i];
+		if (!pEnt || !pEnt->IsPlayer())
 			continue;
 
-		if (!pEnt->IsPlayer())       // VERIFY: vtbl+0x18 in the loop
+		CBasePlayer *pPlayer = (CBasePlayer *)pEnt;
+		if (!pPlayer->InSlow())
 			continue;
 
-		// distance from this entity's origin to the player (VERIFY: vtbl+0xf8
-		// is a position/Center accessor on `this` used to build the delta)
-		float dist = (pEnt->pev->origin - pev->origin).Length();
+		float dist = (pPlayer->pev->origin - center).Length();
 		if (dist > m_flRadius)
 		{
-			((CBasePlayer *)pEnt)->SetSlowMotion(1.0f, false);  // restore
-			m_pPlayers[i] = NULL;
+			pPlayer->GoSlow(1.0f, 0);
+			m_hPlayers[i] = NULL;
 		}
 	}
+}
+
+// @ Use__13CTSSlowMotion — trigger the zone (button/relay), announce, fire targets.
+void CTSSlowMotion::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
+{
+	ActivateSlow();
+
+	if (!m_iAllMap)
+		SetTouch(&CTSSlowMotion::WaitTouch);
+
+	if (!FStringNull(pev->message))
+		TSHudMessageAll(0, 255, 0, 8, 30, STRING(pev->message));
+
+	if (!FStringNull(pev->target))
+		FireTargets(STRING(pev->target), this, this, USE_TOGGLE, 0);
 }

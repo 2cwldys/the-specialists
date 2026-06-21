@@ -99,7 +99,8 @@ recoverable directly).
 | `CTSPowerUp` | `dlls/ts_powerup.cpp` | ✅✅ **runtime-verified** — `ts_powerup` (328 placements) spawns (Can't init gone); 22 spawned on `ts_theatre` with all 8 types randomly rolled from spawnflags, settle (TOSS→FL_ONGROUND→OnGround→SOLID_TRIGGER), touch-pickup applies the powerup via `PlayerAddPowerUp` + respawns; bots picked up slowpause/dblfire (timed→held), grenade (→M61), health (→150hp), no crash. // SLICE: armor/inf-clip/grenade use functional substitutes (no TakeArmor/MultiplyClips/PickUpWeapon yet); gmsgTSPowerUp HUD notify + lowgrav client physics-key deferred (client.dll side). |
 | Powerup activation state machine | `dlls/ts_player.cpp`, `player.h`, `client.cpp` | ✅✅ **runtime-verified** — `CBasePlayer::UsePowerUp`/`UpdatePowerUpState`/`DeactivateSlowMotionFlow` + the `usepowerup` console command + a `PreThink` hook. A held timed powerup activates (`m_iPowerups` set, `SlowMotion()`/`DoubleFireRate()` accessors flip, slow-motion fields `m_flSlowMotionScale`/`Ramp`/`m_bSlowBullets` set), runs its duration, expires + restores. Verified on `ts_theatre`: slow-motion held→activate→`scale=0.6` for 3s→expire→cleared, `gmsgTSPowerUpTime`/`gmsgTSMotionBlur` registered + sent, no crash. **SLICE/deferred:** the time-dilation *movement*, `SlowMotionFlow` propagation to nearby players/projectiles (@0x86bb0), the per-entity `SetSlowMotion` virtual, client motion-blur, and the on-death powerup re-drop. |
 | `CTSGameRules` | `dlls/ts_gamerules.{h,cpp}` | 🟡 **skeleton installed + runtime-verified** — `CTSGameRules : CHalfLifeMultiplay` is the live `g_pGameRules` (via `InstallGameRules`); `GetRandomPowerup` done; `TSGameRules()` accessor. The other 40 funcs (Think/teams/objectives/votes/slow-motion) inherit `CHalfLifeMultiplay` for now, filled in incrementally. |
-| `CTSSlowMotion` | `dlls/ts_slowmotion.cpp` | 📝 draft, NOT in build — deps: `CTSGameRules::GlobalSlowMotion2`, TS player slow-motion virtuals |
+| `CTSSlowMotion` | `dlls/ts_slowmotion.cpp` | ✅✅ **runtime-verified** — `ts_slowmotion` brush zone (11 placements) spawns (Can't init gone; 4 on `ts_wyndham`), `Use()` activates without crash; touch-zone slows players via `CBasePlayer::GoSlow` (tracked in `m_hPlayers[]`, dropped on leave by `CheckPlayersDistance`), "All map" mode drives `CTSGameRules::GlobalSlowMotion2`. Verified `GlobalSlowMotion2(0.5)` → player `InSlow()=1, go=0.50`; restore → `InSlow()=0, go=1.0`. **SLICE:** the time-dilation *movement* is client-side (GoSlow only sets server fields); GlobalSlowMotion2 slows players only (projectile slow deferred — no CBaseEntity GoSlow virtual); `m_flRadius`/Spawn trigger-setup inferred (// VERIFY). |
+| `CBasePlayer::GoSlow`/`InSlow` + `CTSGameRules::GlobalSlowMotion2`/`SetGlobalSlowMotion` | `dlls/ts_player.cpp`, `ts_gamerules.cpp` | ✅✅ **runtime-verified** — the slow-motion application API (GoSlow sets `m_flSlowMotionGo`/`Target`+`m_bSlowBullets`; InSlow reports it; GlobalSlowMotion2 applies/clears to all players, throttled ~0.5s). |
 
 Everything else in the table above is **not started**. Full history in the
 Serena ledger (`.serena/memories/ledger.md`).
@@ -118,7 +119,7 @@ actually exercises them):
 | `ts_emitter` | 19 | `CTSEmitter` | 🔒 needs `CTSSharedEmitter` (networked particle system) |
 | `ts_groundammo` | 16 | `CTSGroundAmmo` | 🔒 likely blocked (pickup/gamerules) |
 | `ts_particle` | 13 | `CTSParticle` | 🔒 needs `CTSSharedEmitter` |
-| `ts_slowmotion` | 11 | `CTSSlowMotion` | 📝 draft (blocked on `CTSGameRules`) |
+| `ts_slowmotion` | 11 | `CTSSlowMotion` | ✅✅ runtime-verified (slow state; client time-dilation deferred) |
 | `ts_mapglobals` | 9 | `CTSMapGlobals` | ✅✅ runtime-verified |
 | `ts_wingiver` | 6 | `CTSWinGiver` | — |
 | `ts_hack` | 5 | `CTSHack` | — |

@@ -61,9 +61,26 @@ int KungFu(CBasePlayer *pPlayer)
 // also deferred (precache-window + game-mode dependency).
 // ---------------------------------------------------------------------------
 
+// @ GoSlow__11CBasePlayerfc — apply a time-scale to this player (1 = normal speed).
+void CBasePlayer::GoSlow(float scale, int slowBullets)
+{
+	// SLICE: the original zeroes the applied factor when the player is frozen
+	// (a pev state flag); here it always takes.
+	m_flSlowMotionGo = scale;
+	m_flSlowMotionTarget = scale;
+	m_bSlowBullets = slowBullets != 0;
+}
+
+// @ InSlow__11CBasePlayer — is this player currently slowed?
+int CBasePlayer::InSlow()
+{
+	return (m_flSlowMotionGo != 1.0f || m_flSlowMotionTarget != 1.0f) ? 1 : 0;
+}
+
 // @ DeactivateSlowMotionFlow__11CBasePlayer — restore this player to normal speed.
 void CBasePlayer::DeactivateSlowMotionFlow()
 {
+	GoSlow(1.0f, 0);
 	m_flSlowMotionRamp = 0;
 	m_flSlowMotionScale = 0;
 	m_bSlowBullets = 0;

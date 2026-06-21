@@ -45,11 +45,23 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   → `m_iPowerups` set (so `SlowMotion()`/`DoubleFireRate()` accessors flip + the slow
   fields `m_flSlowMotionScale`/`Ramp`/`m_bSlowBullets` are applied each frame) →
   expires after its duration → restores. `gmsgTSPowerUpTime`/`gmsgTSMotionBlur`
-  registered + sent. **SLICE — the deeper, client-entangled layer is deferred:** the
-  actual time-dilation *movement*, `SlowMotionFlow` propagation to nearby
-  players/projectiles, the per-entity `SetSlowMotion`/`IsSlowMotion` CBaseEntity
-  virtuals, `CTSGameRules::SetGlobalSlowMotion`/`GlobalSlowMotion2`/`InterpolateSlowMotion`,
-  the client motion-blur HUD, and the on-death powerup re-drop.
+  registered + sent.
+- **Slow-motion state + zones — runtime-verified (slice):** `CBasePlayer::GoSlow`/
+  `InSlow` (`ts_player.cpp`; the TS slow-motion virtuals, as plain player methods —
+  `GoSlow` sets `m_flSlowMotionGo`/`Target`+`m_bSlowBullets`, `InSlow` reports it),
+  `CTSGameRules::GlobalSlowMotion2`/`SetGlobalSlowMotion` (`ts_gamerules.cpp`; slow
+  all players, throttled ~0.5s), and the **`CTSSlowMotion`** brush zone (`ts_slowmotion`,
+  11 placements, `ts_slowmotion.cpp`) — touch-slows players, tracks + drops them on
+  leave, "All map" mode → `GlobalSlowMotion2`. Verified on `ts_wyndham`: zones spawn,
+  `Use()` activates, `GlobalSlowMotion2(0.5)` flips `InSlow()`/`go=0.5`, restore → 1.0.
+- **SLICE — the visible time-dilation layer is still deferred (client-entangled):** the
+  actual slow-motion *movement* (the client pmove reads the slow fields — no cl_dll
+  reconstructed); `GlobalSlowMotion2` slowing projectiles (needs `GoSlow`/`InSlow` as
+  **CBaseEntity** virtuals — currently CBasePlayer-only); `SlowMotionFlow` (@0x86bb0,
+  the powerup→`GoSlow` propagation — so an activated slowmo powerup sets
+  `m_flSlowMotionScale` but doesn't yet call `GoSlow`); `InterpolateSlowMotion`; the
+  client motion-blur HUD; the on-death powerup re-drop. `CTSSlowMotion`'s exact Spawn
+  trigger-setup + `m_flRadius` are inferred (// VERIFY).
 - **Weapons — runtime-verified, all 38 types (slice):** `CTSGun` (`ts_gun.cpp`,
   entity `weapon_tsgun`, id 16) parameterized by `m_weaponType`; bots deploy+fire
   the right gun (knife/uzi/beretta, correct models+damage). Full `s_weapon_info`
@@ -101,20 +113,20 @@ Map leaves done; the **core monolith** (`CTSGameRules ↔ CBasePlayer ↔ CTSGun
 powerups`) is up to a functional-minimal **slice** — weapons deploy+fire, ground
 weapons hand out the right gun, powerups spawn + apply + **activate/expire**. To
 deepen toward faithful behaviour, in rough order:
-1. **The slow-motion EFFECT** (the visible payoff of the activation state machine —
-   currently the slow fields are set but nothing reads them). This is a coupled
-   subsystem: add the TS `SetSlowMotion(scale,bullets)`/`IsSlowMotion()` virtuals to
-   **CBaseEntity** (overridden on CBasePlayer + the grenade/WorldGun projectiles);
-   reconstruct `CTSGameRules::SetGlobalSlowMotion` (@0x6961c) + `GlobalSlowMotion2`
-   (@0x69720 — iterates players + "grenade"/"WorldGun" calling the virtual) +
-   `InterpolateSlowMotion` (@0x8910c — ramp toward target by `min(rate*7,1)` when
-   `|delta|>0.05`); apply the per-entity time-dilation (scale animation/movement) and
-   `SlowMotionFlow` (@0x86bb0, 1758 bytes — propagates slow-motion between nearby
-   players via traceline, fills the affected-entity arrays at player+0x188/+0x208).
-   This also lights up the **`CTSSlowMotion`** entity (`ts_slowmotion`, 11 placements;
-   draft at `dlls/ts_slowmotion.cpp`, not yet in the build — depends on these virtuals
-   + `GlobalSlowMotion2`). Needs a `cl_dll` side for the motion-blur/HUD msgs
-   (`gmsgTSMotionBlur`/`gmsgTSPowerUpTime` are already registered + sent server-side).
+1. **The visible slow-motion time-dilation** (the slow-motion *state* now works —
+   `GoSlow`/`InSlow`/`GlobalSlowMotion2`/`CTSSlowMotion` are in + verified — but
+   nothing yet *reads* the slow fields to actually slow time). What's left, all
+   client-entangled: (a) apply the per-player time-dilation in movement — the client
+   `pm_shared`/prediction scales frametime by `m_flSlowMotionGo` (needs the **cl_dll**,
+   not reconstructed); (b) promote `GoSlow`/`InSlow` to **CBaseEntity** virtuals so
+   `GlobalSlowMotion2` can also slow `grenade`/`WorldGun` projectiles; (c) reconstruct
+   `SlowMotionFlow` (@0x86bb0, 1758 bytes — the powerup→`GoSlow` propagation between
+   nearby players via traceline; this is what makes an *activated slowmo powerup*
+   actually call `GoSlow`, vs just setting `m_flSlowMotionScale`) + `InterpolateSlowMotion`
+   (@0x8910c — ramp toward target by `min(rate*7,1)` when `|delta|>0.05`); (d) the
+   `cl_dll` motion-blur HUD for `gmsgTSMotionBlur`/`gmsgTSPowerUpTime` (already
+   registered + sent server-side). Also verify `CTSSlowMotion`'s inferred Spawn
+   trigger-setup + `m_flRadius` against the real engine behaviour.
 2. **Faithful weapon engine** to replace the `// SLICE` bodies in `ts_gun.cpp`:
    the dual-wield items-array (`m_pActiveItem`/`m_pActiveInfo`/items[]), fire-type
    dispatch (`PrimaryAttack` by `s_weapon_info.iFireType`: grenade/knife/katana/
