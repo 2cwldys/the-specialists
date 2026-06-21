@@ -114,6 +114,7 @@ target_sources(hl PRIVATE
 	ts_player.cpp
 	ts_groundweapon.cpp
 	ts_gun.cpp
+	ts_powerup.cpp
 	ts_weapons.cpp
 	turret.cpp
 	UserMessages.cpp

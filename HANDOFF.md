@@ -21,14 +21,25 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
 
 - **Map entities — runtime-verified:** `CTSModel` (108 on `ts_kissmeyerbasic`),
   `CTSMapGlobals` (weapon-restriction on `ts_trinityfall`), `CTSGroundWeapon`
-  (`ts_wyndham` pickups). Built + factory-only (no stock map hits them): `CTSFog`,
-  `CTSTimer`, `CTSCustomTarget`.
+  (`ts_wyndham` pickups), `CTSPowerUp` (22 on `ts_theatre`, bots pick up). Built +
+  factory-only (no stock map hits them): `CTSFog`, `CTSTimer`, `CTSCustomTarget`.
 - **Game rules:** `CTSGameRules : CHalfLifeMultiplay` IS the live `g_pGameRules`
   (`ts_gamerules.{h,cpp}` + `InstallGameRules`). Only `GetRandomPowerup` is real;
   the other 40 methods inherit MP. `TSGameRules()` accessor + `TS_PWUP_*` bits.
 - **Player:** no `CTSPlayer` — TS state lives on `CBasePlayer` (`player.h` member
-  block `m_iPowerups`/`m_iKungFu`/…) + accessors in `ts_player.{h,cpp}`.
+  block `m_iPowerups`/`m_iHeldPowerup`/`m_flPowerupTime`/`m_flPowerupExpireTime`/
+  `m_flHealthRegen`/`m_iKungFu`/`m_bLowGravity`) + accessors in `ts_player.{h,cpp}`.
   `TSHudMessageAll`/`TSHudMessageOne` in `ts_utils`.
+- **Powerups — runtime-verified (slice):** `CTSPowerUp` (`ts_powerup.cpp`, entity
+  `ts_powerup`, 328 placements) — full lifecycle (TOSS-drop → settle → touch-pickup
+  → respawn); spawnflags = the random-powerup **mask** (not a single type). Picks a
+  random type from `GetRandomPowerup`, applies it via free func `PlayerAddPowerUp`.
+  **Instant powerups real** (kungfu/lowgrav/health/armor/grenade/inf-clip), **timed
+  ones held** (`m_iHeldPowerup` + duration). **SLICE:** timed-powerup *activation*
+  (`UsePowerUp`/`UpdatePowerUpState`, the slow-motion HUD) deferred to the slow-motion
+  layer; armor/inf-clip/grenade use functional substitutes (no `TakeArmor`/
+  `MultiplyClips`/`PickUpWeapon`); `gmsgTSPowerUp` HUD + lowgrav physics-key deferred
+  (client.dll side); `CTSGameRules::PutPowerUp` (dynamic spawner) not wired yet.
 - **Weapons — runtime-verified, all 38 types (slice):** `CTSGun` (`ts_gun.cpp`,
   entity `weapon_tsgun`, id 16) parameterized by `m_weaponType`; bots deploy+fire
   the right gun (knife/uzi/beretta, correct models+damage). Full `s_weapon_info`
@@ -42,9 +53,12 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
   `CTSGameRules::GlobalSlowMotion2` + TS player slow-motion virtuals; still int-
   return sigs (reconcile to modern `bool`).
 - **WATCH OUT:** `recovered/` decompiles can be **truncated** by Ghidra noreturn
-  artifacts (cut `CTSModel::Spawn` at `UTIL_SetSize`). Cross-check raw `objdump -d`
-  at the symbol's real `.so` addr (Ghidra adds 0x10000 vs `nm`) when a decompile
-  looks too short. And runtime crashes → **gdb the backtrace, don't guess**.
+  artifacts (cut `CTSModel::Spawn` at `UTIL_SetSize`, `CTSPowerUp::Spawn`/`OnGround`
+  at `UTIL_SetOrigin` — the cut tail held a `nextthink` set + the `SetTouch`/`SetThink`
+  arming). Cross-check raw `objdump -d` at the symbol's real `.so` addr (Ghidra adds
+  0x10000 vs `nm`) when a decompile looks too short. Runtime crashes → **gdb the
+  backtrace**; a "spawns but nothing happens" symptom → check for a missing
+  `pev->nextthink` (think never fires).
 
 ## The loop (commands that work on this box)
 ```bash
@@ -75,19 +89,28 @@ extraction → C table).
 ## Recommended next steps
 Map leaves done; the **core monolith** (`CTSGameRules ↔ CBasePlayer ↔ CTSGun ↔
 powerups`) is up to a functional-minimal **slice** — weapons deploy+fire, ground
-weapons hand out the right gun. To deepen toward faithful behaviour, in rough order:
-1. **`CTSPowerUp`** (`ts_powerup`, 328 placements — the main `Can't init` left).
-   Now mostly unblocked: `GetRandomPowerup` ✓, `TSHudMessageOne` ✓, `CTSGun` exists
-   (for the infinite-clip/grenade powerup hooks). Reconstruct `PlayerAddPowerUp`
-   (decoded @0x87bc8) + `CTSGameRules::PutPowerUp`. Decompile in `recovered/`.
+weapons hand out the right gun, powerups spawn + apply. To deepen toward faithful
+behaviour, in rough order:
+1. **Slow-motion layer = the powerup activation** (the natural next unblock — the
+   biggest user-visible TS mechanic, and what makes the held timed powerups *do*
+   something). Reconstruct `CTSGameRules::SetGlobalSlowMotion`/`GlobalSlowMotion2`
+   (@0x6961c) + `InterpolateSlowMotion` (@0x8910c) + the TS player slow-motion
+   virtuals, then `CBasePlayer::UsePowerUp` (@0x95980 — USE-key activates the held
+   powerup: sets `m_iPowerups`, `m_flPowerupExpireTime`, sends `gmsgTSPowerUpTime` +
+   `gmsgTSMotionBlur`) and `UpdatePowerUpState` (@0x95748 — per-frame expiry +
+   `DeactivateSlowMotionFlow` + re-drop). This finishes `CTSPowerUp`'s timed branch
+   (slowmo/slowpause/dblfire) and wires up `CTSSlowMotion` (already drafted at
+   `dlls/ts_slowmotion.cpp`). Needs a `cl_dll` side for the motion-blur/HUD msgs.
 2. **Faithful weapon engine** to replace the `// SLICE` bodies in `ts_gun.cpp`:
    the dual-wield items-array (`m_pActiveItem`/`m_pActiveInfo`/items[]), fire-type
    dispatch (`PrimaryAttack` by `s_weapon_info.iFireType`: grenade/knife/katana/
    akimbo/shotgun/sniper), `CBasePlayer::PickUpWeapon`/`BuyWeapon` armament, the
    buy menu (`buyable` ground weapons + dead-state loadout — default = kung-fu).
-3. **`CTSSlowMotion`** (`GlobalSlowMotion2`/`SetGlobalSlowMotion` + player virtuals)
-   — drafted, just needs wiring. Then **`CTSSharedEmitter`** for ts_emitter/
-   ts_particle (also needs a cl_dll side).
+   This also un-SLICEs `PlayerAddPowerUp`'s inf-clip (`CTSGun::MultiplyClips`,
+   @0x71308, needs the items-array) and grenade (`PickUpWeapon`) branches.
+3. **`CTSSharedEmitter`** for `ts_emitter`/`ts_particle` (networked particle system;
+   also needs a cl_dll side). Niche cleanup: `CTSGameRules::PutPowerUp` (@0x9797c)
+   to dynamically spawn powerups at `info_player_deathmatch` (wire to a rules Think).
 
 Loop per class: decompile → write `dlls/*.cpp` → add to `dlls/CMakeLists.txt` →
 `scripts/build.sh amd64` → `cp` into the rig → boot a map that uses it (frequency
