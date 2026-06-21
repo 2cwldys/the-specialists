@@ -110,6 +110,9 @@ gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
 - **Objective win → round restart (cont.31):** `CTSGameRules::TeamWin` (`ts_gamerules.cpp`) — a
   `ts_wingiver` completing now scores the team + announces + restarts the round (respawn all +
   re-arm objectives) after 3s. SLICE: no cash, no round-timer HUD, no per-player team assignment.
+- **King-of-the-hill (cont.32):** `CTSDMHill` (`dlls/ts_dmhill.cpp`, `ts_dmhill`) — hold the
+  brush volume alone `nextcheck`s → `fragamt` frags + announce. Built + synthetic-verified (0
+  stock placements; a hand-made map would confirm in-map).
   **SLICE limits:** akimbo is a single active clip (not a true left/right barrel split) with
   no IN_ATTACK2 "fire both barrels at once"; no buy menu (start reserve = clip*3); no
   client-side fire-mode/ammo HUD.

@@ -5,6 +5,28 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 32) — CTSDMHill (king-of-the-hill brush volume)
+
+**Done — `dlls/ts_dmhill.cpp` (ts_dmhill).** A self-contained DM game-mode entity (no team/client
+dependency). The `tm_`/team subsystem is the big remaining work, so this is a clean faithful
+self-contained increment.
+
+RE (from the .so): CTSDMHill (Spawn @0x71a8c brush SET_MODEL + SetSize, KeyValue @0x719b8, WaitTouch
+@0x71be8 1433 bytes — tracks a single holder, awards `fragamt` (DM) / `fragamtteam` (team) frags to
+pev->frags + gmsgScoreInfo + a "<netname> <message>" broadcast once held `nextcheck` seconds).
+Functional reconstruction: a 0.5s `HillThink` polls the volume (`Intersects`) — exactly one living
+player inside earns the timed award; 0 or 2+ (empty/contested) resets the king. KeyValue
+nextcheck/fragamt/fragamtteam (+ message via the Target base).
+
+**Verified RUNTIME (rcbot, ts_wyndham, SYNTHETIC — ts_dmhill has 0 stock placements):** a hill
+instantiated around a sole bot awarded fragamt on the timer (frags 0→5). Factory `ts_dmhill`
+exported; no crash; clean regression. (Build + synthetic only, like ts_timer/ts_customtarget — no
+stock map exercises it; a hand-made test map would confirm in-map.)
+
+**SLICE:** the .so's same-team-holders-don't-reset nuance simplified to "sole occupant".
+
+---
+
 ## 2026-06-21 (cont. 31) — CTSGameRules::TeamWin + round restart (objective win ends the round)
 
 **Done — the objective→win→round-restart chain.** Completes cont.25, where `CTSWinGiver::Use`
