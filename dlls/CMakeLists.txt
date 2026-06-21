@@ -117,6 +117,7 @@ target_sources(hl PRIVATE
 	ts_groundammo.cpp
 	ts_groundweapon.cpp
 	ts_gun.cpp
+	ts_objectives.cpp
 	ts_powerup.cpp
 	ts_weapons.cpp
 	turret.cpp
