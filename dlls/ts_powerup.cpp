@@ -386,12 +386,9 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 	}
 	else if (type & TS_PWUP_INFCLIP)
 	{
-		// SLICE: original calls CTSGun::MultiplyClips on the active TS weapon (the
-		// dual-wield items array isn't reconstructed); refill the held weapon's clip.
-		CBasePlayerWeapon *pWeapon = (CBasePlayerWeapon *)pPlayer->m_pActiveItem;
-		if (!pWeapon || pWeapon->m_iId != 16)
+		// @ CTSGun::MultiplyClips — multiply the held weapon's reserve ammo.
+		if (!TSMultiplyClips(pPlayer))
 			return false;
-		pWeapon->m_iClip = pWeapon->iMaxClip();
 	}
 	else
 	{

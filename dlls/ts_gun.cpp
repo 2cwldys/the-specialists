@@ -20,6 +20,7 @@
 #include "player.h"
 #include "weapons.h"
 #include "ts_weapons.h"
+#include "ts_player.h" // DoubleFireRate (powerup accessor)
 
 #define TSGUN_WEAPON_ID 16 // CTSGun::GetItemInfo @0x85dd0 sets iId = 0x10
 #define TSGUN_WEIGHT 15
@@ -51,6 +52,7 @@ public:
 	int FindSlot(tsweapon_t type);   // owned-slot index, or -1
 	void AddWeapon(tsweapon_t type); // add to the arsenal (or resupply) + wield it
 	void SelectSlot(int slot);       // wield an owned slot (saves/loads its clip)
+	bool MultiplyClips();            // infinite-clip powerup: multiply the held reserve
 
 	int m_weaponType = TSW_BERETTA; // ACTIVE tsweapon_t (= m_arsenalType[m_active])
 	int m_arsenalType[TS_MAX_ARSENAL] = {};
@@ -124,6 +126,25 @@ void CTSGun::AddWeapon(tsweapon_t type)
 		m_arsenalReserve[slot] = wi->iClip * 3; // already owned -> resupply
 	}
 	SelectSlot(slot);
+}
+
+// @ MultiplyClips__6CTSGun — the infinite-clip powerup. The original tops the active
+// weapon's caliber reserve up toward 2x a full load; here we double the active slot's
+// own spare rounds (capped). Returns true if anything was added.
+bool CTSGun::MultiplyClips()
+{
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	int cap = wi->iClip * 6; // ~6 spare clips ceiling
+	int before = m_arsenalReserve[m_active];
+	int want = before * 2;
+	if (want < wi->iClip * 3)
+		want = wi->iClip * 3; // at least bring it back to a full resupply
+	if (want > cap)
+		want = cap;
+	if (want <= before)
+		return false;
+	m_arsenalReserve[m_active] = want;
+	return true;
 }
 
 // @ SelectWeapon__6CTSGun — wield an owned slot (save the current clip, load the new).
@@ -231,7 +252,9 @@ void CTSGun::PrimaryAttack()
 		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
 		0, (int)wi->flDamage, m_pPlayer->pev, m_pPlayer->random_seed);
 
-	const float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
+	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
+	if (DoubleFireRate(m_pPlayer)) // double-firerate powerup -> twice as fast
+		flRate *= 0.5f;
 	m_flNextPrimaryAttack = GetNextAttackDelay(flRate);
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 }
@@ -324,4 +347,11 @@ void TSCycleWeapon(CBasePlayer *pPlayer)
 	if (!pGun || pGun->m_arsenalCount <= 1)
 		return;
 	pGun->SelectSlot((pGun->m_active + 1) % pGun->m_arsenalCount);
+}
+
+// Infinite-clip powerup hook (PlayerAddPowerUp) — multiply the held weapon's reserve.
+bool TSMultiplyClips(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	return pGun ? pGun->MultiplyClips() : false;
 }

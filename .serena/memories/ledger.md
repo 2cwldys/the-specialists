@@ -5,6 +5,24 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 19) — Powerup→weapon wiring: MultiplyClips + DoubleFireRate
+
+**Done — two now-easy powerup effects, faithful on the cont.18 arsenal.** Completes
+the powerup→weapon connection.
+- `CTSGun::MultiplyClips()` (@0x71308, the infinite-clip powerup): doubles the active
+  arsenal slot's reserve (>= a full resupply, capped ~6 clips). Free `TSMultiplyClips
+  (player)` wraps it (GetPlayerTSGun). `PlayerAddPowerUp`'s inf-clip branch now calls it
+  (was a SLICE clip-refill).
+- `CTSGun::PrimaryAttack`: `if (DoubleFireRate(m_pPlayer)) flRate *= 0.5` — the
+  double-firerate powerup now halves the fire interval (the accessor already flips true
+  while the dblfire powerup is active; just wired into the rate).
+
+**Verified RUNTIME (rcbot, ts_wyndham, temp probe reverted):** beretta inf-clip reserve
+45→90 (doubled); dblfire baseRate 0.100 → rate 0.050 (halved), 105 fires at the doubled
+rate. No crash; clean regression.
+
+---
+
 ## 2026-06-21 (cont. 18) — CTSGun weapon arsenal (the items-array, modern reconstruction)
 
 **Done — the player's weapon_tsgun now holds a multi-weapon ARSENAL.** A clean

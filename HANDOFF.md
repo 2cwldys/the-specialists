@@ -142,11 +142,14 @@ deepen toward faithful behaviour, in rough order:
    mode/burst** (`SwitchFireMode`, the per-weapon status byte), the **buy menu**
    (`CBasePlayer::BuyWeapon`/`BuyArmament` + the `buyable` ground weapons + dead-state
    kung-fu loadout), and wiring the **per-caliber ammo** (CTSGroundAmmo's mags → the
-   arsenal reserve by caliber, via `CTSGun::AddAmmo`). Also un-SLICEs `PlayerAddPowerUp`'s
-   inf-clip (`CTSGun::MultiplyClips` @0x71308) — now easy, it can multiply the active
-   slot's reserve; and `DoubleFireRate()` (already true while a dblfire powerup is
-   active) can halve `flFireRate`. Data gaps: mossberg/sawedoff fire-type extracted as 0
-   (are shotguns); shotgun pellet count hard-coded 6 (find the real field).
+   arsenal reserve by caliber, via `CTSGun::AddAmmo`). (Done cont.18/19: the arsenal,
+   `MultiplyClips` inf-clip powerup, and `DoubleFireRate` halving `flFireRate`.) Data
+   gaps: mossberg/sawedoff fire-type extracted as 0 (are shotguns); shotgun pellet count
+   hard-coded 6 (find the real field).
+   - **Grenade-throw (fire-type 2)** is its own sub-task: the faithful `CM61Grenade` is
+     `CM61Grenade : CTSGrenade : CTSPhysicObject` (TS physics base classes, not built) +
+     event-driven creation. A functional version can subclass the SDK `CGrenade`
+     (arc/bounce/timed-explode) — `GrenadeFire` throws one from the gun position.
 3. **`CTSSharedEmitter`** for `ts_emitter`/`ts_particle` (networked particle system;
    also needs a cl_dll side). Niche cleanup: `CTSGameRules::PutPowerUp` (@0x9797c)
    to dynamically spawn powerups at `info_player_deathmatch` (wire to a rules Think).
