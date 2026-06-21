@@ -61,6 +61,68 @@ bool CTSObjective::KeyValue(KeyValueData *pkvd)
 #define TS_OBJ_TARGETS 8
 #define TS_OBJ_MESSAGES 4
 
+//============================================================================
+// CTSTrigger — a TS brush trigger: fires its target when a valid player (right attacker
+// team, optionally the flag carrier) touches it, on a recheck delay, with a HUD message.
+// @0x709b8 Spawn / @0x70ad8 WaitTouch / @0x70c68 WaitThink. Derives the team gate from
+// CTSObjective (the FGD `tsobjective` base).
+//============================================================================
+#define SF_TS_TRIGGER_FLAGCARRIER 8
+
+class CTSTrigger : public CTSObjective
+{
+public:
+	void Spawn() override;
+	bool KeyValue(KeyValueData *pkvd) override;
+	void EXPORT WaitTouch(CBaseEntity *pOther);
+
+	float m_flNextCheck = 0;   // nextcheck (recheck delay)
+	float m_flNextAllowed = 0; // earliest time it can fire again
+};
+
+LINK_ENTITY_TO_CLASS(ts_trigger, CTSTrigger);
+
+void CTSTrigger::Spawn()
+{
+	if (!FStringNull(pev->model))
+		SET_MODEL(ENT(pev), STRING(pev->model)); // the brush
+	pev->movetype = MOVETYPE_NONE;
+	pev->solid = SOLID_TRIGGER;
+	UTIL_SetOrigin(pev, pev->origin);
+	SetTouch(&CTSTrigger::WaitTouch);
+}
+
+bool CTSTrigger::KeyValue(KeyValueData *pkvd)
+{
+	if (FStrEq(pkvd->szKeyName, "nextcheck"))
+	{
+		m_flNextCheck = atof(pkvd->szValue);
+		return true;
+	}
+	return CTSObjective::KeyValue(pkvd); // attackerteam
+}
+
+// @WaitTouch — fire on a valid touch, then re-arm after `nextcheck` seconds.
+void CTSTrigger::WaitTouch(CBaseEntity *pOther)
+{
+	if (gpGlobals->time < m_flNextAllowed)
+		return;
+	if (!pOther->IsPlayer() || !pOther->IsAlive())
+		return;
+	if (!CanInteract(pOther->pev->team)) // attacker-team gate (-1 = any)
+		return;
+	// SLICE: the "Flag Carrier Only" spawnflag (8) needs the CTF flag system (not built);
+	// here it's ignored (the trigger fires for anyone on the right team).
+
+	if (!FStringNull(pev->target))
+		FireTargets((char *)STRING(pev->target), this, this, USE_TOGGLE, 0);
+	if (!FStringNull(pev->message))
+		TSHudMessageAll(0, 0xff, 0, 8, 30, STRING(pev->message));
+
+	float delay = m_flNextCheck < 0.5f ? 0.5f : m_flNextCheck;
+	m_flNextAllowed = gpGlobals->time + delay;
+}
+
 class CTSObjectiveManager : public CBaseEntity
 {
 public:
