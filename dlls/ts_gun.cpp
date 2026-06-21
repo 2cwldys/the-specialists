@@ -36,6 +36,8 @@ public:
 	void Reload() override;
 	void WeaponIdle() override;
 
+	void MeleeAttack(const s_weapon_info *wi); // knife/katana fire-types
+
 	int m_weaponType = TSW_BERETTA; // tsweapon_t; map-placed weapon_tsgun defaults to beretta
 };
 
@@ -97,10 +99,23 @@ bool CTSGun::Deploy()
 		(char *)(wi->pszAnimExt ? wi->pszAnimExt : "onehanded"));
 }
 
-// @ PrimaryAttack__6CTSGun -> Fire -> StandardFire (faithful path dispatches by
-// fire-type and runs ShootBulletsPlayer + VKickback). SLICE: stock semi-auto.
+// @ PrimaryAttack__6CTSGun -> Fire -> {Standard,Shotgun,Knife,Katana,Grenade,Akimbo}Fire.
+// Faithful dispatch by the weapon's fire-type, using the recovered per-weapon
+// rate/spread (StandardFire reads s_weapon_info+0x18 rate / +0x28 spread / +0x348
+// fire-type). SLICE: the faithful path dispatches on the dual-wield items-array
+// (m_pActiveItem/m_pActiveInfo) — here we dispatch on the single held m_weaponType;
+// grenade/akimbo fall back to bullets (need the throw entity / dual-wield engine).
 void CTSGun::PrimaryAttack()
 {
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+
+	// Melee fire-types do a hull trace, not bullets.
+	if (wi->iFireType == TSFT_KNIFE || wi->iFireType == TSFT_KATANA)
+	{
+		MeleeAttack(wi);
+		return;
+	}
+
 	if (m_iClip <= 0)
 	{
 		PlayEmptySound();
@@ -108,9 +123,19 @@ void CTSGun::PrimaryAttack()
 		return;
 	}
 
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	m_iClip--;
+	// Semi-auto types fire one round per trigger pull (the pump shotgun + pistols +
+	// sniper + SLICE akimbo/grenade); full-auto types (SMG/rifle/auto-shotgun) fire
+	// while the trigger is held.
+	const int ft = wi->iFireType;
+	const bool fullAuto = (ft == TSFT_AUTO || ft == TSFT_AUTOSHOTGUN);
+	if (!fullAuto && !(m_pPlayer->m_afButtonPressed & IN_ATTACK))
+		return;
 
+	// Pump shotguns fire a pellet spread; everything else a single bullet.
+	const int cPellets = (ft == TSFT_PUMP) ? 6 : 1; // VERIFY: pellet count not yet mapped
+	const float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.01f;
+
+	m_iClip--;
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 
@@ -119,13 +144,47 @@ void CTSGun::PrimaryAttack()
 
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;
-	const float flSpread = 0.04f; // SLICE: per-weapon spread not yet mapped
-	m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
+	m_pPlayer->FireBulletsPlayer(cPellets, vecSrc, vecAiming,
 		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
 		0, (int)wi->flDamage, m_pPlayer->pev, m_pPlayer->random_seed);
 
-	m_flNextPrimaryAttack = GetNextAttackDelay(0.15);
+	const float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
+	m_flNextPrimaryAttack = GetNextAttackDelay(flRate);
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+}
+
+// @ KnifeFire/KatanaFire — a short forward hull trace; on a hit, melee damage.
+// SLICE: no swing/hit sounds (the TS knife sounds aren't precached here) and no
+// faithful katana throw/charge — just the close-range slash.
+void CTSGun::MeleeAttack(const s_weapon_info *wi)
+{
+	if (!(m_pPlayer->m_afButtonPressed & IN_ATTACK))
+		return; // one slash per press
+
+	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
+	Vector vecSrc = m_pPlayer->GetGunPosition();
+	const float flRange = (wi->iFireType == TSFT_KATANA) ? 64.0f : 48.0f;
+	Vector vecEnd = vecSrc + gpGlobals->v_forward * flRange;
+
+	TraceResult tr;
+	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
+
+	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
+	const float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.25f;
+	m_flNextPrimaryAttack = GetNextAttackDelay(flRate);
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+
+	if (tr.flFraction >= 1.0f)
+		return; // miss
+
+	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+	if (pHit)
+	{
+		ClearMultiDamage();
+		pHit->TraceAttack(m_pPlayer->pev, wi->flDamage, gpGlobals->v_forward, &tr,
+			DMG_CLUB | DMG_NEVERGIB);
+		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
+	}
 }
 
 void CTSGun::Reload()

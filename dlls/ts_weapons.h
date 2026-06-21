@@ -73,8 +73,26 @@ struct s_weapon_info
 	const char *pszFireSound;   // weapons/*/fire.wav
 	int   iClip;       // rounds per clip
 	float flDamage;    // per-bullet damage
-	int   iFireType;   // 0/8 standard, 1/6 shotgun/auto, 2 grenade, 3 knife,
-	                   // 4 akimbo, 7 sniper, 10 katana, 11 flag (s_weapon_info+0x348)
+	int   iFireType;   // s_weapon_info+0x348 — see TSFT_* below
+	float flFireRate;  // seconds between shots (s_weapon_info+0x18)
+	float flSpread;    // base bullet spread cone (s_weapon_info+0x28)
+	float flRecoil;    // recoil / spread-scale factor (s_weapon_info+0x34)
+};
+
+// Fire-type (s_weapon_info+0x348) — drives CTSGun::PrimaryAttack dispatch.
+enum tsfiretype_t
+{
+	TSFT_SEMI = 0,       // semi-auto single bullet (also 8)
+	TSFT_PUMP = 1,       // pump shotgun (pellets, one per trigger)
+	TSFT_GRENADE = 2,    // thrown grenade
+	TSFT_KNIFE = 3,      // melee slash
+	TSFT_AKIMBO = 4,     // dual-wield (also 5)
+	TSFT_AUTOSHOTGUN = 6,// full-auto (incl. auto shotguns)
+	TSFT_SNIPER = 7,     // bolt/zoom single shot
+	TSFT_SEMI8 = 8,      // semi-auto (pistols)
+	TSFT_AUTO = 9,       // full-auto (SMGs)
+	TSFT_KATANA = 10,    // melee sword
+	TSFT_FLAG = 11,      // CTF flag
 };
 
 // @ get_weapon_info__F10tsweapon_t — stats for a weapon (table[0] if out of range).

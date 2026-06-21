@@ -101,7 +101,11 @@ for idx, name, strs, nums in rows:
     clip = nums.get(0x4, 0)
     dmg = round(f32(nums.get(0x1c, 0)), 2)
     ftype = nums.get(0x348, 0)
+    rate = round(f32(nums.get(0x18, 0)), 4)   # fire-rate (0x18)
+    spread = round(f32(nums.get(0x28, 0)), 4)  # base spread (0x28)
+    recoil = round(f32(nums.get(0x34, 0)), 4)  # recoil/spread-scale (0x34)
     print(f'  Write(&g_weaponInfo[{idx}], {cstr(strs.get("name"))}, '
           f'{cstr(strs.get("vmodel"))}, {cstr(strs.get("pmodel"))}, '
           f'{cstr(strs.get("wmodel"))}, {cstr(strs.get("animext"))}, '
-          f'{cstr(strs.get("fire"))}, {clip}, {dmg}f, {ftype}); // {name}')
+          f'{cstr(strs.get("fire"))}, {clip}, {dmg}f, {ftype}, '
+          f'{rate}f, {spread}f, {recoil}f); // {name}')
