@@ -53,8 +53,10 @@ void CBasePlayer::ResetArmament()
 		m_armament[i] = s_armament_item();
 }
 
-// @ AddItemToArmament — queue a weapon into the loadout at the first free slot (cap 32).
-void CBasePlayer::AddItemToArmament(int type, int count, bool gift)
+// @ AddItemToArmament — queue a weapon or item into the loadout at the first free slot
+// (cap 32). isItem==true marks an item bitmask (kevlar/grenade/attachment) so BuyArmament
+// applies it via AddItem instead of BuyWeapon.
+void CBasePlayer::AddItemToArmament(int type, int count, bool isItem)
 {
 	for (int i = 0; i < 32; i++)
 	{
@@ -62,10 +64,61 @@ void CBasePlayer::AddItemToArmament(int type, int count, bool gift)
 		{
 			m_armament[i].type = type;
 			m_armament[i].count = count;
-			m_armament[i].gift = gift;
+			m_armament[i].isItem = isItem;
 			return;
 		}
 	}
+}
+
+// Item bitmask for AddItem / the loadout (the original packs these in one int; bits
+// recovered from AddItem @0x8440c). Attachments (silencer/laser/...) are 1/2/4/8.
+#define TS_ITEM_KEVLAR  0x10
+#define TS_ITEM_GRENADE 0x20
+
+// @ TakeArmor — grant (amount>=0) or remove (amount<0) kevlar. Kevlar is a BINARY flag
+// (m_bHasKevlar); the armorvalue it sets is only a "have armor" marker (TakeDamage applies a
+// flat armor_absorb reduction, it does NOT deplete — see CBasePlayer::TakeDamage). Recovered
+// from TakeArmor @0x83da4. SLICE: the original also costs/refunds 10 "free slots" and recomputes
+// move speed via GetSpeedBySlots/SetPlayerSpeed — the free-slots encumbrance subsystem is
+// deferred (its speed factors are runtime-init and unrecoverable statically).
+void CBasePlayer::TakeArmor(int amount)
+{
+	if (amount >= 0)
+	{
+		if (!m_bHasKevlar)
+		{
+			m_bHasKevlar = true;
+			EMIT_SOUND(ENT(pev), CHAN_ITEM, "weapons/items.wav", VOL_NORM, ATTN_NORM);
+		}
+		float v = (float)amount + pev->armorvalue;
+		if (v > 100.0f) // armor cap
+			v = 100.0f;
+		pev->armorvalue = v;
+	}
+	else if (m_bHasKevlar)
+	{
+		m_bHasKevlar = false;
+		pev->armorvalue = 0;
+	}
+}
+
+// @ AddItem — grant a loadout item from its bitmask (kevlar 0x10, grenade 0x20, gun
+// attachments 1/2/4/8). Recovered from AddItem @0x8440c. CashBased() is off so the cost
+// branches (kevlar 1900 / grenade 700 / attachments) are dead. Kevlar gives 100 armor via
+// TakeArmor; grenade is the team-mode M61; attachments route to the active CTSGun (SLICE).
+void CBasePlayer::AddItem(int itemBits)
+{
+	if ((itemBits & TS_ITEM_KEVLAR) != 0)
+	{
+		if (pev->armorvalue < 100.0f) // not already maxed (orig: armorvalue < cap)
+			TakeArmor(100);
+	}
+	else if ((itemBits & TS_ITEM_GRENADE) != 0)
+	{
+		if (TSGameRules()->IsTeamMode()) // grenades are team-mode only
+			BuyWeapon(TSW_M61);
+	}
+	// SLICE: gun attachments (bits 1/2/4/8 -> CTSGun::AddItem, silencer/laser/...) deferred.
 }
 
 // @ AddAmmoToArmament — queue ammo (rounds) for a caliber into the loadout.
@@ -113,7 +166,11 @@ void CBasePlayer::BuyArmament()
 {
 	for (int i = 0; i < 32; i++)
 	{
-		if (m_armament[i].type != 0)
+		if (m_armament[i].type == 0)
+			continue;
+		if (m_armament[i].isItem) // kevlar/grenade/attachment bitmask -> AddItem
+			AddItem(m_armament[i].type);
+		else
 			BuyWeapon(m_armament[i].type);
 	}
 	for (int cal = 1; cal < 16; cal++)

@@ -406,18 +406,24 @@ public:
 	int m_iCash = 0;                  // 0x540 — player cash (clamped 0..30000)
 	int m_iGrenadeBuys = 0;           // 0x714 — M61 grenades bought this life (cap 2)
 	int m_armamentAmmo[16] = {};      // 0x554 — pending per-caliber ammo loadout (rounds)
-	struct s_armament_item { int type = 0; int count = 0; bool gift = false; };
-	s_armament_item m_armament[32];   // 0x594 — pending weapon loadout (stride 0xc ×32)
+	// An armament entry is {type, count, isItem}. BuyArmament routes isItem==false ->
+	// BuyWeapon (a weapon type) and isItem==true -> AddItem (an item bitmask: kevlar/
+	// grenade/attachments), matching the original BuyArmament @0x83f10.
+	struct s_armament_item { int type = 0; int count = 0; bool isItem = false; };
+	s_armament_item m_armament[32];   // 0x594 — pending weapon/item loadout (stride 0xc ×32)
+	bool m_bHasKevlar = false;        // 0x718 bit 0x10 — has bought kevlar (binary)
 
 	EHANDLE m_hCarriedFlag;           // the CTSFlag this player is carrying (CTF), if any
 
 	int  GiveCash(int amount);                            // add cash (clamped 0..30000)
 	void ResetArmament();                                 // clear the pending loadout
-	void AddItemToArmament(int type, int count, bool gift); // queue a weapon into the loadout
+	void AddItemToArmament(int type, int count, bool isItem); // queue a weapon/item into the loadout
 	void AddAmmoToArmament(int caliber, int rounds);      // queue ammo into the loadout
 	bool BuyWeapon(int type);                             // give a weapon (free; restriction-gated)
 	bool BuyAmmo(int caliber, int rounds);               // give ammo (free)
 	void BuyArmament();                                   // apply the pending loadout
+	void AddItem(int itemBits);                           // @0x8440c — grant a loadout item (kevlar/grenade/attachment)
+	void TakeArmor(int amount);                           // @0x83da4 — grant/remove kevlar (binary flag + armorvalue)
 
 	// TS powerup activation state machine (ts_player.cpp). UpdatePowerUpState runs
 	// each frame from PreThink; UsePowerUp is the `usepowerup` command handler.

@@ -42,6 +42,7 @@
 #include "UserMessages.h"
 #include "client.h"
 #include "ts_utils.h" // TSHudMessageOne (the `respawn`-gate "wait" message)
+#include "ts_gamerules.h" // TSGameRules() — armor_absorb (kevlar damage reduction)
 
 // #define DUCKFIX
 
@@ -387,27 +388,21 @@ bool CBasePlayer::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, fl
 	// keep track of amount of damage last sustained
 	m_lastDamageAmount = flDamage;
 
-	// Armor.
-	if (0 != pev->armorvalue && (bitsDamageType & (DMG_FALL | DMG_DROWN)) == 0) // armor doesn't protect against fall or drown damage!
+	// Armor (TS model — RE'd from CBasePlayer::TakeDamage @0x7fa94). Kevlar is a flat
+	// `armor_absorb` damage REDUCTION, not a depleting pool: while the player has armor and
+	// the damage isn't one of the armor-bypassing types, scale the damage down. armorvalue is
+	// never decremented (it's a binary "have kevlar" marker — see CBasePlayer::TakeArmor).
+	// The bypass mask 0x80040e4 = melee (slash/club), fall, blast, radiation, + the
+	// no-armor bit: kevlar stops bullets, not knives/falls/explosions.
+	constexpr int TS_ARMOR_BYPASS = 0x80040e4;
+	if (0 != pev->armorvalue && (bitsDamageType & TS_ARMOR_BYPASS) == 0)
 	{
-		float flNew = flDamage * flRatio;
-
-		float flArmor;
-
-		flArmor = (flDamage - flNew) * flBonus;
-
-		// Does this use more armor than we have?
-		if (flArmor > pev->armorvalue)
-		{
-			flArmor = pev->armorvalue;
-			flArmor *= (1 / flBonus);
-			flNew = flDamage - flArmor;
-			pev->armorvalue = 0;
-		}
-		else
-			pev->armorvalue -= flArmor;
-
-		flDamage = flNew;
+		float absorb = TSGameRules()->m_flArmorAbsorb;
+		if (absorb > 1.0f)
+			absorb = 1.0f;
+		if (absorb < 0.0f)
+			absorb = 0.0f;
+		flDamage -= absorb * flDamage; // flDamage *= (1 - armor_absorb)
 	}
 
 	// this cast to INT is critical!!! If a player ends up with 0.5 health, the engine will get that
@@ -1408,9 +1403,10 @@ void CBasePlayer::TSSendBuyMenu()
 		"\\w5 Save Config\n"
 		"\\w6 Load Config\n"
 		"\\g7 Random\n"
+		"\\g8 Buy Kevlar\n"
 		"\\w0 Cancel\n";
-	// valid slots: 1-7 and 0 (the "0" key = slot 10 -> bit 9)
-	const int slots = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 9);
+	// valid slots: 1-8 and 0 (the "0" key = slot 10 -> bit 9)
+	const int slots = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 9);
 
 	MESSAGE_BEGIN(MSG_ONE, gmsgShowMenu, NULL, pev);
 	WRITE_SHORT(slots);
@@ -1477,6 +1473,13 @@ void CBasePlayer::TSMenuSelect(int slot)
 		TSCloseMenu();
 		break;
 	}
+	case 8: // Buy Kevlar — queue the kevlar item (bit 0x10) into the loadout (applied at spawn
+		// via BuyArmament -> AddItem -> TakeArmor). Kevlar = a binary flag + flat armor_absorb
+		// damage reduction (CBasePlayer::TakeArmor / TakeDamage).
+		AddItemToArmament(0x10, 1, /*isItem*/ true);
+		ClientPrint(pev, HUD_PRINTCENTER, "Kevlar added to loadout.\n");
+		TSSendBuyMenu();
+		break;
 	case 10: // 0 Cancel — keep the (empty/default) loadout, close the menu
 		m_fConfigChosen = true;
 		TSCloseMenu();
@@ -3057,6 +3060,7 @@ void CBasePlayer::Spawn()
 	pev->classname = MAKE_STRING("player");
 	pev->health = 100;
 	pev->armorvalue = 0;
+	m_bHasKevlar = false; // kevlar is per-life — re-applied each spawn via the loadout (AddItem)
 	pev->takedamage = DAMAGE_AIM;
 	pev->solid = SOLID_SLIDEBOX;
 	pev->movetype = MOVETYPE_WALK;

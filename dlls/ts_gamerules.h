@@ -124,6 +124,13 @@ public:
 	bool m_bSlowMatchActive = false; // the `slowmatch` cvar < 1.0 runs the whole match slowed
 	float m_flGlobalSlowScale = 0;  // 0x564 — current global slow scale
 	float m_flGlobalSlowEnd = 0;    // 0x568 — global slow end time (0 = no limit)
+
+	// Fraction of damage absorbed by kevlar (the `armor_absorb` config value, gamerules
+	// member @+0x588c read in CBasePlayer::TakeDamage). A flat reduction applied while the
+	// player has armor — kevlar does NOT deplete. The exact original default is config-driven
+	// (parsed from the server config, runtime-init — not statically recoverable), so this is a
+	// sensible, server-tunable default.
+	float m_flArmorAbsorb = 0.5f;
 };
 
 // In this mod the active rules object is always a CTSGameRules (see
