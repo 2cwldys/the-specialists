@@ -247,12 +247,25 @@ LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +map tm_avana +sv_lan 1 +maxplayers 4
 gdb the client the same way as hl.so when it crashes (it found the cont.48 CGlock/AllocString crash):
 `LD_LIBRARY_PATH=. gdb -batch -nx -ex run -ex bt --args ./xash3d -game ts +map tm_avana`.
 
-**Next slices** read messages the server already sends: the **powerup/motion-blur** indicators
-(`gmsgTSPowerUpTime`/`gmsgTSMotionBlur` — FIRST verify their registered names against the `.so` strings,
-as `RoundTime` needed in cont.47). Then the bigger Track B items further down (visible slow-motion,
-particles, stunts). `reference/client.dll` (~1,013 exports) is the spine — see CLAUDE.md §2.
-Two known stock-client gaps surfaced at runtime: `Unknown command cl_realhud / hud_r/g/b/color /
-mp_teammodels` (TS client cvars not yet reconstructed — harmless).
+**→ START HERE: the 5-phase wholesale reconstruction** (cont.50, the user's explicit mandate — stop
+symptom-patching, reconstruct the player/weapon/input/HUD systems from the decomp). It's spelled out in
+**"Track B playtest reconstruction" above** (and tracked as tasks #6–#10). Current status:
+- **Phase 1 — weapon firing/reload/ammo/fire-rate** (IN PROGRESS): reload DONE (cont.50); TODO the
+  fire-rate gate ("click as fast as I want"), `SecondaryAttack`/`+alt1`, akimbo SOUND (`g_weaponInfo[8]
+  .pszFireSound` is null → fall back to the single's sound), and what networks to the ammo HUD.
+- **Phase 2** — `CBasePlayer` thinks/state + the LOW-PITCH fire sound (decompile `PreThink`/`TSUpdate` +
+  the slow-motion fields; the file is fine, it's a pitch/time-scale issue).
+- **Phase 3** — every TS command/cvar/`+toggle` from the `.so`, wired server+client (fixes the
+  `Unknown command cl_realhud / hud_r/g/b/color / mp_teammodels` spam + missing keys like `+alt1`).
+- **Phase 4** — the TS client HUD (why there is NO HUD at all: TS has a fully custom HUD, `hud.txt` is
+  320/640-only). The biggest quality-of-life win. `reference/client.dll` (~1,013 exports) is the spine.
+- **Phase 5** — client view bob/sway ("snap"; `cl_bob 3` + stock `V_CalcBob`) + the predicted
+  `events/fire.sc` fire event (replaces the server-driven `SendWeaponAnim` slice).
+
+**Workflow:** build → `setup-xash-mod.sh` → run in xash (the loop above) → screenshot/gdb to verify →
+commit → update docs. Every message/event/command/cvar name must be **byte-faithful to the `.so`** (the
+swap-compatibility contract — see "Where things stand"); check `strings reference/ts_i386.so` /
+`reference/client.dll` before naming anything.
 
 **Pattern for a TS HUD element (cont.47, follow `cl_dll/roundtime.{cpp,h}` + the stock `battery.cpp`):**
 (1) confirm the server's REG_USER_MSG string matches the original `.so` (`strings reference/ts_i386.so`);
