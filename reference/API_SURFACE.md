@@ -84,7 +84,8 @@ NONE are implemented client-side; some are handled server-side via console):
 | `togglebrowser` | server browser | ❌ |
 | `ForceCloseCommandMenu` | command menu | ❌ |
 | `+commandmenu`/`-commandmenu` | command/class menu | ❌ |
-| `cancelselect`/`slot1..slot10`/`invnext`/`invprev` | weapon select | ⬜ stock (TS arsenal uses `tsnextweapon` server-side) |
+| `invnext`/`invprev` | weapon select | ★ wired (cont.67): client cursor walks the owned arsenal → emits `weapon_<N>` (see below). `cancelselect`/`slot1..slot10` ⬜ stock |
+| `weapon_<N>` (numeric) / `lastinv` | weapon-select commit / last-weapon toggle | ★ wired (cont.67, RE `FUN_1004f500`/`SelectWeapon`@0x80fb8): server `TSSelectWeaponType`/`TSLastInv` → `SelectSlot` holster→deploy. `reference/WEAPON_SELECT.md` |
 | `firstperson`/`thirdperson`/`snapto`/`+cam*` | camera | ⬜ stock camera.cpp |
 
 **Full command list (verbatim):** +alt1 +alt2 +attack +attack2 +back +break
@@ -214,7 +215,7 @@ it changes gameplay. Most are R-only so far.
 | `buy` | ✅ | ✅ | ❌ | buy menu (cl_dll VGUI); server `tsbuy*` exist (cont.36) |
 | `+commandmenu`/`-commandmenu`/`ForceCloseCommandMenu` | (xash built-in) | — | ❌ | class/command menu (cl_dll) |
 | `togglebrowser` | ✅ | — | ❌ | server browser (cl_dll) — stub |
-| server: `tsbuy`/`tsbuyammo`/`tsarm`/`tsbuyarmament`/`tsnextweapon`/`tsfiremode`/`dropweapon`/`usepowerup`/`tsspawnflag`/`tscutwire` | ✅ | — | ★ | console-driven gameplay (cont.23–45) |
+| server: `weapon_<N>`/`lastinv` (faithful, cont.67) + `tsbuy`/`tsbuyammo`/`tsarm`/`tsbuyarmament`/`tsfiremode`/`dropweapon`/`usepowerup`/`tsspawnflag`/`tscutwire` (stand-ins) | ✅ | — | ★ | console-driven gameplay (cont.23–45,67). NB stand-in names: real ones are `firemode`/`drop`/`usepowerup`(real)/buy=`tkw`/`tki`/`tka` — see `reference/WEAPON_SELECT.md` |
 
 ## 7. TODO — to complete the surface scan
 - **Server commands** (`pfnAddServerCommand`) + the events the server PLAYBACK_EVENTs —

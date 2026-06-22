@@ -24,10 +24,15 @@ touching that area):**
 - `reference/HUD_DRAWCHAIN.md` — the HUD render path recovered from client.dll assembly.
 - `reference/VERIFICATION.md` — the playtest checklist + the (unmapped) silencer findings
   + the think-behaviour status.
+- `reference/coverage/REPORT.md` — **drop-in interface coverage** (original vs ours): the
+  by-name swap contract — entity classes, cldll exports, console commands, cvars, user
+  messages, events — with matched/missing/extra. Missing = the RE/implement work-list; extra
+  = invented or HL-leftover to remove. Regenerate: `python3 scripts/coverage/coverage.py all`.
+  Ghidra deep-dives: `scripts/coverage/setup-ghidra.sh` (persistent projects, noreturn-fixed).
 - New Ghidra tooling: `scripts/ghidra/DecompAt.java` (decompile a function by address),
   `DecompRefs.java`.
 
-## Where things stand (2026-06-22, through cont.66)
+## Where things stand (2026-06-22, through cont.67)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`/`client.so`** → **run in-engine** (ReHLDS for server; xash3d-fwgs
 for the graphical client — this box HAS a GPU) → **gdb** any crash. Everything below is
@@ -69,11 +74,16 @@ weapon-select are partly done with **known unfaithful stand-ins to fix**. Plan f
   to the right. Verified vs the user's reference.
 
 **KNOWN-UNFAITHFUL / OPEN (fix RE-first — see the ⚠️ above):**
-- **Weapon switching uses INVENTED commands** `tsnextweapon`/`tsprevweapon` (client
-  `invnext`/`invprev` forward to them, `cl_dll/ammo.cpp`). The original does **not** have
-  these. Faithful flow: `invnext`/`invprev` move a **select cursor** (the `+0x7c0`
-  select-active object in `FUN_1004d3f0`); **`+attack` commits** the highlighted weapon;
-  switching plays **holster→deploy** (currently `SelectSlot` calls `Deploy()` instantly).
+- ✅ **Weapon switching — DONE (cont.67, RE-grounded + in-engine verified;
+  `reference/WEAPON_SELECT.md`).** Removed the invented `tsnextweapon`/`tsprevweapon`.
+  Faithful: `invnext`/`invprev` (client `CHudTSWeaponBar::CycleType`) step through the owned
+  arsenal and commit via the original client's transport **`weapon_<N>`** (numeric
+  `tsweapon_t`, from `FUN_1004f500`'s `hud_fastswitch` commit); server `weapon_<N>`
+  ClientCommand → `TSSelectWeaponType` → `CTSGun::SelectSlot` with **holster→deploy**;
+  `lastinv` toggles to the previous weapon. DEFERRED: the `hud_fastswitch 0` open-bar +
+  on-bar highlight + literal (row,col) grid cursor (we commit immediately + walk the compact
+  owned-set). Also surfaced (separate fronts): rename `tsfiremode`→`firemode`,
+  `dropweapon`→`drop`; **`usepowerup` IS a real cmd** (the note below is wrong).
 - **Timed-powerup activation is on an invented `usepowerup` command** — should be
   **double-tap `+use` (`IN_USE`) in `CBasePlayer::PreThink`** (RE `UsePowerUp`/PreThink).
 - **`tsbuy`/`tsarm`/`tsbuyarmament`/`tsresetarmament`/`tsbuyrandom` (cont.36 + cont.66)**
@@ -84,8 +94,11 @@ weapon-select are partly done with **known unfaithful stand-ins to fix**. Plan f
   above the weapons, from `PwUpTime`); **kung-fu / super-jump icons** (centre-bottom);
   buy-menu **cursor + click-on-entries**; the **"2 Buy" weapon-category submenu**;
   menu **background box**.
-- **Open question for the user:** is the buy menu available the whole time you're a dead
-  spectator, or only during the join/respawn press-fire wait?
+- **Open question (cont.67):** `buy` IS real — original `ts/default.cfg` binds `b`→`buy`
+  (also `firemode`/`useitems`/`drop`/`usepowerup`/`invnext`/`invprev`); the menu is
+  server-driven (`gmsgShowMenu`). cont.66's `buy` reopen is faithful. The precise dead/alive
+  availability gate is a TODO for the coverage harness + a targeted `buy`-handler RE. See
+  `reference/WEAPON_SELECT.md`.
 
 **Target = INTERFACE/protocol compatibility, so each half is a drop-in swap for the
 original** (our client ↔ original server, or vice-versa, behaves identically). What must

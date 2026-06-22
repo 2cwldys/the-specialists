@@ -5,6 +5,136 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 68) — drop-in interface COVERAGE HARNESS + Ghidra tooling fixes
+
+User asked for a coverage test proving our client+server are drop-in-compatible with the original on
+the EXTERNAL contract (commands/cvars/messages/events/entities/exports — NOT internal C++ ABI, which
+is explicitly out of scope per CLAUDE.md), to catch invented commands + HL leftovers + gaps and serve
+as a RE roadmap. Also fix the recurring "Ghidra truncated" problem.
+
+**Ghidra tooling (`scripts/ghidra/`):** `DisableNoReturn.java` (preScript — turns off the
+"Non-Returning Functions - Discovered" analyzer that wrongly marks normal funcs noreturn and truncates
+caller bodies at analysis time); `FixNoReturn.java` (postScript — clears stray noreturn flags except real
+libc ones); `DecompAt.java` now auto-creates a function when Ghidra didn't define one (the cmd-handler
+thunks) + clears noreturn on the target. `scripts/coverage/setup-ghidra.sh` rebuilds persistent projects
+under `recovered/ghidra/{server,client}` (gitignored, survives reboot — /tmp is tmpfs here). NB the huge
+`ClientCommand` still resists Ghidra flow analysis; the harness uses `objdump` for it (reliable).
+
+**Coverage harness (`scripts/coverage/coverage.py`, pure objdump/nm/rz-bin — no Ghidra dep):** extracts
+the interface manifest from original (ts_i386.so + client.dll + the original `ts/default.cfg`/`config.cfg`)
+AND ours (hl.so + client.so + source), diffs → `reference/coverage/{original,ours}.json` + `REPORT.md`.
+Categories DONE (matched/missing/extra): entity classes (FGD vs LINK_ENTITY_TO_CLASS, 140/8/141 — missing =
+ts_emitter/ts_particle/ts_wind/info_player_team1-4/info_player_coop), client cldll exports (40/2/…),
+server console commands (ClientCommand strcmp via GOT-resolved PIC: 8/12/24 — missing firemode/useitems/
+respawn/jointeam/changeteam/motd/powerup/rst_cfg/cashalarm/tkw/tki/tka; extra = our tsbuy*/tsfiremode/
+dropweapon/tscutwire/tsspawnflag stand-ins + HL leftovers give/+break/etc.), client commands (58/1/8),
+client cvars (binary `pfnRegisterVariable` @ds:0x100d5b60, name+default: 93/14/21 + default mismatches),
+user messages (client `pfnHookUserMsg` @ds:0x100d5b70: 51/25/7 — missing = the deferred HUD readers
+PwUpTime/TSState/TSSlowMo/Objective/ClipInfo/…; extra = HL leftovers Flashlight/Weapons), events
+(string-scan: 4/8/19 — missing TS coldcock/knife/katana/pump/grenade; extra = stock-HL crossbow/egon/
+gauss/… we still precache), + a default.cfg input cross-check (2 unanswered: firemode, useitems).
+
+**KEY CORRECTIONS from user ground truth (config files / running the original):**
+- `buy` IS real (default.cfg binds b→buy; the client.dll `buy` cmd string @0x10095b34) — my earlier
+  "no buy command" was wrong (I'd matched only the "1 Buy"/"2 Buy" menu entries). cont.66's buy is faithful.
+- cvars must come from the BINARY's pfnRegisterVariable sites, NOT config.cfg — config.cfg holds only the
+  archived (written-out) subset, so it falsely flagged stock cvars like zoom_sensitivity_ratio as "extra".
+
+**Vtable + relocation tooling (cont.68b — user asked for richer C/C++ recovery via vtables/SDK
+types/demangling):** Discovered the original .so DOES carry `.stab`/`.stabstr` — but ONLY for gcc-2.96's
+own runtime units (libgcc2/tinfo/new/exception), no mod-class type info. BUT: 226 `__vt_<class>` vtable
+symbols + RTTI exist, and the vtable slots (zero in the file) are filled by **R_386_32 relocations against
+named method symbols** — so `readelf -W -r` yields each vtable+offset → exact method. Built
+`scripts/coverage/extract_vtables.py` → `reference/coverage/vtables_original.json` + `VTABLES.md`: the
+COMPLETE slot→method layout for all 226 classes (machine-confirmed `CTSGun` vtable+0x128 = `CTSGun::Deploy()`,
+matching the cont.67 manual find; +0x130 Holster, +0x124 CanDeploy, etc.). Use: resolve any decompiled
+`call [vptr+0xNN]` to the real method, and cross-check our virtual-override set per class. KEY INSIGHT: the
+same **relocation map** resolves ALL .data pointers (cvar_t name/string structs, REG_USER_MSG name pointers,
+function tables) that are zero-in-file — this unlocks the deferred coverage gaps (server cvars + message
+sizes) and is the basis for the next Ghidra type-application pass (apply entvars_t C-struct + demangled
+gcc2 signatures + vtable annotation). NB STABS is NOT useful for mod member offsets — those stay analytic;
+but `entvars_t`/engine structs are pure C (ABI-stable offsets) so they CAN be applied verbatim.
+
+**Reconstruction tooling — the 3 improvements built + validated (cont.68c):**
+- **#1 typed decompiles — `scripts/ghidra/ApplyTypes.java`** (postScript): applies the recovered gcc2
+  signatures (`reference/signatures-gcc2.map`) as REAL Ghidra prototypes → 2570 functions typed; the `this`
+  pointer + call args are typed (`Deploy__6CTSGun(CTSGun *this)` not `int param_1`). Conservative type model
+  (named empty structs for classes — NO faked member layout, since gcc2 offsets differ from our Itanium SDK
+  and there's no mod debug info; members still show as offsets). Auto-run by `setup-ghidra.sh` after import.
+- **#2 virtual-dispatch resolution — `scripts/coverage/vtcall.py`**: `vtcall.py CTSGun 0x128` → `CTSGun::Deploy()`;
+  `--file <decomp.c> CTSGun` annotates every `+0xNN))(` virtual call with its method (66 in CTSGun.c) — turns
+  blind dispatch into named calls (SendWeaponAnim/Deploy/Precache/…). Uses vtables_original.json.
+- **#3 server cvars — closed the coverage gap** (`coverage.py server_cvars_orig`): scans ts_i386.so .data for
+  `cvar_t {name,default,...}` structs (the .rodata string ptrs are R_386_RELATIVE addends stored in-file) →
+  41 matched / 5 missing (deadback/deadsitting/sv_alltalk/voice_serverdebug/weaponstay) / 258 EXTRA, of which
+  **252 are stock-HL `sk_*` skill cvars** (monster/weapon damage tables) = a big HL-leftover cleanup target
+  (TS has no HL monsters). Report collapses the sk_* family for readability. Default-mismatch detection too.
+Remaining harness gap: user-message wire SIZES (pfnRegUserMsg site scan); cvar/engine-call USAGE tracing.
+
+**Engine constants recovered:** ts_i386.so `_GLOBAL_OFFSET_TABLE_`=0x165e10 (PIC string-ref base);
+client.dll cl_enginefuncs: pfnAddCommand=ds:0x100d5b6c, pfnRegisterVariable=ds:0x100d5b60,
+pfnHookUserMsg=ds:0x100d5b70.
+
+**Honest completeness:** DONE = the full by-NAME swap contract above. GAPS = server-side cvars + message
+SIZES (ride GOT-relocated ptrs / cvar_t structs in the PIE — need R_386_RELATIVE reloc parsing); cvar/
+engine-call USAGE tracing (semantic xref); internal C++ ABI/methods (OUT of scope — engine never sees it).
+Spot-check Qs sent to the user (running the original): does `weapon_<N>` switch in console (validates the
+cont.67 transport); what do tkw/tki/tka/rst_cfg/cashalarm do; do give/impulse 101 work (HL-leftover check);
+is `buy` usable while alive; is cl_bob default really 4. NOT committed yet.
+
+## 2026-06-22 (cont. 67) — weapon-switch fidelity: drop invented tsnext/prevweapon → faithful weapon_<N> + lastinv (RE-grounded, in-engine verified)
+
+User picked "weapon-switch fidelity" off the cont.66 known-unfaithful list. RE-FIRST (per
+`check-re-on-feedback`) before any code; findings written to `reference/WEAPON_SELECT.md`.
+
+**RE (client.dll cursor + ts_i386.so commit):**
+- Imported client.dll + ts_i386.so into persistent Ghidra projects (`/tmp/ghidra-client`,
+  `/tmp/ghidra-server`); DecompAt/DecompRefs by address. `scripts/ghidra/DecompAt.java` only
+  resolves addresses Ghidra defined as functions — small thunks (the cmd handlers) needed
+  raw `objdump -d -M intel` instead.
+- **No `tsnextweapon`/`tsprevweapon`** anywhere (client cmd table nor server ClientCommand)
+  — confirmed invented. Client cmds: invnext/invprev/slot1..10/+attack/+attack2/
+  cancelselect/menuselect. Real **server** ClientCommand set (PIC base ebx=0x165E10, exact
+  strcmp list): say, say_team, fov, use, respawn, powerup, cashalarm?, rst_cfg?, tkw, tki,
+  tka, cutwire_*, drop_*, **drop**, **usepowerup**, **firemode**, **useitems**, **lastinv**,
+  changeteam, jointeam, motd, fullupdate.
+- Client cursor `FUN_1004f500(this,dir)` (invnext dir=1 @0x1004fce0 / invprev dir=0
+  @0x1004fd40, both rate-limited): seeds (row 0x740, col 0x744) from the active weapon, steps
+  the 17×5 grid skipping empties/akimbo-pairs + wraps; then if cvar **`hud_fastswitch`!=0**
+  COMMITs by formatting **`"weapon_%i"`** (@0x10095db8) and sending it to the server (else
+  the bar stays open at 0x73c for a +attack/slotN commit). → **commit transport =
+  `weapon_<N>` console cmd** (numeric tsweapon_t).
+- Server `CTSGun::SelectWeapon(type)` @0x80fb8 = HolsterWeapon(@0x85698) + set m_active
+  (only if owned+valid); the **caller** (ClientCommand block @0xae433) does `if changed
+  gun->Deploy()` (vtable+0x128). So switch = holster(old)→set→deploy(new). `lastinv` block
+  saves player+0xa1c=current & re-selects the prior type. `CBasePlayer::SelectItem(char*)`
+  is the stock by-CLASSNAME search — NOT the numeric path.
+
+**Implemented + verified:**
+- Server (`dlls/ts_gun.cpp`/`ts_weapons.h`/`client.cpp`): removed TSCycleWeapon/Prev +
+  tsnext/prevweapon dispatch; `SelectSlot` now holster→deploy (cancels reload, records
+  `m_lastActive`); `weapon_<N>` dispatch (strncmp+digit guard) → `TSSelectWeaponType` →
+  FindSlot→SelectSlot; `lastinv` → `TSLastInv`.
+- Client (`cl_dll/ts_weaponbar.{h,cpp}`/`ammo.cpp`): `CHudTSWeaponBar::CycleType(fNext)`
+  walks owned weapons in the bar's column-major display order; invnext/invprev emit
+  `ServerCmd("weapon_%d\n")`.
+- Build amd64 all = clean (glibc 2.14); `nm|c++filt` shows TSSelectWeaponType/TSLastInv;
+  no `tsnext/prevweapon` strings in either .so; `weapon_%d` in client.so. **In xash3d-fwgs
+  (tm_avana), spawned in + mouse-wheel: rifle→akimbo pistols (invnext ×2), →single pistol
+  (invprev), no crash, no "Unknown command".** Screenshots `/tmp/ws_{spawn,next,prev}.png`.
+
+**Buy-menu availability (the cont.66 open Q):** CORRECTED by user ground truth — **`buy` IS
+real** (original `ts/default.cfg` binds `b`→`buy`, also firemode/useitems/drop/usepowerup;
+the `buy` string is in client.dll @0x10095b34 — I'd wrongly matched only the "1 Buy"/"2 Buy"
+menu entries). cont.66's `buy` reopen is faithful. The menu is server-driven (gmsgShowMenu);
+the exact dead/alive availability gate is a TODO for the coverage harness + a targeted RE of
+the `buy` handler.
+
+**Deferred (noted):** hud_fastswitch=0 open-bar + on-bar select highlight + literal (row,col)
+grid cursor (we commit immediately + walk the compact owned-set). Separate fronts surfaced:
+rename `tsfiremode`→`firemode`, `dropweapon`→`drop`; `usepowerup` IS real (HANDOFF's
+"invented" note is wrong); buy cmds = tkw/tki/tka/rst_cfg/cashalarm.
+
 ## 2026-06-22 (cont. 66) — TS join/spectate/buy-config/weapon-select flow (IN PROGRESS; some unfaithful stand-ins to fix)
 
 User asked for the faithful join flow: a joining player does NOT spawn straight into play — they enter
