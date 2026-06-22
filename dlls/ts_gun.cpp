@@ -42,6 +42,7 @@ public:
 	bool GetItemInfo(ItemInfo *p) override;
 	int iItemSlot() override { return 1; } // @ iItemSlot__6CTSGun returns slot 1
 	bool Deploy() override;
+	void ItemPostFrame() override;
 	void PrimaryAttack() override;
 	void Reload() override;
 	void WeaponIdle() override;
@@ -498,6 +499,59 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 
 // @ Reload/ReloadWeapon — refill the clip from the weapon's CALIBER reserve: take =
 // min(clip-deficit, reserve[caliber]) (@0x84a14).
+// @ ItemPostFrame__6CTSGun — drive the TS ammo system per frame. The stock base
+// ItemPostFrame gates reload on the player's standard m_rgAmmo, which TS never uses
+// (ammo lives in our per-caliber m_ammoReserve), so reload never triggered -> "fire
+// til empty, no reload". This override reloads from m_ammoReserve instead: on +reload,
+// or automatically when the clip runs dry.
+void CTSGun::ItemPostFrame()
+{
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	const int caliber = wi->iCaliber;
+	const bool hasReserve = (caliber > 0 && caliber < TS_NUM_CALIBERS && m_ammoReserve[caliber] > 0);
+
+	// Finish a reload once its delay elapses: move rounds from the per-caliber reserve
+	// into the clip (capped at clip size / available reserve).
+	if (m_fInReload && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
+	{
+		if (caliber > 0 && caliber < TS_NUM_CALIBERS)
+		{
+			int need = wi->iClip - m_iClip;
+			int take = (need < m_ammoReserve[caliber]) ? need : m_ammoReserve[caliber];
+			if (take > 0)
+			{
+				m_iClip += take;
+				m_ammoReserve[caliber] -= take;
+			}
+		}
+		m_fInReload = false;
+	}
+
+	if ((m_pPlayer->pev->button & IN_ATTACK2) && m_flNextSecondaryAttack <= UTIL_WeaponTimeBase())
+	{
+		SecondaryAttack();
+	}
+	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
+	{
+		PrimaryAttack();
+	}
+	else if ((m_pPlayer->pev->button & IN_RELOAD) && !m_fInReload && m_iClip < wi->iClip && hasReserve)
+	{
+		Reload();
+	}
+	else if (!(m_pPlayer->pev->button & (IN_ATTACK | IN_ATTACK2)))
+	{
+		// auto-reload a dry clip (melee/grenade have no caliber -> hasReserve is false)
+		if (!m_fInReload && m_iClip <= 0 && hasReserve)
+			Reload();
+		else if (m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
+			WeaponIdle();
+	}
+}
+
+// @ Reload__6CTSGun — begin a reload: gate it, play the anim, and arm the delay; the
+// actual clip refill from the per-caliber reserve happens in ItemPostFrame when the
+// delay elapses (the original draws from the per-caliber armament reserve too).
 void CTSGun::Reload()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
@@ -507,14 +561,13 @@ void CTSGun::Reload()
 	if (m_iClip >= wi->iClip || m_ammoReserve[caliber] <= 0)
 		return;
 
-	int need = wi->iClip - m_iClip;
-	int take = (need < m_ammoReserve[caliber]) ? need : m_ammoReserve[caliber];
-	m_iClip += take;
-	m_ammoReserve[caliber] -= take;
+	if (wi->iReloadAnim >= 0)
+		SendWeaponAnim(wi->iReloadAnim);
 
-	m_flNextPrimaryAttack = GetNextAttackDelay(1.5);
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
-	// SLICE: no reload animation/event.
+	m_fInReload = true;
+	m_flNextPrimaryAttack = GetNextAttackDelay(TS_RELOAD_TIME);
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + TS_RELOAD_TIME;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + TS_RELOAD_TIME + 0.5f;
 }
 
 // @ WeaponIdle__6CTSGun (@0x854dc) — drives the remaining burst rounds: while a burst is

@@ -102,7 +102,14 @@ struct s_weapon_info
 	// iFireAnimL = left-gun shoot sequence (both read from the v_*_akimbo.mdl). -1 for
 	// non-akimbo weapons (they only use iFireAnim).
 	int   iFireAnimL;
+	// Viewmodel reload-animation sequence index (the "reload" sequence in v_*.mdl).
+	// -1 = no reload anim (melee/grenade).
+	int   iReloadAnim;
 };
+
+// Reload duration (seconds) — // VERIFY against the .so per-weapon reload time (the
+// original reads s_weapon_info+0x14); a single value for now.
+#define TS_RELOAD_TIME 2.0f
 
 // Per-caliber ammo: the 16 calibers, the mag/magazine size, and the max reserve (rounds),
 // from compile_ammo_info (@0x6f51c). Indices match the weapon iCaliber + the FGD ts_groundammo

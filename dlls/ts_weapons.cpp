@@ -39,6 +39,7 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iPellets = 1;     // default: one bullet (overridden in compile_weapons_info)
 	w->iFireAnim = -1;   // default: no standard fire anim (overridden in compile_weapons_info)
 	w->iFireAnimL = -1;  // default: not akimbo (overridden in compile_weapons_info)
+	w->iReloadAnim = -1; // default: no reload anim (overridden in compile_weapons_info)
 }
 
 // Max per-caliber reserve (rounds), s_ammo_info+0x20 from compile_ammo_info (@0x6f51c).
@@ -186,6 +187,18 @@ static void compile_weapons_info()
   g_weaponInfo[TSW_GOLD].iFireAnimL            = 4;
   g_weaponInfo[TSW_FNH_AKIMBO].iFireAnimL      = 2;
   g_weaponInfo[TSW_SKORPION_AKIMBO].iFireAnimL = 5;
+
+  // Viewmodel reload-animation sequence per weapon (the "reload" sequence in each
+  // v_*.mdl). -1 = no reload anim (akimbo-uzi/grenade/melee).
+  static const int kReloadAnim[TSW_COUNT] = {
+    /* 0*/10, /* 1*/ 1, /* 2*/ 5, /* 3*/ 1, /* 4*/ 2, /* 5*/ 1, /* 6*/ 5, /* 7*/ 1,
+    /* 8*/ 1, /* 9*/10, /*10*/12, /*11*/ 1, /*12*/ 1, /*13*/ 1, /*14*/ 1, /*15*/ 3,
+    /*16*/-1, /*17*/ 2, /*18*/ 1, /*19*/ 1, /*20*/ 2, /*21*/ 1, /*22*/ 1, /*23*/ 2,
+    /*24*/-1, /*25*/-1, /*26*/ 8, /*27*/ 1, /*28*/ 4, /*29*/-1, /*30*/ 5, /*31*/ 4,
+    /*32*/ 4, /*33*/ 2, /*34*/-1, /*35*/-1, /*36*/ 2, /*37*/ 2,
+  };
+  for (int i = 0; i < TSW_COUNT; i++)
+    g_weaponInfo[i].iReloadAnim = kReloadAnim[i];
 
   g_weaponInfoCompiled = true;
 }
