@@ -793,6 +793,15 @@ void TSCycleWeapon(CBasePlayer *pPlayer)
 	pGun->SelectSlot((pGun->m_active + 1) % pGun->m_arsenalCount);
 }
 
+// Reverse arsenal cycle (mouse-wheel / invprev).
+void TSCycleWeaponPrev(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (!pGun || pGun->m_arsenalCount <= 1)
+		return;
+	pGun->SelectSlot((pGun->m_active + pGun->m_arsenalCount - 1) % pGun->m_arsenalCount);
+}
+
 // Infinite-clip powerup hook (PlayerAddPowerUp) — multiply the held weapon's reserve.
 bool TSMultiplyClips(CBasePlayer *pPlayer)
 {

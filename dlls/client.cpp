@@ -534,9 +534,13 @@ void ClientCommand(edict_t* pEntity)
 	{
 		player->UsePowerUp();
 	}
-	else if (FStrEq(pcmd, "tsnextweapon")) // TS: cycle the weapon arsenal
+	else if (FStrEq(pcmd, "tsnextweapon")) // TS: cycle the weapon arsenal (mouse-wheel)
 	{
 		TSCycleWeapon(player);
+	}
+	else if (FStrEq(pcmd, "tsprevweapon")) // TS: cycle the weapon arsenal backwards
+	{
+		TSCycleWeaponPrev(player);
 	}
 	else if (FStrEq(pcmd, "tsfiremode")) // TS: cycle the held weapon's fire-mode
 	{
@@ -675,13 +679,20 @@ void ClientCommand(edict_t* pEntity)
 		// +alt2 = coldcock (pistol-whip) the held TS weapon.
 		TSAlternateAttack(player);
 	}
+	else if (FStrEq(pcmd, "buy")) // TS: (re)open the buy/config menu — only while spectating
+	{
+		// The buy/config menu belongs to the spectate-wait (press-fire-to-play) phase;
+		// when alive it does nothing.
+		if (player->m_fInSpectateWait)
+			player->TSSendBuyMenu();
+	}
 	else if (FStrEq(pcmd, "+alt1") || FStrEq(pcmd, "-alt1") || FStrEq(pcmd, "-alt2") ||
 			 FStrEq(pcmd, "+break") || FStrEq(pcmd, "-break") ||
-			 FStrEq(pcmd, "special") || FStrEq(pcmd, "buy"))
+			 FStrEq(pcmd, "special"))
 	{
 		// The remaining Specialists alt-fire / action inputs, forwarded by the client (or
 		// xash built-ins). Accepted here so they don't print "Unknown command"; the gameplay
-		// behind them (silencer/scope toggle, stunts, the buy menu) is follow-on work.
+		// behind them (silencer/scope toggle, stunts) is follow-on work.
 		// See reference/API_SURFACE.md.
 	}
 	else if (g_pGameRules->ClientCommand(player, pcmd))

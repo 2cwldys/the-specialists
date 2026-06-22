@@ -769,6 +769,12 @@ void CHudAmmo::UserCmd_NextWeapon()
 	if (gHUD.m_fPlayerDead || (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL)) != 0)
 		return;
 
+	// TS: weapons live in the single weapon_tsgun arsenal, so the stock weapon-select
+	// menu (gWR) doesn't apply — cycle the TS arsenal server-side instead, and don't
+	// open the stock selection menu. (mouse-wheel invnext)
+	ServerCmd("tsnextweapon\n");
+	return;
+
 	if (!gpActiveSel || gpActiveSel == (WEAPON*)1)
 		gpActiveSel = m_pWeapon;
 
@@ -809,6 +815,10 @@ void CHudAmmo::UserCmd_PrevWeapon()
 {
 	if (gHUD.m_fPlayerDead || (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL)) != 0)
 		return;
+
+	// TS: cycle the TS arsenal backwards server-side (mouse-wheel invprev).
+	ServerCmd("tsprevweapon\n");
+	return;
 
 	if (!gpActiveSel || gpActiveSel == (WEAPON*)1)
 		gpActiveSel = m_pWeapon;
