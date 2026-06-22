@@ -5,6 +5,23 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 59) — wire the `slowmatch` cvar into gameplay (global slow-motion match), VERIFIED
+
+Wired a registered cvar into actual behaviour (the user asked for a verifiable cvar→gameplay hookup).
+`CTSGameRules::Think` now reads `slowmatch` (cont.54 cvar, default 1.0): a value in (0,1) runs the WHOLE
+match in global slow-motion at that scale via the already-tested `GlobalSlowMotion2(sm,0)` (self-throttled,
+re-applied each Think); returning to >=1.0 restores once (`GlobalSlowMotion2(0,0)`), tracked by new
+`m_bSlowMatchActive`. **Verified WITHOUT in-game input:** launched xash with `+slowmatch 0.5` → log printed
+the (temporary) probe "[TS] SlowMatch ON: scale 0.50", confirming the cvar is read + applied; probe removed,
+rebuilt clean. (The slow path itself — GlobalSlowMotion2 → GoSlow/InSlow — was runtime-verified earlier,
+cont.15/33.) This is the launch-arg verification pattern for cvar→gameplay wiring.
+
+**Checkpoint still stands:** the remaining input-gated gameplay (the +alt1 silencer is also UNMAPPED, cont.58;
+stunts; buy menu; true client prediction) needs a USER PLAYTEST to verify. Other mapped+verifiable cvar
+wirings available next: `damagemult` (damage scale), `cashforwin`/`cashforlose`/`initial_cash` (the economy).
+
+---
+
 ## 2026-06-22 (cont. 58) — finding: SecondaryAttack = IN_ATTACK2 dispatch; +alt1 silencer NOT mapped; PLAYTEST checkpoint
 
 Scoped the `+alt1` silencer/scope toggle (next gameplay item). Findings, no code (avoided speculation):

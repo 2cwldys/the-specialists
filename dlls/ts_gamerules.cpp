@@ -241,6 +241,24 @@ void CTSGameRules::Think()
 {
 	CHalfLifeMultiplay::Think();
 
+	// `slowmatch` cvar (default 1.0): a value in (0,1) runs the entire match in global
+	// slow-motion at that scale (the .so's "SlowMatch" mode). GlobalSlowMotion2 is self-
+	// throttled (~0.5s) and re-applies the slow to every player, so calling it each Think
+	// keeps the match slowed; when slowmatch returns to >=1.0 we restore once.
+	{
+		const float sm = CVAR_GET_FLOAT("slowmatch");
+		if (sm > 0.0f && sm < 1.0f)
+		{
+			GlobalSlowMotion2(sm, 0);
+			m_bSlowMatchActive = true;
+		}
+		else if (m_bSlowMatchActive)
+		{
+			m_bSlowMatchActive = false;
+			GlobalSlowMotion2(0, 0); // restore normal speed
+		}
+	}
+
 	// A scheduled deads-check (from CallCheckDeads, on a player death) resolves the round.
 	if (m_flCheckDeads != 0 && gpGlobals->time >= m_flCheckDeads)
 	{
