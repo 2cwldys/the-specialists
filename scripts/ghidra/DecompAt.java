@@ -14,7 +14,15 @@ public class DecompAt extends GhidraScript {
                 Address ad = currentProgram.getAddressFactory().getAddress(a);
                 if (ad == null) { continue; }
                 Function f = getFunctionContaining(ad);
-                if (f == null) { continue; }
+                if (f == null) {
+                    // Ghidra never defined a function here (e.g. a command-handler thunk it
+                    // didn't reach). Disassemble + create one so we can decompile it.
+                    try { disassemble(ad); } catch (Exception ignore) {}
+                    try { f = createFunction(ad, null); } catch (Exception ignore) {}
+                    if (f == null) f = getFunctionContaining(ad);
+                }
+                if (f == null) { println("// no function at " + a + " (could not create)"); continue; }
+                if (f.hasNoReturn()) f.setNoReturn(false); // un-truncate this body
                 String key = f.getEntryPoint().toString();
                 if (seen.contains(key)) continue;
                 seen.add(key);
