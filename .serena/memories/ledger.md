@@ -5,6 +5,14 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 63c) — wire `initial_cash` cvar → starting cash (cash HUD lights up), VERIFIED
+
+`CTSGameRules::PlayerSpawn` (`dlls/ts_teams.cpp`) now gives `initial_cash` (cvar) via `GiveCash` once per
+fresh life (`if m_iCash == 0`), so the player starts with cash. **Verified WITH a screenshot:** launched
+`+initial_cash 5000` → the bottom-left cash HUD shows "$5000" — confirming the whole chain (cvar →
+GiveCash → m_iCash → TSCash message → CHudTSStatus reader). Ties the cvar wiring to a visible HUD element.
+`cashforwin`/`cashforlose` (round-end award via TeamWin) still TODO. API_SURFACE §6c: initial_cash ★wired.
+
 ## 2026-06-22 (cont. 63b) — wire `damagemult` cvar → weapon damage scale
 
 `damagemult` cvar (default 0.0 = off → 1x; >0 scales) now multiplies all TS weapon damage via a

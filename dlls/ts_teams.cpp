@@ -205,6 +205,12 @@ void CTSGameRules::PlayerSpawn(CBasePlayer *pPlayer)
 		pPlayer->BuyArmament();
 	}
 
+	// `initial_cash` cvar: the player's starting cash. Given once (when they have none) so
+	// it doesn't accumulate across respawns. (CashBased() is off — cont.36 — so cash isn't
+	// charged; this seeds the cash HUD / the win/lose economy cvars.)
+	if (pPlayer->m_iCash == 0)
+		pPlayer->GiveCash((int)CVAR_GET_FLOAT("initial_cash"));
+
 	if (!IsTeamMode())
 		return;
 

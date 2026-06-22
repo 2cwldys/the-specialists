@@ -199,7 +199,8 @@ it changes gameplay. Most are R-only so far.
 | `cl_realhud` | ✅ | — | — | alt HUD mode not honoured |
 | `cl_motionblur`/`cl_gore`/`cl_laser`/`cl_lasercolor`/`cl_solidcross`/`cl_usepowerup`/`cl_buykevlar`/`cl_showequipment`/`cl_shadow`/`cl_thirdtransparency`/`cl_camtype`/`cl_attackswitch`/`cl_thirdpersonswitch`/`cl_wavedetail`/`cl_fx`/`cl_slowfade`/`cl_vsmoothing`/`hud_classautokill`/`hud_takesshots`/`nohud`/`r_paintball` | ✅ | — | — | client display/fx — registered only |
 | `mp_teammodels` | ✅ | — | — | server; team model override |
-| `initial_cash`/`cashforwin`/`cashforlose` | ✅ | — | — | economy; `GiveCash` exists (cont.36), not charged |
+| `initial_cash` | ✅ | ✅ | ★ | starting cash on spawn → cash HUD (cont.63c, verified "$5000") |
+| `cashforwin`/`cashforlose` | ✅ | — | — | round-end economy; `GiveCash`/`TeamWin` exist, not awarded yet |
 | `damagemult` | ✅ | ✅ | ★ | scales all TS weapon damage (cont.63; 0=off→1x) |
 | `respawntime`/`nopowerup`/`usecash`/`ammocount`/`bottalk`/`botlearn`/`realbullet`/`mp_theonemode`/`mp_theone`/`mp_theothers`/`lastmanstanding`/`spectacularness`/`respawnnumber`/`customweapons`/`banfortk`/`dmgreport`/`botarmor`/`deadstomach` | ✅ | — | — | server; registered only |
 
