@@ -5,6 +5,28 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 56) — Phase 5 (partial): faithful events/fire.sc → EV_TSFire (sound/flash/anim/shell)
+
+Moved weapon firing onto the original's event path. **Server** (`dlls/ts_gun.cpp`): `CTSGun` precaches
+`m_usFire = PRECACHE_EVENT(1,"events/fire.sc")`; `StandardFire` now `PLAYBACK_EVENT_FULL(0, player, m_usFire,
+…, fparam1/2=spread, iparam1=m_weaponType, bparam1=(clip==0))` instead of the server `EMIT_SOUND` +
+`SendWeaponAnim` slice (cont.49) — bullets still fire server-side. **Client** (`cl_dll/ev_ts.cpp`, hooked in
+`hl_events.cpp` Game_HookEvents): `EV_TSFire` reads weapontype → viewmodel muzzleflash + "shoot" anim
+(local player) + brass shell eject + the per-weapon fire sound (client sound/anim tables mirroring
+`ts_weapons.cpp`). Adds the viewmodel muzzleflash + shell the server-driven slice lacked.
+- **Event is SERVER-triggered, not yet client-PREDICTED** — true prediction needs CTSGun client-side
+  weapon prediction (HUD_PostRunCmd), a separate subsystem. This is the event-layer prerequisite for it.
+- **Commands fix:** xash3d-fwgs provides `+alt1`/`+break`/`+commandmenu`/`ForceCloseCommandMenu`/`special`
+  as ENGINE BUILT-INS (re-registering errors "already defined"). Trimmed `ts_commands.cpp` to register only
+  the ones xash lacks (`+alt2`/`-alt2`, `buy`, `togglebrowser`); the built-ins forward to the server, which
+  accepts them (cont.54). Clean run now: no "already defined", no crashes.
+- **Verified:** builds (server+client), loads + runs on tm_avana, event hooked + precached, no errors.
+  **NOT visually confirmed firing** (can't trigger a shot without interactive input) — the muzzleflash/shell/
+  sound/anim need a user playtest shot; the path mirrors the working stock EV_FireGlock so confidence is high.
+  AkimboFire still uses its own EMIT_SOUND (not moved to the event yet).
+
+---
+
 ## 2026-06-22 (cont. 55) — Phase 2 (low-pitch fire sound): investigated, NO defect found in our code
 
 Chased the cont.50 "regular fire sound is low-pitched/slow-mo" report. The fire-sound path is verifiably

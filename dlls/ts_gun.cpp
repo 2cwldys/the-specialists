@@ -74,6 +74,7 @@ public:
 	int m_akimboSide = 0; // which barrel fired last (alternates muzzle L/R for akimbo)
 	int m_fireMode = TSFM_SEMI; // ACTIVE fire-mode (= m_arsenalMode[m_active])
 	int m_burstCount = 0;       // rounds left in the current burst (m_pActiveItem+8)
+	unsigned short m_usFire = 0; // events/fire.sc handle (predicted fire: sound/flash/anim)
 
 	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends
 	// WeaponInfo on change from CTSGun::UpdateClientData @0x758c8; we mirror that.
@@ -252,6 +253,7 @@ void CTSGun::Precache()
 	// roster models/sounds/events are precached at map load (CWorld::Precache);
 	// this re-call just resolves the cached indices for a runtime give.
 	PrecacheAllTSWeapons();
+	m_usFire = PRECACHE_EVENT(1, "events/fire.sc"); // predicted fire (sound/flash/anim + shell)
 }
 
 // @ GetItemInfo__6CTSGun — recovered: slot 1, pos 2, id 16, weight 1.
@@ -370,17 +372,14 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	const float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.01f;
 
 	m_iClip--;
-	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 
-	// Play the viewmodel's fire animation (the "shoot*" sequence read from v_*.mdl).
-	// SLICE: server-driven SendWeaponAnim; the original predicts it client-side via the
-	// events/fire.sc event. -1 = weapon has no standard fire anim (melee/grenade/akimbo).
-	if (wi->iFireAnim >= 0)
-		SendWeaponAnim(wi->iFireAnim);
-
-	if (wi->pszFireSound)
-		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, wi->pszFireSound, VOL_NORM, ATTN_NORM);
+	// The fire sound, viewmodel muzzleflash, viewmodel "shoot" anim and shell eject are
+	// played by the faithful events/fire.sc event (client EV_TSFire, keyed by weapontype),
+	// matching the original (CTSGun precaches m_usFire @0x964, plays it in StandardFire).
+	// This replaces the server-driven SendWeaponAnim + EMIT_SOUND slice (cont.49).
+	PLAYBACK_EVENT_FULL(0, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
+		flSpread, flSpread, m_weaponType, 0, (m_iClip == 0) ? 1 : 0, 0);
 
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;

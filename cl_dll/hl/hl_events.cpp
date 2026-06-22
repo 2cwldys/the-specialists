@@ -30,8 +30,11 @@ Associate script file name with callback functions. Note that the format is
 That was what we were going to do, but we ran out of time...oh well.
 ======================
 */
+void EV_TSFire(struct event_args_s* args); // The Specialists predicted fire (ev_ts.cpp)
+
 void Game_HookEvents()
 {
+	gEngfuncs.pfnHookEvent("events/fire.sc", EV_TSFire); // TS: weapon_tsgun StandardFire
 	gEngfuncs.pfnHookEvent("events/glock1.sc", EV_FireGlock1);
 	gEngfuncs.pfnHookEvent("events/glock2.sc", EV_FireGlock2);
 	gEngfuncs.pfnHookEvent("events/shotgun1.sc", EV_FireShotGunSingle);

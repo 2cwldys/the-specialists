@@ -34,31 +34,22 @@ static void Fwd(const char* cmd)
 }
 
 // TS alt-fire / action inputs — forwarded to the server.
-static void IN_Alt1Down() { Fwd("+alt1"); }
-static void IN_Alt1Up() { Fwd("-alt1"); }
 static void IN_Alt2Down() { Fwd("+alt2"); }
 static void IN_Alt2Up() { Fwd("-alt2"); }
-static void IN_BreakDown() { Fwd("+break"); }
-static void IN_BreakUp() { Fwd("-break"); }
-static void TS_Special() { Fwd("special"); }
 static void TS_Buy() { Fwd("buy"); }
 
-// Pure-client UI commands (no server side) — stubs so the binds don't error. The
-// command/class menu + server browser are VGUI features still to reconstruct.
+// Pure-client UI command stub (the server browser is a VGUI feature still to build).
 static void TS_NoOp() {}
 
 void TSRegisterCommands()
 {
-	gEngfuncs.pfnAddCommand("+alt1", IN_Alt1Down);
-	gEngfuncs.pfnAddCommand("-alt1", IN_Alt1Up);
+	// NOTE: xash3d-fwgs provides +alt1/-alt1, +break/-break, +commandmenu/-commandmenu,
+	// ForceCloseCommandMenu and `special` as engine built-ins (re-registering them errors,
+	// and they already forward to the server, which accepts them in dlls/client.cpp). On
+	// stock GoldSrc the client.dll registers them; here we register only the TS commands
+	// the engine lacks. See reference/API_SURFACE.md.
 	gEngfuncs.pfnAddCommand("+alt2", IN_Alt2Down);
 	gEngfuncs.pfnAddCommand("-alt2", IN_Alt2Up);
-	gEngfuncs.pfnAddCommand("+break", IN_BreakDown);
-	gEngfuncs.pfnAddCommand("-break", IN_BreakUp);
-	gEngfuncs.pfnAddCommand("special", TS_Special);
 	gEngfuncs.pfnAddCommand("buy", TS_Buy);
-	gEngfuncs.pfnAddCommand("+commandmenu", TS_NoOp);
-	gEngfuncs.pfnAddCommand("-commandmenu", TS_NoOp);
-	gEngfuncs.pfnAddCommand("ForceCloseCommandMenu", TS_NoOp);
 	gEngfuncs.pfnAddCommand("togglebrowser", TS_NoOp);
 }
