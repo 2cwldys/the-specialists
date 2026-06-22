@@ -823,7 +823,7 @@ bool TSMultiplyClips(CBasePlayer *pPlayer)
 	return pGun ? pGun->MultiplyClips() : false;
 }
 
-// Cycle the held weapon's fire-mode (the `tsfiremode` command).
+// Cycle the held weapon's fire-mode (the `firemode` command — default.cfg binds f).
 void TSSwitchFireMode(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
@@ -862,7 +862,7 @@ bool CTSGun::RemoveActiveWeapon(int &type, int &clip)
 }
 
 // Drop the player's active TS weapon: pull it from the arsenal (out-params type/clip). The
-// caller (the dropweapon command) spawns the CTSWorldGun. Returns false if it can't drop.
+// caller (the `drop` command) spawns the CTSWorldGun. Returns false if it can't drop.
 bool TSDropActiveWeapon(CBasePlayer *pPlayer, int &type, int &clip)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);

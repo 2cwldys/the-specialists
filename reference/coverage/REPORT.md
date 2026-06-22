@@ -36,15 +36,15 @@ _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI
 
 _Commands the server accepts from a client (exact strcmp dispatch). EXTRA = the prime 'invented/HL-leftover' signal. NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths (strstr/sscanf), not captured here — so `weapon_<N>` is not flagged._
 
-- matched: **8**  |  missing (orig→not ours): **12**  |  extra (ours→not orig): **24**
+- matched: **9**  |  missing (orig→not ours): **11**  |  extra (ours→not orig): **22**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `cashala`, `changeteam`, `firemode`, `jointeam`, `motd`, `powerup`, `respawn`, `rst_cfg`, `tka`, `tki`, `tkw`, `useitems`
+  `cashala`, `changeteam`, `jointeam`, `motd`, `powerup`, `respawn`, `rst_cfg`, `tka`, `tki`, `tkw`, `useitems`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `+alt1`, `+alt2`, `+break`, `-alt1`, `-alt2`, `-break`, `buy`, `closemenus`, `dropweapon`, `follownext`, `give`, `menuselect`, `special`, `specmode`, `spectate`, `tsarm`, `tsarmammo`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `tscutwire`, `tsfiremode`, `tsresetarmament`, `tsspawnflag`
+  `+alt1`, `+alt2`, `+break`, `-alt1`, `-alt2`, `-break`, `buy`, `closemenus`, `follownext`, `give`, `menuselect`, `special`, `specmode`, `spectate`, `tsarm`, `tsarmammo`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `tscutwire`, `tsresetarmament`, `tsspawnflag`
 
 ### Client console commands (pfnAddCommand)
 
@@ -92,11 +92,11 @@ _Predicted-event scripts referenced by each server. MISSING = a TS event we don'
 
 _Every command the original binds should be answered by our client/server (or be an engine builtin)._
 
-- bound commands: **53**  |  unanswered by ours (non-builtin): **2**
+- bound commands: **53**  |  unanswered by ours (non-builtin): **1**
 
 **UNANSWERED (original binds it, ours has no handler):**
 
-  `firemode`, `useitems`
+  `useitems`
 
 ### Client cvars (original binary-registered vs ours)
 

@@ -173,7 +173,7 @@ void TSLastInv(CBasePlayer *pPlayer);
 // Trigger the held TS gun's alternate attack (+alt2 → coldcock pistol-whip).
 void TSAlternateAttack(CBasePlayer *pPlayer);
 
-// Cycle the held weapon's fire-mode (the `tsfiremode` command -> CTSGun::SwitchFireMode).
+// Cycle the held weapon's fire-mode (the `firemode` command -> CTSGun::SwitchFireMode).
 void TSSwitchFireMode(CBasePlayer *pPlayer);
 
 // Add `count` rounds of `caliber` to the player's TS gun reserve (capped). Returns true if
@@ -181,7 +181,7 @@ void TSSwitchFireMode(CBasePlayer *pPlayer);
 bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count);
 
 // Drop the player's active TS weapon (out: its type + loaded clip); false if it can't drop
-// (held <2 weapons). Pick up a dropped weapon of `type`/`clip`. (CTSWorldGun + dropweapon.)
+// (held <2 weapons). Pick up a dropped weapon of `type`/`clip`. (CTSWorldGun + `drop` cmd.)
 bool TSDropActiveWeapon(CBasePlayer *pPlayer, int &type, int &clip);
 void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip);
 void TSDropWeaponsOnDeath(CBasePlayer *pPlayer); // scatter the arsenal on death

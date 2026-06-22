@@ -545,11 +545,11 @@ void ClientCommand(edict_t* pEntity)
 	{
 		TSLastInv(player);
 	}
-	else if (FStrEq(pcmd, "tsfiremode")) // TS: cycle the held weapon's fire-mode
+	else if (FStrEq(pcmd, "firemode")) // TS: cycle the held weapon's fire-mode (default.cfg binds f)
 	{
 		TSSwitchFireMode(player);
 	}
-	else if (FStrEq(pcmd, "dropweapon")) // TS: drop the active weapon into the world
+	else if (FStrEq(pcmd, "drop")) // TS: drop the active weapon into the world (default.cfg binds t)
 	{
 		int type, clip;
 		if (TSDropActiveWeapon(player, type, clip))
