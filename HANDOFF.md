@@ -13,11 +13,18 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-21, through cont.46)
+## Where things stand (2026-06-22, through cont.50)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
-**build into `hl.so`** → **run in-engine** (with bots for player-needing code) →
-**gdb** any crash. Everything below is committed (`git log`); `recovered/` is
-gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
+**build into `hl.so`/`client.so`** → **run in-engine** (ReHLDS for server; xash3d-fwgs
+for the graphical client — this box HAS a GPU) → **gdb** any crash. Everything below is
+committed (`git log`); `recovered/` is gitignored.
+
+**Target = INTERFACE/protocol compatibility, so each half is a drop-in swap for the
+original** (our client ↔ original server, or vice-versa, behaves identically). What must
+match the original byte-faithfully: the engine C interface + the client↔server protocol
+(user-message **names + wire formats**, **event** names/params, **command** names, **cvar**
+names). What must NOT be chased: the internal C++ ABI / member offsets / gcc-2.x quirks — we
+build on the newer Itanium-ABI `halflife-updated` SDK. See CLAUDE.md "compatibility target".
 
 **Big picture: the entire server side is reconstructed (~40 TS classes); Track A is COMPLETE and
 Track B (the client) has its build foundation.** Done + verified: the full weapon engine, powerups
@@ -39,6 +46,30 @@ cont.47) — check every other inherited gmsg name (`TSPowerUpTime`/`TSMotionBlu
 `.so` strings before writing its client reader (`strings reference/ts_i386.so | grep -E '^TS|^Round'`).
 Small server leftovers: `CTSPlayerAmount`/`CTSSuperJump` done (cont.44); `CInfoBreakable` (thin) +
 `CBulletManager` (bullet-time — best done alongside Track B) remain. See "Recommended next steps".
+
+### Track B playtest reconstruction — IN PROGRESS (cont.47–50)
+The client runs in xash3d-fwgs and the user is playtesting it; each report exposes that the stock HL
+client + a partial weapon/player reconstruction is showing through. Fixed so far (all decomp-grounded):
+**round-time HUD** (cont.47), **client weapon-prediction crash** (cont.48, NULL `AllocString`),
+**spawn loadout** (cont.49, `weapon_tsgun`+`BuyArmament`, no HL weapons), **always-mouselook** (cont.49,
+fixed the "can't look up/down + jolt"), **fire animations** (cont.49, `SendWeaponAnim` from per-weapon
+`shoot*` model sequences), **akimbo fire anims** (cont.50, right/left barrel), **HUD sprite-res fallback**
+(cont.50), **reload** (cont.50, `CTSGun::ItemPostFrame` drives the per-caliber reserve — the stock base
+gated reload on standard ammo TS never uses).
+
+**The user asked for a WHOLESALE faithful reconstruction of the player/weapon/input/HUD systems from the
+decomp (not symptom-patching). The 5-phase plan (tracked as tasks):**
+1. **Weapon firing/reload/ammo/fire-rate** (CTSGun) — reload ✅; TODO fire-rate gate, `SecondaryAttack`/
+   `+alt1`, what networks to the ammo HUD.
+2. **`CBasePlayer` thinks/state + the low-pitch "slow-mo" fire sound** — likely the slow-motion time-scale
+   (TS lowers sound pitch in slow-mo); decompile `PreThink`/`PostThink`/`TSUpdate` + the slow fields.
+3. **All TS console commands / cvars / input toggles** (`+alt1`, `+reload`, `hud_color`, `cl_realhud`, …)
+   enumerated from the `.so` and wired server+client (fixes "Unknown command" spam + missing keys).
+4. **The TS client HUD** (the reason there is NO HUD at all): TS ships a *fully custom* HUD — `hud.txt` is
+   320/640-only, no stock crosshair/ammo/health path. Reconstruct from `client.dll` + the `gmsg` readers
+   (`TSHealth`/`TSArmor`/`TSCash`/`TSState`/`TSMBlur`/`TSSlowMo`/`TSBTime`/`TSPSys`/`RoundTime`).
+5. **Client view (bob/sway) + predicted fire events** — viewmodel "snap" (`cl_bob 3` + stock `V_CalcBob`;
+   TS bob math differs) and moving fire to the faithful predicted `events/fire.sc` (`EV_TSFire`).
 
 - **Map entities — runtime-verified:** `CTSModel` (108 on `ts_kissmeyerbasic`),
   `CTSMapGlobals` (weapon-restriction on `ts_trinityfall`), `CTSGroundWeapon`

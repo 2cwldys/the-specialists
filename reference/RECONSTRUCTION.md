@@ -133,6 +133,16 @@ recoverable directly).
 | cl_dll build foundation | `cl_dll/` (CMake, dual-arch VGUI) | ✅ **builds 32- + 64-bit (cont.46) + RUNS in xash3d-fwgs (cont.48)** — `build.sh <arch> client`; i386→Valve vgui, amd64→openvgui. **This box renders** (AMD GPU, DISPLAY=:0); `scripts/setup-xash-mod.sh` assembles the native game root. |
 | client weapon-prediction crash fix | `cl_dll/com_weapons.{cpp,h}`, `cl_dll/hl/hl_weapons.cpp` | ✅ **cont.48** — 64-bit `MAKE_STRING`=`ALLOC_STRING` hit a NULL `pfnAllocString` in `HUD_InitClientWeapons`→`CGlock::Spawn`; added a client string pool + AllocString stub. gdb-found, run-verified. |
 | `CHudRoundTime` | `cl_dll/roundtime.{cpp,h}` | ✅✅ **VISUALLY VERIFIED in xash3d-fwgs (cont.48)** — first TS HUD; hooks `RoundTime` (server name fixed "TSRoundTime"→"RoundTime"), reads 2 shorts, draws a yellow M:SS countdown top-centre. Confirmed on-screen (`1:51` on tm_avana). Server `SendRoundTime` on `InitHUD` catches late joiners. |
+| always-mouselook | `cl_dll/inputw32.cpp` | ✅ **cont.49** — force `in_mlook` on (TS has no keyboard-look mode). User-confirmed: fixes "can't look up/down + view jolts forward/back when moving". |
+| viewmodel fire anims | `dlls/ts_gun.cpp`, `ts_weapons.{h,cpp}` | ✅ **cont.49–50** — `SendWeaponAnim` of the per-weapon `shoot*` sequence (`iFireAnim`, +akimbo right/left `iFireAnimL`), parsed from each `v_*.mdl`. User-confirmed (single + akimbo). SLICE: server-driven, not the predicted `events/fire.sc` (Phase 5). |
+| reload + ammo (CTSGun) | `dlls/ts_gun.cpp` | ✅ **built (cont.50)** — `CTSGun::ItemPostFrame` drives the per-caliber reserve: `+reload` / auto-reload when dry, refill after `TS_RELOAD_TIME`, plays the `reload` sequence (`iReloadAnim`). Fixes "fire til empty, no reload" (stock base gated on standard ammo TS never uses). Awaiting user playtest. |
+
+**Track B playtest reconstruction is the active frontier (cont.47–50).** The user's target is INTERFACE/
+protocol compatibility (drop-in swap our half ↔ original half). 5-phase wholesale reconstruction tracked
+in HANDOFF + tasks: (1) weapon firing/reload/fire-rate [reload done], (2) CBasePlayer thinks + low-pitch
+fire sound, (3) TS commands/cvars/+toggles, (4) the TS client HUD (why there's no HUD at all), (5) view
+bob + predicted fire events. Open playtest bugs: no HUD, low-pitch fire sound, akimbo sound missing,
+viewmodel bob snap, fire-rate.
 
 Everything else in the table above is **not started**. Full history in the
 Serena ledger (`.serena/memories/ledger.md`).

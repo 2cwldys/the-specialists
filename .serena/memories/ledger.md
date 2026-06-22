@@ -5,6 +5,48 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 50) — playtest reconstruction (reload, akimbo anims, HUD res) + the COMPAT TARGET clarified + docs sync
+
+**Compatibility target clarified by the user (now in CLAUDE.md + HANDOFF):** the goal is INTERFACE/
+protocol compatibility so each half is a **drop-in swap** for the original — our client ↔ the original
+server (or vice-versa) behaves identically. Byte-faithful: the engine C interface + the client↔server
+protocol (user-message **names + wire formats**, **event** names/params, **command** names, **cvar**
+names). NOT a target: the internal C++ ABI / member offsets / gcc-2.x quirks (we build on the newer
+Itanium-ABI halflife-updated SDK). This is exactly why `TSRoundTime`→`RoundTime` mattered, and it makes
+protocol-level decomp fidelity mandatory for every message/event/command/cvar going forward.
+
+**Done this session (all decomp-grounded, committed):**
+- **Akimbo fire anims (e5ca177)** — `AkimboFire` SendWeaponAnim's the matching barrel's shoot sequence
+  (right=`iFireAnim`, left=`iFireAnimL`, parsed from the `v_*_akimbo.mdl`). User-confirmed: anims + flare
+  side switch correctly.
+- **HUD sprite-resolution fallback (e5ca177, `cl_dll/hud.cpp`)** — TS's `hud.txt` is 320/640-only; the
+  modern client picks `m_iRes`=1280 at 2560-wide → matches nothing → no sprite HUD. `CHud::VidInit` now
+  falls back to the largest res present. NECESSARY BUT NOT SUFFICIENT: TS has a *fully custom* client HUD,
+  so there is still NO HUD at all (no health/ammo/crosshair) — that's Phase 4 below.
+- **Reload (241ba55, `dlls/ts_gun.cpp` + weapon table)** — root cause of "fire til empty, no reload": the
+  stock `CBasePlayerWeapon::ItemPostFrame` gates reload on the player's standard `m_rgAmmo`, which TS never
+  populates (ammo is in `CTSGun::m_ammoReserve` per caliber). Added `CTSGun::ItemPostFrame` that drives the
+  TS ammo system: reload on `+reload` or auto when the clip runs dry, refill from the per-caliber reserve
+  after `TS_RELOAD_TIME`, plays the per-weapon `reload` viewmodel sequence (`iReloadAnim`, parsed from each
+  `v_*.mdl`). Built clean, runs in xash without crash (awaiting user playtest confirmation).
+
+**User mandate: reconstruct the player/weapon/input/HUD systems WHOLESALE from the decomp** (stop the
+symptom-patching). The 5-phase plan is tracked as tasks #6–#10 and in HANDOFF "Track B playtest
+reconstruction": (1) weapon firing/reload/ammo/fire-rate [reload done], (2) CBasePlayer thinks/state + the
+low-pitch fire sound (suspect slow-motion time-scale), (3) all TS commands/cvars/+toggles server+client,
+(4) the TS client HUD (why there's no HUD), (5) client view bob/sway + predicted fire events.
+
+**Open playtest reports (unfixed):** no HUD at all (Phase 4), regular fire sound is LOW-PITCHED ("slow-mo",
+Phase 2 — confirmed pitch not the file: `beretta/fire.wav` is normal 22kHz), akimbo fire SOUND missing
+(`g_weaponInfo[8].pszFireSound` is null — akimbo should fall back to the single's sound; quick Phase-1
+fix), viewmodel bob "snap" (user confirmed `cl_bob 0` stops it; Phase 5), fire-rate feels ungated (Phase 1).
+
+**Docs synced (this entry):** CLAUDE.md (compat-target rewrite + a Running/testing section: xash run loop,
+`pgrep -x xash3d` not `pkill -f`, GPU-present), HANDOFF.md (compat target + the 5-phase plan + cont.47–50
+status), RECONSTRUCTION.md (status rows). CLAUDE.md stays local-only (gitignored); the rest committed.
+
+---
+
 ## 2026-06-21 (cont. 49) — TRACK B playtest pass: loadout, mouselook, fire animations (decomp-driven)
 
 The user playtested the running client (cont.48) and reported HL leftovers. Fixed three, each
