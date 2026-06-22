@@ -46,6 +46,7 @@ public:
 	// resolved + cached (worldspawn installs the rules before objective ents spawn).
 	bool IsTeamMode();
 	bool IsTeamplay() override;          // teamplay iff IsTeamMode()
+	const char* GetGameDescription() override; // "The Specialists (...)" per game mode
 
 	// Team roster (mirrors CHalfLifeTeamplay). InitTeams seeds the TS default list when
 	// team mode is first detected; RecountTeams tokenizes it into m_teamNames/m_numTeams.

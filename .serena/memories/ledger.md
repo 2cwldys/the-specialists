@@ -5,6 +5,15 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 63) — pfnGetGameDescription → "The Specialists (mode)"
+
+`CTSGameRules::GetGameDescription` (new override, `dlls/ts_teams.cpp`) returns the mod name shown in the
+server browser, per mode (recovered .so strings): "The Specialists (Teamplay)" if IsTeamMode, "(The One)"
+if mp_theonemode, "(LMS)" if lastmanstanding, else "(DM)". Was returning the SDK "Half-Life". Verified:
+strings present in hl.so. ENGINE_INTERFACE.md: pfnGetGameDescription ✅. Remaining interface gaps now:
+full pmove time-dilation (gravity/jumps/anim), PlayerPostThink (CTSAnimation/CTSStunt), HUD_PostRunCmd
+(client weapon prediction), TS save/restore field data.
+
 ## 2026-06-22 (cont. 62) — VISIBLE slow-motion movement (the marquee TS effect), VERIFIED
 
 Wired the biggest tracked interface gap: slow-motion is now VISIBLE. `CBasePlayer::PreThink` scales the

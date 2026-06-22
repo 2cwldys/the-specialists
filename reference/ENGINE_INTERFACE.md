@@ -31,7 +31,7 @@ Most are stock SDK plumbing (⬜) that work as inherited. TS-relevant ones:
 | `pfnSave`/`pfnRestore`/`pfnSaveWriteFields`/`pfnSaveReadFields`/`pfnSaveGlobalState`/`pfnRestoreGlobalState`/`pfnResetGlobalState` | 🟡 | stock save/restore; many TS classes have no DEFINE_FIELD save data yet |
 | `pfnServerActivate`/`pfnServerDeactivate`/`pfnStartFrame` | ⬜ | stock; gamerules Think runs via the world |
 | `pfnClientUserInfoChanged` | 🟡 | stock; TS team/model handling partial |
-| `pfnGetGameDescription` | 🟡 | returns the SDK desc, not "The Specialists" — TODO |
+| `pfnGetGameDescription` | ✅ | `CTSGameRules::GetGameDescription` → "The Specialists (DM/Teamplay/The One/LMS)" per mode (cont.63) |
 | `pfnClientKill`/`pfnClientDisconnect` | ⬜/🟡 | TSPlayerDisconnect cleanup TBD |
 | `pfnSetupVisibility`/`pfnAddToFullPack`/`pfnCreateBaseline`/`pfnRegisterEncoders`/`pfnGetWeaponData`/`pfnCmdStart`/`pfnCmdEnd`/`pfnUpdateClientData` | ⬜ | stock netcode/prediction plumbing |
 | `pfnConnectionlessPacket`/`pfnInconsistentFile`/`pfnAllowLagCompensation`/`pfnGetHullBounds`/`pfnCreateInstancedBaselines`/`pfnParmsNewLevel`/`pfnParmsChangeLevel`/`pfnPlayerCustomization`/`pfnSpectatorConnect`/`pfnSpectatorDisconnect`/`pfnSpectatorThink` | ⬜ | stock |
@@ -73,5 +73,4 @@ Used as needed; the TS-relevant ones in play: `pfnRegUserMsg`, `MESSAGE_BEGIN/WR
    jump arcs, animation rate) via the slow value threaded into client-predicted pm_shared.
 2. **`pfnPlayerPostThink`** — `CTSAnimation` (gait/anim) + `CTSStunt` (dives/rolls/wall-flips).
 3. **`HUD_PostRunCmd`** — client-side CTSGun weapon prediction (true predicted fire/alt-fire).
-4. **`pfnGetGameDescription`** — return "The Specialists".
-5. Save/Restore field data for the TS entity/player state.
+4. Save/Restore field data for the TS entity/player state.

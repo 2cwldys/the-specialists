@@ -44,6 +44,19 @@ bool CTSGameRules::IsTeamplay()
 	return IsTeamMode();
 }
 
+// @ GetGameDescription — the mod name shown in the server browser, per game mode (the
+// .so returns "The Specialists (DM/Teamplay/The One/LMS)"; recovered strings).
+const char* CTSGameRules::GetGameDescription()
+{
+	if (IsTeamMode())
+		return "The Specialists (Teamplay)";
+	if (CVAR_GET_FLOAT("mp_theonemode") != 0.0f)
+		return "The Specialists (The One)";
+	if (CVAR_GET_FLOAT("lastmanstanding") != 0.0f)
+		return "The Specialists (LMS)";
+	return "The Specialists (DM)";
+}
+
 // @ InitTeams — seed the TS default team list. The .so builds "Specialists;Mercenaries"
 // (models "spec"/"merc") for a team map; we keep only the names/models the rest of the
 // reconstruction actually consumes.
