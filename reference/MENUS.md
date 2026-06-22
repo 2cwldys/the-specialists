@@ -156,3 +156,16 @@ click-outside ⇒ apply. Entry actions: navigate submenu / queue weapon (the per
 from the category builders) / toggle `cl_buykevlar`-`cl_laser` / apply (emit `rst_cfg`+`tkw`/`tki`/`tka`).
 Background + text via the same vgui draw the status/kevlar HUD uses. Reuse the server's existing
 buy-command handlers (no new server protocol).
+
+### Navigation/action dispatch RE'd + current reproduction state (cont.69e)
+
+Each menu action is a small `ret $4` vtable method that builds + shows the target submenu. E.g.
+`0x10011370`: `mov ecx,esi; call FUN_10010440` (build the buy-category panel `+0x2d88`); `0x10011380`:
+`call 0x10010630`; etc. (cluster `0x10011310`–`0x10011440`). So clicking a config entry fires its thunk
+→ the matching builder (`FUN_10010440` buy-category, `FUN_10010bd0` a weapon submenu, …), which sets that
+panel's positions + per-entry colours.
+
+RE'd + applied: panel **width 0x80(128), row height 0x14(20)** (`FUN_100667e0`); **static config text =
+white**; weapon-buy entries are **green/red by availability** (`FUN_10011160`/`FUN_100110ce`). STILL
+PENDING (not guessed): the exact CONFIG-panel `+0x2d84` POSITION/spacing (its builder mis-decompiles in
+Ghidra, no direct store-to-`+0x2d84`) and the per-category submenu builders (the weapon lists).
