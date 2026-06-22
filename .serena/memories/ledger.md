@@ -5,6 +5,47 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 69c) — kevlar GAMEPLAY reconstructed + buy-menu layout RE'd (two user corrections)
+
+Continuing from the status-panel work, the user asked to reconstruct the real kevlar gameplay (not the
+item_battery test crutch). RE'd from `ts_i386.so` and implemented; then the user caught two of my errors
+and made me RE properly.
+
+**Kevlar gameplay (committed):**
+- `CBasePlayer::TakeArmor(int)` @0x83da4 — kevlar is a **binary flag** (`m_bHasKevlar`, orig player+0x718
+  bit 0x10) + a 100 `armorvalue` marker; grant/remove + `weapons/items.wav`. SLICE: the orig also
+  costs/refunds 10 **"free slots"** (player+0x548 — the HUD "Free Slots") and recomputes move speed via
+  `GetSpeedBySlots`(@0x66bd4, `speed=210+freeslots*factor`)/`SetPlayerSpeed`(@0x83068, clamp 0..330 +
+  pfnSetClientMaxspeed). That free-slots **encumbrance subsystem** is deferred (every item costs slots;
+  the speed factors are runtime-init .data = 0.0 in file, statically unrecoverable).
+- `CBasePlayer::TakeDamage` @0x7fa94 — armor is a **flat `armor_absorb` % damage REDUCTION, NOT a
+  depleting pool**. Replaced the inherited HL depleting-armor block: if `armorvalue!=0` and dmgtype not in
+  the **0x80040e4 bypass mask** (melee slash/club + fall + blast + radiation + no-armor bit → kevlar stops
+  BULLETS only), `flDamage *= (1 - armor_absorb)`. New `CTSGameRules::m_flArmorAbsorb` (config-driven,
+  default 0.5 — the orig parses `armor_absorb %f` from a server config into gamerules+0x588c; not a cvar).
+- `CBasePlayer::AddItem(int)` @0x8440c — loadout item-grant (kevlar bit 0x10 → TakeArmor(100); grenade
+  0x20 → team M61). `BuyArmament` @0x83f10 now routes item entries (the armament's 3rd field, renamed
+  `gift`→`isItem`) → AddItem, weapons → BuyWeapon. Kevlar resets per-life in Spawn.
+- Verified in xash: HUD shows "Kevlar" after granting via the loadout path (AddItem→TakeArmor→TSArmor→panel).
+  Damage reduction verified by construction (faithful formula). Build clean, no coverage regressions.
+
+**USER CORRECTION #1 — kevlar menu placement was INVENTED.** I'd added a top-level "Buy Kevlar" entry to
+the (stand-in) buy menu by guessing — violating RE-before-code. RE'd the real menu (client.dll .data +
+builders) → `reference/MENUS.md`. **USER CORRECTION #2 — it's NOT VGUI.** The buy menu is a **client-side
+custom-drawn TEXT menu** (builders call `FUN_10066a90(panel,idx,text,x,y,…,scale)` positioned-text draw;
+`FUN_10011160` = config-menu item 1), NOT `gmsgVGUIMenu` (the MOTD-style panel) and NOT the stock
+`gmsgShowMenu`/`CHudMenu`. Hierarchy: **Config menu** (1 Use New/Last/Empty Config · 2 Buy · 3 Remove Item ·
+4 Reset Config · 5 Save Config · 6 Load Config · 7 Buy Random · 0 Cancel) → **2 Buy** → categories (1 Handguns
+· 2 SMGs · 3 Rifles · 4 Shotguns · 5 Other · 6 Player Accessory) → **6 Player Accessory** → **Kevlar** (toggle,
+`cl_buykevlar`, accessory flag bit 0x10) / Lasersight / Silencer. So kevlar = **Buy → Player Accessory →
+Kevlar**, never top-level. Reverted the invented entry + handler; fixed "7 Random"→"7 Buy Random".
+
+**NEXT:** the faithful client buy-menu system (custom text-menu draw via FUN_10066a90 + per-category weapon
+lists + each entry's send-action) is a Track B (cl_dll) reconstruction — the kevlar gameplay is ready, the
+faithful UI to select it is deferred. Plus the free-slots encumbrance + speed penalty subsystem.
+
+---
+
 ## 2026-06-22 (cont. 69b) — faithful TS status panel (posture figure + health-heart + Kevlar)
 
 User feedback while verifying `powerup 3`: the "150" I screenshotted was the **stock HEV** health number,
