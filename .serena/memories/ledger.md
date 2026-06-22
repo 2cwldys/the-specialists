@@ -5,6 +5,36 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 53) — DEEP RE of the HUD draw chain from client.dll (user mandate) → reference/HUD_DRAWCHAIN.md
+
+User chose byte-exact RE over visual-match (visual can't verify alpha-blended fidelity). Traced the FULL
+per-frame HUD render path from `client.dll` assembly using a new `scripts/ghidra/DecompAt.java` (decompile
+a function by address; null-safe + whitespace-split args + dedup). Findings in **reference/HUD_DRAWCHAIN.md**:
+- `HUD_Redraw`(export 0x1001aa90) → `CHud::Redraw` `FUN_10021aa0`(gHUD=0x100cf920) walks the element list,
+  calls **`elem->vtable[+0xc](time)` = Draw**; `m_iFlags` at elem+0x10.
+- The TS HUD is ONE singleton **`0x100d43cc`** (Init `0x10049b80` hooks all msgs; fields: health+0x20,
+  armor+0x21, state+0x22, cash+0x24, flags+0x10, active-slot+0x744, weapon-id+0x7b8). Its **vtable =
+  `0x1007cae4`**, Draw = vtable[+0xc] = **`0x1004d3f0`**.
+- Draw `0x1004d3f0` dispatches: `FUN_1004e6f0` (static crosshair, 2×2 FillRGBA dots, cl_lasercolor),
+  `FUN_1004e030` (**top weapon-select bar**: slot panels x=slot*0x80-0x78, y=8, w=0x80, h=0x14 + name text
+  + SPR icon), `FUN_1004d700`/`FUN_1004d7e0` (**status+ammo box**), `FUN_1004e9f0` (dynamic spread
+  crosshair), `FUN_1004d550` (bomb wires).
+- **`FUN_1004d7e0` = the status/ammo box (the Five-seveN/MP5K panel):** each line = `FillRGBA(x=DAT_1018a67c,
+  y=DAT_1018a700, w=0x80=128px, h≈lineheight, hud_r,g,b, **alpha 0x0f**)` + text `FUN_10021ce0(x+2,y,…)`.
+  **Labels drawn at HALF brightness (color/2 = 75/87/127), values at full.** Numbers via `FUN_1004c290`.
+- Engine fn globals: FillRGBA=`0x100d5b54`, SPR_Set=`0x100d5b38`, SPR_Draw=`0x100d5b44`.
+
+**Applied (recovered, not guessed):** `TSHud_Panel` now fills with the HUD colour at **alpha 0x0f** (a
+faint tint, matching FUN_1004d7e0) instead of the earlier guessed opaque dark navy. Built clean.
+
+**STILL TODO to pixel-match (next session, picks up from HUD_DRAWCHAIN.md):** resolve the box anchor
+constants `DAT_1018a67c`(x)/`DAT_1018a700`(y)/`DAT_1018a6f8`(line h)/`DAT_1018a668`(pitch 0x30) — find
+where the box-setup computes them (scaled off the 1024-px reference); the TS bitmap font (`FUN_10021ce0`,
+`bitmapfonts` cvar) vs DrawConsoleString; then implement the half-bright-label/full-value scheme + right-
+side anchor + the weapon-select bar (WStatus reader). New Ghidra tooling: `DecompAt.java`, `DecompRefs.java`.
+
+---
+
 ## 2026-06-22 (cont. 52) — ammo HUD (WeaponInfo) + the COMPLETE client API surface scan + steel-blue panels
 
 **Ammo HUD (`WeaponInfo`) reconstructed + VISUALLY VERIFIED.** Decoded the `s_weapon_status` slot struct

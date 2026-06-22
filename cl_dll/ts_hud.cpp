@@ -68,6 +68,10 @@ void TSHud_Color(int& r, int& g, int& b)
 
 void TSHud_Panel(int x, int y, int w, int h)
 {
-	// Dark translucent navy backing, matching the original's HUD panels.
-	FillRGBA(x, y, w, h, 12, 18, 32, 150);
+	// The original (FUN_1004d7e0) backs each HUD strip with a FillRGBA of the HUD
+	// colour itself at alpha 0x0f (~6%) — a very faint tint, not an opaque panel.
+	// See reference/HUD_DRAWCHAIN.md.
+	int r, g, b;
+	TSHud_Color(r, g, b);
+	FillRGBA(x, y, w, h, r, g, b, 0x0f);
 }

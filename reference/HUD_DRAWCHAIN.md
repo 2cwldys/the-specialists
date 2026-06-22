@@ -1,0 +1,72 @@
+# TS client HUD draw chain (recovered from client.dll assembly)
+
+The exact per-frame HUD render path, reverse-engineered from `reference/client.dll`
+(task #4). This is the ground truth for making our `cl_dll` HUD match the original
+pixel-for-pixel. Re-derive with `scripts/ghidra/DecompAt.java` (decompiles a function
+by address) — see the cont.53 ledger entry.
+
+## The dispatch
+
+- `HUD_Redraw` (export `0x1001aa90`) → `CHud::Redraw` `FUN_10021aa0(gHUD=0x100cf920, time, intermission)`.
+- `CHud::Redraw` walks the HUD-element linked list; for each element it calls
+  **`elem->vtable[+0xc](time)`** = the element's **`Draw`**. Element `m_iFlags` is at
+  `elem+0x10` (bit 1 = HUD_ACTIVE/draw-when-alive, bit 2 = draw-in-intermission).
+
+## The TS HUD singleton
+
+- One global object **`0x100d43cc`** holds the whole TS HUD. Message handlers are thin
+  forwarders (`mov ecx,0x100d43cc; call <real>`) registered in its `Init` (`0x10049b80`,
+  which `HookUserMsg`s every message). Field offsets (from the handlers `0x1004b920+`):
+  - `+0x10` m_iFlags · `+0x20` health (TSHealth byte) · `+0x21` armor · `+0x22` state ·
+    `+0x24` cash (int) · `+0x744` active weapon slot · `+0x740` active position ·
+    `+0x7b8` active weapon id/type · `+0x164` arsenal slot array (stride per (slot,pos)).
+- Its **vtable = `0x1007cae4`**: `[0]0x1001acc0(dtor) [4]0x1004c9d0(Init?) [8]0x1004cb50(VidInit?)
+  [0xc]0x1004d3f0(Draw) [0x10]0x1004ce10 [0x14]0x1004cd60 [0x18]0x1005ab70`.
+
+## Draw `0x1004d3f0` — the dispatcher
+
+Calls, in order (guarded by slow-motion check `*(DAT_100df50c+0xc)==normal`, dead/spec
+checks `FUN_1004c250`/`FUN_1004c280`):
+1. `FUN_1004e6f0` — **static crosshair** (always). 2×2 `FillRGBA` dots at screen centre
+   (`DAT_1018a660/710`), colour from `cl_lasercolor` via `FUN_100582f0`.
+2. `FUN_1004e030(this, dead?)` — **top weapon-select bar** (reference Image #1). Loops
+   slots 1..5 (`DAT_1018a678`) × positions 0..0x10 (`DAT_1018a644`): slot panel
+   `FillRGBA(x = slot*0x80-0x78, y=8, w=0x80, h=0x14, …, alpha=100 or 0xce)`; weapon
+   name text `FUN_10021ce0(x, y, maxw=DAT_100d5908, str, r,g,b)`; weapon icon via
+   `SPR_Set 0x100d5b38` + `SPR_Draw 0x100d5b44`. Empty-slot/no-ammo text uses red
+   `0xc3,0x2d,0x2d`.
+3. mode draw: `FUN_1004d700` (`+0x7b8`==0, no weapon) **or** `FUN_1004d7e0` (held weapon
+   — the **status + ammo box**, see below).
+4. `FUN_1004e9f0` — **dynamic crosshair** (spread bars, expand with `DAT_1018a6ec`),
+   coloured by state (`DAT_1018a60c`: 1→red 0xc3,0x2d,0x2d) — **or** `FUN_1004d550`
+   (bomb wires) when wires active (`this+0x36fc..fe`).
+
+## `FUN_1004d7e0` — the status + ammo box (the right-side panel)
+
+The reference Five-seveN/MP5K panel. Each line is its own `FillRGBA` strip + text:
+- **Panel strips:** `FillRGBA(x=DAT_1018a67c, y=DAT_1018a700, w=0x80 (128px), h=DAT_1018a6f8-1,
+  r=DAT_1018a648, g=DAT_1018a70c, b=DAT_1018a65c, alpha=0xf)` — **alpha 0x0f (15) ≈ 6%**,
+  i.e. a very faint tint, NOT an opaque panel. (The weapon-bar slots use alpha 100/0xce.)
+- **Colour:** `DAT_1018a648/70c/65c` = the `hud_r/g/b` colour (150/175/255). **Labels are
+  drawn dimmed at HALF brightness** (`r/2,g/2,b/2` → 75/87/127); **values at full**.
+- **Text:** `FUN_10021ce0(x+2, y, maxw, string, r,g,b)` — a left-inset (+2px) string draw
+  (the TS bitmap font; `bitmapfonts 1`). Numbers via `FUN_1004c290(gHUD, x, y, digits, value, r,g,b)`.
+- Line layout: name (slot+0x11 string), caliber (`&DAT_10095e7c` " " etc), fire-mode,
+  then clip/reserve number — each a 0x80-wide strip stacked at `y=DAT_1018a700` advancing
+  by the line height. Anchor `DAT_1018a67c`/`DAT_1018a700` are computed in the box-setup
+  (right side); icons via SPR.
+
+## Engine function-pointer globals (individual, MSVC style)
+
+`0x100d5b54` FillRGBA · `0x100d5b38` SPR_Set · `0x100d5b44` SPR_Draw · `0x100d5b34`
+SPR_Height · `0x100d5b74` ClientCmd · `0x100d5bf4` GetViewAngles/GetLocalPlayer-ish.
+Text: `FUN_10021ce0` = a DrawHudString-equivalent; `FUN_1004c290` = DrawHudNumber-ish.
+
+## STILL TODO (to pixel-match)
+- Resolve the box **anchor constants** `DAT_1018a67c` (x) / `DAT_1018a700` (y) /
+  `DAT_1018a6f8` (line height) / `DAT_1018a668` (slot pitch 0x30) — find where they're
+  computed (the box-setup, scaled by screen res off the 1024-px reference).
+- The **bitmap font** `FUN_10021ce0` (it's not the console font — `bitmapfonts` cvar);
+  decide whether to approximate with DrawConsoleString or load the TS font sprites.
+- Apply: panel width 0x80, alpha 0x0f, half-bright labels / full-bright values, the
+  steel-blue colour (already applied), right-side anchor.
