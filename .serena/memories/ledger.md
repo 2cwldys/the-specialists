@@ -5,6 +5,22 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 61) — fix thirdperson (MP gate) + track the FULL engine↔mod interface (the goal)
+
+- **`thirdperson` FIXED + VERIFIED.** The stock HL client's `CAM_ToThirdPerson` (`cl_dll/in_camera.cpp`)
+  hard-returns `if (GetMaxClients() > 1)` ("no thirdperson in multiplayer") — TS runs as MP, so the
+  command did nothing (the user's report). TS permits third-person (it's a real feature); removed the gate.
+  Verified by launching `+thirdperson` → screenshot shows the player model from behind.
+- **FULL interface tracking — `reference/ENGINE_INTERFACE.md` (new), per the mission goal "all engine calls
+  and callbacks."** Enumerated + status-tracked every engine↔mod entry point: (1) engine→server
+  `DLL_FUNCTIONS` (~46 callbacks, from cbase.cpp) + NEW_DLL_FUNCTIONS; (2) engine→client cldll exports
+  (~45, from cdll_int.cpp); (3) the by-name protocol (→ API_SURFACE/HUD_MESSAGES); (4) mod→engine calls.
+  Each marked ✅faithful / 🟡partial / ⬜stock-inherited / ❌missing. **The real remaining interface GAPS
+  (highlighted there):** `pfnPM_Move`+`HUD_PlayerMove` = the VISIBLE slow-motion time-dilation (scale pmove
+  frametime by the slow field — nothing reads the complete server slow state in movement; biggest gap),
+  `pfnPlayerPostThink` = CTSAnimation+CTSStunt, `HUD_PostRunCmd` = client CTSGun prediction,
+  `pfnGetGameDescription` = "The Specialists", TS save/restore field data.
+
 ## 2026-06-22 (cont. 60) — status tracking: think behaviour, cvar/cmd impl status, playtest checklist + silencer
 
 Answered the user's tracking questions with durable docs.

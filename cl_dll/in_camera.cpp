@@ -429,13 +429,9 @@ void CAM_ToThirdPerson()
 {
 	Vector viewangles;
 
-#if !defined(_DEBUG)
-	if (gEngfuncs.GetMaxClients() > 1)
-	{
-		// no thirdperson in multiplayer.
-		return;
-	}
-#endif
+	// The Specialists permits third-person in multiplayer (it's a real TS feature, the
+	// `thirdperson`/`cl_thirdperson` toggle); the stock HL client blocked it in MP, which
+	// is why the command did nothing. Gate removed.
 
 	gEngfuncs.GetViewAngles((float*)viewangles);
 
