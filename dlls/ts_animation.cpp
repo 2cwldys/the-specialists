@@ -1,0 +1,272 @@
+/***
+*  ts_animation.cpp — RECONSTRUCTED CTSAnimation (TS 3rd-person body/gait).
+*
+*  Reconstructed by intent from CTSAnimation::Animate (@0x6abd0) + Init (@0x67ae0)
+*  + UpdateTimers (@0x6b37c). The original is a ~6.7KB activity state machine that
+*  builds TS model sequence names from a grip suffix; we reproduce the BEHAVIOUR
+*  (which sequence plays for which player state) using the real model sequences,
+*  not the byte layout (CLAUDE.md: behaviour + the model/protocol contract is the
+*  target, not the gcc2 ABI). See ts_animation.h for what is deferred (CTSStunt).
+***/
+#include "extdll.h"
+#include "util.h"
+#include "cbase.h"
+#include "player.h"
+#include "ts_animation.h"
+
+// Speed thresholds for the leg locomotion gait (run2/walk2). The original gates
+// the slow/idle body on a 180 unit/s speed; walking below that, running above.
+#define TSA_RUN_SPEED 135.0f // above this -> run2; below (and moving) -> walk2
+
+void CTSAnimation::Init()
+{
+	m_iLastActivity = -1;
+	m_iDirection = -1;
+	m_iDuckLatch = 0;
+	m_flLegTimer = 0;
+	m_flAimTimer = 0;
+	m_flGrenadeFlag = 0;
+}
+
+// Decay the per-frame timers (original @0x6b37c subtracts gpGlobals->frametime
+// from each, clamped at 0). frametime is scaled by the player's slow-motion go
+// factor in the original; we use raw frametime (the slow scaling is a refinement).
+void CTSAnimation::UpdateTimers(CBasePlayer *pPlayer)
+{
+	const float dt = gpGlobals->frametime;
+	if (m_flAimTimer > 0) { m_flAimTimer -= dt; if (m_flAimTimer < 0) m_flAimTimer = 0; }
+	if (m_flLegTimer > 0) { m_flLegTimer -= dt; if (m_flLegTimer < 0) m_flLegTimer = 0; }
+	if (m_flGrenadeFlag > 0) { m_flGrenadeFlag -= dt; if (m_flGrenadeFlag < 0) m_flGrenadeFlag = 0; }
+}
+
+// 0=left 1=right 2=forward 3=back — velocity relative to view facing.
+// Mirrors GetDirection(vel, forward, ...) — the original feeds normalized velocity
+// and the player's v_angle forward; we compute the same from the yaw.
+int CTSAnimation::GetMoveDirection(CBasePlayer *pPlayer)
+{
+	Vector vel = pPlayer->pev->velocity;
+	vel.z = 0;
+	if (vel.Length() < 1.0f)
+		return m_iDirection >= 0 ? m_iDirection : 2;
+
+	UTIL_MakeVectors(Vector(0, pPlayer->pev->angles.y, 0));
+	Vector fwd = gpGlobals->v_forward;
+	Vector right = gpGlobals->v_right;
+	fwd.z = right.z = 0;
+
+	float fdot = DotProduct(vel, fwd);
+	float rdot = DotProduct(vel, right);
+
+	if (fabs(fdot) >= fabs(rdot))
+		return (fdot >= 0) ? 2 /*forward*/ : 3 /*back*/;
+	return (rdot >= 0) ? 1 /*right*/ : 0 /*left*/;
+}
+
+// Set the torso/body sequence (pev->sequence). Returns true if it changed.
+bool CTSAnimation::SetBodySequence(CBasePlayer *pPlayer, const char *name, bool restart, bool noLerp)
+{
+	int seq = pPlayer->LookupSequence(name);
+	if (seq == -1)
+		seq = 0;
+
+	bool changed = (pPlayer->pev->sequence != seq);
+	if (changed || restart)
+		pPlayer->pev->frame = 0;
+
+	if (noLerp)
+		pPlayer->pev->effects |= EF_NOINTERP;
+
+	if (changed)
+	{
+		pPlayer->pev->sequence = seq;
+		pPlayer->ResetSequenceInfo();
+	}
+	return changed;
+}
+
+// Set the leg locomotion sequence (pev->gaitsequence). NULL/"" -> 0 (legs follow
+// the body sequence). The client (StudioProcessGait) plays this blended under the
+// body sequence.
+void CTSAnimation::SetGaitSequence(CBasePlayer *pPlayer, const char *name)
+{
+	int gait = 0;
+	if (name && name[0])
+	{
+		gait = pPlayer->LookupSequence(name);
+		if (gait == -1)
+			gait = 0;
+	}
+	pPlayer->pev->gaitsequence = gait;
+}
+
+void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
+{
+	entvars_t *pev = pPlayer->pev;
+	if (activity < 0)
+		return;
+
+	const char *grip = pPlayer->m_szAnimExtention;
+	if (!grip || !grip[0])
+		grip = "onehanded"; // a held TS weapon always sets one of onehanded/twohanded/akimbo
+
+	const bool ducking = (pev->flags & FL_DUCKING) != 0;
+	const bool onground = (pev->flags & FL_ONGROUND) != 0;
+	const float speed = pev->velocity.Length2D();
+
+	char name[64];
+
+	switch (activity)
+	{
+	// ---- Death (full body) -------------------------------------------------
+	case TSA_DIE:
+	{
+		// The original picks a directional/special death; we use the simple
+		// spin death (die_spin) — the variants need the attack-direction state
+		// (g_vecAttackDir) wired through, a later refinement.
+		SetBodySequence(pPlayer, "die_spin", true, true);
+		SetGaitSequence(pPlayer, NULL);
+		m_iLastActivity = activity;
+		return;
+	}
+
+	// ---- Jump (full body) --------------------------------------------------
+	case TSA_JUMP:
+	{
+		if (speed > 16.0f)
+		{
+			int dir = GetMoveDirection(pPlayer);
+			m_iDirection = dir;
+			const char *jd = (dir == 0) ? "jump_left_" : (dir == 1) ? "jump_right_" : "jump_forward_";
+			strcpy(name, jd);
+			strcat(name, grip); // jump_forward_onehanded, ...
+			SetBodySequence(pPlayer, name, false, false);
+		}
+		else
+		{
+			SetBodySequence(pPlayer, "standard_jump", false, false);
+		}
+		SetGaitSequence(pPlayer, NULL);
+		m_iLastActivity = activity;
+		return;
+	}
+
+	// ---- Duck transition ---------------------------------------------------
+	case TSA_DUCK:
+	{
+		if (m_iDuckLatch == 0)
+		{
+			SetBodySequence(pPlayer, "goduck", false, false);
+			m_iDuckLatch = 1;
+		}
+		m_iLastActivity = activity;
+		return;
+	}
+
+	// ---- Grenade throw (upper body, keep legs) -----------------------------
+	case TSA_GRENADE:
+	{
+		if (!onground)
+			break;
+		SetBodySequence(pPlayer, "grenade", true, false);
+		m_flAimTimer = 2.0f;
+		m_flGrenadeFlag = 1.0f;
+		m_iLastActivity = activity;
+		return;
+	}
+
+	// ---- Reload / draw (upper body, keep legs) -----------------------------
+	case TSA_RELOAD:
+	case TSA_DRAW:
+	{
+		if (!onground)
+			break;
+		strcpy(name, (activity == TSA_RELOAD) ? "relo_" : "draw_");
+		strcat(name, grip); // relo_onehanded, draw_twohanded, ...
+		SetBodySequence(pPlayer, name, true, false);
+		m_flAimTimer = 2.0f;
+		m_iLastActivity = activity;
+		return;
+	}
+
+	// ---- Fire (upper body, keep legs) --------------------------------------
+	case TSA_FIRE:
+	case TSA_FIRE_SLIDEL:
+	case TSA_FIRE_SLIDER:
+	{
+		if (ducking)
+		{
+			strcpy(name, "crouch_shoot_");
+			strcat(name, grip); // crouch_shoot_onehanded, ...
+		}
+		else
+		{
+			strcpy(name, "shoot_");
+			strcat(name, grip); // shoot_onehanded, shoot_twohanded, shoot_akimbo_* handled below
+			// onehanded/twohanded have an alternating "2" recoil variant the
+			// original toggles; akimbo fire is split L/R by AkimboFire's caller.
+			if (strncmp(grip, "akimbo", 6) == 0)
+			{
+				// akimbo: pick a side; the gun code alternates barrels, default left.
+				strcpy(name, "shoot_akimbo_left");
+			}
+		}
+		SetBodySequence(pPlayer, name, true, true);
+		m_flAimTimer = 2.0f; // hold the weapon raised; protects the torso pose below
+		// fire does NOT touch the legs — keep whatever the move/idle path set.
+		m_iLastActivity = activity;
+		return;
+	}
+
+	// ---- Move / idle (the per-frame PostThink path) ------------------------
+	case TSA_RUN:
+	case TSA_IDLE:
+	case TSA_SLIDE:
+	default:
+		break;
+	}
+
+	// Fall-through: the move/idle gait. Set the leg locomotion (gaitsequence)
+	// always; set the torso pose (idle_/aim_<grip>) only when not mid-action
+	// (firing/reloading) — the aim timer protects a just-set shoot/relo pose,
+	// exactly as the original gates the sequence overwrite on param_1[3] (@0x6cf..).
+	if (!onground)
+	{
+		// airborne but not a jump activity: keep current, just record.
+		m_iLastActivity = activity;
+		return;
+	}
+
+	m_iDuckLatch = 0; // reset goduck latch once grounded/standing
+
+	// Legs: crawl when ducking+moving, run2/walk2 by speed, none when still.
+	if (speed > 1.0f)
+	{
+		m_iDirection = GetMoveDirection(pPlayer);
+		if (ducking)
+			SetGaitSequence(pPlayer, "crawl");
+		else
+			SetGaitSequence(pPlayer, (speed > TSA_RUN_SPEED) ? "run2" : "walk2");
+	}
+	else
+	{
+		SetGaitSequence(pPlayer, NULL);
+	}
+
+	// Torso: don't stomp an in-progress fire/reload pose (aim timer running).
+	const bool aiming = (m_flAimTimer >= 0.01f) || (pev->button & IN_ATTACK);
+	if (m_flAimTimer >= 0.01f)
+	{
+		// weapon raised recently — leave the shoot/relo/aim torso sequence playing.
+		m_iLastActivity = activity;
+		return;
+	}
+
+	if (ducking)
+		strcpy(name, aiming ? "crouch_aim_" : "duck_idle_");
+	else
+		strcpy(name, aiming ? "aim_" : "idle_");
+	strcat(name, grip); // idle_onehanded, aim_twohanded, duck_idle_akimbo, ...
+
+	SetBodySequence(pPlayer, name, false, false);
+	m_iLastActivity = activity;
+}

@@ -912,177 +912,41 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 }
 
 
-// Set the activity based on an event or current state
+// Set the activity based on an event or current state.
+//
+// TS REWORK: the stock body-animation code below looked up "ref_aim_<ext>" /
+// ACT_* sequences that the TS player.mdl does not define (it ships idle_/aim_/
+// shoot_<grip>, run2/walk2, ...), so the model rendered permanently idle. In the
+// original .so this function is a no-op stub (@0xd8f50) and TS drives the body
+// through CTSAnimation::Animate instead. We route the existing PLAYER_ANIM call
+// sites into m_TSAnim.Animate so the gait subsystem owns all body animation.
+// See ts_animation.{h,cpp}.
 void CBasePlayer::SetAnimation(PLAYER_ANIM playerAnim)
 {
-	int animDesired;
-	float speed;
-	char szAnim[64];
-
-	speed = pev->velocity.Length2D();
-
-	if ((pev->flags & FL_FROZEN) != 0)
-	{
-		speed = 0;
-		playerAnim = PLAYER_IDLE;
-	}
-
+	int act;
 	switch (playerAnim)
 	{
 	case PLAYER_JUMP:
-		m_IdealActivity = ACT_HOP;
-		break;
-
 	case PLAYER_SUPERJUMP:
-		m_IdealActivity = ACT_LEAP;
+		act = TSA_JUMP;
 		break;
-
 	case PLAYER_DIE:
-		m_IdealActivity = ACT_DIESIMPLE;
-		m_IdealActivity = GetDeathActivity();
+		act = TSA_DIE;
 		break;
-
 	case PLAYER_ATTACK1:
-		switch (m_Activity)
-		{
-		case ACT_HOVER:
-		case ACT_SWIM:
-		case ACT_HOP:
-		case ACT_LEAP:
-		case ACT_DIESIMPLE:
-			m_IdealActivity = m_Activity;
-			break;
-		default:
-			m_IdealActivity = ACT_RANGE_ATTACK1;
-			break;
-		}
+		act = TSA_FIRE;
+		break;
+	case PLAYER_WALK:
+		act = TSA_RUN;
 		break;
 	case PLAYER_IDLE:
-	case PLAYER_WALK:
-		if (!FBitSet(pev->flags, FL_ONGROUND) && (m_Activity == ACT_HOP || m_Activity == ACT_LEAP)) // Still jumping
-		{
-			m_IdealActivity = m_Activity;
-		}
-		else if (pev->waterlevel > 1)
-		{
-			if (speed == 0)
-				m_IdealActivity = ACT_HOVER;
-			else
-				m_IdealActivity = ACT_SWIM;
-		}
-		else
-		{
-			m_IdealActivity = ACT_WALK;
-		}
-		break;
-	}
-
-	switch (m_IdealActivity)
-	{
-	case ACT_HOVER:
-	case ACT_LEAP:
-	case ACT_SWIM:
-	case ACT_HOP:
-	case ACT_DIESIMPLE:
 	default:
-		if (m_Activity == m_IdealActivity)
-			return;
-		m_Activity = m_IdealActivity;
-
-		animDesired = LookupActivity(m_Activity);
-		// Already using the desired animation?
-		if (pev->sequence == animDesired)
-			return;
-
-		//ALERT(at_console, "Set die animation to %d\n", animDesired);
-
-		pev->gaitsequence = 0;
-		pev->sequence = animDesired;
-		pev->frame = 0;
-		ResetSequenceInfo();
-		return;
-
-	case ACT_RANGE_ATTACK1:
-		if (FBitSet(pev->flags, FL_DUCKING)) // crouching
-			strcpy(szAnim, "crouch_shoot_");
-		else
-			strcpy(szAnim, "ref_shoot_");
-		strcat(szAnim, m_szAnimExtention);
-		animDesired = LookupSequence(szAnim);
-		if (animDesired == -1)
-			animDesired = 0;
-
-		if (pev->sequence != animDesired || !m_fSequenceLoops)
-		{
-			pev->frame = 0;
-		}
-
-		if (!m_fSequenceLoops)
-		{
-			pev->effects |= EF_NOINTERP;
-		}
-
-		m_Activity = m_IdealActivity;
-
-		pev->sequence = animDesired;
-		ResetSequenceInfo();
+		act = ((pev->flags & FL_FROZEN) != 0) ? TSA_IDLE
+			: (pev->velocity.Length2D() > 0) ? TSA_RUN
+											  : TSA_IDLE;
 		break;
-
-	case ACT_WALK:
-		if (m_Activity != ACT_RANGE_ATTACK1 || m_fSequenceFinished)
-		{
-			if (FBitSet(pev->flags, FL_DUCKING)) // crouching
-				strcpy(szAnim, "crouch_aim_");
-			else
-				strcpy(szAnim, "ref_aim_");
-			strcat(szAnim, m_szAnimExtention);
-			animDesired = LookupSequence(szAnim);
-			if (animDesired == -1)
-				animDesired = 0;
-			m_Activity = ACT_WALK;
-		}
-		else
-		{
-			animDesired = pev->sequence;
-		}
 	}
-
-	if (FBitSet(pev->flags, FL_DUCKING))
-	{
-		if (speed == 0)
-		{
-			pev->gaitsequence = LookupActivity(ACT_CROUCHIDLE);
-			// pev->gaitsequence	= LookupActivity( ACT_CROUCH );
-		}
-		else
-		{
-			pev->gaitsequence = LookupActivity(ACT_CROUCH);
-		}
-	}
-	else if (speed > 220)
-	{
-		pev->gaitsequence = LookupActivity(ACT_RUN);
-	}
-	else if (speed > 0)
-	{
-		pev->gaitsequence = LookupActivity(ACT_WALK);
-	}
-	else
-	{
-		// pev->gaitsequence	= LookupActivity( ACT_WALK );
-		pev->gaitsequence = LookupSequence("deep_idle");
-	}
-
-
-	// Already using the desired animation?
-	if (pev->sequence == animDesired)
-		return;
-
-	//ALERT( at_console, "Set animation to %d\n", animDesired );
-	// Reset to first frame of desired animation
-	pev->sequence = animDesired;
-	pev->frame = 0;
-	ResetSequenceInfo();
+	m_TSAnim.Animate(this, act);
 }
 
 /*
@@ -1871,6 +1735,8 @@ void CBasePlayer::PreThink()
 		return; // intermission or finale
 
 	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame
+
+	m_TSAnim.UpdateTimers(this); // TS: decay the gait aim/leg/grenade hold timers
 
 	// TS slow-motion: make GoSlow/InSlow/GlobalSlowMotion2/slowmatch VISIBLE by scaling the
 	// player's speed cap by the applied slow factor (m_flSlowMotionGo; 1 = normal). pev->
@@ -2950,6 +2816,8 @@ void CBasePlayer::Spawn()
 			//Done spawning; reset.
 			m_bIsSpawning = false;
 		}};
+
+	m_TSAnim.Init(); // TS: reset the 3rd-person gait state for this life
 
 	pev->classname = MAKE_STRING("player");
 	pev->health = 100;

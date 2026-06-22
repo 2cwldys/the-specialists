@@ -121,6 +121,7 @@ target_sources(hl PRIVATE
 	ts_escape.cpp
 	ts_playeramount.cpp
 	ts_player.cpp
+	ts_animation.cpp
 	ts_slowmotion.cpp
 	ts_slowmotionpoint.cpp
 	ts_grenade.cpp

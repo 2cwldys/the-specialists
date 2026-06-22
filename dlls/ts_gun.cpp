@@ -292,8 +292,11 @@ bool CTSGun::Deploy()
 	// SLICE: faithful Deploy uses the items array + GetBodyByItems + a weapon-param
 	// message; here we just show the view/player model via DefaultDeploy.
 	const char *pmodel = wi->pszPlayerModel ? wi->pszPlayerModel : wi->pszViewModel;
-	return DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, 0,
+	bool ok = DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, 0,
 		(char *)(wi->pszAnimExt ? wi->pszAnimExt : "onehanded"));
+	if (ok)
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_DRAW); // 3rd-person draw_<grip>
+	return ok;
 }
 
 // @ PrimaryAttack__6CTSGun -> Fire -> {Standard,Shotgun,Knife,Katana,Grenade,Akimbo}Fire.
@@ -528,7 +531,7 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 	float dmg = ((wi->flDamage > 0) ? wi->flDamage * 4.0f : 120.0f) * TSDamageMult();
 	TSThrowM61(m_pPlayer->pev, vecSrc, vecVel, 4.0f, dmg);
 
-	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
+	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_GRENADE); // 3rd-person "grenade" throw
 	m_flNextPrimaryAttack = GetNextAttackDelay(1.0);
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 }
@@ -716,6 +719,8 @@ void CTSGun::Reload()
 
 	if (wi->iReloadAnim >= 0)
 		SendWeaponAnim(wi->iReloadAnim);
+
+	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 3rd-person relo_<grip>
 
 	m_fInReload = true;
 	m_flNextPrimaryAttack = GetNextAttackDelay(TS_RELOAD_TIME);

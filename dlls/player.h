@@ -16,6 +16,7 @@
 #pragma once
 
 #include "pm_materials.h"
+#include "ts_animation.h" // TS 3rd-person body/gait (CTSAnimation m_TSAnim member)
 
 
 #define PLAYER_FATAL_FALL_SPEED 1024															  // approx 60 feet
@@ -373,6 +374,13 @@ public:
 	byte m_iKungFu = 0;               // 0x74e — kung-fu state
 	byte m_bLowGravity = 0;           // 0x74f — low-gravity powerup active
 	bool m_bSlowMoveApplied = false;  // slow-motion has lowered pev->maxspeed (restore on exit)
+
+	// TS 3rd-person body/gait animation (ts_animation.cpp). The original embeds
+	// this object on the player (player+0x28c) and drives ALL body animation
+	// through it; the stock SetAnimation is a no-op stub in the .so. SetAnimation
+	// (below) routes the PLAYER_ANIM call sites into m_TSAnim.Animate; CTSGun
+	// drives reload/draw/grenade directly. See ts_animation.h.
+	CTSAnimation m_TSAnim;
 
 	// TS custom-HUD networking (ts_player.cpp). The original sends its OWN per-frame
 	// HUD messages (TSHealth/TSArmor/TSCash/...) from CBasePlayer::UpdateClientData
