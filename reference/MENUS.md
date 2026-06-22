@@ -187,3 +187,27 @@ reads its memory: `gdb -p 3093683 -batch -nx -ex 'find ...'` / `x/...` works.
 **This converts the "config panel not RE-able" wall into a tractable runtime read.** Next: get the
 vgui::Panel `_pos`/`_fgColor`/`_name` field offsets, walk the `Buy_*` config buttons, and record the real
 positions/colours — then apply them to CTSBuyMenuPanel.
+
+### Runtime capture — the exact procedure (cont.69f, KEY FINDING)
+
+The menu panels are **built once and CACHED** — re-opening the buy menu only `setVisible`s them; it does
+NOT re-run the entry-add builders. So a build-breakpoint armed *after* the first buy-menu access never
+fires (confirmed: bp at FUN_100668f0 / FUN_10011230 / FUN_10011160 didn't fire across ~10 re-opens).
+
+**To capture the real per-button values, arm the breakpoints BEFORE the first build, then trigger a FRESH
+build** (reconnect to the server / restart the map / first-time enter the spectate-buy phase). Procedure
+(game live, PID 3093683, client.dll base 0x0c070000):
+```
+# /tmp/cap.gdb : break the entry-add functions, log args, auto-continue
+break *0x0c0d68f0   # FUN_100668f0(panel, idx, text, c_r, c_g, c_b, 0x32, scale, action)  [submenu entries]
+  commands; silent
+    printf "ADD p=%#x i=%d t='%s' r=%d g=%d b=%d s=%#x act=%d\n", $ecx,*(int*)($esp+4),*(char**)($esp+8),*(int*)($esp+0xc),*(int*)($esp+0x10),*(int*)($esp+0x14),*(int*)($esp+0x1c),*(int*)($esp+0x20)
+    continue; end
+break *0x0c0d6a90   # FUN_10066a90 (config item-1 colour update)
+continue
+# then: gdb -p 3093683 -batch -nx -x /tmp/cap.gdb  AND reconnect/restart so the buy menu rebuilds.
+```
+That one capture yields every entry's exact `text + RGB colour + action` for the config panel + all weapon
+categories + accessories — resolving the exact-styling unknown (the +0x2d84 config panel static-RE can't
+reach) in a single shot. NB FUN_100668f0 builds via panel fields for geometry; the colour args (r,g,b) are
+the per-entry RGB confirmed from FUN_10010440 (avail green / unavail red / Cancel (100,100,205)).
