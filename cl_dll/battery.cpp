@@ -73,6 +73,10 @@ bool CHudBattery::MsgFunc_Battery(const char* pszName, int iSize, void* pbuf)
 
 bool CHudBattery::Draw(float flTime)
 {
+	// TS shows armor as a binary "Kevlar" indicator on its own status panel (CHudTSStatus)
+	// and registers no stock "Battery" message — suppress the stock numeric battery HUD.
+	return true;
+
 	if ((gHUD.m_iHideHUDDisplay & HIDEHUD_HEALTH) != 0)
 		return true;
 

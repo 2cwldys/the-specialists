@@ -201,8 +201,11 @@ bool CHudHealth::Draw(float flTime)
 	GetPainColor(r, g, b);
 	ScaleColors(r, g, b, a);
 
-	// Only draw health if we have the suit.
-	if (gHUD.HasSuit())
+	// TS replaces the stock health number/cross with its own status panel (CHudTSStatus);
+	// the original registers no stock "Health" message, so suppress the stock number here.
+	// The directional damage feedback (DrawDamage/DrawPain) below is kept until TS's own
+	// (PTakeDam/TSFade) is reconstructed.
+	if (false && gHUD.HasSuit())
 	{
 		HealthWidth = gHUD.GetSpriteRect(gHUD.m_HUD_number_0).right - gHUD.GetSpriteRect(gHUD.m_HUD_number_0).left;
 		int CrossWidth = gHUD.GetSpriteRect(m_HUD_cross).right - gHUD.GetSpriteRect(m_HUD_cross).left;
