@@ -5,6 +5,34 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 42) — CTSTeamEscape (team escort/escape zone)
+
+**Done — `dlls/ts_escape.cpp` (ts_teamescape).** A team escort objective: when enough of the
+attacker team is simultaneously inside the zone, it completes (fire target + HUD message). FGD-backed
+(`@SolidClass`, brush, base tsobjective); 0 stock placements → synthetic-verified.
+
+RE (recovered/escape/CTSTeamEscape.c): Spawn @0x8d390 (brush SET_MODEL + SetSize), EnableObjective
+@0x8d4a0 (enable + clear the 33-slot presence array + count), WaitTouch @0x8d4ec (attacker-team
+player → track by entindex, count distinct; threshold from escapepercentage @+0xf4 over the attacker
+TEAM SIZE: 0→1, 1→size/3, 2→2*size/3, 3→size; complete → FireTargets+HUD+EnableObjective(false)),
+WaitThink @0x8d6b0 (clear the presence array + count every 1s — so it counts SIMULTANEOUS presence).
+Functional reconstruction onto the stock SDK (inlined attacker-team gate like ts_objectives.cpp; team
+size = live attacker-team players):
+- `CTSTeamEscape : CBaseEntity` (brush SOLID_TRIGGER). m_present[33] (EHANDLE by entindex) + m_count.
+- WaitTouch accumulates distinct attacker-team touchers; threshold per escapepercentage switch;
+  completion fires target + message + disables. WaitThink resets the window each second.
+
+**Verified RUNTIME (rcbot, tm_avana, SYNTHETIC — temp probe reverted):** team size 2 — escapepercentage
+0 (one member): one touch → completed (enabled=0); escapepercentage 3 (all): one touch stays active
+(enabled=1), all touches → completed (enabled=0). No crash; clean regression (tm_avana + ts_dust2 0
+Can't init). (Ran on -port 27018; 27015 still held by an unrelated app.)
+
+**SLICE:** enable is faithfully gamerules-driven (here Spawn); no Save/Restore (the .so has
+m_SaveData); completion fires the target only (no team score / round-win — that's the objective
+manager's job); team size = live players (the .so reads the team struct via TSCountPlayers).
+
+---
+
 ## 2026-06-21 (cont. 41) — CTSSellZone (sell dropped weapons for cash) + a powerup-precache fix
 
 **Done — `dlls/ts_sellzone.cpp` (ts_sellzone).** The one entity that makes the cont.36 cash actually
