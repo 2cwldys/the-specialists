@@ -130,4 +130,29 @@ consume slots. (Cross-ref: the deferred kevlar free-slots cost + speed penalty, 
    exact emitted command (`tkw`/`tki`/`tka` + the item-queue/apply command). The per-category weapon
    lists (which `tsweapon_t` under Handguns/SMGs/Rifles/Shotguns/Other) come out of the category builders.
 
-Only after 1–5 are RE'd should the cl_dll menu be (re)built — faithfully, not improvised.
+### Apply path RE'd (`FUN_10012050`) — the swap contract
+
+"Use New Config" (config-menu item 1) → `FUN_10012050`:
+1. Validate: empty config → "Your config is empty"; over cash → "No cash left"; free-slots
+   (`+0x430`) over cap `0x51`(81) → abort.
+2. Sort/normalise the queued loadout (`+0xb0` armament array).
+3. Emit to the server (via `pfnServerCmd`): **`rst_cfg`** first, then per queued weapon
+   **`sprintf("tkw ", "%i_%i")`** (type_count) / per ammo **`tka %i_%i`** / single items **`tki`**.
+   (The `weapon_%i`/`lasclr_%i` config string @0x10095db8/0x10095e08 carries the per-weapon select +
+   laser colour.) These are exactly the server `ClientCommand` handlers in `reference/BUY.md`.
+
+So the menu is a **client `vgui::Panel`** that builds a loadout (validated client-side by
+`FUN_100124a0` against cash + free-slots), and on apply emits `rst_cfg`+`tkw`/`tki`/`tka` — the
+existing server handlers. Kevlar (accessory, `cl_buykevlar`) is queued as the item bit 0x10 (server
+`AddItem`/`TakeArmor`, already reconstructed, ledger cont.69c); the exact item-queue command on apply
+is the one remaining tie-off (tki-with-item-flag vs a dedicated token — confirm in `FUN_10012050`'s
+accessory branch).
+
+### Faithful reproduction plan (model on `cl_dll/vgui_teammenu.cpp` / `vgui_ClassMenu.cpp`)
+
+Build a `vgui::Panel`-derived buy menu (4 sub-panels: config / buy-category / accessory / weapon-list)
+with `vgui::Button` text entries, opened in the spectate-wait phase, click+number-key select,
+click-outside ⇒ apply. Entry actions: navigate submenu / queue weapon (the per-category lists come
+from the category builders) / toggle `cl_buykevlar`-`cl_laser` / apply (emit `rst_cfg`+`tkw`/`tki`/`tka`).
+Background + text via the same vgui draw the status/kevlar HUD uses. Reuse the server's existing
+buy-command handlers (no new server protocol).
