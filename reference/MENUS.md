@@ -83,6 +83,24 @@ bit 0x10 = kevlar). Builders/handlers cluster in `client.dll` ~`0x10011160`–`0
 The implementation mechanism (not just the layout) must be RE'd before coding — an earlier
 improvised cl_dll menu (guessed geometry/input/triggers) was reverted. Recovered so far:
 
+**Architecture — a custom `vgui::Panel` subclass (NOT the MOTD `gmsgVGUIMenu`).** `FUN_10010440`
+(the buy-category menu builder) allocates a panel via `FUN_10066790`, constructs it with
+**`vgui::Panel::Panel(this)`**, sets its vtable to `PTR_setPos_1007aa38`, sizes it via
+`FUN_100667e0(panel, count, …, width=0x80, rowH=0x14, …)`, then adds each entry with
+`FUN_100668f0(panel, idx, text, x, y, …, action)`. So the buy menu IS built on the `vgui::Panel`
+library (which our cl_dll links) — it just isn't the stock MOTD/`CMenuPanel` image-button menu. The
+menu lives as **four panels** on the client object: `+0x2d84` (config), `+0x2d88` (buy-category),
+`+0x2d8c`, `+0x2d90`; each is shown/hidden via vtable+0x24 = `setVisible(bool)`.
+`FUN_10011230(this, visible)` is the **open/close**: on open it copies the saved config
+(`+0x434`→`+0x2c`), rebuilds (`FUN_10011160` item 1 + `FUN_100129f0` cost), and `setVisible` on the
+four panels. The buy-category build loop iterates the string table `0x10092824`→`0x10092838`
+(Handguns/SMGs/Rifles/Shotguns/Other), adds "1 Buy" in team mode, then "0 Cancel".
+Each entry is a **`vgui::Button`** (`FUN_100668f0` → `operator_new(0x14c)` → `FUN_10066b40(button,
+text, colors…)`), held in the panel's button array (`panel+0xdc`, count `+0xbc`). So the menu is a
+`vgui::Panel` of clickable text `vgui::Button` children — model it on our SDK's existing vgui menus
+(`vgui_ClassMenu.cpp` / `vgui_teammenu.cpp`), NOT a hand-drawn HUD element. (This is why click AND
+key both work — vgui buttons handle the cursor; the number-key path selects by index.)
+
 **Menu entry object model** (`client.dll`):
 - Each menu entry is an object. `FUN_10066a90(panel, idx, text, x, y, color, scale, …, actionId,
   actionValue)` populates entry `idx`: copies `text`→entry+0x104, calls `FUN_10066bb0` to store
