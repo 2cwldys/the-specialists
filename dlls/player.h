@@ -443,6 +443,7 @@ public:
 	void TSEnterSpectate();         // enter free-look spectate-wait (called at end of Spawn)
 	void TSLeaveSpectate();         // press-fire: leave spectate -> respawn into play
 	void TSSpectateThink();         // per-frame while waiting: countdown msg + fire check
+	void TSTryRespawn();            // `respawn` cmd: leave spectate if the gate elapsed, else "wait" msg
 	void TSSendBuyMenu();           // send the buy/config menu (gmsgShowMenu, compact list)
 	void TSCloseMenu();             // turn the menu off (ShowMenu with 0 valid slots)
 	void TSMenuSelect(int slot);    // handle a buy/config menu selection (menuselect / click)

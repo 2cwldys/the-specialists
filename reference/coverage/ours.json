@@ -848,6 +848,8 @@
   "give",
   "lastinv",
   "menuselect",
+  "motd",
+  "respawn",
   "rst_cfg",
   "say",
   "say_team",

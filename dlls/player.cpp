@@ -41,6 +41,7 @@
 #include "hltv.h"
 #include "UserMessages.h"
 #include "client.h"
+#include "ts_utils.h" // TSHudMessageOne (the `respawn`-gate "wait" message)
 
 // #define DUCKFIX
 
@@ -1523,6 +1524,17 @@ void CBasePlayer::TSLeaveSpectate()
 	// now clear, so the end-of-Spawn guard does not re-enter spectate).
 	respawn(pev, false);
 	pev->nextthink = -1;
+}
+
+// @ ClientCommand "respawn" — request a respawn from the spectate-wait. If the spawn gate has
+// elapsed, leave spectate into play (same as fire-to-play); otherwise tell the player to wait.
+// (Original: GetClassPtr<CBasePlayer> -> TSHudMessageOne(...) "wait" / StopObserver respawn.)
+void CBasePlayer::TSTryRespawn()
+{
+	if (m_fInSpectateWait && gpGlobals->time >= m_flSpawnGateTime)
+		TSLeaveSpectate();
+	else
+		TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
 }
 
 //

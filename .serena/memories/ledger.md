@@ -55,6 +55,15 @@ sizes) and is the basis for the next Ghidra type-application pass (apply entvars
 gcc2 signatures + vtable annotation). NB STABS is NOT useful for mod member offsets — those stay analytic;
 but `entvars_t`/engine structs are pure C (ABI-stable offsets) so they CAN be applied verbatim.
 
+**`respawn` + `motd` wired (cont.68j):** RE'd both ClientCommand handlers (objdump). `motd` →
+`SendMOTDToClient(edict)` (the protected CHalfLifeMultiplay method) → exposed via a public
+`CTSGameRules::ResendMOTD` passthrough, called from the `motd` dispatch via `TSGameRules()`.
+`respawn` → the original shows TSHudMessageOne "You have to wait until the next round." (red 195,45,45)
+and StopObserver-respawns when allowed; reconstructed as `CBasePlayer::TSTryRespawn` — leave the
+cont.66 spectate-gate (`TSLeaveSpectate`) if `gpGlobals->time >= m_flSpawnGateTime`, else the wait
+message. Server-command missing 6→4 (remaining: changeteam/jointeam = team-select menu, powerup, cashala
+= buy-apply — all need RE); 0 unanswered binds held.
+
 **`useitems` wired → default.cfg cross-check now 0 unanswered (cont.68i):** `CTSGun::SwitchItems` +
 `TSSwitchItems` + the `useitems` dispatch (default.cfg binds g). RE: the original SwitchItems body
 (FUN_0009155c) is register-garbled in the decompile, but the ClientCommand gate (weapon id 16) + the

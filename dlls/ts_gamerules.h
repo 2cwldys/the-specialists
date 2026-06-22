@@ -37,6 +37,10 @@
 class CTSGameRules : public CHalfLifeMultiplay
 {
 public:
+	// Public passthrough so the `motd` console command can re-send the MOTD (the base
+	// CHalfLifeMultiplay::SendMOTDToClient is protected). @ ClientCommand "motd".
+	void ResendMOTD(edict_t *client) { SendMOTDToClient(client); }
+
 	// Pick a random permitted powerup bit out of `mask`, or 0 if none qualify.
 	int GetRandomPowerup(int mask);
 

@@ -39,6 +39,7 @@
 #include "client.h"
 #include "soundent.h"
 #include "gamerules.h"
+#include "ts_gamerules.h" // TSGameRules() (the `motd` re-send passthrough)
 #include "game.h"
 #include "customentity.h"
 #include "weapons.h"
@@ -552,6 +553,14 @@ void ClientCommand(edict_t* pEntity)
 	else if (FStrEq(pcmd, "useitems")) // TS: swap the held akimbo's active item (default.cfg binds g)
 	{
 		TSSwitchItems(player);
+	}
+	else if (FStrEq(pcmd, "respawn")) // TS: request a respawn from spectate-wait (gate-checked)
+	{
+		player->TSTryRespawn();
+	}
+	else if (FStrEq(pcmd, "motd")) // TS: re-send the MOTD to this client
+	{
+		TSGameRules()->ResendMOTD(player->edict());
 	}
 	else if (FStrEq(pcmd, "drop")) // TS: drop the active weapon into the world (default.cfg binds t)
 	{

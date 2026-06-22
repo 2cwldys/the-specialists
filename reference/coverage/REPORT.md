@@ -36,11 +36,11 @@ _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI
 
 _Commands the server accepts from a client (exact strcmp dispatch). EXTRA = the prime 'invented/HL-leftover' signal. NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths (strstr/sscanf), not captured here — so `weapon_<N>` is not flagged._
 
-- matched: **14**  |  missing (orig→not ours): **6**  |  extra (ours→not orig): **18**
+- matched: **16**  |  missing (orig→not ours): **4**  |  extra (ours→not orig): **18**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `cashala`, `changeteam`, `jointeam`, `motd`, `powerup`, `respawn`
+  `cashala`, `changeteam`, `jointeam`, `powerup`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
