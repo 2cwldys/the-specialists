@@ -549,6 +549,10 @@ void ClientCommand(edict_t* pEntity)
 	{
 		TSSwitchFireMode(player);
 	}
+	else if (FStrEq(pcmd, "useitems")) // TS: swap the held akimbo's active item (default.cfg binds g)
+	{
+		TSSwitchItems(player);
+	}
 	else if (FStrEq(pcmd, "drop")) // TS: drop the active weapon into the world (default.cfg binds t)
 	{
 		int type, clip;

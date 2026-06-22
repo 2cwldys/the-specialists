@@ -36,11 +36,11 @@ _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI
 
 _Commands the server accepts from a client (exact strcmp dispatch). EXTRA = the prime 'invented/HL-leftover' signal. NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths (strstr/sscanf), not captured here — so `weapon_<N>` is not flagged._
 
-- matched: **13**  |  missing (orig→not ours): **7**  |  extra (ours→not orig): **18**
+- matched: **14**  |  missing (orig→not ours): **6**  |  extra (ours→not orig): **18**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `cashala`, `changeteam`, `jointeam`, `motd`, `powerup`, `respawn`, `useitems`
+  `cashala`, `changeteam`, `jointeam`, `motd`, `powerup`, `respawn`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
@@ -104,11 +104,7 @@ _Predicted-event scripts referenced by each server. MISSING = a TS event we don'
 
 _Every command the original binds should be answered by our client/server (or be an engine builtin)._
 
-- bound commands: **53**  |  unanswered by ours (non-builtin): **1**
-
-**UNANSWERED (original binds it, ours has no handler):**
-
-  `useitems`
+- bound commands: **53**  |  unanswered by ours (non-builtin): **0**
 
 ### Client cvars (original binary-registered vs ours)
 

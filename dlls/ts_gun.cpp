@@ -57,6 +57,7 @@ public:
 	void GrenadeThrow(const s_weapon_info *wi);  // grenade fire-type
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
 	void SwitchFireMode();                       // cycle the held weapon's fire-mode
+	void SwitchItems();                          // @SwitchItems (useitems) — akimbo dual-wield swap
 
 	// arsenal (the items-array). @ AddItem/SelectWeapon/TakeWeapon__6CTSGun.
 	int FindSlot(tsweapon_t type);   // owned-slot index, or -1
@@ -829,6 +830,30 @@ void TSSwitchFireMode(CBasePlayer *pPlayer)
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (pGun)
 		pGun->SwitchFireMode();
+}
+
+// @ SwitchItems__6CTSGun (the `useitems` command — default.cfg binds g): the akimbo dual-wield
+// swap. Only meaningful while holding an akimbo weapon (the original gates on the akimbo flag).
+// SLICE: our akimbo is a single combined slot (HANDOFF), so we model the "switch items" as
+// toggling the active barrel side + re-deploy; the original's full left/right items[] split
+// (two independently-fired guns) is not reconstructed.
+void CTSGun::SwitchItems()
+{
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	if (wi->iFireType != TSFT_AKIMBO && wi->iFireType != TSFT_AKIMBO_ONLY)
+		return; // not dual-wielding — nothing to swap
+
+	m_akimboSide ^= 1; // swap which gun leads
+	if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
+		Deploy();
+}
+
+// Swap the held akimbo's active item (the `useitems` command -> CTSGun::SwitchItems).
+void TSSwitchItems(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (pGun)
+		pGun->SwitchItems();
 }
 
 // @ DropWeapon__6CTSGun — remove the active arsenal slot (for dropping it into the world),

@@ -177,6 +177,9 @@ void TSAlternateAttack(CBasePlayer *pPlayer);
 // Cycle the held weapon's fire-mode (the `firemode` command -> CTSGun::SwitchFireMode).
 void TSSwitchFireMode(CBasePlayer *pPlayer);
 
+// Swap the held akimbo's active item (the `useitems` command -> CTSGun::SwitchItems).
+void TSSwitchItems(CBasePlayer *pPlayer);
+
 // Add `count` rounds of `caliber` to the player's TS gun reserve (capped). Returns true if
 // any were added. Used by CTSGroundAmmo (the per-caliber refill station).
 bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count);

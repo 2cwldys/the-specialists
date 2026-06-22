@@ -55,6 +55,15 @@ sizes) and is the basis for the next Ghidra type-application pass (apply entvars
 gcc2 signatures + vtable annotation). NB STABS is NOT useful for mod member offsets — those stay analytic;
 but `entvars_t`/engine structs are pure C (ABI-stable offsets) so they CAN be applied verbatim.
 
+**`useitems` wired → default.cfg cross-check now 0 unanswered (cont.68i):** `CTSGun::SwitchItems` +
+`TSSwitchItems` + the `useitems` dispatch (default.cfg binds g). RE: the original SwitchItems body
+(FUN_0009155c) is register-garbled in the decompile, but the ClientCommand gate (weapon id 16) + the
+akimbo flag check + re-deploy identify it as the akimbo dual-wield swap. SLICE: our akimbo is a single
+combined slot, so SwitchItems toggles the active barrel side (m_akimboSide) + re-deploys, gated on
+iFireType AKIMBO/AKIMBO_ONLY; the full left/right items[] split is not reconstructed. Server-command
+missing 7→6 (remaining: changeteam/jointeam/motd/powerup/respawn/cashala — team-menu/respawn/buy-apply);
+**every default.cfg-bound command is now answered by our client or server (0 unanswered).**
+
 **Buy/loadout-config command protocol RE'd + stand-ins renamed (cont.68h, `reference/BUY.md`):**
 Decompiled the buy block of ClientCommand. Real commands + arg formats: `rst_cfg`→ResetArmament;
 `tkw` arg `"%i_%i"`(type_count)→AddItemToArmament; `tki` arg `"%i"`→AddItemToArmament single; `tka`
