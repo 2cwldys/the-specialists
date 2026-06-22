@@ -131,6 +131,7 @@ target_sources(client PRIVATE
 	vgui_SpectatorPanel.cpp
 	vgui_TeamFortressViewport.cpp
 	vgui_teammenu.cpp
+	vgui_TSBuyMenu.cpp
 	view.cpp
 	voice_status.cpp
 
