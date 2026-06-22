@@ -30,11 +30,15 @@ faint tint, matching FUN_1004d7e0) instead of the earlier guessed opaque dark na
 **THREE HUD regions (cont.53):** (1) **ammo box** ✅ exact geometry, verified; (2) **health BAR** ✅
 `FUN_1004d5f0` — a fill bar (not text), 0x80 wide, fill ∝ health (red when low), bg alpha 0x1e, drawn
 stacked above the ammo box; `TSHud_HealthBar` + shared `g_iTSHealth`, verified on-screen; (3) **weapon-
-select bar** (top) — MAPPED, not yet built: `FUN_1004e030` grid at this+0x164 (index (slot+pos*0xb)*8),
-slots 1..5 panels at x=slot*0x80-0x78,y=8,0x80×0x14 + name/icon; fed by `WStatus(3)=BYTE typeIndex,BYTE
-clip,BYTE caliber` (server CTSGun::UpdateClientData per arsenal slot). Next chunk = server WStatus send +
-client `CHudTSWeaponBar` grid reader + weapon-type→category table (recover from client.dll) + SPR icons.
-All in reference/HUD_DRAWCHAIN.md.
+select bar** (top) ✅ DONE — server `CTSGun::SendWeaponStatus` sends `WStatus(3)={type,owned,clip}` per
+arsenal weapon on change; client `CHudTSWeaponBar` (`cl_dll/ts_weaponbar.{cpp,h}`) draws held weapons in
+5 category columns at the recovered `FUN_1004e030` geometry (x=col*0x80-0x78, y=8, 0x80×0x14), active
+highlighted. Column per weapon = its `s_weapon_info+0x84` byte, EXTRACTED from the .so Write_<weapon>
+funcs (the bar's grid TRANSPOSES the WStatus handler's (slot*0xb+pos): draw col = +0x84 [1=melee/grenade
+2=pistols 3=SMGs 4=rifles/shotguns/heavy 5=akimbo], row = +0x85). Verified: "Beretta" shows in column 2.
+**ALL THREE HUD REGIONS now covered** (weapon-bar + ammo box + health bar), each from recovered geometry.
+Remaining polish (low priority): the TS bitmap font (all text still uses DrawConsoleString), weapon icons
+(SPR), the WeaponInfo attachment flags byte, and the active-highlight timing. All in reference/HUD_DRAWCHAIN.md.
 
 **Anchor constants RESOLVED + APPLIED (cont.53, from the top of FUN_1004d7e0):** raw pixels off actual
 screen size — **x = ScreenWidth−0x88(136), box w=0x80(128), lineH=0x14(20), lines stack UP from

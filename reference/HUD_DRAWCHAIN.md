@@ -97,11 +97,16 @@ slot, on change): `WStatus(3) = BYTE slotIndex (0x25..0 = weapon-type index), BY
 (slot+4), BYTE caliber (slot+8)`. The client maps weapon-type → (select-slot, position)
 via a static table (in client.dll, TODO to recover) to fill the grid.
 
-**To implement (the next chunk):** (1) server — send `WStatus` from our `CTSGun` for each
-held arsenal weapon (slotIndex = tsweapon_t, clip, caliber); (2) client `CHudTSWeaponBar`
-— read WStatus into a type→owned map, draw the top bar per the geometry above; (3) the
-type→select-slot/position mapping + weapon icons (SPR). Our arsenal is a flat
-`m_arsenalType[]`, so map each to its category slot.
+**DONE (cont.53):** server `CTSGun::SendWeaponStatus` sends `WStatus(3)={type,owned,clip}`
+per held weapon on change; client `CHudTSWeaponBar` draws held weapons in 5 columns.
+The real handler (`0x1004f990`, object `0x100d0ca0`) shows the grid index is
+`(weapon[0x85]*0xb + weapon[0x84])*8 + 0x164`, while the DRAW reads
+`(drawSlot + drawPos*0xb)*8` — i.e. **draw column = weapon `+0x84` (1..5), row = `+0x85`**.
+The per-weapon `+0x84`/`+0x85` were extracted from the `.so` `Write_<weapon>` byte stores
+(`movb $imm,0x84/0x85(%eax)`); column map: 1=melee/grenade, 2=pistols, 3=SMGs,
+4=rifles/shotguns/heavy, 5=akimbo (table in `cl_dll/ts_weaponbar.cpp`).
+Remaining polish: weapon **icons** (SPR_Set/Draw of the per-weapon HUD sprites) instead of
+names; the active-highlight timing.
 
 ## STILL TODO (to pixel-match)
 - The **TS bitmap font** (`FUN_10021ce0` + `bitmapfonts` cvar) — all text currently uses
