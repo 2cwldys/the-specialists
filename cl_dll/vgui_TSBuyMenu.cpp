@@ -52,6 +52,22 @@ private:
 	CTSBuyMenuPanel::Page m_page;
 };
 
+// A cvar-toggle action: clicking the entry flips a client cvar (the accessory selection state;
+// RE: the Player Accessory page toggles cl_buykevlar/cl_laser, shown via the selected-bit).
+class CTSMenuHandler_ToggleCvar : public ActionSignal
+{
+public:
+	CTSMenuHandler_ToggleCvar(const char* cvar) { strncpy(m_cvar, cvar, sizeof(m_cvar) - 1); m_cvar[sizeof(m_cvar) - 1] = 0; }
+	void actionPerformed(Panel* panel) override
+	{
+		float v = CVAR_GET_FLOAT(m_cvar);
+		gEngfuncs.Cvar_SetValue(m_cvar, v != 0.0f ? 0.0f : 1.0f);
+	}
+
+private:
+	char m_cvar[32];
+};
+
 // --- recovered entries (reference/MENUS.md, string table @0x10092808). ---
 struct TSEntry { char key; const char* label; const char* cmd; };
 // Config page: each fires the server menuselect handler (CBasePlayer::TSMenuSelect).
@@ -72,8 +88,19 @@ static const TSEntry s_category[] = {
 	{'3', "Rifles", nullptr},
 	{'4', "Shotguns", nullptr},
 	{'5', "Other", nullptr},
-	{'6', "Player Accessory", nullptr},
+	{'6', "Player Accessory", nullptr}, // -> the accessory page
 	{'0', "Cancel", nullptr},       // back to the config page
+};
+// Player Accessory page (RE'd from the accessory builder @0x10010dd0: Kevlar + the priced
+// Silencer/Lasersight/Flashlight/Scope, "%i <name>  %i"). Each toggles its client cvar selection;
+// the loadout applies the selected accessories. Kevlar -> cl_buykevlar (ties to the kevlar gameplay).
+static const TSEntry s_accessory[] = {
+	{'1', "Kevlar", "cl_buykevlar"},
+	{'2', "Silencer", "cl_silencer"},
+	{'3', "Lasersight", "cl_laser"},
+	{'4', "Flashlight", "cl_flashlight"},
+	{'5', "Scope", "cl_scope"},
+	{'0', "Cancel", nullptr},       // back to the category page
 };
 
 CTSBuyMenuPanel::CTSBuyMenuPanel(int x, int y, int wide, int tall)
@@ -83,6 +110,7 @@ CTSBuyMenuPanel::CTSBuyMenuPanel(int x, int y, int wide, int tall)
 	m_rowH = YRES(20);        // RE'd row height 0x14 (FUN_100667e0)
 	BuildConfig(wide);
 	BuildCategory(wide);
+	BuildAccessory(wide);
 	setVisible(false);
 	ShowPage(PAGE_CONFIG);
 }
@@ -118,7 +146,26 @@ void CTSBuyMenuPanel::BuildCategory(int wide)
 		m_pCategory[i]->setBoundKey(s_category[i].key);
 		if (s_category[i].key == '0') // Cancel -> back to config
 			m_pCategory[i]->addActionSignal(new CTSMenuHandler_Page(this, PAGE_CONFIG));
+		else if (s_category[i].key == '6') // Player Accessory -> the accessory page
+			m_pCategory[i]->addActionSignal(new CTSMenuHandler_Page(this, PAGE_ACCESSORY));
 		// (the per-category weapon-list navigation is the next slice — left inert for now)
+	}
+}
+
+void CTSBuyMenuPanel::BuildAccessory(int wide)
+{
+	m_nAccessory = sizeof(s_accessory) / sizeof(s_accessory[0]);
+	for (int i = 0; i < m_nAccessory; i++)
+	{
+		int r = 255, g = 255, b = 255;
+		if (s_accessory[i].key == '0') { r = 100; g = 100; b = 205; } // Cancel (RE'd colour)
+		m_pAccessory[i] = new CTSMenuButton(s_accessory[i].label, 0, m_rowH * i, wide, m_rowH, r, g, b);
+		m_pAccessory[i]->setParent(this);
+		m_pAccessory[i]->setBoundKey(s_accessory[i].key);
+		if (s_accessory[i].key == '0') // Cancel -> back to the category page
+			m_pAccessory[i]->addActionSignal(new CTSMenuHandler_Page(this, PAGE_CATEGORY));
+		else if (s_accessory[i].cmd) // toggle the accessory's client cvar (e.g. Kevlar -> cl_buykevlar)
+			m_pAccessory[i]->addActionSignal(new CTSMenuHandler_ToggleCvar(s_accessory[i].cmd));
 	}
 }
 
@@ -128,6 +175,8 @@ void CTSBuyMenuPanel::ShowPage(Page page)
 		m_pConfig[i]->setVisible(page == PAGE_CONFIG);
 	for (int i = 0; i < m_nCategory; i++)
 		m_pCategory[i]->setVisible(page == PAGE_CATEGORY);
+	for (int i = 0; i < m_nAccessory; i++)
+		m_pAccessory[i]->setVisible(page == PAGE_ACCESSORY);
 }
 
 void CTSBuyMenuPanel::Open()

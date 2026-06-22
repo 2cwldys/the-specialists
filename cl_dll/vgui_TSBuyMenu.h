@@ -27,16 +27,18 @@ public:
 	void Close();  // hide the menu
 
 	// Menu pages (the original's separate sub-panels, here as toggled button sets).
-	enum Page { PAGE_CONFIG = 0, PAGE_CATEGORY, PAGE_COUNT };
+	enum Page { PAGE_CONFIG = 0, PAGE_CATEGORY, PAGE_ACCESSORY, PAGE_COUNT };
 	void ShowPage(Page page); // switch which page's buttons are visible
 
 private:
 	void BuildConfig(int wide);
 	void BuildCategory(int wide);
+	void BuildAccessory(int wide);
 
 	enum { TS_MAX_BUTTONS = 10 };
 	CommandButton* m_pConfig[TS_MAX_BUTTONS];
 	CommandButton* m_pCategory[TS_MAX_BUTTONS];
-	int m_nConfig = 0, m_nCategory = 0;
+	CommandButton* m_pAccessory[TS_MAX_BUTTONS];
+	int m_nConfig = 0, m_nCategory = 0, m_nAccessory = 0;
 	int m_rowH = 0;
 };
