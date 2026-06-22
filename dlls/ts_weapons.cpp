@@ -37,6 +37,7 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iFireModes = 2;   // default: semi only (overridden in compile_weapons_info)
 	w->iCaliber = 0;     // default: no caliber (overridden in compile_weapons_info)
 	w->iPellets = 1;     // default: one bullet (overridden in compile_weapons_info)
+	w->iFireAnim = -1;   // default: no standard fire anim (overridden in compile_weapons_info)
 }
 
 // Max per-caliber reserve (rounds), s_ammo_info+0x20 from compile_ammo_info (@0x6f51c).
@@ -158,6 +159,24 @@ static void compile_weapons_info()
   };
   for (int i = 0; i < TSW_COUNT; i++)
     g_weaponInfo[i].iPellets = kPellets[i];
+
+  // Viewmodel fire-animation sequence per weapon — the "shoot*" sequence index read
+  // directly from each v_*.mdl. -1 for melee / grenade / akimbo (their own fire paths
+  // pick the slash / throw / left-right sequences). See scripts note in the ledger.
+  static const int kFireAnim[TSW_COUNT] = {
+    /* 0 melee   */ -1, /* 1 glock18  */ 3, /* 2 beretta */ 1, /* 3 uzi      */ 3,
+    /* 4 benelli */  6, /* 5 m4       */ 3, /* 6 mp5sd   */ 1, /* 7 mp5k     */ 3,
+    /* 8 ber_aki */ -1, /* 9 mk23     */ 1, /*10 mk23_ak */-1, /*11 usas12   */ 3,
+    /*12 desert  */  3, /*13 ak47     */ 3, /*14 fnh     */ 3, /*15 aug      */ 2,
+    /*16 uzi_aki */ -1, /*17 skorpion */ 3, /*18 barrett */ 3, /*19 pdw      */ 3,
+    /*20 spas12  */  6, /*21 gold     */-1, /*22 glock22 */ 3, /*23 mac10    */ 3,
+    /*24 m61     */ -1, /*25 knife    */-1, /*26 mossberg*/ 1, /*27 m16      */ 3,
+    /*28 ruger   */  1, /*29 flag     */-1, /*30 fnh_aki */-1, /*31 bull     */ 1,
+    /*32 m60     */  2, /*33 sawedoff */ 3, /*34 katana  */-1, /*35 sealknife*/-1,
+    /*36 contend */  3, /*37 skorp_ak */-1,
+  };
+  for (int i = 0; i < TSW_COUNT; i++)
+    g_weaponInfo[i].iFireAnim = kFireAnim[i];
 
   g_weaponInfoCompiled = true;
 }

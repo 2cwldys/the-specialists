@@ -93,6 +93,11 @@ struct s_weapon_info
 	// Bullets fired per shot (s_weapon_info+0x24): 1 for most guns, 8 for the shotguns
 	// (benelli/usas/spas/mossberg/sawed-off). Drives the FireBulletsPlayer pellet count.
 	int   iPellets;    // +0x24 — bullets/pellets per shot
+	// Viewmodel fire-animation sequence index (the "shoot*" sequence in v_*.mdl, read
+	// from the models). -1 = no standard fire anim (melee/grenade/akimbo use their own
+	// paths). SLICE: we drive it server-side via SendWeaponAnim; the original predicts
+	// it client-side through the events/fire.sc event (CTSGun precaches m_usFire@0x964).
+	int   iFireAnim;
 };
 
 // Per-caliber ammo: the 16 calibers, the mag/magazine size, and the max reserve (rounds),

@@ -352,6 +352,12 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 
+	// Play the viewmodel's fire animation (the "shoot*" sequence read from v_*.mdl).
+	// SLICE: server-driven SendWeaponAnim; the original predicts it client-side via the
+	// events/fire.sc event. -1 = weapon has no standard fire anim (melee/grenade/akimbo).
+	if (wi->iFireAnim >= 0)
+		SendWeaponAnim(wi->iFireAnim);
+
 	if (wi->pszFireSound)
 		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, wi->pszFireSound, VOL_NORM, ATTN_NORM);
 
