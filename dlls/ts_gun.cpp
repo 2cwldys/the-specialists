@@ -97,6 +97,13 @@ static int gmsgWeaponInfo = 0;
 // The weapon-select bar message: "WStatus", size 3 = BYTE type, BYTE owned, BYTE clip.
 static int gmsgWStatus = 0;
 
+// `damagemult` cvar (default 0.0 = off → 1x). A value > 0 scales all TS weapon damage.
+static float TSDamageMult()
+{
+	const float m = CVAR_GET_FLOAT("damagemult");
+	return (m > 0.0f) ? m : 1.0f;
+}
+
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
 
 // The one weapon_tsgun in a player's inventory (the whole TS arsenal), or NULL.
@@ -389,7 +396,7 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	Vector vecAiming = gpGlobals->v_forward;
 	m_pPlayer->FireBulletsPlayer(cPellets, vecSrc, vecAiming,
 		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
-		0, (int)wi->flDamage, m_pPlayer->pev, m_pPlayer->random_seed);
+		0, (int)(wi->flDamage * TSDamageMult()), m_pPlayer->pev, m_pPlayer->random_seed);
 
 	float flRate;
 	if (m_fireMode == TSFM_BURST)
@@ -439,7 +446,7 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 	if (pHit)
 	{
 		ClearMultiDamage();
-		pHit->TraceAttack(m_pPlayer->pev, wi->flDamage, gpGlobals->v_forward, &tr,
+		pHit->TraceAttack(m_pPlayer->pev, wi->flDamage * TSDamageMult(), gpGlobals->v_forward, &tr,
 			DMG_CLUB | DMG_NEVERGIB);
 		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
 	}
@@ -485,7 +492,7 @@ void CTSGun::ColdCock()
 	if (pHit)
 	{
 		ClearMultiDamage();
-		pHit->TraceAttack(m_pPlayer->pev, 25.0f, gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
+		pHit->TraceAttack(m_pPlayer->pev, 25.0f * TSDamageMult(), gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
 		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
 	}
 }
@@ -518,7 +525,7 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_forward * 16;
 	Vector vecVel = gpGlobals->v_forward * 800 + m_pPlayer->pev->velocity;
 	// w_m61 table damage is the per-pickup value; the explosion is area damage.
-	float dmg = (wi->flDamage > 0) ? wi->flDamage * 4.0f : 120.0f;
+	float dmg = ((wi->flDamage > 0) ? wi->flDamage * 4.0f : 120.0f) * TSDamageMult();
 	TSThrowM61(m_pPlayer->pev, vecSrc, vecVel, 4.0f, dmg);
 
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
@@ -564,7 +571,7 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 
 	m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
 		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
-		0, (int)wi->flDamage, m_pPlayer->pev, m_pPlayer->random_seed);
+		0, (int)(wi->flDamage * TSDamageMult()), m_pPlayer->pev, m_pPlayer->random_seed);
 
 	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
 	if (DoubleFireRate(m_pPlayer))

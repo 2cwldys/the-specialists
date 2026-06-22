@@ -5,6 +5,14 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 63b) — wire `damagemult` cvar → weapon damage scale
+
+`damagemult` cvar (default 0.0 = off → 1x; >0 scales) now multiplies all TS weapon damage via a
+`TSDamageMult()` helper (`dlls/ts_gun.cpp`, `CVAR_GET_FLOAT`) applied at all 5 damage points: StandardFire/
+ShotgunFire (FireBulletsPlayer), AkimboFire, MeleeAttack, ColdCock, GrenadeThrow. Builds clean; the
+cvar-read pattern is proven (roundtime/slowmatch). Combat scaling itself needs a playtest shot to confirm
+on-screen (combat-gated). API_SURFACE §6c: damagemult ★wired.
+
 ## 2026-06-22 (cont. 63) — pfnGetGameDescription → "The Specialists (mode)"
 
 `CTSGameRules::GetGameDescription` (new override, `dlls/ts_teams.cpp`) returns the mod name shown in the
