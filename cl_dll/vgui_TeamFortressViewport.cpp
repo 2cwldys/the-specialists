@@ -51,6 +51,7 @@
 
 #include "vgui_int.h"
 #include "vgui_TeamFortressViewport.h"
+#include "vgui_TSBuyMenu.h"
 #include "vgui_ScorePanel.h"
 #include "vgui_SpectatorPanel.h"
 
@@ -516,6 +517,7 @@ TeamFortressViewport::TeamFortressViewport(int x, int y, int wide, int tall) : P
 	gViewPort = this;
 	m_iInitialized = false;
 	m_pTeamMenu = NULL;
+	m_pTSBuyMenu = NULL;
 	m_pClassMenu = NULL;
 	m_pScoreBoard = NULL;
 	m_pSpectatorPanel = NULL;
@@ -576,6 +578,7 @@ TeamFortressViewport::TeamFortressViewport(int x, int y, int wide, int tall) : P
 
 	// VGUI MENUS
 	CreateTeamMenu();
+	CreateTSBuyMenu();
 	CreateClassMenu();
 	CreateSpectatorMenu();
 	CreateScoreBoard();
@@ -1596,6 +1599,28 @@ void TeamFortressViewport::CreateTeamMenu()
 	m_pTeamMenu = new CTeamMenuPanel(100, false, 0, 0, ScreenWidth, ScreenHeight);
 	m_pTeamMenu->setParent(this);
 	m_pTeamMenu->setVisible(false);
+}
+
+// TS client-side buy/config menu (cont.69e) — a vgui::Panel of CommandButtons, shown during the
+// spectate-wait (join/buy) phase. RE'd from client.dll (reference/MENUS.md).
+void TeamFortressViewport::CreateTSBuyMenu()
+{
+	const int wide = XRES(160);
+	const int tall = YRES(24 + 2) * 8;
+	m_pTSBuyMenu = new CTSBuyMenuPanel(XRES(40), YRES(120), wide, tall);
+	m_pTSBuyMenu->setParent(this);
+	m_pTSBuyMenu->setVisible(false);
+}
+
+void TeamFortressViewport::ShowTSBuyMenu(bool show)
+{
+	if (!m_pTSBuyMenu)
+		return;
+	if (show)
+		m_pTSBuyMenu->Open();
+	else
+		m_pTSBuyMenu->Close();
+	UpdateCursorState();
 }
 
 //======================================================================================

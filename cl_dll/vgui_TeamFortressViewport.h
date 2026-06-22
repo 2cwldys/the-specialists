@@ -53,6 +53,7 @@ class DragNDropPanel;
 class CTransparentPanel;
 class CClassMenuPanel;
 class CTeamMenuPanel;
+class CTSBuyMenuPanel;
 class TeamFortressViewport;
 
 char* GetVGUITGAName(const char *pszName);
@@ -505,6 +506,7 @@ private:
 
 	// VGUI Menus
 	void		 CreateTeamMenu( void );
+	void		 CreateTSBuyMenu( void ); // TS buy/config menu (cont.69e)
 	CMenuPanel*	 ShowTeamMenu( void );
 	void		 CreateClassMenu( void );
 	CMenuPanel*	 ShowClassMenu( void );
@@ -624,6 +626,8 @@ public:
 	// VGUI Menus
 	CMenuPanel		*m_pCurrentMenu;
 	CTeamMenuPanel	*m_pTeamMenu;
+	CTSBuyMenuPanel	*m_pTSBuyMenu;   // TS client-side buy/config menu (cont.69e)
+	void			 ShowTSBuyMenu( bool show );
 	int						m_StandardMenu;	// indexs in m_pCommandMenus
 	int						m_SpectatorOptionsMenu;
 	int						m_SpectatorCameraMenu;
