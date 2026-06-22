@@ -182,6 +182,18 @@ void CTSObjectiveManager::Reset()
 			FireTargets(STRING(m_objTargets[i]), this, this, USE_TOGGLE, 0);
 }
 
+// Fire the objective manager's `targetontimeleft` when the round timer expires (called from
+// CTSGameRules::RoundTimeLeft). No-op if there's no manager / target.
+void TSFireTimeLeftTarget()
+{
+	CBaseEntity *pEnt = UTIL_FindEntityByClassname(nullptr, "ts_objective_manager");
+	if (!pEnt)
+		return;
+	CTSObjectiveManager *mgr = (CTSObjectiveManager *)pEnt;
+	if (!FStringNull(mgr->m_targetTimeLeft))
+		FireTargets(STRING(mgr->m_targetTimeLeft), mgr, mgr, USE_TOGGLE, 0);
+}
+
 //============================================================================
 // CTSObjectivePointer — a per-team HUD pointer to an objective. The visible arrow is
 // client-side; server-side this just spawns + stores the per-team messages. @0x8bb44.

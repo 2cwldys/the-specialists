@@ -45,6 +45,38 @@ int CTSGameRules::GetRandomPowerup(int mask)
 CBaseEntity *TSCreatePowerUpAt(int type, const Vector &vecOrigin);
 // Defined in ts_flag.cpp — drop a carried CTF flag on death.
 void TSDropFlag(CBasePlayer *pPlayer);
+// Defined in ts_objectives.cpp — fire the objective manager's targetontimeleft on round timeout.
+void TSFireTimeLeftTarget();
+
+// Round-time HUD message (remaining seconds); registered lazily on first send.
+int gmsgTSRoundTime = 0;
+
+// The TS round length (the .so reads a `roundtime` cvar, clamped [30,180]). // VERIFY: wire the cvar.
+#define TS_ROUNDTIME 120.0f
+
+// @ StartRoundTimer — arm the round timer for a fresh round and tell clients the time left.
+void CTSGameRules::StartRoundTimer()
+{
+	float t = TS_ROUNDTIME;
+	if (t < 30.0f) t = 30.0f;
+	if (t > 180.0f) t = 180.0f;
+	m_flRoundEnd = gpGlobals->time + t;
+
+	if (gmsgTSRoundTime == 0)
+		gmsgTSRoundTime = REG_USER_MSG("TSRoundTime", -1);
+	MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
+	WRITE_SHORT((int)(m_flRoundEnd - gpGlobals->time));
+	WRITE_SHORT(0);
+	MESSAGE_END();
+}
+
+// @ RoundTimeLeft — the round ran out of time: fire the objective manager's targetontimeleft, then
+// declare a draw (the .so's TeamWin(2)). The draw schedules the round restart.
+void CTSGameRules::RoundTimeLeft()
+{
+	TSFireTimeLeftTarget();
+	TeamWin(2); // 2 = draw (nobody)
+}
 // Defined in ts_corpse.cpp / ts_gun.cpp — the TS death effects.
 CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime);
 void TSDropWeaponsOnDeath(CBasePlayer *pPlayer);
@@ -159,6 +191,8 @@ static void TSRestartRound()
 	while ((e = UTIL_FindEntityByClassname(e, "ts_hack")) != nullptr)
 		e->Spawn();
 	TSHudMessageAll(0, 0xff, 0, 8, 30, "Round restart!");
+	if (TSGameRules())
+		TSGameRules()->m_flRoundEnd = 0; // re-arm the round timer for the new round (next Think)
 }
 
 // @ PutPowerUp__12CTSGameRulesi — spawn a powerup at a random info_player_deathmatch
@@ -207,6 +241,16 @@ void CTSGameRules::Think()
 	{
 		m_flRoundRestart = 0;
 		TSRestartRound();
+	}
+
+	// Team-round timer: arm it on the first team-mode frame (and after each restart), and end the
+	// round in a draw when it expires (unless a win is already pending).
+	if (IsTeamMode() && m_flRoundRestart == 0)
+	{
+		if (m_flRoundEnd == 0)
+			StartRoundTimer();
+		else if (gpGlobals->time >= m_flRoundEnd)
+			RoundTimeLeft();
 	}
 
 	if (gpGlobals->time < m_flNextPowerupSpawn)

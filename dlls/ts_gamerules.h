@@ -94,6 +94,13 @@ public:
 	void  CallCheckDeads();
 	float m_flCheckDeads = 0;     // >0 = a deads-check is pending at this time (the .so's +0x5880)
 
+	// @ round timer — team rounds time out. StartRoundTimer arms it (roundtime clamped [30,180]) +
+	// sends the remaining seconds (gmsgTSRoundTime); when it expires, RoundTimeLeft fires the
+	// objective manager's `targetontimeleft` and declares a draw (TeamWin(2)).
+	void  StartRoundTimer();
+	void  RoundTimeLeft();
+	float m_flRoundEnd = 0;       // >0 = the round ends at this time (the .so's +0x8); 0 = not armed
+
 	// @ PutPowerUp(type) — spawn a powerup of `type` at a random info_player_deathmatch
 	// (skipped if a powerup is already nearby). Returns true if one was spawned.
 	bool PutPowerUp(int type);
