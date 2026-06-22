@@ -55,6 +55,27 @@ sizes) and is the basis for the next Ghidra type-application pass (apply entvars
 gcc2 signatures + vtable annotation). NB STABS is NOT useful for mod member offsets — those stay analytic;
 but `entvars_t`/engine structs are pure C (ABI-stable offsets) so they CAN be applied verbatim.
 
+**User-message WIRE SIZES added + a real bug caught (cont.68f):** `coverage.py server_usermsg_sizes_orig`
+parses `LinkUserMessages__Fv` via objdump (`push $size; lea name(%ebx); call *0x12c` = pfnRegUserMsg slot)
+→ 64 message sizes (Health=1, Damage=12, SayText=-1, RoundTime=2, WeaponInfo=6, WStatus=3, …); diffed vs our
+REG_USER_MSG literal sizes. **Caught a real wire mismatch: `Health` is size 1 in the original, 2 in ours**
+(a silent protocol corrupter — drop-in breaker; fix = match the original). Also fixed `fn_range` to skip
+same-address symbol aliases (gcc2_compiled. shares LinkUserMessages' addr → was an empty range).
+
+**Keyvalue-gap RE (cont.68f, acting on the harness findings):** `CTSGroundAmmo::KeyValue` (@0x92718) parses
+`mags<N>` (strncmp "mags" + strtol suffix) → `m_mags[N] = magcount * get_ammo_info(N).roundsPerMag(+0x10)`,
+plus `wduration`→respawn(+0xa8); our CTSGroundAmmo ignores the map mags = a real TODO. **`CTSFog::Spawn` is
+just `UTIL_Remove(this)`** — the original deletes ts_fog on spawn, so near/far/color are intentionally
+ignored: the harness's ts_fog keyvalue "gap" is a NON-issue (match by removing it).
+
+**Tooling assessment — #1/#2/#4 (diminishing returns, NOT built):** native in-decompiler vtable typing is
+superseded in practice by `vtcall.py` (resolves dispatch offsets→methods) for a heavy Ghidra-API lift;
+dedicated RTTI/`__ti` hierarchy is redundant with the vtable data (inherited slots already name their base
+class) and the gcc2 __ti layout resists clean automated parsing; spawnflag coverage can list the FGD
+bit→label inventory but can't be verified as handled (we use raw bits/SF_ names, not FGD labels) so it's not
+a real coverage check. Higher-value next work = act on findings (Health size, ts_groundammo mags, sk_*/
+stock-HL event/message leftover cleanup).
+
 **Ghidra type recovery extended (cont.68e) — entvars_t fields + MSVC return types:**
 `ApplyTypes.java` now also (a) parses engine/progdefs.h to populate `entvars_t` with REAL fields
 (extracts just the plain `typedef struct{}` blocks + a 4-type prelude, since the modern progdefs.h

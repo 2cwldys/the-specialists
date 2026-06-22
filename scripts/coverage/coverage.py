@@ -199,6 +199,38 @@ def server_cvars_orig(path):
         cv[name] = dflt
     return cv
 
+def server_usermsg_sizes_orig(path):
+    """Wire SIZES the original registers via pfnRegUserMsg(name,size) in LinkUserMessages
+    (engine slot +0x12c): `push $size; lea name(%ebx); call *0x12c(...)`. -1 = variable.
+    Returns {name: size}."""
+    start, end = fn_range(path, "LinkUserMessages__Fv")
+    if start is None: return {}
+    data = open(path, "rb").read()
+    dis = sh("objdump", "-d", f"--start-address=0x{start:x}", f"--stop-address=0x{end:x}", path).splitlines()
+    sizes, last_size, last_name = {}, None, None
+    for ln in dis:
+        mp = re.search(r"push\s+\$0x([0-9a-f]+)", ln)
+        if mp: last_size = int(mp.group(1), 16); continue
+        ml = re.search(r"lea\s+-0x([0-9a-f]+)\(%ebx\)", ln)
+        if ml:
+            va = GOT_BASE - int(ml.group(1), 16)
+            e = data.find(b"\x00", va)
+            try: last_name = data[va:e].decode("ascii")
+            except (UnicodeDecodeError, ValueError): last_name = None
+            continue
+        if "call" in ln and "0x12c(" in ln and last_name and last_size is not None:
+            sizes[last_name] = -1 if last_size == 0xffffffff else last_size
+            last_name = last_size = None
+    return sizes
+
+def our_usermsg_sizes():
+    """Our REG_USER_MSG("name", size) sizes where size is an int/-1 literal (skip sizeof())."""
+    sz = {}
+    for name, expr in re_pairs(r'REG_USER_MSG\(\s*"([^"]+)"\s*,\s*([^)]+)\)', "dlls"):
+        expr = expr.strip()
+        if re.fullmatch(r"-?\d+", expr): sz[name] = int(expr)
+    return sz
+
 def our_server_cvars():
     """Our server cvars: cvar_t definitions in dlls/ ( cvar_t X = {"name", "default", ... } )."""
     cv = {}
@@ -267,7 +299,7 @@ def fn_range(path, mangled_substr):
     syms.sort()
     for i, (a, n) in enumerate(syms):
         if mangled_substr in n:
-            nxt = syms[i + 1][0] if i + 1 < len(syms) else a + 0x2000
+            nxt = next((b for b, _ in syms[i + 1:] if b > a), a + 0x2000)  # skip same-addr aliases
             return a, nxt
     return None, None
 
@@ -455,6 +487,7 @@ def extract_original():
         "client_cvars": client_cvars_orig(ORIG_CLIENT) if os.path.exists(ORIG_CLIENT) else {},  # binary-registered (authoritative)
         "server_cvars": server_cvars_orig(ORIG_SERVER) if os.path.exists(ORIG_SERVER) else {},  # cvar_t scan (authoritative)
         "usermsgs": sorted(client_usermsgs_orig(ORIG_CLIENT)) if os.path.exists(ORIG_CLIENT) else [],  # client-hooked names
+        "usermsg_sizes": server_usermsg_sizes_orig(ORIG_SERVER) if os.path.exists(ORIG_SERVER) else {},  # REG_USER_MSG wire sizes
         "events": sorted(events_in(ORIG_SERVER)) if os.path.exists(ORIG_SERVER) else [],
         "fgd_keyvalues": {e: sorted(ks) for e, ks in fgd_keyvalues(ORIG_FGD).items()},
         "cfg_binds": sorted(cfg_binds(ORIG_CFG)),
@@ -474,6 +507,7 @@ def extract_ours():
         "server_cvars": our_server_cvars(),
         "usermsgs": sorted(our_client_usermsgs()),
         "server_usermsgs": sorted(our_server_usermsgs()),
+        "usermsg_sizes": our_usermsg_sizes(),
         "events": sorted(events_in(OUR_SERVER)) if os.path.exists(OUR_SERVER) else [],
         "keyvalue_keys": sorted(our_keyvalue_keys()),
     }
@@ -564,6 +598,17 @@ def diff():
         L.append("")
         for ent in sorted(unhandled):
             L.append(f"- `{ent}`: " + ", ".join(f"`{k}`" for k in sorted(unhandled[ent])))
+    L.append("")
+
+    # user-message WIRE SIZES — a size mismatch silently corrupts the protocol (drop-in breaker)
+    osz, usz = o.get("usermsg_sizes", {}), u.get("usermsg_sizes", {})
+    szmism = [f"`{n}`: orig=`{osz[n]}` ours=`{usz[n]}`" for n in sorted(set(osz) & set(usz)) if osz[n] != usz[n]]
+    L += ["### User-message wire sizes (REG_USER_MSG size byte)", "",
+          "_The registered byte-size per message (−1 = variable). A MISMATCH silently corrupts the "
+          "wire format = a drop-in breaker. Compared for messages present in both with a literal size._", "",
+          f"- original messages with a recovered size: **{len(osz)}**  |  ours (literal sizes): **{len(usz)}**  |  size mismatches: **{len(szmism)}**"]
+    if szmism:
+        L += ["", "**SIZE MISMATCHES (fix — these break the protocol):**", "", "  " + " · ".join(szmism)]
     L.append("")
 
     s, _, _ = section("Events (events/*.sc)", o.get("events", []), u.get("events", []),

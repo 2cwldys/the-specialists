@@ -85,6 +85,16 @@ _For entities we implement: FGD-declared map keys that no `KeyValue()` in our DL
 - `ts_objective_manager`: `messagea`, `messageb`, `messagec`, `messaged`, `objptargeta`, `objptargetb`, `objptargetc`, `objptargetd`, `objptargete`, `objptargetf`, `objptargetg`, `objptargeth`
 - `ts_objective_ptr`: `objmsgall`, `objmsgmerc`, `objmsgspec`, `objmsgteam3`, `objmsgteam4`
 
+### User-message wire sizes (REG_USER_MSG size byte)
+
+_The registered byte-size per message (−1 = variable). A MISMATCH silently corrupts the wire format = a drop-in breaker. Compared for messages present in both with a literal size._
+
+- original messages with a recovered size: **64**  |  ours (literal sizes): **46**  |  size mismatches: **1**
+
+**SIZE MISMATCHES (fix — these break the protocol):**
+
+  `Health`: orig=`1` ours=`2`
+
 ### Events (events/*.sc)
 
 _Predicted-event scripts referenced by each server. MISSING = a TS event we don't reference; EXTRA = a stock-HL event we still precache that the original removed (HL leftover)._
