@@ -55,6 +55,18 @@ sizes) and is the basis for the next Ghidra type-application pass (apply entvars
 gcc2 signatures + vtable annotation). NB STABS is NOT useful for mod member offsets — those stay analytic;
 but `entvars_t`/engine structs are pure C (ABI-stable offsets) so they CAN be applied verbatim.
 
+**Coverage dimensions added (cont.68d) — entity keyvalues + method completeness:**
+- **Entity keyvalue coverage** (`coverage.py`): per implemented FGD entity, which declared map keys NO
+  `KeyValue()` handles (engine-auto keys = entvars_t fields + stock/compile-tool keys excluded). Surfaces 4
+  real behavioral gaps: `ts_fog` ignores far/near, `ts_groundammo` ignores mags1..11, `ts_objective_manager`
+  ignores messagea-d/objptargeta-h, `ts_objective_ptr` ignores objmsg*. = internal-state replication TODOs.
+- **Method completeness** (`scripts/coverage/reconstruction.py` → `RECONSTRUCTION_COVERAGE.md`): per TS class,
+  methods in the original (signatures-gcc2) vs implemented in our hl.so (nm|c++filt). **60 classes, 140/368
+  methods (38%)**, least-complete first: CTSStunt 0/25, CTSSharedEmitter 0/11, CBulletManager 0/7, the
+  particle/emitter/wind + per-category weapon-factory classes 0% (some intentional — CTSGun subsumes the leaf
+  CTSPistolWeapon/etc.). A completeness ROADMAP (not an ABI match). Also renamed tsfiremode→firemode,
+  dropweapon→drop (real names, default.cfg-confirmed); committed cont.67 weapon-switch + all tooling.
+
 **Reconstruction tooling — the 3 improvements built + validated (cont.68c):**
 - **#1 typed decompiles — `scripts/ghidra/ApplyTypes.java`** (postScript): applies the recovered gcc2
   signatures (`reference/signatures-gcc2.map`) as REAL Ghidra prototypes → 2570 functions typed; the `this`

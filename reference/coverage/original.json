@@ -557,6 +557,450 @@
   "events/reload.sc",
   "events/train.sc"
  ],
+ "fgd_keyvalues": {
+  "aiscripted_sequence": [
+   "m_flradius",
+   "m_flrepeat",
+   "m_iszentity",
+   "m_iszplay"
+  ],
+  "ambient_generic": [
+   "health",
+   "message",
+   "preset"
+  ],
+  "button_target": [],
+  "cycler": [
+   "model",
+   "renderfx"
+  ],
+  "cycler_sprite": [
+   "framerate",
+   "model",
+   "renderfx"
+  ],
+  "cycler_weapon": [
+   "model"
+  ],
+  "cycler_wreckage": [
+   "framerate",
+   "model",
+   "scale"
+  ],
+  "env_beam": [
+   "boltwidth",
+   "damage",
+   "framerate",
+   "framestart",
+   "life",
+   "noiseamplitude",
+   "radius",
+   "renderamt",
+   "rendercolor",
+   "striketime",
+   "texture",
+   "texturescroll"
+  ],
+  "env_beverage": [
+   "health",
+   "skin"
+  ],
+  "env_blood": [
+   "color"
+  ],
+  "env_bubbles": [
+   "current",
+   "density",
+   "frequency"
+  ],
+  "env_explosion": [],
+  "env_fade": [],
+  "env_funnel": [],
+  "env_global": [
+   "globalstate",
+   "triggermode"
+  ],
+  "env_glow": [
+   "model",
+   "scale"
+  ],
+  "env_laser": [
+   "damage",
+   "endsprite",
+   "framestart",
+   "lasertarget",
+   "noiseamplitude",
+   "renderamt",
+   "rendercolor",
+   "texture",
+   "texturescroll",
+   "width"
+  ],
+  "env_message": [
+   "message"
+  ],
+  "env_render": [],
+  "env_shake": [],
+  "env_shooter": [
+   "shootmodel",
+   "shootsounds"
+  ],
+  "env_sound": [
+   "radius"
+  ],
+  "env_spark": [
+   "maxdelay"
+  ],
+  "env_sprite": [
+   "framerate",
+   "model",
+   "scale"
+  ],
+  "func_breakable": [],
+  "func_button": [
+   "health",
+   "lip",
+   "master",
+   "sounds",
+   "speed"
+  ],
+  "func_conveyor": [],
+  "func_door": [],
+  "func_door_rotating": [],
+  "func_friction": [
+   "modifier"
+  ],
+  "func_guntarget": [
+   "_minlight",
+   "health",
+   "message",
+   "speed",
+   "target"
+  ],
+  "func_healthcharger": [
+   "_minlight"
+  ],
+  "func_illusionary": [
+   "skin"
+  ],
+  "func_ladder": [],
+  "func_monsterclip": [],
+  "func_mortar_field": [
+   "m_flspread",
+   "m_icount"
+  ],
+  "func_pendulum": [
+   "damp",
+   "distance",
+   "dmg",
+   "speed"
+  ],
+  "func_plat": [],
+  "func_platrot": [],
+  "func_pushable": [
+   "size"
+  ],
+  "func_recharge": [
+   "_minlight"
+  ],
+  "func_rot_button": [
+   "changetarget",
+   "health",
+   "master",
+   "sounds",
+   "speed",
+   "target"
+  ],
+  "func_rotating": [
+   "fanfriction",
+   "sounds",
+   "speed",
+   "volume"
+  ],
+  "func_tank": [
+   "bullet"
+  ],
+  "func_tankcontrols": [
+   "target"
+  ],
+  "func_tanklaser": [
+   "laserentity"
+  ],
+  "func_tankmortar": [],
+  "func_tankrocket": [],
+  "func_trackautochange": [
+   "_minlight"
+  ],
+  "func_trackchange": [
+   "_minlight"
+  ],
+  "func_tracktrain": [],
+  "func_train": [
+   "movesnd",
+   "target"
+  ],
+  "func_traincontrols": [
+   "target"
+  ],
+  "func_wall": [
+   "_minlight"
+  ],
+  "func_wall_toggle": [],
+  "func_water": [],
+  "game_counter": [],
+  "game_counter_set": [],
+  "game_end": [
+   "master"
+  ],
+  "game_player_equip": [],
+  "game_player_hurt": [
+   "dmg"
+  ],
+  "game_player_team": [],
+  "game_score": [],
+  "game_team_master": [],
+  "game_team_set": [],
+  "game_text": [],
+  "game_zone_player": [
+   "incount",
+   "intarget",
+   "outcount",
+   "outtarget"
+  ],
+  "gibshooter": [],
+  "info_bigmomma": [],
+  "info_intermission": [],
+  "info_landmark": [],
+  "info_node": [],
+  "info_node_air": [],
+  "info_null": [],
+  "info_player_coop": [],
+  "info_player_deathmatch": [],
+  "info_player_start": [],
+  "info_player_team1": [],
+  "info_player_team2": [],
+  "info_player_team3": [],
+  "info_player_team4": [],
+  "info_target": [],
+  "info_teleport_destination": [],
+  "infodecal": [
+   "texture"
+  ],
+  "item_airtank": [],
+  "item_antidote": [],
+  "item_battery": [],
+  "item_healthkit": [],
+  "item_longjump": [],
+  "item_security": [],
+  "item_suit": [],
+  "light": [],
+  "light_environment": [
+   "_light",
+   "pitch"
+  ],
+  "light_spot": [
+   "_cone",
+   "_cone2",
+   "_light",
+   "pitch"
+  ],
+  "momentary_door": [],
+  "momentary_rot_button": [
+   "master",
+   "sounds",
+   "speed"
+  ],
+  "multi_manager": [],
+  "multisource": [
+   "globalstate"
+  ],
+  "path_corner": [],
+  "path_track": [],
+  "player_loadsaved": [
+   "duration",
+   "holdtime",
+   "loadtime",
+   "message",
+   "messagetime",
+   "renderamt",
+   "rendercolor"
+  ],
+  "player_weaponstrip": [],
+  "scripted_sentence": [],
+  "scripted_sequence": [
+   "m_flradius",
+   "m_flrepeat",
+   "m_fmoveto",
+   "m_iszentity",
+   "m_iszidle",
+   "m_iszplay"
+  ],
+  "speaker": [
+   "preset"
+  ],
+  "target_cdaudio": [
+   "health"
+  ],
+  "trigger_auto": [],
+  "trigger_autosave": [
+   "master"
+  ],
+  "trigger_camera": [
+   "moveto",
+   "wait"
+  ],
+  "trigger_cdaudio": [
+   "health"
+  ],
+  "trigger_changelevel": [
+   "changedelay",
+   "changetarget",
+   "landmark",
+   "map",
+   "targetname"
+  ],
+  "trigger_changetarget": [
+   "m_isznewtarget"
+  ],
+  "trigger_counter": [],
+  "trigger_endsection": [
+   "section"
+  ],
+  "trigger_gravity": [
+   "gravity"
+  ],
+  "trigger_hurt": [],
+  "trigger_monsterjump": [
+   "height",
+   "master",
+   "speed"
+  ],
+  "trigger_multiple": [
+   "wait"
+  ],
+  "trigger_once": [],
+  "trigger_push": [],
+  "trigger_relay": [],
+  "trigger_teleport": [],
+  "trigger_transition": [
+   "tsweaponid"
+  ],
+  "ts_bomb": [
+   "cutwires",
+   "defusetime"
+  ],
+  "ts_briefcase": [
+   "contents",
+   "message",
+   "ownerteam"
+  ],
+  "ts_customtarget": [
+   "accumulate",
+   "targets",
+   "triggermethod"
+  ],
+  "ts_dmhill": [
+   "fragamt",
+   "fragamtteam",
+   "message",
+   "nextcheck"
+  ],
+  "ts_emitter": [],
+  "ts_fog": [
+   "color",
+   "far",
+   "near"
+  ],
+  "ts_groundammo": [
+   "mags1",
+   "mags10",
+   "mags11",
+   "mags2",
+   "mags3",
+   "mags4",
+   "mags5",
+   "mags6",
+   "mags7",
+   "mags8",
+   "mags9",
+   "wduration"
+  ],
+  "ts_groundweapon": [
+   "buyable",
+   "wduration",
+   "wextraclip"
+  ],
+  "ts_hack": [
+   "hackingtime",
+   "message",
+   "target"
+  ],
+  "ts_mapglobals": [],
+  "ts_model": [
+   "model",
+   "renderfx"
+  ],
+  "ts_objective_manager": [
+   "messagea",
+   "messageb",
+   "messagec",
+   "messaged",
+   "objptargeta",
+   "objptargetb",
+   "objptargetc",
+   "objptargetd",
+   "objptargete",
+   "objptargetf",
+   "objptargetg",
+   "objptargeth",
+   "targetonmercdead",
+   "targetonspecdead",
+   "targetontimeleft"
+  ],
+  "ts_objective_ptr": [
+   "objmsgall",
+   "objmsgmerc",
+   "objmsgspec",
+   "objmsgteam3",
+   "objmsgteam4"
+  ],
+  "ts_particle": [],
+  "ts_playeramount": [
+   "clients",
+   "connecttarget",
+   "disconnecttarget"
+  ],
+  "ts_powerup": [],
+  "ts_scoregiver": [],
+  "ts_sellzone": [],
+  "ts_slowmotion": [
+   "duration",
+   "slowamt"
+  ],
+  "ts_teamescape": [
+   "escapepercentage"
+  ],
+  "ts_timer": [],
+  "ts_trigger": [
+   "nextcheck"
+  ],
+  "ts_wind": [
+   "base",
+   "frequency",
+   "variance"
+  ],
+  "ts_wingiver": [],
+  "worldspawn": [
+   "chaptertitle",
+   "light",
+   "maxrange",
+   "message",
+   "skyname",
+   "sounds",
+   "startdark",
+   "waveheight"
+  ]
+ },
  "server_bin": "/home/stevenlafl/Projects/goldsrc.net/mod-ts/reference/ts_i386.so",
  "server_commands": [
   "cashala",

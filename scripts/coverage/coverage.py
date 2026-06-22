@@ -332,6 +332,50 @@ def our_link_entities():
     """Our entity classnames = the first arg of LINK_ENTITY_TO_CLASS(classname, CppClass)."""
     return grep_set(r'LINK_ENTITY_TO_CLASS\(\s*(\w+)\s*,', "dlls", group=1)
 
+def fgd_keyvalues(path):
+    """{entity: set(keyvalue_names)} declared in the FGD (excludes spawnflags). These are the
+    map keys the engine feeds to KeyValue() — our entity must handle them to behave identically."""
+    kv, cur = {}, None
+    if not os.path.exists(path): return kv
+    for ln in open(path, errors="replace"):
+        m = re.search(r'@(?:Point|Solid|Keyframe|Move)Class\b[^=]*=\s*([A-Za-z0-9_]+)', ln)
+        if m: cur = m.group(1); kv[cur] = set(); continue
+        if cur is None: continue
+        # keyvalue line:  name(type) : "label" ...   (skip spawnflags/the studio()/size() decls)
+        k = re.match(r'\s*([a-zA-Z_]\w*)\s*\(\s*(?:integer|string|float|choices|flags|target_source|target_destination|color255|sound|sprite|studio|decal|scale|angle)\b', ln)
+        if k and k.group(1).lower() != "spawnflags":
+            kv[cur].add(k.group(1).lower())
+        if ln.strip() == "]": cur = None
+    return kv
+
+def our_keyvalue_keys():
+    """Every map key our DLL handles in any KeyValue() ( FStrEq(pkvd->szKeyName, "X") ) —
+    includes the stock base-class handlers since we compile the whole SDK."""
+    return {k.lower() for k in grep_set(r'pkvd->szKeyName\s*,\s*"([^"]+)"', "dlls")}
+
+PROGDEFS = os.path.join(ROOT, "engine", "progdefs.h")
+
+def engine_handled_keys():
+    """Map keys the ENGINE sets into pev automatically (so no DLL KeyValue() handles them):
+    the entvars_t field names + the standard stock keys. Excluded from the unhandled check so
+    it surfaces only genuinely-unignored (usually TS-specific) keys."""
+    keys = set()
+    if os.path.exists(PROGDEFS):
+        body = open(PROGDEFS, errors="replace").read()
+        m = re.search(r"typedef struct entvars_s\s*\{(.*?)\}\s*entvars_t", body, re.S)
+        if m:
+            for fld in re.finditer(r"\b([a-z_]\w*)\s*;", m.group(1)):
+                keys.add(fld.group(1).lower())
+    keys |= {  # standard engine/stock map keys not literally entvars_t fields
+        "origin", "angle", "angles", "model", "target", "targetname", "killtarget",
+        "_minlight", "_diffuse_light", "renderfx", "rendermode", "renderamt", "rendercolor",
+        "scale", "sequence", "skin", "spawnflags", "globalname", "delay", "wait", "speed",
+        "dmg", "lip", "master", "netname", "message", "style", "health", "frags", "team",
+        # map-compiler / light keys (handled by the BSP tools, never reach the game DLL)
+        "light", "_light", "_cone", "_cone2", "_fade", "_falloff", "pitch", "texture",
+    }
+    return keys
+
 def fgd_entities(path):
     """The original's authoritative entity classnames (mapper-facing) from the TS FGD."""
     out = set()
@@ -412,6 +456,7 @@ def extract_original():
         "server_cvars": server_cvars_orig(ORIG_SERVER) if os.path.exists(ORIG_SERVER) else {},  # cvar_t scan (authoritative)
         "usermsgs": sorted(client_usermsgs_orig(ORIG_CLIENT)) if os.path.exists(ORIG_CLIENT) else [],  # client-hooked names
         "events": sorted(events_in(ORIG_SERVER)) if os.path.exists(ORIG_SERVER) else [],
+        "fgd_keyvalues": {e: sorted(ks) for e, ks in fgd_keyvalues(ORIG_FGD).items()},
         "cfg_binds": sorted(cfg_binds(ORIG_CFG)),
         "cfg_cvars_archived": cfg_cvars_with_defaults(ORIG_CFG_CVARS),  # archived subset only (NOT a full set)
     }
@@ -430,6 +475,7 @@ def extract_ours():
         "usermsgs": sorted(our_client_usermsgs()),
         "server_usermsgs": sorted(our_server_usermsgs()),
         "events": sorted(events_in(OUR_SERVER)) if os.path.exists(OUR_SERVER) else [],
+        "keyvalue_keys": sorted(our_keyvalue_keys()),
     }
     json.dump(man, open(os.path.join(OUT, "ours.json"), "w"), indent=1, sort_keys=True)
     return man
@@ -497,6 +543,29 @@ def diff():
                       "These are the client↔server message NAMES (the wire contract). MISSING = a message the original "
                       "client reads that ours doesn't; EXTRA = ours-only (invented or inherited-HL).")
     L += s
+    # entity keyvalue coverage: for entities we implement, which FGD map-keys does no KeyValue() handle?
+    fkv = o.get("fgd_keyvalues", {})
+    handled = set(u.get("keyvalue_keys", [])) | engine_handled_keys()  # engine-auto keys count as handled
+    ours_ents = set(u.get("entities", []))
+    unhandled = {}
+    for ent, keys in fkv.items():
+        if ent not in ours_ents:
+            continue  # not implemented yet -> already an entity-MISSING signal
+        miss = [k for k in keys if k not in handled]
+        if miss:
+            unhandled[ent] = miss
+    L += ["### Entity keyvalue coverage (FGD keys vs our KeyValue handlers)", "",
+          "_For entities we implement: FGD-declared map keys that no `KeyValue()` in our DLL handles "
+          "(stock base keys count as handled). Unhandled = the entity silently ignores that map key = "
+          "a behavioral gap._", ""]
+    nkeys = sum(len(v) for v in fkv.values() if v)
+    L.append(f"- implemented entities with FGD keyvalues checked: **{sum(1 for e in fkv if e in ours_ents and fkv[e])}**  |  entities with unhandled keys: **{len(unhandled)}**")
+    if unhandled:
+        L.append("")
+        for ent in sorted(unhandled):
+            L.append(f"- `{ent}`: " + ", ".join(f"`{k}`" for k in sorted(unhandled[ent])))
+    L.append("")
+
     s, _, _ = section("Events (events/*.sc)", o.get("events", []), u.get("events", []),
                       "Predicted-event scripts referenced by each server. MISSING = a TS event we don't reference; "
                       "EXTRA = a stock-HL event we still precache that the original removed (HL leftover).")

@@ -74,6 +74,17 @@ _Original = names hooked in client.dll (pfnHookUserMsg); ours = HOOK_MESSAGE in 
 
   `FlashBat`, `Flashlight`, `ResetFade`, `SpecFade`, `ViewMode`, `Weapons`, `x`
 
+### Entity keyvalue coverage (FGD keys vs our KeyValue handlers)
+
+_For entities we implement: FGD-declared map keys that no `KeyValue()` in our DLL handles (stock base keys count as handled). Unhandled = the entity silently ignores that map key = a behavioral gap._
+
+- implemented entities with FGD keyvalues checked: **75**  |  entities with unhandled keys: **4**
+
+- `ts_fog`: `far`, `near`
+- `ts_groundammo`: `mags1`, `mags10`, `mags11`, `mags2`, `mags3`, `mags4`, `mags5`, `mags6`, `mags7`, `mags8`, `mags9`
+- `ts_objective_manager`: `messagea`, `messageb`, `messagec`, `messaged`, `objptargeta`, `objptargetb`, `objptargetc`, `objptargetd`, `objptargete`, `objptargetf`, `objptargetg`, `objptargeth`
+- `ts_objective_ptr`: `objmsgall`, `objmsgmerc`, `objmsgspec`, `objmsgteam3`, `objmsgteam4`
+
 ### Events (events/*.sc)
 
 _Predicted-event scripts referenced by each server. MISSING = a TS event we don't reference; EXTRA = a stock-HL event we still precache that the original removed (HL leftover)._
