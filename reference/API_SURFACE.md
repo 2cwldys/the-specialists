@@ -184,6 +184,37 @@ names; the original uses the mp_ prefix. NOTE: a faithful pass could alias those
 Registration stops "Unknown command mp_teammodels" etc; most still need behaviour wiring
 (only `roundtime` is read so far).
 
+## 6c. Implementation status — TS cvars & commands (R=registered, ✓read, ★gameplay-wired)
+
+Three levels: **R** = exists (no "Unknown command"); **read** = a consumer reads its value; **wired** =
+it changes gameplay. Most are R-only so far.
+
+### TS-specific cvars
+| cvar | R | read | wired | notes |
+|---|:-:|:-:|:-:|---|
+| `roundtime` | ✅ | ✅ | ★ | drives StartRoundTimer (cont.54) |
+| `slowmatch` | ✅ | ✅ | ★ | global slow-motion match (cont.59) |
+| `hud_r`/`hud_g`/`hud_b` | ✅ | ✅ | ★ | HUD text colour (cont.52) |
+| `hud_color` | ✅ | — | — | combined; not parsed |
+| `cl_realhud` | ✅ | — | — | alt HUD mode not honoured |
+| `cl_motionblur`/`cl_gore`/`cl_laser`/`cl_lasercolor`/`cl_solidcross`/`cl_usepowerup`/`cl_buykevlar`/`cl_showequipment`/`cl_shadow`/`cl_thirdtransparency`/`cl_camtype`/`cl_attackswitch`/`cl_thirdpersonswitch`/`cl_wavedetail`/`cl_fx`/`cl_slowfade`/`cl_vsmoothing`/`hud_classautokill`/`hud_takesshots`/`nohud`/`r_paintball` | ✅ | — | — | client display/fx — registered only |
+| `mp_teammodels` | ✅ | — | — | server; team model override |
+| `initial_cash`/`cashforwin`/`cashforlose` | ✅ | — | — | economy; `GiveCash` exists (cont.36), not charged |
+| `damagemult` | ✅ | — | — | damage scale — next wiring candidate |
+| `respawntime`/`nopowerup`/`usecash`/`ammocount`/`bottalk`/`botlearn`/`realbullet`/`mp_theonemode`/`mp_theone`/`mp_theothers`/`lastmanstanding`/`spectacularness`/`respawnnumber`/`customweapons`/`banfortk`/`dmgreport`/`botarmor`/`deadstomach` | ✅ | — | — | server; registered only |
+
+### TS-specific commands
+| command | R | forwarded | gameplay | notes |
+|---|:-:|:-:|:-:|---|
+| `+alt2`/`-alt2` | ✅ | ✅ | ★ | coldcock pistol-whip (cont.57) |
+| `+alt1`/`-alt1` | (xash built-in) | ✅ | ❌ | silencer/scope — UNMAPPED (see VERIFICATION.md §B) |
+| `special` | (xash built-in) | ✅ | ❌ | stunt — needs CTSStunt |
+| `+break`/`-break` | (xash built-in) | ✅ | ❌ | — |
+| `buy` | ✅ | ✅ | ❌ | buy menu (cl_dll VGUI); server `tsbuy*` exist (cont.36) |
+| `+commandmenu`/`-commandmenu`/`ForceCloseCommandMenu` | (xash built-in) | — | ❌ | class/command menu (cl_dll) |
+| `togglebrowser` | ✅ | — | ❌ | server browser (cl_dll) — stub |
+| server: `tsbuy`/`tsbuyammo`/`tsarm`/`tsbuyarmament`/`tsnextweapon`/`tsfiremode`/`dropweapon`/`usepowerup`/`tsspawnflag`/`tscutwire` | ✅ | — | ★ | console-driven gameplay (cont.23–45) |
+
 ## 7. TODO — to complete the surface scan
 - **Server commands** (`pfnAddServerCommand`) + the events the server PLAYBACK_EVENTs —
   same reloc/GOT method; not yet enumerated. (Server *console* commands like tsbuy are

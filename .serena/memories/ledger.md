@@ -5,6 +5,25 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 60) — status tracking: think behaviour, cvar/cmd impl status, playtest checklist + silencer
+
+Answered the user's tracking questions with durable docs.
+- **Think behaviour — PARTIAL (not all ported).** Original `CBasePlayer::PostThink` calls
+  `CTSAnimation::Animate` (gait/anim subsystem, 14 funcs), `CTSStunt::GoRoll` (stunts, 25 funcs) and
+  `CheckPowerups` — **none ported**. We have PreThink→`UpdatePowerUpState`, `UpdateClientData`(+TS HUD),
+  and `CTSGameRules::Think` (deads/round/powerups/slowmatch). The CTSAnimation + CTSStunt subsystems are
+  the remaining per-tick gap (movement/animation, client-entangled). Recorded in `reference/VERIFICATION.md` §C.
+- **cvar/cmd implementation status — now TRACKED** in `reference/API_SURFACE.md` §6c: a R(egistered)/read/
+  ★wired table for every TS cvar + command. Wired so far: roundtime, slowmatch, hud_r/g/b, +alt2/coldcock,
+  + the server console gameplay cmds. The rest are R-only; `damagemult` flagged as the next wiring candidate.
+- **Playtest checklist + silencer tracking — `reference/VERIFICATION.md` (new).** §A: 9-item playtest
+  checklist with exact steps (HUD ×3, round clock, predicted fire, fire-sound pitch, coldcock, slowmatch,
+  no-spam) for the user to confirm. §B: the silencer/`+alt1` assembly findings + what to implement + how to
+  verify (it's UNMAPPED; the `-sil.wav` files exist; the install state rides the WeaponInfo flags byte +
+  player+0x798 mask). §C: the think-status above.
+
+No code this entry — documentation/assessment.
+
 ## 2026-06-22 (cont. 59) — wire the `slowmatch` cvar into gameplay (global slow-motion match), VERIFIED
 
 Wired a registered cvar into actual behaviour (the user asked for a verifiable cvar→gameplay hookup).
