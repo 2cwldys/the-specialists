@@ -76,9 +76,38 @@ Raw pixels off the actual screen size (`DAT_100d5908`=ScreenWidth, `DAT_100d590c
 - **APPLIED** (cont.53) to `cl_dll/ts_ammo.cpp` — verified on-screen: Beretta 92F / 9 x 19mm /
   Semi Auto / 15 / 45, right-anchored, half-bright labels, faint strips.
 
+## Health bar — RESOLVED + APPLIED (FUN_1004d5f0)
+
+A fill **bar**, not text: `FillRGBA(x, y, 0x80, 0x13, hud_r,g,b, alpha 0x1e)` background +
+`FillRGBA(x+2, y+2, fillW, 0x10, colour, …)` fill where fillW ∝ health (red when low,
+`this+0x3700 <= threshold`). Drawn bottom-right, stacked **above** the weapon/ammo box
+(both `FUN_1004d700` unarmed and `FUN_1004d7e0` armed call it at the running y). Applied
+in `cl_dll/ts_hud.cpp::TSHud_HealthBar` + drawn by `CHudTSAmmo` above the box (cont.53).
+
+## Weapon-select bar (top) — MAPPED, not yet implemented (the 3rd region)
+
+`FUN_1004e030`: a grid at `this+0x164`, entry index `= (slot + pos*0xb) * 8` (8 bytes:
+type + state), i.e. up to 11 select-slots × positions. Draws slots **1..5** (`DAT_1018a678`):
+slot panel `FillRGBA(x = slot*0x80 - 0x78, y = 8, w = 0x80, h = 0x14, …, alpha 100 / 0xce)`,
+weapon name text + icon (SPR_Set `0x100d5b38` / SPR_Draw `0x100d5b44`), active slot
+highlighted; empty/no-ammo in red `0xc3,0x2d,0x2d`. Position pitch `DAT_1018a668 = 0x30`.
+
+**Populated by the `WStatus` message** (server `CTSGun::UpdateClientData`, per arsenal
+slot, on change): `WStatus(3) = BYTE slotIndex (0x25..0 = weapon-type index), BYTE clip
+(slot+4), BYTE caliber (slot+8)`. The client maps weapon-type → (select-slot, position)
+via a static table (in client.dll, TODO to recover) to fill the grid.
+
+**To implement (the next chunk):** (1) server — send `WStatus` from our `CTSGun` for each
+held arsenal weapon (slotIndex = tsweapon_t, clip, caliber); (2) client `CHudTSWeaponBar`
+— read WStatus into a type→owned map, draw the top bar per the geometry above; (3) the
+type→select-slot/position mapping + weapon icons (SPR). Our arsenal is a flat
+`m_arsenalType[]`, so map each to its category slot.
+
 ## STILL TODO (to pixel-match)
-- The same treatment for the **left status block** (health/armor/free-slots — `FUN_1004d700`?
-  not yet traced) and the **weapon-select bar** (`FUN_1004e030`, WStatus reader).
+- The **TS bitmap font** (`FUN_10021ce0` + `bitmapfonts` cvar) — all text currently uses
+  the console font, so glyphs differ. Biggest remaining cross-element visual gap.
+- The **weapon-select bar** (above) — server WStatus + client grid + icons.
+- The **left status block** armor/cash exact placement (health is done as the bar).
 - The WeaponInfo **flags byte** server-side (attachments) so the Silencer/Lasersight rows draw.
 - The **bitmap font** `FUN_10021ce0` (it's not the console font — `bitmapfonts` cvar);
   decide whether to approximate with DrawConsoleString or load the TS font sprites.

@@ -27,6 +27,15 @@ a function by address; null-safe + whitespace-split args + dedup). Findings in *
 **Applied (recovered, not guessed):** `TSHud_Panel` now fills with the HUD colour at **alpha 0x0f** (a
 faint tint, matching FUN_1004d7e0) instead of the earlier guessed opaque dark navy. Built clean.
 
+**THREE HUD regions (cont.53):** (1) **ammo box** ✅ exact geometry, verified; (2) **health BAR** ✅
+`FUN_1004d5f0` — a fill bar (not text), 0x80 wide, fill ∝ health (red when low), bg alpha 0x1e, drawn
+stacked above the ammo box; `TSHud_HealthBar` + shared `g_iTSHealth`, verified on-screen; (3) **weapon-
+select bar** (top) — MAPPED, not yet built: `FUN_1004e030` grid at this+0x164 (index (slot+pos*0xb)*8),
+slots 1..5 panels at x=slot*0x80-0x78,y=8,0x80×0x14 + name/icon; fed by `WStatus(3)=BYTE typeIndex,BYTE
+clip,BYTE caliber` (server CTSGun::UpdateClientData per arsenal slot). Next chunk = server WStatus send +
+client `CHudTSWeaponBar` grid reader + weapon-type→category table (recover from client.dll) + SPR icons.
+All in reference/HUD_DRAWCHAIN.md.
+
 **Anchor constants RESOLVED + APPLIED (cont.53, from the top of FUN_1004d7e0):** raw pixels off actual
 screen size — **x = ScreenWidth−0x88(136), box w=0x80(128), lineH=0x14(20), lines stack UP from
 y=ScreenHeight−8, strip = FillRGBA(...,alpha 0x0f)**, descriptive lines (caliber/mode) at half brightness,
