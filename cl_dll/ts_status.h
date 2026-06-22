@@ -40,4 +40,12 @@ private:
 	int m_iHealth; // last TSHealth byte received
 	int m_iArmor;  // last TSArmor byte received
 	int m_iCash;   // last TSCash short received
+
+	// Custom TS status-panel sprites (sprites/player/*.spr), loaded in VidInit and
+	// drawn bottom-left in Draw — the posture figure (stand/crouched/prone), the
+	// heart by the health number, and the Kevlar (armor) indicator. RE'd from
+	// client.dll's sprite-load block @0x10049d1f (slots stand=0x38, crouched=0x3c,
+	// prone=0x40, health=0x58, kevlar=0x5c off the HUD object).
+	HSPRITE m_hStand, m_hCrouch, m_hProne, m_hHeart, m_hKevlar;
+	Rect m_rcStand, m_rcCrouch, m_rcProne, m_rcHeart, m_rcKevlar;
 };

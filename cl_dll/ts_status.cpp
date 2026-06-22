@@ -26,8 +26,15 @@
 #include "cl_util.h"
 #include "parsemsg.h"
 #include "ts_hud.h"
+#include "player_info.h" // g_PlayerExtraInfo (team name)
 
 #include <stdio.h>
+
+// Posture for the status-panel figure. 0 = standing, 1 = crouched, 2 = prone.
+// Crouch is read client-side from the local player's hull; prone is CTSStunt-driven
+// (dives / double-jump roll) and stays dormant until that movement system lands —
+// g_iTSProne is the hook the stunt code will set. (HANDOFF Track B / CTSStunt.)
+int g_iTSProne = 0;
 
 DECLARE_MESSAGE(m_TSStatus, TSHealth)
 DECLARE_MESSAGE(m_TSStatus, TSArmor)
@@ -50,8 +57,32 @@ bool CHudTSStatus::Init()
 	return true;
 }
 
+// Load one sprites/player/<name>.spr and capture its full-frame rect. Returns 0 if
+// the sprite is absent (Draw then falls back to text), so a missing file never crashes.
+static HSPRITE LoadStatusSprite(const char* name, Rect& rc)
+{
+	char path[64];
+	sprintf(path, "sprites/player/%s.spr", name);
+	HSPRITE h = SPR_Load(path);
+	rc = {0, 0, 0, 0};
+	if (h != 0)
+	{
+		rc.right = SPR_Width(h, 0);
+		rc.bottom = SPR_Height(h, 0);
+	}
+	return h;
+}
+
 bool CHudTSStatus::VidInit()
 {
+	// TS draws a custom bottom-left status panel instead of the stock HEV health/battery:
+	// a posture figure + the health number with a heart + a Kevlar (armor) indicator.
+	// Sprite set RE'd from client.dll's load block @0x10049d1f.
+	m_hStand = LoadStatusSprite("stand", m_rcStand);
+	m_hCrouch = LoadStatusSprite("crouched", m_rcCrouch);
+	m_hProne = LoadStatusSprite("prone", m_rcProne);
+	m_hHeart = LoadStatusSprite("health", m_rcHeart);
+	m_hKevlar = LoadStatusSprite("kevlar", m_rcKevlar);
 	return true;
 }
 
@@ -94,39 +125,94 @@ bool CHudTSStatus::Draw(float flTime)
 	if (gHUD.m_iHideHUDDisplay & (HIDEHUD_HEALTH | HIDEHUD_ALL))
 		return true;
 
-	// Health is drawn as the bottom-right bar by the ammo HUD (FUN_1004d5f0, stacked
-	// above the ammo box) — see CHudTSAmmo. Here we draw the remaining values (armor,
-	// cash) as text bottom-left. (Their exact faithful placement is still TODO — the
-	// default TS HUD's armor/cash draw hasn't been traced yet; this is functional.)
-	const int lineHeight = gHUD.m_scrinfo.iCharHeight + 2;
-	const int pad = lineHeight / 2;
-	const int margin = ScreenWidth / 40;
-	const bool showCash = (m_iCash > 0);
-	const int numLines = showCash ? 2 : 1;
-
+	// The TS status panel (bottom-left): team name on top, the posture figure on the
+	// left, the health number + heart to its right, and a "Kevlar" label below when
+	// armored. RE'd from client.dll (sprite slots @0x10049d1f, "%i Kevlar  %i" @0x1003808e)
+	// and matched to the in-game reference. Armor is binary here (kevlar-or-not), not the
+	// numeric battery the stock HUD shows.
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
 
-	const int panelW = ScreenWidth / 7;
-	const int panelH = lineHeight * numLines + pad * 2;
+	const int lineHeight = gHUD.m_scrinfo.iCharHeight + 2;
+
+	// Choose the posture figure: prone (CTSStunt, dormant) > crouched (local hull) > stand.
+	HSPRITE hFig = m_hStand;
+	Rect* rcFig = &m_rcStand;
+	int posture = 0;
+	if (g_iTSProne != 0)
+		posture = 2;
+	else
+	{
+		cl_entity_t* local = gEngfuncs.GetLocalPlayer();
+		if (local != nullptr && local->curstate.usehull == 1) // ducked hull
+			posture = 1;
+	}
+	if (posture == 2 && m_hProne != 0) { hFig = m_hProne; rcFig = &m_rcProne; }
+	else if (posture == 1 && m_hCrouch != 0) { hFig = m_hCrouch; rcFig = &m_rcCrouch; }
+
+	const int figW = (hFig != 0) ? (rcFig->right - rcFig->left) : 0;
+	const int figH = (hFig != 0) ? (rcFig->bottom - rcFig->top) : 0;
+
+	// Panel geometry, bottom-left. Sized to the figure (with room for the team line
+	// above and the kevlar line below).
+	const int margin = ScreenWidth / 40;
+	const int pad = lineHeight / 2;
+	const int contentH = (figH > lineHeight * 2 ? figH : lineHeight * 2);
+	const int panelW = (figW > 0 ? figW : 24) + ScreenWidth / 9;
+	const int panelH = lineHeight + contentH + lineHeight + pad * 2;
 	const int panelX = margin;
 	const int panelY = ScreenHeight - panelH - ScreenHeight / 40;
 	TSHud_Panel(panelX, panelY, panelW, panelH);
 
-	const int x = panelX + pad;
+	const int left = panelX + pad;
 	int y = panelY + pad;
 
-	char buf[32];
-
-	if (showCash)
+	// Team name ("humans"/"specialists") from the local player's networked info.
+	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+	if (lp != nullptr)
 	{
-		sprintf(buf, "$%d", m_iCash);
-		gHUD.DrawHudString(x, y, ScreenWidth, buf, hr, hg, hb);
-		y += lineHeight;
+		const char* team = g_PlayerExtraInfo[lp->index].teamname;
+		if (team != nullptr && team[0] != '\0')
+			TSHud_DrawString(left, y, ScreenWidth, team, hr, hg, hb);
+	}
+	y += lineHeight;
+
+	// Posture figure on the left.
+	const int figY = y + (contentH - figH) / 2;
+	if (hFig != 0)
+	{
+		SPR_Set(hFig, hr, hg, hb);
+		SPR_DrawAdditive(0, left, figY, rcFig);
 	}
 
-	sprintf(buf, "Armor: %d", m_iArmor);
-	gHUD.DrawHudString(x, y, ScreenWidth, buf, hr, hg, hb);
+	// Health number + heart, to the right of the figure.
+	const int col = left + (figW > 0 ? figW + pad : 28);
+	const int midY = y + (contentH - lineHeight) / 2;
+	char buf[16];
+	sprintf(buf, "%d", m_iHealth);
+	int nx = TSHud_DrawString(col, midY, ScreenWidth, buf, hr, hg, hb);
+	if (m_hHeart != 0)
+	{
+		const int heartH = m_rcHeart.bottom - m_rcHeart.top;
+		SPR_Set(m_hHeart, hr, hg, hb);
+		SPR_DrawAdditive(0, nx + pad, midY + (lineHeight - heartH) / 2, &m_rcHeart);
+	}
+
+	// Kevlar indicator below — drawn only when the player has armor (binary), with the
+	// kevlar sprite if present, otherwise the "Kevlar" label.
+	if (m_iArmor > 0)
+	{
+		const int ky = y + contentH;
+		if (m_hKevlar != 0)
+		{
+			SPR_Set(m_hKevlar, hr, hg, hb);
+			SPR_DrawAdditive(0, col, ky, &m_rcKevlar);
+		}
+		else
+		{
+			TSHud_DrawString(col, ky, ScreenWidth, "Kevlar", hr, hg, hb);
+		}
+	}
 
 	return true;
 }
