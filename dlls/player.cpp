@@ -1393,6 +1393,13 @@ void CBasePlayer::TSEnterSpectate()
 // (+attack) = item 1. menuselect N -> TSMenuSelect on the server.
 void CBasePlayer::TSSendBuyMenu()
 {
+	// The buy/config menu is now the faithful CLIENT-side vgui menu (cl_dll/vgui_TSBuyMenu.cpp,
+	// CTSBuyMenuPanel), shown by the client during spectate-wait — see reference/MENUS.md. The
+	// client opens it itself; the server does NOT send a gmsgShowMenu (the original doesn't
+	// either). The menu's buttons fire `menuselect N`, still handled by TSMenuSelect below.
+	// (The old server-side gmsgShowMenu text menu was a stand-in; retired in cont.69e.)
+	return;
+
 	// \g green / \w white colour codes (cl_dll/menu.cpp). Item 1 = Use New Config
 	// (the loadout the player will spawn with); 7 Random + 1 highlighted as available.
 	const char* menu =
