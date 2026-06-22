@@ -211,3 +211,19 @@ That one capture yields every entry's exact `text + RGB colour + action` for the
 categories + accessories — resolving the exact-styling unknown (the +0x2d84 config panel static-RE can't
 reach) in a single shot. NB FUN_100668f0 builds via panel fields for geometry; the colour args (r,g,b) are
 the per-entry RGB confirmed from FUN_10010440 (avail green / unavail red / Cancel (100,100,205)).
+
+### Action-thunk dispatch — the menu builders (cont.69f, for the weapon-list slice)
+
+The menu's per-action vtable thunks (`mov esi,ecx; call <builder>; ret $4`, cluster 0x10011310–0x10011460)
+each invoke a builder. Mapped:
+- `0x1001134a` → `FUN_10012050` (apply / "Use New Config" — emits rst_cfg/tkw/tki/tka)
+- `0x10011372` → `FUN_10010440` (buy-category menu: Handguns/SMGs/Rifles/Shotguns/Other)
+- `0x10011382` → `FUN_10010630` (Remove-Item list — player loadout `+0xb0`)
+- `0x100113be` → `FUN_10011160` (config item-1 colour update)
+- `0x100113d0` → `FUN_10012c20`
+- **`0x1001140e` → `FUN_10010890`** · **`0x10011415` → `FUN_10010bb0`** · **`0x1001143b` → `FUN_100108b0`**
+  ← these three are the UNMAPPED builders = the most likely **per-category weapon-list builders**
+  (Handguns→pistols, etc.). Decompile these next: they should iterate the weapon table filtered by the
+  selected category and `FUN_100668f0` each weapon entry. The weapon table + the category field are set by
+  the per-weapon init funcs (e.g. `FUN_10010080` sets "Akimbo Mini Uzi" + fields incl. a category byte) —
+  cross-ref our server `dlls/ts_weapons.cpp` (38 weapons) for the names; RE the category byte to bucket them.
