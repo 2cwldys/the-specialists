@@ -171,6 +171,7 @@ void CTSBuyMenuPanel::BuildAccessory(int wide)
 
 void CTSBuyMenuPanel::ShowPage(Page page)
 {
+	m_page = page;
 	for (int i = 0; i < m_nConfig; i++)
 		m_pConfig[i]->setVisible(page == PAGE_CONFIG);
 	for (int i = 0; i < m_nCategory; i++)
@@ -179,13 +180,42 @@ void CTSBuyMenuPanel::ShowPage(Page page)
 		m_pAccessory[i]->setVisible(page == PAGE_ACCESSORY);
 }
 
+CommandButton** CTSBuyMenuPanel::CurrentPage(int& count)
+{
+	switch (m_page)
+	{
+	case PAGE_CATEGORY:  count = m_nCategory;  return m_pCategory;
+	case PAGE_ACCESSORY: count = m_nAccessory; return m_pAccessory;
+	default:             count = m_nConfig;    return m_pConfig;
+	}
+}
+
+bool CTSBuyMenuPanel::HandleKey(int key)
+{
+	if (!m_up)
+		return false;
+	int count = 0;
+	CommandButton** page = CurrentPage(count);
+	for (int i = 0; i < count; i++)
+	{
+		if (page[i]->getBoundKey() == (char)key)
+		{
+			page[i]->fireActionSignal();
+			return true;
+		}
+	}
+	return false;
+}
+
 void CTSBuyMenuPanel::Open()
 {
+	m_up = true;
 	setVisible(true);
 	ShowPage(PAGE_CONFIG);
 }
 
 void CTSBuyMenuPanel::Close()
 {
+	m_up = false;
 	setVisible(false);
 }

@@ -30,10 +30,17 @@ public:
 	enum Page { PAGE_CONFIG = 0, PAGE_CATEGORY, PAGE_ACCESSORY, PAGE_COUNT };
 	void ShowPage(Page page); // switch which page's buttons are visible
 
+	bool IsUp() const { return m_up; }
+	// Fire the visible page's button bound to this number key ('0'-'9'). Returns true if consumed.
+	// The original menu accepts BOTH mouse-click and the bound number key (reference/MENUS.md);
+	// the viewport only routes keys to its own command menu, so this panel handles its own.
+	bool HandleKey(int key);
+
 private:
 	void BuildConfig(int wide);
 	void BuildCategory(int wide);
 	void BuildAccessory(int wide);
+	CommandButton** CurrentPage(int& count);
 
 	enum { TS_MAX_BUTTONS = 10 };
 	CommandButton* m_pConfig[TS_MAX_BUTTONS];
@@ -41,4 +48,6 @@ private:
 	CommandButton* m_pAccessory[TS_MAX_BUTTONS];
 	int m_nConfig = 0, m_nCategory = 0, m_nAccessory = 0;
 	int m_rowH = 0;
+	Page m_page = PAGE_CONFIG;
+	bool m_up = false;
 };
