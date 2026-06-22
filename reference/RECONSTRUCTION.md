@@ -130,8 +130,9 @@ recoverable directly).
 
 | Element | File | State |
 |---|---|---|
-| cl_dll build foundation | `cl_dll/` (CMake, dual-arch VGUI) | ✅ **builds 32- + 64-bit (cont.46)** — `build.sh <arch> client`; i386→Valve vgui, amd64→openvgui. No render on this box. |
-| `CHudRoundTime` | `cl_dll/roundtime.{cpp,h}` | ✅ **built + load-level (cont.47)** — first TS HUD; hooks the `RoundTime` message (server send fixed from "TSRoundTime"→"RoundTime"), reads 2 shorts, draws M:SS countdown. **Visual unconfirmed** (headless box) — position/size/colour // VERIFY, needs the user's graphical client. |
+| cl_dll build foundation | `cl_dll/` (CMake, dual-arch VGUI) | ✅ **builds 32- + 64-bit (cont.46) + RUNS in xash3d-fwgs (cont.48)** — `build.sh <arch> client`; i386→Valve vgui, amd64→openvgui. **This box renders** (AMD GPU, DISPLAY=:0); `scripts/setup-xash-mod.sh` assembles the native game root. |
+| client weapon-prediction crash fix | `cl_dll/com_weapons.{cpp,h}`, `cl_dll/hl/hl_weapons.cpp` | ✅ **cont.48** — 64-bit `MAKE_STRING`=`ALLOC_STRING` hit a NULL `pfnAllocString` in `HUD_InitClientWeapons`→`CGlock::Spawn`; added a client string pool + AllocString stub. gdb-found, run-verified. |
+| `CHudRoundTime` | `cl_dll/roundtime.{cpp,h}` | ✅✅ **VISUALLY VERIFIED in xash3d-fwgs (cont.48)** — first TS HUD; hooks `RoundTime` (server name fixed "TSRoundTime"→"RoundTime"), reads 2 shorts, draws a yellow M:SS countdown top-centre. Confirmed on-screen (`1:51` on tm_avana). Server `SendRoundTime` on `InitHUD` catches late joiners. |
 
 Everything else in the table above is **not started**. Full history in the
 Serena ledger (`.serena/memories/ledger.md`).

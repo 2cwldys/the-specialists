@@ -31,7 +31,9 @@ Exercised on real maps: tm_avana, ctb_deadheat, ts_dust2, ts_theatre, ts_wyndham
 the **first TS client HUD has landed — the round-time countdown `CHudRoundTime` (cont.47, `cl_dll/
 roundtime.{cpp,h}`)**, the first reader of a server user message. Still to do: the *visible* slow-motion
 time-dilation, the particle system, the stunts, and the rest of the HUDs (the server already sends the
-user messages; the client just needs the readers). **Watch the gmsg NAMES:** the inherited server named
+user messages; the client just needs the readers). The client now **runs + renders in xash3d-fwgs on
+this box** (it has a GPU — the old "headless" note was wrong; see Track B below for the screenshot loop).
+**Watch the gmsg NAMES:** the inherited server named
 the round-time message `"TSRoundTime"` but the original `.so`/client.dll use `"RoundTime"` (fixed in
 cont.47) — check every other inherited gmsg name (`TSPowerUpTime`/`TSMotionBlur`/team-info) against the
 `.so` strings before writing its client reader (`strings reference/ts_i386.so | grep -E '^TS|^Round'`).
@@ -195,16 +197,31 @@ extraction → C table).
 **Track B (the client/cl_dll)**, whose build foundation just landed (cont.46). Track A below is kept
 for reference (all ✅) + its remaining *fidelity polish* (optional, low value). Read Track B first.
 
-**→ Track B — the cl_dll (IN PROGRESS).** The client builds (`build.sh <arch> client`, 32- and 64-bit);
-the **first TS HUD is in — `CHudRoundTime` (cont.47)**, reading the `RoundTime` message. Verification
-caveat: this box builds but can't render the client (no graphics; the browser client is the separate
-WASM xash build), so client work is build/load-verified here and **visual behaviour needs a graphical
-GoldSrc/xash client the user runs** — coordinate with the user (via the consult channel below) for
-visual confirmation (the round-time clock's position/size/colour are unconfirmed // VERIFY). **Next
-slices** read messages the server already sends: the **powerup/motion-blur** indicators
+**→ Track B — the cl_dll (IN PROGRESS, now RUN + VISUALLY verifiable on this box).** The client builds
+(`build.sh <arch> client`, 32- and 64-bit) AND **runs + renders in native xash3d-fwgs** — the cont.47
+**`CHudRoundTime`** HUD is **visually confirmed** (a yellow `1:51` M:SS clock, top-centre, cont.48).
+
+**IMPORTANT — this box is NOT headless** (the cont.46 caveat was wrong): it has an AMD GPU + X display
+(`DISPLAY=:0`). So mod-ts client work is **self-verifiable here with a screenshot** — no need to wait on
+the user. The loop:
+```bash
+scripts/build.sh amd64 client          # (and amd64 for the server)
+scripts/setup-xash-mod.sh              # assemble the native xash game root (re-run after every rebuild)
+cd ~/Projects/goldsrc.net/xash3d-fwgs/dist/client-x64
+LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +map tm_avana +sv_lan 1 +maxplayers 4 &
+# wait for "client connected" in the log, then:  import -window root /tmp/shot.png
+# crop the game window's top-centre (window @ 1280,180, 2560x1080):
+#   convert /tmp/shot.png -crop 1000x220+2060+180 +repage /tmp/clock.png
+```
+gdb the client the same way as hl.so when it crashes (it found the cont.48 CGlock/AllocString crash):
+`LD_LIBRARY_PATH=. gdb -batch -nx -ex run -ex bt --args ./xash3d -game ts +map tm_avana`.
+
+**Next slices** read messages the server already sends: the **powerup/motion-blur** indicators
 (`gmsgTSPowerUpTime`/`gmsgTSMotionBlur` — FIRST verify their registered names against the `.so` strings,
 as `RoundTime` needed in cont.47). Then the bigger Track B items further down (visible slow-motion,
 particles, stunts). `reference/client.dll` (~1,013 exports) is the spine — see CLAUDE.md §2.
+Two known stock-client gaps surfaced at runtime: `Unknown command cl_realhud / hud_r/g/b/color /
+mp_teammodels` (TS client cvars not yet reconstructed — harmless).
 
 **Pattern for a TS HUD element (cont.47, follow `cl_dll/roundtime.{cpp,h}` + the stock `battery.cpp`):**
 (1) confirm the server's REG_USER_MSG string matches the original `.so` (`strings reference/ts_i386.so`);

@@ -5,6 +5,60 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 48) — TRACK B: the client RUNS + RENDERS in xash3d-fwgs; round-time HUD VISUALLY VERIFIED
+
+**Headline: the dev box is NOT headless — it has a real GPU + X display (AMD RX 9070 XT, DISPLAY=:0).**
+The cont.46 "headless, build-only, visual needs the user" caveat was WRONG. mod-ts client work can be
+**self-verified with screenshots here** (`import -window root`). This changes the Track B workflow:
+build → run in native xash3d-fwgs → screenshot → confirm. Use it.
+
+**Done — mod-ts now runs end-to-end in native xash3d-fwgs (server + OUR client + content), and the
+cont.47 round-time HUD is confirmed on-screen: a yellow `1:51` M:SS countdown at top-centre.**
+
+1. **`scripts/setup-xash-mod.sh` (new) — the deliverable** ("configure xash to run this mod"). Assembles a
+   native game root at `xash3d-fwgs/dist/client-x64` (which already holds the built engine: xash3d +
+   libxash + libref_gl + libmenu + filesystem_stdio + libvgui). It builds `ts/` (content symlinks to
+   `~/Containers/hlds/mods/ts`, our libs, a direct-gamedll liblist.gam — no metamod), completes the
+   `valve/` fallback, and exposes the openvgui lib as `vgui.so`. **Three gotchas it encodes:**
+   - xash on **x86-64 looks up the ARCH-SUFFIXED name** `hl_amd64.so` / `client_amd64.so` (the
+     `COM_GenerateServerLibraryPath` `#else` branch — `XASH_X86` is 32-bit only). Misnamed `hl.so` was
+     SILENTLY skipped → it loaded `valve/dlls/hl_amd64.so` instead (symptom: `No spawn function for
+     "ts_hack"/"ts_sellzone"/...` for the LATER-added TS entities while older ones worked). Fix: name our
+     libs `*_amd64.so` (bare name kept as an alias).
+   - the cont.46 client links `DT_NEEDED vgui.so`; the engine ships the identical openvgui as
+     `libvgui.so` (byte-for-byte = mod-ts/linux/release/vgui64.so) → symlink `vgui.so -> libvgui.so` and
+     launch with `LD_LIBRARY_PATH=.`. libSDL2 resolves from the system.
+   - Launch: `cd dist/client-x64 && LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +map tm_avana`.
+2. **Client crash fix (commit f484842) — `cl_dll/com_weapons.{cpp,h}` + `cl_dll/hl/hl_weapons.cpp`.**
+   First actual RUN of the client SIGSEGV'd (user caught the "Xash Error: signal 11" dialog). gdb
+   backtrace: `HUD_PostRunCmd → HUD_InitClientWeapons → HUD_PrepEntity → CGlock::Spawn → 0x0`. Pinned the
+   exact insn (`call *g_engfuncs+536` right after loading the "weapon_9mmhandgun" string): on **64-bit**,
+   `MAKE_STRING()` = `ALLOC_STRING()` = `(*g_engfuncs.pfnAllocString)` (util.h `#if __x86_64__`), but
+   `HUD_InitClientWeapons` populates only a SUBSET of `g_engfuncs` and never sets `pfnAllocString` → the
+   first `MAKE_STRING()` in any predicted weapon's Spawn deref'd NULL. Fix: a small client string pool +
+   `stub_AllocString`/`stub_StringBase` (com_weapons), with `gpGlobals->pStringBase` pointed at the pool
+   in HUD_InitClientWeapons so MAKE_STRING/STRING stay consistent (offset 0 reserved as ""). This is a
+   generic halflife-updated 64-bit client-prediction bug, not TS-specific.
+3. **Round-time-on-join (commit fd5146a) — `dlls/ts_gamerules.{h,cpp}` + `ts_teams.cpp`.** `StartRoundTimer`
+   only broadcasts `RoundTime` at arm-time, so a client joining mid-round saw a blank HUD. Added
+   `CTSGameRules::SendRoundTime(player)`, called from `InitHUD`, to catch a joiner up (no-op if unarmed).
+
+**Verified (RUNTIME + VISUAL):** `setup-xash-mod.sh` → `LD_LIBRARY_PATH=. ./xash3d -game ts +map tm_avana`
+→ strace confirms it loads OUR `ts/dlls/hl_amd64.so` + `ts/cl_dlls/client_amd64.so`; gdb-clean for a full
+35s session (only SIGINT, no SIGSEGV); screenshot shows the world rendering (viewmodel, map) + the
+**yellow `1:51` round clock** top-centre, window titled "mod-ts (faithful reconstruction)". The round
+timer armed (counting from 120s) and the client read+drew the message. Server-side regression: tm_avana +
+ts_dust2 load with 0 "No spawn function" once the dll name was fixed.
+
+**Next Track B slices (now screenshot-verifiable):** the powerup/motion-blur indicators
+(`TSPowerUpTime`/`TSMBlur` — verify names vs the .so first), the ammo/fire-mode HUDs, then the visible
+slow-motion time-dilation + the particle system. Also noted but deferred: the stock client logs
+`Unknown command cl_realhud / hud_r/g/b/color / mp_teammodels` — TS client cvars the original defined,
+not yet reconstructed (harmless). The bg game process exits cleanly (exit 0) after a bit when launched
+detached/unfocused — not a crash; interactive runs stay up.
+
+---
+
 ## 2026-06-21 (cont. 47) — TRACK B: first TS client HUD — the round-time countdown (CHudRoundTime)
 
 **Done — the first piece of TS client code: `cl_dll/roundtime.{cpp,h}` (CHudRoundTime).** The round-time
