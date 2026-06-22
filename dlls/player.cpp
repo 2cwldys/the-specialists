@@ -868,7 +868,7 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	// send "health" update message to zero
 	m_iClientHealth = 0;
 	MESSAGE_BEGIN(MSG_ONE, gmsgHealth, NULL, pev);
-	WRITE_SHORT(m_iClientHealth);
+	WRITE_BYTE(m_iClientHealth);
 	MESSAGE_END();
 
 	// Tell Ammo Hud that the player is dead
@@ -4239,7 +4239,7 @@ void CBasePlayer::UpdateClientData()
 
 		// send "health" update message
 		MESSAGE_BEGIN(MSG_ONE, gmsgHealth, NULL, pev);
-		WRITE_SHORT(iHealth);
+		WRITE_BYTE(iHealth);
 		MESSAGE_END();
 
 		m_iClientHealth = pev->health;

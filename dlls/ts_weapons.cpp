@@ -56,6 +56,20 @@ int TSAmmoMax(int caliber)
 	return kAmmoMax[caliber];
 }
 
+// Rounds per magazine per caliber, s_ammo_info+0x10 from compile_ammo_info (@0x6f51c).
+// Used by CTSGroundAmmo: a `magsN` keyvalue gives magcount * roundsPerMag rounds of caliber N
+// (recovered: CTSGroundAmmo::KeyValue stores magcount * get_ammo_info(N)[+0x10]). Index=caliber.
+static const int kRoundsPerMag[TS_NUM_CALIBERS] = {
+	0, 30, 12, 8, 30, 10, 30, 20, 5, 15, 17, 5, 20, 5, 0, 0,
+};
+
+int TSRoundsPerMag(int caliber)
+{
+	if (caliber < 0 || caliber >= TS_NUM_CALIBERS)
+		return 0;
+	return kRoundsPerMag[caliber];
+}
+
 // @ TakeWeapon default-mode selection — auto if offered, else pump, else burst, else semi.
 int TSDefaultFireMode(int modeMask)
 {

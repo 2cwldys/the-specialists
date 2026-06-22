@@ -55,6 +55,20 @@ sizes) and is the basis for the next Ghidra type-application pass (apply entvars
 gcc2 signatures + vtable annotation). NB STABS is NOT useful for mod member offsets — those stay analytic;
 but `entvars_t`/engine structs are pure C (ABI-stable offsets) so they CAN be applied verbatim.
 
+**Acted on the coverage findings — 3 fidelity fixes (cont.68g):**
+- **Health wire size 2→1** (the cont.68f finding): `REG_USER_MSG("Health",1)` + both `WRITE_SHORT`→`WRITE_BYTE`
+  (player.cpp) + client `READ_SHORT`→`READ_BYTE` (health.cpp). Our build was self-consistent at 2 but the
+  original uses 1 (health is byte-capped); now matches → drop-in safe. Harness confirms 0 size mismatches.
+- **CTSGroundAmmo magsN under-give**: ours gave `magcount` rounds; the original gives `magcount * roundsPerMag`.
+  Recovered the per-caliber rounds-per-mag table (s_ammo_info+0x10, runtime-built in compile_ammo_info — read
+  via parsing its assignments, NOT the file which is zero; all 13 calibers cross-validated against +0x20 vs
+  our kAmmoMax): `[30,12,8,30,10,30,20,5,15,17,5,20,5]`. Added `TSRoundsPerMag()` + multiply in WaitTouch.
+- **ts_fog**: already correct — its original Spawn is `UTIL_Remove(this)`, so near/far/color are dead in both
+  (no fix; added to SELF_REMOVING_ENTITIES so the harness stops flagging it).
+- **Keyvalue-harness false positives fixed**: it now understands all 3 handling styles — literal FStrEq,
+  `strncmp` PREFIX loops (mags/message/objptarget), and `keys[N]={...}` arrays (objmsg*) — + skips
+  self-removing entities. Entity keyvalue coverage now **0 unhandled** (was 4 false-flagged entities).
+
 **User-message WIRE SIZES added + a real bug caught (cont.68f):** `coverage.py server_usermsg_sizes_orig`
 parses `LinkUserMessages__Fv` via objdump (`push $size; lea name(%ebx); call *0x12c` = pfnRegUserMsg slot)
 → 64 message sizes (Health=1, Damage=12, SayText=-1, RoundTime=2, WeaponInfo=6, WStatus=3, …); diffed vs our

@@ -116,6 +116,7 @@ struct s_weapon_info
 // magsN keyvalues (magN -> caliber N).
 #define TS_NUM_CALIBERS 16
 int TSAmmoMax(int caliber); // max reserve (rounds) for a caliber, 0 if none
+int TSRoundsPerMag(int caliber); // rounds per magazine for a caliber (CTSGroundAmmo magsN)
 
 // Trigger fire-modes (m_pActiveItem+2): which the CURRENT mode is, cycled among the
 // weapon's iFireModes mask. Orthogonal to iFireType (which picks the fire *function*):

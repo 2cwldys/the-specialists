@@ -99,7 +99,7 @@ bool CHudHealth::MsgFunc_Health(const char* pszName, int iSize, void* pbuf)
 {
 	// TODO: update local health data
 	BEGIN_READ(pbuf, iSize);
-	int x = READ_SHORT();
+	int x = READ_BYTE(); // gmsgHealth wire size = 1 (match the original)
 
 	m_iFlags |= HUD_ACTIVE;
 

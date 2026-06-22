@@ -164,10 +164,14 @@ void CTSGroundAmmo::WaitTouch(CBaseEntity *pOther)
 	// reserve via CTSGun::AddAmmo, capped at the caliber max. m_mags[0..10] = the FGD
 	// mags1..mags11 keyvalues -> calibers 1..11. The station persists (tops players up on
 	// every touch). A sound plays if any caliber actually took ammo.
+	// Faithful: a magsN keyvalue gives magcount * roundsPerMag(caliber N) ROUNDS — the original
+	// stores that product (m_mags[N] = magcount * get_ammo_info(N)[+0x10]); we keep m_mags as the
+	// raw FGD mag count and multiply by the per-caliber rounds-per-mag here (same result).
 	bool added = false;
 	for (int i = 0; i < 11; i++)
 	{
-		if (m_mags[i] > 0 && TSAddAmmo(pPlayer, i + 1, m_mags[i]))
+		int rounds = m_mags[i] * TSRoundsPerMag(i + 1); // caliber = i + 1
+		if (rounds > 0 && TSAddAmmo(pPlayer, i + 1, rounds))
 			added = true;
 	}
 

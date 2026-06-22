@@ -727,6 +727,11 @@
   "newunit",
   "nextcheck",
   "noiseamplitude",
+  "objmsgall",
+  "objmsgmerc",
+  "objmsgspec",
+  "objmsgteam3",
+  "objmsgteam4",
   "objptarget",
   "orientation",
   "outcount",
@@ -819,6 +824,11 @@
   "yawrange",
   "yawrate",
   "yawtolerance"
+ ],
+ "keyvalue_prefixes": [
+  "mags",
+  "message",
+  "objptarget"
  ],
  "server_bin": "/home/stevenlafl/Projects/goldsrc.net/mod-ts/build-amd64/dlls/hl.so",
  "server_commands": [
@@ -1218,7 +1228,7 @@
   "GameMode": 1,
   "GameTitle": 1,
   "Geiger": 1,
-  "Health": 2,
+  "Health": 1,
   "HideWeapon": 1,
   "HudText": -1,
   "HudTextPro": -1,

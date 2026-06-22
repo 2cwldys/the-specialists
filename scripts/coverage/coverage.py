@@ -381,9 +381,24 @@ def fgd_keyvalues(path):
     return kv
 
 def our_keyvalue_keys():
-    """Every map key our DLL handles in any KeyValue() ( FStrEq(pkvd->szKeyName, "X") ) —
-    includes the stock base-class handlers since we compile the whole SDK."""
-    return {k.lower() for k in grep_set(r'pkvd->szKeyName\s*,\s*"([^"]+)"', "dlls")}
+    """Map keys our DLL handles in KeyValue(), across the three handling styles:
+      (a) literal  FStrEq(pkvd->szKeyName, "X")
+      (b) keys[] tables  static const char* keys[] = {"a","b",...}; FStrEq(szKeyName, keys[i])
+    (strncmp PREFIX handlers are returned separately by our_keyvalue_prefixes)."""
+    keys = {k.lower() for k in grep_set(r'pkvd->szKeyName\s*,\s*"([^"]+)"', "dlls")}
+    # keys[] arrays (e.g. objmsg*): pull the quoted strings out of `... keys[N] = { ... }`
+    for arr in grep_set(r'keys\s*\[\s*\d*\s*\]\s*=\s*\{([^}]*)\}', "dlls"):
+        keys |= {s.lower() for s in re.findall(r'"([^"]+)"', arr)}
+    return keys
+
+def our_keyvalue_prefixes():
+    """strncmp(pkvd->szKeyName, "PREFIX", n) handlers — e.g. "mags", "message", "objptarget".
+    Any FGD key starting with one of these is handled (indexed keyvalues)."""
+    return {p.lower() for p in grep_set(r'strncmp\(\s*pkvd->szKeyName\s*,\s*"([^"]+)"', "dlls")}
+
+# Entities whose original Spawn is UTIL_Remove(this) — they self-delete, so their FGD
+# keyvalues are intentionally dead in BOTH the original and ours (not a coverage gap).
+SELF_REMOVING_ENTITIES = {"ts_fog"}
 
 PROGDEFS = os.path.join(ROOT, "engine", "progdefs.h")
 
@@ -510,6 +525,7 @@ def extract_ours():
         "usermsg_sizes": our_usermsg_sizes(),
         "events": sorted(events_in(OUR_SERVER)) if os.path.exists(OUR_SERVER) else [],
         "keyvalue_keys": sorted(our_keyvalue_keys()),
+        "keyvalue_prefixes": sorted(our_keyvalue_prefixes()),
     }
     json.dump(man, open(os.path.join(OUT, "ours.json"), "w"), indent=1, sort_keys=True)
     return man
@@ -580,12 +596,15 @@ def diff():
     # entity keyvalue coverage: for entities we implement, which FGD map-keys does no KeyValue() handle?
     fkv = o.get("fgd_keyvalues", {})
     handled = set(u.get("keyvalue_keys", [])) | engine_handled_keys()  # engine-auto keys count as handled
+    prefixes = u.get("keyvalue_prefixes", [])
     ours_ents = set(u.get("entities", []))
+    def is_handled(k):
+        return k in handled or any(k.startswith(p) for p in prefixes)
     unhandled = {}
     for ent, keys in fkv.items():
-        if ent not in ours_ents:
-            continue  # not implemented yet -> already an entity-MISSING signal
-        miss = [k for k in keys if k not in handled]
+        if ent not in ours_ents or ent in SELF_REMOVING_ENTITIES:
+            continue  # not implemented (entity-MISSING signal) / self-removing (keys dead in both)
+        miss = [k for k in keys if not is_handled(k)]
         if miss:
             unhandled[ent] = miss
     L += ["### Entity keyvalue coverage (FGD keys vs our KeyValue handlers)", "",

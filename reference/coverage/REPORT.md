@@ -78,22 +78,13 @@ _Original = names hooked in client.dll (pfnHookUserMsg); ours = HOOK_MESSAGE in 
 
 _For entities we implement: FGD-declared map keys that no `KeyValue()` in our DLL handles (stock base keys count as handled). Unhandled = the entity silently ignores that map key = a behavioral gap._
 
-- implemented entities with FGD keyvalues checked: **75**  |  entities with unhandled keys: **4**
-
-- `ts_fog`: `far`, `near`
-- `ts_groundammo`: `mags1`, `mags10`, `mags11`, `mags2`, `mags3`, `mags4`, `mags5`, `mags6`, `mags7`, `mags8`, `mags9`
-- `ts_objective_manager`: `messagea`, `messageb`, `messagec`, `messaged`, `objptargeta`, `objptargetb`, `objptargetc`, `objptargetd`, `objptargete`, `objptargetf`, `objptargetg`, `objptargeth`
-- `ts_objective_ptr`: `objmsgall`, `objmsgmerc`, `objmsgspec`, `objmsgteam3`, `objmsgteam4`
+- implemented entities with FGD keyvalues checked: **75**  |  entities with unhandled keys: **0**
 
 ### User-message wire sizes (REG_USER_MSG size byte)
 
 _The registered byte-size per message (−1 = variable). A MISMATCH silently corrupts the wire format = a drop-in breaker. Compared for messages present in both with a literal size._
 
-- original messages with a recovered size: **64**  |  ours (literal sizes): **46**  |  size mismatches: **1**
-
-**SIZE MISMATCHES (fix — these break the protocol):**
-
-  `Health`: orig=`1` ours=`2`
+- original messages with a recovered size: **64**  |  ours (literal sizes): **46**  |  size mismatches: **0**
 
 ### Events (events/*.sc)
 
