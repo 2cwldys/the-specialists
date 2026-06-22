@@ -5,6 +5,51 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 49) — TRACK B playtest pass: loadout, mouselook, fire animations (decomp-driven)
+
+The user playtested the running client (cont.48) and reported HL leftovers. Fixed three, each
+decomp-grounded (the user explicitly asked to check the decomp, not guess). The dev box launches the
+game for the user via `setsid env LD_LIBRARY_PATH=. ./xash3d -game ts +map tm_avana &` (kill the old one
+with `pgrep -x xash3d` — NOT `pkill -f client-x64/xash3d`, which matches the shell's own cmdline and
+SIGTERMs your session). A detached/unfocused instance exits clean (~exit 0) after a bit; it stays up while
+the user interacts.
+
+1. **Spawn loadout (commit 54dac48, `dlls/ts_teams.cpp`).** Players spawned with HL crowbar+glock because
+   `CTSGameRules::PlayerSpawn` chained `CHalfLifeMultiplay::PlayerSpawn`. Decompiled the real
+   `CHalfLifeMultiplay::PlayerSpawn @0x790ac`: it honours `game_player_equip`, else
+   `GiveNamedItem("weapon_tsgun")` (PIC strings resolved via GOT-0x6dda6) + `BuyArmament()` (cont.36).
+   Reconstructed exactly → no HL weapons; spawn gives the unified TS gun (default `m_weaponType` =
+   TSW_BERETTA, so you get a beretta) + the armament. (`CHalfLifeMultiplay::PlayerSpawn` itself is an
+   11-byte forwarder to FUN_000890b8; `CBasePlayer::TSInit @0x92a4c` inits CTSAnimation/CTSStunt +
+   `SetPlayerSpeed(330)`, gives no weapons.)
+2. **Mouselook (commit + `cl_dll/inputw32.cpp`).** "Can't look up/down, only side-to-side; moving jolts
+   the view fwd/back" = mouse-look OFF (mouse-Y walks you instead of pitching). The rig config never
+   issues `+mlook`; TS is always-mouselook. Forced `in_mlook.state |= 1` in `IN_Init`. User CONFIRMED
+   fixed. (Note: the *viewmodel* jolting back-and-forth is SEPARATE — still open; it's the client view
+   bob/lag/sway, `cl_bob "3"` in the TS config + stock V_CalcBob/V_CalcViewModelLag — needs the client
+   view reconstruction.)
+3. **Fire animations (commit c607b75, `dlls/ts_weapons.{h,cpp}` + `ts_gun.cpp`).** Weapons fired
+   (bullets/sound/muzzleflash already present) but the viewmodel never animated. Added `iFireAnim` to
+   `s_weapon_info`, populated per-weapon from the actual "shoot*" sequence index parsed out of each
+   `v_*.mdl` (studiohdr numseq/seqindex at offsets 164/168; 176-byte seqdesc; beretta shoot=1, glock=3,
+   m4=3, aug=2, shotguns shootsemi=6, …; -1 for melee/grenade/akimbo). `StandardFire` now
+   `SendWeaponAnim(wi->iFireAnim)`. SLICE: server-driven (visible, not predicted).
+
+**Firing event system — fully MAPPED from the decomp (the faithful follow-up, task #6).** `CTSGun`
+precaches 11 events (`events/fire.sc` → `m_usFire` @0x964, +coldcock@0x966/pump@0x96a/closecombat@0x96c/
+firelinked@0x96e/reload@0x970/knife@0x972/katana@0x974/draw@0x976/grenade@0x978/empty@0x968). `StandardFire
+@0x824a4` plays it: `PLAYBACK_EVENT(flags=1, player_pev, m_usFire, delay=0, vecZero, vecZero, fparam1=spread,
+fparam2=spread, iparam1=m_weaponType(0xc8), iparam2=item+0x10, bparam1=(clip==0), bparam2=player[0x1fb])`.
+The faithful client side = hook `events/fire.sc` → `EV_TSFire` reading iparam1=weapontype → predicted
+sound + viewmodel anim + muzzleflash. NOT yet built (needs the client.dll EV callback). Our current sound
+is a server EMIT_SOUND of `weapons/<w>/fire.wav` (22kHz, correct format); the user's "slow-mo sound"
+report is unresolved (headless = no audio) — clarify low-pitch vs wrong-file vs droning.
+
+**Still open (Track B client reconstruction):** the viewmodel jolt/bob, the predicted fire event (sound+
+anim), the akimbo/melee/grenade fire anims, and the HL weapon-select HUD bar.
+
+---
+
 ## 2026-06-21 (cont. 48) — TRACK B: the client RUNS + RENDERS in xash3d-fwgs; round-time HUD VISUALLY VERIFIED
 
 **Headline: the dev box is NOT headless — it has a real GPU + X display (AMD RX 9070 XT, DISPLAY=:0).**
