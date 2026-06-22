@@ -5,6 +5,29 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 55) — Phase 2 (low-pitch fire sound): investigated, NO defect found in our code
+
+Chased the cont.50 "regular fire sound is low-pitched/slow-mo" report. The fire-sound path is verifiably
+CORRECT end-to-end — found no defect:
+- Server emits ONE sound: `EMIT_SOUND(ENT, CHAN_WEAPON, wi->pszFireSound, VOL_NORM, ATTN_NORM)` =
+  `EMIT_SOUND_DYN(..., 0, PITCH_NORM)` (ts_gun.cpp StandardFire/AkimboFire). Normal pitch.
+- No duplicate source: the client's `EMIT_SOUND_DYN` is a no-op stub (cl_dll/hl/hl_baseentity.cpp:33),
+  and the client only hooks the stock HL events (ev_hldm.cpp), none of which fire for `weapon_tsgun`
+  (we don't PLAYBACK_EVENT stock events for it).
+- No global time-scale: our slow-motion only sets the per-player member `m_flSlowMotionGo`; nothing
+  touches host_framerate/maxspeed/etc., and sound pitch isn't pitched server-side by slow-mo at all.
+- Files fine: TS fire wavs are 8-bit mono 22050 Hz — byte-IDENTICAL in format to the valve sounds xash
+  plays at correct pitch. xash audio runs @44100 and resamples 22050 fine (valve sounds prove it).
+- Engine note (benign): xash warns `CL_LoadProgs: failed to get address of HUD_GetSoundInterface` — the
+  stock HL client doesn't export that xash3d-fwgs sound hook; absence → default sound (normal pitch).
+**Conclusion:** no reproducible low-pitch in the current build (much changed since cont.50). Most likely
+already-fixed, or was heard during an actual slow-motion state (correct behaviour). Did NOT edit the
+correct sound code. If it recurs: capture which weapon, slow-mo or not, all-sounds-vs-fire-only; the
+faithful long-term path is the predicted `events/fire.sc`→EV_TSFire (Phase 5), which plays at PITCH_NORM
+too (won't change pitch). Cannot self-verify audio (no way to trigger a shot + capture without input).
+
+---
+
 ## 2026-06-22 (cont. 54) — Phase 3: TS client cvars + commands registered (kills "Unknown command" spam)
 
 Wired the TS-specific client cvars + console commands from the API surface scan, fixing the playtest
