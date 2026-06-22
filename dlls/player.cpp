@@ -1872,6 +1872,22 @@ void CBasePlayer::PreThink()
 
 	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame
 
+	// TS slow-motion: make GoSlow/InSlow/GlobalSlowMotion2/slowmatch VISIBLE by scaling the
+	// player's speed cap by the applied slow factor (m_flSlowMotionGo; 1 = normal). pev->
+	// maxspeed flows to pmove via clientdata, so a slowed player physically moves slower.
+	// SLICE: full pmove time-dilation (gravity/jump arcs/animation rate) needs the slow
+	// value threaded into client-predicted pm_shared; this is the server-side speed portion.
+	if (m_flSlowMotionGo > 0.0f && m_flSlowMotionGo < 1.0f)
+	{
+		pev->maxspeed = 320.0f * m_flSlowMotionGo;
+		m_bSlowMoveApplied = true;
+	}
+	else if (m_bSlowMoveApplied)
+	{
+		pev->maxspeed = 0.0f; // restore the engine default speed
+		m_bSlowMoveApplied = false;
+	}
+
 	UTIL_MakeVectors(pev->v_angle); // is this still used?
 
 	ItemPreFrame();

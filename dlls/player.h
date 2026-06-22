@@ -372,6 +372,7 @@ public:
 	float m_flSlowMotionRamp = 0;     // 0x180 — slow-motion interpolation ramp
 	byte m_iKungFu = 0;               // 0x74e — kung-fu state
 	byte m_bLowGravity = 0;           // 0x74f — low-gravity powerup active
+	bool m_bSlowMoveApplied = false;  // slow-motion has lowered pev->maxspeed (restore on exit)
 
 	// TS custom-HUD networking (ts_player.cpp). The original sends its OWN per-frame
 	// HUD messages (TSHealth/TSArmor/TSCash/...) from CBasePlayer::UpdateClientData

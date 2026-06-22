@@ -5,6 +5,21 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 62) — VISIBLE slow-motion movement (the marquee TS effect), VERIFIED
+
+Wired the biggest tracked interface gap: slow-motion is now VISIBLE. `CBasePlayer::PreThink` scales the
+speed cap by the applied slow factor — `pev->maxspeed = 320 * m_flSlowMotionGo` when slowed (`m_flSlowMotionGo`
+in (0,1)), restoring to the engine default (0) on exit (tracked by new `m_bSlowMoveApplied`). pev->maxspeed
+flows to pmove via clientdata (client.cpp:1944), so a slowed player physically moves slower. This makes the
+whole complete-but-invisible server slow state (GoSlow/InSlow/GlobalSlowMotion2/slowmatch/CTSSlowMotionPoint/
+powerup slow) actually do something on screen. **Verified WITHOUT input:** `+slowmatch 0.5` → log probe
+"[TS] slow-move: maxspeed 160 (scale 0.50)" (320→160); probe removed, rebuilt clean.
+- SLICE: full pmove time-dilation (gravity/jump arcs/animation rate) needs the slow value threaded into
+  client-predicted pm_shared — the complete effect. This is the server-side speed portion.
+- ENGINE_INTERFACE.md: pfnPM_Move gap ❌→🟡.
+
+Also this session (cont.61): thirdperson MP-gate fix; ENGINE_INTERFACE.md (full callback tracking).
+
 ## 2026-06-22 (cont. 61) — fix thirdperson (MP gate) + track the FULL engine↔mod interface (the goal)
 
 - **`thirdperson` FIXED + VERIFIED.** The stock HL client's `CAM_ToThirdPerson` (`cl_dll/in_camera.cpp`)

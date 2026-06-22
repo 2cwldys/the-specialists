@@ -25,7 +25,7 @@ Most are stock SDK plumbing (⬜) that work as inherited. TS-relevant ones:
 | `pfnPlayerPreThink` | 🟡 | UpdatePowerUpState ✅; full TS prethink TBD |
 | `pfnPlayerPostThink` | ❌ | **MISSING**: CTSAnimation::Animate + CTSStunt::GoRoll + CheckPowerups (VERIFICATION §C) |
 | `pfnUpdateClientData` | ✅ | TS HUD messages via TSUpdateClientData (cont.51) |
-| `pfnPM_Move` (player movement) | ❌ | **the visible slow-motion time-dilation lives here** — pmove must scale frametime by the slow field; NOT wired (the long-standing SLICE) |
+| `pfnPM_Move` (player movement) | 🟡 | **slow-motion now scales the speed cap** (PreThink: pev->maxspeed = 320×slowGo, cont.62) so slow-mo is VISIBLE; full pmove time-dilation (gravity/jump arcs/anim rate via client pm_shared) still TODO |
 | `pfnPM_Init`/`pfnPM_FindTextureType` | ⬜ | stock pmove |
 | `pfnThink`/`pfnUse`/`pfnTouch`/`pfnBlocked` | ✅ | dispatch to TS entity methods |
 | `pfnSave`/`pfnRestore`/`pfnSaveWriteFields`/`pfnSaveReadFields`/`pfnSaveGlobalState`/`pfnRestoreGlobalState`/`pfnResetGlobalState` | 🟡 | stock save/restore; many TS classes have no DEFINE_FIELD save data yet |
@@ -68,9 +68,9 @@ Used as needed; the TS-relevant ones in play: `pfnRegUserMsg`, `MESSAGE_BEGIN/WR
 ---
 
 ## The notable TS-specific GAPS (the real remaining interface work)
-1. **`pfnPM_Move` + `HUD_PlayerMove`** — the **visible slow-motion time-dilation** (scale pmove frametime
-   by the player's slow field). The server slow state is complete (GoSlow/InSlow/GlobalSlowMotion2,
-   slowmatch); nothing reads it in movement. This is the biggest missing interface behaviour.
+1. **`pfnPM_Move` + `HUD_PlayerMove`** — slow-motion now scales the **speed cap** server-side (PreThink:
+   pev->maxspeed = 320×slowGo, cont.62), so it's VISIBLE. Remaining: full pmove time-dilation (gravity/
+   jump arcs, animation rate) via the slow value threaded into client-predicted pm_shared.
 2. **`pfnPlayerPostThink`** — `CTSAnimation` (gait/anim) + `CTSStunt` (dives/rolls/wall-flips).
 3. **`HUD_PostRunCmd`** — client-side CTSGun weapon prediction (true predicted fire/alt-fire).
 4. **`pfnGetGameDescription`** — return "The Specialists".
