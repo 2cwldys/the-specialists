@@ -63,10 +63,10 @@ void CTSGameRules::StartRoundTimer()
 	m_flRoundEnd = gpGlobals->time + t;
 
 	if (gmsgTSRoundTime == 0)
-		gmsgTSRoundTime = REG_USER_MSG("RoundTime", -1); // original registers "RoundTime" (var named gmsgTSRoundTime)
+		gmsgTSRoundTime = REG_USER_MSG("RoundTime", 2); // original "RoundTime", fixed size 2 (two bytes)
 	MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
-	WRITE_SHORT((int)(m_flRoundEnd - gpGlobals->time));
-	WRITE_SHORT(0);
+	WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
+	WRITE_BYTE(0);                                     // flag: 0 = round start/restart
 	MESSAGE_END();
 }
 
@@ -79,8 +79,8 @@ void CTSGameRules::SendRoundTime(CBasePlayer *pPlayer)
 		return;
 
 	MESSAGE_BEGIN(MSG_ONE, gmsgTSRoundTime, NULL, pPlayer->edict());
-	WRITE_SHORT((int)(m_flRoundEnd - gpGlobals->time));
-	WRITE_SHORT(0);
+	WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
+	WRITE_BYTE(0);                                     // flag (0 = mid-round join)
 	MESSAGE_END();
 }
 

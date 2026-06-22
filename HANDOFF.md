@@ -13,7 +13,7 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-22, through cont.50)
+## Where things stand (2026-06-22, through cont.51)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`/`client.so`** → **run in-engine** (ReHLDS for server; xash3d-fwgs
 for the graphical client — this box HAS a GPU) → **gdb** any crash. Everything below is
@@ -68,6 +68,14 @@ decomp (not symptom-patching). The 5-phase plan (tracked as tasks):**
 4. **The TS client HUD** (the reason there is NO HUD at all): TS ships a *fully custom* HUD — `hud.txt` is
    320/640-only, no stock crosshair/ammo/health path. Reconstruct from `client.dll` + the `gmsg` readers
    (`TSHealth`/`TSArmor`/`TSCash`/`TSState`/`TSMBlur`/`TSSlowMo`/`TSBTime`/`TSPSys`/`RoundTime`).
+   **IN PROGRESS (cont.51): health/armor/cash DONE + visually verified** — the full TS user-message wire
+   contract is recovered in **`reference/HUD_MESSAGES.md`**; server sends `TSHealth`/`TSArmor`/`TSCash`
+   from `CBasePlayer::TSUpdateClientData` (`dlls/ts_player.cpp`); client `CHudTSStatus`
+   (`cl_dll/ts_status.{cpp,h}`) draws them bottom-left. Also fixed 3 inherited protocol-name/size bugs:
+   `RoundTime` (-1→size 2, 2 BYTES not 2 shorts), `TSMotionBlur`→`TSMBlur`, `TSPowerUpTime`→`PwUpTime`.
+   **NEXT: the ammo HUD** (`WeaponInfo`(6)/`WStatus`(3)) — needs the per-arsenal-slot struct (@gun+0xcc,
+   0x70/slot) decoded to pin the bytes; CTSGun never sends `ClipInfo`, so clip rides inside WeaponInfo.
+   Then `TSState`/`TSSlowMo`/`TSBTime`/powerup HUDs, and suppress the leftover stock HUD strip.
 5. **Client view (bob/sway) + predicted fire events** — viewmodel "snap" (`cl_bob 3` + stock `V_CalcBob`;
    TS bob math differs) and moving fire to the faithful predicted `events/fire.sc` (`EV_TSFire`).
 
@@ -259,6 +267,10 @@ symptom-patching, reconstruct the player/weapon/input/HUD systems from the decom
   `Unknown command cl_realhud / hud_r/g/b/color / mp_teammodels` spam + missing keys like `+alt1`).
 - **Phase 4** — the TS client HUD (why there is NO HUD at all: TS has a fully custom HUD, `hud.txt` is
   320/640-only). The biggest quality-of-life win. `reference/client.dll` (~1,013 exports) is the spine.
+  **IN PROGRESS (cont.51):** wire contract recovered (`reference/HUD_MESSAGES.md`); **health/armor/cash
+  done + visually verified** (`CHudTSStatus` ← `TSHealth`/`TSArmor`/`TSCash`); 3 protocol-name bugs fixed.
+  **NEXT = ammo** (`WeaponInfo`/`WStatus`; decode the per-slot struct @gun+0xcc), then
+  `TSState`/`TSSlowMo`/`TSBTime`/powerup HUDs + suppress the leftover stock HUD strip.
 - **Phase 5** — client view bob/sway ("snap"; `cl_bob 3` + stock `V_CalcBob`) + the predicted
   `events/fire.sc` fire event (replaces the server-driven `SendWeaponAnim` slice).
 

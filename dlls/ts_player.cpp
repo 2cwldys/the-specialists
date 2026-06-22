@@ -14,6 +14,61 @@
 int gmsgTSPowerUpTime = 0;
 int gmsgTSMotionBlur = 0;
 
+// Lazily-registered TS custom-HUD user messages. Names + fixed sizes are byte-faithful
+// to the original LinkUserMessages (reference/HUD_MESSAGES.md): TSHealth/TSArmor are a
+// single byte, TSCash a short. The original sends these (not the stock Health/Battery)
+// from CBasePlayer::UpdateClientData; we do the same from TSUpdateClientData() below.
+static int gmsgTSHealth = 0;
+static int gmsgTSArmor = 0;
+static int gmsgTSCash = 0;
+
+// @ part of CBasePlayer::UpdateClientData @0x81d00 — the TS per-frame HUD sends. Each
+// message is throttled-by-change (only sent when the cached value differs) exactly as
+// the original does. Health/armor are rounded and clamped to a byte; cash is a short.
+void CBasePlayer::TSUpdateClientData()
+{
+	if (gmsgTSHealth == 0)
+		gmsgTSHealth = REG_USER_MSG("TSHealth", 1);
+	if (gmsgTSArmor == 0)
+		gmsgTSArmor = REG_USER_MSG("TSArmor", 1);
+	if (gmsgTSCash == 0)
+		gmsgTSCash = REG_USER_MSG("TSCash", 2);
+
+	// TSHealth — round(health), clamped to >= 0 (the original ROUNDs pev->health and
+	// floors negatives at 0 before the WRITE_BYTE).
+	int health = (int)(pev->health + 0.5f);
+	if (health < 0)
+		health = 0;
+	if (health != m_iClientTSHealth)
+	{
+		m_iClientTSHealth = health;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSHealth, NULL, ENT(pev));
+		WRITE_BYTE(health);
+		MESSAGE_END();
+	}
+
+	// TSArmor — round(armorvalue).
+	int armor = (int)(pev->armorvalue + 0.5f);
+	if (armor < 0)
+		armor = 0;
+	if (armor != m_iClientTSArmor)
+	{
+		m_iClientTSArmor = armor;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSArmor, NULL, ENT(pev));
+		WRITE_BYTE(armor);
+		MESSAGE_END();
+	}
+
+	// TSCash — the player's cash (a short).
+	if (m_iCash != m_iClientTSCash)
+	{
+		m_iClientTSCash = m_iCash;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSCash, NULL, ENT(pev));
+		WRITE_SHORT(m_iCash);
+		MESSAGE_END();
+	}
+}
+
 // @ SlowMotion__FP11CBasePlayer
 bool SlowMotion(CBasePlayer *pPlayer)
 {
@@ -102,7 +157,7 @@ bool CBasePlayer::UsePowerUp()
 	m_flPowerupExpireTime = m_flPowerupTime + gpGlobals->time;
 
 	if (gmsgTSPowerUpTime == 0)
-		gmsgTSPowerUpTime = REG_USER_MSG("TSPowerUpTime", -1);
+		gmsgTSPowerUpTime = REG_USER_MSG("PwUpTime", 1); // original "PwUpTime", fixed size 1
 	MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUpTime, NULL, ENT(pev));
 	WRITE_BYTE((int)(m_flPowerupExpireTime - gpGlobals->time + 0.5f));
 	MESSAGE_END();
@@ -126,7 +181,7 @@ bool CBasePlayer::UsePowerUp()
 	if (blur)
 	{
 		if (gmsgTSMotionBlur == 0)
-			gmsgTSMotionBlur = REG_USER_MSG("TSMotionBlur", -1);
+			gmsgTSMotionBlur = REG_USER_MSG("TSMBlur", 2); // original "TSMBlur", fixed size 2 (entindex,blur)
 		MESSAGE_BEGIN(MSG_PVS, gmsgTSMotionBlur, pev->origin);
 		WRITE_BYTE(ENTINDEX(edict()));
 		WRITE_BYTE(blur);

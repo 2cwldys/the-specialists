@@ -5,6 +5,60 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 51) — Phase 4: TS custom HUD begins (health/armor/cash) + the user-message wire contract recovered + 3 protocol-name bugs fixed
+
+**Phase 4 (the TS custom HUD) started.** First recovered the FULL TS user-message contract from the
+`.so`, then landed the first faithful HUD elements (health/armor/cash) end-to-end (server send + client
+draw), VISUALLY VERIFIED in xash3d-fwgs.
+
+**The message contract — recovered + documented in `reference/HUD_MESSAGES.md` (new, tracked).** Parsed
+`LinkUserMessages @0xc7db0` (every REG_USER_MSG name + fixed size) and decompiled the two senders —
+`CBasePlayer::UpdateClientData @0x81d00` and `CTSGun::UpdateClientData @0x758c8` — for the exact wire
+packing. The TS block (names ON THE WIRE, sizes, format): `TSHealth`(1)=BYTE round(health)≥0,
+`TSArmor`(1)=BYTE round(armor), `TSState`(1)=BYTE state[0x498], `TSCash`(2)=SHORT cash, `TSSpace`(1)=BYTE,
+`WeaponInfo`(6)=BYTE wtype,BYTE,SHORT reserve,BYTE,BYTE (from the per-arsenal-slot struct @gun+0xcc, NOT
+our s_weapon_info subset), `WStatus`(3)=per-slot BYTE×3, `ActItems`(2)=MSG_ALL BYTE entindex+BYTE,
+`TSPAward`(2)=MSG_ALL, `PwUp`(3), `PwUpTime`(1), `RoundTime`(2)=BYTE secs+BYTE flag(0 start/2 timeout),
+`TSMBlur`(2), `TSSlowMo`(2)=COORD(slowamt*100), `TSBTime`(1), `Wires`(3), `TSFrags`(-1), `TSPSys`(-1)…
+Engine write-fn GOT offsets: `190fe0`=Byte `190fe8`=Short `190fec`=Long `190ff4`=Coord.
+
+**3 inherited PROTOCOL-NAME/SIZE bugs fixed (swap-compat — the cont.50 mandate):**
+- `RoundTime`: was registered -1 + written as TWO SHORTS (server) / read as two shorts (client). Original
+  is **fixed size 2 = two BYTES** (seconds, flag). Fixed `dlls/ts_gamerules.cpp` (StartRoundTimer +
+  SendRoundTime → WRITE_BYTE×2, REG size 2) AND `cl_dll/roundtime.cpp` (READ_BYTE×2). Clock still
+  counts down correctly (verified "1:42"); 120s round max fits a byte.
+- `TSMotionBlur` → **`TSMBlur`** (size 2) — wrong NAME + size (`dlls/ts_player.cpp`).
+- `TSPowerUpTime` → **`PwUpTime`** (size 1) — wrong NAME (`dlls/ts_player.cpp`).
+
+**Health/armor/cash HUD — DONE + VISUALLY VERIFIED:**
+- Server (`dlls/ts_player.cpp` `CBasePlayer::TSUpdateClientData()`, called at the end of
+  `CBasePlayer::UpdateClientData`): lazily registers + sends `TSHealth`(byte)/`TSArmor`(byte)/`TSCash`
+  (short) on-change, cached in new `player.h` members (`m_iClientTSHealth/Armor/Cash`, reset on HUD init
+  so they resend after respawn). Byte-faithful to the original (round+clamp health, round armor). The
+  original sends THESE instead of stock Health/Battery — TS has a fully custom HUD.
+- Client (`cl_dll/ts_status.{cpp,h}`, new — `CHudTSStatus`): hooks TSHealth/TSArmor/TSCash, draws
+  "Health: N" / "Armor: N" / "$N" as text bottom-left (DrawHudString, gold / red when health≤25). Wired
+  into hud.h/hud.cpp/CMakeLists like CHudRoundTime. Built both halves (amd64), nm/strings confirm the
+  factories + hook names; ran in xash3d-fwgs on tm_avana → screenshot shows **"Health: 100" / "Armor: 0"**
+  bottom-left + the round clock. No "Bad message" size warnings in the log.
+
+**STILL TO DO in Phase 4 (next):**
+- **AMMO HUD (the big one) — `WeaponInfo`/`WStatus` need the per-arsenal-slot struct (@gun+0xcc, 0x70/slot)
+  decoded** to pin the 6 WeaponInfo bytes byte-faithfully (weapontype + reserve are known; the clip + the
+  3 middle bytes come from the slot struct, which our modern `CTSGun` stores differently). CTSGun sends
+  WeaponInfo/WStatus, NEVER ClipInfo — so the current clip rides inside WeaponInfo's slot snapshot. This
+  is a consult-worthy ambiguity (raised to the user/prev-agent): exact slot-struct field meanings.
+- `TSState` (player state byte @0x498 — semantics TBD), `TSSlowMo` (COORD slowamt — the visible
+  time-dilation HUD), `TSBTime`, `PwUp`/motion-blur HUD readers, `TSFrags`/scoreboard.
+- The leftover **stock HUD strip** still bleeds through at the very bottom (faint "00 |", player icon, "0")
+  — the stock sprite HUD half-loading; should be suppressed once the TS HUD is complete.
+
+**Verify loop used:** `scripts/build.sh amd64` + `amd64 client` → `setup-xash-mod.sh` → launched xash
+(killed the 26-min idle prior instance first) → `import -window root` → cropped the 2560x1080+1280+208
+window (`xwininfo` for geometry). Left a fresh instance running for the user.
+
+---
+
 ## 2026-06-22 (cont. 50) — playtest reconstruction (reload, akimbo anims, HUD res) + the COMPAT TARGET clarified + docs sync
 
 **Compatibility target clarified by the user (now in CLAUDE.md + HANDOFF):** the goal is INTERFACE/

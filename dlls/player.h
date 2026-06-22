@@ -373,6 +373,16 @@ public:
 	byte m_iKungFu = 0;               // 0x74e — kung-fu state
 	byte m_bLowGravity = 0;           // 0x74f — low-gravity powerup active
 
+	// TS custom-HUD networking (ts_player.cpp). The original sends its OWN per-frame
+	// HUD messages (TSHealth/TSArmor/TSCash/...) from CBasePlayer::UpdateClientData
+	// instead of the stock Health/Battery — TS ships a fully custom client HUD. We
+	// mirror that from TSUpdateClientData(), cached + sent only on change. See
+	// reference/HUD_MESSAGES.md for the recovered wire formats.
+	void TSUpdateClientData();
+	int m_iClientTSHealth = -1;       // last TSHealth byte sent (round(health), >=0)
+	int m_iClientTSArmor = -1;        // last TSArmor byte sent (round(armorvalue))
+	int m_iClientTSCash = -1;         // last TSCash short sent (m_iCash)
+
 	// TS cash + buy/armament loadout (ts_buy.cpp). In the shipped game CashBased() is
 	// hardcoded false (weapons are FREE), so the "buy" system is really a free loadout
 	// selector the client menu drives; cash is tracked (cash-for-win/lose) but never charged.

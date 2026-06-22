@@ -18,8 +18,9 @@
 // The Specialists round-time countdown HUD.
 //
 // The server (CTSGameRules::StartRoundTimer / RestartRound) registers a user
-// message named "RoundTime" and writes two shorts: the seconds remaining in the
-// round, then a flag word (0 in the shipped binary). We turn the remaining
+// message named "RoundTime" (fixed size 2) and writes two bytes: the seconds
+// remaining in the round, then a flag byte (0 at start/restart, 2 at timeout —
+// matches the original CTSGameRules wire format). We turn the remaining
 // seconds into an absolute client-time expiry and count it down locally so the
 // clock keeps ticking between server updates, then draw it as MM:SS near the top
 // of the screen.
@@ -59,8 +60,8 @@ void CHudRoundTime::Reset()
 bool CHudRoundTime::MsgFunc_RoundTime(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
-	int seconds = READ_SHORT();
-	READ_SHORT(); // flag word — always 0 in the shipped server
+	int seconds = READ_BYTE();
+	READ_BYTE(); // flag byte — 0 at round start/restart, 2 at timeout (original RoundTime is 2 bytes)
 
 	if (seconds <= 0)
 	{

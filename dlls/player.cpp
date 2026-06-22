@@ -4112,6 +4112,12 @@ void CBasePlayer::UpdateClientData()
 		FireTargets("game_playerspawn", this, this, USE_TOGGLE, 0);
 
 		InitStatusBar();
+
+		// Force a resend of the TS custom-HUD values: the client just reset its HUD,
+		// so our cached "last sent" values are stale.
+		m_iClientTSHealth = -1;
+		m_iClientTSArmor = -1;
+		m_iClientTSCash = -1;
 	}
 
 	if (m_iHideHUD != m_iClientHideHUD)
@@ -4366,6 +4372,10 @@ void CBasePlayer::UpdateClientData()
 		WRITE_SHORT((short)m_SndRoomtype); // sequence number
 		MESSAGE_END();
 	}
+
+	// The Specialists custom-HUD messages (TSHealth/TSArmor/TSCash/...). The original
+	// drives its own HUD from here instead of relying on the stock Health/Battery.
+	TSUpdateClientData();
 
 	//Handled anything that needs resetting
 	m_bRestored = false;
