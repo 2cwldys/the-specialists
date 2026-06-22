@@ -120,6 +120,8 @@ bool CHudTSAmmo::MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf)
 	m_iFireMode = READ_BYTE();
 	READ_BYTE(); // weapon flags (attachments — Lasersight/Silencer; unused so far)
 
+	g_iTSActiveWeapon = m_iWeaponType; // the weapon-select bar highlights this slot
+
 	m_iFlags |= HUD_ACTIVE;
 	return true;
 }

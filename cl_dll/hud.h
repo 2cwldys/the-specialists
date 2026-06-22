@@ -166,6 +166,7 @@ private:
 #include "roundtime.h"
 #include "ts_status.h"
 #include "ts_ammo.h"
+#include "ts_weaponbar.h"
 
 
 #define FADE_TIME 100
@@ -578,6 +579,7 @@ public:
 	CHudRoundTime m_RoundTime;
 	CHudTSStatus m_TSStatus;
 	CHudTSAmmo m_TSAmmo;
+	CHudTSWeaponBar m_TSWeaponBar;
 
 	void Init();
 	void VidInit();

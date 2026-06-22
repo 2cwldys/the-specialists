@@ -67,6 +67,7 @@ void TSHud_Color(int& r, int& g, int& b)
 }
 
 int g_iTSHealth = 100;
+int g_iTSActiveWeapon = -1;
 
 void TSHud_HealthBar(int x, int y, int health)
 {

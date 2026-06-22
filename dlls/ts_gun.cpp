@@ -43,6 +43,7 @@ public:
 	int iItemSlot() override { return 1; } // @ iItemSlot__6CTSGun returns slot 1
 	bool Deploy() override;
 	bool UpdateClientData(CBasePlayer *pPlayer) override; // sends the TS WeaponInfo HUD message
+	void SendWeaponStatus(CBasePlayer *pPlayer);          // sends the WStatus weapon-bar messages
 	void ItemPostFrame() override;
 	void PrimaryAttack() override;
 	void Reload() override;
@@ -80,11 +81,18 @@ public:
 	int m_iClientClip = -1;
 	int m_iClientReserve = -1;
 	int m_iClientFireMode = -1;
+
+	// Cached per-weapon-type WStatus (the weapon-select bar): clip if owned, else -1.
+	// The original sends WStatus per arsenal slot on change; we diff against this.
+	int m_iClientWStatus[TSW_COUNT];
+	bool m_bWStatusInit = false;
 };
 
 // Lazily-registered TS weapon-info HUD message (the ammo readout). Name + fixed size
 // are byte-faithful to LinkUserMessages (reference/HUD_MESSAGES.md): "WeaponInfo", 6.
 static int gmsgWeaponInfo = 0;
+// The weapon-select bar message: "WStatus", size 3 = BYTE type, BYTE owned, BYTE clip.
+static int gmsgWStatus = 0;
 
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
 
@@ -541,7 +549,42 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	WRITE_BYTE(m_fireMode);       // 0=auto 1=semi 2=burst 3=pump
 	WRITE_BYTE(0);                // SLICE: weapon capability flags
 	MESSAGE_END();
+
+	SendWeaponStatus(pPlayer);
 	return true;
+}
+
+// @ the WStatus block of CTSGun::UpdateClientData — drive the weapon-select bar. The
+// original sends one WStatus per arsenal slot on change; we diff each weapon type's
+// owned/clip against the cached mirror and send only what changed. Wire (byte-faithful
+// to the original handler): BYTE type, BYTE owned(0/1), BYTE clip.
+void CTSGun::SendWeaponStatus(CBasePlayer *pPlayer)
+{
+	if (gmsgWStatus == 0)
+		gmsgWStatus = REG_USER_MSG("WStatus", 3);
+
+	if (!m_bWStatusInit)
+	{
+		for (int i = 0; i < TSW_COUNT; i++)
+			m_iClientWStatus[i] = -2; // force a first send of every slot
+		m_bWStatusInit = true;
+	}
+
+	for (int t = 0; t < TSW_COUNT; t++)
+	{
+		const int slot = FindSlot((tsweapon_t)t);
+		const int owned = (slot >= 0) ? 1 : 0;
+		const int clip = (slot >= 0) ? m_arsenalClip[slot] : 0;
+		const int state = owned ? clip : -1;
+		if (state == m_iClientWStatus[t])
+			continue;
+		m_iClientWStatus[t] = state;
+		MESSAGE_BEGIN(MSG_ONE, gmsgWStatus, NULL, pPlayer->pev);
+		WRITE_BYTE(t);     // tsweapon_t
+		WRITE_BYTE(owned); // 1 = in the arsenal
+		WRITE_BYTE(clip);  // loaded rounds
+		MESSAGE_END();
+	}
 }
 
 // @ Reload/ReloadWeapon — refill the clip from the weapon's CALIBER reserve: take =

@@ -372,6 +372,7 @@ void CHud::Init()
 	m_RoundTime.Init();
 	m_TSStatus.Init();
 	m_TSAmmo.Init();
+	m_TSWeaponBar.Init();
 	GetClientVoiceMgr()->Init(&g_VoiceStatusHelper, (vgui::Panel**)&gViewPort);
 
 	m_Menu.Init();
@@ -549,6 +550,7 @@ void CHud::VidInit()
 	m_RoundTime.VidInit();
 	m_TSStatus.VidInit();
 	m_TSAmmo.VidInit();
+	m_TSWeaponBar.VidInit();
 	GetClientVoiceMgr()->VidInit();
 }
 

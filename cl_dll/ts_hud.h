@@ -42,3 +42,7 @@ void TSHud_HealthBar(int x, int y, int health);
 // Last health value received (TSHealth). Set by CHudTSStatus, read by the ammo HUD so
 // the health bar can be drawn stacked above the ammo box exactly as the original does.
 extern int g_iTSHealth;
+
+// Active weapon tsweapon_t (from WeaponInfo). Set by the ammo HUD, read by the weapon-
+// select bar to highlight the held weapon's slot.
+extern int g_iTSActiveWeapon;
