@@ -33,3 +33,12 @@ void TSHud_Color(int& r, int& g, int& b);
 
 // Draw the translucent dark panel behind a HUD cluster (x,y,w,h in pixels).
 void TSHud_Panel(int x, int y, int w, int h);
+
+// The TS health bar (FUN_1004d5f0): a 0x80(128)-wide bar at (x,y) — faint background
+// (alpha 0x1e) + a fill proportional to health, in the HUD colour (red when low). The
+// original draws it bottom-right, stacked with the weapon/ammo box.
+void TSHud_HealthBar(int x, int y, int health);
+
+// Last health value received (TSHealth). Set by CHudTSStatus, read by the ammo HUD so
+// the health bar can be drawn stacked above the ammo box exactly as the original does.
+extern int g_iTSHealth;

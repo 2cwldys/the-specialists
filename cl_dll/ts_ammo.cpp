@@ -186,5 +186,10 @@ bool CHudTSAmmo::Draw(float flTime)
 		gHUD.DrawHudString(x + 2, y, ScreenWidth, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
 	}
 
+	// Health bar stacked above the box — the original draws FUN_1004d5f0 here, after the
+	// weapon/ammo lines, at the running y (reference/HUD_DRAWCHAIN.md).
+	y -= LINEH;
+	TSHud_HealthBar(x, y, g_iTSHealth);
+
 	return true;
 }

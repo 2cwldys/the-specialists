@@ -66,6 +66,36 @@ void TSHud_Color(int& r, int& g, int& b)
 	}
 }
 
+int g_iTSHealth = 100;
+
+void TSHud_HealthBar(int x, int y, int health)
+{
+	int r, g, b;
+	TSHud_Color(r, g, b);
+
+	// Faint bar background (the original uses alpha 0x1e).
+	FillRGBA(x, y, 0x80, 0x13, r, g, b, 0x1e);
+
+	if (health < 0)
+		health = 0;
+	if (health > 100)
+		health = 100;
+
+	// Fill width is proportional to health across the inset bar (0x80 - 4 px).
+	const int fillW = (health * (0x80 - 4)) / 100;
+	if (fillW > 0)
+	{
+		int fr = r, fg = g, fb = b;
+		if (health <= 20) // low-health flash, like the original's red branch
+		{
+			fr = 0xc3;
+			fg = 0x2d;
+			fb = 0x2d;
+		}
+		FillRGBA(x + 2, y + 2, fillW, 0x10, fr, fg, fb, 0xb4);
+	}
+}
+
 void TSHud_Panel(int x, int y, int w, int h)
 {
 	// The original (FUN_1004d7e0) backs each HUD strip with a FillRGBA of the HUD

@@ -65,6 +65,7 @@ bool CHudTSStatus::MsgFunc_TSHealth(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
 	m_iHealth = READ_BYTE();
+	g_iTSHealth = m_iHealth; // the ammo HUD draws the health bar stacked above the ammo box
 	m_iFlags |= HUD_ACTIVE;
 	return true;
 }
@@ -93,17 +94,19 @@ bool CHudTSStatus::Draw(float flTime)
 	if (gHUD.m_iHideHUDDisplay & (HIDEHUD_HEALTH | HIDEHUD_ALL))
 		return true;
 
+	// Health is drawn as the bottom-right bar by the ammo HUD (FUN_1004d5f0, stacked
+	// above the ammo box) — see CHudTSAmmo. Here we draw the remaining values (armor,
+	// cash) as text bottom-left. (Their exact faithful placement is still TODO — the
+	// default TS HUD's armor/cash draw hasn't been traced yet; this is functional.)
 	const int lineHeight = gHUD.m_scrinfo.iCharHeight + 2;
 	const int pad = lineHeight / 2;
 	const int margin = ScreenWidth / 40;
 	const bool showCash = (m_iCash > 0);
-	const int numLines = showCash ? 3 : 2;
+	const int numLines = showCash ? 2 : 1;
 
-	// Steel-blue HUD colour (hud_r/g/b — default 150/175/255, from client.dll).
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
 
-	// Panel sized to the text block, anchored bottom-left.
 	const int panelW = ScreenWidth / 7;
 	const int panelH = lineHeight * numLines + pad * 2;
 	const int panelX = margin;
@@ -114,9 +117,7 @@ bool CHudTSStatus::Draw(float flTime)
 	int y = panelY + pad;
 
 	char buf[32];
-	int r, g, b;
 
-	// Cash first (top of the stack) — only when the player has any.
 	if (showCash)
 	{
 		sprintf(buf, "$%d", m_iCash);
@@ -124,21 +125,6 @@ bool CHudTSStatus::Draw(float flTime)
 		y += lineHeight;
 	}
 
-	// Health — HUD colour normally, flashing red when low.
-	sprintf(buf, "Health: %d", m_iHealth);
-	if (m_iHealth <= 25)
-	{
-		UnpackRGB(r, g, b, RGB_REDISH);
-		ScaleColors(r, g, b, 255);
-	}
-	else
-	{
-		r = hr; g = hg; b = hb;
-	}
-	gHUD.DrawHudString(x, y, ScreenWidth, buf, r, g, b);
-	y += lineHeight;
-
-	// Armor.
 	sprintf(buf, "Armor: %d", m_iArmor);
 	gHUD.DrawHudString(x, y, ScreenWidth, buf, hr, hg, hb);
 
