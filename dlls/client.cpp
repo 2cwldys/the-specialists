@@ -34,7 +34,7 @@
 #include "com_model.h"
 #include "saverestore.h"
 #include "player.h"
-#include "ts_weapons.h" // TSCycleWeapon (tsnextweapon command)
+#include "ts_weapons.h" // TSSelectWeaponType (weapon_<N> commit) / TSLastInv (lastinv)
 #include "spectator.h"
 #include "client.h"
 #include "soundent.h"
@@ -534,13 +534,16 @@ void ClientCommand(edict_t* pEntity)
 	{
 		player->UsePowerUp();
 	}
-	else if (FStrEq(pcmd, "tsnextweapon")) // TS: cycle the weapon arsenal (mouse-wheel)
+	else if (!strncmp(pcmd, "weapon_", 7) && pcmd[7] >= '0' && pcmd[7] <= '9')
 	{
-		TSCycleWeapon(player);
+		// TS weapon-select commit (faithful — reference/WEAPON_SELECT.md): the client's
+		// invnext/invprev select cursor emits "weapon_<N>" (numeric tsweapon_t). Wield that
+		// owned type (holster->deploy). The digit guard avoids stock by-name weapon_ commands.
+		TSSelectWeaponType(player, atoi(pcmd + 7));
 	}
-	else if (FStrEq(pcmd, "tsprevweapon")) // TS: cycle the weapon arsenal backwards
+	else if (FStrEq(pcmd, "lastinv")) // TS: toggle back to the previously-wielded weapon
 	{
-		TSCycleWeaponPrev(player);
+		TSLastInv(player);
 	}
 	else if (FStrEq(pcmd, "tsfiremode")) // TS: cycle the held weapon's fire-mode
 	{

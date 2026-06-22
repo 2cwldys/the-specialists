@@ -33,6 +33,12 @@ public:
 	void Reset() override;
 	bool MsgFunc_WStatus(const char* pszName, int iSize, void* pbuf);
 
+	// Weapon-select cursor (faithful — reference/WEAPON_SELECT.md). invnext/invprev step
+	// the cursor through the OWNED weapons in the bar's display order (column-major); returns
+	// the newly-highlighted tsweapon_t (or -1 if <=1 weapon owned). The caller commits it to
+	// the server via "weapon_<N>" (the original client's FUN_1004f500 transport).
+	int CycleType(bool fNext);
+
 private:
 	static const int TSW_COUNT = 38;
 	int m_iClip[TSW_COUNT];          // loaded rounds if owned, else -1

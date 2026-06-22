@@ -73,6 +73,7 @@ public:
 	int m_ammoReserve[TS_NUM_CALIBERS] = {};   // spare rounds PER CALIBER (gun+0xd4 in the .so)
 	int m_arsenalCount = 0;
 	int m_active = 0;
+	int m_lastActive = 0; // previously-wielded slot (for the `lastinv` toggle, player+0xa1c)
 	int m_akimboSide = 0; // which barrel fired last (alternates muzzle L/R for akimbo)
 	int m_fireMode = TSFM_SEMI; // ACTIVE fire-mode (= m_arsenalMode[m_active])
 	int m_burstCount = 0;       // rounds left in the current burst (m_pActiveItem+8)
@@ -235,21 +236,28 @@ bool CTSGun::MultiplyClips()
 	return true;
 }
 
-// @ SelectWeapon__6CTSGun — wield an owned slot (save the current clip, load the new).
+// @ SelectWeapon__6CTSGun (@0x80fb8) + the ClientCommand commit (@0xae433): holster the
+// current weapon, set the new active slot, then deploy. Faithful flow = holster -> deploy
+// (the original's SelectWeapon calls HolsterWeapon then the caller Deploy()s if it changed);
+// switching slots therefore cancels a reload and re-plays the draw animation/delay.
 void CTSGun::SelectSlot(int slot)
 {
-	if (slot < 0 || slot >= m_arsenalCount)
+	if (slot < 0 || slot >= m_arsenalCount || slot == m_active)
 		return;
 
+	// --- HolsterWeapon (@0x85698): park the outgoing weapon's per-slot state. ---
 	m_arsenalClip[m_active] = m_iClip; // save the wielded weapon's clip
 	m_arsenalMode[m_active] = m_fireMode; // and its fire-mode
+	m_fInReload = false;               // a switch cancels an in-progress reload
+	m_burstCount = 0;
+	m_lastActive = m_active;           // remember the outgoing slot (for `lastinv`)
+
 	m_active = slot;
 	m_weaponType = m_arsenalType[slot];
 	m_iClip = m_arsenalClip[slot];
 	m_fireMode = m_arsenalMode[slot];
-	m_burstCount = 0;
 
-	// Re-deploy the new active weapon if we're the player's held item.
+	// --- Deploy (@0x81030): re-deploy the new active weapon (draw anim + deploy delay). ---
 	if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
 		Deploy();
 }
@@ -784,22 +792,28 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
 	return pGun;
 }
 
-// Cycle to the next weapon in the player's TS arsenal (the `tsnextweapon` command).
-void TSCycleWeapon(CBasePlayer *pPlayer)
+// @ the ClientCommand `weapon_<N>` commit (@0xae433): wield the owned arsenal slot holding
+// tsweapon_t `type` (holster -> set active -> deploy via SelectSlot). This is the faithful
+// weapon-select transport: the client's invnext/invprev select cursor (FUN_1004f500) emits
+// "weapon_%i" with the numeric type; the server selects that type if owned.
+void TSSelectWeaponType(CBasePlayer *pPlayer, int type)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	if (!pGun || pGun->m_arsenalCount <= 1)
+	if (!pGun || type < 0 || type >= TSW_COUNT)
 		return;
-	pGun->SelectSlot((pGun->m_active + 1) % pGun->m_arsenalCount);
+	int slot = pGun->FindSlot((tsweapon_t)type);
+	if (slot >= 0)
+		pGun->SelectSlot(slot);
 }
 
-// Reverse arsenal cycle (mouse-wheel / invprev).
-void TSCycleWeaponPrev(CBasePlayer *pPlayer)
+// @ the ClientCommand `lastinv` block (@0xae433, the SelectWeapon+Deploy path): toggle back
+// to the previously-wielded slot (player+0xa1c). SelectSlot itself records m_lastActive.
+void TSLastInv(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun || pGun->m_arsenalCount <= 1)
 		return;
-	pGun->SelectSlot((pGun->m_active + pGun->m_arsenalCount - 1) % pGun->m_arsenalCount);
+	pGun->SelectSlot(pGun->m_lastActive);
 }
 
 // Infinite-clip powerup hook (PlayerAddPowerUp) — multiply the held weapon's reserve.

@@ -121,6 +121,36 @@ bool CHudTSWeaponBar::MsgFunc_WStatus(const char* pszName, int iSize, void* pbuf
 	return true;
 }
 
+// Step the select cursor to the next/prev OWNED weapon, in the bar's display order
+// (column-major: column 1..5 outer, tsweapon_t ascending within a column — the same order
+// Draw() lays them out). Mirrors FUN_1004f500's grid walk that skips empty cells and wraps;
+// our compact owned-set makes it a neighbour lookup. Returns the new active type, or -1.
+int CHudTSWeaponBar::CycleType(bool fNext)
+{
+	// Build the owned weapons in display order.
+	int order[TSW_COUNT];
+	int n = 0;
+	for (int col = 1; col <= 5; col++)
+		for (int t = 0; t < TSW_COUNT_LOCAL && t < TSW_COUNT; t++)
+			if (m_iClip[t] >= 0 && s_weaponColumn[t] == col)
+				order[n++] = t;
+
+	if (n <= 1)
+		return -1; // nothing to switch to
+
+	// Find the currently active weapon's place in the order.
+	int cur = 0;
+	for (int i = 0; i < n; i++)
+		if (order[i] == g_iTSActiveWeapon)
+		{
+			cur = i;
+			break;
+		}
+
+	int next = fNext ? (cur + 1) % n : (cur + n - 1) % n;
+	return order[next];
+}
+
 bool CHudTSWeaponBar::Draw(float flTime)
 {
 	if ((m_iFlags & HUD_ACTIVE) == 0)

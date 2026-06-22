@@ -163,10 +163,12 @@ class CBaseEntity;
 class CBasePlayer;
 CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type);
 
-// Cycle to the next/previous weapon in the player's TS arsenal (tsnextweapon /
-// tsprevweapon — the mouse-wheel + weapon-select keys).
-void TSCycleWeapon(CBasePlayer *pPlayer);
-void TSCycleWeaponPrev(CBasePlayer *pPlayer);
+// Weapon-select (the faithful protocol — see reference/WEAPON_SELECT.md). The client's
+// invnext/invprev select cursor emits the `weapon_<N>` command (numeric tsweapon_t);
+// TSSelectWeaponType wields that owned type (holster->deploy). `lastinv` toggles back to
+// the previously-wielded weapon.
+void TSSelectWeaponType(CBasePlayer *pPlayer, int type);
+void TSLastInv(CBasePlayer *pPlayer);
 
 // Trigger the held TS gun's alternate attack (+alt2 → coldcock pistol-whip).
 void TSAlternateAttack(CBasePlayer *pPlayer);

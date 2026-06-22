@@ -769,10 +769,19 @@ void CHudAmmo::UserCmd_NextWeapon()
 	if (gHUD.m_fPlayerDead || (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL)) != 0)
 		return;
 
-	// TS: weapons live in the single weapon_tsgun arsenal, so the stock weapon-select
-	// menu (gWR) doesn't apply — cycle the TS arsenal server-side instead, and don't
-	// open the stock selection menu. (mouse-wheel invnext)
-	ServerCmd("tsnextweapon\n");
+	// TS: weapons live in the single weapon_tsgun arsenal, so the stock weapon-select menu
+	// (gWR) doesn't apply. The faithful select cursor (reference/WEAPON_SELECT.md) walks the
+	// owned weapons in the bar's display order and commits the highlighted type to the server
+	// via "weapon_<N>" (the original client's FUN_1004f500 transport). (mouse-wheel invnext)
+	{
+		int t = gHUD.m_TSWeaponBar.CycleType(true);
+		if (t >= 0)
+		{
+			char cmd[24];
+			sprintf(cmd, "weapon_%d\n", t);
+			ServerCmd(cmd);
+		}
+	}
 	return;
 
 	if (!gpActiveSel || gpActiveSel == (WEAPON*)1)
@@ -816,8 +825,17 @@ void CHudAmmo::UserCmd_PrevWeapon()
 	if (gHUD.m_fPlayerDead || (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL)) != 0)
 		return;
 
-	// TS: cycle the TS arsenal backwards server-side (mouse-wheel invprev).
-	ServerCmd("tsprevweapon\n");
+	// TS: step the select cursor backwards through the owned arsenal and commit it via
+	// "weapon_<N>" (see UserCmd_NextWeapon / reference/WEAPON_SELECT.md). (mouse-wheel invprev)
+	{
+		int t = gHUD.m_TSWeaponBar.CycleType(false);
+		if (t >= 0)
+		{
+			char cmd[24];
+			sprintf(cmd, "weapon_%d\n", t);
+			ServerCmd(cmd);
+		}
+	}
 	return;
 
 	if (!gpActiveSel || gpActiveSel == (WEAPON*)1)
