@@ -117,6 +117,7 @@ target_sources(hl PRIVATE
 	ts_briefcase.cpp
 	ts_bomb.cpp
 	ts_sellzone.cpp
+	ts_escape.cpp
 	ts_player.cpp
 	ts_slowmotion.cpp
 	ts_slowmotionpoint.cpp
