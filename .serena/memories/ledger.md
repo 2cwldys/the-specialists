@@ -5,6 +5,49 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 46) — TRACK B START: the client (cl_dll) now builds, both 32-bit + 64-bit
+
+**Done — the cl_dll build foundation.** The mod-ts client library (`cl_dll/` → `client.so`) now
+builds in the buildchain for BOTH i386 and amd64. This is the prerequisite for ALL Track B (TS client
+HUDs, visible slow-motion, particles, stunts) — none of which could start before the client built.
+
+**Key finding (answers "how did halflife-updated link vgui for 64-bit?"):** it never did. `build.sh`
+only ever built `--target hl` (the server); NO `client.so` exists anywhere in halflife-updated's build
+tree. The bundled `vgui.so`/`libSDL2` were always 32-bit; the 32-bit-VGUI wall was simply never hit
+because nobody built the client target in the 64-bit buildchain. Track B is the first time.
+
+Three portability fixes (committed 8f3b248) to compile the stock client under the buildchain's gcc-8.3:
+- `cl_dll/particleman/CMiniMem.h`: replaced `std::pmr::unsynchronized_pool_resource` (<memory_resource>,
+  gcc-9+) with a minimal `operator new`-backed pool shim (same allocate/deallocate/release surface).
+- `cl_dll/particleman/CFrustum.cpp`: dropped `<GL/gl.h>` (absent in buildchain) — it only needs the
+  GL_MODELVIEW_MATRIX/GL_PROJECTION_MATRIX enum values for the engine TriAPI; defined locally.
+- `cl_dll/entity.cpp`: `(int)pTemp` (FTENT_SPIRAL phase) is a 64-bit-pointer→int truncation → route
+  through intptr_t.
+
+Dual-arch VGUI (this commit), per the user's pointer to xash3d-fwgs:
+- **32-bit** (i386) links Valve's bundled `vgui.so` (Steam HL); **64-bit** (amd64) links openvgui's
+  ABI-compatible `libvgui.so` — vendored as `linux/release/vgui64.so` (from xash3d-fwgs, x86-64), plus
+  a 64-bit `libSDL2` vendored as `linux/libSDL2-2.0-x64.so.0`. openvgui is a drop-in: the client
+  compiles against the STOCK `../utils/vgui/include` headers and links clean against it (no source
+  changes — just a relink). Both are only load-time linked (the engine supplies the real libs).
+- `cl_dll/CMakeLists.txt`: selects the arch-appropriate vgui/SDL2 by `CMAKE_SIZEOF_VOID_P`; build-dir
+  filenames stay `vgui.so`/`libSDL2-2.0.so.0` so DT_NEEDED is uniform (the runtime provides the
+  arch-correct lib under that name). `scripts/build.sh` gained a target arg: `build.sh <arch> [hl|
+  client|all]` (default hl, backward-compatible). `linux/.gitignore` allows the two new vendored libs.
+
+**Verified (BUILD-ONLY):** `build.sh amd64 client` → 64-bit client.so (openvgui), glibc floor 2.14;
+`build.sh i386 client` → 32-bit client.so (Valve vgui), glibc floor 2.3; `build.sh amd64` still builds
+the server (backward compat); `build.sh amd64 all` builds both. DT_NEEDED = vgui.so + libSDL2-2.0.so.0
+for both arches.
+
+**VERIFICATION GAP (important for Track B):** this headless box can BUILD client.so but cannot RENDER
+it — the dedicated-server rig has no graphics, and the browser-playable client is the separate WASM
+xash build, not this native client.so. So TS client work is build-verified here; visual/runtime
+behaviour needs a graphical GoldSrc/xash client run by the user. Next Track B slice: a first TS HUD
+(e.g. the round-time countdown reading gmsgTSRoundTime) — build + load verifiable, visual by the user.
+
+---
+
 ## 2026-06-21 (cont. 45) — Round timer (CTSGameRules::RoundTimeLeft + StartRoundTimer)
 
 **Done — the team-round time limit.** Completes the round lifecycle: team rounds now end three ways —

@@ -13,7 +13,7 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-21, through cont.45)
+## Where things stand (2026-06-21, through cont.46)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`** → **run in-engine** (with bots for player-needing code) →
 **gdb** any crash. Everything below is committed (`git log`); `recovered/` is
@@ -232,8 +232,16 @@ finish team mode:
    substantive but DEFERRED: it would rewrite the verified instant-hitscan fire path and isn't visible
    without a cl_dll; best done alongside Track B so the slow bullets can actually be seen).
 
-**Track B — stand up a cl_dll reconstruction (there is NONE yet — this is the other half of TS).**
-The server already registers + sends the user messages; the client just isn't built. This unlocks:
+**Track B — the cl_dll (the client half of TS).** ✅ **FOUNDATION DONE (cont.46): the client now
+BUILDS, both 32-bit and 64-bit** — `scripts/build.sh <arch> client` (or `all`). Three gcc-8.3
+portability fixes (memory_resource shim, GL enum defines, a 64-bit pointer cast) + dual-arch VGUI:
+i386 links Valve's `vgui.so`, amd64 links openvgui's ABI-compatible `libvgui.so` (vendored
+`linux/release/vgui64.so`, from xash3d-fwgs) + a 64-bit SDL2. No TS client code yet — the stock HL
+client is the base, mirroring how the server started. **VERIFICATION CAVEAT:** this headless box can
+build but not RENDER the client (no graphics; the browser client is the separate WASM xash build),
+so TS client work is build/load-verified here — visual behaviour needs a graphical client run by the
+user. The server already registers + sends the user messages; the client just needs the TS readers.
+This unlocks:
 - The **visible slow-motion time-dilation** — the server state is complete (`GoSlow`/`InSlow`/
   `CTSSlowMotionPoint`/`GlobalSlowMotion2`), but nothing *reads* the slow fields to scale time. The
   client `pm_shared`/prediction must scale frametime by `m_flSlowMotionGo`; also the motion-blur HUD
