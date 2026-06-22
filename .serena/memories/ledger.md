@@ -32,9 +32,34 @@ crouch live, prone deferred to CTSStunt.
 **Gotchas this session:** (1) TSHealth/TSArmor are sent server-side **on change only** — right after spawn the
 panel shows 0 until the player fully enters play (settles to 100 a beat later; not a bug). (2) `give` needs
 `sv_cheats 1`; **TS players lack the HEV suit**, so `item_battery` alone adds no armor — `give item_suit`
-first (and TS's `sk_battery` may be 0). (3) Our buy system does NOT yet grant kevlar armor (a server-side gap
-— only the powerup armor-mask 0x80 path in TSGrantPowerup sets armorvalue). NEXT for this area: wire kevlar
-into the buy/loadout, and the prone posture once CTSStunt lands.
+first (and TS's `sk_battery` may be 0). `item_battery` was only a TEST CRUTCH to force armorvalue>0; it is NOT
+how TS grants kevlar.
+
+**Stock-HEV suppression (cont.69b, committed):** user noted the stock HEV health number was still drawing over
+the TS panel. The original `.so` registers **NO stock Health/Battery user messages** (only TSHealth/TSArmor —
+no "Health"/"Battery" strings exist in ts_i386.so), so TS has no stock health HUD. Our inherited server still
+sent gmsgHealth/gmsgBattery → the stock CHudHealth number/cross + CHudBattery drew. Fix: suppressed the stock
+health-number block (`cl_dll/health.cpp`, `if(false && HasSuit())`) and the stock battery draw (`battery.cpp`,
+early `return true`), keeping CHudHealth's directional damage feedback. Verified: bottom-left shows only the
+TS panel. NB CHudHealth::Draw does NOT gate on HUD_ACTIVE (draws on HasSuit), so server-side message-suppression
+alone wouldn't have stopped it — client suppression was required.
+
+**KEVLAR mechanic RE'd (cont.69b — answering the user's Qs; NOT yet implemented server-side):**
+- `CBasePlayer::TakeArmor(int)` @0x83da4: kevlar is a **bought binary flag** (bit 0x10 in player+0x718).
+  Buying (arg>=0, flag clear): require cash(player+0x548)>=10, **deduct 10 cash**, set flag, play
+  `weapons/items.wav`, then armorvalue = min(arg+armorvalue, cap). Selling (arg<0): refund 10 cash, clear flag,
+  armorvalue=0. Also calls `GetSpeedBySlots`+`SetPlayerSpeed` → **kevlar imposes a move-speed penalty**.
+- `CBasePlayer::TakeDamage` @0x7fa94: armor is **flat % damage PROTECTION, not a depleting pool**. If
+  `armorvalue!=0` AND damage-type not in bypass mask 0x80040e4 AND valid player state:
+  `damage -= armor_absorb * damage` (i.e. `damage *= (1 - armor_absorb)`), where `armor_absorb` =
+  g_pGameRules+0x588c (cvar `armor_absorb`, clamped <=1.0). armorvalue is NOT decremented by hits. So the HUD
+  showing kevlar BINARY ("Kevlar"/nothing) is correct. There's also `player/kevlarhit.wav` + "with kevlar"/
+  "no kevlar" strings. **OPEN server work:** reconstruct TakeArmor + the TakeDamage armor_absorb block + the
+  kevlar buy (cl_buykevlar → 10 cash) + the speed penalty (none implemented yet; our TakeDamage still inherits
+  HL's depleting-armor model). Then the panel's kevlar reflects real gameplay.
+
+NEXT for this area: the kevlar server mechanic above, wire kevlar into the buy/loadout, and the prone posture
+once CTSStunt lands.
 
 ## 2026-06-22 (cont. 69) — `powerup` + `cashala` cheat commands wired (server cmds 2 missing → 0)
 
