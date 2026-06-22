@@ -13,7 +13,21 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-22, through cont.56)
+**Reference docs (the recovered contracts + coverage maps — read the relevant one before
+touching that area):**
+- `reference/ENGINE_INTERFACE.md` — the COMPLETE engine↔mod contract (every DLL_FUNCTIONS
+  callback + cldll export + protocol), each marked faithful/partial/stock/missing. **Start
+  here for "what's left" — it lists the real interface gaps.**
+- `reference/API_SURFACE.md` — every cvar (104)/command (92)/message (74)/event (11) from
+  the binaries + a R/read/★wired implementation-status table (§6c).
+- `reference/HUD_MESSAGES.md` — the user-message wire formats (the protocol contract).
+- `reference/HUD_DRAWCHAIN.md` — the HUD render path recovered from client.dll assembly.
+- `reference/VERIFICATION.md` — the playtest checklist + the (unmapped) silencer findings
+  + the think-behaviour status.
+- New Ghidra tooling: `scripts/ghidra/DecompAt.java` (decompile a function by address),
+  `DecompRefs.java`.
+
+## Where things stand (2026-06-22, through cont.64)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`/`client.so`** → **run in-engine** (ReHLDS for server; xash3d-fwgs
 for the graphical client — this box HAS a GPU) → **gdb** any crash. Everything below is
@@ -255,38 +269,39 @@ LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +map tm_avana +sv_lan 1 +maxplayers 4
 gdb the client the same way as hl.so when it crashes (it found the cont.48 CGlock/AllocString crash):
 `LD_LIBRARY_PATH=. gdb -batch -nx -ex run -ex bt --args ./xash3d -game ts +map tm_avana`.
 
-**→ The 5-phase reconstruction — STATUS THROUGH cont.56** (the full chronological detail is in the
-Serena ledger cont.51–56; the recovered references are `reference/HUD_MESSAGES.md`, `API_SURFACE.md`,
-`HUD_DRAWCHAIN.md`). New Ghidra tooling: `scripts/ghidra/DecompAt.java` (decompile by address),
-`DecompRefs.java`.
-- **Phase 4 — the TS client HUD ✅ DONE (cont.51–53).** All three regions reconstructed from `client.dll`
-  assembly: the **weapon-select bar** (`CHudTSWeaponBar`, real `sprites/weapons/*.spr` icons in 5 category
-  columns, fed by `WStatus`), the **ammo box** (`CHudTSAmmo` ← `WeaponInfo`: name/caliber/fire-mode/clip-
-  reserve), and the **health bar** (`TSHud_HealthBar`, fill ∝ health). Exact geometry/colour/alpha/font
-  from `FUN_1004d7e0`/`FUN_1004d5f0`/`FUN_1004e030`; HUD colour = `hud_r/g/b` 150/175/255; text via the
-  faithful per-char clipped `TSHud_DrawString` (= `FUN_10021ce0`, the engine font). All visually verified.
-  Polish left: attachment rows (need the WeaponInfo flags byte + the silencer gameplay), active-highlight
-  timing, left armor/cash placement.
-- **Phase 3 — commands/cvars ✅ DONE (cont.54).** ~25 TS client cvars registered (`cl_dll/ts_hud.cpp`) +
-  ~25 server cvars (`dlls/ts_cvars.cpp`, extracted from the `.so` cvar_t structs) with exact defaults;
-  `roundtime` wired to the round timer. TS commands registered (`cl_dll/ts_commands.cpp`; xash provides
-  many as built-ins). No more "Unknown command" spam. TODO: the gameplay BEHIND the commands.
-- **Phase 5 — predicted fire event 🟡 PARTIAL (cont.56).** Firing now uses the faithful `events/fire.sc`
-  → `EV_TSFire` (`cl_dll/ev_ts.cpp`): server `CTSGun::StandardFire` PLAYBACK_EVENTs it; client plays
-  muzzleflash + shoot anim + brass shell + per-weapon sound. SERVER-triggered, not yet client-PREDICTED
-  (true prediction needs CTSGun client-side weapon prediction — a subsystem). **Needs a user playtest shot
-  to confirm the firing visuals.** AkimboFire still uses its own EMIT_SOUND.
-- **Phase 2 — low-pitch fire sound ✅ INVESTIGATED, no defect (cont.55).** Sound path verified correct
-  (single source, PITCH_NORM, files = valve format); not reproducible from current code. Re-test needed.
-- **Phase 1 — weapon firing/reload/ammo ✅ (reload cont.50, ammo HUD networks via WeaponInfo cont.52).**
-  TODO: fire-rate gate, the `+alt2`/coldcock + `+alt1`/silencer gameplay, akimbo sound via the event.
+**→ The 5-phase reconstruction — STATUS THROUGH cont.64** (full chronological detail in the Serena ledger
+cont.51–64; the recovered contracts are in `reference/ENGINE_INTERFACE.md` / `API_SURFACE.md` /
+`HUD_MESSAGES.md` / `HUD_DRAWCHAIN.md` / `VERIFICATION.md`).
+- **Phase 4 — TS client HUD ✅ DONE + playtest-verified (cont.51–53).** Three regions from `client.dll`
+  assembly: **weapon-select bar** (`CHudTSWeaponBar`, real `sprites/weapons/*.spr` icons, fed by `WStatus`),
+  **ammo box** (`CHudTSAmmo` ← `WeaponInfo`), **health bar** (`TSHud_HealthBar`). Exact geometry/colour/
+  alpha/font; HUD colour `hud_r/g/b`=150/175/255; per-char clipped `TSHud_DrawString` (= `FUN_10021ce0`).
+  Polish left: attachment rows (need the WeaponInfo flags byte + silencer), active-highlight, left block.
+- **Phase 3 — commands/cvars ✅ DONE (cont.54).** ~25 client + ~25 server cvars registered with exact
+  defaults; commands registered. No "Unknown command" spam. Several cvars now **wired to gameplay**:
+  `roundtime`, `slowmatch` (→ global slow-motion match), `damagemult` (→ weapon damage), `initial_cash`
+  (→ starting cash, cash HUD). Status table: `API_SURFACE.md` §6c.
+- **Phase 5 — predicted fire event 🟡 PARTIAL (cont.56, fixed cont.64).** Firing uses `events/fire.sc` →
+  `EV_TSFire` (`cl_dll/ev_ts.cpp`) for the **fire sound + brass shell + viewmodel muzzleflash**; the
+  **viewmodel "shoot" anim is server-driven via `SendWeaponAnim`** (cont.64 — the event's EV_WeaponAnimation
+  doesn't stick since CTSGun isn't client-predicted). True client prediction (CTSGun in HUD_PostRunCmd) TODO.
+- **Phase 2 — low-pitch fire sound ✅ INVESTIGATED, no defect (cont.55).** Sound path correct; re-test.
+- **Phase 1 — weapon firing/reload/ammo ✅.** `+alt2` coldcock done (cont.57/64). TODO: fire-rate gate,
+  `+alt1`/silencer (UNMAPPED — `VERIFICATION.md` §B), akimbo sound via the event.
 
-**NEXT FRONTIER = gameplay behaviour behind the input commands** (alt-fire/silencer `+alt1`, coldcock
-`+alt2` = `AlternateAttack@0x81ba8`, stunts `special`, the buy menu) and **true client-side weapon
-prediction** (CTSGun in HUD_PostRunCmd) — both substantial. Plus reading the registered cvars where they
-should affect gameplay (slowmatch, gore, cash economy).
-- **Phase 5** — client view bob/sway ("snap"; `cl_bob 3` + stock `V_CalcBob`) + the predicted
-  `events/fire.sc` fire event (replaces the server-driven `SendWeaponAnim` slice).
+**Other (cont.57–64):** `+alt2` coldcock pistol-whip; **thirdperson fixed** (MP gate removed + camera
+behind the player, cont.61/64); `GetGameDescription` → "The Specialists (mode)"; **VISIBLE slow-motion
+movement** (PreThink scales speed cap by the slow factor, cont.62 — the marquee effect).
+
+**NEXT FRONTIER (all gameplay/subsystem, see `ENGINE_INTERFACE.md` "notable gaps"):**
+1. **`CTSAnimation`** — the player 3rd-person gait (walk/run/fire); currently the player model is **always
+   idle** (user-reported). The stock SetAnimation runs but TS drives its models via `CTSAnimation::Animate`
+   (PostThink, 14 funcs, NOT ported) + the client gait. **The most visible remaining bug.**
+2. **Full pmove time-dilation** — slow-motion movement is wired (speed cap); gravity/jump-arc/anim-rate
+   time-dilation needs the slow value in client-predicted `pm_shared`.
+3. **`CTSStunt`** (dives/rolls/wall-flips, 25 funcs, PostThink) + **true client weapon prediction**
+   (HUD_PostRunCmd) + the **`+alt1` silencer** (unmapped) + the **buy menu** (cl_dll VGUI).
+4. **rcbot-in-xash rig** would make combat-gated things testable (damagemult, coldcock damage, fire path).
 
 **Workflow:** build → `setup-xash-mod.sh` → run in xash (the loop above) → screenshot/gdb to verify →
 commit → update docs. Every message/event/command/cvar name must be **byte-faithful to the `.so`** (the
