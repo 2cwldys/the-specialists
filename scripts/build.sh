@@ -10,14 +10,25 @@
 #   ( cd ../hlds64-buildchain && make image )
 #
 # Usage:
-#   scripts/build.sh [i386|amd64|aarch64]   (default: amd64)
+#   scripts/build.sh [i386|amd64|aarch64] [hl|client|all]   (defaults: amd64 hl)
 #
-# Output: build-<arch>/dlls/hl.so
+# Output: build-<arch>/dlls/hl.so  (+ build-<arch>/cl_dll/client.so for client/all)
+#
+# The client links VGUI: 32-bit (i386) uses Valve's bundled vgui.so; 64-bit (amd64) uses
+# openvgui's ABI-compatible libvgui.so (vendored as linux/release/vgui64.so) — see cl_dll/CMakeLists.txt.
 set -euo pipefail
 
 ARCH="${1:-amd64}"
+TARGET="${2:-hl}"
 IMAGE="${IMAGE:-hlds64-buildchain:debian10}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+case "$TARGET" in
+  hl)     BUILD_TARGETS="hl" ;;
+  client) BUILD_TARGETS="client" ;;
+  all)    BUILD_TARGETS="hl client" ;;
+  *) echo "unknown target: $TARGET (want hl|client|all)" >&2; exit 2 ;;
+esac
 
 case "$ARCH" in
   i386)    TC="-DCMAKE_TOOLCHAIN_FILE=/work/mod-ts/cmake/LinuxToolchain.cmake";          ENV="" ;;
@@ -32,7 +43,9 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo ">>> mod-ts ($ARCH) via $IMAGE"
+TARGET_FLAGS=""; for t in $BUILD_TARGETS; do TARGET_FLAGS="$TARGET_FLAGS --target $t"; done
+
+echo ">>> mod-ts ($ARCH) [$BUILD_TARGETS] via $IMAGE"
 docker run --rm -i \
   --platform=linux/amd64 \
   --user "$(id -u):$(id -g)" \
@@ -42,9 +55,14 @@ docker run --rm -i \
     mkdir -p /work/mod-ts/build-$ARCH; \
     cd /work/mod-ts/build-$ARCH; \
     $ENV cmake -S /work/mod-ts -B . -DCMAKE_BUILD_TYPE=Release $TC; \
-    cmake --build . -j\$(nproc) --target hl"
+    cmake --build . -j\$(nproc)$TARGET_FLAGS"
 
-echo ">>> done: build-$ARCH/dlls/hl.so"
-echo "    glibc floor check:"
-objdump -T "$ROOT/build-$ARCH/dlls/hl.so" 2>/dev/null \
-  | grep -oE 'GLIBC_[0-9.]+' | sort -V | tail -1 | sed 's/^/      max /' || true
+for t in $BUILD_TARGETS; do
+  case "$t" in
+    hl)     SO="$ROOT/build-$ARCH/dlls/hl.so" ;;
+    client) SO="$ROOT/build-$ARCH/cl_dll/client.so" ;;
+  esac
+  [ -f "$SO" ] || continue
+  echo ">>> done: ${SO#$ROOT/}"
+  echo "    glibc floor: $(objdump -T "$SO" 2>/dev/null | grep -oE 'GLIBC_[0-9.]+' | sort -V | tail -1)"
+done
