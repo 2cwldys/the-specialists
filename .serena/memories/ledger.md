@@ -5,6 +5,24 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 58) — finding: SecondaryAttack = IN_ATTACK2 dispatch; +alt1 silencer NOT mapped; PLAYTEST checkpoint
+
+Scoped the `+alt1` silencer/scope toggle (next gameplay item). Findings, no code (avoided speculation):
+- `CTSGun::SecondaryAttack @0x717a8` is the **IN_ATTACK2 fire-type dispatcher**, NOT the silencer: branches
+  on the active weapon's fire-type (s_weapon_info+0x348) — no active item → `CCombatAttack` (unarmed combat),
+  type 2 → `GrenadeFire`, type 3 → (knife branch), etc. A real recoverable dispatch, but input-gated gameplay.
+- `CTSGun::AlternateAttack @0x81ba8` = ColdCock (done cont.57); `Zoom`/`Unzoom` are forwarders.
+- The **`+alt1` silencer/scope toggle handler is not cleanly located** — no server-side "silenc"/attachment
+  name strings to anchor on (only client.dll has "/HUD/Silencer"); the install logic is diffuse. Recovering
+  it would be speculative RE, and like all the remaining gameplay it's INPUT-GATED (can't self-verify here).
+
+**Checkpoint reached:** the remaining work is all input-gated gameplay (silencer, stunts, buy menu, true
+client prediction) that can't be self-verified without a playtest. Recommended a USER PLAYTEST of the
+cont.51–57 build (HUD 3 regions, fire event, coldcock, cvars/round timer) to surface real issues before
+stacking more unverifiable features. Did not implement +alt1 (unmapped + unverifiable).
+
+---
+
 ## 2026-06-22 (cont. 57) — gameplay: +alt2 coldcock (pistol-whip)
 
 First command-gameplay behaviour wired. `CTSGun::AlternateAttack` (@0x81ba8) + `CTSGun::ColdCock`
