@@ -55,6 +55,19 @@ sizes) and is the basis for the next Ghidra type-application pass (apply entvars
 gcc2 signatures + vtable annotation). NB STABS is NOT useful for mod member offsets — those stay analytic;
 but `entvars_t`/engine structs are pure C (ABI-stable offsets) so they CAN be applied verbatim.
 
+**`jointeam` + `changeteam` wired + model↔team RE (cont.68k):** RE'd both handlers (objdump + GOT
+resolution): `changeteam` pushes `gmsgVGUIMenu` → opens the team-select VGUI menu; `jointeam` strtols a
+team number + calls a g_pGameRules team-change. Wired: `changeteam` → send gmsgVGUIMenu(MENU_TEAM=2);
+`jointeam <N>` → `AssignToTeam(player, GetIndexedTeamName(N))` + respawn. Server-command missing 4→2
+(remaining: `powerup`, `cashala` — both need RE). **MODEL↔TEAM finding (user Q):** the model is LOCKED —
+`CHalfLifeMultiplay::ClientUserInfoChanged` (which TS inherits, NOT CHalfLifeTeamplay) resets a changed
+`model` infokey back to the player's stored model (player+0xb48) via pfnSetClientKeyValue + says "Can't
+change team to '%s'"/"HLDM models not allowed" (unless defaultteam off + a vtable IsValid check passes).
+So team rides the model but you can't pick it by model-swap; team changes go through jointeam/changeteam,
+model is force-locked to the assigned team. FIDELITY TODO: confirm our inherited ClientUserInfoChanged
+matches this lock; the per-team locked-model assignment in jointeam is a SLICE (we set pev->team, not yet
+the team model).
+
 **`respawn` + `motd` wired (cont.68j):** RE'd both ClientCommand handlers (objdump). `motd` →
 `SendMOTDToClient(edict)` (the protected CHalfLifeMultiplay method) → exposed via a public
 `CTSGameRules::ResendMOTD` passthrough, called from the `motd` dispatch via `TSGameRules()`.

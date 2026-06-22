@@ -562,6 +562,24 @@ void ClientCommand(edict_t* pEntity)
 	{
 		TSGameRules()->ResendMOTD(player->edict());
 	}
+	else if (FStrEq(pcmd, "changeteam")) // TS: open the team-select VGUI menu (original pushes gmsgVGUIMenu)
+	{
+		MESSAGE_BEGIN(MSG_ONE, gmsgVGUIMenu, NULL, &pEntity->v);
+		WRITE_BYTE(2); // MENU_TEAM (cl_dll vgui menu code)
+		MESSAGE_END();
+	}
+	else if (FStrEq(pcmd, "jointeam")) // TS: join team <index> (jointeam <N>) -> assign + respawn
+	{
+		if (CMD_ARGC() > 1)
+		{
+			const char *name = TSGameRules()->GetIndexedTeamName(atoi(CMD_ARGV(1)));
+			if (name && name[0])
+			{
+				TSGameRules()->AssignToTeam(player, name);
+				respawn(&pEntity->v, false); // spawn onto the chosen team
+			}
+		}
+	}
 	else if (FStrEq(pcmd, "drop")) // TS: drop the active weapon into the world (default.cfg binds t)
 	{
 		int type, clip;
