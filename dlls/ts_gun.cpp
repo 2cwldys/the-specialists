@@ -42,6 +42,7 @@ public:
 	bool GetItemInfo(ItemInfo *p) override;
 	int iItemSlot() override { return 1; } // @ iItemSlot__6CTSGun returns slot 1
 	bool Deploy() override;
+	bool UpdateClientData(CBasePlayer *pPlayer) override; // sends the TS WeaponInfo HUD message
 	void ItemPostFrame() override;
 	void PrimaryAttack() override;
 	void Reload() override;
@@ -72,7 +73,18 @@ public:
 	int m_akimboSide = 0; // which barrel fired last (alternates muzzle L/R for akimbo)
 	int m_fireMode = TSFM_SEMI; // ACTIVE fire-mode (= m_arsenalMode[m_active])
 	int m_burstCount = 0;       // rounds left in the current burst (m_pActiveItem+8)
+
+	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends
+	// WeaponInfo on change from CTSGun::UpdateClientData @0x758c8; we mirror that.
+	int m_iClientWeaponType = -1;
+	int m_iClientClip = -1;
+	int m_iClientReserve = -1;
+	int m_iClientFireMode = -1;
 };
+
+// Lazily-registered TS weapon-info HUD message (the ammo readout). Name + fixed size
+// are byte-faithful to LinkUserMessages (reference/HUD_MESSAGES.md): "WeaponInfo", 6.
+static int gmsgWeaponInfo = 0;
 
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
 
@@ -495,6 +507,41 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 		flRate *= 0.5f;
 	m_flNextPrimaryAttack = GetNextAttackDelay(flRate);
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+}
+
+// @ UpdateClientData__6CTSGun @0x758c8 — send the TS WeaponInfo HUD message (the ammo
+// readout) on change. The original packs the active s_weapon_status slot:
+//   BYTE weaponType, BYTE clip (slot+0x4), SHORT reserve (per-caliber), BYTE fireMode
+//   (slot+0x2), BYTE flags (slot+0x10).  Our modern arsenal stores the same values
+//   directly (m_weaponType / m_iClip / m_ammoReserve[caliber] / m_fireMode). The flags
+//   byte (weapon capability bits the original masks from s_weapon_info) is a SLICE: we
+//   send 0 — it doesn't affect the ammo numbers. See reference/HUD_MESSAGES.md.
+bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
+{
+	if (gmsgWeaponInfo == 0)
+		gmsgWeaponInfo = REG_USER_MSG("WeaponInfo", 6);
+
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	const int caliber = wi->iCaliber;
+	const int reserve = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
+
+	if (m_weaponType == m_iClientWeaponType && m_iClip == m_iClientClip &&
+		reserve == m_iClientReserve && m_fireMode == m_iClientFireMode)
+		return false; // nothing changed
+
+	m_iClientWeaponType = m_weaponType;
+	m_iClientClip = m_iClip;
+	m_iClientReserve = reserve;
+	m_iClientFireMode = m_fireMode;
+
+	MESSAGE_BEGIN(MSG_ONE, gmsgWeaponInfo, NULL, pPlayer->pev);
+	WRITE_BYTE(m_weaponType);     // active tsweapon_t
+	WRITE_BYTE(m_iClip);          // rounds currently loaded
+	WRITE_SHORT(reserve);         // spare rounds for this caliber
+	WRITE_BYTE(m_fireMode);       // 0=auto 1=semi 2=burst 3=pump
+	WRITE_BYTE(0);                // SLICE: weapon capability flags
+	MESSAGE_END();
+	return true;
 }
 
 // @ Reload/ReloadWeapon — refill the clip from the weapon's CALIBER reserve: take =

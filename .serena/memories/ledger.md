@@ -5,6 +5,50 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 52) — ammo HUD (WeaponInfo) + the COMPLETE client API surface scan + steel-blue panels
+
+**Ammo HUD (`WeaponInfo`) reconstructed + VISUALLY VERIFIED.** Decoded the `s_weapon_status` slot struct
+(0x38 bytes) from `CTSGun::TakeWeapon @0x80a04`: slot+0x4=clip, +0x2=fireMode, +0x8=caliber, +0x10=flags.
+So `WeaponInfo`(6) = BYTE weaponType, BYTE clip, SHORT reserve, BYTE fireMode, BYTE flags — and
+CTSGun NEVER sends `ClipInfo` (clip rides in WeaponInfo). Server: `CTSGun::UpdateClientData` override
+(`dlls/ts_gun.cpp`) sends it on-change (type/clip/reserve[caliber]/mode; flags=0 SLICE). Client:
+`CHudTSAmmo` (`cl_dll/ts_ammo.{cpp,h}`) draws the original's stacked box — name / caliber / fire-mode /
+"clip / reserve". Screenshot on tm_avana: "Beretta 92F / 9 x 19mm / Semi Auto / 14 / 45". User sent
+reference screenshots confirming the exact layout (Five-seveN/MP5K panels) + a left-HUD (team/health-
+heart/free-slots) + the weapon-select bar.
+
+**HUD colour + style recovered from client.dll (the user pushed for disasm of the draw calls):**
+- `pfnFillRGBA` is engine-table offset 0x2c; the HUD panels are FillRGBA with VARIABLE (cvar-driven)
+  colours, called via gEngfuncs @ `0x100d5c70`.
+- **The HUD text colour = the `hud_r`/`hud_g`/`hud_b` cvars, RegisterVariable defaults 150/175/255**
+  (steel blue) — `hud_color "150,175,255"`. Recovered by parsing the RegisterVariable call args.
+- New `cl_dll/ts_hud.{cpp,h}`: registers hud_r/g/b/hud_color/cl_realhud (faithful defaults), `TSHud_Color`
+  reads them, `TSHud_Panel` draws the dark translucent backing. ts_status + ts_ammo now use steel-blue
+  text + panels. **NOTE (user-flagged): panel geometry/alpha are still APPROXIMATE — not yet traced from
+  the original Draw chain (task #4).**
+
+**FULL CLIENT API SURFACE SCAN → `reference/API_SURFACE.md` (new, tracked).** The user's directive: the
+complete engine↔client contract = the behavioural surface; scan it all + ledger completeness. Recovered
+ALL of it from client.dll by finding the engine func-ptr-global call sites (`ff 15 <ptr>`):
+- `0x100d5b60` RegisterVariable → **104 cvars** (TS-specific ~30: hud_r/g/b ✅, cl_realhud/motionblur/gore/
+  laser/solidcross/usepowerup/thirdperson/…; rest stock).
+- `0x100d5b6c` AddCommand → **92 commands** (TS-specific: `+alt1`/`+alt2`/`+break`/`special`/`buy`/
+  `togglebrowser`/`+commandmenu`/`ForceCloseCommandMenu`; rest stock +/- input). NONE implemented client-side.
+- `0x100d5b70` HookUserMsg → **74 messages read** (the definitive read-side list; ✅5 readers, 🟡1, ❌~24 TS).
+- `0x100d5c3c` PrecacheEvent → **11 events** (closecombat/coldcock/draw/empty/fire/firelinked/grenade/
+  katana/knife/pump/reload) — all ❌ client EV_ callbacks (server playback ✅).
+
+**Honest state correction (the user's point):** the SERVER was reconstructed surface-first via the ENTITY
+surface (FGD + .so factories); the CLIENT API surface was being done reactively (per playtest bug), not
+enumerated first. API_SURFACE.md now fixes that for the client. Still partial: server cvar/command/event
+scan (task #5), and the EXACT HUD draw chain (geometry/alpha/font) from assembly (task #4 — the current
+panels are approximations, which is why the look isn't pixel-matching the original yet).
+
+**Built + ran** (amd64 server+client) in xash3d-fwgs; ammo box verified on-screen. cont.51's health/armor
+panels also restyled. No message-size warnings.
+
+---
+
 ## 2026-06-22 (cont. 51) — Phase 4: TS custom HUD begins (health/armor/cash) + the user-message wire contract recovered + 3 protocol-name bugs fixed
 
 **Phase 4 (the TS custom HUD) started.** First recovered the FULL TS user-message contract from the

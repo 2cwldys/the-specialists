@@ -25,6 +25,7 @@
 #include "hud.h"
 #include "cl_util.h"
 #include "parsemsg.h"
+#include "ts_hud.h"
 
 #include <stdio.h>
 
@@ -41,6 +42,8 @@ bool CHudTSStatus::Init()
 	HOOK_MESSAGE(TSHealth);
 	HOOK_MESSAGE(TSArmor);
 	HOOK_MESSAGE(TSCash);
+
+	TSHud_RegisterCvars();
 
 	gHUD.AddHudElem(this);
 
@@ -90,35 +93,54 @@ bool CHudTSStatus::Draw(float flTime)
 	if (gHUD.m_iHideHUDDisplay & (HIDEHUD_HEALTH | HIDEHUD_ALL))
 		return true;
 
-	// Bottom-left stack. Lines are drawn upward from the bottom margin.
-	const int x = ScreenWidth / 40;
 	const int lineHeight = gHUD.m_scrinfo.iCharHeight + 2;
-	int y = ScreenHeight - lineHeight * 2 - ScreenHeight / 40;
+	const int pad = lineHeight / 2;
+	const int margin = ScreenWidth / 40;
+	const bool showCash = (m_iCash > 0);
+	const int numLines = showCash ? 3 : 2;
+
+	// Steel-blue HUD colour (hud_r/g/b — default 150/175/255, from client.dll).
+	int hr, hg, hb;
+	TSHud_Color(hr, hg, hb);
+
+	// Panel sized to the text block, anchored bottom-left.
+	const int panelW = ScreenWidth / 7;
+	const int panelH = lineHeight * numLines + pad * 2;
+	const int panelX = margin;
+	const int panelY = ScreenHeight - panelH - ScreenHeight / 40;
+	TSHud_Panel(panelX, panelY, panelW, panelH);
+
+	const int x = panelX + pad;
+	int y = panelY + pad;
 
 	char buf[32];
 	int r, g, b;
 
-	// Health — gold normally, flashing red when low.
+	// Cash first (top of the stack) — only when the player has any.
+	if (showCash)
+	{
+		sprintf(buf, "$%d", m_iCash);
+		gHUD.DrawHudString(x, y, ScreenWidth, buf, hr, hg, hb);
+		y += lineHeight;
+	}
+
+	// Health — HUD colour normally, flashing red when low.
 	sprintf(buf, "Health: %d", m_iHealth);
-	UnpackRGB(r, g, b, m_iHealth <= 25 ? RGB_REDISH : RGB_YELLOWISH);
-	ScaleColors(r, g, b, 255);
+	if (m_iHealth <= 25)
+	{
+		UnpackRGB(r, g, b, RGB_REDISH);
+		ScaleColors(r, g, b, 255);
+	}
+	else
+	{
+		r = hr; g = hg; b = hb;
+	}
 	gHUD.DrawHudString(x, y, ScreenWidth, buf, r, g, b);
 	y += lineHeight;
 
 	// Armor.
 	sprintf(buf, "Armor: %d", m_iArmor);
-	UnpackRGB(r, g, b, RGB_YELLOWISH);
-	ScaleColors(r, g, b, 255);
-	gHUD.DrawHudString(x, y, ScreenWidth, buf, r, g, b);
-
-	// Cash — only when the player has any (DM has CashBased() off, so it stays 0).
-	if (m_iCash > 0)
-	{
-		sprintf(buf, "$%d", m_iCash);
-		UnpackRGB(r, g, b, RGB_YELLOWISH);
-		ScaleColors(r, g, b, 255);
-		gHUD.DrawHudString(x, ScreenHeight - lineHeight * 3 - ScreenHeight / 40, ScreenWidth, buf, r, g, b);
-	}
+	gHUD.DrawHudString(x, y, ScreenWidth, buf, hr, hg, hb);
 
 	return true;
 }

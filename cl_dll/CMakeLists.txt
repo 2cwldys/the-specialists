@@ -106,7 +106,9 @@ target_sources(client PRIVATE
 	menu.cpp
 	message.cpp
 	roundtime.cpp
+	ts_hud.cpp
 	ts_status.cpp
+	ts_ammo.cpp
 	saytext.cpp
 	statusbar.cpp
 	status_icons.cpp

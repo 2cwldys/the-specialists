@@ -165,6 +165,7 @@ private:
 #include "health.h"
 #include "roundtime.h"
 #include "ts_status.h"
+#include "ts_ammo.h"
 
 
 #define FADE_TIME 100
@@ -576,6 +577,7 @@ public:
 	CHudStatusIcons m_StatusIcons;
 	CHudRoundTime m_RoundTime;
 	CHudTSStatus m_TSStatus;
+	CHudTSAmmo m_TSAmmo;
 
 	void Init();
 	void VidInit();

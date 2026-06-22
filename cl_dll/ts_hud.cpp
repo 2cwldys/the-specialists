@@ -1,0 +1,73 @@
+/***
+*
+*	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
+*
+*	This product contains software technology licensed from Id
+*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
+*	All Rights Reserved.
+*
+*   Use, distribution, and modification of this source code and/or resulting
+*   object code is restricted to non-commercial enhancements to products from
+*   Valve LLC.  All other use, distribution, or modification is prohibited
+*   without written permission from Valve LLC.
+*
+****/
+//
+// ts_hud.cpp
+//
+// Shared TS HUD chrome. The original client draws its HUD text in the player's
+// hud_r/hud_g/hud_b colour (RegisterVariable defaults "150"/"175"/"255" — i.e. the
+// steel blue, recovered from client.dll) over a dark translucent panel drawn with
+// pfnFillRGBA. We register the same cvars and mirror the look.
+//
+
+#include "hud.h"
+#include "cl_util.h"
+#include "ts_hud.h"
+
+static cvar_t* s_hud_r = nullptr;
+static cvar_t* s_hud_g = nullptr;
+static cvar_t* s_hud_b = nullptr;
+
+void TSHud_RegisterCvars()
+{
+	if (s_hud_r)
+		return; // already registered
+
+	// Defaults recovered from client.dll RegisterVariable: 150 / 175 / 255.
+	s_hud_r = CVAR_CREATE("hud_r", "150", FCVAR_ARCHIVE);
+	s_hud_g = CVAR_CREATE("hud_g", "175", FCVAR_ARCHIVE);
+	s_hud_b = CVAR_CREATE("hud_b", "255", FCVAR_ARCHIVE);
+	CVAR_CREATE("hud_color", "150,175,255", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_realhud", "0", FCVAR_ARCHIVE);
+}
+
+static int Clamp255(float v)
+{
+	if (v < 0)
+		return 0;
+	if (v > 255)
+		return 255;
+	return (int)v;
+}
+
+void TSHud_Color(int& r, int& g, int& b)
+{
+	r = s_hud_r ? Clamp255(s_hud_r->value) : 150;
+	g = s_hud_g ? Clamp255(s_hud_g->value) : 175;
+	b = s_hud_b ? Clamp255(s_hud_b->value) : 255;
+
+	// A fully-zero colour would draw invisible text; fall back to the default.
+	if ((r | g | b) == 0)
+	{
+		r = 150;
+		g = 175;
+		b = 255;
+	}
+}
+
+void TSHud_Panel(int x, int y, int w, int h)
+{
+	// Dark translucent navy backing, matching the original's HUD panels.
+	FillRGBA(x, y, w, h, 12, 18, 32, 150);
+}

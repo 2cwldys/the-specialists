@@ -1,0 +1,173 @@
+# TS client↔engine API surface (the full behavioural contract)
+
+The complete set of engine↔client API points = the behavioural surface a drop-in
+client must cover. This file is the **surface scan + completeness ledger** for the
+**client** (cl_dll). Recovered definitively from `reference/client.dll` by finding
+the call sites of the engine function-pointer globals (MSVC stores each engine func
+as its own `0x100d5bXX` global, called via `ff 15 <ptr>`):
+
+| global | engine func | count |
+|---|---|---|
+| `0x100d5b60` | `pfnRegisterVariable` (cvars) | 104 |
+| `0x100d5b6c` | `pfnAddCommand` (commands) | 92 |
+| `0x100d5b70` | `pfnHookUserMsg` (user messages read) | 74 |
+| `0x100d5c3c` | `pfnPrecacheEvent` (events) | 11 |
+
+Re-extract: the python in the cont.52 ledger entry / session transcript. **Server**
+side (ts_i386.so cvars/commands/events) is a separate scan — TODO (see bottom).
+
+Status key: ✅ implemented/faithful · 🟡 partial/approximate · ❌ not implemented ·
+⬜ stock-HL (inherited from halflife-updated cl_dll, not TS-specific).
+
+---
+
+## 1. User messages the client HOOKS (74) — the read side of the protocol
+
+Send side + wire formats: see `reference/HUD_MESSAGES.md`. TS-specific messages and
+our client reader status:
+
+| msg | size | our reader | status |
+|---|---|---|---|
+| `RoundTime` | 2 | `CHudRoundTime` | ✅ (2-byte fixed, cont.51) |
+| `TSHealth` | 1 | `CHudTSStatus` | ✅ cont.51 |
+| `TSArmor` | 1 | `CHudTSStatus` | ✅ cont.51 |
+| `TSCash` | 2 | `CHudTSStatus` | ✅ cont.51 |
+| `WeaponInfo` | 6 | `CHudTSAmmo` | 🟡 cont.52 — reads type/clip/reserve/mode; flags byte ignored; layout approximate (NOT yet traced from the original Draw chain) |
+| `TSState` | 1 | — | ❌ player-state byte (@0x498) |
+| `TSSpace` | 1 | — | ❌ "free slots" (left HUD) |
+| `WStatus` | 3 | — | ❌ per-slot weapon-bar status (the top weapon-select bar) |
+| `ActItems` | 2 | — | ❌ active-items |
+| `ClipInfo` | 1 | — | ❌ (note: server CTSGun never SENDS ClipInfo; clip rides in WeaponInfo) |
+| `KFuPower` | 1 | — | ❌ kung-fu power bar |
+| `PwUp` | 3 | — | ❌ powerup grant HUD |
+| `PwUpTime` | 1 | — | ❌ powerup countdown bar (server sends, cont.51) |
+| `TSMBlur` | 2 | — | ❌ motion-blur effect (server sends, cont.51) |
+| `TSSlowMo` | 2 | — | ❌ slow-mo amount (COORD) — the visible time-dilation |
+| `TSBTime` | 1 | — | ❌ bullet-time |
+| `TSPAward` | 2 | — | ❌ point-award popup |
+| `TSFrags` | -1 | — | ❌ scoreboard frags |
+| `TSFlag` | 4 | — | ❌ CTF flag HUD |
+| `TSFade` | -1 | — | ❌ screen fade |
+| `TSPSys` | -1 | — | ❌ particle system |
+| `TSHVoice` | 1 | — | ❌ voice |
+| `TSMessage` | -1 | — | ❌ HUD text (server sends) |
+| `Objective`/`ShowObj`/`Wires` | -1/2/3 | — | ❌ objective/bomb HUDs |
+| `SrvSett`/`PlInfo`/`ValClass`/`ReqState`/`RandomPC`/`AllowSpec`/`BuildSt`/`Detpack`/`Feign`/`Concuss`/`SecAmmoIcon`/`SecAmmoVal`/`CustomWP`/`Spectator`/`NextStunt`/`VGUIMenu` | var | — | ❌ |
+| stock: `Health`/`Battery`/`AmmoX`/`CurWeapon`/`Damage`/`DeathMsg`/`ScoreInfo`/`TeamInfo`/`TeamScore`/`TextMsg`/`SayText`/`StatusValue`/`StatusText`/`StatusIcon`/`Geiger`/`Train`/`HideWeapon`/`SetFOV`/`ShowMenu`/`MOTD`/`ServerName`/`GameMode`/`GameTitle`/`InitHUD`/`ResetHUD`/`WeaponList`/`WeapPickup`/`AmmoPickup`/`ItemPickup`/`HudText`/`Logo`/`TeamNames`/`PTakeDam`/`VGUIMenu` | | stock CHud* | ⬜ inherited |
+
+**Full hooked list (verbatim):** ActItems AllowSpec AmmoPickup AmmoX BuildSt
+ClipInfo Concuss CurWeapon CustomWP Damage DeathMsg Detpack Feign GameMode
+GameTitle Geiger Health HideWeapon HudText InitHUD ItemPickup KFuPower Logo MOTD
+NextStunt Objective PTakeDam PlInfo PwUp PwUpTime RandomPC ReqState ResetHUD
+RoundTime SayText ScoreInfo SecAmmoIcon SecAmmoVal ServerName SetFOV ShowMenu
+ShowObj Spectator SrvSett StatusIcon StatusText StatusValue TSArmor TSBTime TSCash
+TSFade TSFlag TSFrags TSHVoice TSHealth TSMBlur TSMessage TSPAward TSPSys TSSlowMo
+TSSpace TSState TeamInfo TeamNames TeamScore TextMsg Train VGUIMenu ValClass
+WStatus WeapPickup WeaponInfo WeaponList Wires
+
+---
+
+## 2. Console commands the client REGISTERS (92)
+
+Mostly stock HL input bindings (the `+/-` pairs are engine input the client
+re-registers). **TS-specific commands** (the ones our cl_dll must add — currently
+NONE are implemented client-side; some are handled server-side via console):
+
+| command | meaning | status |
+|---|---|---|
+| `+alt1`/`-alt1` | TS alt-fire 1 (silencer/zoom/etc per weapon) | ❌ client (server has no `+alt1`) |
+| `+alt2`/`-alt2` | TS alt-fire 2 | ❌ |
+| `+reload`/`-reload` | reload hold | 🟡 server `+reload` drives `CTSGun::ItemPostFrame` (cont.50); client toggle ❌ |
+| `+break`/`-break` | break/charge (stunt?) | ❌ |
+| `special` | stunt / special move | ❌ |
+| `buy` | open buy menu | 🟡 server `tsbuy`/`tsbuyarmament` (cont.36); client menu ❌ |
+| `togglebrowser` | server browser | ❌ |
+| `ForceCloseCommandMenu` | command menu | ❌ |
+| `+commandmenu`/`-commandmenu` | command/class menu | ❌ |
+| `cancelselect`/`slot1..slot10`/`invnext`/`invprev` | weapon select | ⬜ stock (TS arsenal uses `tsnextweapon` server-side) |
+| `firstperson`/`thirdperson`/`snapto`/`+cam*` | camera | ⬜ stock camera.cpp |
+
+**Full command list (verbatim):** +alt1 +alt2 +attack +attack2 +back +break
++camdistance +camin +cammousemove +camout +campitchdown +campitchup +camyawleft
++camyawright +commandmenu +duck +forward +graph +jlook +jump +klook +left +lookdown
++lookup +movedown +moveleft +moveright +moveup +reload +right +score +showscores
++speed +use (and all `-` counterparts) ForceCloseCommandMenu buy cancelselect
+centerview firstperson impulse invnext invprev joyadvancedupdate slot1..slot10
+snapto special thirdperson togglebrowser voice_showbanned
+
+---
+
+## 3. Cvars the client REGISTERS (104)
+
+**TS-specific (the gameplay/HUD cvars — Phase 3 + the HUD work):**
+
+| cvar | default | meaning | status |
+|---|---|---|---|
+| `hud_r` | 150 | HUD red | ✅ registered + read (cont.52) |
+| `hud_g` | 175 | HUD green | ✅ |
+| `hud_b` | 255 | HUD blue | ✅ |
+| `hud_color` | 150,175,255 | combined HUD colour | ✅ registered (cont.52); combined-parse 🟡 |
+| `cl_realhud` | 0 | alt HUD mode (panels vs realistic) | 🟡 registered, not honoured |
+| `cl_motionblur` | 1 | slow-mo motion blur | ❌ |
+| `cl_gore` | 2 | gore level | ❌ |
+| `cl_laser` | 0 | laser sight | ❌ |
+| `cl_lasercolor` | 10 | laser colour | ❌ |
+| `cl_solidcross` | 2 | crosshair style | ❌ |
+| `cl_usepowerup` | 1 | auto-use powerup | ❌ |
+| `cl_buykevlar` | 1 | auto-buy kevlar | ❌ |
+| `cl_showequipment` | 1 | show equipment | ❌ |
+| `cl_shadow` | 2 | shadows | ❌ |
+| `cl_thirdperson`/`cl_thirdpersonswitch`/`cl_thirdtransparency`/`cl_camtype` | 0/0/1/0 | 3rd-person | ❌ |
+| `cl_attackswitch` | 0 | auto weapon switch | ❌ |
+| `cl_wavedetail`/`cl_fx`/`cl_vsmoothing`/`cl_slowfade` | | misc fx | ❌ |
+| `cl_bob` | 4.0 | view bob (Phase 5 "snap") | 🟡 stock cl_bob exists |
+| `hud_classautokill`/`hud_takesshots`/`hud_centerid` | 1/0/0 | misc | ❌ |
+| `nohud` | 0 | hide HUD | ❌ |
+| `r_paintball` | 0 | paintball mode | ❌ |
+| `gl_fog*` (6) | | fog | ❌ (server `ts_fog` exists) |
+
+The rest (~70) are **stock HL** cvars (`cl_forwardspeed`, `sensitivity`, `m_yaw`,
+`cam_*`, `joy*`, `v_center*`, `scr_ofs*`, `voice_*`, `default_fov`, `bitmapfonts`,
+`lookspring`, …) — ⬜ inherited, engine/stock-client owned.
+
+---
+
+## 4. Events the client PRECACHES (11) — events/*.sc
+
+All fired by the server's `CTSGun` (PLAYBACK_EVENT). Client-side callbacks
+reconstruct predicted fire/anim/sound. **NONE implemented client-side yet** (Phase 5
+— we currently drive anims server-side via `SendWeaponAnim`):
+
+closecombat, coldcock, draw, empty, fire, firelinked, grenade, katana, knife,
+pump, reload — all ❌ client EV_ callbacks (server precache/playback ✅).
+
+---
+
+## 5. HL client engine exports (HUD_*) — the C interface
+
+The engine calls these every tick / on events. Inherited from halflife-updated and
+present (the client loads + runs), but TS-specific behaviour inside several is
+missing (e.g. `HUD_PostRunCmd` weapon prediction, `CL_CreateMove` for TS movement,
+`HUD_UpdateClientData`). Per-tick chain: `HUD_Frame` → `HUD_Redraw` (all CHud Draw)
+→ `HUD_UpdateClientData`; input: `CL_CreateMove`; prediction: `HUD_PostRunCmd`.
+Status: ⬜ present, TS-specific internals 🟡/❌ (tracked under Phases 1/2/5).
+
+---
+
+## 6. Coverage summary (client)
+
+- Cvars: 104 total; **TS-specific ~30**, of which ✅3 (hud_r/g/b) 🟡2 ❌~25; stock ~70 ⬜.
+- Commands: 92 total; **TS-specific ~12**, ❌ nearly all client-side (some server stand-ins).
+- User messages: 74 hooked; **TS-specific ~30**, ✅5 readers, 🟡1, ❌~24.
+- Events: 11; ❌ all client callbacks (server side ✅).
+
+## 7. TODO — to complete the surface scan
+- **Server scan**: extract ts_i386.so cvars (`CVAR_REGISTER`/`g_engfuncs.pfnCVarRegister`)
+  + server commands (`pfnAddServerCommand`) + the events it PLAYBACK_EVENTs, same
+  method (GOT-relative on the ELF).
+- **HUD draw chain**: trace each TS `CHud*::Draw` in client.dll from assembly to
+  recover EXACT panel geometry, FillRGBA colours/alpha, font, and text positions
+  (current panels are approximate — flagged by the user). Start from the HookUserMsg
+  handler for `WeaponInfo`/`WStatus`/`TSHealth` → the class vtable → its Draw.
+- Cross-check each ❌ message against whether the SERVER sends it (some need both
+  halves built).
