@@ -72,9 +72,9 @@ void EV_TSFire(event_args_t* args)
 	if (EV_IsLocal(idx))
 	{
 		EV_MuzzleFlash();
-		const int seq = s_fireAnim[weaponType];
-		if (seq >= 0)
-			gEngfuncs.pEventAPI->EV_WeaponAnimation(seq, 0);
+		// NOTE: the viewmodel "shoot" anim is driven server-side via SendWeaponAnim
+		// (CTSGun::StandardFire) — EV_WeaponAnimation here doesn't stick because CTSGun
+		// isn't client-predicted.
 		V_PunchAxis(0, -2.0);
 	}
 

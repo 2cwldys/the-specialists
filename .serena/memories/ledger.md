@@ -5,6 +5,26 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 64) — playtest fixes: fire-anim regression, 3rd-person camera, coldcock sound
+
+User playtested (cont.61–63 build) and reported issues; fixed three:
+- **Viewmodel fire animation REGRESSION (I caused it in cont.56).** Moving the anim to the predicted
+  event's `EV_WeaponAnimation` broke it — that doesn't stick because CTSGun isn't client-predicted.
+  Restored the server-driven `SendWeaponAnim(iFireAnim)` + `EF_MUZZLEFLASH` in `CTSGun::StandardFire`
+  (the working cont.49 path); the event now only does fire sound + brass shell + viewmodel muzzleflash
+  (removed EV_WeaponAnimation from EV_TSFire).
+- **3rd-person camera = side profile, should be behind.** `cam_idealyaw` default was 90 (= camAngles[YAW]
+  = 90 + viewYaw → side). Changed to **0** (directly behind, looking the player's direction). VERIFIED by
+  screenshot: player now seen from behind facing into the room.
+- **+alt2 coldcock played a KNIFE sound (wrong).** Swapped the knife_hitbody/miss sounds for
+  `player/kungfuhit.wav` (a melee-bash impact) on hit, silent on miss.
+
+**Still open from the playtest (NOT yet fixed):**
+- **Player 3rd-person model is always idle** (no walk/run/fire gait) — this is the `CTSAnimation` gait
+  subsystem (PostThink, NOT ported; cont.60). Big remaining piece (movement/anim, client-entangled).
+- **+alt1 does nothing** — expected; it's an xash built-in + the silencer is UNMAPPED (VERIFICATION §B).
+- damagemult untested (no enemy; needs rcbot in xash).
+
 ## 2026-06-22 (cont. 63c) — wire `initial_cash` cvar → starting cash (cash HUD lights up), VERIFIED
 
 `CTSGameRules::PlayerSpawn` (`dlls/ts_teams.cpp`) now gives `initial_cash` (cvar) via `GiveCash` once per

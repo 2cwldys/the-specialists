@@ -263,8 +263,7 @@ void CTSGun::Precache()
 	// this re-call just resolves the cached indices for a runtime give.
 	PrecacheAllTSWeapons();
 	m_usFire = PRECACHE_EVENT(1, "events/fire.sc"); // predicted fire (sound/flash/anim + shell)
-	PRECACHE_SOUND("weapons/knife/knife_hitbody.wav"); // coldcock (pistol-whip) melee bash
-	PRECACHE_SOUND("weapons/knife/knife_miss.wav");
+	PRECACHE_SOUND("player/kungfuhit.wav"); // coldcock (pistol-whip) melee-bash impact
 }
 
 // @ GetItemInfo__6CTSGun — recovered: slot 1, pos 2, id 16, weight 1.
@@ -383,12 +382,16 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	const float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.01f;
 
 	m_iClip--;
+	m_pPlayer->pev->effects |= EF_MUZZLEFLASH; // 3rd-person muzzleflash on the player model
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 
-	// The fire sound, viewmodel muzzleflash, viewmodel "shoot" anim and shell eject are
-	// played by the faithful events/fire.sc event (client EV_TSFire, keyed by weapontype),
-	// matching the original (CTSGun precaches m_usFire @0x964, plays it in StandardFire).
-	// This replaces the server-driven SendWeaponAnim + EMIT_SOUND slice (cont.49).
+	// Viewmodel "shoot" animation — server-driven (the cont.49 path that works). NOTE: the
+	// predicted-event EV_WeaponAnimation does NOT stick because CTSGun isn't client-predicted,
+	// so the event only handles the fire sound + shell eject + viewmodel muzzleflash.
+	if (wi->iFireAnim >= 0)
+		SendWeaponAnim(wi->iFireAnim);
+
+	// events/fire.sc → EV_TSFire: predicted fire sound + brass shell + viewmodel muzzleflash.
 	PLAYBACK_EVENT_FULL(0, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
 		flSpread, flSpread, m_weaponType, 0, (m_iClip == 0) ? 1 : 0, 0);
 
@@ -482,12 +485,9 @@ void CTSGun::ColdCock()
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 
 	if (tr.flFraction >= 1.0f)
-	{
-		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM);
-		return; // miss
-	}
+		return; // miss (swing is the visual; no sound)
 
-	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/knife/knife_hitbody.wav", VOL_NORM, ATTN_NORM);
+	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM);
 	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
 	if (pHit)
 	{
