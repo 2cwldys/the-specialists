@@ -19,6 +19,12 @@ bool SlowPause(CBasePlayer *pPlayer);      // @ 0x65fb8 — m_iPowerups & 8
 bool DoubleFireRate(CBasePlayer *pPlayer); // @ 0x65fe4 — m_iPowerups & 0x10
 int  KungFu(CBasePlayer *pPlayer);         // @ 0x65fd8 — m_iKungFu
 
+// @ ClientCommand `powerup <N>` apply (RE: ts_i386.so ClientCommand 0x9db8a..0x9dd42).
+// Grant a powerup directly (the TS debug cheat). Instant bits apply at once; timed bits are
+// held with a `duration`-second timer (extended if the same type is already held), guarded by
+// no powerup currently active. Mirrors PlayerAddPowerUp's per-bit dispatch (ts_powerup.cpp).
+bool TSGrantPowerup(CBasePlayer *pPlayer, int type, int duration);
+
 // TS powerup HUD/effect user messages (registered lazily, like gmsgTSMessage).
 extern int gmsgTSPowerUpTime; // remaining-seconds bar for the active powerup
 extern int gmsgTSMotionBlur;  // slow-motion motion-blur effect (per player)

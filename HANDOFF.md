@@ -93,8 +93,8 @@ pointers that all read as ZERO in the file (they're R_386_32/RELATIVE relocs fil
 `coverage.py all` (the gap should move from missing/extra → matched) → run in xash for visual items
 (screenshot; this box has a GPU) → commit. **Commands done this way (cont.67–68): weapon-select
 (`weapon_<N>`/`lastinv`), `firemode`/`drop`/`useitems`, the buy cmds (`tkw`/`tki`/`tka`/`rst_cfg`/
-`cutwire_`), `respawn`/`motd`/`jointeam`/`changeteam`, + the WAITING scoreboard.** Server console-command
-coverage: 12 missing → 2 (`powerup`, `cashala` remain); 0 unanswered default.cfg binds.
+`cutwire_`), `respawn`/`motd`/`jointeam`/`changeteam`, + the WAITING scoreboard, + the `powerup`/`cashala` cheats
+(cont.69).** Server console-command coverage: 12 missing → **0**; 0 unanswered default.cfg binds.
 
 ### Track B cont.66 — TS join / spectate / buy-config / weapon-select flow (IN PROGRESS)
 The faithful join flow (no straight-to-play spawn) is built + verified; the buy menu and

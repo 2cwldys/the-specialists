@@ -35,6 +35,7 @@
 #include "saverestore.h"
 #include "player.h"
 #include "ts_weapons.h" // TSSelectWeaponType (weapon_<N> commit) / TSLastInv (lastinv)
+#include "ts_player.h"  // TSGrantPowerup (the `powerup <N>` debug cheat)
 #include "spectator.h"
 #include "client.h"
 #include "soundent.h"
@@ -534,6 +535,33 @@ void ClientCommand(edict_t* pEntity)
 	else if (FStrEq(pcmd, "usepowerup")) // TS: activate the held timed powerup
 	{
 		player->UsePowerUp();
+	}
+	else if (FStrEq(pcmd, "powerup")) // TS debug cheat: grant powerup <N> directly
+	{
+		// RE: ClientCommand @0x9dafd — argc>1 + IsAlive gated, then a jump table maps N to a
+		// powerup (1/5/other -> held timed 5s; 2/3/4 -> instant grenade/health/inf-clip). The
+		// original's extra pev+0x244 observer-state gate is approximated by !m_fInSpectateWait.
+		if (CMD_ARGC() > 1 && player->IsAlive() && !player->m_fInSpectateWait)
+		{
+			int mask;
+			switch (atoi(CMD_ARGV(1)))
+			{
+			case 2:  mask = TS_PWUP_GRENADE;   break; // PickUpWeapon(grenade)
+			case 3:  mask = TS_PWUP_HEALTH;    break; // health 150 + regen
+			case 4:  mask = TS_PWUP_INFCLIP;   break; // MultiplyClips on the active CTSGun
+			case 1:  mask = TS_PWUP_SLOWPAUSE; break; // held, 5s
+			case 5:  mask = TS_PWUP_DBLFIRE;   break; // held, 5s
+			default: mask = TS_PWUP_SLOWMO;    break; // held, 5s
+			}
+			TSGrantPowerup(player, mask, 5);
+		}
+	}
+	else if (FStrEq(pcmd, "cashala")) // TS cheat: grant cash (gated by the weapon-cheat / sv_cheats)
+	{
+		// RE: ClientCommand @0x9dd5d — guarded by g_flWeaponCheat (the engine sv_cheats mirror),
+		// then GiveCash(player, 30000).
+		if (0 != g_psv_cheats->value)
+			player->GiveCash(30000);
 	}
 	else if (!strncmp(pcmd, "weapon_", 7) && pcmd[7] >= '0' && pcmd[7] <= '9')
 	{

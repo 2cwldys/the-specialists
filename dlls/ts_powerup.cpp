@@ -415,6 +415,66 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 	return true;
 }
 
+// @ ClientCommand `powerup <N>` apply (RE: ts_i386.so ClientCommand 0x9db8a..0x9dd42) — the
+// debug cheat that grants a powerup directly. Same per-bit dispatch as PlayerAddPowerUp, but
+// the timed branch uses a fixed `duration` (extended when the same type is already held) and is
+// guarded by no powerup currently active (the original's m_iPowerups==0 check at 0x9dcc9). No
+// pickup sound (the cheat is silent); the original also fires the "PwUp" held-available HUD
+// message, which is deferred client work (see reference/coverage MISSING user-messages).
+bool TSGrantPowerup(CBasePlayer *pPlayer, int type, int duration)
+{
+	if ((char)type < 0) // 0x80 — armor
+	{
+		pPlayer->pev->armorvalue += 100;
+		if (pPlayer->pev->armorvalue > MAX_NORMAL_BATTERY)
+			pPlayer->pev->armorvalue = MAX_NORMAL_BATTERY;
+	}
+	else if (type & TS_PWUP_KUNGFU)
+	{
+		if (!pPlayer->m_iKungFu)
+			pPlayer->m_iKungFu = 1;
+	}
+	else if (type & TS_PWUP_LOWGRAV)
+	{
+		if (!pPlayer->m_bLowGravity)
+		{
+			pPlayer->m_bLowGravity = 1;
+			pPlayer->pev->gravity = 0.4f;
+		}
+	}
+	else if (type & TS_PWUP_HEALTH)
+	{
+		if (pPlayer->pev->health < 150.0f)
+			pPlayer->pev->health = 150.0f;
+		pPlayer->m_flHealthRegen = gpGlobals->time + 1.0f;
+	}
+	else if (type & TS_PWUP_GRENADE)
+	{
+		// original powerup 2 -> CBasePlayer::PickUpWeapon(grenade) (tsweapon 24 = M61).
+		if (!GiveTSWeapon(pPlayer, TSW_M61))
+			return false;
+	}
+	else if (type & TS_PWUP_INFCLIP)
+	{
+		// original powerup 4 -> CTSGun::MultiplyClips on the active weapon.
+		if (!TSMultiplyClips(pPlayer))
+			return false;
+	}
+	else
+	{
+		// Timed (slow-motion / slow-pause / double-firerate): hold it for UsePowerUp.
+		if (pPlayer->m_iPowerups != 0)
+			return false;
+		if (pPlayer->m_iHeldPowerup == type)
+			pPlayer->m_flPowerupTime += duration;
+		else
+			pPlayer->m_flPowerupTime = duration;
+		pPlayer->m_iHeldPowerup = type;
+		pPlayer->m_flPowerupExpireTime = 0;
+	}
+	return true;
+}
+
 //============================================================================
 // CTSSuperJump — a map-placed powerup pre-set to the low-gravity / super-jump type.
 // The .so's CTSSuperJump::Spawn (@0xc9f44) sets m_iType = 0x100 (TS_PWUP_LOWGRAV) then

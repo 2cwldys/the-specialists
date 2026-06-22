@@ -14,7 +14,7 @@ server to assemble a loadout. The swap contract = the command **names + arg form
 | `tka` | `"%i_%i"` = `caliber_count` | `AddAmmoToArmament(caliber, count)` — "take ammo" | ✅ renamed (was tsarmammo) |
 | `cutwire_<n>` | prefix + `"%i"` | bomb wire cut (`strstr "cutwire_"` + sscanf) | ✅ renamed (was tscutwire) |
 | `drop_<n>` | prefix + `"%i"` | drop a specific slot (`strstr "drop_"`) | ⬜ TODO (we have `drop` for the active weapon) |
-| `cashala…` | config string | `GiveCash(...)` + APPLY a config string: parses `weapon_%i` (each queued weapon) and `lasclr_%i` (laser colour) out of the string | 🟡 our `tsbuyarmament`→`BuyArmament()` is the apply stand-in; the faithful trigger is this config-string command (exact name truncated in recovery — `cashala` + suffix) |
+| `cashala` | — | **CHEAT**: gated by `g_flWeaponCheat` (the engine `sv_cheats` mirror) → `GiveCash(player, 30000)`. NOT a config-apply. | ✅ wired (cont.69, gated on `g_psv_cheats`) |
 
 Note: `tkw`/`tka` take a SINGLE argv token `"5_2"` (sscanf `"%i_%i"`), not two argv — e.g.
 `tkw 5_2` queues 2× weapon type 5. Our handlers parse `argv(1)` splitting on `_`.
@@ -23,14 +23,16 @@ Note: `tkw`/`tka` take a SINGLE argv token `"5_2"` (sscanf `"%i_%i"`), not two a
 
 1. `rst_cfg` clears the queued armament.
 2. `tkw`/`tki` queue weapons, `tka` queues ammo (into `m_armament[]`/`m_armamentAmmo[]`).
-3. The `cashala…` config command applies the queued config (and the `weapon_%i`/`lasclr_%i`
-   string it carries), giving cash + the loadout — the "Use New Config" menu action.
+3. The queued config is applied to give the loadout (the "Use New Config" menu action).
 
-So the original BUYS by **queue (tkw/tki/tka) → apply (cashala config)**, NOT a direct
-per-weapon "buy". Our `tsbuy`/`tsbuyammo` (immediate `BuyWeapon`/`BuyAmmo`) and `tsbuyarmament`
-(apply) are dev/console stand-ins with no 1:1 original command — kept for testing, flagged as
-"extra" by the coverage harness (honest). `lasclr_` (laser colour) is unimplemented (a cl_dll
-cosmetic).
+**CORRECTION (cont.69):** `cashala` is NOT the config-apply command — RE of `ClientCommand`
+@0x9dd5d shows it's a **cheat** (`g_flWeaponCheat`-gated → `GiveCash(player, 30000)`), and the
+`weapon_%i` parse right after it (@0x9dd98, strstr `"weapon_"` + sscanf `"%i"`) is just the
+numeric weapon-select transport (`weapon_<N>`), already handled. The original BUYS by **queue
+(tkw/tki/tka) → apply**; the exact apply-trigger command is still TBD (the menu's "Use New
+Config"). Our `tsbuy`/`tsbuyammo`/`tsbuyarmament` are dev/console stand-ins with no 1:1 original
+command — kept for testing, flagged "extra" by the harness (honest). `lasclr_` (laser colour) is
+unimplemented (a cl_dll cosmetic).
 
 ## Remaining work (the buy UI)
 

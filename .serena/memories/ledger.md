@@ -5,6 +5,35 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 69) — `powerup` + `cashala` cheat commands wired (server cmds 2 missing → 0)
+
+Closed the last two MISSING server console commands in the coverage harness — both turned out to be
+**cheat/debug commands**, RE'd from `ts_i386.so` `ClientCommand` (objdump + GOT 0x165E10 resolution;
+the harness's GOT-relative `lea→strcmp` reproduction enumerated the full dispatch).
+
+**`cashala` (@0x9dd5d):** NOT the buy config-apply that `reference/BUY.md` (cont.68h) hypothesized — it's
+a **cheat**: a float guard `flds 0.0 ; fcomps *g_flWeaponCheat` (the engine `sv_cheats` mirror, GOT
+0x1dbc → `g_flWeaponCheat` @0x18f268) gates `GiveCash(player, 0x7530=30000)`. The `weapon_`/`%i` strstr+
+sscanf right after it (@0x9dd98) is just the numeric `weapon_<N>` select transport (already handled).
+Wired: `cashala` → `if (g_psv_cheats->value) player->GiveCash(30000)` (dlls/client.cpp). BUY.md corrected.
+
+**`powerup <N>` (@0x9dafd):** the debug cheat that grants a powerup directly (the string is the `ts_powerup`
+suffix @0xf76da, distinct from `usepowerup`). Gates: `Cmd_Argc()>1`, `CBasePlayer::IsAlive()` (vt+0xb4, via
+VTABLES.md), a `pev+0x244` observer-state check (approximated by `!m_fInSpectateWait`). A jump table
+(`-0xc8264(%ebx,%eax,4)`, base @0x9dbac) maps N→effect: **1→held SlowPause(8,5s), 5→held DblFire(0x10,5s),
+default→held SlowMo(1,5s); 2→grenade weapon (PickUpWeapon tsweapon 24=M61), 3→health 150+regen, 4→MultiplyClips
+(inf-clip) on the active CTSGun.** Held path guarded by `m_iPowerups==0` (orig 0x724 check) + same-type 5s
+extend. Implemented `TSGrantPowerup(player, mask, dur)` in dlls/ts_powerup.cpp (mirrors PlayerAddPowerUp's
+per-bit dispatch); client.cpp maps N→TS_PWUP_* and calls it.
+
+**Verified:** `scripts/build.sh amd64 [client]` clean (glibc floor 2.14); `coverage.py all` → **server console
+commands 2 missing → 0** (matched 18→20). **In-engine (xash3d-fwgs, listen server, screenshot):** spawned the
+local player out of spectate-wait, `sv_cheats 1`; `cashala` → cash HUD **$30000**; `powerup 3` → health HUD
+**150** — both accepted (no "Unknown command"). The original also fires a `PwUp` held-available HUD message on
+the held path (deferred client work — still MISSING in user-messages). NEXT: the remaining coverage gaps are now
+all client/HUD readers (PwUp/PwUpTime/TSState/TSSlowMo/Objective/ClipInfo/… — 25 MISSING user-messages) + the
+TS events (coldcock/knife/katana/pump/grenade) + the 0%-method classes (CTSStunt/CTSSharedEmitter/CBulletManager).
+
 ## 2026-06-22 (cont. 68) — drop-in interface COVERAGE HARNESS + Ghidra tooling fixes
 
 User asked for a coverage test proving our client+server are drop-in-compatible with the original on
