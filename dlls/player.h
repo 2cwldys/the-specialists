@@ -437,11 +437,15 @@ public:
 	// their chosen loadout. Mirrors the original StartObserver/SetPlayerRespawnTime/
 	// "Press Fire To Play!" path. The buy/config menu (VGUIMenu) opens on entry.
 	bool m_fInSpectateWait = false; // held in free-look, waiting to press fire
+	bool m_fConfigChosen = false;   // the player confirmed a loadout (first +attack)
 	float m_flSpawnGateTime = 0;    // gpGlobals->time at which fire-to-play is allowed
 	int m_iClientSpecSecs = -1;     // last Spectator countdown byte sent (resend on change)
 	void TSEnterSpectate();         // enter free-look spectate-wait (called at end of Spawn)
 	void TSLeaveSpectate();         // press-fire: leave spectate -> respawn into play
 	void TSSpectateThink();         // per-frame while waiting: countdown msg + fire check
+	void TSSendBuyMenu();           // send the buy/config menu (gmsgShowMenu, compact list)
+	void TSCloseMenu();             // turn the menu off (ShowMenu with 0 valid slots)
+	void TSMenuSelect(int slot);    // handle a buy/config menu selection (menuselect / click)
 };
 
 inline void CBasePlayer::SetWeaponBit(int id)

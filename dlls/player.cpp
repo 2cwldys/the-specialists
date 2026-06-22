@@ -1355,6 +1355,7 @@ void CBasePlayer::TSEnterSpectate()
 
 	ResetArmament(); // no weapons until they pick a loadout + press fire
 	m_fInSpectateWait = true;
+	m_fConfigChosen = false;
 	m_iClientSpecSecs = -1;
 
 	float rt = CVAR_GET_FLOAT("respawntime");
@@ -1364,12 +1365,100 @@ void CBasePlayer::TSEnterSpectate()
 		rt = 30;
 	m_flSpawnGateTime = gpGlobals->time + rt;
 
-	// open the TS buy/config menu on the client (HUD-drawn, Phase 3)
-	MESSAGE_BEGIN(MSG_ONE, gmsgVGUIMenu, NULL, pev);
-	WRITE_BYTE(TS_VGUI_BUYMENU);
-	MESSAGE_END();
-
+	TSSendBuyMenu();   // open the TS buy/config menu (gmsgShowMenu, compact list)
 	TSSpectateThink(); // send the initial countdown state
+}
+
+// The TS buy/config menu — the compact gmsgShowMenu list (CHudMenu draws it; matches
+// the original client menu in reference/client.dll FUN_10011160: item 1 toggles the
+// config, items green when available). Selected by number key, or "click anywhere"
+// (+attack) = item 1. menuselect N -> TSMenuSelect on the server.
+void CBasePlayer::TSSendBuyMenu()
+{
+	// \g green / \w white colour codes (cl_dll/menu.cpp). Item 1 = Use New Config
+	// (the loadout the player will spawn with); 7 Random + 1 highlighted as available.
+	const char* menu =
+		"\\g1 Use New Config\n"
+		"\\w2 Buy\n"
+		"\\w3 Remove Item\n"
+		"\\w4 Reset Config\n"
+		"\\w5 Save Config\n"
+		"\\w6 Load Config\n"
+		"\\g7 Random\n"
+		"\\w0 Cancel\n";
+	// valid slots: 1-7 and 0 (the "0" key = slot 10 -> bit 9)
+	const int slots = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 9);
+
+	MESSAGE_BEGIN(MSG_ONE, gmsgShowMenu, NULL, pev);
+	WRITE_SHORT(slots);
+	WRITE_CHAR(-1); // stay up until something is chosen
+	WRITE_BYTE(0);  // no more text follows
+	WRITE_STRING(menu);
+	MESSAGE_END();
+}
+
+void CBasePlayer::TSCloseMenu()
+{
+	MESSAGE_BEGIN(MSG_ONE, gmsgShowMenu, NULL, pev);
+	WRITE_SHORT(0); // 0 valid slots = turn the menu off
+	WRITE_CHAR(0);
+	WRITE_BYTE(0);
+	WRITE_STRING("");
+	MESSAGE_END();
+}
+
+// Handle a buy/config menu selection (slot from menuselect, or 1 from a click).
+void CBasePlayer::TSMenuSelect(int slot)
+{
+	if (!m_fInSpectateWait)
+		return;
+
+	switch (slot)
+	{
+	case 1: // Use New Config — confirm the loadout (applied at spawn); now press fire
+		m_fConfigChosen = true;
+		ClientPrint(pev, HUD_PRINTCENTER, "Using new config.\n");
+		TSCloseMenu();
+		break;
+	case 2: // Buy — the weapon-category submenu (Phase 4)
+		// (handled in Phase 4; for now keep the menu up)
+		break;
+	case 3: // Remove Item — drop the last queued weapon, redraw
+		for (int i = 31; i >= 0; i--)
+		{
+			if (m_armament[i].type != 0)
+			{
+				m_armament[i].type = 0;
+				m_armament[i].count = 0;
+				break;
+			}
+		}
+		TSSendBuyMenu();
+		break;
+	case 4: // Reset Config
+		ResetArmament();
+		TSSendBuyMenu();
+		break;
+	case 5: // Save Config (SLICE: client-local store deferred)
+	case 6: // Load Config (SLICE)
+		TSSendBuyMenu();
+		break;
+	case 7: // Buy Random
+	{
+		ResetArmament();
+		int n = RANDOM_LONG(1, 3);
+		for (int i = 0; i < n; i++)
+			AddItemToArmament(RANDOM_LONG(1, 38), 1, false);
+		m_fConfigChosen = true;
+		ClientPrint(pev, HUD_PRINTCENTER, "Using new config.\n");
+		TSCloseMenu();
+		break;
+	}
+	case 10: // 0 Cancel — keep the (empty/default) loadout, close the menu
+		m_fConfigChosen = true;
+		TSCloseMenu();
+		break;
+	}
 }
 
 // Per-frame while held in spectate-wait: drive the countdown + the fire-to-play.
@@ -1380,17 +1469,31 @@ void CBasePlayer::TSSpectateThink()
 		secs = 0;
 	int state = (secs > 0) ? TSSPEC_COUNTDOWN : TSSPEC_READY;
 
-	// fire-to-play once the gate has elapsed
-	if (state == TSSPEC_READY && (m_afButtonPressed & IN_ATTACK) != 0)
+	// The menu is selected by number key (menuselect N -> TSMenuSelect) or by a click:
+	// while the menu is up, +attack = "click anywhere" = select item 1 (Use New Config),
+	// matching the original. Once a config is chosen (menu closed), the next +attack
+	// (after the countdown) spawns into play.
+	if ((m_afButtonPressed & IN_ATTACK) != 0)
 	{
-		TSLeaveSpectate();
-		return;
+		if (!m_fConfigChosen)
+		{
+			TSMenuSelect(1); // click anywhere -> Use New Config
+		}
+		else if (state == TSSPEC_READY)
+		{
+			TSLeaveSpectate();
+			return;
+		}
 	}
 
 	// resend the Spectator state only when the countdown second changes
 	if (secs != m_iClientSpecSecs)
 	{
 		m_iClientSpecSecs = secs;
+		// Re-send the buy menu each tick until a config is chosen — the first send
+		// (at spectate-enter) can arrive before the client HUD is ready to draw it.
+		if (!m_fConfigChosen)
+			TSSendBuyMenu();
 		MESSAGE_BEGIN(MSG_ONE, gmsgSpectator, NULL, pev);
 		WRITE_BYTE(state);
 		WRITE_BYTE(secs);

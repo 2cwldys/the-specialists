@@ -581,6 +581,13 @@ void ClientCommand(edict_t* pEntity)
 	{
 		player->ResetArmament();
 	}
+	// --- TS join buy/config menu (cont.65, Phase 3): the compact gmsgShowMenu list,
+	// selected by number key (menuselect N) or "click anywhere" (+attack -> slot 1). ---
+	else if (FStrEq(pcmd, "menuselect"))
+	{
+		if (CMD_ARGC() > 1)
+			player->TSMenuSelect(atoi(CMD_ARGV(1)));
+	}
 	else if (FStrEq(pcmd, "tsspawnflag")) // TS CTF: seed a team flag at the player. `tsspawnflag <team>`
 	{
 		extern CBaseEntity *TSCreateFlag(int team, const Vector &vecBase);

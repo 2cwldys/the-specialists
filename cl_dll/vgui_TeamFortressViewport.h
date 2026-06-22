@@ -36,6 +36,8 @@
 #define MENU_CLASSHELP2 			7
 #define MENU_REPEATHELP 			8
 #define MENU_SPECHELP				9
+#define MENU_TS_BUY					20 // TS join buy/config menu (= server TS_VGUI_BUYMENU)
+#define MENU_TS_BUYWEAPONS			21 // TS weapon-category buy submenu (Phase 4)
 using namespace vgui;
 
 class Cursor;

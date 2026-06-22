@@ -117,6 +117,12 @@ static inline const char* ParseEscapeToken(const char* token)
 		menu_b = 0;
 		break;
 
+	case 'g': // TS: green = an available/selectable menu item (reference/client.dll)
+		menu_r = 0;
+		menu_g = 255;
+		menu_b = 0;
+		break;
+
 	case 'R':
 		menu_x = ScreenWidth / 2;
 		menu_ralign = true;
