@@ -19,13 +19,19 @@ Pipeline fully working: decompile → recover typed prototypes → write modern 
 **gdb** any crash. Everything below is committed (`git log`); `recovered/` is
 gitignored. Decision locked: **functional fidelity, NOT byte/ABI match**.
 
-**Big picture: ~25 TS classes reconstructed; the self-contained, server-side gameplay is
-essentially complete.** Weapons (full engine), powerups (incl. dynamic spawn + the slow-motion
-bubble), the death loop (drop weapons/ammo/corpse + grenade shrapnel), objectives (incl. a
-functional win→round-restart), and the map/relay entities are all in + verified. **What remains
-is large or client-entangled** — see "Recommended next steps": (A) the faithful team subsystem +
-cash economy (unblocks the CTF entities + the buy menu), and (B) the cl_dll side (the *visible*
-time-dilation, the particle system, stunts, HUDs) — there is **no cl_dll reconstructed yet**.
+**Big picture: the entire server side is reconstructed (~40 TS classes); Track A is COMPLETE and
+Track B (the client) has its build foundation.** Done + verified: the full weapon engine, powerups
+(dynamic spawn + slow-motion bubble), the death loop (weapons/ammo/corpse + grenade shrapnel), the
+**complete team subsystem** — team assignment (cont.35), cash + free buy/armament (cont.36, the
+`CashBased()`-is-off finding), all three round-end conditions (elimination cont.37, objective cont.31,
+**timeout** cont.45) — **every CTF/objective/escape entity** (`CTSFlag`/`CTSBriefcase`/`CTSBomb`/
+`CTSSellZone`/`CTSTeamEscape`/`CTSScoreGiver`/`CVipEscape`, cont.38–43), and the map/relay entities.
+Exercised on real maps: tm_avana, ctb_deadheat, ts_dust2, ts_theatre, ts_wyndham.
+**What remains is Track B — the cl_dll (client):** the client now BUILDS (both 32- and 64-bit, cont.46)
+but has **no TS client code yet** — the *visible* slow-motion time-dilation, the particle system, the
+stunts, and the HUDs (the server already sends the user messages; the client just needs the readers).
+Small server leftovers: `CTSPlayerAmount`/`CTSSuperJump` done (cont.44); `CInfoBreakable` (thin) +
+`CBulletManager` (bullet-time — best done alongside Track B) remain. See "Recommended next steps".
 
 - **Map entities — runtime-verified:** `CTSModel` (108 on `ts_kissmeyerbasic`),
   `CTSMapGlobals` (weapon-restriction on `ts_trinityfall`), `CTSGroundWeapon`
@@ -55,8 +61,11 @@ time-dilation, the particle system, stunts, HUDs) — there is **no cl_dll recon
   override that **auto-balances** any unassigned player onto the fewest team (server-side stand-in
   for the faithful client class menu). `pev->team` is **0-based** (0 spec, 1 merc) to match the
   FGD/objective gating. **Verified:** 5 bots balanced 3/2 on `tm_avana`; DM assigns nothing.
-  Still inheriting MP: cash economy, the buy menu, `UpdateTeamScores`/`InitTeamScore`, the full
-  `RestartRound`, friendly-fire. `TSGameRules()` accessor + `TS_PWUP_*` bits.
+  Cash + free buy/armament are built (cont.36, `dlls/ts_buy.cpp` — `CashBased()` is off so weapons are
+  free; `tsbuy`/`tsarm`/`tsbuyarmament` console-drive it, the menu UI is cl_dll); the round timer is
+  built (cont.45, `StartRoundTimer`/`RoundTimeLeft` → draw on timeout). Still inheriting MP / deferred:
+  the faithful `UpdateTeamScores`/`InitTeamScore` (vs the current `m_teamScore[]`), the full
+  `RestartRound`@0x67920, and friendly-fire. `TSGameRules()` accessor + `TS_PWUP_*` bits.
 - **Player:** no `CTSPlayer` — TS state lives on `CBasePlayer` (`player.h` member
   block `m_iPowerups`/`m_iHeldPowerup`/`m_flPowerupTime`/`m_flPowerupExpireTime`/
   `m_flHealthRegen`/`m_iKungFu`/`m_bLowGravity`) + accessors in `ts_player.{h,cpp}`.
@@ -177,13 +186,25 @@ the `.so`, `scripts/extract_weapons.py` is the pattern (PIC string + numeric
 extraction → C table).
 
 ## Recommended next steps
-The self-contained, server-side gameplay is done (weapons, powerups, death loop, objectives,
-map entities — see "Where things stand"). The remaining work is **two big tracks**, both larger
-than a single self-contained increment. Pick one deliberately; expect multiple commits.
+**The whole server side is done — Track A is COMPLETE (cont.35–45).** The clear next focus is
+**Track B (the client/cl_dll)**, whose build foundation just landed (cont.46). Track A below is kept
+for reference (all ✅) + its remaining *fidelity polish* (optional, low value). Read Track B first.
 
-**Track A — the `CTSGameRules` team subsystem + cash (server-side, the biggest gameplay unlock).**
-A functional `TeamWin` + round-restart (cont.31) and **team assignment (cont.35)** now exist. To
-finish team mode:
+**→ START HERE: Track B — the cl_dll.** The client now builds (`build.sh <arch> client`, 32- and
+64-bit); it's the stock HL client with **no TS code yet**. Verification caveat: this box builds but
+can't render the client (no graphics; the browser client is the separate WASM xash build), so client
+work is build/load-verified here and **visual behaviour needs a graphical GoldSrc/xash client the user
+runs** — coordinate with the user (via the consult channel below) for visual confirmation. The natural
+first slice is a HUD reading a message the server already sends: the **round-time countdown**
+(`gmsgTSRoundTime`, cont.45) or the **powerup/motion-blur** indicators (`gmsgTSPowerUpTime`/
+`gmsgTSMotionBlur`). Then the bigger items in the Track B section further down (visible slow-motion,
+particles, stunts). `reference/client.dll` (~1,013 exports) is the spine — see CLAUDE.md §2.
+
+---
+
+**Track A — the `CTSGameRules` team subsystem + cash (✅ COMPLETE, cont.35–45).** Kept for reference;
+all steps done. Remaining is fidelity polish only (UpdateTeamScores/InitTeamScore, the full faithful
+RestartRound, ShowObjectiveOnHud, CheckDeads grace/CTB/last-man branches) — diminishing returns.
 1. ✅ **Team assignment (DONE, cont.35)** — `dlls/ts_teams.cpp`: `pev->team` set 0-based via
    auto-balance on spawn (`PlayerSpawn` → `TeamWithFewestPlayers`); the team roster + GetTeamIndex/
    GetTeamID mirror `CHalfLifeTeamplay`. Verified: bots get balanced teams. The CTF/escape entities
