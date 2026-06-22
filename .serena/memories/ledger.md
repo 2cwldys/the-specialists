@@ -5,6 +5,26 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 54) — Phase 3: TS client cvars + commands registered (kills "Unknown command" spam)
+
+Wired the TS-specific client cvars + console commands from the API surface scan, fixing the playtest
+"Unknown command" spam + non-erroring keybinds.
+- **Cvars (`cl_dll/ts_hud.cpp` TSHud_RegisterCvars):** registered ~25 TS client cvars with the EXACT
+  defaults recovered from client.dll (API_SURFACE.md) — hud_r/g/b/color, cl_realhud/motionblur/gore/laser/
+  lasercolor/solidcross/usepowerup/buykevlar/showequipment/shadow/thirdtransparency/camtype/attackswitch/
+  thirdpersonswitch/wavedetail/fx/slowfade/vsmoothing, hud_classautokill/takesshots, nohud, r_paintball.
+  (Registration only — most aren't *read* yet; stock/engine cvars left to the base client.)
+- **Commands (`cl_dll/ts_commands.cpp`, `TSRegisterCommands` from InitInput):** `+alt1`/`-alt1`/`+alt2`/
+  `-alt2`/`+break`/`-break`/`special`/`buy` forward to the server via ServerCmd; `+commandmenu`/`-commandmenu`/
+  `ForceCloseCommandMenu`/`togglebrowser` are client UI stubs. Server (`dlls/client.cpp` ClientCommand) now
+  accepts the forwarded TS inputs silently so they don't print "Unknown command" server-side.
+- **Verified:** launched on tm_avana, NO "Unknown command" for any TS cvar/command in the log; game runs.
+- **TODO (gameplay behind the commands, follow-on):** alt-fire/silencer-scope toggle (+alt1), coldcock
+  (+alt2 = AlternateAttack@0x81ba8, found cont.53), stunts (special), the buy menu (cl_dll VGUI). Server
+  cvars (mp_teammodels, roundtime, slowmatch…) are task #5 (the server-side scan, still pending).
+
+---
+
 ## 2026-06-22 (cont. 53) — DEEP RE of the HUD draw chain from client.dll (user mandate) → reference/HUD_DRAWCHAIN.md
 
 User chose byte-exact RE over visual-match (visual can't verify alpha-blended fidelity). Traced the FULL

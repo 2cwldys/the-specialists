@@ -156,8 +156,15 @@ Status: ⬜ present, TS-specific internals 🟡/❌ (tracked under Phases 1/2/5)
 
 ## 6. Coverage summary (client)
 
-- Cvars: 104 total; **TS-specific ~30**, of which ✅3 (hud_r/g/b) 🟡2 ❌~25; stock ~70 ⬜.
-- Commands: 92 total; **TS-specific ~12**, ❌ nearly all client-side (some server stand-ins).
+- Cvars: 104 total; **TS-specific ~30**, of which ✅ ~25 now REGISTERED with faithful defaults
+  (`cl_dll/ts_hud.cpp` TSHud_RegisterCvars — hud_r/g/b/color, cl_realhud/motionblur/gore/laser/
+  lasercolor/solidcross/usepowerup/buykevlar/showequipment/shadow/thirdtransparency/camtype/
+  attackswitch/thirdpersonswitch/wavedetail/fx/slowfade/vsmoothing, hud_classautokill/takesshots,
+  nohud, r_paintball); the rest are stock/engine ⬜. (Registration only — most aren't yet *read*.)
+- Commands: 92 total; **TS-specific ~12 now REGISTERED** (`cl_dll/ts_commands.cpp`): `+alt1`/`+alt2`/
+  `+break`/`special`/`buy` forward to the server (accepted in `dlls/client.cpp` ClientCommand, gameplay
+  follow-on); `+commandmenu`/`togglebrowser`/`ForceCloseCommandMenu` are client UI stubs. No more
+  "Unknown command" spam; binds no longer error. Behaviour (alt-fire/coldcock/stunts/buy menu) is TODO.
 - User messages: 74 hooked; **TS-specific ~30**, ✅5 readers, 🟡1, ❌~24.
 - Events: 11; ❌ all client callbacks (server side ✅).
 

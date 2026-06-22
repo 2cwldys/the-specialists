@@ -655,6 +655,15 @@ void ClientCommand(edict_t* pEntity)
 		if (player->IsObserver())
 			player->Observer_FindNextPlayer(atoi(CMD_ARGV(1)) != 0);
 	}
+	else if (FStrEq(pcmd, "+alt1") || FStrEq(pcmd, "-alt1") || FStrEq(pcmd, "+alt2") ||
+			 FStrEq(pcmd, "-alt2") || FStrEq(pcmd, "+break") || FStrEq(pcmd, "-break") ||
+			 FStrEq(pcmd, "special") || FStrEq(pcmd, "buy"))
+	{
+		// The Specialists alt-fire / action inputs, forwarded by the client (ts_commands.cpp).
+		// Accepted here so they don't print "Unknown command"; the gameplay behind them
+		// (silencer/scope toggle, coldcock, stunts, the buy menu) is follow-on weapon/input
+		// work. See reference/API_SURFACE.md.
+	}
 	else if (g_pGameRules->ClientCommand(player, pcmd))
 	{
 		// MenuSelect returns true only if the command is properly handled,  so don't print a warning

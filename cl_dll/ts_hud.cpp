@@ -34,12 +34,39 @@ void TSHud_RegisterCvars()
 	if (s_hud_r)
 		return; // already registered
 
-	// Defaults recovered from client.dll RegisterVariable: 150 / 175 / 255.
+	// HUD colour — defaults recovered from client.dll RegisterVariable: 150 / 175 / 255.
 	s_hud_r = CVAR_CREATE("hud_r", "150", FCVAR_ARCHIVE);
 	s_hud_g = CVAR_CREATE("hud_g", "175", FCVAR_ARCHIVE);
 	s_hud_b = CVAR_CREATE("hud_b", "255", FCVAR_ARCHIVE);
 	CVAR_CREATE("hud_color", "150,175,255", FCVAR_ARCHIVE);
+
+	// The remaining TS-specific client cvars, with the exact defaults recovered from
+	// client.dll (reference/API_SURFACE.md). Registering them stops the "Unknown
+	// command" spam when the player's TS config sets them, and lets the HUD/effects
+	// read them later. (Stock-HL / engine cvars like cl_bob, cl_thirdperson, gl_fog*,
+	// hud_centerid, sensitivity are already registered by the engine/base client.)
 	CVAR_CREATE("cl_realhud", "0", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_motionblur", "1", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_gore", "2", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_laser", "0", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_lasercolor", "10", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_solidcross", "2", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_usepowerup", "1", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_buykevlar", "1", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_showequipment", "1", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_shadow", "2", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_thirdtransparency", "1", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_camtype", "0", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_attackswitch", "0", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_thirdpersonswitch", "0", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_wavedetail", "0", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_fx", "1", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_slowfade", "1", FCVAR_ARCHIVE);
+	CVAR_CREATE("cl_vsmoothing", "0.05", FCVAR_ARCHIVE);
+	CVAR_CREATE("hud_classautokill", "1", FCVAR_ARCHIVE);
+	CVAR_CREATE("hud_takesshots", "0", FCVAR_ARCHIVE);
+	CVAR_CREATE("nohud", "0", FCVAR_ARCHIVE);
+	CVAR_CREATE("r_paintball", "0", FCVAR_ARCHIVE);
 }
 
 static int Clamp255(float v)

@@ -110,6 +110,7 @@ target_sources(client PRIVATE
 	ts_status.cpp
 	ts_ammo.cpp
 	ts_weaponbar.cpp
+	ts_commands.cpp
 	saytext.cpp
 	statusbar.cpp
 	status_icons.cpp

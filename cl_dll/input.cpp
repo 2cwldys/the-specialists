@@ -997,6 +997,9 @@ void InitInput()
 	KB_Init();
 	// Initialize view system
 	V_Init();
+	// The Specialists console commands (+alt1/+alt2/special/buy/…)
+	extern void TSRegisterCommands();
+	TSRegisterCommands();
 }
 
 /*
