@@ -358,3 +358,57 @@ void CTSWinGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE us
 		TSGameRules()->TeamWin(m_winnerTeam);
 	// SLICE: faithful TeamWin also awards victory/defeat cash (m_victoryCash/m_defeatCash).
 }
+
+//============================================================================
+// CTSScoreGiver — like CTSWinGiver, but REPEATABLE: each time it's Use'd `callsnumber`
+// times it scores the team again (resets the call count instead of latching done). @Spawn
+// 0x8c0b8 / Use 0x8c158. A "Respawn Players" spawnflag respawns everyone on score (here that
+// is subsumed by TeamWin's round restart — SLICE).
+//============================================================================
+#define SF_SCOREGIVER_RESPAWN 1
+
+class CTSScoreGiver : public CTSWinGiver
+{
+public:
+	void EXPORT Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
+};
+
+LINK_ENTITY_TO_CLASS(ts_scoregiver, CTSScoreGiver);
+
+// @Use__13CTSScoreGiver — count the calls; on the last, score the team and re-arm (repeatable).
+void CTSScoreGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
+{
+	if (++m_calls < m_callsNumber)
+		return;
+	m_calls = 0; // repeatable (CTSWinGiver latches m_bDone; the score giver re-arms)
+
+	// Score the team directly (no round restart — a score giver gives points without ending the
+	// round, unlike the win giver's TeamWin). // SLICE: the .so routes through TeamWin with the
+	// team-subsystem cash; the "Respawn Players" spawnflag isn't applied.
+	CTSGameRules *gr = TSGameRules();
+	if (gr && m_winnerTeam >= 0 && m_winnerTeam < 4)
+		gr->m_teamScore[m_winnerTeam]++;
+	if (!FStringNull(pev->message))
+		TSHudMessageAll(0, 0xff, 0, 8, 50, STRING(pev->message));
+}
+
+//============================================================================
+// CVipEscape — the VIP safety zone (`func_vip_safetyzone`, brush). In the .so this is a passive
+// marker the (unbuilt) VIP-escort logic checks against; it has no touch/use of its own. @Spawn
+// 0x8d23c. Build it so a map placing it doesn't Can't-init. // SLICE: the VIP-escape win
+// detection (who is the VIP, did they reach the zone) lives in the team subsystem, not built.
+//============================================================================
+class CVipEscape : public CBaseEntity
+{
+public:
+	void Spawn() override
+	{
+		pev->movetype = MOVETYPE_NONE;
+		pev->solid = SOLID_NOT; // passive marker (the .so SET_MODELs the brush, non-solid)
+		if (!FStringNull(pev->model))
+			SET_MODEL(edict(), STRING(pev->model));
+	}
+};
+
+LINK_ENTITY_TO_CLASS(func_vip_safetyzone, CVipEscape);
+
