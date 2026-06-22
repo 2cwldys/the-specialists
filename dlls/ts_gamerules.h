@@ -98,6 +98,7 @@ public:
 	// sends the remaining seconds (gmsgTSRoundTime); when it expires, RoundTimeLeft fires the
 	// objective manager's `targetontimeleft` and declares a draw (TeamWin(2)).
 	void  StartRoundTimer();
+	void  SendRoundTime(CBasePlayer *pPlayer); // catch a joining client up on the round clock
 	void  RoundTimeLeft();
 	float m_flRoundEnd = 0;       // >0 = the round ends at this time (the .so's +0x8); 0 = not armed
 

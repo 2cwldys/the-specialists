@@ -70,6 +70,20 @@ void CTSGameRules::StartRoundTimer()
 	MESSAGE_END();
 }
 
+// @ SendRoundTime — send the current remaining round time to one player. StartRoundTimer only
+// broadcasts at arm-time, so a client that joins mid-round needs this to populate its round-time
+// HUD. No-op if the timer isn't armed (m_flRoundEnd in the past / 0).
+void CTSGameRules::SendRoundTime(CBasePlayer *pPlayer)
+{
+	if (gmsgTSRoundTime == 0 || m_flRoundEnd <= gpGlobals->time)
+		return;
+
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSRoundTime, NULL, pPlayer->edict());
+	WRITE_SHORT((int)(m_flRoundEnd - gpGlobals->time));
+	WRITE_SHORT(0);
+	MESSAGE_END();
+}
+
 // @ RoundTimeLeft — the round ran out of time: fire the objective manager's targetontimeleft, then
 // declare a draw (the .so's TeamWin(2)). The draw schedules the round restart.
 void CTSGameRules::RoundTimeLeft()

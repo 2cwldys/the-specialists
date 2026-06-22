@@ -208,4 +208,7 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 			MESSAGE_END();
 		}
 	}
+
+	// catch the new client up on the round clock (StartRoundTimer only broadcasts at arm-time)
+	SendRoundTime(pPlayer);
 }
