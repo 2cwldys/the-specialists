@@ -5,6 +5,37 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 69b) — faithful TS status panel (posture figure + health-heart + Kevlar)
+
+User feedback while verifying `powerup 3`: the "150" I screenshotted was the **stock HEV** health number,
+NOT TS's custom HUD. TS replaces the stock health/battery entirely with a bottom-left **status panel**:
+team name on top, a **posture figure** sprite, the **health number + a heart**, and a binary **"Kevlar"**
+indicator (armor is kevlar-or-not, never a number — our old `CHudTSStatus` drew "Armor: N", wrong). The
+figure reflects stance: standing / crouched / **prone** (prone via CTSStunt — +alt1 dive, double-jump
+roll-to-prone, direction-dependent; e.g. double-jump-backward does NOT prone).
+
+**RE (client.dll):** sprite-load block @0x10049d1f loads `sprites/player/{stand,crouched,prone,health,
+kevlar,kungfu,movement,flag}.spr` (+ directional `divestep{b,c,t}.spr`) into slots stand=0x38 crouched=0x3c
+prone=0x40 health=0x58 kevlar=0x5c. `"%i Kevlar  %i"` draw @0x1003808e. ("Free Slots : %i" @0x100929f8 is
+the weapon/buy bar FUN_10011a60, a separate element — not this panel.)
+
+**Reconstruction (`cl_dll/ts_status.{cpp,h}`):** rewrote VidInit (SPR_Load the 5 panel sprites + rects) and
+Draw — team name (g_PlayerExtraInfo), posture figure (crouch via local player `curstate.usehull==1`; prone
+via a new `g_iTSProne` extern hook, dormant until CTSStunt sets it), health + heart sprite, Kevlar drawn only
+when `m_iArmor>0` (sprite if present, else "Kevlar" text). Missing sprites fall back to text (never crash).
+
+**Verified in xash (screenshots vs the user's reference):** standing figure → 100 + heart; ducking → swaps to
+`crouched.spr`; with real armor (sv_cheats 1; give item_suit; give item_battery) → the **"Kevlar"** label
+appears below the health. Matches the reference. Scope chosen by the user ("Status panel HUD now") = stand/
+crouch live, prone deferred to CTSStunt.
+
+**Gotchas this session:** (1) TSHealth/TSArmor are sent server-side **on change only** — right after spawn the
+panel shows 0 until the player fully enters play (settles to 100 a beat later; not a bug). (2) `give` needs
+`sv_cheats 1`; **TS players lack the HEV suit**, so `item_battery` alone adds no armor — `give item_suit`
+first (and TS's `sk_battery` may be 0). (3) Our buy system does NOT yet grant kevlar armor (a server-side gap
+— only the powerup armor-mask 0x80 path in TSGrantPowerup sets armorvalue). NEXT for this area: wire kevlar
+into the buy/loadout, and the prone posture once CTSStunt lands.
+
 ## 2026-06-22 (cont. 69) — `powerup` + `cashala` cheat commands wired (server cmds 2 missing → 0)
 
 Closed the last two MISSING server console commands in the coverage harness — both turned out to be

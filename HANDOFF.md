@@ -402,6 +402,13 @@ cont.51–64; the recovered contracts are in `reference/ENGINE_INTERFACE.md` / `
   **ammo box** (`CHudTSAmmo` ← `WeaponInfo`), **health bar** (`TSHud_HealthBar`). Exact geometry/colour/
   alpha/font; HUD colour `hud_r/g/b`=150/175/255; per-char clipped `TSHud_DrawString` (= `FUN_10021ce0`).
   Polish left: attachment rows (need the WeaponInfo flags byte + silencer), active-highlight, left block.
+  **Status panel ✅ (cont.69b, `cl_dll/ts_status.{cpp,h}`):** the bottom-left **TS status panel** that
+  replaces the stock HEV health/battery — team name + a **posture figure** (`sprites/player/{stand,crouched,
+  prone}.spr`, RE'd from the @0x10049d1f sprite-load block) + **health number + heart** (`health.spr`) +
+  a binary **"Kevlar"** indicator (`kevlar.spr`, drawn only when `m_iArmor>0`; armor is kevlar-or-not, NOT
+  a number — the old "Armor: N" was wrong). Crouch live via local `curstate.usehull==1`; **prone is
+  CTSStunt-gated** (dormant `g_iTSProne` hook). Screenshot-verified stand/crouch/100+heart/Kevlar. OPEN:
+  the buy/loadout doesn't yet grant kevlar armor (server gap); prone posture awaits CTSStunt.
 - **Phase 3 — commands/cvars ✅ DONE (cont.54).** ~25 client + ~25 server cvars registered with exact
   defaults; commands registered. No "Unknown command" spam. Several cvars now **wired to gameplay**:
   `roundtime`, `slowmatch` (→ global slow-motion match), `damagemult` (→ weapon damage), `initial_cash`
