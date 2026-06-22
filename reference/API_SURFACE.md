@@ -168,10 +168,27 @@ Status: ⬜ present, TS-specific internals 🟡/❌ (tracked under Phases 1/2/5)
 - User messages: 74 hooked; **TS-specific ~30**, ✅5 readers, 🟡1, ❌~24.
 - Events: 11; ❌ all client callbacks (server side ✅).
 
+## 6b. Server cvars (ts_i386.so) — SCANNED + registered (cont.54)
+
+Extracted from the `.so` cvar_t structs (R_386_RELATIVE relocs → name/default string
+pairs). TS-specific game cvars our server lacked, now registered in `dlls/ts_cvars.cpp`
+(`TSRegisterCvars` from GameDLLInit) with the exact defaults:
+`mp_teammodels ""`, `initial_cash 1200`, `cashforwin 10000`, `cashforlose 1200`,
+`roundtime 150` (WIRED → the round timer, was hardcoded 120), `respawntime 3`,
+`damagemult 0.0`, `slowmatch 1.0`, `nopowerup 0.0`, `botlearn 0.0`, `realbullet 0.0`,
+`usecash 0.0`, `ammocount 0`, `bottalk 1`, `mp_theonemode 0`, `mp_theone gordon`,
+`mp_theothers seal`, `lastmanstanding 0`, `spectacularness 1`, `respawnnumber 1`,
+`customweapons ""`, `banfortk 0`, `dmgreport 0`, `botarmor 0`, `deadstomach deadtable`.
+(The standard mp_* — mp_teamplay/friendlyfire/… — the base SDK registers under bare
+names; the original uses the mp_ prefix. NOTE: a faithful pass could alias those.)
+Registration stops "Unknown command mp_teammodels" etc; most still need behaviour wiring
+(only `roundtime` is read so far).
+
 ## 7. TODO — to complete the surface scan
-- **Server scan**: extract ts_i386.so cvars (`CVAR_REGISTER`/`g_engfuncs.pfnCVarRegister`)
-  + server commands (`pfnAddServerCommand`) + the events it PLAYBACK_EVENTs, same
-  method (GOT-relative on the ELF).
+- **Server commands** (`pfnAddServerCommand`) + the events the server PLAYBACK_EVENTs —
+  same reloc/GOT method; not yet enumerated. (Server *console* commands like tsbuy are
+  already in `dlls/client.cpp` ClientCommand.)
+- The standard mp_*-prefix cvar aliases (vs the base SDK's bare names).
 - **HUD draw chain**: trace each TS `CHud*::Draw` in client.dll from assembly to
   recover EXACT panel geometry, FillRGBA colours/alpha, font, and text positions
   (current panels are approximate — flagged by the user). Start from the HookUserMsg

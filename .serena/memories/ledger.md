@@ -20,8 +20,17 @@ Wired the TS-specific client cvars + console commands from the API surface scan,
   accepts the forwarded TS inputs silently so they don't print "Unknown command" server-side.
 - **Verified:** launched on tm_avana, NO "Unknown command" for any TS cvar/command in the log; game runs.
 - **TODO (gameplay behind the commands, follow-on):** alt-fire/silencer-scope toggle (+alt1), coldcock
-  (+alt2 = AlternateAttack@0x81ba8, found cont.53), stunts (special), the buy menu (cl_dll VGUI). Server
-  cvars (mp_teammodels, roundtime, slowmatch…) are task #5 (the server-side scan, still pending).
+  (+alt2 = AlternateAttack@0x81ba8, found cont.53), stunts (special), the buy menu (cl_dll VGUI).
+
+**Server cvar scan (task #5) DONE:** extracted the TS server cvars from the .so cvar_t structs (parsed
+R_386_RELATIVE relocs → name/default pairs). Registered the ~25 TS-specific ones our server lacked in
+`dlls/ts_cvars.cpp` (`TSRegisterCvars` from GameDLLInit) with exact defaults: mp_teammodels, initial_cash/
+cashforwin/cashforlose, **roundtime 150 (WIRED → StartRoundTimer, replacing the hardcoded 120 — clock now
+2:30)**, respawntime, damagemult, slowmatch, nopowerup, botlearn, realbullet, usecash, ammocount, bottalk,
+mp_theonemode/theone/theothers, lastmanstanding, spectacularness, respawnnumber, customweapons, banfortk,
+dmgreport, botarmor, deadstomach. Verified: no "Unknown command" for any TS cvar; round clock reads 150s.
+TODO: server *console-command* + event enumeration (the standard mp_* alias names too); behaviour wiring
+for the registered cvars (only roundtime read so far).
 
 ---
 

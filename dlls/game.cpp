@@ -516,6 +516,10 @@ void GameDLLInit()
 
 	CVAR_REGISTER(&sv_allowbunnyhopping);
 
+	// The Specialists game cvars (mp_teammodels, roundtime, slowmatch, cash economy, …)
+	extern void TSRegisterCvars();
+	TSRegisterCvars();
+
 	// REGISTER CVARS FOR SKILL LEVEL STUFF
 	// Agrunt
 	CVAR_REGISTER(&sk_agrunt_health1); // {"sk_agrunt_health1","0"};

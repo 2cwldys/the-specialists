@@ -51,13 +51,11 @@ void TSFireTimeLeftTarget();
 // Round-time HUD message (remaining seconds); registered lazily on first send.
 int gmsgTSRoundTime = 0;
 
-// The TS round length (the .so reads a `roundtime` cvar, clamped [30,180]). // VERIFY: wire the cvar.
-#define TS_ROUNDTIME 120.0f
-
 // @ StartRoundTimer — arm the round timer for a fresh round and tell clients the time left.
 void CTSGameRules::StartRoundTimer()
 {
-	float t = TS_ROUNDTIME;
+	// The .so reads the `roundtime` cvar (default 150), clamped [30,180].
+	float t = CVAR_GET_FLOAT("roundtime");
 	if (t < 30.0f) t = 30.0f;
 	if (t > 180.0f) t = 180.0f;
 	m_flRoundEnd = gpGlobals->time + t;
