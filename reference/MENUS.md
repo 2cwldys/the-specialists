@@ -10,9 +10,14 @@ The TS buy menu is a **client-side, custom-drawn TEXT menu**, NOT VGUI and NOT t
 
 - The client builds and draws each menu entry itself: `client.dll FUN_10011160` (config-menu
   item 1) and the sibling builders call **`FUN_10066a90(panel, idx, text, x, y, …, scale, …)`**
-  — a positioned-text "button" draw. The menu strings live in `client.dll .data`.
-- Selection is by **number key**; the handler sends the buy commands (`tkw`/`tki`/`tka`/
-  `rst_cfg`, etc. — see `reference/BUY.md`) and/or navigates to a submenu.
+  — a positioned-text **clickable** "button" draw. The menu strings live in `client.dll .data`.
+- Selection works **two ways, both active at once**: (a) **mouse click** on a menu entry — in
+  the spectate-wait phase the observer cursor is free, so you move the mouse and click an entry;
+  and (b) the matching **number key**. Either fires that entry's action (send a buy command
+  `tkw`/`tki`/`tka`/`rst_cfg` — see `reference/BUY.md` — and/or open a submenu).
+- **Clicking anywhere that is NOT a menu entry** = the default **"apply new config"** (item 1):
+  it commits the queued loadout and arms you, so the **next click spawns** you into play. (This
+  is the cont.66 "click anywhere ⇒ item 1" behavior, now confirmed.)
 - It is **not** `gmsgVGUIMenu` (that's the MOTD-style image-button panel) and **not** the
   generic `gmsgShowMenu` text menu. Our current server-side `gmsgShowMenu` config menu
   (`CBasePlayer::TSSendBuyMenu`) is a **stand-in** that mimics the top level only.
