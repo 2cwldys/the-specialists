@@ -126,6 +126,13 @@ recoverable directly).
 
 | `CTSPlayerAmount` / `CTSSuperJump` | `dlls/ts_playeramount.cpp`, `dlls/ts_powerup.cpp` | ✅✅ **built + synthetic-verified (cont.44)** — `ts_playeramount` = a point relay that fires connecttarget/disconnecttarget when the player count rises/falls to `clients` (poll-based CountThink); `ts_superjump` = a CTSPowerUp pre-set to the low-gravity/super-jump type. Verified: playeramount(clients=2) fires connecttarget when the count reaches 2; superjump spawns. SLICE: playeramount polls (no engine connect hook) + ignores spawnflags. |
 
+### Track B — client (cl_dll) status
+
+| Element | File | State |
+|---|---|---|
+| cl_dll build foundation | `cl_dll/` (CMake, dual-arch VGUI) | ✅ **builds 32- + 64-bit (cont.46)** — `build.sh <arch> client`; i386→Valve vgui, amd64→openvgui. No render on this box. |
+| `CHudRoundTime` | `cl_dll/roundtime.{cpp,h}` | ✅ **built + load-level (cont.47)** — first TS HUD; hooks the `RoundTime` message (server send fixed from "TSRoundTime"→"RoundTime"), reads 2 shorts, draws M:SS countdown. **Visual unconfirmed** (headless box) — position/size/colour // VERIFY, needs the user's graphical client. |
+
 Everything else in the table above is **not started**. Full history in the
 Serena ledger (`.serena/memories/ledger.md`).
 

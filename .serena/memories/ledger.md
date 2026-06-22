@@ -5,6 +5,56 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 47) — TRACK B: first TS client HUD — the round-time countdown (CHudRoundTime)
+
+**Done — the first piece of TS client code: `cl_dll/roundtime.{cpp,h}` (CHudRoundTime).** The round-time
+countdown HUD, reading the message the server already sends (cont.45). This is the first TS reader in
+the cl_dll — proves the Track B loop (server sends a user message → client HUD element hooks + reads +
+draws) end to end at build/load level.
+
+**Fidelity fix to the server first (`dlls/ts_gamerules.cpp`):** the original `ts_i386.so` registers the
+round-time user message as the string **`"RoundTime"`** (the C++ global is named `gmsgTSRoundTime` — both
+appear in the unstripped symtab/.rodata; the registered STRING is "RoundTime", confirmed at .so .rodata
+0x95900 where client.dll also hooks it). The inherited cont.45 server registered `"TSRoundTime"` — a
+fidelity bug (client.dll hooks "RoundTime"). Changed `REG_USER_MSG("TSRoundTime")` → `REG_USER_MSG("RoundTime")`;
+kept the var name `gmsgTSRoundTime` (faithful). Wire format unchanged: two shorts — `WRITE_SHORT(seconds
+remaining, rounded)` + `WRITE_SHORT(0)` (the second is a flag word, 0 in the shipped binary; matches the
+original `RestartRound` send @ the .so).
+
+**Client element (mirrors the stock CHudBattery/Health pattern):**
+- `CHudRoundTime : CHudBase` — `Init` hooks the `RoundTime` message (`HOOK_MESSAGE(RoundTime)`) + adds
+  itself to the HUD list; `MsgFunc_RoundTime` reads the two shorts, turns `seconds` into an absolute
+  client-time expiry (`m_flEndTime = gHUD.m_flTime + seconds`) so the clock keeps ticking locally between
+  server updates (seconds<=0 clears it + drops HUD_ACTIVE); `Draw` renders `M:SS` (sprintf `%d:%02d`)
+  centred just below the top of the screen via `DrawHudString` + `GetConsoleStringSize`, yellowish
+  (RGB_YELLOWISH), flashing red (RGB_REDISH) in the last 10s; `Reset` clears it.
+- Wired in: `cl_dll/hud.h` (`#include "roundtime.h"` + `CHudRoundTime m_RoundTime;`), `cl_dll/hud.cpp`
+  (`m_RoundTime.Init()` + `.VidInit()`), `cl_dll/CMakeLists.txt` (`roundtime.cpp` in the source list).
+
+**Verified (BUILD + LOAD-level, per the cont.46 caveat — this headless box can't RENDER the client):**
+- `build.sh amd64 client` → 64-bit client.so (openvgui), glibc floor 2.14; `build.sh i386 client` →
+  32-bit client.so (Valve vgui), glibc floor 2.3 — both clean. `nm | c++filt` shows the linked
+  `CHudRoundTime::{Init,VidInit,Draw,Reset,MsgFunc_RoundTime}`; `strings client.so` shows the `RoundTime`
+  hook string.
+- `build.sh amd64` (server) → hl.so clean; `strings hl.so` shows `RoundTime` (not TSRoundTime).
+- Server no-regression: booted `tm_avana` on the rig (our hl.so) → GAME SKILL LEVEL reached, 0 Can't init,
+  no crash over 20s. (The message rename is server-string-only; doesn't touch the verified cont.45 timer
+  logic.)
+
+**VISUAL CONFIRMATION STILL OWED (coordinate with the user):** the actual on-screen M:SS clock needs a
+graphical GoldSrc/xash client run by the user — build/load here can't show pixels. The likely visual
+tweaks once seen: exact screen position/size, whether TS draws it as a clock sprite vs. text, and the
+flash threshold. Treat position/colour as // VERIFY.
+
+**Next Track B slices** (all read messages the server already sends): the powerup/motion-blur indicators
+(`gmsgTSPowerUpTime` / `gmsgTSMotionBlur` — the .so registers `TSMBlur`, `TSSlowMo`, `TSState`, `TSHealth`,
+`TSArmor`, `TSCash`, `TSFrags`, `TSBTime`, `TSPSys` — CHECK each inherited gmsg name against the .so
+strings the same way RoundTime was fixed), then the bigger visible-slow-motion time-dilation (client
+pmove scales frametime by the slow fields) and the particle system (CTSSharedEmitter/CTSEmitter/CTSParticle
+via the `TSPSys` message).
+
+---
+
 ## 2026-06-21 (cont. 46) — TRACK B START: the client (cl_dll) now builds, both 32-bit + 64-bit
 
 **Done — the cl_dll build foundation.** The mod-ts client library (`cl_dll/` → `client.so`) now

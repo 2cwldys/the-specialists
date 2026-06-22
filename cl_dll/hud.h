@@ -163,6 +163,7 @@ private:
 
 
 #include "health.h"
+#include "roundtime.h"
 
 
 #define FADE_TIME 100
@@ -572,6 +573,7 @@ public:
 	CHudAmmoSecondary m_AmmoSecondary;
 	CHudTextMessage m_TextMessage;
 	CHudStatusIcons m_StatusIcons;
+	CHudRoundTime m_RoundTime;
 
 	void Init();
 	void VidInit();

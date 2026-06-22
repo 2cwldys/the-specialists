@@ -63,7 +63,7 @@ void CTSGameRules::StartRoundTimer()
 	m_flRoundEnd = gpGlobals->time + t;
 
 	if (gmsgTSRoundTime == 0)
-		gmsgTSRoundTime = REG_USER_MSG("TSRoundTime", -1);
+		gmsgTSRoundTime = REG_USER_MSG("RoundTime", -1); // original registers "RoundTime" (var named gmsgTSRoundTime)
 	MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
 	WRITE_SHORT((int)(m_flRoundEnd - gpGlobals->time));
 	WRITE_SHORT(0);

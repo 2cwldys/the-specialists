@@ -105,6 +105,7 @@ target_sources(client PRIVATE
 	in_camera.cpp
 	menu.cpp
 	message.cpp
+	roundtime.cpp
 	saytext.cpp
 	statusbar.cpp
 	status_icons.cpp

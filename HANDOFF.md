@@ -27,9 +27,14 @@ Track B (the client) has its build foundation.** Done + verified: the full weapo
 **timeout** cont.45) — **every CTF/objective/escape entity** (`CTSFlag`/`CTSBriefcase`/`CTSBomb`/
 `CTSSellZone`/`CTSTeamEscape`/`CTSScoreGiver`/`CVipEscape`, cont.38–43), and the map/relay entities.
 Exercised on real maps: tm_avana, ctb_deadheat, ts_dust2, ts_theatre, ts_wyndham.
-**What remains is Track B — the cl_dll (client):** the client now BUILDS (both 32- and 64-bit, cont.46)
-but has **no TS client code yet** — the *visible* slow-motion time-dilation, the particle system, the
-stunts, and the HUDs (the server already sends the user messages; the client just needs the readers).
+**What remains is Track B — the cl_dll (client):** the client BUILDS (both 32- and 64-bit, cont.46) and
+the **first TS client HUD has landed — the round-time countdown `CHudRoundTime` (cont.47, `cl_dll/
+roundtime.{cpp,h}`)**, the first reader of a server user message. Still to do: the *visible* slow-motion
+time-dilation, the particle system, the stunts, and the rest of the HUDs (the server already sends the
+user messages; the client just needs the readers). **Watch the gmsg NAMES:** the inherited server named
+the round-time message `"TSRoundTime"` but the original `.so`/client.dll use `"RoundTime"` (fixed in
+cont.47) — check every other inherited gmsg name (`TSPowerUpTime`/`TSMotionBlur`/team-info) against the
+`.so` strings before writing its client reader (`strings reference/ts_i386.so | grep -E '^TS|^Round'`).
 Small server leftovers: `CTSPlayerAmount`/`CTSSuperJump` done (cont.44); `CInfoBreakable` (thin) +
 `CBulletManager` (bullet-time — best done alongside Track B) remain. See "Recommended next steps".
 
@@ -190,15 +195,24 @@ extraction → C table).
 **Track B (the client/cl_dll)**, whose build foundation just landed (cont.46). Track A below is kept
 for reference (all ✅) + its remaining *fidelity polish* (optional, low value). Read Track B first.
 
-**→ START HERE: Track B — the cl_dll.** The client now builds (`build.sh <arch> client`, 32- and
-64-bit); it's the stock HL client with **no TS code yet**. Verification caveat: this box builds but
-can't render the client (no graphics; the browser client is the separate WASM xash build), so client
-work is build/load-verified here and **visual behaviour needs a graphical GoldSrc/xash client the user
-runs** — coordinate with the user (via the consult channel below) for visual confirmation. The natural
-first slice is a HUD reading a message the server already sends: the **round-time countdown**
-(`gmsgTSRoundTime`, cont.45) or the **powerup/motion-blur** indicators (`gmsgTSPowerUpTime`/
-`gmsgTSMotionBlur`). Then the bigger items in the Track B section further down (visible slow-motion,
+**→ Track B — the cl_dll (IN PROGRESS).** The client builds (`build.sh <arch> client`, 32- and 64-bit);
+the **first TS HUD is in — `CHudRoundTime` (cont.47)**, reading the `RoundTime` message. Verification
+caveat: this box builds but can't render the client (no graphics; the browser client is the separate
+WASM xash build), so client work is build/load-verified here and **visual behaviour needs a graphical
+GoldSrc/xash client the user runs** — coordinate with the user (via the consult channel below) for
+visual confirmation (the round-time clock's position/size/colour are unconfirmed // VERIFY). **Next
+slices** read messages the server already sends: the **powerup/motion-blur** indicators
+(`gmsgTSPowerUpTime`/`gmsgTSMotionBlur` — FIRST verify their registered names against the `.so` strings,
+as `RoundTime` needed in cont.47). Then the bigger Track B items further down (visible slow-motion,
 particles, stunts). `reference/client.dll` (~1,013 exports) is the spine — see CLAUDE.md §2.
+
+**Pattern for a TS HUD element (cont.47, follow `cl_dll/roundtime.{cpp,h}` + the stock `battery.cpp`):**
+(1) confirm the server's REG_USER_MSG string matches the original `.so` (`strings reference/ts_i386.so`);
+(2) `class CHud<X> : CHudBase` with `Init`/`VidInit`/`Draw`/`Reset`/`MsgFunc_<Msg>`; `DECLARE_MESSAGE` +
+`HOOK_MESSAGE(<Msg>)` in `Init` + `gHUD.AddHudElem(this)`; (3) read with `BEGIN_READ`/`READ_SHORT`;
+(4) wire `#include` + `CHud<X> m_<X>;` into `hud.h`, `m_<X>.Init()`/`.VidInit()` into `hud.cpp`, and the
+`.cpp` into `cl_dll/CMakeLists.txt`; (5) `build.sh amd64 client` + `i386 client`, `nm|c++filt` for the
+methods, `strings` for the hook name.
 
 ---
 
