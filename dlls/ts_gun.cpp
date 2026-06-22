@@ -469,6 +469,12 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 
+	// Fire the matching barrel's viewmodel animation (right gun = iFireAnim, left =
+	// iFireAnimL; read from the v_*_akimbo.mdl). SLICE: server-driven SendWeaponAnim.
+	int akAnim = m_akimboSide ? wi->iFireAnim : wi->iFireAnimL;
+	if (akAnim >= 0)
+		SendWeaponAnim(akAnim);
+
 	if (wi->pszFireSound)
 		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, wi->pszFireSound, VOL_NORM, ATTN_NORM);
 

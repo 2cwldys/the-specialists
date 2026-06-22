@@ -98,6 +98,10 @@ struct s_weapon_info
 	// paths). SLICE: we drive it server-side via SendWeaponAnim; the original predicts
 	// it client-side through the events/fire.sc event (CTSGun precaches m_usFire@0x964).
 	int   iFireAnim;
+	// Akimbo weapons fire one barrel at a time: iFireAnim = right-gun shoot sequence,
+	// iFireAnimL = left-gun shoot sequence (both read from the v_*_akimbo.mdl). -1 for
+	// non-akimbo weapons (they only use iFireAnim).
+	int   iFireAnimL;
 };
 
 // Per-caliber ammo: the 16 calibers, the mag/magazine size, and the max reserve (rounds),

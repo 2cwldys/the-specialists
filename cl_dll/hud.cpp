@@ -449,6 +449,26 @@ void CHud::VidInit()
 
 		if (m_pSpriteList)
 		{
+			// TS (like other pre-2007 mods) ships a hud.txt with only 320/640-res
+			// entries; the modern client picks m_iRes = 1280/2560 at high resolutions,
+			// which then matches NOTHING here -> no HUD at all. Drop m_iRes to the
+			// largest resolution actually present in this mod's hud.txt.
+			while (m_iRes > 320)
+			{
+				bool found = false;
+				for (int k = 0; k < m_iSpriteCountAllRes; k++)
+				{
+					if (m_pSpriteList[k].iRes == m_iRes)
+					{
+						found = true;
+						break;
+					}
+				}
+				if (found)
+					break;
+				m_iRes = (m_iRes > 1280) ? 1280 : (m_iRes > 640 ? 640 : 320);
+			}
+
 			// count the number of sprites of the appropriate res
 			m_iSpriteCount = 0;
 			client_sprite_t* p = m_pSpriteList;
