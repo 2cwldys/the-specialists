@@ -172,7 +172,25 @@ void CTSGameRules::AssignToTeam(CBasePlayer *pPlayer, const char *pTeamName)
 // valid team keeps it across respawns/round restarts.
 void CTSGameRules::PlayerSpawn(CBasePlayer *pPlayer)
 {
-	CHalfLifeMultiplay::PlayerSpawn(pPlayer);
+	// Faithful to the original CHalfLifeMultiplay::PlayerSpawn @0x790ac (the TS build
+	// replaced the stock crowbar+9mmhandgun loadout): honour game_player_equip, else give
+	// the unified TS weapon (weapon_tsgun — the arsenal, which defaults to TSW_MELEE / fists)
+	// and apply the player's armament (cont.36 BuyArmament). NO stock HL weapons.
+	pPlayer->SetHasSuit(true); // VERIFY: the .so does an early virtual here; our stock-derived HUD needs the suit bit
+
+	bool addDefault = true;
+	CBaseEntity *pEquip = NULL;
+	while ((pEquip = UTIL_FindEntityByClassname(pEquip, "game_player_equip")) != NULL)
+	{
+		pEquip->Touch(pPlayer);
+		addDefault = false;
+	}
+
+	if (addDefault)
+	{
+		pPlayer->GiveNamedItem("weapon_tsgun");
+		pPlayer->BuyArmament();
+	}
 
 	if (!IsTeamMode())
 		return;
