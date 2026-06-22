@@ -40,8 +40,11 @@ funcs (the bar's grid TRANSPOSES the WStatus handler's (slot*0xb+pos): draw col 
 **Text/font RESOLVED:** `FUN_10021ce0` draws per-char via `pfnDrawCharacter` advancing by SCREENINFO
 charWidths, clipped to maxX — i.e. the ENGINE HUD font (no custom bitmap font; the "bitmapfonts" worry was
 wrong). Ported faithfully as `TSHud_DrawString` (clip to panel width) + used by the ammo box & weapon bar.
-Remaining polish (low priority): weapon **icons** (SPR) on the bar instead of names, the WeaponInfo
-attachment flags byte (Silencer/Lasersight rows), and the active-highlight timing. All in HUD_DRAWCHAIN.md.
+**Weapon ICONS DONE:** the bar now draws each held weapon's `sprites/weapons/<name>.spr` (SPR_Load in
+VidInit + SPR_DrawAdditive centred in the slot; name table from the client.dll string list, all 38 files
+present in the mod). Verified: the Beretta pistol icon renders in column 2. Active weapon full-colour,
+others dimmed. Remaining polish (low priority): the active-highlight timing + attachment dots
+(`item_installed.spr`) which need the WeaponInfo flags byte. All in HUD_DRAWCHAIN.md.
 
 **Anchor constants RESOLVED + APPLIED (cont.53, from the top of FUN_1004d7e0):** raw pixels off actual
 screen size — **x = ScreenWidth−0x88(136), box w=0x80(128), lineH=0x14(20), lines stack UP from

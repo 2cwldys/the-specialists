@@ -35,5 +35,7 @@ public:
 
 private:
 	static const int TSW_COUNT = 38;
-	int m_iClip[TSW_COUNT]; // loaded rounds if owned, else -1
+	int m_iClip[TSW_COUNT];          // loaded rounds if owned, else -1
+	HSPRITE m_hIcon[TSW_COUNT];      // sprites/weapons/<name>.spr handle (0 if none)
+	Rect m_rcIcon[TSW_COUNT];        // full-sprite rect
 };

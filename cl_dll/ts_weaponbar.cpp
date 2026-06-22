@@ -56,6 +56,15 @@ static const char* const s_shortName[] = {
 	"", "Akimbo 5-7", "Raging Bull", "M60", "Sawed-off", "Katana", "SEAL Knife",
 	"Contender", "Akimbo Skorpion",
 };
+// Per-tsweapon_t icon sprite base name → sprites/weapons/<name>.spr (the files the
+// original loads; recovered from the client.dll string table). "" = no icon.
+static const char* const s_spriteName[] = {
+	"kungfu", "glock18", "beretta", "uzi", "m3", "m4", "mp5sd", "mp5k", "berettas",
+	"mk23", "mk23_akimbo", "usas12", "desert", "ak47", "fnh", "aug", "uzi_akimbo",
+	"skorpion", "m82", "pdw", "spas12", "gold", "glock22", "ump", "m61", "knife",
+	"mossberg", "m16", "ruger", "", "fnh_akimbo", "bull", "m60", "sawedoff", "katana",
+	"sealknife", "contender", "skorpion_akimbo",
+};
 static const int TSW_COUNT_LOCAL = sizeof(s_weaponColumn) / sizeof(s_weaponColumn[0]);
 
 bool CHudTSWeaponBar::Init()
@@ -71,6 +80,23 @@ bool CHudTSWeaponBar::Init()
 
 bool CHudTSWeaponBar::VidInit()
 {
+	// Load each weapon's HUD icon (the original loads sprites/weapons/<name>.spr).
+	char path[64];
+	for (int t = 0; t < TSW_COUNT_LOCAL && t < TSW_COUNT; t++)
+	{
+		m_hIcon[t] = 0;
+		if (!s_spriteName[t][0])
+			continue;
+		sprintf(path, "sprites/weapons/%s.spr", s_spriteName[t]);
+		m_hIcon[t] = SPR_Load(path);
+		if (m_hIcon[t] != 0)
+		{
+			m_rcIcon[t].left = 0;
+			m_rcIcon[t].top = 0;
+			m_rcIcon[t].right = SPR_Width(m_hIcon[t], 0);
+			m_rcIcon[t].bottom = SPR_Height(m_hIcon[t], 0);
+		}
+	}
 	return true;
 }
 
@@ -120,11 +146,23 @@ bool CHudTSWeaponBar::Draw(float flTime)
 				continue;
 
 			const bool active = (t == g_iTSActiveWeapon);
+			const int ir = active ? hr : dr, ig = active ? hg : dg, ib = active ? hb : db;
 			TSHud_Panel(x, y, SLOTW, SLOTH - 1);
-			if (active)
-				TSHud_DrawString(x + 2, y, x + SLOTW, s_shortName[t], hr, hg, hb);
+
+			if (m_hIcon[t] != 0)
+			{
+				// Centre the weapon icon in the slot (the original draws the sprite).
+				const int iw = m_rcIcon[t].right - m_rcIcon[t].left;
+				const int ih = m_rcIcon[t].bottom - m_rcIcon[t].top;
+				const int ix = x + (SLOTW - iw) / 2;
+				const int iy = y + (SLOTH - ih) / 2;
+				SPR_Set(m_hIcon[t], ir, ig, ib);
+				SPR_DrawAdditive(0, ix, iy, &m_rcIcon[t]);
+			}
 			else
-				TSHud_DrawString(x + 2, y, x + SLOTW, s_shortName[t], dr, dg, db);
+			{
+				TSHud_DrawString(x + 2, y, x + SLOTW, s_shortName[t], ir, ig, ib);
+			}
 			y += SLOTH;
 		}
 	}

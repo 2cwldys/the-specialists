@@ -105,8 +105,11 @@ The real handler (`0x1004f990`, object `0x100d0ca0`) shows the grid index is
 The per-weapon `+0x84`/`+0x85` were extracted from the `.so` `Write_<weapon>` byte stores
 (`movb $imm,0x84/0x85(%eax)`); column map: 1=melee/grenade, 2=pistols, 3=SMGs,
 4=rifles/shotguns/heavy, 5=akimbo (table in `cl_dll/ts_weaponbar.cpp`).
-Remaining polish: weapon **icons** (SPR_Set/Draw of the per-weapon HUD sprites) instead of
-names; the active-highlight timing.
+**Icons DONE (cont.53):** the bar draws each held weapon's `sprites/weapons/<name>.spr`
+(SPR_Load in VidInit, SPR_DrawAdditive centred in the slot; name table in
+`cl_dll/ts_weaponbar.cpp` matching the client.dll string list). Active weapon at full
+colour, others dimmed. Remaining polish: the active-highlight timing; attachment dots
+(`item_installed.spr`/`item_not_installed.spr`) need the WeaponInfo flags byte.
 
 ## Text rendering — RESOLVED (it's the engine font, not a custom bitmap font)
 
