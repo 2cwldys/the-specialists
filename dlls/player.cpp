@@ -1348,6 +1348,23 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 // SetPlayerRespawnTime + "Press Fire To Play!" path. The buy/config menu opens on
 // entry. Called at the end of CBasePlayer::Spawn when m_fInSpectateWait is set.
 //=========================================================
+// Scoreboard "class" column value meaning "spectate-waiting" — the original scoreboard
+// (client.dll FUN_1005db70) renders class 0xb as "WAITING".
+#define TS_SCORE_WAITING 11
+
+// Broadcast this player's ScoreInfo row (frags/deaths/class/team). Sent on spectate enter+leave
+// so the scoreboard "class" column flips to/from WAITING immediately (DM + teamplay).
+void CBasePlayer::TSSendScoreInfo()
+{
+	MESSAGE_BEGIN(MSG_ALL, gmsgScoreInfo);
+	WRITE_BYTE(entindex());
+	WRITE_SHORT((int)pev->frags);
+	WRITE_SHORT(m_iDeaths);
+	WRITE_SHORT(pev->playerclass);
+	WRITE_SHORT(g_pGameRules->GetTeamIndex(m_szTeamName) + 1); // 1-based; 0 = no team (DM)
+	MESSAGE_END();
+}
+
 void CBasePlayer::TSEnterSpectate()
 {
 	StartObserver(pev->origin, pev->v_angle); // free-look observer at the spawn spot
@@ -1358,6 +1375,11 @@ void CBasePlayer::TSEnterSpectate()
 	m_fInSpectateWait = true;
 	m_fConfigChosen = false;
 	m_iClientSpecSecs = -1;
+
+	// scoreboard "class" column shows WAITING while spectate-waiting (class value 11 — the
+	// original's scoreboard case 0xb). Works in DM (no team) and teamplay. See TSSendScoreInfo.
+	pev->playerclass = TS_SCORE_WAITING;
+	TSSendScoreInfo();
 
 	float rt = CVAR_GET_FLOAT("respawntime");
 	if (rt < 3)
@@ -1495,6 +1517,11 @@ void CBasePlayer::TSSpectateThink()
 		// (at spectate-enter) can arrive before the client HUD is ready to draw it.
 		if (!m_fConfigChosen)
 			TSSendBuyMenu();
+		// Re-assert the WAITING scoreboard row (a connect-time ScoreInfo can land after the
+		// spectate-enter send and reset the class to 0).
+		if (pev->playerclass != TS_SCORE_WAITING)
+			pev->playerclass = TS_SCORE_WAITING;
+		TSSendScoreInfo();
 		MESSAGE_BEGIN(MSG_ONE, gmsgSpectator, NULL, pev);
 		WRITE_BYTE(state);
 		WRITE_BYTE(secs);
@@ -1507,6 +1534,9 @@ void CBasePlayer::TSLeaveSpectate()
 {
 	m_fInSpectateWait = false;
 	m_iClientSpecSecs = -1;
+
+	pev->playerclass = 0; // entering play: clear the WAITING scoreboard status
+	TSSendScoreInfo();
 
 	// leave observer mode
 	ClearBits(m_afPhysicsFlags, PFLAG_OBSERVER);

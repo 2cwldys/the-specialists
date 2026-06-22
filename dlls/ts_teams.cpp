@@ -175,7 +175,7 @@ void CTSGameRules::AssignToTeam(CBasePlayer *pPlayer, const char *pTeamName)
 	WRITE_BYTE(clientIndex);
 	WRITE_SHORT((int)pPlayer->pev->frags);
 	WRITE_SHORT(pPlayer->m_iDeaths);
-	WRITE_SHORT(0);
+	WRITE_SHORT(pPlayer->pev->playerclass); // 11=WAITING while spectate-waiting, else 0
 	WRITE_SHORT(team + 1); // scoreboard team column is 1-based
 	MESSAGE_END();
 }

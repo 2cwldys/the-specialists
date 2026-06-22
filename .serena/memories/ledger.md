@@ -55,6 +55,19 @@ sizes) and is the basis for the next Ghidra type-application pass (apply entvars
 gcc2 signatures + vtable annotation). NB STABS is NOT useful for mod member offsets — those stay analytic;
 but `entvars_t`/engine structs are pure C (ABI-stable offsets) so they CAN be applied verbatim.
 
+**Scoreboard "WAITING" status for spectators (cont.68l, VERIFIED):** RE'd the original scoreboard
+(client.dll FUN_1005db70) — the "class" column is a switch on the player's playerclass; **case 0xb (11)
+→ "WAITING"** (and default→WAITING when the connected-flag is set). Reconstructed: server sets
+`pev->playerclass = 11` (TS_SCORE_WAITING) while spectate-waiting (TSEnterSpectate, cleared to 0 in
+TSLeaveSpectate) and broadcasts a ScoreInfo (new `CBasePlayer::TSSendScoreInfo`), re-asserted each
+TSSpectateThink tick (a connect-time class-0 ScoreInfo was overwriting the spectate send — the bug behind
+the first blank test); the TS team ScoreInfo (ts_teams.cpp) now sends pev->playerclass too. Client
+(vgui_ScorePanel.cpp COLUMN_CLASS): playerclass 11 → "WAITING" UNCONDITIONALLY (before the TFC team gate
+that was hiding it for teamless spectators). **Verified by screenshot** (tm_avana, spectating): the row
+shows name + "WAITING", matching the user's reference (DM + teamplay). Note: AssignToTeam already sets the
+per-team LOCKED model (ts_teams.cpp:165), so jointeam's model assignment is in place (the cont.68k
+model-lock fidelity item).
+
 **`jointeam` + `changeteam` wired + model↔team RE (cont.68k):** RE'd both handlers (objdump + GOT
 resolution): `changeteam` pushes `gmsgVGUIMenu` → opens the team-select VGUI menu; `jointeam` strtols a
 team number + calls a g_pGameRules team-change. Wired: `changeteam` → send gmsgVGUIMenu(MENU_TEAM=2);

@@ -776,6 +776,14 @@ void ScorePanel::FillGrid()
 					GetClientVoiceMgr()->UpdateSpeakerImage(pLabel, m_iSortedRows[row]);
 					break;
 				case COLUMN_CLASS:
+					// TS: a spectate-waiting player (class 11 — the original scoreboard's case
+					// 0xb) shows "WAITING" regardless of team, in DM and teamplay alike. Runs
+					// before the TFC team gate below (which would otherwise hide it).
+					if (g_PlayerExtraInfo[m_iSortedRows[row]].playerclass == 11)
+					{
+						strcpy(sz, "WAITING");
+						break;
+					}
 					// No class for other team's members (unless allied or spectator)
 					if (gViewPort && EV_TFC_IsAllyTeam(g_iTeamNumber, g_PlayerExtraInfo[m_iSortedRows[row]].teamnumber))
 						bShowClass = true;
