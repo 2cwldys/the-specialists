@@ -78,10 +78,38 @@ bit 0x10 = kevlar). Builders/handlers cluster in `client.dll` ~`0x10011160`–`0
   deferred is the faithful **client menu UI** that lets you select it (the whole custom client
   text-menu system) — a Track B (cl_dll) reconstruction.
 
-## Remaining RE (for the full menu reconstruction)
+## Mechanism RE (in progress — needed before implementing; do NOT improvise it)
 
-- The exact **per-category weapon lists** (which `tsweapon_t` appear under Handguns/SMGs/Rifles/
-  Shotguns/Other) and their order.
-- The exact **selection action** each entry sends (map each row → `tkw`/`tki`/`tka`/cvar toggle).
-- The **client draw/show mechanism** (`FUN_10066a90` signature + how the menu is opened/closed +
-  the key-capture that turns a number press into the action) — needed to reconstruct it in cl_dll.
+The implementation mechanism (not just the layout) must be RE'd before coding — an earlier
+improvised cl_dll menu (guessed geometry/input/triggers) was reverted. Recovered so far:
+
+**Menu entry object model** (`client.dll`):
+- Each menu entry is an object. `FUN_10066a90(panel, idx, text, x, y, color, scale, …, actionId,
+  actionValue)` populates entry `idx`: copies `text`→entry+0x104, calls `FUN_10066bb0` to store
+  geometry/color (entry+0xf4=x, +0xf8=y, +0xfc, +0x100=scale), and stores the **action**
+  (entry+0x144=actionId, +0x148=actionValue).
+- The menu **panel** object is at `clientobj+0x2d84`; it holds the entry-pointer array at
+  `panel+0xdc` and the entry count at `panel+0xbc`.
+- `FUN_10011160` builds config-menu **item 1** (the "Use New/Last/Empty Config" toggle, chosen by
+  state: `clientobj+0x10` flag + queued-count `clientobj+0x42c`). 8 call sites rebuild the menu.
+
+**Client buy validation** (`FUN_100124a0(this, type, count, isItem)`): before an item is queued it
+checks affordability (`CashBased`, cash) AND the **free-slots resource** `this+0x430` against the
+cap `0x51` (81) — this is the **"Free Slots : %i"** HUD value and the `GetSpeedBySlots` speed input
+(speed = 210 + freeslots·factor). So the loadout is slot-limited client-side; kevlar/weapons each
+consume slots. (Cross-ref: the deferred kevlar free-slots cost + speed penalty, ledger cont.69c.)
+
+## Remaining RE targets (resumable work-list)
+
+1. **Panel draw + background** — the function that renders `panel+0xdc` entries (real x/y geometry,
+   the background panel, font/scale). Gives the faithful visual layout.
+2. **Open/close trigger** — what shows the menu (entering spectate-wait? a key/command?) and hides it.
+3. **Input capture** — how a mouse-click hit-tests an entry (entry x/y rects) + the number-key path,
+   and the **click-outside ⇒ "Use New Config"** logic.
+4. **Per-entry action dispatch** — `actionId` (entry+0x144) → what each entry does (navigate submenu /
+   send a buy command / toggle `cl_buykevlar`/`cl_laser` / apply).
+5. **The client→server buy commands** (the SWAP CONTRACT) — map each weapon/accessory selection to the
+   exact emitted command (`tkw`/`tki`/`tka` + the item-queue/apply command). The per-category weapon
+   lists (which `tsweapon_t` under Handguns/SMGs/Rifles/Shotguns/Other) come out of the category builders.
+
+Only after 1–5 are RE'd should the cl_dll menu be (re)built — faithfully, not improvised.
