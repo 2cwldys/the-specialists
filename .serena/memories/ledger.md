@@ -27,11 +27,17 @@ a function by address; null-safe + whitespace-split args + dedup). Findings in *
 **Applied (recovered, not guessed):** `TSHud_Panel` now fills with the HUD colour at **alpha 0x0f** (a
 faint tint, matching FUN_1004d7e0) instead of the earlier guessed opaque dark navy. Built clean.
 
-**STILL TODO to pixel-match (next session, picks up from HUD_DRAWCHAIN.md):** resolve the box anchor
-constants `DAT_1018a67c`(x)/`DAT_1018a700`(y)/`DAT_1018a6f8`(line h)/`DAT_1018a668`(pitch 0x30) — find
-where the box-setup computes them (scaled off the 1024-px reference); the TS bitmap font (`FUN_10021ce0`,
-`bitmapfonts` cvar) vs DrawConsoleString; then implement the half-bright-label/full-value scheme + right-
-side anchor + the weapon-select bar (WStatus reader). New Ghidra tooling: `DecompAt.java`, `DecompRefs.java`.
+**Anchor constants RESOLVED + APPLIED (cont.53, from the top of FUN_1004d7e0):** raw pixels off actual
+screen size — **x = ScreenWidth−0x88(136), box w=0x80(128), lineH=0x14(20), lines stack UP from
+y=ScreenHeight−8, strip = FillRGBA(...,alpha 0x0f)**, descriptive lines (caliber/mode) at half brightness,
+name+ammo at full. Rewrote `cl_dll/ts_ammo.cpp` to this exact geometry → VERIFIED on-screen: "Beretta 92F /
+9 x 19mm / Semi Auto / 15 / 45" right-anchored, dim labels, faint strips — matches reference Image #4/#6.
+
+**STILL TODO to pixel-match (next, from HUD_DRAWCHAIN.md):** the TS **bitmap font** (`FUN_10021ce0`,
+`bitmapfonts` cvar — we use DrawConsoleString); the **left status block** (health/armor/free-slots — trace
+`FUN_1004d700`?) + **weapon-select bar** (`FUN_1004e030`, WStatus reader) with the same recovered approach;
+the WeaponInfo **flags byte** server-side so the Silencer/Lasersight attachment rows draw. New Ghidra
+tooling: `DecompAt.java`, `DecompRefs.java`.
 
 ---
 

@@ -136,62 +136,54 @@ bool CHudTSAmmo::Draw(float flTime)
 	if (!szName || !szName[0])
 		return true;
 
-	const int lineHeight = gHUD.m_scrinfo.iCharHeight + 2;
-	const int pad = lineHeight / 2;
-	const int margin = ScreenWidth / 40;
+	// Exact geometry recovered from FUN_1004d7e0 (reference/HUD_DRAWCHAIN.md): a
+	// right-anchored box, 0x80 (128px) wide, x = ScreenWidth - 0x88 (136); lines are
+	// 0x14 (20px) tall and stack UPWARD from y = ScreenHeight - 8 (each line drops y
+	// by 20 before drawing). Each strip is a FillRGBA of the HUD colour at alpha 0x0f.
+	// Text is inset +2px; descriptive lines (caliber/fire-mode) draw at half
+	// brightness, the name + ammo numbers at full.
+	const int BOXW = 0x80;          // 128
+	const int LINEH = 0x14;         // 20
+	const int x = ScreenWidth - 0x88;
 	const bool hasAmmo = TSWeaponHasAmmo(m_iWeaponType);
 
-	// Steel-blue HUD colour (hud_r/g/b — default 150/175/255, from client.dll).
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
+	const int dr = hr / 2, dg = hg / 2, db = hb / 2; // dimmed (label) colour
 
-	// Panel bottom-right, lines stacked: name / caliber / fire-mode / "clip / reserve"
-	// (matching the shipped HUD's weapon panel).
-	const int numLines = hasAmmo ? 4 : 1;
-	const int panelW = ScreenWidth / 7;
-	const int panelH = lineHeight * numLines + pad * 2;
-	const int panelX = ScreenWidth - panelW - margin;
-	const int panelY = ScreenHeight - panelH - ScreenHeight / 40;
-	TSHud_Panel(panelX, panelY, panelW, panelH);
+	// Lines bottom→top as the original stacks them: ammo (bottom), fire-mode, caliber,
+	// name (top). We draw each as a faint panel strip + its text.
+	struct Line { const char* s; int r, g, b; };
+	Line lines[4];
+	int n = 0;
 
-	const int rightEdge = panelX + panelW - pad;
-	int y = panelY + pad;
-
-	auto drawRight = [&](const char* s, int rr, int gg, int bb) {
-		int w, h;
-		GetConsoleStringSize(s, &w, &h);
-		gHUD.DrawHudString(rightEdge - w, y, ScreenWidth, s, rr, gg, bb);
-		y += lineHeight;
-	};
-
-	// Weapon name.
-	drawRight(szName, hr, hg, hb);
-
+	char szAmmo[32];
 	if (hasAmmo)
 	{
-		// Caliber / cartridge.
-		const int cal = s_weaponCaliber[m_iWeaponType];
-		if (cal > 0 && cal < s_numCalibers && s_caliberNames[cal][0])
-			drawRight(s_caliberNames[cal], hr, hg, hb);
-		else
-			y += lineHeight;
-
-		// Fire-mode.
-		const int mode = (m_iFireMode >= 0 && m_iFireMode < s_numFireModes) ? m_iFireMode : 1;
-		drawRight(s_fireModeNames[mode], hr, hg, hb);
-
-		// clip / reserve — clip flashes red when empty.
-		char szAmmo[32];
 		sprintf(szAmmo, "%d / %d", m_iClip, m_iReserve);
+		int ar = hr, ag = hg, ab = hb;
 		if (m_iClip == 0)
 		{
-			int ar, ag, ab;
 			UnpackRGB(ar, ag, ab, RGB_REDISH);
 			ScaleColors(ar, ag, ab, 255);
-			drawRight(szAmmo, ar, ag, ab);
 		}
-		else
-			drawRight(szAmmo, hr, hg, hb);
+		lines[n++] = {szAmmo, ar, ag, ab}; // bottom
+
+		const int mode = (m_iFireMode >= 0 && m_iFireMode < s_numFireModes) ? m_iFireMode : 1;
+		lines[n++] = {s_fireModeNames[mode], dr, dg, db};
+
+		const int cal = s_weaponCaliber[m_iWeaponType];
+		if (cal > 0 && cal < s_numCalibers && s_caliberNames[cal][0])
+			lines[n++] = {s_caliberNames[cal], dr, dg, db};
+	}
+	lines[n++] = {szName, hr, hg, hb}; // top (full brightness)
+
+	int y = ScreenHeight - 8;
+	for (int i = 0; i < n; i++)
+	{
+		y -= LINEH;
+		TSHud_Panel(x, y, BOXW, LINEH - 1);
+		gHUD.DrawHudString(x + 2, y, ScreenWidth, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
 	}
 
 	return true;

@@ -62,10 +62,24 @@ The reference Five-seveN/MP5K panel. Each line is its own `FillRGBA` strip + tex
 SPR_Height · `0x100d5b74` ClientCmd · `0x100d5bf4` GetViewAngles/GetLocalPlayer-ish.
 Text: `FUN_10021ce0` = a DrawHudString-equivalent; `FUN_1004c290` = DrawHudNumber-ish.
 
+## Box anchor constants — RESOLVED (from the top of FUN_1004d7e0)
+
+Raw pixels off the actual screen size (`DAT_100d5908`=ScreenWidth, `DAT_100d590c`=ScreenHeight):
+- **x = ScreenWidth − 0x88 (136)**, box **width 0x80 (128)** → right-anchored, 8px from edge.
+- Lines **stack upward** from **y = ScreenHeight − 8**; each line `y −= 0x14 (20)` then draws.
+- **Line height = 0x14 (20px)**; strip height = lineH − 1 = 19.
+- Strip = `FillRGBA(x, y, 128, 19, hud_r, hud_g, hud_b, alpha)`, **alpha = 0x0f** (0x2d when the
+  attachment row is active). Descriptive lines (caliber/fire-mode) text at **half brightness**
+  (`color/2`); name + ammo numbers at full.
+- The 0..3 loop draws attachment rows (Silencer/Lasersight/Flashlight/Scope) gated by
+  `param_1+0x798 & (1<<n)` — needs the WeaponInfo flags byte (server currently sends 0).
+- **APPLIED** (cont.53) to `cl_dll/ts_ammo.cpp` — verified on-screen: Beretta 92F / 9 x 19mm /
+  Semi Auto / 15 / 45, right-anchored, half-bright labels, faint strips.
+
 ## STILL TODO (to pixel-match)
-- Resolve the box **anchor constants** `DAT_1018a67c` (x) / `DAT_1018a700` (y) /
-  `DAT_1018a6f8` (line height) / `DAT_1018a668` (slot pitch 0x30) — find where they're
-  computed (the box-setup, scaled by screen res off the 1024-px reference).
+- The same treatment for the **left status block** (health/armor/free-slots — `FUN_1004d700`?
+  not yet traced) and the **weapon-select bar** (`FUN_1004e030`, WStatus reader).
+- The WeaponInfo **flags byte** server-side (attachments) so the Silencer/Lasersight rows draw.
 - The **bitmap font** `FUN_10021ce0` (it's not the console font — `bitmapfonts` cvar);
   decide whether to approximate with DrawConsoleString or load the TS font sprites.
 - Apply: panel width 0x80, alpha 0x0f, half-bright labels / full-bright values, the
