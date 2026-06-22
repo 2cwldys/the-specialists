@@ -207,14 +207,22 @@ void ClientPutInServer(edict_t* pEntity)
 	pPlayer = GetClassPtr((CBasePlayer*)pev);
 	pPlayer->SetCustomDecalFrames(-1); // Assume none;
 
+	// TS (cont.65): a fresh joiner does NOT drop straight into play. Set the spectate
+	// flag before Spawn so PlayerSpawn skips the loadout and Spawn ends by entering
+	// free-look spectate-wait (countdown + buy menu + "Press fire to play").
+	pPlayer->m_fInSpectateWait = true;
+
 	// Allocate a CBasePlayer for pev, and call spawn
 	pPlayer->Spawn();
 
 	// Reset interpolation during first frame
 	pPlayer->pev->effects |= EF_NOINTERP;
 
-	pPlayer->pev->iuser1 = 0; // disable any spec modes
-	pPlayer->pev->iuser2 = 0;
+	if (!pPlayer->m_fInSpectateWait)
+	{
+		pPlayer->pev->iuser1 = 0; // disable any spec modes
+		pPlayer->pev->iuser2 = 0;
+	}
 }
 
 #include "voice_gamemgr.h"

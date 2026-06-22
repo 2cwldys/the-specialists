@@ -61,6 +61,10 @@ void LinkUserMessages()
 	gmsgAmmoX = REG_USER_MSG("AmmoX", 2);
 	gmsgTeamNames = REG_USER_MSG("TeamNames", -1);
 
+	// TS join/spectate flow (cont.65). Names byte-faithful to ts_i386.so.
+	gmsgSpectator = REG_USER_MSG("Spectator", 2); // BYTE state(0 off/1 countdown/2 press-fire), BYTE secondsLeft
+	gmsgVGUIMenu = REG_USER_MSG("VGUIMenu", 1);   // BYTE menuCode (open a client menu)
+
 	gmsgStatusText = REG_USER_MSG("StatusText", -1);
 	gmsgStatusValue = REG_USER_MSG("StatusValue", 3);
 

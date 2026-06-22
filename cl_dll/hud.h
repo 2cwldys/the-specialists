@@ -167,6 +167,7 @@ private:
 #include "ts_status.h"
 #include "ts_ammo.h"
 #include "ts_weaponbar.h"
+#include "ts_spectate.h"
 
 
 #define FADE_TIME 100
@@ -580,6 +581,7 @@ public:
 	CHudTSStatus m_TSStatus;
 	CHudTSAmmo m_TSAmmo;
 	CHudTSWeaponBar m_TSWeaponBar;
+	CHudSpectate m_Spectate;
 
 	void Init();
 	void VidInit();

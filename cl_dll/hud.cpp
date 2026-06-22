@@ -254,9 +254,9 @@ int __MsgFunc_TeamInfo(const char* pszName, int iSize, void* pbuf)
 
 int __MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 {
-	if (gViewPort)
-		return static_cast<int>(gViewPort->MsgFunc_Spectator(pszName, iSize, pbuf));
-	return 0;
+	// TS (cont.65): the "Spectator" message drives the TS free-look spectate HUD
+	// (countdown + "Press fire to play"), not the TFC spectator panel.
+	return gHUD.m_Spectate.MsgFunc_Spectator(pszName, iSize, pbuf);
 }
 
 int __MsgFunc_SpecFade(const char* pszName, int iSize, void* pbuf)
@@ -373,6 +373,7 @@ void CHud::Init()
 	m_TSStatus.Init();
 	m_TSAmmo.Init();
 	m_TSWeaponBar.Init();
+	m_Spectate.Init();
 	GetClientVoiceMgr()->Init(&g_VoiceStatusHelper, (vgui::Panel**)&gViewPort);
 
 	m_Menu.Init();
@@ -551,6 +552,7 @@ void CHud::VidInit()
 	m_TSStatus.VidInit();
 	m_TSAmmo.VidInit();
 	m_TSWeaponBar.VidInit();
+	m_Spectate.VidInit();
 	GetClientVoiceMgr()->VidInit();
 }
 

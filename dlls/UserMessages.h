@@ -50,6 +50,11 @@ inline int gmsgShowMenu = 0;
 inline int gmsgGeigerRange = 0;
 inline int gmsgTeamNames = 0;
 
+// TS join/spectate flow (cont.65): Spectator drives the free-look spectate HUD
+// (countdown + "Press fire to play"); VGUIMenu opens the buy/config menu on join.
+inline int gmsgSpectator = 0;
+inline int gmsgVGUIMenu = 0;
+
 inline int gmsgStatusText = 0;
 inline int gmsgStatusValue = 0;
 

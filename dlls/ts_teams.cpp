@@ -199,7 +199,9 @@ void CTSGameRules::PlayerSpawn(CBasePlayer *pPlayer)
 		addDefault = false;
 	}
 
-	if (addDefault)
+	// TS (cont.65): a player entering free-look spectate-wait gets NO weapons — they
+	// equip on fire-to-play (the next Spawn runs with m_fInSpectateWait clear).
+	if (addDefault && !pPlayer->m_fInSpectateWait)
 	{
 		pPlayer->GiveNamedItem("weapon_tsgun");
 		pPlayer->BuyArmament();

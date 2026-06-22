@@ -1340,6 +1340,88 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	Observer_SetMode(m_iObserverLastMode);
 }
 
+//=========================================================
+// TS join/spectate spawn-gate (cont.65).
+// A joining (or just-respawned) player is held in free-look spectate until the
+// respawn gate elapses and they press fire — mirrors the original StartObserver +
+// SetPlayerRespawnTime + "Press Fire To Play!" path. The buy/config menu opens on
+// entry. Called at the end of CBasePlayer::Spawn when m_fInSpectateWait is set.
+//=========================================================
+void CBasePlayer::TSEnterSpectate()
+{
+	StartObserver(pev->origin, pev->v_angle); // free-look observer at the spawn spot
+	m_iObserverLastMode = OBS_ROAMING;
+	Observer_SetMode(OBS_ROAMING); // freefly (no target)
+
+	ResetArmament(); // no weapons until they pick a loadout + press fire
+	m_fInSpectateWait = true;
+	m_iClientSpecSecs = -1;
+
+	float rt = CVAR_GET_FLOAT("respawntime");
+	if (rt < 3)
+		rt = 3;
+	if (rt > 30)
+		rt = 30;
+	m_flSpawnGateTime = gpGlobals->time + rt;
+
+	// open the TS buy/config menu on the client (HUD-drawn, Phase 3)
+	MESSAGE_BEGIN(MSG_ONE, gmsgVGUIMenu, NULL, pev);
+	WRITE_BYTE(TS_VGUI_BUYMENU);
+	MESSAGE_END();
+
+	TSSpectateThink(); // send the initial countdown state
+}
+
+// Per-frame while held in spectate-wait: drive the countdown + the fire-to-play.
+void CBasePlayer::TSSpectateThink()
+{
+	int secs = (int)ceil(m_flSpawnGateTime - gpGlobals->time);
+	if (secs < 0)
+		secs = 0;
+	int state = (secs > 0) ? TSSPEC_COUNTDOWN : TSSPEC_READY;
+
+	// fire-to-play once the gate has elapsed
+	if (state == TSSPEC_READY && (m_afButtonPressed & IN_ATTACK) != 0)
+	{
+		TSLeaveSpectate();
+		return;
+	}
+
+	// resend the Spectator state only when the countdown second changes
+	if (secs != m_iClientSpecSecs)
+	{
+		m_iClientSpecSecs = secs;
+		MESSAGE_BEGIN(MSG_ONE, gmsgSpectator, NULL, pev);
+		WRITE_BYTE(state);
+		WRITE_BYTE(secs);
+		MESSAGE_END();
+	}
+}
+
+// Press-fire: leave free-look and enter play with the chosen loadout.
+void CBasePlayer::TSLeaveSpectate()
+{
+	m_fInSpectateWait = false;
+	m_iClientSpecSecs = -1;
+
+	// leave observer mode
+	ClearBits(m_afPhysicsFlags, PFLAG_OBSERVER);
+	pev->iuser1 = pev->iuser2 = pev->iuser3 = 0;
+	m_hObserverTarget = NULL;
+	m_iHideHUD = 0;
+
+	// tell the client spectate is off (the menu closes client-side on fire)
+	MESSAGE_BEGIN(MSG_ONE, gmsgSpectator, NULL, pev);
+	WRITE_BYTE(TSSPEC_OFF);
+	WRITE_BYTE(0);
+	MESSAGE_END();
+
+	// enter play: respawn -> Spawn -> CTSGameRules::PlayerSpawn equips (the flag is
+	// now clear, so the end-of-Spawn guard does not re-enter spectate).
+	respawn(pev, false);
+	pev->nextthink = -1;
+}
+
 //
 // PlayerUse - handles USE keypress
 //
@@ -1733,6 +1815,14 @@ void CBasePlayer::PreThink()
 
 	if (g_fGameOver)
 		return; // intermission or finale
+
+	// TS (cont.65): while held in free-look spectate, run the countdown + fire-to-play
+	// check and skip the normal in-play think (no items/water/weapons yet).
+	if (m_fInSpectateWait)
+	{
+		TSSpectateThink();
+		return;
+	}
 
 	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame
 
@@ -2910,6 +3000,12 @@ void CBasePlayer::Spawn()
 	m_flNextChatTime = gpGlobals->time;
 
 	g_pGameRules->PlayerSpawn(this);
+
+	// TS (cont.65): hold a joining/respawning player in free-look spectate until they
+	// pick a loadout and press fire. The flag is set before Spawn (ClientPutInServer /
+	// the death path); TSLeaveSpectate clears it before re-spawning into play.
+	if (m_fInSpectateWait)
+		TSEnterSpectate();
 }
 
 

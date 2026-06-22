@@ -18,6 +18,14 @@
 #include "pm_materials.h"
 #include "ts_animation.h" // TS 3rd-person body/gait (CTSAnimation m_TSAnim member)
 
+// TS join/spectate flow wire constants (cont.65) — shared client/server contract.
+// gmsgSpectator byte 1 (state); the client CHudSpectate draws accordingly.
+#define TSSPEC_OFF 0       // not spectating (in play)
+#define TSSPEC_COUNTDOWN 1 // counting down to spawn-eligibility (byte 2 = seconds)
+#define TSSPEC_READY 2     // gate elapsed — "Press fire to play"
+// gmsgVGUIMenu menu code for the TS buy/config menu (client maps to MENU_TS_BUY).
+#define TS_VGUI_BUYMENU 20
+
 
 #define PLAYER_FATAL_FALL_SPEED 1024															  // approx 60 feet
 #define PLAYER_MAX_SAFE_FALL_SPEED 580															  // approx 20 feet
@@ -422,6 +430,18 @@ public:
 	// (SLICE: the actual movement time-dilation reads these client-side.)
 	void GoSlow(float scale, int slowBullets);
 	int InSlow();
+
+	// TS join/spectate spawn-gate (cont.65, ts_player.cpp). A joining (or just-
+	// respawned) player is held in free-look spectate (StartObserver, OBS_ROAMING)
+	// until the gate elapses and they press fire — only then do they enter play with
+	// their chosen loadout. Mirrors the original StartObserver/SetPlayerRespawnTime/
+	// "Press Fire To Play!" path. The buy/config menu (VGUIMenu) opens on entry.
+	bool m_fInSpectateWait = false; // held in free-look, waiting to press fire
+	float m_flSpawnGateTime = 0;    // gpGlobals->time at which fire-to-play is allowed
+	int m_iClientSpecSecs = -1;     // last Spectator countdown byte sent (resend on change)
+	void TSEnterSpectate();         // enter free-look spectate-wait (called at end of Spawn)
+	void TSLeaveSpectate();         // press-fire: leave spectate -> respawn into play
+	void TSSpectateThink();         // per-frame while waiting: countdown msg + fire check
 };
 
 inline void CBasePlayer::SetWeaponBit(int id)
