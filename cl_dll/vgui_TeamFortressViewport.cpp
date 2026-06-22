@@ -1605,8 +1605,10 @@ void TeamFortressViewport::CreateTeamMenu()
 // spectate-wait (join/buy) phase. RE'd from client.dll (reference/MENUS.md).
 void TeamFortressViewport::CreateTSBuyMenu()
 {
-	const int wide = XRES(160);
-	const int tall = YRES(24 + 2) * 8;
+	// RE'd menu dimensions: width 0x80(128), row height 0x14(20) (FUN_100667e0). The panel
+	// POSITION is still approximate pending the +0x2d84 builder RE (reference/MENUS.md).
+	const int wide = XRES(128);
+	const int tall = YRES(20) * 8;
 	m_pTSBuyMenu = new CTSBuyMenuPanel(XRES(40), YRES(120), wide, tall);
 	m_pTSBuyMenu->setParent(this);
 	m_pTSBuyMenu->setVisible(false);

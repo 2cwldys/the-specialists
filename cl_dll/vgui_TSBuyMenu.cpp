@@ -23,32 +23,25 @@ using namespace vgui;
 class CTSMenuButton : public CommandButton
 {
 public:
-	CTSMenuButton(const char* text, int x, int y, int wide, int tall, bool available = true)
+	CTSMenuButton(const char* text, int x, int y, int wide, int tall)
 		: CommandButton(text, x, y, wide, tall, /*bNoHighlight*/ true)
 	{
-		// TS colours (FUN_10011160): available = green, unavailable = red.
-		m_r = available ? 45 : 195;
-		m_g = available ? 195 : 45;
-		m_b = 45;
 		setContentAlignment(vgui::Label::a_west);
 	}
 
-	// CommandButton::paint() forces the TFC orange scheme every frame; override to apply the TS
-	// green/red and draw via the base vgui::Button (brighter when the cursor is over it).
+	// CommandButton::paint() forces the TFC orange scheme every frame; override it to draw plain
+	// like the original (RE: TS entries are plain vgui::Button, no paint override).
+	// COLOUR: the static config actions are WHITE (the green/red in FUN_10011160 is the *availability*
+	// colour for weapon-buy entries, not these). The exact per-entry colour + the affordability green/red
+	// for item 1 are pinned to the +0x2d84 config-panel builder, still being RE'd (reference/MENUS.md).
 	void paint() override
 	{
-		if (isArmed())
-			setFgColor(V_min(255, m_r + 60), V_min(255, m_g + 60), V_min(255, m_b + 60), 0);
-		else
-			setFgColor(m_r, m_g, m_b, 0);
+		setFgColor(255, 255, 255, 0); // white (vgui alpha: 0 = opaque)
 		vgui::Button::paint();
 	}
 
 	// Plain vgui::Button has no box — suppress CommandButton's orange paintBackground entirely.
 	void paintBackground() override {}
-
-private:
-	int m_r, m_g, m_b;
 };
 
 // Recovered config-menu entries (reference/MENUS.md, string table @0x10092808). Each fires the
@@ -75,11 +68,13 @@ CTSBuyMenuPanel::CTSBuyMenuPanel(int x, int y, int wide, int tall)
 {
 	setBgColor(0, 0, 0, 100); // faint background panel (the shared menu/HUD look)
 
-	const int buttonH = YRES(24);
-	const int spacer = YRES(2);
+	// RE'd dimensions: the menu panel uses width 0x80(128) and row height 0x14(20)
+	// (FUN_100667e0). NB the panel POSITION + exact spacing are still pinned to the +0x2d84
+	// config-panel builder, in progress (reference/MENUS.md) — those remain approximate.
+	const int buttonH = YRES(20);
 	for (int i = 0; i < NUM_CONFIG_BUTTONS; i++)
 	{
-		const int yPos = (buttonH + spacer) * i;
+		const int yPos = buttonH * i;
 		m_pButtons[i] = new CTSMenuButton(s_config[i].label, 0, yPos, wide, buttonH);
 		m_pButtons[i]->setParent(this);
 		m_pButtons[i]->setBoundKey(s_config[i].key);
