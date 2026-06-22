@@ -5,6 +5,26 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 57) — gameplay: +alt2 coldcock (pistol-whip)
+
+First command-gameplay behaviour wired. `CTSGun::AlternateAttack` (@0x81ba8) + `CTSGun::ColdCock`
+(@0x71dd0, calls CBasePlayer::ColdCockAttack@0x86610 in the .so) reconstructed in `dlls/ts_gun.cpp`:
+AlternateAttack coldcocks when the held weapon has a round loaded (the .so gates on active clip > 0);
+ColdCock is a short hull-trace melee bash (40u forward, 25 club damage, knife hit/miss sounds, 0.5s
+cadence, 3rd-person attack anim). Free fn `TSAlternateAttack(player)` (declared ts_weapons.h) finds the
+held gun + fires it. Server `ClientCommand` "+alt2" → `TSAlternateAttack` (`dlls/client.cpp`); the client
+already forwards +alt2 (cont.56). Precached the two knife sounds in `CTSGun::Precache`.
+- **Verified:** builds, loads + runs on tm_avana, sounds precache, no crash/unknown-command for +alt2.
+  **NOT functionally confirmed** (can't press +alt2 without interactive input) — needs a user playtest.
+  SLICE: the faithful coldcock viewmodel anim rides events/coldcock.sc (not reconstructed); we drive the
+  3rd-person anim + sound server-side.
+- **Leftover config warnings (minor, not chased):** the TS config sets engine `s_*` sound cvars (xash
+  names them differently), `sv_language`/`sv_voicecodec` (engine), and `weaponrestriction`/`weaponstay`
+  (the latter is the mp_-prefix-vs-bare-name mismatch — the base SDK registers the struct but maybe under
+  a different name string). Low value.
+
+---
+
 ## 2026-06-22 (cont. 56) — Phase 5 (partial): faithful events/fire.sc → EV_TSFire (sound/flash/anim/shell)
 
 Moved weapon firing onto the original's event path. **Server** (`dlls/ts_gun.cpp`): `CTSGun` precaches

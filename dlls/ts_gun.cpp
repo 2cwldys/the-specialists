@@ -49,6 +49,8 @@ public:
 	void Reload() override;
 	void WeaponIdle() override;
 
+	void AlternateAttack();                      // @AlternateAttack — +alt2: coldcock if a round is loaded
+	void ColdCock();                             // @ColdCock — a quick pistol-whip melee bash
 	void Fire();                                 // dispatch one shot by fire-type
 	void StandardFire(const s_weapon_info *wi);  // bullet/pellet fire (StandardFire/ShotgunFire)
 	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
@@ -254,6 +256,8 @@ void CTSGun::Precache()
 	// this re-call just resolves the cached indices for a runtime give.
 	PrecacheAllTSWeapons();
 	m_usFire = PRECACHE_EVENT(1, "events/fire.sc"); // predicted fire (sound/flash/anim + shell)
+	PRECACHE_SOUND("weapons/knife/knife_hitbody.wav"); // coldcock (pistol-whip) melee bash
+	PRECACHE_SOUND("weapons/knife/knife_miss.wav");
 }
 
 // @ GetItemInfo__6CTSGun — recovered: slot 1, pos 2, id 16, weight 1.
@@ -439,6 +443,59 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 			DMG_CLUB | DMG_NEVERGIB);
 		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
 	}
+}
+
+// @ AlternateAttack__6CTSGun @0x81ba8 — the +alt2 input: pistol-whip (ColdCock) when the
+// active weapon has a round loaded (the .so gates on the active slot's clip > 0).
+void CTSGun::AlternateAttack()
+{
+	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
+		return; // mid-attack cooldown
+	if (m_iClip <= 0)
+		return; // .so: only coldcock with a loaded weapon
+	ColdCock();
+}
+
+// @ ColdCock__6CTSGun @0x71dd0 — a quick melee bash with the held weapon (CBasePlayer::
+// ColdCockAttack@0x86610 in the original). Short hull-trace in front; on hit deals club
+// damage. Reuses the knife melee sounds (no dedicated coldcock sound ships). SLICE: the
+// faithful coldcock viewmodel anim rides events/coldcock.sc (not yet reconstructed); we
+// drive the 3rd-person attack anim + sound server-side.
+void CTSGun::ColdCock()
+{
+	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
+	Vector vecSrc = m_pPlayer->GetGunPosition();
+	Vector vecEnd = vecSrc + gpGlobals->v_forward * 40.0f;
+
+	TraceResult tr;
+	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
+
+	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
+	m_flNextPrimaryAttack = GetNextAttackDelay(0.5f); // pistol-whip cadence
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+
+	if (tr.flFraction >= 1.0f)
+	{
+		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM);
+		return; // miss
+	}
+
+	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/knife/knife_hitbody.wav", VOL_NORM, ATTN_NORM);
+	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+	if (pHit)
+	{
+		ClearMultiDamage();
+		pHit->TraceAttack(m_pPlayer->pev, 25.0f, gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
+		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
+	}
+}
+
+// Trigger the active TS gun's alternate attack (+alt2 / coldcock) for a player.
+void TSAlternateAttack(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (pGun)
+		pGun->AlternateAttack();
 }
 
 // Reload the active weapon from its own per-slot reserve (the original draws from

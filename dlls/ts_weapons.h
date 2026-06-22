@@ -166,6 +166,9 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type);
 // Cycle to the next weapon in the player's TS arsenal (the `tsnextweapon` command).
 void TSCycleWeapon(CBasePlayer *pPlayer);
 
+// Trigger the held TS gun's alternate attack (+alt2 → coldcock pistol-whip).
+void TSAlternateAttack(CBasePlayer *pPlayer);
+
 // Cycle the held weapon's fire-mode (the `tsfiremode` command -> CTSGun::SwitchFireMode).
 void TSSwitchFireMode(CBasePlayer *pPlayer);
 
