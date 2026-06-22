@@ -25,14 +25,19 @@ touching that area):**
 - `reference/VERIFICATION.md` — the playtest checklist + the (unmapped) silencer findings
   + the think-behaviour status.
 - `reference/coverage/REPORT.md` — **drop-in interface coverage** (original vs ours): the
-  by-name swap contract — entity classes, cldll exports, console commands, cvars, user
-  messages, events — with matched/missing/extra. Missing = the RE/implement work-list; extra
-  = invented or HL-leftover to remove. Regenerate: `python3 scripts/coverage/coverage.py all`.
-  Ghidra deep-dives: `scripts/coverage/setup-ghidra.sh` (persistent projects, noreturn-fixed).
-- New Ghidra tooling: `scripts/ghidra/DecompAt.java` (decompile a function by address),
-  `DecompRefs.java`.
+  by-name swap contract — entity classes, cldll exports, console commands, server+client cvars
+  (w/ default + wire-size mismatch), user messages, events, entity keyvalues — matched/missing/
+  extra. Missing = RE/implement work-list; extra = invented or HL-leftover to remove. **THE
+  roadmap** — see the "Coverage harness + RE flow" section below for how to use + regenerate it.
+- `reference/coverage/RECONSTRUCTION_COVERAGE.md` — per-TS-class **method-completeness** metric
+  (140/368 = 38%, least-complete first: CTSStunt 0/25, CTSSharedEmitter 0/11, …). `scripts/coverage/reconstruction.py`.
+- `reference/coverage/VTABLES.md` — every original class's **vtable layout** (slot→method, all
+  226 classes), so a decompiled `call [vptr+0xNN]` resolves to the method. `scripts/coverage/extract_vtables.py`.
+- `reference/WEAPON_SELECT.md` — the weapon-select protocol (invnext/invprev cursor → `weapon_<N>`
+  + holster→deploy; the real command set vs our stand-ins).
+- `reference/BUY.md` — the buy/loadout-config command protocol (`tkw`/`tki`/`tka`/`rst_cfg`/`cashala…`).
 
-## Where things stand (2026-06-22, through cont.67)
+## Where things stand (2026-06-22, through cont.68l)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`/`client.so`** → **run in-engine** (ReHLDS for server; xash3d-fwgs
 for the graphical client — this box HAS a GPU) → **gdb** any crash. Everything below is
@@ -46,6 +51,50 @@ committed (`git log`); `recovered/` is gitignored.
 > original uses **standard inputs** (`+use`/`IN_USE`, `+attack`, `invnext`/`invprev`,
 > `+alt1/2`) + server-side **Think** logic — NOT custom `ts*` commands. `menuselect` +
 > `gmsgShowMenu` ARE the real buy-menu mechanism. See the memory `check-re-on-feedback`.
+
+### ⭐ Coverage harness + Ghidra RE flow (cont.67–68 — the way to continue)
+The drop-in goal is now **measured + driven by a harness**, and the Ghidra decompiles are
+**typed + de-truncated**. This is the loop a new agent should use:
+
+**1. Find the next gap — the coverage harness (`scripts/coverage/`, pure objdump/nm/readelf, no Ghidra dep):**
+```bash
+python3 scripts/coverage/coverage.py all     # -> reference/coverage/{original,ours}.json + REPORT.md
+python3 scripts/coverage/reconstruction.py   # -> reference/coverage/RECONSTRUCTION_COVERAGE.md (method %)
+python3 scripts/coverage/extract_vtables.py  # -> reference/coverage/{vtables_original.json, VTABLES.md}
+```
+`REPORT.md` diffs the EXTERNAL swap contract (the only thing that must match for drop-in — NOT the
+internal C++ ABI, per CLAUDE.md): entity classes, cldll exports, server+client console commands,
+server+client cvars (w/ default + message wire-size mismatch), user messages, events, entity
+keyvalues, + a `default.cfg` input cross-check. **MISSING = implement/RE; EXTRA = invented or
+HL-leftover to remove.** Cvars/usermsg-sizes come from the BINARY (pfnRegisterVariable / cvar_t
+structs / LinkUserMessages), NOT config.cfg (config.cfg holds only the archived subset — that bit us).
+
+**2. RE the gap — the Ghidra flow (persistent, typed):**
+```bash
+scripts/coverage/setup-ghidra.sh             # build recovered/ghidra/{server,client} once (gitignored,
+                                             #   survives reboot; runs DisableNoReturn + ApplyTypes)
+# decompile a function by address (server addr = nm addr + 0x10000):
+analyzeHeadless recovered/ghidra/server serverso -process ts_i386.so -noanalysis \
+  -scriptPath scripts/ghidra -postScript DecompAt.java 0x<ghidraAddr>
+python3 scripts/coverage/vtcall.py CTSGun 0x128      # resolve a vtable-dispatch offset -> method
+python3 scripts/coverage/vtcall.py --file recovered/server/CTSGun.c CTSGun   # annotate a decompile's vt calls
+```
+Ghidra scripts (`scripts/ghidra/`): **DisableNoReturn** (preScript — stops the noreturn truncation),
+**FixNoReturn** (postScript), **ApplyTypes** (applies the gcc2 signatures as real prototypes + populates
+`entvars_t` + merges MSVC return types — so decompiles read with typed `this`/args/returns + `pev->fields`),
+**DecompAt** (decompile by addr, auto-creates a function if Ghidra missed it), **DecompRefs** (callers).
+NOTE: `ClientCommand` is a huge function Ghidra still truncates — for its command dispatch use **objdump**
+disassembly + resolve the PIC string operands via the GOT (`_GLOBAL_OFFSET_TABLE_` = 0x165E10): the pattern
+is `lea -0xoff(%ebx) ; … ; call <strcmp@plt>` → string at `0x165E10 - off`. The relocation table
+(`readelf -W -r`) is the master key — it resolves vtables, cvar_t name/default pointers, and message-name
+pointers that all read as ZERO in the file (they're R_386_32/RELATIVE relocs filled at load).
+
+**3. Implement + verify the loop closes:** write modern C++ → `scripts/build.sh amd64 [all]` → re-run
+`coverage.py all` (the gap should move from missing/extra → matched) → run in xash for visual items
+(screenshot; this box has a GPU) → commit. **Commands done this way (cont.67–68): weapon-select
+(`weapon_<N>`/`lastinv`), `firemode`/`drop`/`useitems`, the buy cmds (`tkw`/`tki`/`tka`/`rst_cfg`/
+`cutwire_`), `respawn`/`motd`/`jointeam`/`changeteam`, + the WAITING scoreboard.** Server console-command
+coverage: 12 missing → 2 (`powerup`, `cashala` remain); 0 unanswered default.cfg binds.
 
 ### Track B cont.66 — TS join / spectate / buy-config / weapon-select flow (IN PROGRESS)
 The faithful join flow (no straight-to-play spawn) is built + verified; the buy menu and
@@ -82,13 +131,22 @@ weapon-select are partly done with **known unfaithful stand-ins to fix**. Plan f
   ClientCommand → `TSSelectWeaponType` → `CTSGun::SelectSlot` with **holster→deploy**;
   `lastinv` toggles to the previous weapon. DEFERRED: the `hud_fastswitch 0` open-bar +
   on-bar highlight + literal (row,col) grid cursor (we commit immediately + walk the compact
-  owned-set). Also surfaced (separate fronts): rename `tsfiremode`→`firemode`,
-  `dropweapon`→`drop`; **`usepowerup` IS a real cmd** (the note below is wrong).
-- **Timed-powerup activation is on an invented `usepowerup` command** — should be
-  **double-tap `+use` (`IN_USE`) in `CBasePlayer::PreThink`** (RE `UsePowerUp`/PreThink).
-- **`tsbuy`/`tsarm`/`tsbuyarmament`/`tsresetarmament`/`tsbuyrandom` (cont.36 + cont.66)**
-  are our internal stand-ins; verify against the original buy flow (BuyWeapon/BuyArmament
-  are real *functions*; the *command* names need RE).
+  owned-set).
+- ✅ **Command names — DONE (cont.67–68, RE-grounded, coverage-verified):** `firemode`/`drop`/
+  `useitems` (renamed from tsfiremode/dropweapon; `useitems`→akimbo swap), the buy/config cmds
+  `tkw`/`tki`/`tka`/`rst_cfg`/`cutwire_<n>` (renamed from tsarm/tsarmammo/tsresetarmament/tscutwire —
+  arg formats RE'd, `reference/BUY.md`), `respawn`/`motd`/`jointeam`/`changeteam`. `usepowerup` IS a
+  real cmd (kept). Server console-command coverage 12 missing → **2** (`powerup`, `cashala` remain);
+  0 unanswered default.cfg binds. `tsbuy`/`tsbuyammo`/`tsbuyarmament`/`tsspawnflag` remain dev
+  stand-ins (no 1:1 original — the original buys via queue tkw/tki/tka → apply `cashala` config).
+- ✅ **Scoreboard "WAITING" — DONE (cont.68, verified):** spectate-waiting players show "WAITING"
+  in the scoreboard class column (DM + teamplay), playerclass 11. The per-team **locked model** is set
+  by `AssignToTeam`. OPEN: confirm our inherited `ClientUserInfoChanged` enforces the model-lock the
+  original does (resets a changed `model` infokey — see cont.68k ledger).
+- **OPEN — `powerup` + `cashala` commands** (need RE): `powerup` (distinct from `usepowerup`); `cashala…`
+  = the buy config-apply (parses `weapon_%i`/`lasclr_%i` — finishes `reference/BUY.md`).
+- **OPEN — timed-powerup activation**: still on the `usepowerup` command path; the original ALSO has the
+  double-tap `+use`(`IN_USE`)-in-PreThink path (RE `UsePowerUp`/PreThink) — reconcile.
 - **Not yet built:** bar **faint-when-idle fade** (`FUN_1004d3f0` select-active); active
   **clip/maxclip "8/8"**; **powerup-timer HUD** (Slow Motion / Double Fire Rate text, green,
   above the weapons, from `PwUpTime`); **kung-fu / super-jump icons** (centre-bottom);
