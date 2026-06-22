@@ -27,11 +27,65 @@ touching that area):**
 - New Ghidra tooling: `scripts/ghidra/DecompAt.java` (decompile a function by address),
   `DecompRefs.java`.
 
-## Where things stand (2026-06-22, through cont.65)
+## Where things stand (2026-06-22, through cont.66)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`/`client.so`** → **run in-engine** (ReHLDS for server; xash3d-fwgs
 for the graphical client — this box HAS a GPU) → **gdb** any crash. Everything below is
 committed (`git log`); `recovered/` is gitignored.
+
+> ### ⚠️ READ FIRST — hard requirement (cont.66, user-set): **RE before you code.**
+> On any user feedback, **check the decompilation FIRST** — do not improvise. Every
+> **console command** the client sends is part of the swap contract, so verify it exists
+> in the original before using it (server cmds = `ts_i386.so` ClientCommand dispatch;
+> client cmds = `client.dll` `pfnAddCommand`; `strings`/`signatures-client.txt`). The
+> original uses **standard inputs** (`+use`/`IN_USE`, `+attack`, `invnext`/`invprev`,
+> `+alt1/2`) + server-side **Think** logic — NOT custom `ts*` commands. `menuselect` +
+> `gmsgShowMenu` ARE the real buy-menu mechanism. See the memory `check-re-on-feedback`.
+
+### Track B cont.66 — TS join / spectate / buy-config / weapon-select flow (IN PROGRESS)
+The faithful join flow (no straight-to-play spawn) is built + verified; the buy menu and
+weapon-select are partly done with **known unfaithful stand-ins to fix**. Plan file:
+`~/.claude/plans/replicated-discovering-aho.md`.
+
+**DONE + verified (committed `0d4f2d0`/`60a8c44`/`d1b0974`/`a1a8149`):**
+- **Spectate-gate (server):** a joining/respawning player is held in **free-look observer**
+  (`CBasePlayer::TSEnterSpectate` → `StartObserver`/`OBS_ROAMING`, respawn gate =
+  `respawntime` cvar clamp 3..30; `dlls/player.cpp`). `CTSGameRules::PlayerSpawn` skips the
+  loadout while `m_fInSpectateWait`; `CBasePlayer::Spawn` ends by entering spectate;
+  `ClientPutInServer` sets the flag pre-Spawn. **Press fire → `TSLeaveSpectate` → respawn
+  into play** with the chosen loadout. gmsg `Spectator`(2)/`VGUIMenu`(1) registered.
+- **Free-look HUD (client, `cl_dll/ts_spectate.{cpp,h}`):** centre countdown → "Press fire
+  to play" + the free-look help line. Reads `Spectator`; hooked via `__MsgFunc_Spectator`
+  repointed to it.
+- **Buy/config menu — the FAITHFUL mechanism:** compact **`gmsgShowMenu` + `menuselect`**
+  list (NOT a VGUI panel — RE'd from `client.dll FUN_10011160`: item 1 toggles Use New/Last/
+  Empty Config, available items green). `TSSendBuyMenu`/`TSMenuSelect`/`TSCloseMenu` in
+  `dlls/player.cpp`; client `CHudMenu` draws it (`\g` green added in `cl_dll/menu.cpp`).
+  "Click anywhere" (+attack while menu up) = item 1. The `buy` command reopens it
+  (spectate-only).
+- **Weapon-bar layout (client, `cl_dll/ts_weaponbar.cpp`):** RE'd from `FUN_1004e030` —
+  5 columns `x=col*0x80-0x78`, header panel + **slot number** (alpha 100 active/50 idle),
+  weapons stacked 0x30/row with sprite icons (red when clip empty), active weapon name+ammo
+  to the right. Verified vs the user's reference.
+
+**KNOWN-UNFAITHFUL / OPEN (fix RE-first — see the ⚠️ above):**
+- **Weapon switching uses INVENTED commands** `tsnextweapon`/`tsprevweapon` (client
+  `invnext`/`invprev` forward to them, `cl_dll/ammo.cpp`). The original does **not** have
+  these. Faithful flow: `invnext`/`invprev` move a **select cursor** (the `+0x7c0`
+  select-active object in `FUN_1004d3f0`); **`+attack` commits** the highlighted weapon;
+  switching plays **holster→deploy** (currently `SelectSlot` calls `Deploy()` instantly).
+- **Timed-powerup activation is on an invented `usepowerup` command** — should be
+  **double-tap `+use` (`IN_USE`) in `CBasePlayer::PreThink`** (RE `UsePowerUp`/PreThink).
+- **`tsbuy`/`tsarm`/`tsbuyarmament`/`tsresetarmament`/`tsbuyrandom` (cont.36 + cont.66)**
+  are our internal stand-ins; verify against the original buy flow (BuyWeapon/BuyArmament
+  are real *functions*; the *command* names need RE).
+- **Not yet built:** bar **faint-when-idle fade** (`FUN_1004d3f0` select-active); active
+  **clip/maxclip "8/8"**; **powerup-timer HUD** (Slow Motion / Double Fire Rate text, green,
+  above the weapons, from `PwUpTime`); **kung-fu / super-jump icons** (centre-bottom);
+  buy-menu **cursor + click-on-entries**; the **"2 Buy" weapon-category submenu**;
+  menu **background box**.
+- **Open question for the user:** is the buy menu available the whole time you're a dead
+  spectator, or only during the join/respawn press-fire wait?
 
 **Target = INTERFACE/protocol compatibility, so each half is a drop-in swap for the
 original** (our client ↔ original server, or vice-versa, behaves identically). What must

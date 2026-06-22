@@ -5,6 +5,49 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 66) — TS join/spectate/buy-config/weapon-select flow (IN PROGRESS; some unfaithful stand-ins to fix)
+
+User asked for the faithful join flow: a joining player does NOT spawn straight into play — they enter
+free-look spectate, see a countdown → "Press fire to play", and pick a loadout from a buy/config menu first.
+Plan: `~/.claude/plans/replicated-discovering-aho.md`. Used 3 Explore agents to map it (server spectator,
+client buy-menu/countdown, buy backend + wiring patterns).
+
+**DONE + verified (commits 0d4f2d0, 60a8c44, d1b0974, a1a8149):**
+- **Spectate-gate (server):** `CBasePlayer::TSEnterSpectate` (StartObserver/OBS_ROAMING + respawn gate
+  `respawntime` clamp 3..30 + ResetArmament), called at the end of `Spawn` when `m_fInSpectateWait`;
+  `ClientPutInServer` sets the flag pre-Spawn; `CTSGameRules::PlayerSpawn` skips the loadout while waiting.
+  `TSSpectateThink` (PreThink) drives the countdown; **+attack while !configChosen = select item 1,
+  +attack after = `TSLeaveSpectate` → respawn into play**. Registered gmsg `Spectator`(2)/`VGUIMenu`(1).
+- **Free-look HUD (client `cl_dll/ts_spectate.{cpp,h}`):** centre countdown → "Press fire to play" + the
+  free-look help line; reads `Spectator`; `__MsgFunc_Spectator` repointed from the TFC viewport to it.
+- **Buy/config menu — FAITHFUL mechanism:** the compact **`gmsgShowMenu` + `menuselect`** list (NOT a VGUI
+  panel — I first wrongly built a VGUI MOTD-style panel; user corrected). RE'd from `client.dll FUN_10011160`
+  (item 1 = Use New/Last/Empty Config; available items green). `TSSendBuyMenu`/`TSMenuSelect`/`TSCloseMenu`
+  (`dlls/player.cpp`); client `CHudMenu` draws it, added `\g` green code (`cl_dll/menu.cpp`); resent each
+  spectate tick (the first send can beat the client HUD). `buy` command reopens it (spectate-only). Verified:
+  compact green-coded list matches the user's reference; click → "Using new config." + closes.
+- **Weapon-bar layout (client `cl_dll/ts_weaponbar.cpp`):** RE'd from `FUN_1004e030` — 5 columns
+  `x=col*0x80-0x78`, header panel + slot number (alpha 100 active/50 idle), weapons stacked 0x30/row with
+  sprite icons (red when clip empty), active weapon name+ammo to the right. Verified vs reference.
+
+**KNOWN-UNFAITHFUL / OPEN — the user set a hard REQUIREMENT (memory `check-re-on-feedback`): RE before coding,
+and verify every console command exists in the original (it caught me inventing commands):**
+- **Weapon switching uses INVENTED `tsnextweapon`/`tsprevweapon`** (client invnext/invprev forward to them,
+  `cl_dll/ammo.cpp`). NOT in the original. Faithful: invnext/invprev move a **select cursor** (the `+0x7c0`
+  select-active object in `FUN_1004d3f0`), **+attack commits**; switching plays **holster→deploy** (SelectSlot
+  currently Deploys instantly).
+- **Timed-powerup activation on invented `usepowerup`** — should be **double-tap `+use`(IN_USE) in PreThink**.
+- **`tsbuy`/`tsarm`/`tsbuyarmament`/`tsresetarmament`/`tsbuyrandom`** are internal stand-ins; verify vs the
+  original (BuyWeapon/BuyArmament are real functions; command names need RE).
+- **Not built:** bar faint-when-idle fade; active **clip/maxclip "8/8"**; **powerup-timer HUD** (Slow Motion/
+  Double Fire Rate green text above weapons, from `PwUpTime`); **kung-fu/super-jump icons** (centre-bottom);
+  buy-menu **cursor + click-on-entries**; the **"2 Buy" weapon-category submenu**; menu **bg box**.
+- **Open Q for user:** buy menu the whole dead-spectate, or only the join/respawn press-fire wait?
+
+**Verification loop note (gotcha):** reading the Serena `ledger` memory returns ONE long single-line JSON
+(`{result: "..."}`) that overflows the read limit — extract with `jq -r '.result' <savedfile> | head -c N`
+or read the saved tool-result file in chunks; don't try to Read it whole.
+
 ## 2026-06-22 (cont. 65) — CTSAnimation: reconstruct 3rd-person body/gait (fix the always-idle player), VERIFIED
 
 Fixed the **biggest open item** (the player 3rd-person model was always idle — no walk/run/fire gait).
