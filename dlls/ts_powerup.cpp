@@ -414,3 +414,20 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 	EMIT_SOUND_DYN(ENT(pPlayer->pev), CHAN_VOICE, "items/gunpickup2.wav", VOL_NORM, 0.8f, 0, 100);
 	return true;
 }
+
+//============================================================================
+// CTSSuperJump — a map-placed powerup pre-set to the low-gravity / super-jump type.
+// The .so's CTSSuperJump::Spawn (@0xc9f44) sets m_iType = 0x100 (TS_PWUP_LOWGRAV) then
+// chains CTSPowerUp::Spawn, so it always gives the super-jump (low-gravity) effect.
+//============================================================================
+class CTSSuperJump : public CTSPowerUp
+{
+public:
+	void Spawn() override
+	{
+		m_iType = TS_PWUP_LOWGRAV; // force the super-jump (low-gravity) powerup
+		CTSPowerUp::Spawn();
+	}
+};
+
+LINK_ENTITY_TO_CLASS(ts_superjump, CTSSuperJump);
