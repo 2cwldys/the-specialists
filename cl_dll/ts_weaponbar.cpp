@@ -130,40 +130,67 @@ bool CHudTSWeaponBar::Draw(float flTime)
 
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
-	const int dr = hr / 2, dg = hg / 2, db = hb / 2; // dimmed (not-active) colour
 
-	const int SLOTW = 0x80;  // 128
-	const int SLOTH = 0x14;  // 20
+	// Geometry recovered from FUN_1004e030: five 0x80-wide columns at x = col*0x80-0x78.
+	// Each column has a header panel (y=8, h=0x14) carrying the slot NUMBER, then its
+	// weapons stacked below from y=0x1c (28) at 0x30 (48) per row. The active column's
+	// header is alpha 100, the rest alpha 50. A weapon with no ammo draws red.
+	const int SLOTW = 0x80;   // 128
+	const int HDRY = 8, HDRH = 0x14;
+	const int ROW0 = 0x1c, ROWH = 0x30; // first weapon row y, row stride
 
-	// Five category columns across the top: x = col*0x80 - 0x78 (FUN_1004e030).
+	const int activeCol = (g_iTSActiveWeapon >= 0 && g_iTSActiveWeapon < TSW_COUNT_LOCAL)
+		? s_weaponColumn[g_iTSActiveWeapon]
+		: -1;
+
 	for (int col = 1; col <= 5; col++)
 	{
 		const int x = col * SLOTW - 0x78;
-		int y = 8;
+
+		// Column header: faint panel + the slot number (always shown, like the original).
+		gEngfuncs.pfnFillRGBA(x, HDRY, SLOTW, HDRH, hr, hg, hb, (col == activeCol) ? 100 : 50);
+		char num[2] = {(char)('0' + col), '\0'};
+		int nw, nh;
+		GetConsoleStringSize(num, &nw, &nh);
+		gHUD.DrawHudString(x + (SLOTW - nw) / 2, HDRY + 2, x + SLOTW, num, hr, hg, hb);
+
+		// Weapons in this column, stacked below the header.
+		int y = ROW0;
 		for (int t = 0; t < TSW_COUNT_LOCAL && t < TSW_COUNT; t++)
 		{
-			if (m_iClip[t] < 0 || s_weaponColumn[t] != col || !s_shortName[t][0])
+			if (m_iClip[t] < 0 || s_weaponColumn[t] != col)
 				continue;
 
 			const bool active = (t == g_iTSActiveWeapon);
-			const int ir = active ? hr : dr, ig = active ? hg : dg, ib = active ? hb : db;
-			TSHud_Panel(x, y, SLOTW, SLOTH - 1);
+			// no-ammo weapons draw red (0xc3,0x2d,0x2d) — the original's empty-clip tint.
+			const bool noAmmo = (m_iClip[t] == 0);
+			const int ir = noAmmo ? 0xc3 : hr;
+			const int ig = noAmmo ? 0x2d : hg;
+			const int ib = noAmmo ? 0x2d : hb;
 
 			if (m_hIcon[t] != 0)
 			{
-				// Centre the weapon icon in the slot (the original draws the sprite).
-				const int iw = m_rcIcon[t].right - m_rcIcon[t].left;
-				const int ih = m_rcIcon[t].bottom - m_rcIcon[t].top;
-				const int ix = x + (SLOTW - iw) / 2;
-				const int iy = y + (SLOTH - ih) / 2;
 				SPR_Set(m_hIcon[t], ir, ig, ib);
-				SPR_DrawAdditive(0, ix, iy, &m_rcIcon[t]);
+				SPR_DrawAdditive(0, x, y, &m_rcIcon[t]);
 			}
-			else
+			else if (s_shortName[t][0])
 			{
 				TSHud_DrawString(x + 2, y, x + SLOTW, s_shortName[t], ir, ig, ib);
 			}
-			y += SLOTH;
+
+			// The active weapon: its name + clip, drawn to the right of its column.
+			if (active)
+			{
+				const char* nm = (t < TSW_COUNT_LOCAL && s_shortName[t][0]) ? s_shortName[t] : "";
+				gHUD.DrawHudString(x + SLOTW + 4, y, ScreenWidth, nm, hr, hg, hb);
+				if (m_iClip[t] >= 0)
+				{
+					char ammo[16];
+					sprintf(ammo, "%d", m_iClip[t]);
+					gHUD.DrawHudString(x + SLOTW + 4, y + nh + 2, ScreenWidth, ammo, hr, hg, hb);
+				}
+			}
+			y += ROWH;
 		}
 	}
 
