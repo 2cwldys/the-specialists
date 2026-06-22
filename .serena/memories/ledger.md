@@ -5,6 +5,41 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 69f) — buy-menu vgui reproduction (4 of 5 pages) + runtime-debug findings
+
+Built the client-side buy menu as a faithful vgui reproduction (cl_dll/vgui_TSBuyMenu.{cpp,h} =
+`CTSBuyMenuPanel`, owned by the viewport, shown in spectate-wait), and dug into the live original to crack
+the config-panel exact styling that static RE couldn't reach. **All RE in reference/MENUS.md.**
+
+**Built + committed (compile + render in-engine):**
+- 3 menu PAGES as toggled vgui button sets with client-side page nav (`CTSMenuHandler_Page`): **Config**
+  (8 items → server `menuselect`), **Buy-category** (RE'd FUN_10010440: Handguns/SMGs/Rifles/Shotguns/Other/
+  Player Accessory/Cancel), **Player Accessory** (RE'd @0x10010dd0: Kevlar/Silencer/Lasersight/Flashlight/
+  Scope; Kevlar→`cl_buykevlar`, ties to the kevlar gameplay). `CTSMenuButton` = CommandButton w/ the TFC
+  orange suppressed (RE: plain vgui::Button look). Retired the server gmsgShowMenu stand-in.
+- **Number-key routing** (HUD_Key_Event → `CTSBuyMenuPanel::HandleKey`: fires the visible page's button whose
+  `getBoundKey()` matches; both click AND key now work, matching the original).
+
+**Runtime-debug findings (the original TS runs live under Proton — gold for the remaining unknowns):**
+- gdb attaches to the live game (`hl.exe -game ts`, find/x memory reads work; client.dll base **0x0c070000**,
+  runtime = static − 0x3F90000). **SOFTWARE breakpoints (int3) silently DON'T fire** in this Proton/wow64
+  process; **HARDWARE breakpoints (`hbreak`) DO** (proven: hbreak on HUD_Redraw @0x0c08aa90 fired). Verified
+  FUN_100668f0 @0x0c0d68f0 byte-for-byte.
+- **KEY: the vgui menu is built ONCE at first client init and fully CACHED for the process lifetime** —
+  surviving map loads, reconnects, AND vid_restart/res-change (res-change only `setPos`-repositions the
+  cached buttons; it does NOT recreate them, so the create-breakpoint FUN_100668f0 never re-fires). So the
+  ONLY way to capture the build args (real per-button text+RGB+pos) is: arm the hbreak BEFORE the very first
+  build → fully quit+relaunch the game, connect, then open the buy menu the first time with the hbreak
+  already armed. Procedure is in MENUS.md ("Runtime capture — the exact procedure"). NOT YET EXECUTED (the
+  user hit SDL-init errors relaunching — leftover wineserver/hl state from the attach/detach churn).
+- **Weapon-list builders identified** (MENUS.md action-thunk map): `FUN_10010890` / `FUN_100108b0` /
+  `FUN_10010bb0` (the unmapped action-`0xb` thunk targets) — decompile these for the per-category weapon lists.
+
+**STILL UNFINISHED:** (1) per-category weapon LISTS (build the 5 lists from FUN_10010890/etc. + the weapon
+table category field); (2) the config-panel EXACT colours/positions (the runtime hbreak capture — needs a
+clean relaunch); the static-RE'd values applied so far are dims 128×20, config text white (placeholder),
+category Cancel (100,100,205). Kevlar gameplay + status panel + HEV suppression + powerup/cashala = DONE.
+
 ## 2026-06-22 (cont. 69d/e) — buy-menu mechanism FULLY RE'd + reproduction begun (vgui)
 
 User corrected my earlier guesses (top-level kevlar; "it's VGUI"; improvised draw/input) and set the

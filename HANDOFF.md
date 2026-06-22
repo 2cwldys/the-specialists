@@ -37,11 +37,41 @@ touching that area):**
   + holster→deploy; the real command set vs our stand-ins).
 - `reference/BUY.md` — the buy/loadout-config command protocol (`tkw`/`tki`/`tka`/`rst_cfg`/`cashala…`).
 
-## Where things stand (2026-06-22, through cont.68l)
+## Where things stand (2026-06-22, through cont.69f)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`/`client.so`** → **run in-engine** (ReHLDS for server; xash3d-fwgs
 for the graphical client — this box HAS a GPU) → **gdb** any crash. Everything below is
 committed (`git log`); `recovered/` is gitignored.
+
+### cont.69 (this batch) — kevlar gameplay + the TS buy menu. Read `reference/MENUS.md` first for the menu.
+- **DONE + verified:** `powerup`/`cashala` cheat cmds (server cmds 0 missing); the **TS status panel**
+  (posture figure + health♥ + Kevlar) replacing the stock HEV (`cl_dll/ts_status.cpp`); **stock HEV/battery
+  suppressed**; **kevlar GAMEPLAY** — `CBasePlayer::TakeArmor` (binary flag + armorvalue) + the `armor_absorb`
+  flat % damage reduction in `TakeDamage` (NOT a depleting pool; bullets-only, melee/fall/blast bypass via
+  mask 0x80040e4) + `AddItem` + buy routing (`dlls/ts_buy.cpp`, `dlls/player.cpp`, `dlls/ts_gamerules.h`
+  `m_flArmorAbsorb`). All RE-grounded, in-engine verified.
+- **TS BUY MENU — IN PROGRESS (reproduction, `cl_dll/vgui_TSBuyMenu.{cpp,h}`).** Mechanism FULLY RE'd
+  (`reference/MENUS.md`): it's a **vgui::Panel of vgui::Button** entries (NOT MOTD/gmsgVGUIMenu, NOT
+  gmsgShowMenu), nav by mouse-click OR bound number key, apply emits `rst_cfg`/`tkw`/`tki`/`tka`. Built +
+  committed: **Config + Buy-category + Player Accessory pages** (RE'd from FUN_10010440/@0x10010dd0) + the
+  **number-key routing**. **NOT done:** (1) per-category **weapon lists** — builders identified
+  (`FUN_10010890`/`FUN_100108b0`/`FUN_10010bb0`, the action-`0xb` thunks — see MENUS.md); (2) the config
+  panel's **exact colours/positions** — provably not statically RE-able (the `+0x2d84` config panel has no
+  alloc/store/sizer in the disasm); resolved via a **runtime hbreak capture of the live original** (TS runs
+  under Proton; SOFTWARE breakpoints don't fire in wow64 but HARDWARE `hbreak` do; the menu is built ONCE and
+  cached, so arm the hbreak BEFORE a clean relaunch+first-open — exact procedure in MENUS.md). Placeholder
+  values applied (dims 128×20, white config text) are clearly flagged, not guessed.
+- **HARD RULE reaffirmed by the user this batch (RE before code, no guessing):** every menu entry/colour/
+  position/command must come from the decompiled builder or the runtime capture — do NOT improvise styling
+  or layout. The user reverted earlier guessed work (orange→green→white text, made-up geometry, a top-level
+  "Buy Kevlar") until it was RE-grounded.
+
+### ⚠️ Serena ledger read gotcha
+`read_memory("ledger")` returns ONE giant single-line JSON (`{"result":"…"}`, ~150 KB) that overflows the
+read limit. **Don't read it via the MCP tool** — read `.serena/memories/ledger.md` directly (newest on top),
+or `jq -r '.result' <savedfile> | head -c 9000` on the file the tool saves.
+
+(Original cont.68l baseline pipeline note retained below.)
 
 > ### ⚠️ READ FIRST — hard requirement (cont.66, user-set): **RE before you code.**
 > On any user feedback, **check the decompilation FIRST** — do not improvise. Every
