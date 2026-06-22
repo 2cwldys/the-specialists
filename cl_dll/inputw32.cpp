@@ -1192,6 +1192,12 @@ void IN_Init()
 	gEngfuncs.pfnAddCommand("force_centerview", Force_CenterView_f);
 	gEngfuncs.pfnAddCommand("joyadvancedupdate", Joy_AdvancedUpdate_f);
 
+	// TS is an always-mouselook game (no legacy keyboard-look mode). The stock HL
+	// client leaves mouse-look OFF until a config issues "+mlook"; when it's off the
+	// mouse Y axis walks the player forward/back and can't pitch, which reads as a
+	// locked, jolting view. Force it on so looking works out of the box.
+	in_mlook.state |= 1;
+
 	IN_StartupMouse();
 	IN_StartupJoystick();
 }
