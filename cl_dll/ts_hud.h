@@ -34,6 +34,11 @@ void TSHud_Color(int& r, int& g, int& b);
 // Draw the translucent dark panel behind a HUD cluster (x,y,w,h in pixels).
 void TSHud_Panel(int x, int y, int w, int h);
 
+// Draw a coloured string clipped to maxX, per-character — a faithful port of the
+// original FUN_10021ce0 (pfnDrawCharacter advancing by SCREENINFO charWidths, stops
+// before any glyph that would cross maxX). Returns the ending x.
+int TSHud_DrawString(int x, int y, int maxX, const char* str, int r, int g, int b);
+
 // The TS health bar (FUN_1004d5f0): a 0x80(128)-wide bar at (x,y) — faint background
 // (alpha 0x1e) + a fill proportional to health, in the HUD colour (red when low). The
 // original draws it bottom-right, stacked with the weapon/ammo box.

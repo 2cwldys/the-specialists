@@ -185,7 +185,7 @@ bool CHudTSAmmo::Draw(float flTime)
 	{
 		y -= LINEH;
 		TSHud_Panel(x, y, BOXW, LINEH - 1);
-		gHUD.DrawHudString(x + 2, y, ScreenWidth, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
+		TSHud_DrawString(x + 2, y, x + BOXW, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
 	}
 
 	// Health bar stacked above the box — the original draws FUN_1004d5f0 here, after the

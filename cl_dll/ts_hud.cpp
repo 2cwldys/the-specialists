@@ -97,6 +97,22 @@ void TSHud_HealthBar(int x, int y, int health)
 	}
 }
 
+int TSHud_DrawString(int x, int y, int maxX, const char* str, int r, int g, int b)
+{
+	// Faithful port of FUN_10021ce0: draw each glyph with pfnDrawCharacter, advance by
+	// the engine's per-character width, and stop before any glyph that would cross maxX.
+	for (const char* p = str; *p && *p != '\n'; p++)
+	{
+		const unsigned char c = (unsigned char)*p;
+		const int next = x + gHUD.m_scrinfo.charWidths[c];
+		if (next > maxX)
+			break;
+		gEngfuncs.pfnDrawCharacter(x, y, c, r, g, b);
+		x = next;
+	}
+	return x;
+}
+
 void TSHud_Panel(int x, int y, int w, int h)
 {
 	// The original (FUN_1004d7e0) backs each HUD strip with a FillRGBA of the HUD

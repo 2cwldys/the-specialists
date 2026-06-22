@@ -122,9 +122,9 @@ bool CHudTSWeaponBar::Draw(float flTime)
 			const bool active = (t == g_iTSActiveWeapon);
 			TSHud_Panel(x, y, SLOTW, SLOTH - 1);
 			if (active)
-				gHUD.DrawHudString(x + 2, y, ScreenWidth, s_shortName[t], hr, hg, hb);
+				TSHud_DrawString(x + 2, y, x + SLOTW, s_shortName[t], hr, hg, hb);
 			else
-				gHUD.DrawHudString(x + 2, y, ScreenWidth, s_shortName[t], dr, dg, db);
+				TSHud_DrawString(x + 2, y, x + SLOTW, s_shortName[t], dr, dg, db);
 			y += SLOTH;
 		}
 	}

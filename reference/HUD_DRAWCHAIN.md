@@ -108,9 +108,17 @@ The per-weapon `+0x84`/`+0x85` were extracted from the `.so` `Write_<weapon>` by
 Remaining polish: weapon **icons** (SPR_Set/Draw of the per-weapon HUD sprites) instead of
 names; the active-highlight timing.
 
+## Text rendering — RESOLVED (it's the engine font, not a custom bitmap font)
+
+`FUN_10021ce0(x, y, maxX, str, r, g, b)` draws each glyph via **`pfnDrawCharacter`**
+(`DAT_100d5b90`), advancing by the engine's `SCREENINFO.charWidths`, and **stops before
+any glyph crossing maxX**. That's the standard engine HUD font — the SAME font our
+`DrawHudString` (via `pfnDrawString`) uses, so the glyphs already matched; the only gap
+was the per-char **clip to the panel width**. Ported faithfully as `TSHud_DrawString`
+(cont.53) and used by the ammo box + weapon bar. (Any residual glyph difference is
+xash-vs-GoldSrc engine font, not a mod-side concern.)
+
 ## STILL TODO (to pixel-match)
-- The **TS bitmap font** (`FUN_10021ce0` + `bitmapfonts` cvar) — all text currently uses
-  the console font, so glyphs differ. Biggest remaining cross-element visual gap.
 - The **weapon-select bar** (above) — server WStatus + client grid + icons.
 - The **left status block** armor/cash exact placement (health is done as the bar).
 - The WeaponInfo **flags byte** server-side (attachments) so the Silencer/Lasersight rows draw.

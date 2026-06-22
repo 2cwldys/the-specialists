@@ -37,8 +37,11 @@ highlighted. Column per weapon = its `s_weapon_info+0x84` byte, EXTRACTED from t
 funcs (the bar's grid TRANSPOSES the WStatus handler's (slot*0xb+pos): draw col = +0x84 [1=melee/grenade
 2=pistols 3=SMGs 4=rifles/shotguns/heavy 5=akimbo], row = +0x85). Verified: "Beretta" shows in column 2.
 **ALL THREE HUD REGIONS now covered** (weapon-bar + ammo box + health bar), each from recovered geometry.
-Remaining polish (low priority): the TS bitmap font (all text still uses DrawConsoleString), weapon icons
-(SPR), the WeaponInfo attachment flags byte, and the active-highlight timing. All in reference/HUD_DRAWCHAIN.md.
+**Text/font RESOLVED:** `FUN_10021ce0` draws per-char via `pfnDrawCharacter` advancing by SCREENINFO
+charWidths, clipped to maxX — i.e. the ENGINE HUD font (no custom bitmap font; the "bitmapfonts" worry was
+wrong). Ported faithfully as `TSHud_DrawString` (clip to panel width) + used by the ammo box & weapon bar.
+Remaining polish (low priority): weapon **icons** (SPR) on the bar instead of names, the WeaponInfo
+attachment flags byte (Silencer/Lasersight rows), and the active-highlight timing. All in HUD_DRAWCHAIN.md.
 
 **Anchor constants RESOLVED + APPLIED (cont.53, from the top of FUN_1004d7e0):** raw pixels off actual
 screen size — **x = ScreenWidth−0x88(136), box w=0x80(128), lineH=0x14(20), lines stack UP from
