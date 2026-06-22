@@ -5,6 +5,47 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 69d/e) — buy-menu mechanism FULLY RE'd + reproduction begun (vgui)
+
+User corrected my earlier guesses (top-level kevlar; "it's VGUI"; improvised draw/input) and set the
+goal: RE everything, one at a time, until the buy menu is faithfully reproduced exactly like the original
+(behaviour/interface on the newer SDK, not internal offsets). Did the full RE; reverted the improvised
+cl_dll menu; began the faithful vgui reproduction. **All findings in `reference/MENUS.md`.**
+
+**Mechanism RE (client.dll):**
+- **It IS a custom `vgui::Panel`** (NOT the MOTD `gmsgVGUIMenu`, and NOT the stock `gmsgShowMenu`).
+  `FUN_10010440` builds the buy-category panel via `vgui::Panel::Panel`; each entry is a `vgui::Button`
+  (`FUN_100668f0`→`operator_new(0x14c)`→`FUN_10066b40`). Four panels on the client obj: `+0x2d84` config,
+  `+0x2d88` buy-category, `+0x2d8c`, `+0x2d90`; shown/hidden via vtable+0x24 = setVisible.
+- **Open/close** = `FUN_10011230(visible)`: copies saved→active config (`+0x434`→`+0x2c`), rebuilds
+  (`FUN_10011160` item 1 = Use New/Last/Empty Config by state; `FUN_100129f0` = loadout cost/"Total"),
+  setVisible the panels.
+- **Entry model**: `FUN_10066a90(panel,idx,text,x,y,…,actionId,actionVal)` → text@entry+0x104, geometry
+  via `FUN_10066bb0` (x@0xf4,y@0xf8,…), action@+0x144/+0x148. String table @`0x10092808` (config order:
+  Empty/Use-New/Use-Last Config, 2 Buy, 3 Remove Item, 4 Reset, 5 Save, 6 Load, 7 Buy Random, 0 Cancel;
+  buy-category @0x10092824: 1 Handguns,2 SMGs,3 Rifles,4 Shotguns,5 Other, +6 Player Accessory @0x10092848).
+- **Hierarchy**: Config → 2 Buy → categories → 6 Player Accessory → Kevlar/Lasersight/Silencer
+  (`cl_buykevlar`/`cl_laser`/`cl_lasercolor`; accessory selected-bit 0x10). Select by mouse-click OR bound
+  number key; click-outside ⇒ "Use New Config".
+- **Client buy-validation** `FUN_100124a0`: gates a buy on cash (CashBased off) + the **free-slots** resource
+  `this+0x430` vs cap `0x51`(81) — the "Free Slots" HUD value + `GetSpeedBySlots` speed input.
+- **Apply** `FUN_10012050` ("Use New Config"): validate (empty/cash/slots) → sort loadout → `ServerCmd`:
+  `rst_cfg`, then per-item `tkw %i_%i`/`tka %i_%i`/`tki` (+ `weapon_%i`/`lasclr_%i`). = the existing server
+  `ClientCommand` handlers (`reference/BUY.md`). Remaining tie-off: the exact kevlar item-queue token in the
+  accessory branch.
+
+**Reproduction (vgui, modelled on `cl_dll/vgui_teammenu.cpp`):**
+- **Slice 1 DONE (committed, compiles):** `cl_dll/vgui_TSBuyMenu.{h,cpp}` = `CTSBuyMenuPanel` — the CONFIG
+  menu as a `vgui::Panel` of `CommandButton`s with `setBoundKey(number)` + `CMenuHandler_StringCommand` →
+  the server `menuselect` handler. Correct RE-grounded architecture (not the reverted hand-drawn HUD).
+- **NEXT slices (specified, not built):** (2) viewport integration — own it in TeamFortressViewport
+  (`CreateTeamMenu`-style), show during spectate-wait + cursor state, retire the server gmsgShowMenu
+  stand-in; (3) the Buy/Accessory submenus + per-category weapon lists (from the category builders) +
+  the accessory cvar toggles; (4) the apply sequencer (rst_cfg/tkw/tki/tka) + the kevlar item-queue token.
+  Build each as a compiled+verified increment.
+
+---
+
 ## 2026-06-22 (cont. 69c) — kevlar GAMEPLAY reconstructed + buy-menu layout RE'd (two user corrections)
 
 Continuing from the status-panel work, the user asked to reconstruct the real kevlar gameplay (not the
