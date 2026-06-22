@@ -169,3 +169,21 @@ RE'd + applied: panel **width 0x80(128), row height 0x14(20)** (`FUN_100667e0`);
 white**; weapon-buy entries are **green/red by availability** (`FUN_10011160`/`FUN_100110ce`). STILL
 PENDING (not guessed): the exact CONFIG-panel `+0x2d84` POSITION/spacing (its builder mis-decompiles in
 Ghidra, no direct store-to-`+0x2d84`) and the per-category submenu builders (the weapon lists).
+
+### Runtime inspection — UNBLOCKED + proven (cont.69f)
+
+The original TS is running live (`hl.exe -game ts`, **PID 3093683** under Proton). gdb attaches and
+reads its memory: `gdb -p 3093683 -batch -nx -ex 'find ...'` / `x/...` works.
+- **client.dll runtime base = `0x0c070000`** (preferred 0x10000000 → runtime = static − `0x3F90000`).
+  So `FUN_10011160` (static 0x10011160) → runtime `0x0c081160`, etc.
+- The buy menu's panels are LIVE in heap: a string pool of vgui panel names `Buy_status` / `Buy_Random`
+  / `Buy_Cancel` / `Buy_Handguns` / `Buy_SMGs` / `Buy_Rifles` (found `Buy_Handguns` @0x3b6facc). So the
+  CONFIG + category panels ARE built — the `+0x2d84` data static-RE couldn't reach is readable at runtime.
+- Button DISPLAY text is a vgui TextImage (not at object+0x104, which is a TS name copy). To read a
+  button's exact `_pos`/`_fgColor`: find its `Buy_*` name string → find the pointer to it (the button's
+  `_name` field) → that gives the button object → read vgui::Panel `_pos`(x,y) + `_fgColor`(RGBA). Need
+  the vgui::Panel/Button field offsets (from the vgui lib) to index those.
+
+**This converts the "config panel not RE-able" wall into a tractable runtime read.** Next: get the
+vgui::Panel `_pos`/`_fgColor`/`_name` field offsets, walk the `Buy_*` config buttons, and record the real
+positions/colours — then apply them to CTSBuyMenuPanel.
