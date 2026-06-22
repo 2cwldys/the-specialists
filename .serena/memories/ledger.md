@@ -55,6 +55,16 @@ sizes) and is the basis for the next Ghidra type-application pass (apply entvars
 gcc2 signatures + vtable annotation). NB STABS is NOT useful for mod member offsets — those stay analytic;
 but `entvars_t`/engine structs are pure C (ABI-stable offsets) so they CAN be applied verbatim.
 
+**Ghidra type recovery extended (cont.68e) — entvars_t fields + MSVC return types:**
+`ApplyTypes.java` now also (a) parses engine/progdefs.h to populate `entvars_t` with REAL fields
+(extracts just the plain `typedef struct{}` blocks + a 4-type prelude, since the modern progdefs.h
+has C++ `constexpr` the Ghidra C-parser rejects) → 668-byte entvars_t, so a typed `entvars_s *` param
+resolves static `pev->origin`-style accesses; and (b) merges RETURN types from the MSVC exports
+(signatures-mp.txt + signatures-client.txt: `public: RET __thiscall Class::Method(...)`), which the
+gcc2 demangle omits → 691 return types parsed, 164 applied (complete return+param prototypes on the
+exported subset). Verified: entvars_t 668B, params typed entvars_s*. (Funcs using the runtime
+gEntvarsDescription offset-table still show computed offsets — expected.) setup-ghidra.sh auto-applies.
+
 **Coverage dimensions added (cont.68d) — entity keyvalues + method completeness:**
 - **Entity keyvalue coverage** (`coverage.py`): per implemented FGD entity, which declared map keys NO
   `KeyValue()` handles (engine-auto keys = entvars_t fields + stock/compile-tool keys excluded). Surfaces 4
