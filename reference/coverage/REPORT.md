@@ -36,15 +36,15 @@ _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI
 
 _Commands the server accepts from a client (exact strcmp dispatch). EXTRA = the prime 'invented/HL-leftover' signal. NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths (strstr/sscanf), not captured here — so `weapon_<N>` is not flagged._
 
-- matched: **9**  |  missing (orig→not ours): **11**  |  extra (ours→not orig): **22**
+- matched: **13**  |  missing (orig→not ours): **7**  |  extra (ours→not orig): **18**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `cashala`, `changeteam`, `jointeam`, `motd`, `powerup`, `respawn`, `rst_cfg`, `tka`, `tki`, `tkw`, `useitems`
+  `cashala`, `changeteam`, `jointeam`, `motd`, `powerup`, `respawn`, `useitems`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `+alt1`, `+alt2`, `+break`, `-alt1`, `-alt2`, `-break`, `buy`, `closemenus`, `follownext`, `give`, `menuselect`, `special`, `specmode`, `spectate`, `tsarm`, `tsarmammo`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `tscutwire`, `tsresetarmament`, `tsspawnflag`
+  `+alt1`, `+alt2`, `+break`, `-alt1`, `-alt2`, `-break`, `buy`, `closemenus`, `follownext`, `give`, `menuselect`, `special`, `specmode`, `spectate`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `tsspawnflag`
 
 ### Client console commands (pfnAddCommand)
 

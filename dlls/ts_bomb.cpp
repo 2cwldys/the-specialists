@@ -14,7 +14,7 @@
 *  FUNCTIONAL reconstruction onto the stock SDK (ExplosionCreate for the blast; the attacker-
 *  team gate inlined like ts_objectives.cpp). // SLICE: the faithful enable is gamerules-driven
 *  (InitObjectives) — here a map-placed bomb arms on Spawn; the wire-cut UI is cl_dll, so wires
-*  are cut by the `tscutwire <0..2>` console command; bomb countdown uses a fixed default.
+*  are cut by the faithful `cutwire_<n>` prefix command; bomb countdown uses a fixed default.
 ***/
 #include "extdll.h"
 #include "util.h"

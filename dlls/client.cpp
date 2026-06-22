@@ -570,23 +570,36 @@ void ClientCommand(edict_t* pEntity)
 		if (CMD_ARGC() > 2)
 			player->BuyAmmo(atoi(CMD_ARGV(1)), atoi(CMD_ARGV(2)));
 	}
-	else if (FStrEq(pcmd, "tsarm")) // TS: queue a weapon into the armament. `tsarm <type> [count]`
+	else if (FStrEq(pcmd, "tkw")) // TS "take weapon": queue a weapon into the armament. arg = "type_count"
+	{                             //   (original ClientCommand: sscanf(argv1,"%i_%i") -> AddItemToArmament)
+		if (CMD_ARGC() > 1)
+		{
+			const char *a = CMD_ARGV(1);
+			const char *u = strchr(a, '_');
+			player->AddItemToArmament(atoi(a), u ? atoi(u + 1) : 1, false);
+		}
+	}
+	else if (FStrEq(pcmd, "tki")) // TS "take item": queue a single weapon. arg = "type" (sscanf "%i")
 	{
 		if (CMD_ARGC() > 1)
-			player->AddItemToArmament(atoi(CMD_ARGV(1)), CMD_ARGC() > 2 ? atoi(CMD_ARGV(2)) : 1, false);
+			player->AddItemToArmament(atoi(CMD_ARGV(1)), 1, false);
 	}
-	else if (FStrEq(pcmd, "tsarmammo")) // TS: queue ammo into the armament. `tsarmammo <caliber> <rounds>`
-	{
-		if (CMD_ARGC() > 2)
-			player->AddAmmoToArmament(atoi(CMD_ARGV(1)), atoi(CMD_ARGV(2)));
+	else if (FStrEq(pcmd, "tka")) // TS "take ammo": queue ammo into the armament. arg = "caliber_count"
+	{                             //   (original: sscanf(argv1,"%i_%i") -> AddAmmoToArmament)
+		if (CMD_ARGC() > 1)
+		{
+			const char *a = CMD_ARGV(1);
+			const char *u = strchr(a, '_');
+			player->AddAmmoToArmament(atoi(a), u ? atoi(u + 1) : 0);
+		}
 	}
-	else if (FStrEq(pcmd, "tsbuyarmament")) // TS: apply the queued armament loadout
-	{
-		player->BuyArmament();
-	}
-	else if (FStrEq(pcmd, "tsresetarmament")) // TS: clear the queued armament
+	else if (FStrEq(pcmd, "rst_cfg")) // TS: reset the queued armament/config (original -> ResetArmament)
 	{
 		player->ResetArmament();
+	}
+	else if (FStrEq(pcmd, "tsbuyarmament")) // apply the queued loadout (dev stand-in; original applies
+	{                                       // via the `cashala*` config-string command — see reference/BUY.md)
+		player->BuyArmament();
 	}
 	// --- TS join buy/config menu (cont.65, Phase 3): the compact gmsgShowMenu list,
 	// selected by number key (menuselect N) or "click anywhere" (+attack -> slot 1). ---
@@ -601,11 +614,12 @@ void ClientCommand(edict_t* pEntity)
 		int team = CMD_ARGC() > 1 ? atoi(CMD_ARGV(1)) : -1;
 		TSCreateFlag(team, player->pev->origin);
 	}
-	else if (FStrEq(pcmd, "tscutwire")) // TS bomb: cut a wire (0..2). `tscutwire <n>` (cl_dll UI is a SLICE)
+	else if (!strncmp(pcmd, "cutwire_", 8) && pcmd[8] >= '0' && pcmd[8] <= '9')
 	{
+		// TS bomb: cut a wire — the original is the prefix command `cutwire_<n>` (ClientCommand
+		// strstr "cutwire_" + sscanf "%i"), not a stand-in. cl_dll wire UI still a SLICE.
 		extern void TSCutWire(CBasePlayer *pPlayer, int wire);
-		if (CMD_ARGC() > 1)
-			TSCutWire(player, atoi(CMD_ARGV(1)));
+		TSCutWire(player, atoi(pcmd + 8));
 	}
 	else if (FStrEq(pcmd, "fullupdate"))
 	{

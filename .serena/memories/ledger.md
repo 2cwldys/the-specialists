@@ -55,6 +55,18 @@ sizes) and is the basis for the next Ghidra type-application pass (apply entvars
 gcc2 signatures + vtable annotation). NB STABS is NOT useful for mod member offsets — those stay analytic;
 but `entvars_t`/engine structs are pure C (ABI-stable offsets) so they CAN be applied verbatim.
 
+**Buy/loadout-config command protocol RE'd + stand-ins renamed (cont.68h, `reference/BUY.md`):**
+Decompiled the buy block of ClientCommand. Real commands + arg formats: `rst_cfg`→ResetArmament;
+`tkw` arg `"%i_%i"`(type_count)→AddItemToArmament; `tki` arg `"%i"`→AddItemToArmament single; `tka`
+arg `"%i_%i"`(caliber_count)→AddAmmoToArmament; `cutwire_<n>`/`drop_<n>` prefix commands;
+`cashala…`→GiveCash + apply a config string parsing `weapon_%i` + `lasclr_%i`(laser colour). The
+faithful buy flow = QUEUE (tkw/tki/tka) → APPLY (cashala config), not a direct per-weapon buy.
+Renamed our stand-ins: tsarm→`tkw`, tsarmammo→`tka`, tsresetarmament→`rst_cfg`, tscutwire→`cutwire_<n>`
+(prefix), added `tki`; kept tsbuy/tsbuyammo/tsbuyarmament as dev stand-ins (no 1:1 original — the
+apply is cashala; honest "extra" in coverage). Server-command coverage: missing 11→7, extra 22→18.
+Remaining missing = changeteam/jointeam/motd/powerup/respawn/useitems/cashala (team-menu/respawn +
+the cashala apply-name, need RE). Buy UI (the client emitting these) still deferred.
+
 **Acted on the coverage findings — 3 fidelity fixes (cont.68g):**
 - **Health wire size 2→1** (the cont.68f finding): `REG_USER_MSG("Health",1)` + both `WRITE_SHORT`→`WRITE_BYTE`
   (player.cpp) + client `READ_SHORT`→`READ_BYTE` (health.cpp). Our build was self-consistent at 2 but the
