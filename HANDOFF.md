@@ -13,7 +13,7 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-21, through cont.42)
+## Where things stand (2026-06-21, through cont.43)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`** → **run in-engine** (with bots for player-needing code) →
 **gdb** any crash. Everything below is committed (`git log`); `recovered/` is
@@ -217,13 +217,16 @@ finish team mode:
    touching it for cash to the nearest player (the one place the cont.36 cash flows). Verified on the
    real map `ts_dust2`. (Also fixed a pre-existing crash there: the dynamic powerup spawner
    runtime-precached `models/powerup.mdl` → moved to map-load precache.)
-   ✅ **`CTSTeamEscape` DONE (cont.42, `dlls/ts_escape.cpp`)** — the team escort/escape zone:
-   completes (fire target + HUD) when `escapepercentage` of the attacker team is simultaneously
-   inside. Synthetic-verified.
-   **Still TODO:** `CVipEscape` (3 — a VIP-specific escape; minimal, no FGD entity), `CTSScoreGiver`
-   (3 — a `WinGiver`-based point scorer, `@PointClass`). Build like the cont.25 objectives. Note CTF
-   capture currently scores via `TeamWin` (which restarts the round) — faithfully a capture awards
-   cash + a HUD pointer without ending the round; and CTSBomb's detonation just blasts (no score yet).
+   ✅ **`CTSTeamEscape` DONE (cont.42, `dlls/ts_escape.cpp`)** — escort zone, completes when
+   `escapepercentage` of the attacker team is simultaneously inside.
+   ✅ **`CTSScoreGiver` + `CVipEscape` DONE (cont.43, `dlls/ts_objectives.cpp`)** — `ts_scoregiver`
+   = a repeatable team-score giver; `func_vip_safetyzone` = a passive VIP safety-zone brush marker.
+   **→ The Track A FGD entity list is COMPLETE.** What's left in Track A is faithful polish, not new
+   entities: `UpdateTeamScores`/`InitTeamScore` (vs the current `m_teamScore[]`), the round timer
+   (`gmsgTSRoundTime`) + the full `RestartRound`@0x67920, `CTSObjective::Freeze`→`ShowObjectiveOnHud`,
+   the CheckDeads grace/CTB/last-man branches, and the fact that CTF capture scores via `TeamWin`
+   (which restarts the round) + CTSBomb's detonation just blasts. The **non-FGD leftovers** are small:
+   `CTSPlayerAmount` (player-count relay), `CTSSuperJump`, `CInfoBreakable`, `CBulletManager`.
 
 **Track B — stand up a cl_dll reconstruction (there is NONE yet — this is the other half of TS).**
 The server already registers + sends the user messages; the client just isn't built. This unlocks:

@@ -5,6 +5,41 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 43) — CTSScoreGiver + CVipEscape (the last team-objective leftovers)
+
+**Done — `CTSScoreGiver` + `CVipEscape` in `dlls/ts_objectives.cpp`.** The two small remaining
+team-objective entities; closes out the Track A entity list. Both FGD-listed, 0 stock placements →
+synthetic-verified.
+
+RE: `CTSScoreGiver` (Spawn @0x8c0b8, Use @0x8c158) is `@PointClass base(WinGiver)` — identical to
+CTSWinGiver (cont.25) but its Use RESETS the call counter after firing (param+0x19 = 0) so it scores
+REPEATEDLY (vs WinGiver latching done), and a "Respawn Players" spawnflag. `CVipEscape` (Spawn
+@0x8d23c) is classname **`func_vip_safetyzone`** (not ts_vipescape) — a passive brush marker (KeyValue
+stub, empty Precache, non-solid SET_MODEL) the unbuilt VIP-escort logic checks against; it has no
+touch/use of its own. Reconstruction:
+- `CTSScoreGiver : CTSWinGiver` — Use counts to callsnumber, then bumps `CTSGameRules::m_teamScore`
+  + HUD message + re-arms (m_calls=0). Scores DIRECTLY (not via TeamWin) so it's genuinely repeatable
+  and doesn't restart the round (a score giver gives points without ending the round, unlike the win
+  giver). // SLICE: the .so routes through TeamWin w/ cash; "Respawn Players" spawnflag not applied.
+- `CVipEscape : CBaseEntity` (func_vip_safetyzone) — a non-solid brush marker. // SLICE: the VIP win
+  detection is in the unbuilt team subsystem.
+
+**Verified RUNTIME (rcbot, tm_avana, SYNTHETIC — temp probe reverted):** ts_scoregiver callsnumber=2:
+team0 score 0 → 0 (1 call) → 1 (2 calls = scored) → 2 (4 calls = re-armed + scored again, REPEATABLE,
+no round-restart block); func_vip_safetyzone created without crash. Clean regression (tm_avana +
+ctb_deadheat + ts_dust2 0 Can't init). (Ran on -port 27018; 27015 held by an unrelated app.)
+
+**TRACK A ENTITY LIST COMPLETE.** All FGD team/CTF/objective entities are now reconstructed: teams
+(cont.35) + cash/buy (36) + elimination (37) + CTSFlag (38) + CTSBriefcase (39) + CTSBomb (40) +
+CTSSellZone (41) + CTSTeamEscape (42) + CTSScoreGiver/CVipEscape (43). Remaining Track A polish is
+faithful niceties (UpdateTeamScores/InitTeamScore, the round timer, ShowObjectiveOnHud, CheckDeads
+grace/CTB/last-man, capture-via-TeamWin-restarts-round). The big remaining frontier is **Track B —
+the cl_dll** (visible slow-motion, the particle system CTSSharedEmitter/CTSEmitter/CTSParticle,
+CTSStunt, all HUDs) — NONE built yet. Also the small non-FGD leftovers: CTSPlayerAmount,
+CTSSuperJump, CInfoBreakable, CBulletManager.
+
+---
+
 ## 2026-06-21 (cont. 42) — CTSTeamEscape (team escort/escape zone)
 
 **Done — `dlls/ts_escape.cpp` (ts_teamescape).** A team escort objective: when enough of the

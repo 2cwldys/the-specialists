@@ -122,6 +122,8 @@ recoverable directly).
 
 | `CTSTeamEscape` | `dlls/ts_escape.cpp` | ✅✅ **built + synthetic-verified (cont.42)** — the team escort/escape zone (`ts_teamescape`, brush, base tsobjective). Completes (fire target + HUD) when `escapepercentage` of the attacker team is simultaneously inside (0 one / 1 third / 2 two-thirds / 3 all); WaitTouch counts distinct attacker-team touchers, WaitThink resets the window each second. 0 stock placements → synthetic: size 2, pct=0 one-touch completes, pct=3 needs all. SLICE: arms on Spawn (faithful enable is gamerules), no Save/Restore, fires target only (no score). |
 
+| `CTSScoreGiver` / `CVipEscape` | `dlls/ts_objectives.cpp` | ✅✅ **built + synthetic-verified (cont.43)** — `ts_scoregiver` = CTSWinGiver but REPEATABLE (Use'd `callsnumber`× bumps the team score directly + re-arms, no round restart); `func_vip_safetyzone` = a passive VIP safety-zone brush marker (CVipEscape, no behaviour of its own). Verified: scoregiver callsnumber=2 scores 0→1→2 over repeated calls; vip zone spawns. SLICE: scoregiver "Respawn Players" flag not applied; VIP win-detection is the unbuilt team subsystem's. |
+
 Everything else in the table above is **not started**. Full history in the
 Serena ledger (`.serena/memories/ledger.md`).
 
