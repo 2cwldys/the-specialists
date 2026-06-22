@@ -5,6 +5,36 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 45) — Round timer (CTSGameRules::RoundTimeLeft + StartRoundTimer)
+
+**Done — the team-round time limit.** Completes the round lifecycle: team rounds now end three ways —
+elimination (cont.37), objective (cont.25/31), and now TIME-OUT. Part of Track A's round polish.
+
+RE (recovered/server/CTSGameRules.c): RestartRound @0x77920 sets the round end time +8 =
+clamp(`roundtime` cvar, 30, 180) + time, clears +0xc..0xf, and (if the round-time flag +0x10)
+sends gmsgTSRoundTime (remaining seconds). RoundTimeLeft @0x79024: when +8 elapses, fire the objective
+manager's `targetontimeleft` (+0x554 → +0x94) then `TeamWin(2)` = a DRAW. Functional reconstruction:
+- `CTSGameRules::StartRoundTimer()`: m_flRoundEnd = time + clamp(TS_ROUNDTIME=120, 30, 180) + register
+  & send gmsgTSRoundTime (remaining seconds) to all (lazy REG_USER_MSG "TSRoundTime").
+- `CTSGameRules::RoundTimeLeft()`: `TSFireTimeLeftTarget()` (new free helper in ts_objectives.cpp —
+  fires the objective manager's m_targetTimeLeft) + `TeamWin(2)` (draw → schedules the round restart).
+- `Think`: in team mode with no win pending, arm the timer on the first frame (m_flRoundEnd==0 →
+  StartRoundTimer) and run RoundTimeLeft when it expires. `TSRestartRound` zeroes m_flRoundEnd so the
+  next round re-arms.
+
+**Verified RUNTIME (rcbot, tm_avana, temp probe reverted — shortened the timer to 4s):** full cycle
+armed(4s) → expired → RoundTimeLeft draw (score [0,0] UNCHANGED = correct, a draw doesn't score) →
+restart scheduled (+3s) → respawn → timer re-armed → … cycling cleanly. No crash; clean regression
+(tm_avana + ctb_deadheat 0 Can't init, ts_wyndham only ts_emitter/ts_particle). (Ran on -port 27018.)
+
+**SLICE:** TS_ROUNDTIME is a fixed 120s (the .so reads a `roundtime` cvar — VERIFY/wire it); the
+round-time-enabled flag is implied by team mode (no per-mode gate); gmsgTSRoundTime is sent but no
+cl_dll reads it (no round-time HUD). This leaves UpdateTeamScores/InitTeamScore + the full faithful
+RestartRound (game-mode member + per-player round setup) + ShowObjectiveOnHud as the last Track A
+polish; the big frontier is Track B (cl_dll).
+
+---
+
 ## 2026-06-21 (cont. 44) — CTSPlayerAmount + CTSSuperJump (small self-contained leftovers)
 
 **Done — `dlls/ts_playeramount.cpp` (CTSPlayerAmount) + `CTSSuperJump` in `dlls/ts_powerup.cpp`.**
