@@ -1402,11 +1402,15 @@ void CBasePlayer::TSSendBuyMenu()
 		"\\w4 Reset Config\n"
 		"\\w5 Save Config\n"
 		"\\w6 Load Config\n"
-		"\\g7 Random\n"
-		"\\g8 Buy Kevlar\n"
+		"\\g7 Buy Random\n"
 		"\\w0 Cancel\n";
-	// valid slots: 1-8 and 0 (the "0" key = slot 10 -> bit 9)
-	const int slots = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 9);
+	// valid slots: 1-7 and 0 (the "0" key = slot 10 -> bit 9). Matches the recovered
+	// config-menu layout (reference/MENUS.md). The original buy menu is a CLIENT-built
+	// TEXT HUD menu (CHudMenu/ShowMenu style — numbered, key-selected; NOT VGUI), with
+	// nested submenus: "2 Buy" -> weapon categories (Handguns/SMGs/Rifles/Shotguns/Other)
+	// -> "6 Player Accessory" -> Kevlar/Lasersight/Silencer. Our server-side gmsgShowMenu
+	// config menu is a stand-in for that top level; the submenus are deferred.
+	const int slots = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 9);
 
 	MESSAGE_BEGIN(MSG_ONE, gmsgShowMenu, NULL, pev);
 	WRITE_SHORT(slots);
@@ -1473,13 +1477,6 @@ void CBasePlayer::TSMenuSelect(int slot)
 		TSCloseMenu();
 		break;
 	}
-	case 8: // Buy Kevlar — queue the kevlar item (bit 0x10) into the loadout (applied at spawn
-		// via BuyArmament -> AddItem -> TakeArmor). Kevlar = a binary flag + flat armor_absorb
-		// damage reduction (CBasePlayer::TakeArmor / TakeDamage).
-		AddItemToArmament(0x10, 1, /*isItem*/ true);
-		ClientPrint(pev, HUD_PRINTCENTER, "Kevlar added to loadout.\n");
-		TSSendBuyMenu();
-		break;
 	case 10: // 0 Cancel — keep the (empty/default) loadout, close the menu
 		m_fConfigChosen = true;
 		TSCloseMenu();
