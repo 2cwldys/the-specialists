@@ -35,14 +35,42 @@ cl_dll menu; began the faithful vgui reproduction. **All findings in `reference/
   accessory branch.
 
 **Reproduction (vgui, modelled on `cl_dll/vgui_teammenu.cpp`):**
-- **Slice 1 DONE (committed, compiles):** `cl_dll/vgui_TSBuyMenu.{h,cpp}` = `CTSBuyMenuPanel` — the CONFIG
-  menu as a `vgui::Panel` of `CommandButton`s with `setBoundKey(number)` + `CMenuHandler_StringCommand` →
-  the server `menuselect` handler. Correct RE-grounded architecture (not the reverted hand-drawn HUD).
-- **NEXT slices (specified, not built):** (2) viewport integration — own it in TeamFortressViewport
-  (`CreateTeamMenu`-style), show during spectate-wait + cursor state, retire the server gmsgShowMenu
-  stand-in; (3) the Buy/Accessory submenus + per-category weapon lists (from the category builders) +
-  the accessory cvar toggles; (4) the apply sequencer (rst_cfg/tkw/tki/tka) + the kevlar item-queue token.
-  Build each as a compiled+verified increment.
+- **Slice 1 DONE (committed):** `cl_dll/vgui_TSBuyMenu.{h,cpp}` = `CTSBuyMenuPanel` — the CONFIG menu as a
+  `vgui::Panel` of `CommandButton`s with `setBoundKey(number)` + `CMenuHandler_StringCommand` → the server
+  `menuselect` handler. Correct RE-grounded architecture (not the reverted hand-drawn HUD).
+- **Slice 2 + 2c DONE (committed, IN-ENGINE VERIFIED):** owned in `TeamFortressViewport` (`CreateTSBuyMenu`),
+  `ShowTSBuyMenu(show)` + `UpdateCursorState`, triggered from `CHudSpectate::MsgFunc_Spectator` (show in
+  spectate-wait, hide on spawn). Retired the server `gmsgShowMenu` stand-in (`TSSendBuyMenu` no-op). **Verified
+  by screenshot:** the vgui config menu (1 Use New Config … 7 Buy Random) draws during spectate-wait with the
+  panel background; the old server text menu is gone; pressing bound key `1` fires `menuselect 1` + closes the
+  menu. (The buttons reuse the server `TSMenuSelect` for config actions — a faithful bridge for the top level.)
+- **Slice 3 DONE (committed) — buy-category submenu page.** RE'd from `FUN_10010440`: the category page
+  (Handguns/SMGs/Rifles/Shotguns/Other + Player Accessory + `0 Cancel` at colour `(100,100,205)`) built as
+  a toggled button page in `CTSBuyMenuPanel` with a `CTSMenuHandler_Page` action (config↔category nav).
+  Compiles + renders. **KNOWN GAPS:** (a) the viewport routes number keys only to its *current command
+  menu*, not this panel, so key-nav to the category page isn't wired (mouse-click on the vgui buttons is
+  the path; cursor-state/UpdateCursorState needs confirming); (b) the per-category **weapon lists** + the
+  **accessory** page (their builders decompile — next RE slice); (c) the config-panel exact colours/positions.
+- **CONFIG-PANEL WALL — runtime inspect needed but NOT executable here.** The `+0x2d84` config panel is
+  provably not statically RE-able (0 writes/allocs/sizers in 157K-line disasm; Ghidra mis-decompiles the
+  region). The runtime-inspect path (run the ORIGINAL TS `client.dll` under wine+winedbg, break at the menu
+  show, read the live `+0x2d84` panel's child positions/colours) is **blocked: no runnable original TS on
+  this box** (no hl.exe / game install; `~/Projects/the-specialists` is stock-SDK source, not the menu code).
+  Needs a HL+TS Windows install under wine first. Static-RE'd values applied so far: dimensions 128×20, the
+  per-entry RGB colour *system*, the navigation; config items drawn white pending the inspect.
+- **Slice 2d DONE (committed, VERIFIED) — RE-grounded styling.** First styled it wrong (used the SDK
+  CommandButton's TFC orange box skin). RE'd the real draw: TS entries are plain `vgui::Button`
+  (`FUN_10066b40` vtable = all imported vgui::Button methods, no paint override); colours set per-entry by
+  `FUN_10011160` — **available = green (45,195,45), unavailable = red (195,45,45)** (button+0xfc/0x100). The
+  orange was only `CommandButton::paintBackground` (boxes) + `paint()` forcing `Scheme::sc_primary1`.
+  `CTSMenuButton` keeps CommandButton's bound-key/action but overrides `paint()` → TS green/red via
+  `vgui::Button::paint`, `paintBackground()` → empty. Verified: green text on the faint panel, no orange.
+- **NEXT slices (specified, not built):** (3) the **Buy** (`menuselect 2`) → weapon-category submenu + the
+  **Player Accessory** submenu (Kevlar/Lasersight/Silencer via `cl_buykevlar`/`cl_laser`) — these are
+  client-side nav panels (the 2nd/3rd of the 4 RE'd panels); the **per-category weapon lists** come from the
+  category builders (still to decompile). (4) the client-side loadout-build + **apply** sequencer
+  (rst_cfg/tkw/tki/tka, `FUN_10012050`) + the kevlar item-queue token. Mouse-click selection + cursor visibility
+  to confirm in spectate. Build each as a compiled+verified increment.
 
 ---
 
