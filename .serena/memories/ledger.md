@@ -5,6 +5,52 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 65) — CTSAnimation: reconstruct 3rd-person body/gait (fix the always-idle player), VERIFIED
+
+Fixed the **biggest open item** (the player 3rd-person model was always idle — no walk/run/fire gait).
+
+**Root cause (decomp-grounded):** the original `CBasePlayer::SetAnimation(PLAYER_ANIM)` is a **no-op stub**
+(`@0xd8f50`, 21 bytes) — TS drives ALL body animation through `CTSAnimation::Animate` (`@0x6abd0`, called
+from `PostThink` with activity 1=move / 6=idle, from `Duck`=5/`Jump`=4, and the weapon fire/reload/death
+paths). Our build still ran the STOCK SDK SetAnimation, which looks up `"ref_aim_<ext>"`/`ACT_*` sequences
+the TS `player.mdl` does NOT define (it ships `idle_/aim_/shoot_<grip>`, `run2`/`walk2`/`crawl`, `crouch_*`,
+`standard_jump`, `die_*`, …; dumped all 171 seq names from `~/Containers/hlds/mods/ts/models/player.mdl`).
+So every lookup returned -1 → sequence 0 (`empty`) → permanent idle.
+
+**Reconstruction (`dlls/ts_animation.{h,cpp}`, `CTSAnimation m_TSAnim` embedded on CBasePlayer):** by
+INTENT from the ~6.7KB Animate state machine (behaviour + the model/client contract is the target, not the
+gcc2 byte layout — the decompile is hostile: pointer-to-member string-build loops + stack artifacts).
+- `pev->sequence` (torso) = `shoot_`/`relo_`/`draw_`/`aim_`/`idle_` + grip, with `crouch_`/`duck_` variants;
+  `standard_jump`/`jump_<dir>_<grip>`; `goduck`; `die_spin`; `grenade`. Grip = `m_szAnimExtention`
+  (onehanded/twohanded/akimbo), already set by `CTSGun::Deploy` (the original's player+0x2d6).
+- `pev->gaitsequence` (legs) = `crawl` (ducking+moving) / `run2` (>135 u/s) / `walk2` / 0. The client
+  `StudioProcessGait` plays gaitsequence blended under the torso sequence (verified it reads the
+  server-networked value, doesn't pick walk/run itself).
+- aim-hold timer (`m_flAimTimer`=2.0 on fire/reload) protects the just-set shoot/relo torso pose from being
+  overwritten by the per-frame idle path — mirrors the original's `param_1[3]` gate (`@0x6cf..`).
+
+**Wiring:** `CBasePlayer::SetAnimation` rewritten to route the PLAYER_ANIM call sites →
+`m_TSAnim.Animate` (JUMP/SUPERJUMP→4, DIE→7, ATTACK1→0, WALK→1, IDLE→6); `CTSGun` drives
+reload(`relo_`,0x33)/deploy(`draw_`,0x34)/grenade(`grenade`,0x35) directly; `PreThink` decays the timers;
+`Spawn` calls `Init()`. (Fire already routed via the existing `SetAnimation(PLAYER_ATTACK1)` call sites.)
+
+**Deferred (CTSStunt-gated — CTSStunt is NOT ported, so these activity codes never fire):** dives
+(0x28-0x2b,0x2e-0x30), cartwheels/walljump (0x31,0x32,0x37,0x38), morfy-jump (0x39), rolls/bullet-dance
+(0x36), close-combat blends. The directional-aim 9-way movement blend (BlendAnimationsByDir) + death-by-
+direction variants are also a refinement (we use die_spin). The `CTSAnimation::Init` string tables for the
+deferred stunt names are intentionally not reproduced.
+
+**Verified (xash3d-fwgs thirdperson, this box's GPU, `+thirdperson` on tm_avana; used xdotool to drive
+keydown w / mousedown 1 / keydown ctrl + `import` screenshots):** armed standing idle pose (was broken),
+walk/run **leg gait cycling** across frames, distinct **crouch** stance. No crash, no sequence-out-of-range
+in the dev log. Server + client both build clean (amd64), `nm|c++filt` shows the 6 CTSAnimation methods.
+Committed `2c44837`.
+
+**NEXT:** fire/aim torso pose is hard to confirm from the behind-camera (works structurally; a front view or
+rcbot would confirm); directional-aim strafe blend (BlendAnimationsByDir) for proper 8-way movement;
+death-direction variants; then `CTSStunt` (which unlocks the deferred Animate branches) + full pmove
+time-dilation. See `reference/ENGINE_INTERFACE.md` "notable gaps".
+
 ## 2026-06-22 (cont. 64) — playtest fixes: fire-anim regression, 3rd-person camera, coldcock sound
 
 User playtested (cont.61–63 build) and reported issues; fixed three:

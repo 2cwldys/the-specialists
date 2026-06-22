@@ -27,7 +27,7 @@ touching that area):**
 - New Ghidra tooling: `scripts/ghidra/DecompAt.java` (decompile a function by address),
   `DecompRefs.java`.
 
-## Where things stand (2026-06-22, through cont.64)
+## Where things stand (2026-06-22, through cont.65)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`/`client.so`** → **run in-engine** (ReHLDS for server; xash3d-fwgs
 for the graphical client — this box HAS a GPU) → **gdb** any crash. Everything below is
@@ -294,13 +294,20 @@ behind the player, cont.61/64); `GetGameDescription` → "The Specialists (mode)
 movement** (PreThink scales speed cap by the slow factor, cont.62 — the marquee effect).
 
 **NEXT FRONTIER (all gameplay/subsystem, see `ENGINE_INTERFACE.md` "notable gaps"):**
-1. **`CTSAnimation`** — the player 3rd-person gait (walk/run/fire); currently the player model is **always
-   idle** (user-reported). The stock SetAnimation runs but TS drives its models via `CTSAnimation::Animate`
-   (PostThink, 14 funcs, NOT ported) + the client gait. **The most visible remaining bug.**
+1. ✅ **`CTSAnimation` — DONE (cont.65, `dlls/ts_animation.{h,cpp}`).** The player 3rd-person gait
+   (idle/walk/run/crouch/jump/fire/reload by grip) is reconstructed + **visually verified** (the always-idle
+   bug is fixed). The original `SetAnimation` is a no-op stub; TS drives the body via `CTSAnimation::Animate`
+   (now an embedded `m_TSAnim` member, driven from PostThink/fire/reload/death). pev->sequence = torso
+   (`idle_/aim_/shoot_/relo_/draw_<grip>` + crouch_/duck_ variants, jump, die_spin, grenade); pev->gaitsequence
+   = legs (run2/walk2/crawl). **Deferred (CTSStunt-gated, never fires until CTSStunt lands):** dives/cartwheels/
+   walljump/morfy/rolls (activities 0x28-0x32,0x36-0x39); also TODO: directional-aim strafe blend
+   (BlendAnimationsByDir, 8-way), death-by-direction variants (we use die_spin), confirm the fire/aim torso
+   pose (hard from the behind-camera — needs a front view or rcbot).
 2. **Full pmove time-dilation** — slow-motion movement is wired (speed cap); gravity/jump-arc/anim-rate
    time-dilation needs the slow value in client-predicted `pm_shared`.
-3. **`CTSStunt`** (dives/rolls/wall-flips, 25 funcs, PostThink) + **true client weapon prediction**
-   (HUD_PostRunCmd) + the **`+alt1` silencer** (unmapped) + the **buy menu** (cl_dll VGUI).
+3. **`CTSStunt`** (dives/rolls/wall-flips, 25 funcs, PostThink — unlocks the deferred CTSAnimation branches) +
+   **true client weapon prediction** (HUD_PostRunCmd) + the **`+alt1` silencer** (unmapped) + the **buy
+   menu** (cl_dll VGUI).
 4. **rcbot-in-xash rig** would make combat-gated things testable (damagemult, coldcock damage, fire path).
 
 **Workflow:** build → `setup-xash-mod.sh` → run in xash (the loop above) → screenshot/gdb to verify →
