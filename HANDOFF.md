@@ -13,7 +13,7 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 If those three and this file agree, you're oriented. If they disagree, the
 ledger + git log are ground truth; fix the docs.
 
-## Where things stand (2026-06-21, through cont.43)
+## Where things stand (2026-06-21, through cont.44)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`** → **run in-engine** (with bots for player-needing code) →
 **gdb** any crash. Everything below is committed (`git log`); `recovered/` is
@@ -225,8 +225,11 @@ finish team mode:
    entities: `UpdateTeamScores`/`InitTeamScore` (vs the current `m_teamScore[]`), the round timer
    (`gmsgTSRoundTime`) + the full `RestartRound`@0x67920, `CTSObjective::Freeze`→`ShowObjectiveOnHud`,
    the CheckDeads grace/CTB/last-man branches, and the fact that CTF capture scores via `TeamWin`
-   (which restarts the round) + CTSBomb's detonation just blasts. The **non-FGD leftovers** are small:
-   `CTSPlayerAmount` (player-count relay), `CTSSuperJump`, `CInfoBreakable`, `CBulletManager`.
+   (which restarts the round) + CTSBomb's detonation just blasts. **Non-FGD leftovers:**
+   ✅ `CTSPlayerAmount` + `CTSSuperJump` DONE (cont.44). Remaining: `CInfoBreakable` (a respawning
+   breakable — thin, low value) and `CBulletManager` (the traveling-bullet / bullet-time system —
+   substantive but DEFERRED: it would rewrite the verified instant-hitscan fire path and isn't visible
+   without a cl_dll; best done alongside Track B so the slow bullets can actually be seen).
 
 **Track B — stand up a cl_dll reconstruction (there is NONE yet — this is the other half of TS).**
 The server already registers + sends the user messages; the client just isn't built. This unlocks:

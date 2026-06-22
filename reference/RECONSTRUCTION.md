@@ -124,6 +124,8 @@ recoverable directly).
 
 | `CTSScoreGiver` / `CVipEscape` | `dlls/ts_objectives.cpp` | ✅✅ **built + synthetic-verified (cont.43)** — `ts_scoregiver` = CTSWinGiver but REPEATABLE (Use'd `callsnumber`× bumps the team score directly + re-arms, no round restart); `func_vip_safetyzone` = a passive VIP safety-zone brush marker (CVipEscape, no behaviour of its own). Verified: scoregiver callsnumber=2 scores 0→1→2 over repeated calls; vip zone spawns. SLICE: scoregiver "Respawn Players" flag not applied; VIP win-detection is the unbuilt team subsystem's. |
 
+| `CTSPlayerAmount` / `CTSSuperJump` | `dlls/ts_playeramount.cpp`, `dlls/ts_powerup.cpp` | ✅✅ **built + synthetic-verified (cont.44)** — `ts_playeramount` = a point relay that fires connecttarget/disconnecttarget when the player count rises/falls to `clients` (poll-based CountThink); `ts_superjump` = a CTSPowerUp pre-set to the low-gravity/super-jump type. Verified: playeramount(clients=2) fires connecttarget when the count reaches 2; superjump spawns. SLICE: playeramount polls (no engine connect hook) + ignores spawnflags. |
+
 Everything else in the table above is **not started**. Full history in the
 Serena ledger (`.serena/memories/ledger.md`).
 

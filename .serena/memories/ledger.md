@@ -5,6 +5,36 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-21 (cont. 44) — CTSPlayerAmount + CTSSuperJump (small self-contained leftovers)
+
+**Done — `dlls/ts_playeramount.cpp` (CTSPlayerAmount) + `CTSSuperJump` in `dlls/ts_powerup.cpp`.**
+Two of the small non-FGD-table leftovers; both self-contained, synthetic-verified.
+
+RE: `CTSPlayerAmount` (Spawn @0x72a78, ClientConnect @0x72aec / ClientDisconnect) is a point relay
+(ts_playeramount) — a per-entity counter (+0x6c) that fires `connecttarget` (+0x74) when the count
+rises to `clients` (+0x70) and `disconnecttarget` (+0xd8) when it falls back to it, driven off the
+engine connect/disconnect events. `CTSSuperJump` (Spawn @0xc9f44) is `CTSSuperJump : CTSPowerUp` —
+sets m_iType = 0x100 (TS_PWUP_LOWGRAV) then chains CTSPowerUp::Spawn, so it's a map powerup that
+always gives the super-jump (low-gravity) effect. Reconstruction:
+- `CTSPlayerAmount : CBaseEntity` — KeyValue clients/connecttarget/disconnecttarget; a 0.5s CountThink
+  polls the live connected-player count and fires connecttarget on the rising edge to `clients` /
+  disconnecttarget on the falling edge (a poll equivalent of the .so's connect/disconnect events, so
+  no engine hook needed).
+- `CTSSuperJump : CTSPowerUp` — Spawn forces m_iType = TS_PWUP_LOWGRAV then CTSPowerUp::Spawn.
+
+**Verified RUNTIME (rcbot, ts_wyndham, SYNTHETIC — temp probe reverted):** a ts_playeramount(clients=2)
+fired connecttarget the moment the live count rose to 2 (rising-edge); ts_superjump spawned as a
+powerup without crashing. Clean regression (tm_avana 0 Can't init; ts_theatre's 328 powerups still 0
+Can't init — CTSSuperJump didn't disturb the powerup path). (Ran on -port 27018; 27015 held by an
+unrelated app.)
+
+**SLICE:** CTSPlayerAmount uses a poll instead of the engine connect/disconnect hooks + ignores its
+spawnflags; CTSSuperJump inherits CTSPowerUp's Save/Restore as-is. Remaining leftovers: CInfoBreakable
+(a respawning breakable — thin, deferred), CBulletManager (the traveling-bullet/bullet-time system —
+deferred: it rewrites the verified instant-hitscan fire path + isn't visible without a cl_dll).
+
+---
+
 ## 2026-06-21 (cont. 43) — CTSScoreGiver + CVipEscape (the last team-objective leftovers)
 
 **Done — `CTSScoreGiver` + `CVipEscape` in `dlls/ts_objectives.cpp`.** The two small remaining
