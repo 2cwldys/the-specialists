@@ -40,6 +40,12 @@ funcs (the bar's grid TRANSPOSES the WStatus handler's (slot*0xb+pos): draw col 
 **Text/font RESOLVED:** `FUN_10021ce0` draws per-char via `pfnDrawCharacter` advancing by SCREENINFO
 charWidths, clipped to maxX — i.e. the ENGINE HUD font (no custom bitmap font; the "bitmapfonts" worry was
 wrong). Ported faithfully as `TSHud_DrawString` (clip to panel width) + used by the ammo box & weapon bar.
+**Finding (for the attachment system / +alt work):** `CTSGun::AlternateAttack @0x81ba8` = **ColdCock**
+(pistol-whip melee bash) when the active clip > 0 — NOT the silencer toggle. So the attachment system
+(silencer/laser support + toggle, which would light up the ammo box's Silencer/Lasersight rows +
+`item_installed.spr` dots) lives elsewhere in the weapon code and is a distinct gameplay feature, not HUD
+polish. The HUD attachment rows need the WeaponInfo flags byte (currently sent as 0) driven by that system.
+
 **Weapon ICONS DONE:** the bar now draws each held weapon's `sprites/weapons/<name>.spr` (SPR_Load in
 VidInit + SPR_DrawAdditive centred in the slot; name table from the client.dll string list, all 38 files
 present in the mod). Verified: the Beretta pistol icon renders in column 2. Active weapon full-colour,
