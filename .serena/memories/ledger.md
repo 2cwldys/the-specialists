@@ -28,11 +28,17 @@ left-of-icon — Seal Knife 10 / Combat Knife 5 — Kevlar interleaved, `(Sil ,L
 match (Total 6300 = 500+1000+2900+1900; Free Slots 46 = 81-35). **Mouse confirmed working by the user.**
 Save/load configs, Remove-Item, Change-Team, Random, Reset all implemented per the state machine.
 
-**ONE remaining slice — auto-ammo numbers** (Glock "210"/M16 "120" + their Total share + the `tka` cmd):
-caliber COST/unit (`[1]`) + ROUNDS/unit (`[4]`) RE'd (Glock 7×50=350cr → Total 3400 ✓, 7×30=210 ✓), but the
-per-caliber **max-rounds** field (FUN_10039380 reads `caltable[3]`, table `DAT_1009ffc0` stride 0xe, filled
-runtime by FUN_10007480) reads 0 in static extraction → needs a **runtime capture** (gdb the live game's
-table, like the cont.69f config-panel capture). Guns show no ammo number yet; melee/throwables show count.
+**Auto-ammo DONE (runtime-captured).** The menu auto-fills each weapon's caliber to max, adds the cost to
+Total, shows rounds left of the preview icon (Glock 210 / M16 120), emits `tka <cal>_<units>`. The per-caliber
+**max** field reads 0 statically (set only at load), so the caliber table `DAT_1009ffc0` + per-weapon caliber
+(`weapon_info+0x08`) were read from the LIVE hl.exe via `/proc/<pid>/mem` (client.dll base 0x0c070000, table
+@0x0c10ffc0) — full table in reference/MENUS.md "AUTO-AMMO". Verified Glock → 350cr → Total 3400.
+
+**Spectate HUD fixed.** RE-verified TS has NO stock spectator chrome (no top "Map:" bar) — inherited HL/TFC
+`SpectatorPanel` was bleeding through. `SpectatorPanel::Update()` suppresses the top+bottom borders + Map/
+timer/scores during TS spectate; `CHudSpectate::Draw()` draws the dark bottom bar + "Free-Look" + control help
+in the HUD layer (was hidden under the vgui overlay). Screenshot-verified vs the original. Commits 258a447
+(menu) / f17a453 (ammo) / 2bac9c7 (spectate).
 
 ## 2026-06-23 (cont. 69k) — DISCOVERY: we RE'd the WRONG (legacy) buy menu; full RE of the REAL one
 

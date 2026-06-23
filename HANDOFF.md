@@ -49,11 +49,17 @@ the weapon cost table). **Verified vs the user's reference screenshots**: real r
 Contender G2 #10 in Handguns), "Special Purpose"/"Go Back", green "7 Random", blue Cancel, the 1-5 loadout
 preview columns (bought items by HUD column, in add-order, count-left-of-icon, `(Sil ,Las ,Fla ,Sco )`),
 `Free Slots = 81 - used` (remaining), Total/slots accounting all match.
-**ONE remaining slice — the auto-ammo numbers** (e.g. Glock "210"/M16 "120" rounds + their share of Total +
-the `tka` command): the per-caliber COST/unit (`[1]`) + ROUNDS/unit (`[4]`) are RE'd (Glock 7×50cr=350 → Total
-3400 ✓, 7×30=210 rounds ✓), but the per-caliber **max-rounds** cap (`DAT_1009ffc0[?]`, FUN_10039380 reads
-`[3]`) resists static RE — needs a runtime capture of the caliber table (like the config panel in cont.69f).
-Guns currently show no ammo number; melee/throwables show the correct count (Seal Knife 10 / Combat Knife 5).
+**Auto-ammo DONE (runtime-captured).** The menu auto-fills each weapon's caliber to max + adds the cost to
+Total + shows the rounds left of the preview icon (Glock 210 / M16 120) + emits `tka <cal>_<units>`. The
+per-caliber **max** field reads 0 statically (load-time only), so the caliber table `DAT_1009ffc0` + per-weapon
+caliber (`weapon_info+0x08`) were read from the LIVE hl.exe (`/proc/<pid>/mem`, client.dll base 0x0c070000,
+table @0x0c10ffc0) — full table in `reference/MENUS.md` "AUTO-AMMO". Verified Glock → 350cr ammo → Total 3400.
+
+**Spectate HUD fixed (cont.69l):** TS has NO stock spectator chrome — the inherited HL/TFC `SpectatorPanel`
+top "Map:"/timer/score bar was bleeding through. `SpectatorPanel::Update()` now suppresses it (top+bottom
+borders + Map/timer/scores) during the TS spectate phase, and `CHudSpectate::Draw()` draws the dark bottom
+bar + "Free-Look" + the control help in the HUD layer (no longer hidden under the vgui overlay).
+Screenshot-verified vs the original (no top bar; bottom bar matches).
 
 ### (historical) THE BUY MENU course-correction
 **Read `reference/MENUS.md` "★ THE REAL BUY MENU" — the rebuild spec.** The TS client.dll has
