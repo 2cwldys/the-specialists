@@ -700,64 +700,58 @@ void CHudAmmo::SlotInput(int iSlot)
 	gWR.SelectSlot(iSlot, false, 1);
 }
 
+// TS: slot1-5 open the TS weapon-select bar at HUD column 1-5 (CHudTSWeaponBar), NOT the stock
+// gWR yellow weapon menu (TS has one weapon_tsgun arsenal). slot6-10 are unused in TS.
 void CHudAmmo::UserCmd_Slot1()
 {
-	SlotInput(0);
+	gHUD.m_TSWeaponBar.SelectColumn(1);
 }
 
 void CHudAmmo::UserCmd_Slot2()
 {
-	SlotInput(1);
+	gHUD.m_TSWeaponBar.SelectColumn(2);
 }
 
 void CHudAmmo::UserCmd_Slot3()
 {
-	SlotInput(2);
+	gHUD.m_TSWeaponBar.SelectColumn(3);
 }
 
 void CHudAmmo::UserCmd_Slot4()
 {
-	SlotInput(3);
+	gHUD.m_TSWeaponBar.SelectColumn(4);
 }
 
 void CHudAmmo::UserCmd_Slot5()
 {
-	SlotInput(4);
+	gHUD.m_TSWeaponBar.SelectColumn(5);
 }
 
 void CHudAmmo::UserCmd_Slot6()
 {
-	SlotInput(5);
 }
 
 void CHudAmmo::UserCmd_Slot7()
 {
-	SlotInput(6);
 }
 
 void CHudAmmo::UserCmd_Slot8()
 {
-	SlotInput(7);
 }
 
 void CHudAmmo::UserCmd_Slot9()
 {
-	SlotInput(8);
 }
 
 void CHudAmmo::UserCmd_Slot10()
 {
-	SlotInput(9);
 }
 
 void CHudAmmo::UserCmd_Close()
 {
-	if (gpActiveSel)
-	{
-		gpLastSel = gpActiveSel;
-		gpActiveSel = NULL;
-		PlaySound("common/wpn_hudoff.wav", 1);
-	}
+	// cancelselect: close the TS weapon-select bar (no swap), else escape.
+	if (gHUD.m_TSWeaponBar.IsSelecting())
+		gHUD.m_TSWeaponBar.CloseSelect();
 	else
 		EngineClientCmd("escape");
 }
@@ -769,54 +763,10 @@ void CHudAmmo::UserCmd_NextWeapon()
 	if (gHUD.m_fPlayerDead || (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL)) != 0)
 		return;
 
-	// TS: weapons live in the single weapon_tsgun arsenal, so the stock weapon-select menu
-	// (gWR) doesn't apply. The faithful select cursor (reference/WEAPON_SELECT.md) walks the
-	// owned weapons in the bar's display order and commits the highlighted type to the server
-	// via "weapon_<N>" (the original client's FUN_1004f500 transport). (mouse-wheel invnext)
-	{
-		int t = gHUD.m_TSWeaponBar.CycleType(true);
-		if (t >= 0)
-		{
-			char cmd[24];
-			sprintf(cmd, "weapon_%d\n", t);
-			ServerCmd(cmd);
-		}
-	}
-	return;
-
-	if (!gpActiveSel || gpActiveSel == (WEAPON*)1)
-		gpActiveSel = m_pWeapon;
-
-	int pos = 0;
-	int slot = 0;
-	if (gpActiveSel)
-	{
-		pos = gpActiveSel->iSlotPos + 1;
-		slot = gpActiveSel->iSlot;
-	}
-
-	for (int loop = 0; loop <= 1; loop++)
-	{
-		for (; slot < MAX_WEAPON_SLOTS; slot++)
-		{
-			for (; pos < MAX_WEAPON_POSITIONS; pos++)
-			{
-				WEAPON* wsp = gWR.GetWeaponSlot(slot, pos);
-
-				if (wsp && gWR.HasAmmo(wsp))
-				{
-					gpActiveSel = wsp;
-					return;
-				}
-			}
-
-			pos = 0;
-		}
-
-		slot = 0; // start looking from the first slot again
-	}
-
-	gpActiveSel = NULL;
+	// TS: open the TS weapon-select bar and move the cursor to the next owned weapon. No immediate
+	// commit — the original's hud_fastswitch-0 model: FIRE confirms the highlighted weapon
+	// (CHudTSWeaponBar::Step/Commit, reference/WEAPON_SELECT.md). (mouse-wheel invnext)
+	gHUD.m_TSWeaponBar.Step(true);
 }
 
 // Selects the previous item in the menu
@@ -825,19 +775,13 @@ void CHudAmmo::UserCmd_PrevWeapon()
 	if (gHUD.m_fPlayerDead || (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL)) != 0)
 		return;
 
-	// TS: step the select cursor backwards through the owned arsenal and commit it via
-	// "weapon_<N>" (see UserCmd_NextWeapon / reference/WEAPON_SELECT.md). (mouse-wheel invprev)
-	{
-		int t = gHUD.m_TSWeaponBar.CycleType(false);
-		if (t >= 0)
-		{
-			char cmd[24];
-			sprintf(cmd, "weapon_%d\n", t);
-			ServerCmd(cmd);
-		}
-	}
-	return;
+	// TS: step the select cursor backwards (open the bar; FIRE confirms). (mouse-wheel invprev)
+	gHUD.m_TSWeaponBar.Step(false);
+}
 
+#if 0 // retired stock gWR weapon-select walk (TS uses CHudTSWeaponBar)
+void CHudAmmo::UserCmd_PrevWeapon_stock()
+{
 	if (!gpActiveSel || gpActiveSel == (WEAPON*)1)
 		gpActiveSel = m_pWeapon;
 
@@ -872,6 +816,7 @@ void CHudAmmo::UserCmd_PrevWeapon()
 
 	gpActiveSel = NULL;
 }
+#endif // retired stock gWR weapon-select walk
 
 
 
