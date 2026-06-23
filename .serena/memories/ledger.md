@@ -5,6 +5,17 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-23 (cont. 69o) — full akimbo-ownership model RE'd (refactor handed to next agent)
+
+User asked to ground the akimbo logic in RE and (after I flagged the scope) chose to do the full refactor;
+we decided to hand the IMPLEMENTATION to the next agent (this session was already very long). The complete
+model is RE'd + documented in reference/WEAPON_SELECT.md ("Akimbo ownership model" + "TakeWeapon combine"):
+TakeWeapon@0x80a04 (combine: akimbo item carries two barrel clips +0x130/+0x134; KEEPS both items[single]
+and items[akimbo] owned), DropWeapon@0x84900 (drop akimbo → 2× base single), SwitchItems=FUN_00081564
+(useitems toggles the active-barrel mask +0x14 bits 2/4), GetBetterWeapon@0x80f40 (g_iWeaponPriority).
+NEXT TASK = migrate CTSGun arsenal from the compact m_arsenalType[] list to items[]-by-tsweapon_t so a
+single can be wielded/dropped independently of its akimbo pair. See HANDOFF.md "⭐ NEXT TASK".
+
 ## 2026-06-23 (cont. 69n) — death=spectate, spectator-chrome suppression, weapon-select rebuild
 
 Playtest fixes (all RE-grounded + in-engine/user-confirmed):

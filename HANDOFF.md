@@ -37,7 +37,39 @@ touching that area):**
   + holster→deploy; the real command set vs our stand-ins).
 - `reference/BUY.md` — the buy/loadout-config command protocol (`tkw`/`tki`/`tka`/`rst_cfg`/`cashala…`).
 
-## Where things stand (2026-06-23, through cont.69k)
+## Where things stand (2026-06-23, through cont.69o)
+
+### ⭐ NEXT TASK (user-approved) — the akimbo OWNERSHIP refactor. FULLY RE'd; NOT yet implemented.
+Migrate `CTSGun`'s arsenal from the compact `m_arsenalType[]` list (akimbo = one upgraded slot) to the
+original's **items[]-by-tsweapon_t model** so a single can be wielded/dropped independently of its akimbo
+pair. **The complete RE is in `reference/WEAPON_SELECT.md` "Akimbo ownership model" + "TakeWeapon combine"**
+(TakeWeapon@0x80a04 / DropWeapon@0x84900 / SwitchItems=FUN_00081564 / GetBetterWeapon@0x80f40). Model:
+`items[38]` each {owned, clip, leftClip(+0x130), rightClip(+0x134), mode(+0x116), attach(+0x124)}; the
+akimbo is a combined item carrying both barrels; the combine KEEPS both `items[single]` and `items[akimbo]`
+owned (so scroll skips the single but slot1-5 still selects it); `useitems` toggles the active-barrel mask
+(+0x14 bits 2/4); dropping one barrel leaves the other. This touches the verified fire/reload/per-caliber-
+ammo/switch/drop paths — do it as a careful pass with full in-engine retest of all 38 weapons.
+**Already shipped (cont.69n):** drop-akimbo → 2 base-single world guns (clip split, `TSAkimboBase`); the
+scroll cursor skips kung-fu (type 0) + a single whose akimbo is owned. Kung-fu now uses the fists
+viewmodel (v_melee.mdl, no clip).
+
+### Recent playtest fixes (cont.69m–n) — all RE-grounded + in-engine/user-confirmed
+- **Weapon-select REBUILT** (`cl_dll/ts_weaponbar.cpp` + `ammo.cpp`): the stock yellow `CHudAmmo` menu is
+  retired; the TS bar IS the select UI (RE: FUN_1004f500/1004f220/1004d2cf/1004e030). slot1-5 + invnext/
+  invprev open it + move a cursor; **FIRE commits** `weapon_<N>` (server holster→deploy, plays
+  weapons/switch.wav); closes on commit/cancel (no timer). Bar ALWAYS draws but very transparent; selecting
+  brightens it, cursor most opaque (3-level additive opacity, NO box); cursor shows curclip/maxclip.
+- **Death = spectate** (`dlls/player.cpp PlayerDeathThink`): on death, after the anim, re-enter the free-look
+  spectate/buy phase (TSEnterSpectate); respawn on FIRE after the gate (NOT a timer). Verified via `kill`.
+- **Spectator chrome suppressed** in the TS phase (`tri.cpp` overview grid; `vgui_SpectatorPanel.cpp`
+  #Spec_Duck). The dark bottom bar uses `pfnFillRGBABlend` (pfnFillRGBA is ADDITIVE → black was invisible),
+  geometry = the stock bottom border (YRES_HD(64), label at YRES_HD(6)).
+- **Buy menu**: first open per map randomizes the loadout ("Use New Config"); later opens reload the last
+  config ("Use Last Config"); Open() guards on already-open (the server resends the spectate msg each tick —
+  was causing a reopen-flicker after apply). **TSMessage SVC notification** client handler added
+  (`cl_dll/ts_message.{cpp,h}`, CHudTSMessage — fixes the "No pfn TSMessage" error); "Using new/last config"
+  + "Press fire to play" route through it (centred, fades out). Kung-fu given on every spawn. Status panel
+  hidden while dead/spectating.
 
 ### ✅ THE REAL BUY MENU — REBUILT as a HUD element (cont.69l). cl_dll/ts_buymenu.{cpp,h}.
 The real cascade buy menu (the `0x10037xxx` cluster) is **rebuilt + in-engine verified**: a `CHudTSBuyMenu :

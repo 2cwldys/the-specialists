@@ -154,3 +154,15 @@ CTSGun arsenal from the compact `m_arsenalType[]` list (akimbo = one upgraded sl
 a single can be wielded/dropped independently (leaving the other barrel). This is a sizable, careful
 refactor of the verified weapon engine (fire/reload/ammo/switch/drop all read the arsenal) — scoped
 here; best done as a dedicated pass with full in-engine retest.
+
+### TakeWeapon combine — confirmed details (cont.69o)
+Full read of `TakeWeapon@0x80a04`: when you own the single and pick up another, it takes the akimbo
+partner (`DAT_0017dc08[single]`) and COMBINES into the akimbo item: `+0x118 = single.clip + akimbo.clip`,
+`+0x130 = single.clip` (left barrel), `+0x134 = total - left` (right barrel); the attach masks of the
+single and the akimbo are OR-merged into BOTH item slots (`+0x124`/`+0x128`). The single's item is
+**NOT cleared** in the combine path — so both `items[single]` and `items[akimbo]` remain owned (this is
+why scroll skips the single but slot can still select it). For a non-combinable refill, it just does
+`+0x118 += 1`. So the faithful refactor: `items[38]` each {owned, clip, leftClip(+0x130),
+rightClip(+0x134), mode(+0x116), attach(+0x124), exclMask(+0x128)}; combine keeps both items; drop-akimbo
+throws 2× the base single (already done); dropping while one barrel active drops that barrel/leaves the
+other; `useitems` toggles the active-barrel mask `+0x14` (bits 2/4). g_iWeaponPriority drives GetBetterWeapon.
