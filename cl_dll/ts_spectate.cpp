@@ -6,7 +6,6 @@
 #include "cl_util.h"
 #include "parsemsg.h"
 #include "ts_spectate.h"
-#include "vgui_TeamFortressViewport.h" // gViewPort->ShowTSBuyMenu (the buy menu trigger)
 
 #include <stdio.h>
 
@@ -47,11 +46,12 @@ int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 	else
 		m_iFlags &= ~HUD_ACTIVE;
 
-	// Show the TS buy/config menu (vgui) during the spectate-wait (join/buy) phase, hide it on
-	// spawn. The original opens its buy menu here (reference/MENUS.md).
-	extern class TeamFortressViewport* gViewPort;
-	if (gViewPort)
-		gViewPort->ShowTSBuyMenu(m_iState != TSSPEC_OFF);
+	// Open the TS buy/config menu (the HUD-drawn CHudTSBuyMenu) during the spectate-wait (join/buy)
+	// phase, hide it on spawn. The original opens its buy menu here (reference/MENUS.md).
+	if (m_iState != TSSPEC_OFF)
+		gHUD.m_TSBuyMenu.Open();
+	else
+		gHUD.m_TSBuyMenu.Close();
 
 	return 1;
 }

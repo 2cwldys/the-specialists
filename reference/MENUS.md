@@ -75,6 +75,109 @@ keys pick within the active column (advancing `obj+4` level + the selection); co
 accessory column (states 4-7) + `FUN_10038180` preview geometry.
 
 
+## ★★ THE REAL BUY MENU — INPUT + ACCOUNTING + APPLY, full RE (cont.69l). This closes the rebuild spec.
+
+**The menu sub-object** lives at **`HUDobj + 0x7c0`** (call it `obj`). The HUD draw chain `FUN_1004d3f0`
+draws it (`if (hud_fastswitch==0 && FUN_100361f0(obj)) FUN_10036750(obj)`); the key dispatcher
+`FUN_1004f220(HUDobj, key)` routes to **`FUN_10038840(obj, _, obj+4 /*level*/, key)`** when the menu is
+active. `obj` is zeroed/seeded by **`FUN_10036200(obj)`** (called from `FUN_1004cb50`, the HUD VidInit —
+fills the roster + category names + sets `obj+0x2f08=1`). Open = `obj[0]=1`; close = **`FUN_10036720(obj)`**
+(`obj[0]=0`, level/cat/weapon/attach reset).
+
+**`obj` field map** (all RE'd):
+| off | meaning |
+|---|---|
+| `+0` | active flag (byte) |
+| `+4` | **level**: 0 config,1 category,2 weapons,3 detail,4 accessory,5 remove,6 save,7 load,8 changeteam,8=off-via-FUN_100367e0 |
+| `+8` | selected category (0..4) |
+| `+0xc` | selected attachment mask (detail page) |
+| `+0x10` | selected weapon id (-1 none) |
+| `+0x14` | the ammo/config array (0x20 ints, filled by recount `FUN_100392b0`; copied to `+0x41c` on apply) |
+| `+0x18` | ammo entries (16× stride 8 = [id,count]) → emitted as `tka` |
+| `+0x94 + slot*0x38` | **loadout slot** (16): `+0x94` isAccessory byte, `+0x98` weaponId, `+0x9c` attachMask, `+0xa0` cost, `+0xc4` akimbo byte, `+0xc8` count |
+| `+0x414` | credits spent | `+0x418` | free-slots used |
+| `+0x41c + cfg*0x408` | saved configs (0x102 ints) + `+0x81c+cfg*0x408` a saved-count |
+| `+0x2d6c` | **roster** `[row*5 + cat]` (12 rows × 5 cats, -1=empty) — filled by `FUN_10036200` |
+| `+0x2e5c + cat*0x20` | category display names |
+| `+0x2efc/0x2f00/0x2f04` | hud colour r/g/b (recomputed each builder; `__ftol(hud_r/g/b)`) |
+| `+0x2f08` | useNewConfig flag (1=new) |
+
+**INPUT state machine — `FUN_10038840(obj, level, key)`** (key 1..0xb; key 10 = the `0` key; faithful):
+- **level 0 CONFIG**: `1`=apply `FUN_10039400` then close on success · `2`→level 1 · `3`→level 5 (remove) ·
+  `4`=reset `FUN_10038800`+"Config Reset" · `5`→level 6 (save) · `6`→level 7 (load) · `7`=random
+  `FUN_100398e0(0.0)` · `0`=close `FUN_10036720`.
+- **level 1 CATEGORY**: `6`→level 4 (accessory) · `1..5`: if roster row0 of cat (key-1) `!= -1` → level 2,
+  `obj+8=key-1` · `0`=back to config.
+- **level 2 WEAPONS**: `0`=back to category. else row = key-1 (**key 0xb → row 9** for a 10-wpn column);
+  if `roster[obj+8 + row*5] != -1` and not restricted (`FUN_100365e0(id,0)`==0) → level 3, `obj+0x10=id`.
+- **level 3 DETAIL**: `1`=Buy (queue `FUN_10038f60(obj,weapon,attachMask,0,0)`) → back to category · `6`=Buy
+  Akimbo/Full Load (same queue, akimbo/full flag=1) · `2..5`=toggle attachment bit `1<<(key-2)` (only if
+  `FUN_10038d70` available; sets `obj+0xc |= bit`) · `0`=back to weapons.
+- **level 4 ACCESSORY**: `1`=Kevlar (bit 0x10), `2`=Stealth Shoes (bit 0x20) → if not owned, queue
+  `FUN_10038f60(obj,bit,0,0,1)` → back to category · `0`=back to category.
+- **level 5 REMOVE**: `0`=close. else remove the key-th owned slot (`FUN_10038e40`) + "X Removed" + recount.
+- **level 6 SAVE**: `0`=close. else copy `obj+0x14`→saved slot key, "Saved Config on slot #key", →config.
+- **level 7 LOAD**: `0`=close. else if saved slot key has data, copy back, "Config #key Loaded", →config.
+- **level 8 CHANGETEAM** (the `FUN_100367e0` "Chg_ChangeTeam" page — reuses obj+cursor): `1`/`2`=send
+  `chgteam %i`(key-1)+close · `0`=close.
+
+**ACCOUNTING** (so header numbers + green/red are REAL, not guessed):
+- Budget `FUN_10036640` = **30000** (free-buy; `DAT_100d43f0` only if CashBased, which is OFF). Slot cap
+  `FUN_10036660` = **0x51 (81)**.
+- Weapon cost `FUN_10012ad0(id, attachMask, akimboOrFull, isAccessory)`: base `price`; +900 Sil/+800 Las/
+  +500 Fla/+1800 Sco; akimbo or "double"→`price*2`; fullload→`price*fullcnt`. Accessory: Kevlar=1900,
+  Stealth Shoes=700. Slot cost `FUN_10038dc0`: `slot` byte; akimbo→`*2`, fullload→`*fullcnt`; Kevlar=10.
+- Restricted `FUN_100365e0(id,acc)`: `IsRestrictedWeapon` (map globals) + M61(0x18) hidden when <2 teams +
+  Stealth-Shoes(0x20) hidden when <2 teams.
+- Attachment-available `FUN_10038d70(obj,bit)` = `!(obj+0xc & bit) && !(exclude & bit) && (support & bit)`.
+
+**MOUSE — `IN_MouseEvent` → `FUN_10038360(obj, buttons)` → hit-test `FUN_10038410`** (the menu IS
+mouse-clickable, as the user confirmed — the cursor is free in the spectate-buy phase):
+- `FUN_10038360`: tracks button transitions at `obj+0x2f18`(prev)/0x2f1c(pressed)/0x2f20(released). On
+  **left-release**: get cursor pos, `FUN_10038410(obj, mx, my, &level, &key)`; if it hit an entry →
+  `FUN_10038840(obj, level, key)`; if it MISSED (level==-1) → `FUN_10038840(obj, currentLevel, 1)` (**click
+  outside any entry = key 1 / apply**). On **right-release** → `FUN_10038840(obj, currentLevel, 10)` (Go Back).
+- `FUN_10038410` hit-test geometry: require `mx>=8 && my>=ScreenH/2`. **column = (mx-8)/0x80** (0 config /
+  1 category / 2 weapons / 3 detail — i.e. you can click ANY visible breadcrumb column), **row =
+  (my-ScreenH/2)/0x14**. It then walks that column's entries (skipping restricted/unavailable, exactly as the
+  builder draws them) to map the row → the entry's key, and returns (column-level, key). So a click acts at the
+  clicked COLUMN's level, not necessarily the current one.
+
+**APPLY — `FUN_10039400(obj)`** (the SWAP CONTRACT, unchanged from `reference/BUY.md`): validates
+(empty→"config empty", over budget→"No cash left", over slots→abort), sorts slots, then emits via
+`pfnClientCmd`: **`rst_cfg`**, one batched **`tkw <id>_<count> …`** (weapon slots), one **`tki <id>_<count> …`**
+(accessory slots), one **`tka <id>_<count> …`** (ammo entries `obj+0x18`). Strings: prefixes `tkw `@0x10092a74,
+`tki `@0x10092a64, `tka `@0x10092a6c, `rst_cfg`@0x10092a7c, item fmt `%i_%i`@0x10092a5c.
+
+**THE WEAPON COST TABLE** (extracted from the 36 init funcs `DAT_100aa050+id*0x3DC`: price `int@0xd8`,
+slot `byte@0xd0`, fullcnt `int@0x24`, fullflag `byte@0xdc`). Combine with the name/attach/akimbo table above:
+```
+id price slot fullcnt full   id price slot fullcnt full
+ 1  850  10   1    -     2   900  10   1    -
+ 3 1300  20   1    -     4  3000  40   8    -
+ 5 4500  40   1    -     6  2500  25   1    -
+ 7 1500  20   1    -     8   900  10   1    -
+ 9  700  10   1    -    10   700  10   1    -
+11 5100  40   8    -    12  1050  15   1    -
+13 3000  40   1    -    14  1250  10   1    -
+15 5000  30   1    -    16  1300  20   1    -
+17 1100  15   1    -    18  9000  70   1    -
+19 2800  25   1    -    20  2100  30   8    -
+21 2600  20   1    -    22  1300  10   1    -
+23 2300  30   1    -    24  1000   7   2   YES (M61)
+25  100   1   5   YES   26  2500  40   8    -
+27 2500  40   1    -    28  1500   5   1    -
+30 1250  10   1    -    31  2100  15   1    -
+32 8000  70   1    -    33  1900  20   8    -
+34 2900  10   0    -    35   100   1  10   YES (Seal Knife)
+36 1500  15   1    -    37  1100  15   1    -
+```
+(Combat Knife id 25 / Seal Knife 35 / M61 24 are the "Full Load" weapons; ammo distribution into `tka` via
+`FUN_100392b0`/`FUN_100071f0` (caliber table) is the one deferred slice — the server's `BuyArmament` already
+grants default ammo, so weapons are usable without `tka`.)
+
+---
+
 Recovered from `client.dll` (.data menu strings + the builder functions). This is the
 authoritative menu hierarchy; it supersedes the guessed placement of any single entry.
 

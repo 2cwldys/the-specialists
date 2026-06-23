@@ -19,7 +19,6 @@
 #include "Exports.h"
 
 #include "vgui_TeamFortressViewport.h"
-#include "vgui_TSBuyMenu.h"
 #include "filesystem_utils.h"
 
 
@@ -368,12 +367,12 @@ int DLLEXPORT HUD_Key_Event(int down, int keynum, const char* pszCurrentBinding)
 {
 	//	RecClKeyEvent(down, keynum, pszCurrentBinding);
 
-	// TS buy menu: when it's up, its bound number keys ('0'-'9') drive it (mouse-click also works
-	// via vgui). The original menu accepts both (reference/MENUS.md); the viewport only key-routes
-	// its own command menu, so the buy menu handles its own number keys here.
-	if (0 != down && keynum >= '0' && keynum <= '9' && gViewPort && gViewPort->m_pTSBuyMenu)
+	// TS buy menu: the REAL menu is HUD-drawn (CHudTSBuyMenu), driven entirely by number keys
+	// ('0'-'9') routed through here — exactly as the original (client.dll FUN_1004f220 ->
+	// FUN_10038840). reference/MENUS.md "★★ THE REAL BUY MENU".
+	if (0 != down && keynum >= '0' && keynum <= '9' && gHUD.m_TSBuyMenu.IsUp())
 	{
-		if (gViewPort->m_pTSBuyMenu->HandleKey(keynum))
+		if (gHUD.m_TSBuyMenu.HandleKey(keynum))
 			return 0; // consumed
 	}
 

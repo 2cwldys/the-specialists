@@ -24,7 +24,6 @@
 
 #include "hud.h"
 #include "cl_util.h"
-#include "vgui_TeamFortressViewport.h" // gViewPort->ShowTSBuyMenu (reopen the buy menu)
 
 // Forward a bare command to the server (the gameplay handler is server-side).
 static void Fwd(const char* cmd)
@@ -38,13 +37,15 @@ static void Fwd(const char* cmd)
 static void IN_Alt2Down() { Fwd("+alt2"); }
 static void IN_Alt2Up() { Fwd("-alt2"); }
 
-// `buy` (bound to `b` in the original) (re)opens the buy/config menu. The menu is the client vgui
-// panel (CTSBuyMenuPanel), so reopen it directly — only while in the spectate-wait (buy) phase, so
-// it can't be opened during live play. (The server `buy` handler is now a no-op; cont.69g.)
+// `buy` (bound to `b` in the original) opens/closes the buy/config menu — the REAL HUD-drawn cascade
+// (CHudTSBuyMenu), driven by number keys. Only in the spectate-wait (buy) phase, so it can't be
+// opened during live play. (The server `buy` handler is a no-op; the menu is client-side, cont.69l.)
 static void TS_Buy()
 {
-	if (gViewPort && gHUD.m_Spectate.IsActive())
-		gViewPort->ShowTSBuyMenu(true);
+	if (gHUD.m_TSBuyMenu.IsUp())
+		gHUD.m_TSBuyMenu.Close();
+	else if (gHUD.m_Spectate.IsActive())
+		gHUD.m_TSBuyMenu.Open();
 }
 
 // Pure-client UI command stub (the server browser is a VGUI feature still to build).

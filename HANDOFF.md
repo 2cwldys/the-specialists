@@ -39,8 +39,24 @@ touching that area):**
 
 ## Where things stand (2026-06-23, through cont.69k)
 
-### ⚠️⚠️ THE BUY MENU — we reproduced the WRONG (legacy) menu; the REAL one is fully RE'd, NOT yet rebuilt.
-**Read `reference/MENUS.md` "★ THE REAL BUY MENU" FIRST — it is the rebuild spec.** The TS client.dll has
+### ✅ THE REAL BUY MENU — REBUILT as a HUD element (cont.69l). cl_dll/ts_buymenu.{cpp,h}.
+The real cascade buy menu (the `0x10037xxx` cluster) is **rebuilt + in-engine verified**: a `CHudTSBuyMenu :
+CHudBase` that draws the header + cascade columns (Config|Category|Weapons|Detail) with `TSHud_DrawString`
++ the TS HUD font, navigated by **number keys (HUD_Key_Event) AND mouse (IN_MouseEvent — user-confirmed
+working)**. The legacy vgui `vgui_TSBuyMenu.*` is **deleted**. Full RE in `reference/MENUS.md` "★★ THE REAL
+BUY MENU" (rendering, input state machine FUN_10038840, mouse FUN_10038360/10038410, accounting, apply,
+the weapon cost table). **Verified vs the user's reference screenshots**: real roster (Beretta 92F #5 +
+Contender G2 #10 in Handguns), "Special Purpose"/"Go Back", green "7 Random", blue Cancel, the 1-5 loadout
+preview columns (bought items by HUD column, in add-order, count-left-of-icon, `(Sil ,Las ,Fla ,Sco )`),
+`Free Slots = 81 - used` (remaining), Total/slots accounting all match.
+**ONE remaining slice — the auto-ammo numbers** (e.g. Glock "210"/M16 "120" rounds + their share of Total +
+the `tka` command): the per-caliber COST/unit (`[1]`) + ROUNDS/unit (`[4]`) are RE'd (Glock 7×50cr=350 → Total
+3400 ✓, 7×30=210 rounds ✓), but the per-caliber **max-rounds** cap (`DAT_1009ffc0[?]`, FUN_10039380 reads
+`[3]`) resists static RE — needs a runtime capture of the caliber table (like the config panel in cont.69f).
+Guns currently show no ammo number; melee/throwables show the correct count (Seal Knife 10 / Combat Knife 5).
+
+### (historical) THE BUY MENU course-correction
+**Read `reference/MENUS.md` "★ THE REAL BUY MENU" — the rebuild spec.** The TS client.dll has
 **two** buy-menu code paths: the **legacy/dead** one (`0x10010xxx`, a **vgui::Panel**, literal strings, the
 `DAT_1007a950` table) — which is what `cl_dll/vgui_TSBuyMenu.{cpp,h}` currently reproduces (cont.69e–j:
 config + category + weapon-list + per-weapon attachment submenu + mouse/keys + compact green styling, all

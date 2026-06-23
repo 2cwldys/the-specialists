@@ -445,6 +445,14 @@ void DLLEXPORT IN_MouseEvent(int mstate)
 {
 	int i;
 
+	// TS buy menu: when it's up the cursor is free, so route clicks to it (left=select an entry,
+	// right=Go Back; FUN_10038360). The original handles the menu here even with the cursor visible.
+	if (gHUD.m_TSBuyMenu.IsUp())
+	{
+		gHUD.m_TSBuyMenu.HandleMouse(mstate);
+		return;
+	}
+
 	if (iMouseInUse || g_iVisibleMouse)
 		return;
 

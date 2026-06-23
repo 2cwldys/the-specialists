@@ -107,6 +107,7 @@ target_sources(client PRIVATE
 	message.cpp
 	roundtime.cpp
 	ts_hud.cpp
+	ts_buymenu.cpp
 	ts_status.cpp
 	ts_ammo.cpp
 	ts_weaponbar.cpp
@@ -131,7 +132,6 @@ target_sources(client PRIVATE
 	vgui_SpectatorPanel.cpp
 	vgui_TeamFortressViewport.cpp
 	vgui_teammenu.cpp
-	vgui_TSBuyMenu.cpp
 	view.cpp
 	voice_status.cpp
 

@@ -51,7 +51,6 @@
 
 #include "vgui_int.h"
 #include "vgui_TeamFortressViewport.h"
-#include "vgui_TSBuyMenu.h"
 #include "vgui_ScorePanel.h"
 #include "vgui_SpectatorPanel.h"
 
@@ -517,7 +516,6 @@ TeamFortressViewport::TeamFortressViewport(int x, int y, int wide, int tall) : P
 	gViewPort = this;
 	m_iInitialized = false;
 	m_pTeamMenu = NULL;
-	m_pTSBuyMenu = NULL;
 	m_pClassMenu = NULL;
 	m_pScoreBoard = NULL;
 	m_pSpectatorPanel = NULL;
@@ -581,8 +579,7 @@ TeamFortressViewport::TeamFortressViewport(int x, int y, int wide, int tall) : P
 	CreateClassMenu();
 	CreateSpectatorMenu();
 	CreateScoreBoard();
-	CreateTSBuyMenu(); // created LAST so it's the topmost sibling (gets vgui mouse focus over the
-	                   // full-screen SpectatorPanel/ScoreBoard during the spectate-wait buy phase)
+	// The TS buy menu is no longer a vgui panel — it's the HUD-drawn CHudTSBuyMenu (cont.69l).
 
 	// Init command menus
 	m_iNumMenus = 0;
@@ -1602,30 +1599,6 @@ void TeamFortressViewport::CreateTeamMenu()
 	m_pTeamMenu->setVisible(false);
 }
 
-// TS client-side buy/config menu (cont.69e) — a vgui::Panel of CommandButtons, shown during the
-// spectate-wait (join/buy) phase. RE'd from client.dll (reference/MENUS.md).
-void TeamFortressViewport::CreateTSBuyMenu()
-{
-	// RE'd menu dimensions: width 0x80(128), row height 0x14(20) (FUN_100667e0). The panel
-	// POSITION is still approximate pending the +0x2d84 builder RE (reference/MENUS.md).
-	// Full-screen panel (like the class/team menus) so it owns the vgui mouse-focus traversal and the
-	// entry buttons receive clicks; the menu box + entries are positioned at the menu origin inside it.
-	m_pTSBuyMenu = new CTSBuyMenuPanel(0, 0, ScreenWidth, ScreenHeight);
-	m_pTSBuyMenu->setParent(this);
-	m_pTSBuyMenu->setVisible(false);
-}
-
-void TeamFortressViewport::ShowTSBuyMenu(bool show)
-{
-	if (!m_pTSBuyMenu)
-		return;
-	if (show)
-		m_pTSBuyMenu->Open();
-	else
-		m_pTSBuyMenu->Close();
-	UpdateCursorState();
-}
-
 //======================================================================================
 // CLASS MENU
 //======================================================================================
@@ -1679,9 +1652,9 @@ void TeamFortressViewport::UpdateOnPlayerInfo()
 
 void TeamFortressViewport::UpdateCursorState()
 {
-	// Need cursor if any VGUI window is up (incl. the TS buy menu — without this the player stays
-	// locked to aiming and can't click the menu entries; cont.69g)
-	if (m_pSpectatorPanel->m_menuVisible || m_pCurrentMenu || m_pTeamMenu->isVisible() || GetClientVoiceMgr()->IsInSquelchMode() || (m_pTSBuyMenu && m_pTSBuyMenu->IsUp()))
+	// Need cursor if any VGUI window is up — OR the TS buy menu (HUD-drawn but mouse-clickable: the
+	// original lets you click entries, FUN_10038360; cont.69l). A free cursor lets the player click.
+	if (m_pSpectatorPanel->m_menuVisible || m_pCurrentMenu || m_pTeamMenu->isVisible() || GetClientVoiceMgr()->IsInSquelchMode() || gHUD.m_TSBuyMenu.IsUp())
 	{
 		g_iVisibleMouse = true;
 		App::getInstance()->setCursorOveride(App::getInstance()->getScheme()->getCursor(Scheme::scu_arrow));

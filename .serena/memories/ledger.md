@@ -5,6 +5,35 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-23 (cont. 69l) — REAL cascade buy menu REBUILT as a HUD element + verified vs user refs
+
+Rebuilt the real cascade buy menu (the `0x10037xxx` cluster RE'd in 69k) as **`CHudTSBuyMenu : CHudBase`**
+(`cl_dll/ts_buymenu.{cpp,h}`), replacing + **deleting** the legacy vgui `vgui_TSBuyMenu.*`. Wired into
+hud.{h,cpp}/CMakeLists; input via HUD_Key_Event (keys) + IN_MouseEvent (mouse); opened by the `buy` cmd +
+the spectate-wait Spectator msg; cursor freed via UpdateCursorState.
+
+**Completed the RE first (reference/MENUS.md "★★ THE REAL BUY MENU"):** the obj field map (obj=HUDobj+0x7c0),
+the full input state machine **FUN_10038840** (levels 0-8: config/category/weapons/detail/accessory/remove/
+save/load/changeteam), the **mouse** path **FUN_10038360** (left=entry/miss=key1/right=key10) + hit-test
+**FUN_10038410** (col=(mx-8)/0x80, row=(my-ScreenH/2)/0x14), accounting (budget 30000, slot cap 81, costs
+FUN_10012ad0/FUN_10038dc0), apply **FUN_10039400** (rst_cfg + batched tkw/tki/tka), and the full weapon
+cost table (price/slot/fullcnt extracted from the 36 init funcs; support/akimbo from the attach RE; hudCol/
+sprite from the weapon-bar). Builders FUN_10037540/100377d0/10037960/10037ba0 + header/preview FUN_10036af0.
+
+**Drawn faithfully + screenshot-verified** vs the user's 5 reference images: real roster (Beretta 92F #5,
+Contender G2 #10 in Handguns; "Special Purpose"; "Go Back"), green "7 Random", blue Cancel, per-entry
+availability colours, the **1-5 loadout-preview columns** (bought items by HUD column in add-order, count-
+left-of-icon — Seal Knife 10 / Combat Knife 5 — Kevlar interleaved, `(Sil ,Las ,Fla ,Sco )` line),
+**`Free Slots = 81 - used`** (remaining, not used), Total = weapon+attach (×fullcnt for full-load). All
+match (Total 6300 = 500+1000+2900+1900; Free Slots 46 = 81-35). **Mouse confirmed working by the user.**
+Save/load configs, Remove-Item, Change-Team, Random, Reset all implemented per the state machine.
+
+**ONE remaining slice — auto-ammo numbers** (Glock "210"/M16 "120" + their Total share + the `tka` cmd):
+caliber COST/unit (`[1]`) + ROUNDS/unit (`[4]`) RE'd (Glock 7×50=350cr → Total 3400 ✓, 7×30=210 ✓), but the
+per-caliber **max-rounds** field (FUN_10039380 reads `caltable[3]`, table `DAT_1009ffc0` stride 0xe, filled
+runtime by FUN_10007480) reads 0 in static extraction → needs a **runtime capture** (gdb the live game's
+table, like the cont.69f config-panel capture). Guns show no ammo number yet; melee/throwables show count.
+
 ## 2026-06-23 (cont. 69k) — DISCOVERY: we RE'd the WRONG (legacy) buy menu; full RE of the REAL one
 
 User supplied reference screenshots of the real cascade buy menu (Config|Categories|Weapons|Detail columns
