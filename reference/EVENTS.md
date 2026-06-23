@@ -37,6 +37,37 @@ client-predicted. Connecting them = the faithful path.
   bparam1 = empty. ✅ reconstructed (cl_dll/ev_ts.cpp EV_TSFire — sprite + sound +
   shell; muzzle multi-segment is approximated).
 
+## ★ Chosen approach (cont.69r): reconstruct the FULL client weapon-param subsystem
+
+The event handlers don't take their data from the event much — they read a CLIENT-SIDE
+weapon-param state, so we must reconstruct that state for byte-faithful handlers.
+
+**Foundation RE'd:**
+- **Client weapon table** = `FUN_100071c0(type)` → `&DAT_100aa050 + type*0xf7` (0xf7*4 = 0x3dc = 988).
+  This is the SAME `s_weapon_info` (988 bytes) the server builds — the client has its own copy at
+  `DAT_100aa050` (38 entries), built by a client `compile_weapons_info` mirror. We already have the
+  field data in `dlls/ts_weapons.cpp`; the client needs the same table (share or duplicate).
+- **Active-weapon param cache** = the `DAT_10189xxx` globals (e.g. `DAT_10189d0c` = active weapon type,
+  `DAT_10189ae4` = `FUN_100071c0(type)` = active weapon_info ptr, plus cached origin/angles/velocity/
+  attachment + per-shot state). Populated when the client deploys/switches a weapon (the weapon-param
+  message / the draw event) and read by every event handler (fire/reload/pump/…) for shell type, clip
+  model, muzzle attachment, anim indices, etc.
+- **Studio/event API ptrs** the handlers call: `DAT_100d5c78` (studio/temp-entity), `DAT_100d5c74`,
+  `DAT_100d5c38` (RANDOM_LONG), `DAT_100d5c34` (RANDOM_FLOAT), `DAT_100d5c3c` (pfnHookEvent).
+
+**Build order (each step RE'd + verified):**
+1. **Client weapon table**: make the full `s_weapon_info[38]` available client-side (share the server
+   `compile_weapons_info` data, or a `cl_dll` mirror) + a client `get_weapon_info`. (need the full
+   struct fields the handlers read: shell-model id, clip model, attachment idx, anim seqs, +0xd2 grip…)
+2. **Active-param cache**: reconstruct the deploy/weapon-switch path that fills the active state
+   (the server already sends a weapon-param message on deploy — RE `UpdateClientData`/the WeaponInfo
+   message + the client receiver; cache the active `s_weapon_info` + per-shot state).
+3. **Event handlers**: port each `FUN_xxxx`/`LAB_xxxx` handler (table above) onto the cache, hook them,
+   and `PLAYBACK_EVENT` them server-side at the playback sites (replacing the SendWeaponAnim/EMIT_SOUND).
+4. Build + in-engine verify each (predicted 1st-person, no lag), all 38 weapons.
+
+This is a multi-step front; do it in order (table → cache → handlers), not all at once.
+
 ## Implementation pattern (per event)
 1. RE the client handler `FUN_xxxx` → its anim (EV_WeaponAnimation) / sound
    (EV_PlaySound) / effects, and the event args it reads.
