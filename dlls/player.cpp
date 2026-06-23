@@ -1164,46 +1164,17 @@ void CBasePlayer::PlayerDeathThink()
 	pev->effects |= EF_NOINTERP;
 	pev->framerate = 0.0;
 
-	bool fAnyButtonDown = (pev->button & ~IN_SCORE) != 0;
-
-	// wait for all buttons released
+	// TS: death IS the spectator state. Once the death animation finishes, the dead player enters the
+	// free-look spectate/buy phase (the same one used on join) — they respawn by pressing FIRE after
+	// the respawn gate, NOT automatically on a timer. The buy/config menu reopens so they can re-pick
+	// a loadout before pressing fire. (Replaces the stock button/forcerespawn-timer respawn + deathcam.)
 	if (pev->deadflag == DEAD_DEAD)
 	{
-		if (fAnyButtonDown)
-			return;
-
-		if (g_pGameRules->FPlayerCanRespawn(this))
-		{
-			m_fDeadTime = gpGlobals->time;
-			pev->deadflag = DEAD_RESPAWNABLE;
-		}
-
-		return;
+		pev->deadflag = DEAD_RESPAWNABLE;
+		m_fInSpectateWait = true;
+		TSEnterSpectate();   // free-look observer + buy menu; fire-to-respawn via PreThink/TSSpectateThink
+		pev->nextthink = -1; // hand off to PlayerPreThink (the death think is done)
 	}
-
-	// if the player has been dead for one second longer than allowed by forcerespawn,
-	// forcerespawn isn't on. Send the player off to an intermission camera until they
-	// choose to respawn.
-	if (g_pGameRules->IsMultiplayer() && (gpGlobals->time > (m_fDeadTime + 6)) && (m_afPhysicsFlags & PFLAG_OBSERVER) == 0)
-	{
-		// go to dead camera.
-		StartDeathCam();
-	}
-
-	if (0 != pev->iuser1) // player is in spectator mode
-		return;
-
-	// wait for any button down,  or mp_forcerespawn is set and the respawn time is up
-	if (!fAnyButtonDown && !(g_pGameRules->IsMultiplayer() && forcerespawn.value > 0 && (gpGlobals->time > (m_fDeadTime + 5))))
-		return;
-
-	pev->button = 0;
-	m_flRespawnTimer = 0.0f;
-
-	//ALERT(at_console, "Respawn\n");
-
-	respawn(pev, (m_afPhysicsFlags & PFLAG_OBSERVER) == 0); // don't copy a corpse if we're in deathcam.
-	pev->nextthink = -1;
 }
 
 //=========================================================
