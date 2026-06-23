@@ -5,6 +5,136 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-23 (cont. 69p) — akimbo OWNERSHIP refactor IMPLEMENTED + 3 playtest fixes
+
+Implemented the user-approved akimbo-ownership refactor (the cont.69o hand-off). CTSGun's arsenal
+migrated from the compact `m_arsenalType[]` list to the original's **items[]-by-tsweapon_t model**
+(`struct TSItem m_items[TSW_COUNT]` = {owned, clip, leftClip, rightClip, mode, attach, barrelMask}),
+all RE-grounded (TakeWeapon@0x80a04, CTSGun::DropWeapon@0x8094c, CBasePlayer::DropWeapon@0x84900,
+SwitchItems=FUN_00081564, GetBetterWeapon@0x80f40, IsWeaponAkimbo/IsOnlyAkimbo = fireType 4/5,
+g_iWeaponPriority extracted from compile_weapons_info). dlls/ts_gun.cpp + ts_weapons.h + client.cpp.
+- **Combine keeps BOTH owned** (TakeWeapon): own single + pick up another → fill items[akimbo]
+  (leftClip = items[single].clip, rightClip = weapon_info[single].clip), single NOT cleared. Scroll
+  skips the single (akimbo owned), slot1-5 still selects it. **Verified in-engine** (`tsbuy 2` ×2 →
+  akimbo berettas in hand; slot2 → single beretta while still owning the akimbo).
+- **Drop branches** (CBasePlayer::DropWeapon, now all in TSDropWeapon): combinable akimbo → throw 2
+  base singles (clip/2 each) + remove both items[akimbo]/[single]; **single dropped while owning its
+  akimbo → throw 1, keep the single (clip = akimbo.rightClip), remove the akimbo** (the cont.69o
+  REMAINING item) — **verified in-engine**; plain → throw 1 + remove. GetBetterWeapon auto-selects by
+  g_iWeaponPriority. world-gun spawning moved server-side into TSDropWeapon.
+- **useitems** (SwitchItems) cycles the active akimbo's barrel mask 0→2(L)→4(R)→6(both)→0; AkimboFire
+  decrements per-barrel clips honouring the mask; reload redistributes across barrels.
+- SelectWeaponType (holster→deploy), lastinv, WStatus, death-scatter, pickup all keyed by type now.
+
+**3 playtest fixes (all user-reported, RE-grounded, rebuilt):**
+1. **Spawn→spectate bounce was NOT a code bug** — the test launch missed `+deathmatch 1 +maxplayers`,
+   so the listenserver ran single-player rules and stock `respawn()` (client.cpp) does
+   `SERVER_COMMAND("reload")` → endless map-reload loop (looked like a crash; gdb caught no SIGSEGV).
+   Confirmed: committed build does the same; `+deathmatch 1` → spawns clean. **CLAUDE.md §3 launch
+   command updated** to require the flags.
+2. **Kung-fu no longer drawn red** in the weapon-select bar (cl_dll/ts_weaponbar.cpp): the empty-clip
+   red tint now only applies to weapons with maxClip > 0 (clipless melee has no ammo to be out of).
+3. **Dropped weapons no longer block the player while falling** — RE confirmed (CTSWorldGun::Spawn
+   @0xa0954) the original gives the FALLING gun a ZERO-size bbox (SetSize DAT_00106a08=0.0), so the
+   SOLID_BBOX point drops+lands but the player walks through (it damages via the Fall trace, not
+   collision); real trigger size only on landing. ts_worldgun.cpp falling SetSize → g_vecZero.
+
+Built hl.so + client.so (glibc 2.14), staged via setup-xash-mod, in-engine verified (no crashes,
+0 reconnects with +deathmatch 1). NOT yet committed. Remaining: exhaustive 38-weapon retest.
+
+**Follow-up fixes (same batch, user playtest):**
+4. **Loadout now PERSISTS across spawns** — removed the `ResetArmament()` we had added at the end of
+   `CBasePlayer::BuyArmament()` (ts_buy.cpp). The original BuyArmament@0x83f10 does NOT reset, so the
+   chosen loadout re-applies on every spawn (respawn + round restart). rst_cfg still clears on rebuy.
+   Fixes "round restart gives zero weapons".
+5. **No more phantom beretta** — `CTSGun` default `m_weaponType` changed TSW_BERETTA → **TSW_MELEE**, so
+   a bare `weapon_tsgun` (GiveNamedItem) is just kung-fu; the loadout supplies the real guns.
+7. **FIRING fixed (fire-once-then-stuck, reload never refilled)** — the build defines CLIENT_WEAPONS so
+   `UTIL_WeaponTimeBase()` == 0 (a 0-based predicted clock). The original CTSGun is client-predicted, but
+   our reconstruction drives it SERVER-authoritatively, so every CTSGun timer compared a positive
+   `m_flNextPrimaryAttack`/`m_flTimeWeaponIdle`/reload time against 0 → never elapsed → one shot then
+   permanently stuck, reload anim played but clip/reserve never updated. Converted all CTSGun timers to
+   `gpGlobals->time` (and `GetNextAttackDelay(x)` → `gpGlobals->time + x`). In-engine verified: M4 full-auto
+   sustained fire (muzzle flash + brass), reload refills.
+9. **MUZZLE-FLASH "flares" added (were not drawn)** — RE of client.dll: the muzzle flash is the TS
+   sprite drawn at the gun muzzle ATTACHMENT by `FUN_100474b0` (loads `sprites/ts_muzzleflash1h.spr` =
+   one-handed, `ts_muzzleflash6.spr` = two-handed; a 2nd flare when `weapon_info+0x350` is set). Our
+   EV_TSFire only did the engine EF_MUZZLEFLASH (and akimbo fired no event at all). Now `EV_TSMuzzleFlare`
+   draws the TS sprite via `R_TempSprite` at the viewmodel/player `attachment[side]` (per-grip sprite),
+   and AkimboFire fires `events/fire.sc` with `iparam2 = barrel side` so each akimbo barrel flares at
+   attachment 0/1 (gold colts = akimbo-only, both barrels). Sprites precached in PrecacheAllTSWeapons.
+   In-engine verified (beretta flare at the muzzle). NOTE: a faithful approximation — the original's exact
+   multi-segment temp-sprite build (FUN_100474b0, scale from weapon_info+0x1c/+0x354/+0x358) is not fully
+   reproduced; flare scale/offset may need tuning. SHOTGUN incremental reload (ShotgunReload@0x84aac, per-
+   shell state machine) still TODO.
+8. **BATCHED LOADOUT fixed (selected arsenal not given)** — RE of the buy-menu apply (client.dll
+   FUN_10039400) shows it builds ONE space-separated command `"tkw "` + `"%i_%i "` per weapon
+   (`tkw 2_1 5_1 9_1`) + one `tka …`, sent via a single ClientCmd. Our server `tkw`/`tki`/`tka` handlers
+   only parsed `CMD_ARGV(1)` → dropped all but the first weapon. Fixed to loop `CMD_ARGV(1..ARGC-1)`.
+   With the persist fix (#4) the full loadout now applies on every spawn + round restart. In-engine
+   verified (batched `tkw 2_1 5_1 9_1 13_1` → all given). BUY.md note corrected (was wrong: "single token").
+
+6. **Can't-fire / no-viewmodel fixed (regression from #5)** — the engine's auto-deploy (GetNextBestWeapon)
+   skips kung-fu (melee, no clip), so with a kung-fu default the tsgun never became `m_pActiveItem` →
+   no viewmodel + ItemPostFrame (firing) never ran. Added **`TSDeployArsenal(player)`** (ts_gun.cpp,
+   called at the end of CTSGameRules::PlayerSpawn) which forces the tsgun active + Deploy()s; also made
+   `SelectWeaponType` claim `m_pActiveItem` when none is set. **In-engine verified**: M4 viewmodel
+   deploys, loadout pistol deploys on spawn, 0 reconnects. (Before this, BERETTA default masked the bug
+   because the engine auto-deployed a gun.)
+
+## 2026-06-23 (cont. 69q) — kung-fu close-combat, shotgun reload, muzzle flares, fire/loadout/deploy fixes
+
+Big playtest-driven batch (all RE-grounded; in-engine where verifiable):
+- **CanDeploy fix** — TS weapons keep ammo in our own m_ammoReserve, not stock m_rgAmmo, so the stock
+  CBasePlayerWeapon::CanDeploy refused to deploy any empty-clip TS weapon — notably KUNG-FU (always 0
+  clip), which then kept the PREVIOUS weapon's viewmodel ("kung-fu takes prev model" / "round restart
+  strips kung-fu"). `CTSGun::CanDeploy()` now returns true. Verified: weapon_0 → fists.
+- **KUNG-FU close-combat** (`CCombatAttack__6CTSGun`@0x86078): kung-fu = bare hands (original has gun+0xcc==0
+  → CCombatAttack). PrimaryAttack/Secondary for TSW_MELEE now route to `CloseCombatAttack()` — a contextual
+  dispatch from pev->button (IN_ATTACK/IN_ATTACK2 + IN_DUCK) + FL_ONGROUND/FL_DUCKING + velocity → the
+  v_melee.mdl anims (0x0d-0x19) + damage 35/45/55: right-click+duck=handstand kick(0x14), right-click=back-
+  kick(0x11), fire+air+duck=dropkick(0x10), fire+air=flying punch(0x12), fire+duck=uppercut(0x16),
+  fire=ground punch combo(0x0d/0e/0f). Sounds (RE: player/*): flesh→kungfuhit.wav, surface→closecombat.wav
+  swing + pl_step* footstep, miss→closecombat.wav swing. (SLICE: exact knockback/reach consts approximated.)
+- **SHOTGUN incremental reload** (ShotgunReload@0x84aac): pump shotguns (fireType TSFT_PUMP: m3/spas12/
+  mossberg) now reload ONE shell at a time (per-shell delay, scock1.wav), interruptible by firing.
+- **MUZZLE FLARES** (RE: client.dll FUN_100474b0 + ts_muzzleflash1h/6 sprites): EV_TSMuzzleFlare draws the
+  TS flash sprite at the gun muzzle attachment (akimbo per-barrel via iparam2). Flare life shortened (was
+  "slow enough to walk around" — dropped FTENT_SPRCYCLE, life 0.01).
+- **FIRING** (server-time gate, was fire-once-stuck) + **batched-loadout** (tkw loops all argv) + **loadout
+  persists** (no ResetArmament) + **deploy** (TSDeployArsenal) — see cont.69p notes above; all RE-grounded.
+- **ROUND-RESTART WEAPON LOSS fixed (recurring bug)** — `CBasePlayer::Spawn` does NOT call
+  RemoveAllItems, so TSRestartRound respawning a STILL-ALIVE player left the old weapon_tsgun in place
+  and GiveNamedItem made a SECOND one; the two tsguns fought over active/WStatus → the arsenal
+  "disappeared" inconsistently (all-but-one / all). Fixed: CTSGameRules::PlayerSpawn now
+  `RemoveAllItems(false)` before GiveNamedItem so the round-restart re-equip is clean (one tsgun).
+- **KUNG-FU anims FIXED** — our v_melee.mdl has only 11 seqs (idle/draw/punch_left/punch_right/block_low/
+  kick/sidekick/uppercut/spinkick/backkick/punch_right2); I'd used the original's 0x0d-0x19 which don't
+  exist → no animation. Remapped CloseCombatAttack to our seqs (punch combo 2/3/10, uppercut 7, kick 5,
+  sidekick 6, spinkick 8, backkick 9). Reload "hooah" block → block_low (4).
+- **KUNG-FU reload block IMPLEMENTED** — CloseCombatBlock: R plays player/block.wav ("hooah") + block_low
+  stance + gates attacks; a stamina bar (~3 blocks, regens) → player/breathe2.wav (the Valve breathing)
+  when spammed empty. Sounds in ts/sound/player/.
+- **`thirdperson` is now a TOGGLE** (cl_dll/in_camera.cpp CAM_ToThirdPerson): flips third↔first; `firstperson`
+  stays one-way.
+- **Kung-fu 3rd-person held-weapon removed** — CTSGun::Deploy fell back to the VIEW model when a weapon had
+  no p_model, so kung-fu (no p_model) put v_melee on the player's hands/back (a phantom held gun). Now an
+  empty weaponmodel ("") → bare hands. NOTE: the player BODY kung-fu animation (punch/kick on the 3rd-person
+  model) needs kung-fu sequences in the player model + the CTSAnimation close-combat gait (GaitCloseCombat/
+  HandleCloseCombat@0x5d8d0); the current player model (SpeziClaus) only has onehanded/twohanded/akimbo aim
+  sets — no fist set — so the body can't punch visually with it. Deferred (model-dependent).
+- **KUNG-FU dispatch reworked + 3rd-person BODY anims** (user rules): FIRE = PUNCHES only (never kicks,
+  even with jump) — duck→uppercut, hold/rapid→punch combo (punchleft/right/air sequence), lone tap→single
+  regular punch; +ATTACK2 = KICKS only — jump+duck→spinkick, duck→sidekick, back→backkick, else→kick. The
+  player models DO carry the kung-fu sequences by NAME (gordon: punchleft/punchright/punchair/uppercut/
+  sidekick/backkick/circkick/circspin/kungfu_block1, …) — added `CTSAnimation::PlayKungFu(player, seq)` and
+  each attack/block now plays its body sequence (held via the aim-timer) so 3rd-person shows the punch/kick,
+  not an aim pose. (Earlier model-parse used the wrong regex and missed these; the named seqs exist.)
+- **STILL TODO (RE'd, not implemented):** kung-fu reload = `CCombatBlock`@0x85ebc — a "hooah" taunt
+  (event gun+0x96c, anim 0x26) that blocks attacks (sets gun+0x9c/0xa0) + consumes stamina (player melee
+  bar, UpdateMeleeBar); spamming → low-stamina breathing sound. The closecombat client event handler
+  (FUN_10043200) for the swing-anim prediction. The flare multi-segment build (FUN_100474b0 exact).
+
 ## 2026-06-23 (cont. 69o) — full akimbo-ownership model RE'd (refactor handed to next agent)
 
 User asked to ground the akimbo logic in RE and (after I flagged the scope) chose to do the full refactor;

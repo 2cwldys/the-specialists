@@ -318,7 +318,9 @@ bool CHudTSWeaponBar::Draw(float flTime)
 				den = cursor ? 1 : 2; // cursor full, others ~half
 			}
 			// no-ammo weapons tint red (the original's empty-clip colour), scaled by the opacity.
-			const bool noAmmo = (m_iClip[t] == 0);
+			// Clipless weapons (kung-fu/knife/katana, maxClip 0) have no ammo to be out of — never red.
+			const int maxClip = (t < (int)(sizeof(s_weaponMaxClip) / sizeof(s_weaponMaxClip[0]))) ? s_weaponMaxClip[t] : 0;
+			const bool noAmmo = (maxClip > 0 && m_iClip[t] == 0);
 			const int ir = (noAmmo ? 0xc3 : hr) * num / den;
 			const int ig = (noAmmo ? 0x2d : hg) * num / den;
 			const int ib = (noAmmo ? 0x2d : hb) * num / den;

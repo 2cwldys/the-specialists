@@ -159,9 +159,10 @@ bool CBasePlayer::BuyAmmo(int caliber, int rounds)
 	return TSAddAmmo(this, caliber, rounds);
 }
 
-// @ BuyArmament — apply the pending loadout: buy (or free-give) each queued weapon, then
-// top up each queued caliber. Mirrors the .so's BuyArmament (gift slots bypass the buy,
-// everything is free anyway), then ResetArmament so it isn't re-applied.
+// @ BuyArmament — apply the player's loadout: buy (or free-give) each queued weapon, then
+// top up each queued caliber. Mirrors the .so's BuyArmament @0x83f10 — which does NOT reset
+// the armament afterwards, so the chosen loadout PERSISTS and is re-applied on every spawn
+// (respawn + round restart). The queue is only cleared by an explicit rst_cfg (rebuy).
 void CBasePlayer::BuyArmament()
 {
 	// Kung-fu (TSW_MELEE) is the unarmed melee every player ALWAYS has, regardless of loadout — give
@@ -182,5 +183,6 @@ void CBasePlayer::BuyArmament()
 		if (m_armamentAmmo[cal] > 0)
 			BuyAmmo(cal, m_armamentAmmo[cal]);
 	}
-	ResetArmament();
+	// NB: NO ResetArmament here — the loadout persists across spawns (the original keeps it),
+	// so a round restart / respawn re-equips the same config. rst_cfg clears it on a rebuy.
 }

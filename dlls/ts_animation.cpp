@@ -99,6 +99,18 @@ void CTSAnimation::SetGaitSequence(CBasePlayer *pPlayer, const char *name)
 	pPlayer->pev->gaitsequence = gait;
 }
 
+// Play a kung-fu close-combat body sequence on the player's 3rd-person model (by name) and hold the
+// torso for `hold` seconds (reusing the aim-timer torso protection) so the move/idle path doesn't
+// overwrite it mid-punch. Legs keep updating via the move/idle gait path.
+void CTSAnimation::PlayKungFu(CBasePlayer *pPlayer, const char *seq, float hold)
+{
+	if (!seq || !seq[0])
+		return;
+	SetBodySequence(pPlayer, seq, true, true);
+	if (hold > m_flAimTimer)
+		m_flAimTimer = hold; // protect this torso pose (same gate the fire/reload poses use)
+}
+
 void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 {
 	entvars_t *pev = pPlayer->pev;
@@ -257,6 +269,15 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	if (m_flAimTimer >= 0.01f)
 	{
 		// weapon raised recently — leave the shoot/relo/aim torso sequence playing.
+		m_iLastActivity = activity;
+		return;
+	}
+
+	if (m_bKungFu)
+	{
+		// Kung-fu (bare hands): the fighting stance, NOT an aim_<grip> invisible-pistol pose. This
+		// is the torso the gait blends with while walking (legs from gaitsequence, fists up here).
+		SetBodySequence(pPlayer, ducking ? "combat_idle_low" : "combat_idle", false, false);
 		m_iLastActivity = activity;
 		return;
 	}

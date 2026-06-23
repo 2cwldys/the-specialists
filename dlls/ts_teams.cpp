@@ -21,6 +21,7 @@
 #include "player.h"
 #include "gamerules.h"
 #include "ts_gamerules.h"
+#include "ts_weapons.h" // TSDeployArsenal
 #include "UserMessages.h"
 
 // @ IsTeamMode — is this a team-play map? Faithful gate is the TS game-mode member;
@@ -203,8 +204,17 @@ void CTSGameRules::PlayerSpawn(CBasePlayer *pPlayer)
 	// equip on fire-to-play (the next Spawn runs with m_fInSpectateWait clear).
 	if (addDefault && !pPlayer->m_fInSpectateWait)
 	{
+		// Round restart (TSRestartRound) respawns STILL-ALIVE players, but CBasePlayer::Spawn does
+		// NOT strip items — so without this the old weapon_tsgun survives and GiveNamedItem creates a
+		// SECOND one. The two tsguns then fight over active/WStatus and the arsenal "disappears"
+		// inconsistently on round restart. Clear first so the re-equip is clean (one tsgun).
+		pPlayer->RemoveAllItems(false);
 		pPlayer->GiveNamedItem("weapon_tsgun");
 		pPlayer->BuyArmament();
+		// The tsgun is the player's single weapon entity, but the engine's auto-deploy skips
+		// kung-fu, so force it active + deployed (else a kung-fu-only loadout has no viewmodel
+		// and can't fire — ItemPostFrame only runs on the active item).
+		TSDeployArsenal(pPlayer);
 	}
 
 	// `initial_cash` cvar: the player's starting cash. Given once (when they have none) so

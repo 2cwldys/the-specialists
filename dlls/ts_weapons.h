@@ -176,6 +176,11 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type);
 void TSSelectWeaponType(CBasePlayer *pPlayer, int type);
 void TSLastInv(CBasePlayer *pPlayer);
 
+// Force the player's TS arsenal active + deploy (call at the end of PlayerSpawn). The engine's
+// auto-deploy skips kung-fu (melee, no clip), so without this a kung-fu-only loadout would leave
+// no active weapon — no viewmodel + ItemPostFrame (firing) never runs. See dlls/ts_gun.cpp.
+void TSDeployArsenal(CBasePlayer *pPlayer);
+
 // Trigger the held TS gun's alternate attack (+alt2 → coldcock pistol-whip).
 void TSAlternateAttack(CBasePlayer *pPlayer);
 
@@ -189,9 +194,11 @@ void TSSwitchItems(CBasePlayer *pPlayer);
 // any were added. Used by CTSGroundAmmo (the per-caliber refill station).
 bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count);
 
-// Drop the player's active TS weapon (out: its type + loaded clip); false if it can't drop
-// (held <2 weapons). Pick up a dropped weapon of `type`/`clip`. (CTSWorldGun + `drop` cmd.)
-bool TSDropActiveWeapon(CBasePlayer *pPlayer, int &type, int &clip);
+// Drop the player's active TS weapon into the world (the `drop` cmd / CBasePlayer::DropWeapon):
+// spawns the CTSWorldGun(s) + does the items[] bookkeeping (akimbo splits into two singles; a
+// single dropped while its akimbo is owned leaves the other). Returns false if it can't drop
+// (melee/no world model). Pick up a dropped weapon of `type`/`clip` (CTSWorldGun pickup).
+bool TSDropWeapon(CBasePlayer *pPlayer);
 void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip);
 void TSDropWeaponsOnDeath(CBasePlayer *pPlayer); // scatter the arsenal on death
 void TSDropAmmoOnDeath(CBasePlayer *pPlayer);    // drop the per-caliber reserve as a pack

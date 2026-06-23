@@ -433,16 +433,20 @@ void CAM_ToThirdPerson()
 	// `thirdperson`/`cl_thirdperson` toggle); the stock HL client blocked it in MP, which
 	// is why the command did nothing. Gate removed.
 
+	// `thirdperson` is a TOGGLE: if already in third-person, drop back to first-person (so the
+	// one key flips the view). `firstperson` (below) only ever switches to first-person.
+	if (cam_thirdperson)
+	{
+		CAM_ToFirstPerson();
+		return;
+	}
+
 	gEngfuncs.GetViewAngles((float*)viewangles);
 
-	if (!cam_thirdperson)
-	{
-		cam_thirdperson = true;
-
-		cam_ofs[YAW] = viewangles[YAW];
-		cam_ofs[PITCH] = viewangles[PITCH];
-		cam_ofs[2] = CAM_MIN_DIST;
-	}
+	cam_thirdperson = true;
+	cam_ofs[YAW] = viewangles[YAW];
+	cam_ofs[PITCH] = viewangles[PITCH];
+	cam_ofs[2] = CAM_MIN_DIST;
 
 	gEngfuncs.Cvar_SetValue("cam_command", 0);
 }

@@ -148,12 +148,14 @@ attachment masks, `+0xc8` = active type. Per-weapon table fields: `+0x84` byte =
 - **Scroll skip**: the select cursor skips a single whose akimbo is owned + skips kung-fu (type 0).
   ✅ IMPLEMENTED (cont.69n, FindOwned).
 
-**REMAINING (the "drop the single while holding akimbo leaves the other"):** requires migrating our
-CTSGun arsenal from the compact `m_arsenalType[]` list (akimbo = one upgraded slot) to the original's
-**items[]-by-type with the two barrel clips** + keeping the base single owned alongside the akimbo, so
-a single can be wielded/dropped independently (leaving the other barrel). This is a sizable, careful
-refactor of the verified weapon engine (fire/reload/ammo/switch/drop all read the arsenal) — scoped
-here; best done as a dedicated pass with full in-engine retest.
+**✅ IMPLEMENTED (cont.69p).** CTSGun migrated to the items[]-by-tsweapon_t model
+(`struct TSItem m_items[TSW_COUNT]` in dlls/ts_gun.cpp): combine keeps BOTH items[single] and
+items[akimbo] owned (akimbo carries leftClip/rightClip); dropping a single while owning its akimbo
+throws one and keeps the other (clip = akimbo.rightClip), removing the akimbo item; dropping the
+akimbo throws two base singles + removes both; GetBetterWeapon auto-selects by g_iWeaponPriority;
+useitems cycles the active barrel mask (0→2→4→6→0) and AkimboFire honours it. In-engine verified
+(combine, slot-selects-single-while-owning-akimbo, drop-single-keeps-other). g_iWeaponPriority,
+the TakeWeapon combine, both DropWeapon branches and SwitchItems were re-decompiled to ground it.
 
 ### TakeWeapon combine — confirmed details (cont.69o)
 Full read of `TakeWeapon@0x80a04`: when you own the single and pick up another, it takes the akimbo

@@ -51,7 +51,12 @@ void CTSWorldGun::Spawn()
 
 	pev->movetype = MOVETYPE_TOSS;
 	pev->solid = SOLID_BBOX;
-	UTIL_SetSize(pev, Vector(-16, -16, -4), Vector(16, 16, 4));
+	// While falling the world gun must NOT block the player. The original (CTSWorldGun::Spawn
+	// @0xa0954) gives the falling gun a ZERO-size bbox (UTIL_SetSize with DAT_00106a08 = 0.0),
+	// so the SOLID_BBOX point still drops + lands (FL_ONGROUND) yet the player walks through it
+	// (the thrown gun damages via the Fall trace, not collision). It only takes a real (trigger)
+	// size on landing (OnGround). reference/WEAPON_SELECT.md / @0xa0954.
+	UTIL_SetSize(pev, g_vecZero, g_vecZero);
 	UTIL_SetOrigin(pev, pev->origin);
 
 	SetThink(&CTSWorldGun::FallThink);

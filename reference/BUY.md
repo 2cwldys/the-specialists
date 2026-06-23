@@ -16,8 +16,12 @@ server to assemble a loadout. The swap contract = the command **names + arg form
 | `drop_<n>` | prefix + `"%i"` | drop a specific slot (`strstr "drop_"`) | ⬜ TODO (we have `drop` for the active weapon) |
 | `cashala` | — | **CHEAT**: gated by `g_flWeaponCheat` (the engine `sv_cheats` mirror) → `GiveCash(player, 30000)`. NOT a config-apply. | ✅ wired (cont.69, gated on `g_psv_cheats`) |
 
-Note: `tkw`/`tka` take a SINGLE argv token `"5_2"` (sscanf `"%i_%i"`), not two argv — e.g.
-`tkw 5_2` queues 2× weapon type 5. Our handlers parse `argv(1)` splitting on `_`.
+Note: each token is `"%i_%i"` = `type_count` (split on `_`). **The client (apply FUN_10039400) BATCHES
+the whole loadout into ONE space-separated command** — it builds `"tkw "` + a `"%i_%i "` token per
+weapon (`tkw 2_1 5_1 9_1`) and sends it with a single ClientCmd; likewise one `tka …`/`tki …`. So the
+SERVER handlers MUST loop over EVERY argv token (`CMD_ARGV(1..ARGC-1)`), not just `argv(1)` — parsing
+only `argv(1)` drops all but the first weapon (the cont.69p loadout bug). Confirmed by RE of the apply
+(`"tkw "` + `"%i_%i "` strings + the three ClientCmd calls at the end of FUN_10039400).
 
 ## The loadout flow (faithful model)
 

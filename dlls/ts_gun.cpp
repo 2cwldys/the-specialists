@@ -24,16 +24,41 @@
 
 #define TSGUN_WEAPON_ID 16 // CTSGun::GetItemInfo @0x85dd0 sets iId = 0x10
 #define TSGUN_WEIGHT 15
-#define TS_MAX_ARSENAL 12 // owned-weapon slots (the original items[] is unbounded-ish)
+
+// WEAPON TIMING: the build defines CLIENT_WEAPONS, so UTIL_WeaponTimeBase() == 0 and the stock
+// weapon timers are a 0-based RELATIVE clock that the CLIENT prediction advances. The original TS
+// CTSGun IS client-predicted (events/fire.sc), so it uses that 0-base. OUR reconstruction drives
+// CTSGun SERVER-authoritatively (not predicted — see the header note), so its m_flNextPrimaryAttack/
+// m_flTimeWeaponIdle/reload timers use gpGlobals->time directly (NOT UTIL_WeaponTimeBase()=0, against
+// which a positive next-attack would NEVER elapse → "fire once then stuck, reload never completes").
 
 // The single weapon_tsgun (id 16) IS the player's whole TS arsenal. The original
-// keeps a `s_weapon_status` items[] array (0x38-byte entries) with m_pActiveItem
-// (@0xcc) pointing at the wielded one + weapon/ammo-group masks + akimbo pairing.
-// This is a clean MODERN reconstruction of that behaviour (not the byte layout):
-// a parallel array of owned weapon types, each with its own clip + reserve, and an
-// active slot. m_weaponType tracks the active slot so the fire-type dispatch +
-// Deploy keep working. SLICE: no akimbo pairing (a single active slot), no
-// weapon/ammo groups, no fire-mode/burst state, no buy menu yet.
+// keeps an `s_weapon_status items[]` array INDEXED BY tsweapon_t (0x38-byte entries
+// at gun+type*0x38+0x114), with m_pActiveItem(@0xcc)/m_pActiveInfo(@0xd0) pointing at
+// the wielded one + per-item akimbo barrel clips. This is a clean MODERN reconstruction
+// of that layout (recovered from TakeWeapon@0x80a04 / DropWeapon@0x84900 /
+// SwitchItems@0x81564 / GetBetterWeapon@0x80f40 — see reference/WEAPON_SELECT.md):
+// one TSItem per tsweapon_t. The faithful akimbo OWNERSHIP model — a single and its
+// akimbo are SEPARATE owned items (combine keeps both), the akimbo carries the two
+// barrel clips, and a single can be wielded/dropped independently of its akimbo pair.
+
+// One arsenal slot, indexed by tsweapon_t (the original's s_weapon_status entry):
+//   owned      gun+type*0x38+0x114  — in the arsenal
+//   clip       +0x118               — total loaded rounds (akimbo: leftClip+rightClip)
+//   leftClip   +0x130 / rightClip +0x134 — the akimbo's two barrel clips
+//   mode       +0x116               — saved fire-mode (TSFM_*)
+//   attach     +0x124               — attachment mask (silencer/laser/...; future buy wiring)
+//   barrelMask +0x128               — akimbo active barrels (bit1=left/2, bit2=right/4; useitems)
+struct TSItem
+{
+	bool owned = false;
+	int  clip = 0;
+	int  leftClip = 0;
+	int  rightClip = 0;
+	int  mode = TSFM_SEMI;
+	int  attach = 0;
+	int  barrelMask = 0;
+};
 class CTSGun : public CBasePlayerWeapon
 {
 public:
@@ -41,6 +66,11 @@ public:
 	void Precache() override;
 	bool GetItemInfo(ItemInfo *p) override;
 	int iItemSlot() override { return 1; } // @ iItemSlot__6CTSGun returns slot 1
+	// TS weapons keep their ammo in our own per-caliber reserve (m_ammoReserve), NOT the stock
+	// m_rgAmmo that CBasePlayerWeapon::CanDeploy() checks. So the stock CanDeploy would refuse to
+	// deploy any empty-clip TS weapon — notably kung-fu (always 0 clip), which then kept the
+	// PREVIOUS weapon's viewmodel. The tsgun is always deployable.
+	bool CanDeploy() override { return true; }
 	bool Deploy() override;
 	bool UpdateClientData(CBasePlayer *pPlayer) override; // sends the TS WeaponInfo HUD message
 	void SendWeaponStatus(CBasePlayer *pPlayer);          // sends the WStatus weapon-bar messages
@@ -54,30 +84,38 @@ public:
 	void Fire();                                 // dispatch one shot by fire-type
 	void StandardFire(const s_weapon_info *wi);  // bullet/pellet fire (StandardFire/ShotgunFire)
 	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
+	void CloseCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
+	void CloseCombatBlock();                     // @CCombatBlock — kung-fu reload: "hooah" block (stamina)
 	void GrenadeThrow(const s_weapon_info *wi);  // grenade fire-type
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
 	void SwitchFireMode();                       // cycle the held weapon's fire-mode
 	void SwitchItems();                          // @SwitchItems (useitems) — akimbo dual-wield swap
 
-	// arsenal (the items-array). @ AddItem/SelectWeapon/TakeWeapon__6CTSGun.
-	int FindSlot(tsweapon_t type);   // owned-slot index, or -1
-	void AddWeapon(tsweapon_t type); // add to the arsenal (or resupply) + wield it
-	void SelectSlot(int slot);       // wield an owned slot (saves/loads its clip)
-	bool RemoveActiveWeapon(int &type, int &clip); // @DropWeapon — drop the active slot
-	bool MultiplyClips();            // infinite-clip powerup: multiply the held reserve
+	// arsenal (the items-by-tsweapon_t array). @ TakeWeapon/SelectWeapon/DropWeapon__6CTSGun.
+	bool IsOwned(int type) const { return type >= 0 && type < TSW_COUNT && m_items[type].owned; }
+	int  OwnedCount() const;          // number of owned weapon types
+	void AddWeapon(tsweapon_t type);  // @TakeWeapon — add/combine into the arsenal + wield it
+	void SelectWeaponType(int type);  // @SelectWeapon — wield an owned type (holster->deploy)
+	void GetBetterWeapon(int exclude);// @GetBetterWeapon — auto-select next owned by priority
+	void DropType(int type, bool fThrow); // @DropWeapon__6CTSGun — drop an owned item from the arsenal
+	bool MultiplyClips();             // infinite-clip powerup: multiply the held reserve
 	bool AddAmmo(int caliber, int count); // @AddAmmo__6CTSGun — add reserve rounds (capped)
+	void SyncActiveToItem();          // park the live active clip/mode back into its item
+	void LoadActiveFromItem();        // load the active item's clip/mode into the live state
 
-	int m_weaponType = TSW_BERETTA; // ACTIVE tsweapon_t (= m_arsenalType[m_active])
-	int m_arsenalType[TS_MAX_ARSENAL] = {};
-	int m_arsenalClip[TS_MAX_ARSENAL] = {};    // saved loaded rounds per slot
-	int m_arsenalMode[TS_MAX_ARSENAL] = {};    // saved fire-mode per slot
+	int m_weaponType = TSW_MELEE; // ACTIVE tsweapon_t (gun+0xc8). Default = kung-fu: a bare
+	                              // weapon_tsgun (GiveNamedItem) is just fists; the loadout
+	                              // (BuyArmament) adds the real guns. Placed/given weapons set it.
+	TSItem m_items[TSW_COUNT] = {};            // the arsenal, indexed by tsweapon_t
 	int m_ammoReserve[TS_NUM_CALIBERS] = {};   // spare rounds PER CALIBER (gun+0xd4 in the .so)
-	int m_arsenalCount = 0;
-	int m_active = 0;
-	int m_lastActive = 0; // previously-wielded slot (for the `lastinv` toggle, player+0xa1c)
+	int m_lastType = TSW_MELEE; // previously-wielded type (for the `lastinv` toggle, player+0xa1c)
 	int m_akimboSide = 0; // which barrel fired last (alternates muzzle L/R for akimbo)
 	int m_fireMode = TSFM_SEMI; // ACTIVE fire-mode (= m_arsenalMode[m_active])
 	int m_burstCount = 0;       // rounds left in the current burst (m_pActiveItem+8)
+	int m_comboStep = 0;        // kung-fu ground-punch combo cycle (this+0xa00 in the .so)
+	float m_lastCCTime = 0.0f;  // last close-combat attack time (combo only continues if rapid/held)
+	float m_blockBar = 100.0f;  // kung-fu block stamina (UpdateMeleeBar): each block costs, regens
+	float m_blockBarTime = 0.0f;// last time the block bar was updated (for regen)
 	unsigned short m_usFire = 0; // events/fire.sc handle (predicted fire: sound/flash/anim)
 
 	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends
@@ -108,6 +146,14 @@ static float TSDamageMult()
 
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
 
+// @ g_iWeaponPriority (filled in compile_weapons_info@0x6fe28) — the auto-select order
+// GetBetterWeapon walks after a drop (highest priority first). Last entry (kung-fu, 0)
+// is the always-owned fallback. Recovered verbatim from the .so.
+static const int g_iWeaponPriority[TSW_COUNT] = {
+	18, 32, 13, 5, 15, 27, 11, 20, 4, 26, 33, 16, 37, 6, 23, 7, 3, 17, 19,
+	10, 8, 21, 30, 31, 12, 36, 22, 9, 2, 14, 28, 1, 34, 25, 35, 24, 29, 0,
+};
+
 // The one weapon_tsgun in a player's inventory (the whole TS arsenal), or NULL.
 static CTSGun *GetPlayerTSGun(CBasePlayer *pPlayer)
 {
@@ -128,13 +174,12 @@ void CTSGun::Spawn()
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 
 	// Seed the arsenal with the placed/initial weapon type.
-	m_arsenalCount = 1;
-	m_active = 0;
-	m_arsenalType[0] = m_weaponType;
-	m_arsenalClip[0] = wi->iClip;
+	TSItem &it = m_items[m_weaponType];
+	it.owned = true;
+	it.clip = wi->iClip;
+	it.mode = TSDefaultFireMode(wi->iFireModes);
 	AddAmmo(wi->iCaliber, wi->iClip * 3); // seed the caliber's reserve (SLICE: buy menu sets this)
-	m_arsenalMode[0] = TSDefaultFireMode(wi->iFireModes);
-	m_fireMode = m_arsenalMode[0];
+	m_fireMode = it.mode;
 	m_iClip = wi->iClip; // SLICE: deploy loaded
 
 	const char *world = wi->pszWorldModel ? wi->pszWorldModel : "models/w_weaponbox.mdl";
@@ -144,61 +189,105 @@ void CTSGun::Spawn()
 	FallInit();
 }
 
-// @ FindSlot — owned-weapon slot index for `type`, or -1.
-int CTSGun::FindSlot(tsweapon_t type)
+// Number of owned weapon types in the arsenal.
+int CTSGun::OwnedCount() const
 {
-	for (int i = 0; i < m_arsenalCount; i++)
-		if (m_arsenalType[i] == (int)type)
-			return i;
-	return -1;
+	int n = 0;
+	for (int t = 0; t < TSW_COUNT; t++)
+		if (m_items[t].owned)
+			n++;
+	return n;
 }
 
-// @ AddItem__6CTSGun / TakeWeapon — add a weapon to the arsenal (or resupply if owned),
-// wield it. Akimbo upgrade (TakeWeapon @0x80a04): picking up a 2nd of a single pistol you
-// already hold combines the pair into its akimbo variant (s_weapon_info+0xc8, doubled clip).
+// Park the live active clip/mode back into its item (HolsterWeapon side).
+void CTSGun::SyncActiveToItem()
+{
+	if (m_weaponType < 0 || m_weaponType >= TSW_COUNT)
+		return;
+	TSItem &it = m_items[m_weaponType];
+	it.clip = m_iClip;
+	it.mode = m_fireMode;
+}
+
+// Load the active item's clip/mode into the live state (Deploy side).
+void CTSGun::LoadActiveFromItem()
+{
+	if (m_weaponType < 0 || m_weaponType >= TSW_COUNT)
+		return;
+	const TSItem &it = m_items[m_weaponType];
+	m_iClip = it.clip;
+	m_fireMode = it.mode;
+	m_burstCount = 0;
+}
+
+// @ TakeWeapon__6CTSGun (@0x80a04) — add a weapon to the arsenal (fresh world pickup / buy),
+// then wield it. The faithful akimbo OWNERSHIP model (reference/WEAPON_SELECT.md):
+//  - own the single + pick up another of the same single -> fill the AKIMBO item (the combine):
+//    items[akimbo].leftClip = items[single].clip, rightClip = weapon_info[single].clip, the
+//    single item is NOT cleared (both stay owned: scroll skips the single, slot1-5 still picks it).
+//  - a fresh akimbo (fire-type 4) reads its single base; a gold-colts only-akimbo (fire-type 5)
+//    splits its clip into two barrels; a normal single/weapon just loads its full clip.
 void CTSGun::AddWeapon(tsweapon_t type)
 {
-	const s_weapon_info *wi = get_weapon_info(type);
-
-	// Already hold the single version + it has an akimbo upgrade + don't hold the akimbo
-	// yet -> upgrade the slot in place to the akimbo (combine the two pistols).
-	int single = FindSlot(type);
-	if (single >= 0 && wi->iAkimboType >= 0 &&
-		FindSlot((tsweapon_t)wi->iAkimboType) < 0)
-	{
-		const s_weapon_info *aki = get_weapon_info((tsweapon_t)wi->iAkimboType);
-		// Wield the single first so m_iClip reflects its live loaded rounds, then upgrade
-		// the slot in place: the akimbo's loaded clip = the single's rounds + a fresh 2nd
-		// pistol (capped at the doubled clip), reserve carries the 2nd pistol's spares.
-		SelectSlot(single);
-		int loaded = m_iClip + wi->iClip;
-		if (loaded > aki->iClip)
-			loaded = aki->iClip;
-		m_arsenalType[single] = wi->iAkimboType;
-		m_weaponType = wi->iAkimboType;
-		m_arsenalClip[single] = loaded;
-		m_iClip = loaded;
-		AddAmmo(aki->iCaliber, wi->iClip); // the 2nd pistol's rounds (shared caliber pool)
-		m_arsenalMode[single] = TSDefaultFireMode(aki->iFireModes);
-		m_fireMode = m_arsenalMode[single];
-		m_burstCount = 0;
-		if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
-			Deploy(); // re-deploy with the akimbo view model
+	if (type < 0 || type >= TSW_COUNT)
 		return;
+	const s_weapon_info *wi = get_weapon_info(type);
+	if (!wi->pszViewModel)
+		return; // invalid weapon (e.g. the unused flag slot 29)
+
+	// The active item's live clip lives in m_iClip; park it so the combine reads the current
+	// rounds when the single being upgraded is the one we're holding.
+	SyncActiveToItem();
+
+	int fill = type; // the item slot we will fill
+	if (m_items[type].owned)
+	{
+		// Already own this type. If it upgrades to an akimbo we don't own yet, fill the
+		// akimbo (the combine). Otherwise just top the caliber reserve (resupply).
+		if (wi->iAkimboType >= 0 && wi->iAkimboType < TSW_COUNT &&
+			get_weapon_info((tsweapon_t)wi->iAkimboType)->pszViewModel && !m_items[wi->iAkimboType].owned)
+		{
+			fill = wi->iAkimboType;
+		}
+		else
+		{
+			AddAmmo(wi->iCaliber, wi->iClip * 3); // resupply the shared caliber pool
+			return;
+		}
 	}
 
-	int slot = FindSlot(type);
-	if (slot < 0)
+	// --- fill items[fill] (give path; world-pickup carrying a saved status is the SLICE case) ---
+	const s_weapon_info *fwi = get_weapon_info((tsweapon_t)fill);
+	TSItem &it = m_items[fill];
+	it.owned = true;
+	it.mode = TSDefaultFireMode(fwi->iFireModes);
+	it.attach = 0;
+	it.barrelMask = 0;
+
+	if (fwi->iFireType == TSFT_AKIMBO && fwi->iSingleType >= 0 && fwi->iSingleType < TSW_COUNT)
 	{
-		if (m_arsenalCount >= TS_MAX_ARSENAL)
-			return; // arsenal full
-		slot = m_arsenalCount++;
-		m_arsenalType[slot] = type;
-		m_arsenalClip[slot] = wi->iClip;
-		m_arsenalMode[slot] = TSDefaultFireMode(wi->iFireModes);
+		// combinable akimbo: left barrel = the single you already hold, right barrel = a fresh single.
+		const int single = fwi->iSingleType;
+		it.leftClip = m_items[single].owned ? m_items[single].clip : 0;
+		it.rightClip = get_weapon_info((tsweapon_t)single)->iClip;
+		it.clip = it.leftClip + it.rightClip;
+		AddAmmo(get_weapon_info((tsweapon_t)single)->iCaliber, get_weapon_info((tsweapon_t)single)->iClip);
 	}
-	AddAmmo(wi->iCaliber, wi->iClip * 3); // give/refill the caliber's shared reserve
-	SelectSlot(slot);
+	else if (fwi->iFireType == TSFT_AKIMBO_ONLY)
+	{
+		// gold colts: two barrels, each half the full clip.
+		it.leftClip = fwi->iClip / 2;
+		it.rightClip = fwi->iClip - it.leftClip;
+		it.clip = fwi->iClip;
+		AddAmmo(fwi->iCaliber, fwi->iClip * 3);
+	}
+	else
+	{
+		it.clip = fwi->iClip;
+		AddAmmo(fwi->iCaliber, fwi->iClip * 3); // give/refill the caliber's shared reserve
+	}
+
+	SelectWeaponType(fill);
 }
 
 // @ AddAmmo__6CTSGun (@0x808ac) — add `count` rounds to caliber's reserve, capped at the
@@ -238,29 +327,50 @@ bool CTSGun::MultiplyClips()
 }
 
 // @ SelectWeapon__6CTSGun (@0x80fb8) + the ClientCommand commit (@0xae433): holster the
-// current weapon, set the new active slot, then deploy. Faithful flow = holster -> deploy
+// current weapon, set the new active type, then deploy. Faithful flow = holster -> deploy
 // (the original's SelectWeapon calls HolsterWeapon then the caller Deploy()s if it changed);
-// switching slots therefore cancels a reload and re-plays the draw animation/delay.
-void CTSGun::SelectSlot(int slot)
+// switching therefore cancels a reload and re-plays the draw animation/delay. Type 0 (kung-fu)
+// is always selectable; any other type must be owned (the .so gates on items[type].owned).
+void CTSGun::SelectWeaponType(int type)
 {
-	if (slot < 0 || slot >= m_arsenalCount || slot == m_active)
+	if (type < 0 || type >= TSW_COUNT || type == m_weaponType)
+		return;
+	if (type != TSW_MELEE && !m_items[type].owned)
 		return;
 
-	// --- HolsterWeapon (@0x85698): park the outgoing weapon's per-slot state. ---
-	m_arsenalClip[m_active] = m_iClip; // save the wielded weapon's clip
-	m_arsenalMode[m_active] = m_fireMode; // and its fire-mode
+	// --- HolsterWeapon (@0x85698): park the outgoing weapon's per-item state. ---
+	SyncActiveToItem();                // save the wielded weapon's clip + fire-mode
 	m_fInReload = false;               // a switch cancels an in-progress reload
 	m_burstCount = 0;
-	m_lastActive = m_active;           // remember the outgoing slot (for `lastinv`)
+	m_lastType = m_weaponType;         // remember the outgoing type (for `lastinv`)
 
-	m_active = slot;
-	m_weaponType = m_arsenalType[slot];
-	m_iClip = m_arsenalClip[slot];
-	m_fireMode = m_arsenalMode[slot];
+	m_weaponType = type;
+	LoadActiveFromItem();
 
 	// --- Deploy (@0x81030): re-deploy the new active weapon (draw anim + deploy delay). ---
-	if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
+	// The tsgun is the player's ONE weapon entity, so it is (or should be) the active item; if
+	// nothing is active yet (e.g. the bare kung-fu spawn the engine's auto-deploy skips), claim
+	// it so the viewmodel shows + ItemPostFrame runs (firing). Otherwise only redeploy if active.
+	if (m_pPlayer && (m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this || !m_pPlayer->m_pActiveItem))
+	{
+		m_pPlayer->m_pActiveItem = (CBasePlayerItem *)this;
 		Deploy();
+	}
+}
+
+// @ GetBetterWeapon__6CTSGun (@0x80f40) — after a drop, auto-select the highest-priority
+// OWNED weapon (g_iWeaponPriority order), skipping `exclude` (the just-dropped type). Kung-fu
+// (priority-last, always owned) is the fallback. Holster->deploy via SelectWeaponType.
+void CTSGun::GetBetterWeapon(int exclude)
+{
+	for (int i = 0; i < TSW_COUNT; i++)
+	{
+		int t = g_iWeaponPriority[i];
+		if (t == exclude || !IsOwned(t))
+			continue;
+		SelectWeaponType(t);
+		return;
+	}
 }
 
 // @ Precache__6CTSGun — faithful precaches 11 event scripts. Models for the whole
@@ -272,7 +382,10 @@ void CTSGun::Precache()
 	// this re-call just resolves the cached indices for a runtime give.
 	PrecacheAllTSWeapons();
 	m_usFire = PRECACHE_EVENT(1, "events/fire.sc"); // predicted fire (sound/flash/anim + shell)
-	PRECACHE_SOUND("player/kungfuhit.wav"); // coldcock (pistol-whip) melee-bash impact
+	PRECACHE_SOUND("player/kungfuhit.wav");   // kung-fu flesh hit (also the coldcock bash)
+	PRECACHE_SOUND("player/closecombat.wav"); // kung-fu swing whoosh (miss / surface)
+	PRECACHE_SOUND("player/block.wav");       // kung-fu block "hooah" (reload)
+	PRECACHE_SOUND("player/breathe2.wav");    // exhausted breathing (block spam, stamina empty)
 }
 
 // @ GetItemInfo__6CTSGun — recovered: slot 1, pos 2, id 16, weight 1.
@@ -300,9 +413,14 @@ bool CTSGun::Deploy()
 		return false;
 	// SLICE: faithful Deploy uses the items array + GetBodyByItems + a weapon-param
 	// message; here we just show the view/player model via DefaultDeploy.
-	const char *pmodel = wi->pszPlayerModel ? wi->pszPlayerModel : wi->pszViewModel;
+	// Kung-fu (TSW_MELEE) has NO 3rd-person weapon model — it's bare hands, so the player must
+	// hold NOTHING (empty weaponmodel) and just play the kung-fu body animations. Falling back to
+	// the VIEW model here put v_melee on the player's back/hands (a phantom held weapon). For any
+	// real weapon with no p_model we likewise show nothing rather than the viewmodel.
+	const char *pmodel = wi->pszPlayerModel ? wi->pszPlayerModel : "";
 	bool ok = DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, 0,
 		(char *)(wi->pszAnimExt ? wi->pszAnimExt : "onehanded"));
+	m_pPlayer->m_TSAnim.m_bKungFu = (m_weaponType == TSW_MELEE); // kung-fu uses the combat_idle stance
 	if (ok)
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_DRAW); // 3rd-person draw_<grip>
 	return ok;
@@ -317,6 +435,15 @@ bool CTSGun::Deploy()
 void CTSGun::PrimaryAttack()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+
+	// Kung-fu (TSW_MELEE) = bare hands. The original has NO active weapon item here (gun+0xcc==0)
+	// and routes PrimaryAttack -> CCombatAttack (@0x86078): a contextual punch/kick chosen from the
+	// movement buttons + flags. Knife/katana are real weapon items (their own fire-types below).
+	if (m_weaponType == TSW_MELEE)
+	{
+		CloseCombatAttack(false);
+		return;
+	}
 
 	// Fire-types dispatched directly (outside the fire-mode trigger system, like the
 	// original PrimaryAttack @0x81a20): melee hull-traces and the grenade throw.
@@ -374,7 +501,7 @@ void CTSGun::Fire()
 	if (m_iClip <= 0)
 	{
 		PlayEmptySound();
-		m_flNextPrimaryAttack = GetNextAttackDelay(0.2);
+		m_flNextPrimaryAttack = (gpGlobals->time + 0.2f);
 		m_burstCount = 0;
 		return;
 	}
@@ -427,9 +554,9 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 		if (DoubleFireRate(m_pPlayer)) // double-firerate powerup -> twice as fast
 			flRate *= 0.5f;
 	}
-	m_flNextPrimaryAttack = GetNextAttackDelay(flRate);
+	m_flNextPrimaryAttack = (gpGlobals->time + flRate);
 	// Short idle during a burst so WeaponIdle drives the remaining rounds; else normal.
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() +
+	m_flTimeWeaponIdle = gpGlobals->time +
 		((m_fireMode == TSFM_BURST && m_burstCount > 0) ? flRate : 5.0f);
 }
 
@@ -451,8 +578,8 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 	const float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.25f;
-	m_flNextPrimaryAttack = GetNextAttackDelay(flRate);
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+	m_flNextPrimaryAttack = (gpGlobals->time + flRate);
+	m_flTimeWeaponIdle = gpGlobals->time + 5.0f;
 
 	if (tr.flFraction >= 1.0f)
 		return; // miss
@@ -467,11 +594,163 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 	}
 }
 
+// @ CCombatAttack__6CTSGun (@0x86078) — kung-fu (bare hands) contextual close-combat. The original
+// picks the attack from the player's movement buttons + flags + velocity (it has no active weapon
+// item, gun+0xcc==0). Recovered dispatch (pev->button bits + FL_ONGROUND/FL_DUCKING, attack ids
+// 4-11 → v_melee.mdl sequences 0x0b-0x19, damage 0x23/0x2d/0x37 = 35/45/55):
+//   right-click (+IN_ATTACK2):  duck+ground -> handstand/sideways kick (anim 0x14, 45)
+//                               else        -> back-kick               (anim 0x11, 55)
+//   fire (+IN_ATTACK):  airborne+moving+duck -> dropkick forward        (anim 0x10, 45)
+//                       airborne+moving      -> forward/flying punch     (anim 0x12, 35)
+//                       ground+duck          -> uppercut                 (anim 0x16, 45)
+//                       ground               -> punch combo 0x0d/0e/0f   (35)
+// SLICE: the original's exact knockback (CloseCombatAttack / gmsgTSKickAlign) + per-attack reach
+// constants (DAT_00107f7c…) are approximated; the selection + anims + damage are RE-faithful.
+void CTSGun::CloseCombatAttack(bool fSecondary)
+{
+	if (m_flNextPrimaryAttack > gpGlobals->time)
+		return;
+
+	const int btn = m_pPlayer->pev->button;
+	const bool onGround = (m_pPlayer->pev->flags & FL_ONGROUND) != 0;
+	const bool ducking = (btn & IN_DUCK) != 0 || (m_pPlayer->pev->flags & FL_DUCKING) != 0;
+	const bool back = (btn & IN_BACK) != 0;
+	const bool secondary = fSecondary || (btn & IN_ATTACK2) != 0;
+
+	// v_melee.mdl sequences (this model, 11 seqs): 2 punch_left, 3 punch_right, 4 block_low, 5 kick,
+	// 6 sidekick, 7 uppercut, 8 spinkick, 9 backkick, 10 punch_right2.
+	enum { ANIM_PUNCH_L = 2, ANIM_PUNCH_R = 3, ANIM_KICK = 5, ANIM_SIDEKICK = 6, ANIM_UPPERCUT = 7,
+	       ANIM_SPINKICK = 8, ANIM_BACKKICK = 9, ANIM_PUNCH_R2 = 10 };
+	int anim;
+	float dmg, range, delay;
+	if (secondary)
+	{
+		// RIGHT-CLICK = KICKS only (kicking only ever happens on +attack2).
+		if (!onGround && ducking) { anim = ANIM_SPINKICK; dmg = 45; range = 72; delay = 0.6f; }  // jump+duck dropkick/spin
+		else if (ducking)         { anim = ANIM_SIDEKICK; dmg = 45; range = 64; delay = 0.5f; }  // duck sideways/handstand kick
+		else if (back)            { anim = ANIM_BACKKICK; dmg = 55; range = 72; delay = 0.6f; }  // backward → back-kick
+		else                      { anim = ANIM_KICK;     dmg = 50; range = 64; delay = 0.55f; } // plain kick
+	}
+	else
+	{
+		// FIRE = PUNCHES only (NEVER kicks — not even with jump). Duck → uppercut. The left/right/
+		// forward punch SEQUENCE only runs while attacking rapidly/held; a lone tap is a single punch.
+		if (ducking)
+		{
+			anim = ANIM_UPPERCUT; dmg = 45; range = 48; delay = 0.45f;
+		}
+		else
+		{
+			static const int combo[3] = {ANIM_PUNCH_L, ANIM_PUNCH_R, ANIM_PUNCH_R2};
+			const bool chaining = (gpGlobals->time - m_lastCCTime) < 0.5f; // held / quick succession
+			if (chaining)
+			{
+				m_comboStep++;
+				anim = combo[m_comboStep % 3];
+			}
+			else
+			{
+				m_comboStep = 0; // fresh tap → a single regular punch (not the sequence)
+				anim = RANDOM_LONG(0, 1) ? ANIM_PUNCH_L : ANIM_PUNCH_R;
+			}
+			dmg = 35; range = 48; delay = 0.32f;
+		}
+	}
+	m_lastCCTime = gpGlobals->time;
+
+	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
+	Vector vecSrc = m_pPlayer->GetGunPosition();
+	Vector vecEnd = vecSrc + gpGlobals->v_forward * range;
+	TraceResult tr;
+	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
+
+	SendWeaponAnim(anim);                       // the v_melee.mdl punch/kick (1st-person fists)
+	// 3rd-person player BODY animation (TS player models have these by name): map the attack to its
+	// kung-fu sequence so onlookers see the punch/kick instead of an aim pose.
+	const char *bodySeq = "punchright";
+	switch (anim)
+	{
+	case ANIM_PUNCH_L:  bodySeq = "punchleft";  break;
+	case ANIM_PUNCH_R:  bodySeq = "punchright"; break;
+	case ANIM_PUNCH_R2: bodySeq = "punchair";   break;
+	case ANIM_UPPERCUT: bodySeq = "uppercut";   break;
+	case ANIM_KICK:     bodySeq = "circkick";   break;
+	case ANIM_SIDEKICK: bodySeq = "sidekick";   break;
+	case ANIM_SPINKICK: bodySeq = "circspin";   break;
+	case ANIM_BACKKICK: bodySeq = "backkick";   break;
+	}
+	m_pPlayer->m_TSAnim.PlayKungFu(m_pPlayer, bodySeq, delay);
+	m_flNextPrimaryAttack = gpGlobals->time + delay;
+	m_flNextSecondaryAttack = gpGlobals->time + delay;
+	m_flTimeWeaponIdle = gpGlobals->time + 5.0f;
+
+	// Kung-fu hit sounds (RE: the .so close-combat path + player/* sounds): a PLAYER/monster hit is
+	// the wet "kungfuhit.wav" punch (+ damage); a WORLD/surface hit thuds (a footstep-material sound
+	// pl_step*) under the swing; a clean miss (air swing) is just the swing whoosh (closecombat.wav).
+	CBaseEntity *pHit = (tr.flFraction < 1.0f) ? CBaseEntity::Instance(tr.pHit) : nullptr;
+	const bool flesh = (pHit && pHit->pev->takedamage != DAMAGE_NO);
+	const bool surface = (tr.flFraction < 1.0f && !flesh);
+
+	if (flesh)
+	{
+		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM);
+		ClearMultiDamage();
+		pHit->TraceAttack(m_pPlayer->pev, dmg * TSDamageMult(), gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
+		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
+	}
+	else
+	{
+		// miss OR surface: the swing whoosh.
+		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM);
+		if (surface)
+		{
+			// + the footstep-style surface thud (the material the fist struck).
+			char step[24];
+			sprintf(step, "player/pl_step%d.wav", RANDOM_LONG(1, 4));
+			EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, step, VOL_NORM, ATTN_NORM);
+		}
+	}
+}
+
+// @ CCombatBlock__6CTSGun (@0x85ebc) — kung-fu "reload" = the block taunt. Plays the "hooah"
+// (player/block.wav) + the block_low stance, and briefly gates attacks (sets the next-attack times).
+// It costs stamina (the .so's melee bar, UpdateMeleeBar(33) → ~3 blocks); spamming it past empty
+// plays the exhausted breathing (player/breathe2.wav) instead and does not block. The bar regens.
+void CTSGun::CloseCombatBlock()
+{
+	if (m_flNextPrimaryAttack > gpGlobals->time)
+		return; // mid-attack / already blocking
+
+	// Regen the block bar since it was last touched (~25/sec → full in ~4s), then update the stamp.
+	m_blockBar += (gpGlobals->time - m_blockBarTime) * 25.0f;
+	if (m_blockBar > 100.0f)
+		m_blockBar = 100.0f;
+	m_blockBarTime = gpGlobals->time;
+
+	const float kCost = 33.0f; // UpdateMeleeBar(33) — ~3 blocks before empty
+	if (m_blockBar < kCost)
+	{
+		// exhausted — the Valve breathing puff, no block, short lockout.
+		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/breathe2.wav", VOL_NORM, ATTN_NORM);
+		m_flNextPrimaryAttack = gpGlobals->time + 0.5f;
+		m_flNextSecondaryAttack = m_flNextPrimaryAttack;
+		return;
+	}
+
+	m_blockBar -= kCost;
+	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/block.wav", VOL_NORM, ATTN_NORM); // "hooah"
+	SendWeaponAnim(4); // block_low stance (v_melee.mdl seq 4, 1st person)
+	m_pPlayer->m_TSAnim.PlayKungFu(m_pPlayer, "kungfu_block1", 0.8f); // 3rd-person block pose
+	m_flNextPrimaryAttack = gpGlobals->time + 0.8f;   // the block window — gates attacks
+	m_flNextSecondaryAttack = m_flNextPrimaryAttack;
+	m_flTimeWeaponIdle = gpGlobals->time + 1.0f;
+}
+
 // @ AlternateAttack__6CTSGun @0x81ba8 — the +alt2 input: pistol-whip (ColdCock) when the
 // active weapon has a round loaded (the .so gates on the active slot's clip > 0).
 void CTSGun::AlternateAttack()
 {
-	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
+	if (m_flNextPrimaryAttack > gpGlobals->time)
 		return; // mid-attack cooldown
 	if (m_iClip <= 0)
 		return; // .so: only coldcock with a loaded weapon
@@ -493,8 +772,8 @@ void CTSGun::ColdCock()
 	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
 
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
-	m_flNextPrimaryAttack = GetNextAttackDelay(0.5f); // pistol-whip cadence
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+	m_flNextPrimaryAttack = gpGlobals->time + 0.5f; // pistol-whip cadence
+	m_flTimeWeaponIdle = gpGlobals->time + 5.0f;
 
 	if (tr.flFraction >= 1.0f)
 		return; // miss (swing is the visual; no sound)
@@ -528,7 +807,7 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 	if (m_iClip <= 0)
 	{
 		PlayEmptySound();
-		m_flNextPrimaryAttack = GetNextAttackDelay(0.5);
+		m_flNextPrimaryAttack = gpGlobals->time + 0.5f;
 		return;
 	}
 	m_iClip--;
@@ -541,8 +820,8 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 	TSThrowM61(m_pPlayer->pev, vecSrc, vecVel, 4.0f, dmg);
 
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_GRENADE); // 3rd-person "grenade" throw
-	m_flNextPrimaryAttack = GetNextAttackDelay(1.0);
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+	m_flNextPrimaryAttack = gpGlobals->time + 1.0f;
+	m_flTimeWeaponIdle = gpGlobals->time + 5.0f;
 }
 
 // @ AkimboFire__6CTSGun — the dual-wield fire-types (4 combinable, 5 gold-only). The
@@ -552,15 +831,36 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 // guns fire continuously while held, alternating the muzzle side each shot.
 void CTSGun::AkimboFire(const s_weapon_info *wi)
 {
-	if (m_iClip <= 0)
+	TSItem &it = m_items[m_weaponType];
+
+	// Pick the firing barrel. useitems (SwitchItems) sets it.barrelMask: 2 = left only,
+	// 4 = right only, 0/6 = both -> alternate. Skip an empty barrel (fall to the other).
+	int fireLeft;
+	if ((it.barrelMask & 6) == 2)
+		fireLeft = 1;                 // left only
+	else if ((it.barrelMask & 6) == 4)
+		fireLeft = 0;                 // right only
+	else
+		fireLeft = (m_akimboSide ^ 1) & 1; // both: alternate
+	if (fireLeft && it.leftClip <= 0 && it.rightClip > 0)
+		fireLeft = 0;
+	else if (!fireLeft && it.rightClip <= 0 && it.leftClip > 0)
+		fireLeft = 1;
+
+	if (it.leftClip + it.rightClip <= 0)
 	{
+		m_iClip = 0;
 		PlayEmptySound();
-		m_flNextPrimaryAttack = GetNextAttackDelay(0.2);
+		m_flNextPrimaryAttack = (gpGlobals->time + 0.2f);
 		return;
 	}
 
-	m_iClip--;
-	m_akimboSide ^= 1; // alternate barrels (left/right gun)
+	if (fireLeft)
+		it.leftClip--;
+	else
+		it.rightClip--;
+	m_akimboSide = fireLeft ? 1 : 0;
+	m_iClip = it.leftClip + it.rightClip; // total clip mirrors the two barrels
 
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
@@ -571,15 +871,17 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	if (akAnim >= 0)
 		SendWeaponAnim(akAnim);
 
-	if (wi->pszFireSound)
-		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, wi->pszFireSound, VOL_NORM, ATTN_NORM);
-
 	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	// Muzzle offset to the firing gun's side (+5u right / -5u left), like the original.
 	const float side = m_akimboSide ? 5.0f : -5.0f;
 	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_right * side;
 	Vector vecAiming = gpGlobals->v_forward;
 	const float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.02f;
+
+	// events/fire.sc → EV_TSFire: fire sound + shell + the muzzle-flash flare at THIS barrel's
+	// attachment (iparam2 = m_akimboSide: 0 = right/attachment 0, 1 = left/attachment 1).
+	PLAYBACK_EVENT_FULL(0, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
+		flSpread, flSpread, m_weaponType, m_akimboSide, (m_iClip == 0) ? 1 : 0, 0);
 
 	m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
 		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
@@ -588,8 +890,8 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
 	if (DoubleFireRate(m_pPlayer))
 		flRate *= 0.5f;
-	m_flNextPrimaryAttack = GetNextAttackDelay(flRate);
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+	m_flNextPrimaryAttack = (gpGlobals->time + flRate);
+	m_flTimeWeaponIdle = gpGlobals->time + 5.0f;
 }
 
 // @ UpdateClientData__6CTSGun @0x758c8 — send the TS WeaponInfo HUD message (the ammo
@@ -647,9 +949,9 @@ void CTSGun::SendWeaponStatus(CBasePlayer *pPlayer)
 
 	for (int t = 0; t < TSW_COUNT; t++)
 	{
-		const int slot = FindSlot((tsweapon_t)t);
-		const int owned = (slot >= 0) ? 1 : 0;
-		const int clip = (slot >= 0) ? m_arsenalClip[slot] : 0;
+		const int owned = m_items[t].owned ? 1 : 0;
+		// the live active clip is in m_iClip, not yet synced into its item
+		const int clip = owned ? ((t == m_weaponType) ? m_iClip : m_items[t].clip) : 0;
 		const int state = owned ? clip : -1;
 		if (state == m_iClientWStatus[t])
 			continue;
@@ -675,30 +977,75 @@ void CTSGun::ItemPostFrame()
 	const int caliber = wi->iCaliber;
 	const bool hasReserve = (caliber > 0 && caliber < TS_NUM_CALIBERS && m_ammoReserve[caliber] > 0);
 
-	// Finish a reload once its delay elapses: move rounds from the per-caliber reserve
-	// into the clip (capped at clip size / available reserve).
-	if (m_fInReload && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
+	const bool pumpShotgun = (wi->iFireType == TSFT_PUMP);
+
+	// Finish a reload once its delay elapses.
+	if (m_fInReload && m_flNextPrimaryAttack <= gpGlobals->time)
 	{
-		if (caliber > 0 && caliber < TS_NUM_CALIBERS)
+		if (pumpShotgun)
 		{
-			int need = wi->iClip - m_iClip;
-			int take = (need < m_ammoReserve[caliber]) ? need : m_ammoReserve[caliber];
-			if (take > 0)
+			// @ ShotgunReload__6CTSGun (@0x84aac) — pump shotguns reload ONE shell at a time
+			// (a per-shell state machine, interruptible by firing). Insert a shell, then keep the
+			// reload going for the next shell until the tube is full or the reserve is empty.
+			if (caliber > 0 && caliber < TS_NUM_CALIBERS && m_ammoReserve[caliber] > 0 && m_iClip < wi->iClip)
 			{
-				m_iClip += take;
-				m_ammoReserve[caliber] -= take;
+				m_iClip++;
+				m_ammoReserve[caliber]--;
+				EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, "weapons/scock1.wav", VOL_NORM, ATTN_NORM);
+			}
+			if (m_iClip < wi->iClip && caliber > 0 && caliber < TS_NUM_CALIBERS && m_ammoReserve[caliber] > 0)
+			{
+				// more to load — arm the next shell (and replay the insert anim).
+				if (wi->iReloadAnim >= 0)
+					SendWeaponAnim(wi->iReloadAnim);
+				m_flNextPrimaryAttack = gpGlobals->time + 0.5f;
+				m_flNextSecondaryAttack = m_flNextPrimaryAttack;
+				m_flTimeWeaponIdle = gpGlobals->time + 0.5f;
+			}
+			else
+			{
+				m_fInReload = false; // tube full / out of shells — pump finished
 			}
 		}
-		m_fInReload = false;
+		else
+		{
+			if (caliber > 0 && caliber < TS_NUM_CALIBERS)
+			{
+				int need = wi->iClip - m_iClip;
+				int take = (need < m_ammoReserve[caliber]) ? need : m_ammoReserve[caliber];
+				if (take > 0)
+				{
+					m_iClip += take;
+					m_ammoReserve[caliber] -= take;
+				}
+			}
+			// akimbo: redistribute the reloaded total across the two barrels.
+			if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+			{
+				TSItem &it = m_items[m_weaponType];
+				it.leftClip = m_iClip / 2;
+				it.rightClip = m_iClip - it.leftClip;
+			}
+			m_fInReload = false;
+		}
 	}
 
-	if ((m_pPlayer->pev->button & IN_ATTACK2) && m_flNextSecondaryAttack <= UTIL_WeaponTimeBase())
+	if ((m_pPlayer->pev->button & IN_ATTACK2) && m_flNextPrimaryAttack <= gpGlobals->time)
 	{
-		SecondaryAttack();
+		// Kung-fu's right-click attacks (back-kick / handstand kick / dropkick) — CCombatAttack
+		// reads IN_ATTACK2 too. Other weapons have no secondary here (zoom/coldcock are separate).
+		if (m_weaponType == TSW_MELEE)
+			CloseCombatAttack(true);
 	}
-	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
+	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= gpGlobals->time)
 	{
+		if (m_fInReload && pumpShotgun && m_iClip > 0)
+			m_fInReload = false; // a pump shot interrupts the shell-by-shell reload
 		PrimaryAttack();
+	}
+	else if ((m_pPlayer->pev->button & IN_RELOAD) && m_weaponType == TSW_MELEE)
+	{
+		CloseCombatBlock(); // kung-fu has no clip — reload = the "hooah" block taunt
 	}
 	else if ((m_pPlayer->pev->button & IN_RELOAD) && !m_fInReload && m_iClip < wi->iClip && hasReserve)
 	{
@@ -709,7 +1056,7 @@ void CTSGun::ItemPostFrame()
 		// auto-reload a dry clip (melee/grenade have no caliber -> hasReserve is false)
 		if (!m_fInReload && m_iClip <= 0 && hasReserve)
 			Reload();
-		else if (m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
+		else if (m_flTimeWeaponIdle <= gpGlobals->time)
 			WeaponIdle();
 	}
 }
@@ -732,9 +1079,9 @@ void CTSGun::Reload()
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 3rd-person relo_<grip>
 
 	m_fInReload = true;
-	m_flNextPrimaryAttack = GetNextAttackDelay(TS_RELOAD_TIME);
-	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + TS_RELOAD_TIME;
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + TS_RELOAD_TIME + 0.5f;
+	m_flNextPrimaryAttack = gpGlobals->time + TS_RELOAD_TIME;
+	m_flNextSecondaryAttack = gpGlobals->time + TS_RELOAD_TIME;
+	m_flTimeWeaponIdle = gpGlobals->time + TS_RELOAD_TIME + 0.5f;
 }
 
 // @ WeaponIdle__6CTSGun (@0x854dc) — drives the remaining burst rounds: while a burst is
@@ -743,7 +1090,7 @@ void CTSGun::Reload()
 void CTSGun::WeaponIdle()
 {
 	if (m_fireMode == TSFM_BURST && m_burstCount > 0 &&
-		m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
+		m_flTimeWeaponIdle <= gpGlobals->time)
 	{
 		Fire();
 		return;
@@ -762,7 +1109,7 @@ void CTSGun::SwitchFireMode()
 		if (wi->iFireModes & (1 << mode))
 		{
 			m_fireMode = mode;
-			m_arsenalMode[m_active] = mode;
+			m_items[m_weaponType].mode = mode;
 			m_burstCount = 0;
 			return;
 		}
@@ -793,6 +1140,19 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
 	return pGun;
 }
 
+// Force the player's TS arsenal to be the active item + deploy its current weapon. Called at the
+// end of PlayerSpawn: the tsgun is the player's single weapon entity, but the engine's auto-deploy
+// (GetNextBestWeapon) skips kung-fu (melee, no clip), so a bare/kung-fu-only loadout would leave
+// m_pActiveItem NULL → no viewmodel + ItemPostFrame (firing) never runs. This guarantees it deploys.
+void TSDeployArsenal(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (!pGun)
+		return;
+	pPlayer->m_pActiveItem = (CBasePlayerItem *)pGun;
+	pGun->Deploy();
+}
+
 // @ the ClientCommand `weapon_<N>` commit (@0xae433): wield the owned arsenal slot holding
 // tsweapon_t `type` (holster -> set active -> deploy via SelectSlot). This is the faithful
 // weapon-select transport: the client's invnext/invprev select cursor (FUN_1004f500) emits
@@ -802,19 +1162,19 @@ void TSSelectWeaponType(CBasePlayer *pPlayer, int type)
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun || type < 0 || type >= TSW_COUNT)
 		return;
-	int slot = pGun->FindSlot((tsweapon_t)type);
-	if (slot >= 0)
-		pGun->SelectSlot(slot);
+	if (type == TSW_MELEE || pGun->IsOwned(type))
+		pGun->SelectWeaponType(type);
 }
 
 // @ the ClientCommand `lastinv` block (@0xae433, the SelectWeapon+Deploy path): toggle back
-// to the previously-wielded slot (player+0xa1c). SelectSlot itself records m_lastActive.
+// to the previously-wielded type (player+0xa1c). SelectWeaponType itself records m_lastType.
 void TSLastInv(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	if (!pGun || pGun->m_arsenalCount <= 1)
+	if (!pGun || pGun->OwnedCount() <= 1)
 		return;
-	pGun->SelectSlot(pGun->m_lastActive);
+	if (pGun->IsOwned(pGun->m_lastType) || pGun->m_lastType == TSW_MELEE)
+		pGun->SelectWeaponType(pGun->m_lastType);
 }
 
 // Infinite-clip powerup hook (PlayerAddPowerUp) — multiply the held weapon's reserve.
@@ -832,20 +1192,29 @@ void TSSwitchFireMode(CBasePlayer *pPlayer)
 		pGun->SwitchFireMode();
 }
 
-// @ SwitchItems__6CTSGun (the `useitems` command — default.cfg binds g): the akimbo dual-wield
-// swap. Only meaningful while holding an akimbo weapon (the original gates on the akimbo flag).
-// SLICE: our akimbo is a single combined slot (HANDOFF), so we model the "switch items" as
-// toggling the active barrel side + re-deploy; the original's full left/right items[] split
-// (two independently-fired guns) is not reconstructed.
+// @ SwitchItems__6CTSGun = FUN_00081564 (the `useitems` command — default.cfg binds g): the
+// akimbo dual-wield "fire one barrel / fire both" swap. Cycles the active item's barrel mask
+// (item+0x128, bits 2/4 = left/right): both(0) -> left(2) -> right(4) -> both(6) -> both(0).
+// AkimboFire reads the mask to gate which barrel(s) fire. Plays a swap sound.
 void CTSGun::SwitchItems()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	if (wi->iFireType != TSFT_AKIMBO && wi->iFireType != TSFT_AKIMBO_ONLY)
 		return; // not dual-wielding — nothing to swap
 
-	m_akimboSide ^= 1; // swap which gun leads
-	if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
-		Deploy();
+	TSItem &it = m_items[m_weaponType];
+	const int m = it.barrelMask & 6;
+	if (m == 6)
+		it.barrelMask = 0;        // both -> default (both)
+	else if (m & 2)
+		it.barrelMask = 4;        // left -> right
+	else if (m & 4)
+		it.barrelMask = 6;        // right -> both
+	else
+		it.barrelMask = 2;        // default -> left
+
+	if (m_pPlayer)
+		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/switch.wav", VOL_NORM, ATTN_NORM);
 }
 
 // Swap the held akimbo's active item (the `useitems` command -> CTSGun::SwitchItems).
@@ -856,42 +1225,89 @@ void TSSwitchItems(CBasePlayer *pPlayer)
 		pGun->SwitchItems();
 }
 
-// @ DropWeapon__6CTSGun — remove the active arsenal slot (for dropping it into the world),
-// returning its type + loaded clip. Requires holding >= 2 weapons (no unarmed state — SLICE);
-// the next slot is wielded.
-bool CTSGun::RemoveActiveWeapon(int &type, int &clip)
+// @ DropWeapon__6CTSGun (@0x8094c) — remove an owned item from the arsenal. If it was the
+// active weapon, auto-select the next-best owned weapon (fThrow → GetBetterWeapon) or just
+// holster it. Does NOT spawn the world gun (CBasePlayer::DropWeapon does the throws); this is
+// only the items[] bookkeeping side.
+void CTSGun::DropType(int type, bool fThrow)
 {
-	if (m_arsenalCount < 2)
-		return false;
+	if (type < 1 || type >= TSW_COUNT || !m_items[type].owned)
+		return;
 
-	type = m_arsenalType[m_active];
-	clip = m_iClip;
+	m_items[type] = TSItem(); // clear the item (owned=false, clips/mode/masks zeroed)
 
-	for (int i = m_active; i < m_arsenalCount - 1; i++)
+	if (type == m_weaponType)
 	{
-		m_arsenalType[i] = m_arsenalType[i + 1];
-		m_arsenalClip[i] = m_arsenalClip[i + 1];
-		m_arsenalMode[i] = m_arsenalMode[i + 1];
+		if (fThrow)
+			GetBetterWeapon(type);   // auto-select the next-best owned weapon (holster->deploy)
+		else if (m_pPlayer)
+			SyncActiveToItem();      // holster only (the active item is already cleared)
 	}
-	m_arsenalCount--;
-	if (m_active >= m_arsenalCount)
-		m_active = 0;
-
-	m_weaponType = m_arsenalType[m_active];
-	m_iClip = m_arsenalClip[m_active];
-	m_fireMode = m_arsenalMode[m_active];
-	m_burstCount = 0;
-	if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
-		Deploy();
-	return true;
 }
 
-// Drop the player's active TS weapon: pull it from the arsenal (out-params type/clip). The
-// caller (the `drop` command) spawns the CTSWorldGun. Returns false if it can't drop.
-bool TSDropActiveWeapon(CBasePlayer *pPlayer, int &type, int &clip)
+// Spawn a thrown world gun in front of the player (the ThrowWeapon side of DropWeapon).
+static void TSThrowWorldGun(CBasePlayer *pPlayer, int type, int clip, float side)
+{
+	UTIL_MakeVectors(pPlayer->pev->v_angle);
+	Vector vecSrc = pPlayer->GetGunPosition() + gpGlobals->v_forward * 16 + gpGlobals->v_right * side;
+	Vector vecVel = gpGlobals->v_forward * 250 + pPlayer->pev->velocity;
+	TSCreateWorldGun(type, clip, vecSrc, vecVel);
+}
+
+// @ CBasePlayer::DropWeapon (@0x84900) — drop the player's ACTIVE TS weapon into the world.
+// Faithful akimbo branches (reference/WEAPON_SELECT.md):
+//  - dropping a combinable AKIMBO (fire-type 4) throws TWO of its base single (clip split in
+//    half, tossed ±4) and removes BOTH items[akimbo] and items[single];
+//  - dropping a SINGLE while you also own its akimbo throws ONE single, then keeps the single
+//    owned (its clip becomes the akimbo's right barrel) and removes the akimbo item;
+//  - any other weapon throws one and is removed.
+// Returns true if anything was dropped.
+bool TSDropWeapon(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	return pGun ? pGun->RemoveActiveWeapon(type, clip) : false;
+	if (!pGun)
+		return false;
+
+	const int type = pGun->m_weaponType;
+	if (type < 1 || type >= TSW_COUNT || !pGun->m_items[type].owned)
+		return false;
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)type);
+	if (!wi->pszWorldModel) // kung-fu / katana &c. have no droppable world model
+		return false;
+
+	// 1) combinable akimbo -> throw two base singles, remove both items.
+	if (wi->iFireType == TSFT_AKIMBO && wi->iSingleType >= 1 && wi->iSingleType < TSW_COUNT)
+	{
+		const int single = wi->iSingleType;
+		const int total = pGun->m_iClip; // live total (= leftClip+rightClip)
+		const int half = total / 2;
+		TSThrowWorldGun(pPlayer, single, half, 4.0f);
+		TSThrowWorldGun(pPlayer, single, total - half, -4.0f);
+		pGun->DropType(type, true);   // remove the akimbo (auto-selects next)
+		pGun->DropType(single, true); // and the single base, if it was also owned
+		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
+		return true;
+	}
+
+	// 2) single whose akimbo we ALSO own -> throw one, keep the other (clip = akimbo right barrel).
+	if (wi->iAkimboType >= 1 && wi->iAkimboType < TSW_COUNT && pGun->m_items[wi->iAkimboType].owned)
+	{
+		const int akimbo = wi->iAkimboType;
+		const int thrownClip = pGun->m_iClip;                 // the dropped gun keeps the live clip
+		const int keptClip = pGun->m_items[akimbo].rightClip; // the kept single takes the other barrel
+		TSThrowWorldGun(pPlayer, type, thrownClip, 0.0f);
+		pGun->m_items[type].clip = keptClip;
+		pGun->DropType(akimbo, false);     // remove the akimbo item (type stays owned + active)
+		pGun->m_iClip = keptClip;          // refresh the live clip of the kept single
+		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
+		return true;
+	}
+
+	// 3) plain weapon -> throw one, remove it.
+	TSThrowWorldGun(pPlayer, type, pGun->m_iClip, 0.0f);
+	pGun->DropType(type, true);
+	EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
+	return true;
 }
 
 // On death, scatter the player's whole arsenal into the world as CTSWorldGuns (the dead
@@ -901,13 +1317,14 @@ void TSDropWeaponsOnDeath(CBasePlayer *pPlayer)
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun)
 		return;
-	for (int i = 0; i < pGun->m_arsenalCount; i++)
+	for (int type = 1; type < TSW_COUNT; type++)
 	{
-		int type = pGun->m_arsenalType[i];
-		int clip = (i == pGun->m_active) ? pGun->m_iClip : pGun->m_arsenalClip[i];
+		if (!pGun->m_items[type].owned)
+			continue;
 		const s_weapon_info *wi = get_weapon_info((tsweapon_t)type);
 		if (!wi->pszWorldModel) // skip melee/things without a droppable world model
 			continue;
+		int clip = (type == pGun->m_weaponType) ? pGun->m_iClip : pGun->m_items[type].clip;
 		Vector vecVel(RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(80, 140));
 		TSCreateWorldGun(type, clip, pPlayer->pev->origin + Vector(0, 0, 20), vecVel);
 	}
@@ -924,18 +1341,24 @@ void TSDropAmmoOnDeath(CBasePlayer *pPlayer)
 }
 
 // Pick up a dropped weapon of `type` carrying `clip` loaded rounds (CTSWorldGun pickup):
-// add it to the arsenal, then restore the carried clip on that slot.
+// add it to the arsenal (combining if it triggers an akimbo upgrade), then restore the
+// carried clip — unless the pickup combined into the akimbo (which sets its own barrels).
 void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip)
 {
-	GiveTSWeapon(pPlayer, (tsweapon_t)type);
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	const bool ownedBefore = pGun && pGun->IsOwned(type);
+
+	GiveTSWeapon(pPlayer, (tsweapon_t)type);
+	pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun)
 		return;
-	int slot = pGun->FindSlot((tsweapon_t)type);
-	if (slot >= 0)
+
+	// If we already owned the single and the pickup combined into the akimbo, leave the
+	// combined barrel clips alone. Otherwise restore the carried clip on the picked-up type.
+	if (!ownedBefore && pGun->IsOwned(type))
 	{
-		pGun->m_arsenalClip[slot] = clip;
-		if (slot == pGun->m_active)
+		pGun->m_items[type].clip = clip;
+		if (type == pGun->m_weaponType)
 			pGun->m_iClip = clip;
 	}
 }

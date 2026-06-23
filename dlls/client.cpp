@@ -610,27 +610,9 @@ void ClientCommand(edict_t* pEntity)
 	}
 	else if (FStrEq(pcmd, "drop")) // TS: drop the active weapon into the world (default.cfg binds t)
 	{
-		int type, clip;
-		if (TSDropActiveWeapon(player, type, clip))
-		{
-			UTIL_MakeVectors(player->pev->v_angle);
-			Vector vecSrc = player->GetGunPosition() + gpGlobals->v_forward * 16;
-			Vector vecVel = gpGlobals->v_forward * 250 + player->pev->velocity;
-
-			// Dropping an AKIMBO weapon throws TWO of its base single (clip split in half), tossed
-			// left + right — the original's CBasePlayer::DropWeapon (ThrowWeapon x2, +/-4 offset).
-			tsweapon_t base = TSAkimboBase((tsweapon_t)type);
-			if (base >= 0)
-			{
-				int half = clip / 2;
-				TSCreateWorldGun(base, half, vecSrc + gpGlobals->v_right * 4, vecVel);
-				TSCreateWorldGun(base, clip - half, vecSrc - gpGlobals->v_right * 4, vecVel);
-			}
-			else
-			{
-				TSCreateWorldGun(type, clip, vecSrc, vecVel);
-			}
-		}
+		// CBasePlayer::DropWeapon does the throws + the faithful akimbo bookkeeping (akimbo ->
+		// two singles; a single dropped while its akimbo is owned leaves the other barrel).
+		TSDropWeapon(player);
 	}
 	else if (FStrEq(pcmd, "tsbuy")) // TS: buy a weapon (free; restriction-gated). SLICE: cl_dll menu
 	{
@@ -642,25 +624,27 @@ void ClientCommand(edict_t* pEntity)
 		if (CMD_ARGC() > 2)
 			player->BuyAmmo(atoi(CMD_ARGV(1)), atoi(CMD_ARGV(2)));
 	}
-	else if (FStrEq(pcmd, "tkw")) // TS "take weapon": queue a weapon into the armament. arg = "type_count"
-	{                             //   (original ClientCommand: sscanf(argv1,"%i_%i") -> AddItemToArmament)
-		if (CMD_ARGC() > 1)
+	else if (FStrEq(pcmd, "tkw")) // TS "take weapon": queue weapons into the armament. The original
+	{                             // client (apply FUN_10039400) batches ALL weapons into ONE command,
+		// space-separated "%i_%i" tokens: `tkw 2_1 5_1 9_1` — so loop over every argv token, not just
+		// argv(1) (the bug that dropped all but the first weapon). reference/BUY.md.
+		for (int i = 1; i < CMD_ARGC(); i++)
 		{
-			const char *a = CMD_ARGV(1);
+			const char *a = CMD_ARGV(i);
 			const char *u = strchr(a, '_');
 			player->AddItemToArmament(atoi(a), u ? atoi(u + 1) : 1, false);
 		}
 	}
-	else if (FStrEq(pcmd, "tki")) // TS "take item": queue a single weapon. arg = "type" (sscanf "%i")
+	else if (FStrEq(pcmd, "tki")) // TS "take item": queue weapons (one each). batched: `tki 2 5 9`.
 	{
-		if (CMD_ARGC() > 1)
-			player->AddItemToArmament(atoi(CMD_ARGV(1)), 1, false);
+		for (int i = 1; i < CMD_ARGC(); i++)
+			player->AddItemToArmament(atoi(CMD_ARGV(i)), 1, false);
 	}
-	else if (FStrEq(pcmd, "tka")) // TS "take ammo": queue ammo into the armament. arg = "caliber_count"
-	{                             //   (original: sscanf(argv1,"%i_%i") -> AddAmmoToArmament)
-		if (CMD_ARGC() > 1)
+	else if (FStrEq(pcmd, "tka")) // TS "take ammo": queue ammo per caliber. batched space-separated
+	{                             // "%i_%i" tokens: `tka 1_2 4_1` -> AddAmmoToArmament each.
+		for (int i = 1; i < CMD_ARGC(); i++)
 		{
-			const char *a = CMD_ARGV(1);
+			const char *a = CMD_ARGV(i);
 			const char *u = strchr(a, '_');
 			player->AddAmmoToArmament(atoi(a), u ? atoi(u + 1) : 0);
 		}

@@ -55,6 +55,11 @@ public:
 	void Init();                                  // reset per-spawn (@0x67ae0)
 	void Animate(CBasePlayer *pPlayer, int activity); // the dispatcher (@0x6abd0)
 	void UpdateTimers(CBasePlayer *pPlayer);      // decay timers each frame (@0x6b37c)
+	// Play a named kung-fu close-combat BODY sequence on the player (punchleft/sidekick/backkick/…),
+	// held briefly (m_flAimTimer) so the move/idle path doesn't stomp the torso. The TS player models
+	// carry these sequences by name (gordon &c.: punchleft/punchright/punchair/uppercut/sidekick/
+	// backkick/circkick/circspin/kungfu_block1 …) — the body anim the original drives via HandleCloseCombat.
+	void PlayKungFu(CBasePlayer *pPlayer, const char *seq, float hold = 0.6f);
 
 	int m_iLastActivity = -1;  // last activity code dispatched
 	int m_iDirection = -1;     // last 8-way movement direction (0 L,1 R,2 F,3 B)
@@ -62,6 +67,8 @@ public:
 	float m_flLegTimer = 0;    // one-shot leg-anim hold (wheels/walljump — deferred)
 	float m_flAimTimer = 0;    // weapon-raised hold after firing/reload (~2s)
 	float m_flGrenadeFlag = 0; // grenade throw in progress
+	bool m_bKungFu = false;    // active weapon is kung-fu (bare hands) → use the combat_idle stance,
+	                           // not aim_<grip> (no invisible-pistol pose); set by CTSGun::Deploy.
 
 private:
 	// 0=left 1=right 2=forward 3=back, from velocity relative to facing.

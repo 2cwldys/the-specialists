@@ -59,19 +59,68 @@ static const int s_fireAnim[] = {
 };
 static const int TSW_NUM = sizeof(s_fireAnim) / sizeof(s_fireAnim[0]);
 
+// Per-tsweapon_t muzzle-flash grip: true = one-handed (pistols + akimbo barrels) -> the small
+// ts_muzzleflash1h sprite; false = two-handed (rifles/SMGs/shotguns) -> the larger ts_muzzleflash6.
+// Mirrors the server s_weapon_info pszAnimExt (onehanded/akimbo vs twohanded). (RE: client.dll
+// FUN_100474b0 loads ts_muzzleflash1h + ts_muzzleflash6.)
+static const bool s_muzzle1h[] = {
+	/* 0 melee*/false,/*1 glock18*/true,/*2 beretta*/true,/*3 uzi*/true,/*4 m3*/false,/*5 m4*/false,
+	/*6 mp5sd*/false,/*7 mp5k*/false,/*8 ber_ak*/true,/*9 mk23*/true,/*10 mk23_ak*/true,/*11 usas*/false,
+	/*12 desert*/true,/*13 ak47*/false,/*14 fnh*/true,/*15 aug*/false,/*16 uzi_ak*/true,/*17 skorpion*/true,
+	/*18 barrett*/false,/*19 pdw*/true,/*20 spas12*/false,/*21 gold*/true,/*22 glock22*/true,/*23 ump*/false,
+	/*24 m61*/false,/*25 knife*/false,/*26 mossberg*/false,/*27 m16*/false,/*28 ruger*/true,/*29 flag*/false,
+	/*30 fnh_ak*/true,/*31 bull*/true,/*32 m60*/false,/*33 sawedoff*/false,/*34 katana*/false,/*35 seal*/false,
+	/*36 contender*/true,/*37 skorp_ak*/true,
+};
+
+// Draw the TS muzzle-flash flare sprite at the firing gun's muzzle attachment. `side` selects the
+// attachment (0 = right/primary barrel, 1 = left barrel for akimbo). RE: client.dll FUN_100474b0
+// spawns a short-lived additive sprite at the muzzle; we use the engine temp-sprite at the model's
+// attachment[side]. For the local player it's the viewmodel; otherwise the player's world model.
+static void EV_TSMuzzleFlare(int idx, int weaponType, int side)
+{
+	static int s_spr1h = 0, s_spr6 = 0;
+	if (s_spr1h == 0)
+		s_spr1h = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/ts_muzzleflash1h.spr");
+	if (s_spr6 == 0)
+		s_spr6 = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/ts_muzzleflash6.spr");
+
+	cl_entity_t* ent = EV_IsLocal(idx) ? gEngfuncs.GetViewModel() : gEngfuncs.GetEntityByIndex(idx);
+	if (!ent)
+		return;
+	if (side < 0 || side > 3)
+		side = 0;
+
+	const bool oneHand = (weaponType >= 0 && weaponType < (int)(sizeof(s_muzzle1h) / sizeof(s_muzzle1h[0]))) && s_muzzle1h[weaponType];
+	const int spr = oneHand ? s_spr1h : s_spr6;
+	if (spr <= 0)
+		return;
+
+	float pos[3];
+	VectorCopy(ent->attachment[side], pos);
+	const float scale = oneHand ? 0.4f : 0.7f;
+	// A muzzle flash is a single brief pop — a very short life and NO frame-cycle (FTENT_SPRCYCLE
+	// kept it animating/visible far too long, "slow enough to walk around"). One frame, gone fast.
+	gEngfuncs.pEfxAPI->R_TempSprite(pos, vec3_origin, scale, spr,
+		kRenderTransAdd, kRenderFxNoDissipation, 1.0f, 0.01f, 0);
+}
+
 void EV_TSFire(event_args_t* args)
 {
 	const int idx = args->entindex;
 	const int weaponType = args->iparam1;
+	const int barrelSide = args->iparam2; // akimbo: 0 = right barrel (attachment 0), 1 = left (1)
 	if (weaponType < 0 || weaponType >= TSW_NUM)
 		return;
 
 	Vector origin;
 	VectorCopy(args->origin, origin);
 
+	EV_TSMuzzleFlare(idx, weaponType, barrelSide); // the TS muzzle-flash sprite at the barrel
+
 	if (EV_IsLocal(idx))
 	{
-		EV_MuzzleFlash();
+		EV_MuzzleFlash(); // the dynamic light / model flash on top of the sprite
 		// NOTE: the viewmodel "shoot" anim is driven server-side via SendWeaponAnim
 		// (CTSGun::StandardFire) — EV_WeaponAnimation here doesn't stick because CTSGun
 		// isn't client-predicted.

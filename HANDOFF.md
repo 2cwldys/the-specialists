@@ -39,19 +39,22 @@ touching that area):**
 
 ## Where things stand (2026-06-23, through cont.69o)
 
-### ⭐ NEXT TASK (user-approved) — the akimbo OWNERSHIP refactor. FULLY RE'd; NOT yet implemented.
-Migrate `CTSGun`'s arsenal from the compact `m_arsenalType[]` list (akimbo = one upgraded slot) to the
-original's **items[]-by-tsweapon_t model** so a single can be wielded/dropped independently of its akimbo
-pair. **The complete RE is in `reference/WEAPON_SELECT.md` "Akimbo ownership model" + "TakeWeapon combine"**
-(TakeWeapon@0x80a04 / DropWeapon@0x84900 / SwitchItems=FUN_00081564 / GetBetterWeapon@0x80f40). Model:
-`items[38]` each {owned, clip, leftClip(+0x130), rightClip(+0x134), mode(+0x116), attach(+0x124)}; the
-akimbo is a combined item carrying both barrels; the combine KEEPS both `items[single]` and `items[akimbo]`
-owned (so scroll skips the single but slot1-5 still selects it); `useitems` toggles the active-barrel mask
-(+0x14 bits 2/4); dropping one barrel leaves the other. This touches the verified fire/reload/per-caliber-
-ammo/switch/drop paths — do it as a careful pass with full in-engine retest of all 38 weapons.
-**Already shipped (cont.69n):** drop-akimbo → 2 base-single world guns (clip split, `TSAkimboBase`); the
-scroll cursor skips kung-fu (type 0) + a single whose akimbo is owned. Kung-fu now uses the fists
-viewmodel (v_melee.mdl, no clip).
+### ✅ DONE (cont.69p) — the akimbo OWNERSHIP refactor is IMPLEMENTED + in-engine verified.
+`CTSGun`'s arsenal is now the original's **items[]-by-tsweapon_t model** (`struct TSItem m_items[TSW_COUNT]`
+in dlls/ts_gun.cpp = {owned, clip, leftClip, rightClip, mode, attach, barrelMask}). A single can be
+wielded/dropped independently of its akimbo pair. RE in `reference/WEAPON_SELECT.md` (TakeWeapon@0x80a04 /
+CTSGun::DropWeapon@0x8094c / CBasePlayer::DropWeapon@0x84900 / SwitchItems=FUN_00081564 /
+GetBetterWeapon@0x80f40 / g_iWeaponPriority). Combine keeps BOTH items[single]+items[akimbo] owned (scroll
+skips the single, slot1-5 still picks it); dropping a single while owning its akimbo throws one + keeps the
+other (clip = akimbo.rightClip) + removes the akimbo; dropping the akimbo throws two singles + removes both;
+useitems cycles the active barrel mask; GetBetterWeapon auto-selects by priority. Verified in xash3d
+(combine via `tsbuy 2`×2, slot-select-single-while-owning-akimbo, drop-single-keeps-other; no crashes).
+**Plus three cont.69p playtest fixes (see ledger):** (1) the spawn→spectate "crash" was a launch-flag
+issue — the listenserver needs **`+deathmatch 1 +maxplayers 8`** (else stock respawn() does
+`SERVER_COMMAND("reload")`); CLAUDE.md §3 updated. (2) kung-fu no longer drawn red in the select bar
+(clipless weapons can't be "out of ammo"). (3) dropped weapons no longer block the player while falling
+(RE: original gives the falling world gun a ZERO-size bbox; ts_worldgun.cpp falling SetSize → g_vecZero).
+**NOT yet committed.** Remaining: exhaustive 38-weapon in-engine retest.
 
 ### Recent playtest fixes (cont.69m–n) — all RE-grounded + in-engine/user-confirmed
 - **Weapon-select REBUILT** (`cl_dll/ts_weaponbar.cpp` + `ammo.cpp`): the stock yellow `CHudAmmo` menu is

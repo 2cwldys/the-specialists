@@ -264,6 +264,14 @@ void PrecacheAllTSWeapons()
 	// PRECACHE_MODEL after spawn (Host_Error, seen on ts_dust2).
 	PRECACHE_MODEL("models/powerup.mdl");
 
+	// TS muzzle-flash "flare" sprites — drawn at the gun muzzle attachment by the fire event
+	// (client EV_TSFire). ts_muzzleflash1h = one-handed (pistols), ts_muzzleflash6 = two-handed.
+	// (RE: client.dll FUN_100474b0 loads these two; akimbo draws one per barrel attachment.)
+	PRECACHE_MODEL("sprites/ts_muzzleflash1h.spr");
+	PRECACHE_MODEL("sprites/ts_muzzleflash6.spr");
+
+	PRECACHE_SOUND("weapons/scock1.wav"); // pump-shotgun per-shell insert (ShotgunReload)
+
 	// weapon event scripts (CTSGun::Precache @0x80660) — must be precached at map
 	// load so a runtime weapon give doesn't precache an event mid-game.
 	PRECACHE_EVENT(1, "events/fire.sc");
