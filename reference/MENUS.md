@@ -172,9 +172,28 @@ id price slot fullcnt full   id price slot fullcnt full
 34 2900  10   0    -    35   100   1  10   YES (Seal Knife)
 36 1500  15   1    -    37  1100  15   1    -
 ```
-(Combat Knife id 25 / Seal Knife 35 / M61 24 are the "Full Load" weapons; ammo distribution into `tka` via
-`FUN_100392b0`/`FUN_100071f0` (caliber table) is the one deferred slice — the server's `BuyArmament` already
-grants default ammo, so weapons are usable without `tka`.)
+(Combat Knife id 25 / Seal Knife 35 / M61 24 are the "Full Load" weapons.)
+
+**AUTO-AMMO — RE'd via runtime capture (cont.69l).** After the weapons, the menu auto-buys ammo to fill each
+weapon's caliber pool to max, distributing the remaining budget round-robin (`FUN_100392b0` → `FUN_10039380`).
+The ammo cost adds to the displayed Total and the rounds show left of the weapon's preview icon (Glock 210,
+M16 120). The per-caliber table `DAT_1009ffc0` (stride 0xe ints) is runtime-filled by `FUN_10007480`; its
+**max-rounds field `[3]` reads 0 statically** (only set at load), so it was captured by reading the LIVE
+process memory (`/proc/<hl.exe pid>/mem` at client.dll base 0x0c070000 → table @0x0c10ffc0). Fields:
+`[1]`=cost/unit, `[3]`=max rounds, `[4]`=rounds/unit. Per-weapon caliber = `weapon_info` byte `+0x08` (also
+read live). Verified: Glock (cal 1: max 210, unit 30, cost 50) → 7 units = 210 rounds, 350cr → Total 3400 ✓.
+| cal | cost | max | unit |  | cal | cost | max | unit |
+|---|---|---|---|---|---|---|---|---|
+| 1 (9mm) | 50 | 210 | 30 | | 8 (.50BMG) | 500 | 30 | 5 |
+| 2 (.45) | 60 | 175 | 12 | | 9 (10mm) | 70 | 90 | 15 |
+| 3 (12ga) | 120 | 60 | 8 | | 10 (.22) | 100 | 150 | 17 |
+| 4 (5.56) | 80 | 120 | 30 | | 11 (.454) | 150 | 50 | 5 |
+| 5 (.50AE) | 70 | 70 | 10 | | 12 (.32) | 30 | 300 | 20 |
+| 6 (7.62) | 100 | 90 | 30 | | 13 (.45-70) | 150 | 35 | 5 |
+| 7 (5.7) | 120 | 160 | 20 | | 0/14/15 | — melee, no ammo | | |
+Per-weapon caliber: 1-3,6-8,16=9mm(1); 9,10,21,23=.45(2); 4,11,20,26,33=12ga(3); 5,15,27,32=5.56(4);
+12=.50AE(5); 13=7.62(6); 14,19,30=5.7(7); 18=.50BMG(8); 22=10mm(9); 28=.22(10); 31=.454(11); 17,37=.32(12);
+36=.45-70(13); 24,25,34,35=melee(0). Apply emits `tka <cal>_<units>`.
 
 ---
 

@@ -65,9 +65,11 @@ private:
 	int m_attachMask = 0;      // obj+0xc
 	int m_weapon = -1;         // obj+0x10
 	Slot m_slots[MAX_SLOTS];   // obj+0x94..
-	int m_spent = 0;           // obj+0x414
+	int m_spent = 0;           // obj+0x414 (weapons+attachments+auto-ammo, the displayed Total)
 	int m_slotsUsed = 0;       // obj+0x418
 	bool m_useNewConfig = true; // obj+0x2f08
+	int m_ammoRounds[16] = {}; // obj+0x14 : auto-bought rounds per caliber (for the preview)
+	int m_ammoUnits[16] = {};  // obj+0x18 : units bought per caliber (emitted as `tka cal_units`)
 	Slot m_saved[SAVE_SLOTS][MAX_SLOTS]; // obj+0x41c.. : the 9 save/load config slots
 	bool m_savedFull[SAVE_SLOTS] = {};
 

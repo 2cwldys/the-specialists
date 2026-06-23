@@ -91,6 +91,35 @@ static const TSWeapon* WeaponInfo(int id)
 	return nullptr;
 }
 
+// Per-weapon ammo caliber (weapon_info byte +0x08), read from the live weapon table. 0 = melee/no
+// ammo. reference/MENUS.md. Indexed by tsweapon_t id.
+static const signed char s_weaponCaliber[38] = {
+	/*0*/ 0, 1, 1, 1, 3, 4, 1, 1, 1, 2, 2, 3, 5, 6, 7, 4, 1, 12, 8, 7,
+	/*20*/ 3, 2, 9, 2, 0, 0, 3, 4, 10, -1, 7, 11, 4, 3, 0, 0, 13, 12};
+static int WeaponCaliber(int id) { return (id >= 0 && id < 38) ? s_weaponCaliber[id] : 0; }
+
+// The per-caliber ammo table DAT_1009ffc0 (stride 0xe ints), RUNTIME-captured from the live game
+// (the max field [3] resisted static RE). {cost per unit [1], max rounds [3], rounds per unit [4]}.
+// FUN_10039380 fills a weapon's caliber pool 1 unit at a time up to max; FUN_100392b0 distributes the
+// post-weapon budget across calibers. Calibers 0/14/15 = melee (no ammo).
+struct TSCaliber { int cost, maxRounds, unit; };
+static const TSCaliber s_caliber[16] = {
+	{0, 0, 0},      // 0 (melee)
+	{50, 210, 30},  // 1  9mm
+	{60, 175, 12},  // 2  .45
+	{120, 60, 8},   // 3  12ga
+	{80, 120, 30},  // 4  5.56
+	{70, 70, 10},   // 5  .50AE
+	{100, 90, 30},  // 6  7.62
+	{120, 160, 20}, // 7  5.7
+	{500, 30, 5},   // 8  .50BMG
+	{70, 90, 15},   // 9  10mm
+	{100, 150, 17}, // 10 .22
+	{150, 50, 5},   // 11 .454
+	{30, 300, 20},  // 12 .32
+	{150, 35, 5},   // 13 .45-70
+	{0, 0, 0}, {0, 0, 0}};
+
 // The REAL roster (obj+0x2d6c, FUN_10036200) — Beretta 92F (#5) + Contender G2 (#10) in Handguns.
 #define TS_CATS 5
 #define TS_ROWS 12
@@ -230,6 +259,8 @@ void CHudTSBuyMenu::Recount()
 {
 	m_spent = 0;
 	m_slotsUsed = 0;
+	memset(m_ammoRounds, 0, sizeof(m_ammoRounds));
+	memset(m_ammoUnits, 0, sizeof(m_ammoUnits));
 	for (const auto& s : m_slots)
 	{
 		if (!s.used)
@@ -239,6 +270,33 @@ void CHudTSBuyMenu::Recount()
 			m_slotsUsed += (s.weaponId == TS_ACC_KEVLAR) ? 10 : 0;
 		else
 			m_slotsUsed += WeaponSlotCost(s.weaponId, s.akimbo || s.count > 1);
+	}
+
+	// Auto-ammo (FUN_100392b0): distribute the remaining budget across the loadout's calibers, one
+	// unit per weapon per pass, until nothing more can be bought; the ammo cost adds to the Total.
+	int remaining = TS_BUDGET - m_spent;
+	bool progress = true;
+	while (progress && remaining > 0)
+	{
+		progress = false;
+		for (const auto& s : m_slots)
+		{
+			if (!s.used || s.accessory)
+				continue;
+			int cal = WeaponCaliber(s.weaponId);
+			if (cal <= 0 || cal >= 16)
+				continue;
+			const TSCaliber& ci = s_caliber[cal];
+			if (ci.maxRounds <= 0 || m_ammoRounds[cal] >= ci.maxRounds || remaining < ci.cost)
+				continue;
+			m_ammoRounds[cal] += ci.unit;
+			if (m_ammoRounds[cal] > ci.maxRounds)
+				m_ammoRounds[cal] = ci.maxRounds;
+			m_ammoUnits[cal]++;
+			remaining -= ci.cost;
+			m_spent += ci.cost; // the Total includes auto-ammo (Glock 350 -> 3400; verified)
+			progress = true;
+		}
 	}
 }
 
@@ -360,6 +418,24 @@ void CHudTSBuyMenu::Apply()
 	{
 		strncat(cmd, "\n", sizeof(cmd) - strlen(cmd) - 1);
 		gEngfuncs.pfnClientCmd(cmd);
+	}
+
+	// the auto-bought ammo: one `tka <caliber>_<units>` batch (FUN_10039400's tka loop).
+	char tka[256] = "tka";
+	bool anyAmmo = false;
+	for (int cal = 1; cal < 16; cal++)
+	{
+		if (m_ammoUnits[cal] <= 0)
+			continue;
+		char buf[24];
+		sprintf(buf, " %d_%d", cal, m_ammoUnits[cal]);
+		strncat(tka, buf, sizeof(tka) - strlen(tka) - 1);
+		anyAmmo = true;
+	}
+	if (anyAmmo)
+	{
+		strncat(tka, "\n", sizeof(tka) - strlen(tka) - 1);
+		gEngfuncs.pfnClientCmd(tka);
 	}
 	gEngfuncs.Cvar_SetValue("cl_buykevlar", kevlar ? 1.0f : 0.0f);
 
@@ -673,12 +749,16 @@ void CHudTSBuyMenu::DrawLoadoutPreview()
 			if (!w || w->hudCol != col)
 				continue;
 
-			// count to the LEFT of the icon (only when >1 — full-load throwables; FUN_10036af0).
+			// number to the LEFT of the icon (FUN_10036af0): for ammo weapons = the auto-bought rounds
+			// (Glock 210 / M16 120), for full-load throwables = the count (Seal Knife 10 / Combat Knife 5).
 			int iconX = x;
-			if (s.count > 1)
+			int cal = WeaponCaliber(s.weaponId);
+			int lead = (cal > 0 && cal < 16 && m_ammoRounds[cal] > 0) ? m_ammoRounds[cal]
+					   : (s.count > 1 ? s.count : 0);
+			if (lead > 0)
 			{
 				char cnt[8];
-				sprintf(cnt, "%d", s.count);
+				sprintf(cnt, "%d", lead);
 				TSHud_DrawString(x, y + 4, ScreenWidth, cnt, hr, hg, hb);
 				iconX = x + 0x18;
 			}
