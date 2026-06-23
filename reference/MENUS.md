@@ -257,6 +257,52 @@ funcs (dispatcher `FUN_10007de0` calls each with `&DAT_100aa050 + id*0x3DC`). Th
 25 Combat Knife, 26 Mossberg 500, 27 M16A4, 28 Ruger-MK1, 30 Akimbo Five-seveN, 31 Raging Bull,
 32 M60E3, 33 Sawed-off, 34 Katana, 35 Seal Knife, 36 Contender G2, 37 Akimbo Skorpions.
 
+### Per-weapon attachment submenu — RESOLVED (cont.69i, RE-grounded + in-engine verified)
+
+Clicking a weapon in the list (action 8) opens the **per-weapon attachment submenu** — the 4th panel
+`+0x2d90`, built by **`FUN_10010bd0`** (state `+0xc = 4`). It reads the weapon being configured from
+`clientobj+0x28` and the already-selected attachment mask from `clientobj+0x24`, and builds:
+- **"1 Buy"** (`s_1_Buy`) — action **8** (queue the weapon with the selected attachments).
+- one entry per **available attachment** — shown if `(bit & selected[0x24])==0 && (bit & weaponinfo[0x39])==0
+  && (bit & weaponinfo[0x38])!=0` — action **10** (toggle the bit + rebuild; selecting one removes it
+  from the list): bit0 **Silencer** (+900), bit1 **Lasersight** (+800), bit2 **Flashlight** (+500),
+  bit3 **Scope** (+1800). Format strings `"%i Silencer  %i"` / `"%i Lasersight  %i"` / `"%i Flashlight  %i"`
+  / `"%i Scope  %i"` (@0x100929b4/0x100929a0/0x1009298c/0x1009297c).
+- then EITHER **"6 Buy Akimbo"** (`s_6_Buy_Akimbo`, action 8) if `weaponinfo[0x32] != -1`, OR
+  **"6 Full Load"** (`s_6_Full_Load`, action 9) if `weaponinfo_byte[0x37] != 0` — mutually exclusive.
+- **"0 Cancel"** (action 0) → back to the weapon list.
+
+**The attachment availability is WEAPON DATA, not menu data** (read here, also drives the HUD's bottom-right
+attached-icon row). The relevant weapon-struct fields (`DAT_100aa050 + id*0x3DC`, `FUN_100071c0`):
+
+| field | offset | meaning |
+|---|---|---|
+| support mask | `0xE0` (`[0x38]`) | attachments the weapon CAN take (bit0 Sil, bit1 Las, bit2 Fla, bit3 Sco) |
+| exclude mask | `0xE4` (`[0x39]`) | removed from support (integrated attachments — MP5SD silencer, AUG/Barrett scope, Ruger silencer) |
+| akimbo type | `0xC8` (`[0x32]`) | akimbo variant weapon id, `-1` = none → enables "Buy Akimbo" |
+| full-load    | `0xDC` (`[0x37]`) | nonzero (throwables: M61/Combat Knife/Seal Knife) → enables "Full Load" |
+
+**Per-weapon EFFECTIVE attachment mask** (support & ~exclude) + akimbo + full, extracted from all 36 init funcs:
+1 Glock-18 Sil|Las|Fla ak-1 · 2 Beretta Sil|Las|Fla ak8 · 3 Mini-Uzi Sil ak16 · 4 Benelli Las|Fla|Sco ·
+5 M4A1 Sil|Las|Fla|Sco · 6 MP5SD Las|Fla|Sco (sil integrated) · 7 MP5K all4 · 8 Akimbo Berettas Sil|Las|Fla ·
+9 SOCOM-MK23 Sil|Las|Fla ak10 · 10 Akimbo MK23 Sil|Las|Fla · 11 USAS-12 Las|Fla · 12 Desert Eagle Sil|Las|Sco ·
+13 AK47 Sco · 14 Five-seveN Sil|Las|Fla ak30 · 15 STEYR-AUG Sil|Las (sco integrated) · 16 Akimbo Mini-Uzi Sil ·
+17 Skorpion (none) ak37 · 18 Barrett Las (sco integrated) · 19 MP7-PDW Sil|Las|Sco · 20 SPAS-12 Las|Fla ·
+21 Golden Colts (none) · 22 Glock-20C Sil|Las|Fla · 23 UMP all4 · 24 M61 full · 25 Combat Knife full ·
+26 Mossberg Las|Fla · 27 M16A4 Las|Fla|Sco · 28 Ruger Las (sil integrated) · 30 Akimbo Five-seveN Sil|Las|Fla ·
+31 Raging Bull Las|Sco · 32 M60E3 (none) · 33 Sawed-off Las · 34 Katana (none) · 35 Seal Knife full ·
+36 Contender Las|Sco · 37 Akimbo Skorpions (none).
+
+**Reproduced** (`cl_dll/vgui_TSBuyMenu.cpp` `PAGE_WEAPON_DETAIL`, cont.69i): clicking a weapon opens the
+attachment submenu built from `s_weaponAttach[]` (the table above); attachments toggle client-side (selected
+ones disappear, per the original), Buy/Buy Akimbo/Full Load queue the weapon (`tkw <id>_1`, akimbo → the
+variant id). **In-engine verified** (e.g. MP5SD correctly shows Lasersight/Flashlight/Scope — silencer
+excluded). **DEFERRED (next slice):** the exact attachment-to-server wire encoding (buried in the
+`FUN_10012050` apply string-builder) + server-side attachment application + the HUD attached-icon row — the
+attachments are currently selected client-side but not yet networked/applied.
+
+### Per-category weapon lists (cont.69g)
+
 **Reproduced** (`cl_dll/vgui_TSBuyMenu.cpp`, cont.69g): a single dynamic `PAGE_WEAPONS` rebuilt by
 `ShowCategory(cat)` from the table above (with the M61 team-gate), green entries + blue Cancel; clicking
 a weapon emits the real swap-contract command **`tkw <id>_1`** (queues into the server armament;

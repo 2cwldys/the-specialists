@@ -99,6 +99,19 @@ private:
 	char m_cmd[32];
 };
 
+// A per-weapon attachment-submenu slot action (the +0x2d90 panel, FUN_10010bd0): toggle an
+// attachment, buy the weapon (plain/akimbo/full), or go back. Reads the live slot from m_detailAction[].
+class CTSMenuHandler_Detail : public ActionSignal
+{
+public:
+	CTSMenuHandler_Detail(CTSBuyMenuPanel* menu, int slot) : m_pMenu(menu), m_slot(slot) {}
+	void actionPerformed(Panel* panel) override { m_pMenu->OnDetailSlot(m_slot); }
+
+private:
+	CTSBuyMenuPanel* m_pMenu;
+	int m_slot;
+};
+
 // A cvar-toggle action: clicking the entry flips a client cvar (the accessory selection state;
 // RE: the Player Accessory page toggles cl_buykevlar/cl_laser, shown via the selected-bit).
 class CTSMenuHandler_ToggleCvar : public ActionSignal
@@ -182,6 +195,31 @@ static const int s_categoryWeapons[5][9] = {
 };
 #define TS_M61_WEAPON_ID 24 // M61 Grenade: shown only in team mode (FUN_100108b0: iVar5 != 0x18 gate)
 
+// --- Per-weapon attachment data (RE'd from the weapon table DAT_100aa050, reference/MENUS.md). ---
+// The per-weapon attachment submenu (FUN_10010bd0) reads these weapon-struct fields:
+//   0xE0 support mask | 0xE4 exclude mask (bit0 Silencer, bit1 Lasersight, bit2 Flashlight, bit3 Scope);
+//   0xC8 akimbo type (akimbo variant id, -1 = none); 0xDC full-load flag (throwables).
+// `attach` below is the EFFECTIVE available mask (support & ~exclude) — e.g. MP5SD/Ruger/AUG/Barrett
+// exclude their integrated silencer/scope. The SAME fields drive the HUD's attached-icon row.
+struct TSWeaponAttach { int id; int attach; int akimbo; int full; };
+static const TSWeaponAttach s_weaponAttach[] = {
+	{1, 0x7, -1, 0}, {2, 0x7, 8, 0}, {3, 0x1, 16, 0}, {4, 0xE, -1, 0}, {5, 0xF, -1, 0}, {6, 0xE, -1, 0},
+	{7, 0xF, -1, 0}, {8, 0x7, -1, 0}, {9, 0x7, 10, 0}, {10, 0x7, -1, 0}, {11, 0x6, -1, 0}, {12, 0xB, -1, 0},
+	{13, 0x8, -1, 0}, {14, 0x7, 30, 0}, {15, 0x3, -1, 0}, {16, 0x1, -1, 0}, {17, 0x0, 37, 0}, {18, 0x2, -1, 0},
+	{19, 0xB, -1, 0}, {20, 0x6, -1, 0}, {21, 0x0, -1, 0}, {22, 0x7, -1, 0}, {23, 0xF, -1, 0}, {24, 0x0, -1, 1},
+	{25, 0x0, -1, 1}, {26, 0x6, -1, 0}, {27, 0xE, -1, 0}, {28, 0x2, -1, 0}, {30, 0x7, -1, 0}, {31, 0xA, -1, 0},
+	{32, 0x0, -1, 0}, {33, 0x2, -1, 0}, {34, 0x0, -1, 0}, {35, 0x0, -1, 1}, {36, 0xA, -1, 0}, {37, 0x0, -1, 0},
+};
+static const TSWeaponAttach* TSWeaponAttachData(int id)
+{
+	for (const auto& w : s_weaponAttach)
+		if (w.id == id)
+			return &w;
+	return nullptr;
+}
+// Attachment names by bit index (RE'd menu strings: "%i Silencer %i", "%i Lasersight %i", ...).
+static const char* const s_attachNames[4] = {"Silencer", "Lasersight", "Flashlight", "Scope"};
+
 CTSBuyMenuPanel::CTSBuyMenuPanel(int x, int y, int wide, int tall)
 	: Panel(x, y, wide, tall) // full-screen; the menu box + entries sit at the menu origin within it
 {
@@ -200,6 +238,7 @@ CTSBuyMenuPanel::CTSBuyMenuPanel(int x, int y, int wide, int tall)
 	BuildCategory(m_wide);
 	BuildAccessory(m_wide);
 	BuildWeapons(m_wide);
+	BuildDetail(m_wide);
 	setVisible(false);
 	ShowPage(PAGE_CONFIG);
 }
@@ -263,6 +302,21 @@ void CTSBuyMenuPanel::BuildWeapons(int wide)
 	m_nWeaponShown = 0;
 }
 
+// The per-weapon attachment submenu (the +0x2d90 panel, FUN_10010bd0). Reusable slots, rebuilt per
+// weapon by ShowWeaponDetail(); each slot's action reads the live m_detailAction[].
+void CTSBuyMenuPanel::BuildDetail(int wide)
+{
+	for (int i = 0; i < TS_MAX_BUTTONS; i++)
+	{
+		m_pDetail[i] = new CTSMenuButton("", m_mx, m_my + m_rowH * i, wide, m_rowH, 45, 195, 45);
+		m_pDetail[i]->setParent(this);
+		m_pDetail[i]->addActionSignal(new CTSMenuHandler_Detail(this, i));
+		m_pDetail[i]->setVisible(false);
+		m_detailAction[i] = -1;
+	}
+	m_nDetailShown = 0;
+}
+
 void CTSBuyMenuPanel::BuildAccessory(int wide)
 {
 	m_nAccessory = sizeof(s_accessory) / sizeof(s_accessory[0]);
@@ -287,6 +341,7 @@ void CTSBuyMenuPanel::ShowCategory(int cat)
 {
 	if (cat < 0 || cat > 4)
 		return;
+	m_currentCategory = cat; // remembered so the detail submenu's Cancel returns to this list
 	bool teamMode = gViewPort && gViewPort->GetNumberOfTeams() > 1;
 	int shown = 0;
 	for (int s = 0; s < 9 && shown < TS_MAX_BUTTONS - 1; s++)
@@ -323,12 +378,8 @@ void CTSBuyMenuPanel::ShowCategory(int cat)
 	ShowPage(PAGE_WEAPONS);
 }
 
-// A weapon-list slot was chosen (click or bound key). Cancel row (id<0) navigates back; otherwise
-// queue the weapon into the server-side armament via the real swap-contract command `tkw type_count`
-// (reference/BUY.md; FUN_10012050's apply emits the same). The loadout commits on "Use New Config".
-// NOTE: the original queues client-side then emits the full rst_cfg+tkw list on apply; queuing each
-// pick immediately is a faithful-command bridge (same as the config page's menuselect bridge). The
-// per-weapon detail submenu (6 Full Load / 6 Buy Akimbo, the +0x2d90 panel) is a further slice.
+// A weapon-list slot was chosen (click or bound key). Cancel row (id<0) goes back to the category;
+// otherwise open that weapon's attachment submenu (the original navigates to the +0x2d90 panel).
 void CTSBuyMenuPanel::OnWeaponSlot(int slot)
 {
 	if (slot < 0 || slot >= m_nWeaponShown)
@@ -339,9 +390,117 @@ void CTSBuyMenuPanel::OnWeaponSlot(int slot)
 		ShowPage(PAGE_CATEGORY);
 		return;
 	}
+	m_selectedAttach = 0; // fresh attachment selection for this weapon
+	ShowWeaponDetail(id);
+}
+
+// Rebuild the per-weapon attachment submenu (the +0x2d90 panel, FUN_10010bd0): "Buy", then each
+// available attachment (effective mask minus already-selected), then "Buy Akimbo" (0xC8 != -1) or
+// "Full Load" (0xDC), then "Cancel". Selecting an attachment removes it from the list (matches the
+// original's (bit & selected)==0 gate) and rebuilds.
+void CTSBuyMenuPanel::ShowWeaponDetail(int weaponId)
+{
+	m_detailWeapon = weaponId;
+	const TSWeaponAttach* wa = TSWeaponAttachData(weaponId);
+	int shown = 0;
+
+	// "Buy" — queue the weapon (with the selected attachments) into the loadout.
+	CTSMenuButton* b = static_cast<CTSMenuButton*>(m_pDetail[shown]);
+	b->setText("Buy");
+	b->setBoundKey((char)('1' + shown));
+	b->SetColor(45, 195, 45);
+	b->setPos(m_mx, m_my + m_rowH * shown);
+	b->setVisible(true);
+	m_detailAction[shown] = -2; // Buy
+	shown++;
+
+	// available attachments (effective mask, minus the already-selected ones)
+	int avail = wa ? (wa->attach & ~m_selectedAttach) : 0;
+	for (int bit = 0; bit < 4 && shown < TS_MAX_BUTTONS - 1; bit++)
+	{
+		if ((avail & (1 << bit)) == 0)
+			continue;
+		CTSMenuButton* a = static_cast<CTSMenuButton*>(m_pDetail[shown]);
+		a->setText(s_attachNames[bit]);
+		a->setBoundKey((char)('1' + shown));
+		a->SetColor(45, 195, 45);
+		a->setPos(m_mx, m_my + m_rowH * shown);
+		a->setVisible(true);
+		m_detailAction[shown] = bit; // toggle attachment bit
+		shown++;
+	}
+
+	// "Buy Akimbo" (weapon has an akimbo variant) OR "Full Load" (throwables) — mutually exclusive.
+	if (wa && wa->akimbo >= 0 && shown < TS_MAX_BUTTONS - 1)
+	{
+		CTSMenuButton* k = static_cast<CTSMenuButton*>(m_pDetail[shown]);
+		k->setText("Buy Akimbo");
+		k->setBoundKey((char)('1' + shown));
+		k->SetColor(45, 195, 45);
+		k->setPos(m_mx, m_my + m_rowH * shown);
+		k->setVisible(true);
+		m_detailAction[shown] = -3; // Buy Akimbo
+		shown++;
+	}
+	else if (wa && wa->full && shown < TS_MAX_BUTTONS - 1)
+	{
+		CTSMenuButton* f = static_cast<CTSMenuButton*>(m_pDetail[shown]);
+		f->setText("Full Load");
+		f->setBoundKey((char)('1' + shown));
+		f->SetColor(45, 195, 45);
+		f->setPos(m_mx, m_my + m_rowH * shown);
+		f->setVisible(true);
+		m_detailAction[shown] = -4; // Full Load
+		shown++;
+	}
+
+	// "Cancel" -> back to the weapon list
+	CTSMenuButton* c = static_cast<CTSMenuButton*>(m_pDetail[shown]);
+	c->setText("Cancel");
+	c->setBoundKey('0');
+	c->SetColor(100, 100, 205);
+	c->setPos(m_mx, m_my + m_rowH * shown);
+	c->setVisible(true);
+	m_detailAction[shown] = -1; // back to weapon list
+	shown++;
+
+	for (int i = shown; i < TS_MAX_BUTTONS; i++)
+		m_pDetail[i]->setVisible(false);
+	m_nDetailShown = shown;
+	ShowPage(PAGE_WEAPON_DETAIL);
+}
+
+// A detail-submenu slot was chosen. Toggle (0-3) flips the attachment + rebuilds; Buy/Akimbo/Full
+// queue the weapon via `tkw <id>_1` (reference/BUY.md) then return to the weapon list; Cancel backs out.
+// NOTE: the chosen attachments are tracked client-side; the server-side attachment encoding (the
+// FUN_10012050 apply path) + server application + the HUD attached-icon row are a documented next slice.
+void CTSBuyMenuPanel::OnDetailSlot(int slot)
+{
+	if (slot < 0 || slot >= m_nDetailShown)
+		return;
+	int act = m_detailAction[slot];
+	if (act >= 0) // toggle an attachment bit, rebuild
+	{
+		m_selectedAttach ^= (1 << act);
+		ShowWeaponDetail(m_detailWeapon);
+		return;
+	}
+	if (act == -1) // Cancel -> back to the weapon list
+	{
+		ShowCategory(m_currentCategory);
+		return;
+	}
+	int buyId = m_detailWeapon;
+	if (act == -3) // Buy Akimbo -> the akimbo variant id
+	{
+		const TSWeaponAttach* wa = TSWeaponAttachData(m_detailWeapon);
+		if (wa && wa->akimbo >= 0)
+			buyId = wa->akimbo;
+	}
 	char cmd[32];
-	sprintf(cmd, "tkw %d_1\n", id);
+	sprintf(cmd, "tkw %d_1\n", buyId); // -2 Buy / -3 Akimbo / -4 Full Load all queue the weapon
 	gEngfuncs.pfnClientCmd(cmd);
+	ShowCategory(m_currentCategory); // back to the weapon list to buy more
 }
 
 void CTSBuyMenuPanel::ShowPage(Page page)
@@ -354,20 +513,21 @@ void CTSBuyMenuPanel::ShowPage(Page page)
 	for (int i = 0; i < m_nAccessory; i++)
 		m_pAccessory[i]->setVisible(page == PAGE_ACCESSORY);
 	for (int i = 0; i < TS_MAX_BUTTONS; i++)
-		if (page != PAGE_WEAPONS)
-			m_pWeapon[i]->setVisible(false);
-		else
-			m_pWeapon[i]->setVisible(i < m_nWeaponShown);
+	{
+		m_pWeapon[i]->setVisible(page == PAGE_WEAPONS && i < m_nWeaponShown);
+		m_pDetail[i]->setVisible(page == PAGE_WEAPON_DETAIL && i < m_nDetailShown);
+	}
 
 	// Hug the bg box to the active page's row count (the original sizes each sub-panel to its
 	// own entry count via FUN_100667e0), so the box isn't taller than the visible entries.
 	int rows;
 	switch (page)
 	{
-	case PAGE_CATEGORY:  rows = m_nCategory;    break;
-	case PAGE_ACCESSORY: rows = m_nAccessory;   break;
-	case PAGE_WEAPONS:   rows = m_nWeaponShown; break;
-	default:             rows = m_nConfig;      break;
+	case PAGE_CATEGORY:      rows = m_nCategory;    break;
+	case PAGE_ACCESSORY:     rows = m_nAccessory;   break;
+	case PAGE_WEAPONS:       rows = m_nWeaponShown; break;
+	case PAGE_WEAPON_DETAIL: rows = m_nDetailShown; break;
+	default:                 rows = m_nConfig;      break;
 	}
 	if (m_pBg)
 		m_pBg->setSize(m_wide, m_rowH * rows); // hug the box to the active page (panel stays full-screen)
@@ -377,10 +537,11 @@ CommandButton** CTSBuyMenuPanel::CurrentPage(int& count)
 {
 	switch (m_page)
 	{
-	case PAGE_CATEGORY:  count = m_nCategory;    return m_pCategory;
-	case PAGE_ACCESSORY: count = m_nAccessory;   return m_pAccessory;
-	case PAGE_WEAPONS:   count = m_nWeaponShown; return m_pWeapon;
-	default:             count = m_nConfig;      return m_pConfig;
+	case PAGE_CATEGORY:      count = m_nCategory;    return m_pCategory;
+	case PAGE_ACCESSORY:     count = m_nAccessory;   return m_pAccessory;
+	case PAGE_WEAPONS:       count = m_nWeaponShown; return m_pWeapon;
+	case PAGE_WEAPON_DETAIL: count = m_nDetailShown; return m_pDetail;
+	default:                 count = m_nConfig;      return m_pConfig;
 	}
 }
 

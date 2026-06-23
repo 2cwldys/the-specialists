@@ -5,6 +5,29 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 69i) — per-weapon attachment submenu RE'd + built + verified
+
+User: clicking a weapon should open a per-weapon submenu to buy attachments; RE it. Done.
+
+**RE (client.dll):** the 4th panel `+0x2d90` is built by **`FUN_10010bd0`** (state +0xc=4). It reads the
+weapon (+0x28) + selected-attachment mask (+0x24) and builds: "1 Buy" (action 8), each available
+attachment "Silencer/Lasersight/Flashlight/Scope" (action 10 = toggle bit, shown if `support & ~exclude &
+~selected`), then "6 Buy Akimbo" (action 8) if akimbo OR "6 Full Load" (action 9), then "0 Cancel".
+**The attachment availability is WEAPON DATA** (and the same data drives the HUD attached-icon row, per the
+user): weapon-struct fields `0xE0` support mask / `0xE4` exclude mask (bit0 Sil,1 Las,2 Fla,3 Sco) / `0xC8`
+akimbo type / `0xDC` full-load flag. Extracted the effective mask + akimbo + full for all 36 weapons from
+their init funcs (e.g. MP5SD/AUG/Barrett/Ruger *exclude* their integrated silencer/scope). Full table in
+reference/MENUS.md "Per-weapon attachment submenu — RESOLVED".
+
+**Built (cl_dll/vgui_TSBuyMenu, `PAGE_WEAPON_DETAIL`):** clicking a weapon now opens the attachment submenu
+(built from a new `s_weaponAttach[]` table); attachments toggle client-side (selected ones disappear);
+Buy/Buy Akimbo/Full Load queue the weapon (`tkw <id>_1`, akimbo → variant id); Cancel → back to the list.
+**In-engine verified** by mouse+key nav: detail renders Buy+attachments+Cancel, and MP5SD correctly shows
+Lasersight/Flashlight/Scope (silencer excluded — RE-accurate). Both client arches build clean.
+**DEFERRED (next slice):** the attachment-to-server wire encoding (the tangled `FUN_10012050` apply
+string-builder) + server-side attachment application + the HUD attached-icon row — attachments are selected
+client-side but not yet networked/applied.
+
 ## 2026-06-22 (cont. 69h) — buy-menu interaction fixes (close/reopen/cursor/mouse-click)
 
 User-reported bugs on the live menu, all fixed + in-engine verified:
