@@ -20,6 +20,60 @@
 > real `0x10037xxx` RE. **The weapon-select bar (Image #4) is the invnext/invprev loadout preview that also
 > renders as the in-game weapon HUD when ALIVE (shows per-weapon attachments) — CHudTSWeaponBar.**
 
+## ★ THE REAL BUY MENU — full RE (cont.69k). Rebuild target: a HUD element, NOT vgui.
+
+**Rendering: it's HUD-drawn** (this is the good news — it reuses our existing TS HUD draw + font):
+- Each entry is drawn by **`FUN_1004ff10(cursor, token, r, g, b, scale)`**: it draws a per-entry filled
+  colour box via `(*DAT_100d5b54)(x, y, w-1, h-1, r, g, b, scale)` THEN the text via
+  **`FUN_10021ce0` = `TSHud_DrawString`** (our recovered HUD string draw, `reference/HUD_DRAWCHAIN.md`) with
+  font `DAT_100d5908` and `FUN_100349a0(token)` = `gEngfuncs.pfnLocalize/`titles.txt lookup. Then advances
+  the y cursor by rowH. So **use `CHudTSStatus`/`TSHud_DrawString` + the TS HUD font**, not vgui.
+- **`FUN_1004fed0(cursor, X, Y, rowH, width)`** sets the column draw-cursor: `cursor[0]=X`, `[4]=Y`,
+  `[8]=rowH`, `[0xc]=width`. The menu cursor global is `&DAT_1018a6b0`.
+
+**Cascade columns** (all visible at once — orchestrator `FUN_10036750`, a switch on `obj+4` = current level):
+each level's builder sets its column X so they sit side by side, rowH `0x14`(20), width `0x80`(128):
+config **X=8**, category **X=0x88(136)**, weapons **X=0x108(264)**, detail **X=0x188(392)**.
+`FUN_10036af0` (called every frame before the switch) draws the **top header bar** (`(*DAT_100d5b54)(8,8,0x280,
+0x13,…)`): `#Buy_Total` "(Total: %i)" + `#Buy_FreeSlots` "Free Slots : %i" (red when over). States:
+0=config(`FUN_10037540`), 1=category(`FUN_100377d0`), 2=weapons(`FUN_10037960`), 3=detail(`FUN_10037ba0`),
+4/5/6/7=accessory/save/load/remove variants, 8=off.
+
+**Labels = `titles.txt` tokens** (drawn as "`<key> ` + localize(token)"):
+- Config: `1 #Buy_UseNewConfig`/`#Buy_UseLastConfig` (state `obj+0x2f08`) or `#Buy_EmptyConfig` (red, if
+  `obj+0x414<1`), `2 #Buy_Buy`, `3 #Buy_RemoveItem`, `4 #Buy_ResetConfig`, `5 #Buy_SaveConfig`,
+  `6 #Buy_LoadConfig`, **`7 #Buy_Random` = always GREEN (45,195,45)**, `0 #Buy_Cancel` (blue 100,100,205, only
+  when `obj+4==0`).
+- Category: the 5 categories (`%c %s` per-letter) + `6 #Buy_PlayerAccessory` + `0 #Buy_GoBack` (blue).
+  Names via titles.txt: Handguns/SMGs/Rifles/Shotguns/**#Buy_SpecialPurpose="Special Purpose"**.
+- Detail: `1 #Buy_Buy` (green if affordable) + per available attachment **`%i #HUD_Silencer %i`** (key + name +
+  **cost**: Silencer 900, Lasersight 800, Flashlight 500, Scope 1800) + Buy Akimbo/Full Load + `0 #Buy_GoBack`.
+- Colours: available = **half the HUD colour** `hud_r/g/b /2` (dim); unavailable/over-budget = **red
+  (195,45,45)**; Random/affordable-Buy = **green (45,195,45)**; Cancel/GoBack = **blue (100,100,205)**.
+
+**THE REAL WEAPON ROSTER** — the menu's own table at **`obj+0x2d6c`**, indexed `(row*5 + cat)` (5 cats/row,
+≤12 rows), populated by **`FUN_10036200`** (NOT the legacy `DAT_1007a950`). Decoded (matches the user's image):
+| cat | category | weapon ids (tsweapon_t) | names |
+|---|---|---|---|
+| 0 | Handguns | 1,9,12,14,2,21,22,28,31,36 | Glock-18, SOCOM-MK23, Desert Eagle, Five-seveN, **Beretta 92F**, Golden Colts, Glock-20C, Ruger-MK1, Raging Bull, **Contender G2** |
+| 1 | SMGs | 3,6,7,17,19,23 | Mini-Uzi, MP5SD, MP5K, Skorpion, MP7-PDW, UMP |
+| 2 | Rifles | 5,13,15,27,18 | M4A1, AK47, STEYR-AUG, M16A4, Barrett M82A1 |
+| 3 | Shotguns | 4,11,20,26,33 | Benelli M3, USAS-12, SPAS-12, Mossberg 500, Sawed-off |
+| 4 | Special Purpose | 24,25,32,34,35 | M61, Combat Knife, M60E3, Katana, Seal Knife |
+
+Header: each selected weapon shows a preview via `FUN_10038180` ("Credits"/"Slots" + the gun image — Image #3).
+Attachment availability = `FUN_10038d70(menu, 1<<bit)` (reads the weapon's support/exclude masks, same 0xE0/0xE4
+fields from the attachment RE above). Per-weapon price/slots: `weaponinfo[0x36]` (price), `weaponinfo+0x34`
+(slot cost). `obj+0x414` = current spent, `obj+0x418` = free-slots used, `obj+0x10` = selected weapon,
+`obj+0xc`/`obj+8` = selected attachment mask / category.
+
+**Rebuild plan:** replace the vgui `CTSBuyMenuPanel` with a **`CHudBase` HUD element** that, when the buy menu
+is active, draws the header + cascade columns with `TSHud_DrawString` + the TS font, using the roster above +
+the token labels (localize via `gEngfuncs.pfnLocalize` / titles.txt) + the RE'd colours. Navigation: number
+keys pick within the active column (advancing `obj+4` level + the selection); commit emits `rst_cfg`/`tkw`/
+`tki`/`tka` (unchanged server contract). Still to RE for the rebuild: the input/level-advance handler + the
+accessory column (states 4-7) + `FUN_10038180` preview geometry.
+
 
 Recovered from `client.dll` (.data menu strings + the builder functions). This is the
 authoritative menu hierarchy; it supersedes the guessed placement of any single entry.

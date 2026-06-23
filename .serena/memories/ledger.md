@@ -5,6 +5,35 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-23 (cont. 69k) — DISCOVERY: we RE'd the WRONG (legacy) buy menu; full RE of the REAL one
+
+User supplied reference screenshots of the real cascade buy menu (Config|Categories|Weapons|Detail columns
+all visible, "Special Purpose", "Go Back", attachment costs, Beretta 92F + Contender G2 in Handguns). NONE of
+that matched my menu RE. Root cause: the TS client.dll has TWO buy-menu code paths — the **legacy/dead** one
+I RE'd + built (`0x10010xxx`, vgui::Panel, literal strings, `DAT_1007a950` table) and the **REAL** one the
+game actually draws (`0x10037xxx`). All on-disk client.dll copies (incl. the Steam install) are byte-identical
+(688128b) — same binary, I just RE'd the wrong builder. **User chose: RE + rebuild the real cascade menu.**
+
+**Full RE of the real menu (cont.69k, all in reference/MENUS.md "★ THE REAL BUY MENU"):**
+- It's **HUD-drawn, NOT vgui**: entries via `FUN_1004ff10` → `FUN_10021ce0`(=`TSHud_DrawString`) + the TS HUD
+  font `DAT_100d5908` + `titles.txt` token localization (`FUN_100349a0`). So it reuses our existing HUD draw.
+- **Cascade**: orchestrator `FUN_10036750` (switch on `obj+4` = level: 0 config/1 category/2 weapons/3 detail/
+  4-7 accessory&c/8 off). Columns side-by-side at X=8/0x88/0x108/0x188, rowH 0x14, width 0x80. `FUN_10036af0`
+  draws the top header (Total + Free Slots). Builders: config `FUN_10037540`, category `FUN_100377d0`,
+  weapons `FUN_10037960`, detail `FUN_10037ba0`.
+- **Colours**: available = half hud_r/g/b (dim); over-budget = red (195,45,45); Random/affordable-Buy = green
+  (45,195,45); Cancel/GoBack = blue (100,100,205). "7 Random" is green BY DESIGN (not hover).
+- **Real weapon roster** (the menu's own table `obj+0x2d6c`, indexed row*5+cat, filled by `FUN_10036200` — NOT
+  DAT_1007a950): Handguns [1,9,12,14,2,21,22,28,31,36] (Beretta 92F #5, Contender G2 #10 — matches the image!),
+  SMGs [3,6,7,17,19,23], Rifles [5,13,15,27,18], Shotguns [4,11,20,26,33], Special Purpose [24,25,32,34,35].
+- **Attachment costs** (detail, "%i <name> %i" = key+cost): Silencer 900, Lasersight 800, Flashlight 500,
+  Scope 1800. Availability via `FUN_10038d70` (same 0xE0/0xE4 weapon masks).
+
+**NEXT: rebuild as a CHudBase HUD element** (header + cascade columns via TSHud_DrawString + TS font + the
+roster/tokens/colours above), replacing the vgui CTSBuyMenuPanel. Still to RE: the input/level-advance handler,
+the accessory column (states 4-7), the `FUN_10038180` weapon-preview geometry. The legacy vgui menu + its
+cont.69g-j work is superseded for structure (the styling/colour findings carry over).
+
 ## 2026-06-22 (cont. 69i) — per-weapon attachment submenu RE'd + built + verified
 
 User: clicking a weapon should open a per-weapon submenu to buy attachments; RE it. Done.
