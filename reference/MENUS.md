@@ -257,6 +257,19 @@ funcs (dispatcher `FUN_10007de0` calls each with `&DAT_100aa050 + id*0x3DC`). Th
 25 Combat Knife, 26 Mossberg 500, 27 M16A4, 28 Ruger-MK1, 30 Akimbo Five-seveN, 31 Raging Bull,
 32 M60E3, 33 Sawed-off, 34 Katana, 35 Seal Knife, 36 Contender G2, 37 Akimbo Skorpions.
 
+### Config-menu styling — RESOLVED from the user's reference image (cont.69j)
+
+The user supplied a screenshot of the real config page (the `+0x2d84` panel that resisted static RE).
+Ground truth: **compact** tightly-packed rows, the small **command-menu font** (`Scheme::sf_primary3`),
+**white** entry text on a dark translucent box, and a **green selection/hover highlight** (a green bar +
+bright green text on the entry under the cursor). Labels come from localization tokens — `7 #Buy_Random`
+localizes to **"Random"** (NOT "Buy Random"); item 1 is the state toggle
+`#Buy_UseNewConfig`/`#Buy_UseLastConfig`/`#Buy_EmptyConfig` ("Use New/Last/Empty Config").
+Applied (`CTSMenuButton`, cont.69j): `sf_primary3` font, `m_rowH = YRES(15)` (compact), green hover
+highlight via the CommandButton armed-state (`bNoHighlight=false`; paint green text + a green bar instead of
+the SDK orange), and the "Random" label. **Screenshot-matched to the reference.** OPEN: item 1's state-based
+label (we show "Use New Config"; needs the server to report the saved-config state) + the exact menu position.
+
 ### Per-weapon attachment submenu — RESOLVED (cont.69i, RE-grounded + in-engine verified)
 
 Clicking a weapon in the list (action 8) opens the **per-weapon attachment submenu** — the 4th panel

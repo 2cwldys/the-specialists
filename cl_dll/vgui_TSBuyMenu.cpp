@@ -24,16 +24,30 @@ class CTSMenuButton : public CommandButton
 {
 public:
 	CTSMenuButton(const char* text, int x, int y, int wide, int tall, int r, int g, int b)
-		: CommandButton(text, x, y, wide, tall, /*bNoHighlight*/ true), m_r(r), m_g(g), m_b(b)
+		: CommandButton(text, x, y, wide, tall, /*bNoHighlight*/ false), m_r(r), m_g(g), m_b(b)
 	{
 		setContentAlignment(vgui::Label::a_west);
+		setFont(vgui::Scheme::sf_primary3); // the compact command-menu font (matches the original)
 	}
 	void paint() override
 	{
-		setFgColor(m_r, m_g, m_b, 0); // vgui alpha: 0 = opaque
+		// Hovered/selected entry = bright green text on a green bar (the original's selection
+		// highlight, reference image); otherwise the per-entry colour. vgui alpha: 0 = opaque.
+		if (isArmed())
+			setFgColor(80, 230, 80, 0);
+		else
+			setFgColor(m_r, m_g, m_b, 0);
 		vgui::Button::paint();
 	}
-	void paintBackground() override {} // plain vgui::Button has no box
+	void paintBackground() override
+	{
+		if (isArmed()) // the green selection bar
+		{
+			drawSetColor(30, 110, 30, 80);
+			drawFilledRect(0, 0, _size[0], _size[1]);
+		}
+		// non-hovered: no box (the panel's faint bg shows through)
+	}
 	void SetColor(int r, int g, int b) { m_r = r; m_g = g; m_b = b; } // for rebuilt (weapon-list) slots
 
 private:
@@ -138,7 +152,7 @@ static const TSEntry s_config[] = {
 	{'4', "Reset Config", "menuselect 4"},
 	{'5', "Save Config", "menuselect 5"},
 	{'6', "Load Config", "menuselect 6"},
-	{'7', "Buy Random", "menuselect 7"},
+	{'7', "Random", "menuselect 7"}, // "7 #Buy_Random" localizes to "Random" (not "Buy Random")
 	{'0', "Cancel", "menuselect 10"},
 };
 // Buy-category page (RE'd from FUN_10010440: the 0x10092824 table loop + Cancel).
@@ -227,7 +241,7 @@ CTSBuyMenuPanel::CTSBuyMenuPanel(int x, int y, int wide, int tall)
 	m_mx = XRES(40);           // menu origin (was the panel pos; now an offset inside the full-screen panel)
 	m_my = YRES(120);
 	m_wide = XRES(128);        // RE'd box/entry width 0x80 (FUN_100667e0)
-	m_rowH = YRES(20);         // RE'd row height 0x14
+	m_rowH = YRES(15);         // compact rows (the original packs the entries tightly — reference image)
 
 	// The faint menu box (the shared menu/HUD look), behind the entry buttons; resized per page.
 	m_pBg = new Panel(m_mx, m_my, m_wide, m_rowH * 8);
