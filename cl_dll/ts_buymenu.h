@@ -72,6 +72,9 @@ private:
 	int m_ammoUnits[16] = {};  // obj+0x18 : units bought per caliber (emitted as `tka cal_units`)
 	Slot m_saved[SAVE_SLOTS][MAX_SLOTS]; // obj+0x41c.. : the 9 save/load config slots
 	bool m_savedFull[SAVE_SLOTS] = {};
+	Slot m_lastConfig[MAX_SLOTS] = {};   // obj+0x41c slot 0 : the auto "last config" (open loads it; apply saves it)
+	bool m_lastConfigValid = false;
+	bool m_firstOpen = true;             // obj+0x2f10 : first open per map -> randomize ("Use New Config")
 
 	int m_prevButtons = 0; // obj+0x2f18 : mouse-button edge tracking
 

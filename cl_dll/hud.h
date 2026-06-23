@@ -169,6 +169,7 @@ private:
 #include "ts_weaponbar.h"
 #include "ts_spectate.h"
 #include "ts_buymenu.h"
+#include "ts_message.h"
 
 
 #define FADE_TIME 100
@@ -584,6 +585,7 @@ public:
 	CHudTSWeaponBar m_TSWeaponBar;
 	CHudSpectate m_Spectate;
 	CHudTSBuyMenu m_TSBuyMenu;
+	CHudTSMessage m_TSMessage;
 
 	void Init();
 	void VidInit();

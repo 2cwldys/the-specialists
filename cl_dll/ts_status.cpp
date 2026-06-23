@@ -125,6 +125,11 @@ bool CHudTSStatus::Draw(float flTime)
 	if (gHUD.m_iHideHUDDisplay & (HIDEHUD_HEALTH | HIDEHUD_ALL))
 		return true;
 
+	// Hide the status panel while dead/spectating (the original shows no health area then) — the
+	// spectate/buy phase owns the screen. cont.69l.
+	if (gHUD.m_Spectate.IsActive())
+		return true;
+
 	// The TS status panel (bottom-left): team name on top, the posture figure on the
 	// left, the health number + heart to its right, and a "Kevlar" label below when
 	// armored. RE'd from client.dll (sprite slots @0x10049d1f, "%i Kevlar  %i" @0x1003808e)

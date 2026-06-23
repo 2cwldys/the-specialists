@@ -38,6 +38,7 @@ void CHudSpectate::Reset()
 int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
+	const int oldState = m_iState;
 	m_iState = READ_BYTE();
 	m_iSeconds = READ_BYTE();
 
@@ -45,6 +46,11 @@ int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 		m_iFlags |= HUD_ACTIVE;
 	else
 		m_iFlags &= ~HUD_ACTIVE;
+
+	// "Press fire to play" is a one-shot prompt shown when the respawn countdown finishes (it fades),
+	// NOT a permanent centre overlay — push it through the notification queue on the transition to READY.
+	if (m_iState == TSSPEC_READY && oldState != TSSPEC_READY)
+		gHUD.m_TSMessage.Add("Press fire to play", 0, 0, 0, 20, 0);
 
 	// Open the TS buy/config menu (the HUD-drawn CHudTSBuyMenu) during the spectate-wait (join/buy)
 	// phase, hide it on spawn. The original opens its buy menu here (reference/MENUS.md).
@@ -69,32 +75,31 @@ bool CHudSpectate::Draw(float flTime)
 	if (m_iState == TSSPEC_OFF)
 		return true;
 
-	int r, g, b;
-	UnpackRGB(r, g, b, RGB_YELLOWISH);
-	ScaleColors(r, g, b, 255);
-
-	// Centre overlay: the spawn countdown, then the "press fire to play" prompt.
+	// Centre overlay: the respawn countdown number (light text, centred — the TS notification style).
+	// "Press fire to play" is NOT drawn here; it's a one-shot fading notification pushed on the
+	// transition to READY (see MsgFunc_Spectator), so it appears after the countdown then disappears.
 	if (m_iState == TSSPEC_COUNTDOWN && m_iSeconds > 0)
 	{
 		char szNum[8];
 		sprintf(szNum, "%d", m_iSeconds);
-		DrawCentered(ScreenHeight * 2 / 5, szNum, r, g, b);
-	}
-	else // TSSPEC_READY (or countdown hit 0)
-	{
-		DrawCentered(ScreenHeight * 2 / 5, "Press fire to play", r, g, b);
+		DrawCentered(ScreenHeight / 2, szNum, 230, 230, 230);
 	}
 
 	// The TS spectate bottom bar (no top bar — verified vs the original): a dark band carrying the
 	// camera-mode label + the free-look control help. Drawn in the HUD layer (so the help is NOT
 	// hidden under the stock spectator overlay, which is now suppressed during TS spectate).
+	int br, bg, bb;
+	UnpackRGB(br, bg, bb, RGB_YELLOWISH); // the bottom bar (mode + help) is the orange spectator text
+	ScaleColors(br, bg, bb, 255);
 	const int barH = ScreenHeight / 8;
 	const int barY = ScreenHeight - barH;
-	gEngfuncs.pfnFillRGBA(0, barY, ScreenWidth, barH, 0, 0, 0, 150);
-	DrawCentered(barY + barH / 5, "Free-Look", r, g, b);
+	// pfnFillRGBA is ADDITIVE (black adds nothing -> invisible); the dark bar needs the alpha-BLEND
+	// fill so it actually darkens the scene behind the text (matches the original's black bar).
+	gEngfuncs.pfnFillRGBABlend(0, barY, ScreenWidth, barH, 0, 0, 0, 180);
+	DrawCentered(barY + barH / 5, "Free-Look", br, bg, bb);
 	DrawCentered(barY + barH * 3 / 5,
 		"JUMP - Change Camera modes, MOVEMENT KEYS - move around, MOUSE - rotate view",
-		r, g, b);
+		br, bg, bb);
 
 	return true;
 }

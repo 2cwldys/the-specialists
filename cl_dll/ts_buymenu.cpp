@@ -158,6 +158,8 @@ bool CHudTSBuyMenu::Init()
 
 bool CHudTSBuyMenu::VidInit()
 {
+	m_firstOpen = true; // first open on a fresh map randomizes (FUN_10036200 sets obj+0x2f10)
+
 	// Load the bought-weapon preview icons (same sprites the weapon-select bar uses).
 	char path[64];
 	memset(m_hIcon, 0, sizeof(m_hIcon));
@@ -194,13 +196,35 @@ void CHudTSBuyMenu::Reset()
 	m_iFlags &= ~HUD_ACTIVE;
 }
 
+// FUN_10036670 — open: load the last-applied config; on the FIRST open of the map, randomize the
+// loadout instead (so it comes up as a ready "Use New Config"). Subsequent opens reload the last
+// config ("Use Last Config").
 void CHudTSBuyMenu::Open()
 {
+	if (m_active)
+		return; // already open — don't reload/re-randomize (FUN_10036670 guards on obj[0]==0). The
+	            // server resends the spectate message each countdown tick, so Open() is called repeatedly.
+
 	m_active = true;
 	m_level = LVL_CONFIG;
 	m_weapon = -1;
 	m_attachMask = 0;
 	m_prevButtons = 0;
+
+	// load the last config (obj+0x41c -> obj+0x14)
+	if (m_lastConfigValid)
+		memcpy(m_slots, m_lastConfig, sizeof(m_slots));
+	else
+		memset(m_slots, 0, sizeof(m_slots));
+	m_useNewConfig = false;
+
+	if (m_firstOpen)
+	{
+		m_firstOpen = false;
+		BuyRandom(); // FUN_100398e0 — fills a random loadout + flips to "Use New Config"
+	}
+	Recount();
+
 	m_iFlags |= HUD_ACTIVE;
 	if (gViewPort)
 		gViewPort->UpdateCursorState(); // free + show the cursor for clicking
@@ -438,6 +462,12 @@ void CHudTSBuyMenu::Apply()
 		gEngfuncs.pfnClientCmd(tka);
 	}
 	gEngfuncs.Cvar_SetValue("cl_buykevlar", kevlar ? 1.0f : 0.0f);
+
+	// the centred notice (FUN_10039400's "Using new/last config." via the TSMessage queue) + save
+	// this loadout as the "last config" (obj+0x14 -> obj+0x41c) so the next open reuses it.
+	gHUD.m_TSMessage.Add(m_useNewConfig ? "Using new config." : "Using last config.", 0, 0, 0, 20, 0);
+	memcpy(m_lastConfig, m_slots, sizeof(m_lastConfig));
+	m_lastConfigValid = true;
 
 	m_useNewConfig = false;
 	Close();
