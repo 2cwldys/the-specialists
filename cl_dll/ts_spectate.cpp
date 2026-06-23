@@ -52,11 +52,13 @@ int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 	if (m_iState == TSSPEC_READY && oldState != TSSPEC_READY)
 		gHUD.m_TSMessage.Add("Press fire to play", 0, 0, 0, 20, 0);
 
-	// Open the TS buy/config menu (the HUD-drawn CHudTSBuyMenu) during the spectate-wait (join/buy)
-	// phase, hide it on spawn. The original opens its buy menu here (reference/MENUS.md).
-	if (m_iState != TSSPEC_OFF)
+	// Open the TS buy/config menu ONCE, on entering the spectate-wait phase — NOT every countdown
+	// tick. The server resends the spectate message each tick; reopening every tick made the menu
+	// flicker (and reappear after the player applied a config). After the player applies (which closes
+	// the menu), it stays closed; `buy` reopens it. Hide it on spawn (transition to OFF).
+	if (m_iState != TSSPEC_OFF && oldState == TSSPEC_OFF)
 		gHUD.m_TSBuyMenu.Open();
-	else
+	else if (m_iState == TSSPEC_OFF)
 		gHUD.m_TSBuyMenu.Close();
 
 	return 1;

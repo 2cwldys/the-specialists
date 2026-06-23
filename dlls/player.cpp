@@ -1416,9 +1416,10 @@ void CBasePlayer::TSMenuSelect(int slot)
 
 	switch (slot)
 	{
-	case 1: // Use New Config — confirm the loadout (applied at spawn); now press fire
+	case 1: // Use New/Last Config — confirm the queued loadout (applied at spawn); now press fire.
+		// The client menu shows the "Using new/last config." notice itself (CHudTSMessage), so don't
+		// also center-print it here (that double-printed). The armament is the client's queued tkw set.
 		m_fConfigChosen = true;
-		ClientPrint(pev, HUD_PRINTCENTER, "Using new config.\n");
 		TSCloseMenu();
 		break;
 	case 2: // Buy — the weapon-category submenu (Phase 4)

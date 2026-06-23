@@ -164,6 +164,10 @@ bool CBasePlayer::BuyAmmo(int caliber, int rounds)
 // everything is free anyway), then ResetArmament so it isn't re-applied.
 void CBasePlayer::BuyArmament()
 {
+	// Kung-fu (TSW_MELEE) is the unarmed melee every player ALWAYS has, regardless of loadout — give
+	// it first so the weapon-select bar always offers it even with an empty/minimal config.
+	GiveTSWeapon(this, TSW_MELEE);
+
 	for (int i = 0; i < 32; i++)
 	{
 		if (m_armament[i].type == 0)
