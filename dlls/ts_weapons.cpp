@@ -82,7 +82,7 @@ int TSDefaultFireMode(int modeMask)
 // @ compile_weapons_info__Fv — populate the weapon table (indices == tsweapon_t).
 static void compile_weapons_info()
 {
-  Write(&g_weaponInfo[0], "SOCOM-MK23", "models/v_mk23.mdl", "models/p_mk23.mdl", nullptr, nullptr, nullptr, 12, 36.0f, 0, 0.1f, 0.02f, 0.0f); // melee
+  Write(&g_weaponInfo[0], "Kung-Fu", "models/v_melee.mdl", nullptr, nullptr, nullptr, nullptr, 0, 36.0f, 3, 0.1f, 0.02f, 0.0f); // melee/kung-fu — fists (v_melee.mdl, no p_/w_ model, no clip)
   Write(&g_weaponInfo[1], "Glock-18", "models/v_glock18.mdl", "models/p_glock18.mdl", "models/w_glock18.mdl", "onehanded", "weapons/glock/glock-fire.wav", 17, 24.0f, 8, 0.054f, 0.024f, 0.008f); // glock18
   Write(&g_weaponInfo[2], "Beretta 92F", "models/v_beretta.mdl", "models/p_beretta.mdl", "models/w_berettas.mdl", "onehanded", "weapons/beretta/fire.wav", 15, 29.0f, 8, 0.1f, 0.015f, 0.0f); // beretta
   Write(&g_weaponInfo[3], nullptr, "models/v_uzi.mdl", "models/p_uzi.mdl", "models/w_uzi.mdl", "onehanded", "weapons/uzi/uzi-fire.wav", 32, 22.0f, 9, 0.06f, 0.025f, 0.007f); // uzi

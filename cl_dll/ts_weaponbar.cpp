@@ -71,7 +71,7 @@ static const int TSW_COUNT_LOCAL = sizeof(s_weaponColumn) / sizeof(s_weaponColum
 // server weapon table (dlls/ts_weapons.cpp; the client has the same data in its own weapon table).
 // Drawn as "curclip/maxclip" for the highlighted weapon. 0 = none (flag).
 static const int s_weaponMaxClip[] = {
-	12, 17, 15, 32, 7, 30, 30, 30, 30, 12, 24, 20, 7, 30, 20, 30, 64, 40, 5, 40,
+	0, 17, 15, 32, 7, 30, 30, 30, 30, 12, 24, 20, 7, 30, 20, 30, 64, 40, 5, 40,
 	8, 16, 15, 25, 25, 18, 8, 18, 17, 0, 40, 5, 100, 2, 1, 1, 1, 40};
 
 // Per-weapon akimbo variant (weapon_info +0x32), indexed by tsweapon_t; -1 = no akimbo. Used by the
@@ -340,11 +340,11 @@ bool CHudTSWeaponBar::Draw(float flTime)
 				GetConsoleStringSize("0", &nw, &nh);
 				const char* nm = (t < TSW_COUNT_LOCAL && s_shortName[t][0]) ? s_shortName[t] : "";
 				gHUD.DrawHudString(x + SLOTW + 4, y, ScreenWidth, nm, hr, hg, hb);
-				if (m_iClip[t] >= 0)
+				int maxc = (t < (int)(sizeof(s_weaponMaxClip) / sizeof(s_weaponMaxClip[0]))) ? s_weaponMaxClip[t] : 0;
+				if (m_iClip[t] >= 0 && maxc > 0) // clipless weapons (kung-fu) show no clip line
 				{
 					// "curclip/maxclip" (e.g. 8/8) — current loaded rounds over the clip capacity.
 					char ammo[16];
-					int maxc = (t < (int)(sizeof(s_weaponMaxClip) / sizeof(s_weaponMaxClip[0]))) ? s_weaponMaxClip[t] : 0;
 					sprintf(ammo, "%d/%d", m_iClip[t], maxc);
 					gHUD.DrawHudString(x + SLOTW + 4, y + nh + 2, ScreenWidth, ammo, hr, hg, hb);
 				}
