@@ -91,13 +91,16 @@ bool CHudSpectate::Draw(float flTime)
 	int br, bg, bb;
 	UnpackRGB(br, bg, bb, RGB_YELLOWISH); // the bottom bar (mode + help) is the orange spectator text
 	ScaleColors(br, bg, bb, 255);
-	const int barH = ScreenHeight / 8;
+	// Geometry from the stock SpectatorPanel bottom border (the original's spectate bar IS that panel):
+	// height = YRES_HD(PANEL_HEIGHT=64), anchored at the screen bottom; the mode label sits YRES_HD(6)
+	// from the bar top (vgui_SpectatorPanel.cpp), the help line near the bottom.
+	const int barH = (int)YRES_HD(64);
 	const int barY = ScreenHeight - barH;
-	// pfnFillRGBA is ADDITIVE (black adds nothing -> invisible); the dark bar needs the alpha-BLEND
-	// fill so it actually darkens the scene behind the text (matches the original's black bar).
+	const int lineH = gHUD.m_scrinfo.iCharHeight;
+	// pfnFillRGBA is ADDITIVE (black adds nothing -> invisible); the dark bar needs the alpha-BLEND fill.
 	gEngfuncs.pfnFillRGBABlend(0, barY, ScreenWidth, barH, 0, 0, 0, 180);
-	DrawCentered(barY + barH / 5, "Free-Look", br, bg, bb);
-	DrawCentered(barY + barH * 3 / 5,
+	DrawCentered(barY + (int)YRES_HD(6), "Free-Look", br, bg, bb);
+	DrawCentered(barY + barH - lineH - (int)YRES_HD(6),
 		"JUMP - Change Camera modes, MOVEMENT KEYS - move around, MOUSE - rotate view",
 		br, bg, bb);
 
