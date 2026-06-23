@@ -1,5 +1,26 @@
 # TS buy/config menu layout — RE findings (cont.69c)
 
+> ## ⚠️⚠️ CRITICAL (cont.69k): we RE'd the WRONG (legacy) menu — the real menu is a different builder.
+> The user's reference screenshots show a **cascading multi-column** buy menu (Config | Categories | Weapons |
+> Detail all visible at once, each with its selected row green), with localized labels ("Special Purpose",
+> "Go Back", "Random"), a **Credits/Slots** header + **per-attachment costs** (Silencer 900 / Lasersight 800 /
+> Flashlight 500), and a **different weapon roster** (Handguns has Beretta 92F at #5 + Contender G2 at #10, not
+> Akimbo Berettas / 9 entries). NONE of that is in the menu cluster everything below RE's (`0x10010xxx`,
+> literal strings, `DAT_1007a950`) — that is the **LEGACY/DEAD** buy menu. The **REAL** displayed menu is a
+> separate builder cluster at **`~0x10037xxx`** using the **localized token strings** (`0x10094xxx`
+> `#Buy_UseNewConfig`/`#Buy_SpecialPurpose`/`#Buy_GoBack`/…, resolved via `ts/titles.txt`) + the draw funcs
+> `FUN_1004ff10`/`FUN_1004fed0` + the panel global `&DAT_1018a6b0`. Confirmed entry point:
+> **`FUN_10037540`** = the real CONFIG-menu builder (state-based item 1: `+0x2f08 ? UseNewConfig : UseLastConfig`,
+> empty→`EmptyConfig` red). To reproduce the menu the user actually sees, RE the `0x10037xxx` cluster (cascade
+> layout, real weapon table, costs, Credits/Slots), NOT the `0x10010xxx` legacy menu below.
+> (titles.txt: `#Buy_SpecialPurpose`→"Special Purpose", `#Buy_GoBack`→"Go Back", `#Buy_Random`→"Random",
+> `#Buy_Credits`→"Credits". Same binary — just localization + the real builder.)
+> The current `cl_dll/vgui_TSBuyMenu.cpp` reproduction is built on the LEGACY menu; the compact-font + green-
+> highlight styling (cont.69j) carries over, but the structure (cascade) + data (weapon table/costs) need the
+> real `0x10037xxx` RE. **The weapon-select bar (Image #4) is the invnext/invprev loadout preview that also
+> renders as the in-game weapon HUD when ALIVE (shows per-weapon attachments) — CHudTSWeaponBar.**
+
+
 Recovered from `client.dll` (.data menu strings + the builder functions). This is the
 authoritative menu hierarchy; it supersedes the guessed placement of any single entry.
 
