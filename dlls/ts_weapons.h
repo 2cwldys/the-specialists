@@ -156,6 +156,11 @@ enum tsfiretype_t
 // @ get_weapon_info__F10tsweapon_t — stats for a weapon (table[0] if out of range).
 const s_weapon_info *get_weapon_info(tsweapon_t w);
 
+// The base SINGLE weapon for an akimbo variant (the reverse of iAkimboType / weapon_info+0xcc),
+// or (tsweapon_t)-1 if `type` isn't an akimbo. The original's CBasePlayer::DropWeapon throws TWO
+// of this single when an akimbo is dropped (reference/WEAPON_SELECT.md / @DropWeapon).
+tsweapon_t TSAkimboBase(tsweapon_t type);
+
 // Precache every weapon's models + sound (call during the map's precache window).
 void PrecacheAllTSWeapons();
 

@@ -616,7 +616,20 @@ void ClientCommand(edict_t* pEntity)
 			UTIL_MakeVectors(player->pev->v_angle);
 			Vector vecSrc = player->GetGunPosition() + gpGlobals->v_forward * 16;
 			Vector vecVel = gpGlobals->v_forward * 250 + player->pev->velocity;
-			TSCreateWorldGun(type, clip, vecSrc, vecVel);
+
+			// Dropping an AKIMBO weapon throws TWO of its base single (clip split in half), tossed
+			// left + right — the original's CBasePlayer::DropWeapon (ThrowWeapon x2, +/-4 offset).
+			tsweapon_t base = TSAkimboBase((tsweapon_t)type);
+			if (base >= 0)
+			{
+				int half = clip / 2;
+				TSCreateWorldGun(base, half, vecSrc + gpGlobals->v_right * 4, vecVel);
+				TSCreateWorldGun(base, clip - half, vecSrc - gpGlobals->v_right * 4, vecVel);
+			}
+			else
+			{
+				TSCreateWorldGun(type, clip, vecSrc, vecVel);
+			}
 		}
 	}
 	else if (FStrEq(pcmd, "tsbuy")) // TS: buy a weapon (free; restriction-gated). SLICE: cl_dll menu

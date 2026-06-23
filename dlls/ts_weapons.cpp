@@ -229,6 +229,16 @@ const s_weapon_info *get_weapon_info(tsweapon_t w)
 	return &g_weaponInfo[w];
 }
 
+// Reverse of iAkimboType: the single weapon whose akimbo upgrade IS `type`. -1 if `type` is not an
+// akimbo variant. (e.g. Akimbo Five-seveN -> Five-seveN.)
+tsweapon_t TSAkimboBase(tsweapon_t type)
+{
+	for (int w = 1; w < TSW_COUNT; w++)
+		if (get_weapon_info((tsweapon_t)w)->iAkimboType == (int)type)
+			return (tsweapon_t)w;
+	return (tsweapon_t)-1;
+}
+
 void PrecacheAllTSWeapons()
 {
 	for (int i = 0; i < TSW_COUNT; i++)
