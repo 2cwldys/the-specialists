@@ -389,6 +389,26 @@ void SpectatorPanel::Update()
 	int iTimeHeight, iTimeWidth;
 	int offset, j;
 
+	// The Specialists has NO stock spectator chrome — no top "Map:" bar, no TFC bottom button bar
+	// (verified against the original: there is no top bar; only a dark bottom bar with the camera
+	// mode + help). During the TS spectate/buy phase, suppress the inherited SpectatorPanel UI; the
+	// TS free-look bar + the buy menu are drawn by CHudSpectate / CHudTSBuyMenu. (cont.69l)
+	if (gHUD.m_Spectate.IsActive())
+	{
+		m_TopBorder->setVisible(false);
+		m_TopBanner->setVisible(false);
+		m_BottomBorder->setVisible(false);
+		m_ExtraInfo->setVisible(false);
+		m_TimerImage->setVisible(false);
+		m_CurrentTime->setVisible(false);
+		m_Separator->setVisible(false);
+		for (j = 0; j < TEAM_NUMBER; j++)
+			m_TeamScores[j]->setVisible(false);
+		return;
+	}
+	m_TopBorder->setVisible(true);
+	m_BottomBorder->setVisible(true);
+
 	if (m_insetVisible)
 		offset = gHUD.m_Spectator.m_OverviewData.insetWindowX + gHUD.m_Spectator.m_OverviewData.insetWindowWidth + 2;
 	else

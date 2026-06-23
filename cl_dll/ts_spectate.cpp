@@ -85,8 +85,14 @@ bool CHudSpectate::Draw(float flTime)
 		DrawCentered(ScreenHeight * 2 / 5, "Press fire to play", r, g, b);
 	}
 
-	// Free-look control help, just above the bottom (under the engine's "Free-Look").
-	DrawCentered(ScreenHeight - ScreenHeight / 12,
+	// The TS spectate bottom bar (no top bar — verified vs the original): a dark band carrying the
+	// camera-mode label + the free-look control help. Drawn in the HUD layer (so the help is NOT
+	// hidden under the stock spectator overlay, which is now suppressed during TS spectate).
+	const int barH = ScreenHeight / 8;
+	const int barY = ScreenHeight - barH;
+	gEngfuncs.pfnFillRGBA(0, barY, ScreenWidth, barH, 0, 0, 0, 150);
+	DrawCentered(barY + barH / 5, "Free-Look", r, g, b);
+	DrawCentered(barY + barH * 3 / 5,
 		"JUMP - Change Camera modes, MOVEMENT KEYS - move around, MOUSE - rotate view",
 		r, g, b);
 
