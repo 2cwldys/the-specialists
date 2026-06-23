@@ -5,6 +5,24 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-23 (cont. 69r) — committed the batch; chose the FULL .sc client-prediction subsystem as next
+
+Committed everything (git): **1ca0ca4** (akimbo refactor + kung-fu + all playtest fixes — cont.69p/q),
+**c675ef0** (reference/EVENTS.md = complete RE map of the 11 .sc weapon events, both sides), **7a66e5c**
+(EVENTS.md = client weapon-param subsystem foundation + build order).
+
+RE'd the `.sc` event system end-to-end: the files are empty 4-byte hooks; server `PLAYBACK_EVENT` <-> client
+`pfnHookEvent` handler. Map in EVENTS.md — server handles (CTSGun::Precache@0x80660: fire+0x964 … grenade
++0x978), client hook->handler (FUN_10003240: fire->FUN_1003de40, reload->LAB_10042690, closecombat->FUN_10043200,
+… 11 total), playback sites. Only `events/fire.sc` is wired today (EV_TSFire); the rest are server-driven.
+
+**User decision:** do the FULL client weapon-param subsystem (byte-faithful), not the simplified per-event
+path. Foundation RE'd: client `get_weapon_info` = FUN_100071c0 -> DAT_100aa050 (the SAME 988-byte
+s_weapon_info[38] the server builds) + the DAT_10189xxx active-param cache (filled on deploy, read by the
+handlers). Build order (EVENTS.md): (1) client weapon table, (2) deploy param-cache, (3) the 11 handlers.
+NOT started (deferred to a focused session — it touches the working weapon code). Added scripts/ghidra/
+FindStr.java (find a .data string + its xrefs). See HANDOFF "NEXT TASK".
+
 ## 2026-06-23 (cont. 69p) — akimbo OWNERSHIP refactor IMPLEMENTED + 3 playtest fixes
 
 Implemented the user-approved akimbo-ownership refactor (the cont.69o hand-off). CTSGun's arsenal

@@ -36,8 +36,45 @@ touching that area):**
 - `reference/WEAPON_SELECT.md` — the weapon-select protocol (invnext/invprev cursor → `weapon_<N>`
   + holster→deploy; the real command set vs our stand-ins).
 - `reference/BUY.md` — the buy/loadout-config command protocol (`tkw`/`tki`/`tka`/`rst_cfg`/`cashala…`).
+- `reference/EVENTS.md` — **the 11 TS `.sc` weapon events** (fire/reload/draw/grenade/knife/katana/
+  coldcock/closecombat/pump/empty/firelinked): the complete RE map (server handles + client
+  hook→handler addrs + playback sites) + the build order for the client weapon-param subsystem.
 
-## Where things stand (2026-06-23, through cont.69o)
+## ⭐ NEXT TASK (user-approved, cont.69r) — connect the `.sc` events = the FULL client weapon-param subsystem
+Read `reference/EVENTS.md` first. The user chose the byte-faithful path: reconstruct the client weapon
+prediction state so the 11 `.sc` event handlers run faithfully (not the simplified per-event approach).
+**Foundation already RE'd + documented:** client `get_weapon_info` (`FUN_100071c0` → `DAT_100aa050`, the
+SAME 988-byte `s_weapon_info[38]` the server builds) + the `DAT_10189xxx` active-weapon param cache
+(filled on deploy, read by every handler) + the studio/event API ptrs. **Build order (do IN ORDER, each
+RE'd + in-engine verified):** (1) share the `s_weapon_info` table into the client + a client
+`get_weapon_info`; (2) reconstruct the deploy/weapon-switch param-cache; (3) port the 11 handlers (hook
+client-side + server `PLAYBACK_EVENT_FULL` at the playback sites, replacing the SendWeaponAnim/EMIT_SOUND
+stand-ins). NOTE: only `events/fire.sc` is wired today (`EV_TSFire`); the rest are driven server-side
+(works, not predicted). This touches the working weapon code — go carefully, one step at a time, and keep
+the build green. Tooling: `scripts/ghidra/{DecompAt,DecompRefs,FindStr}.java` (server proj `recovered/ghidra/server`,
+client proj `recovered/ghidra/client`); remember Ghidra addr = nm addr + 0x10000 for the server `.so`.
+
+## Where things stand (2026-06-23, through cont.69r) — all committed (git log: 1ca0ca4 / c675ef0 / 7a66e5c)
+
+### cont.69q–r — kung-fu close-combat + many playtest fixes (all RE-grounded, in-engine/user-verified, COMMITTED)
+- **Akimbo OWNERSHIP refactor** (items[]-by-type) — see cont.69p note below; done + verified.
+- **Firing fixed** (was fire-once-stuck): CLIENT_WEAPONS makes `UTIL_WeaponTimeBase()`==0, but CTSGun is
+  server-authoritative → all its timers now use `gpGlobals->time`. **Loadout fixed:** batched `tkw/tki/tka`
+  parse ALL argv (client sends one space-separated cmd); `BuyArmament` no longer resets so the config
+  persists across spawns/round-restarts. **Deploy fixed:** `TSDeployArsenal` forces the tsgun active +
+  `CanDeploy()` override (TS uses its own ammo). **Round-restart weapon-loss fixed:** `PlayerSpawn`
+  `RemoveAllItems` before re-equip (was making a 2nd tsgun → arsenal vanished).
+- **Kung-fu** (TSW_MELEE = bare hands → `CCombatAttack`): contextual dispatch (FIRE = punches only —
+  uppercut on duck, combo on hold, single punch on tap; +ATTACK2 = kicks only — sidekick/spinkick/backkick/
+  kick); reload = `CCombatBlock` "hooah" (player/block.wav) + stamina → breathe2.wav; flesh/surface/miss
+  sounds (kungfuhit / closecombat+pl_step / closecombat); v_melee anims remapped to the model's 11 seqs;
+  3rd-person BODY anims via `CTSAnimation::PlayKungFu` (the player models carry punchleft/sidekick/… by
+  name) + `combat_idle` stance; no phantom 3rd-person held weapon (empty weaponmodel when no p_model).
+- **Muzzle flares**: `ts_muzzleflash1h/6` sprite at the muzzle attachment (akimbo per-barrel). **Shotgun**:
+  per-shell incremental reload (interruptible by firing). **`thirdperson`** is now a toggle.
+- **`.sc` events**: complete RE map + subsystem plan committed (the NEXT TASK above).
+
+### ✅ DONE (cont.69p) — the akimbo OWNERSHIP refactor is IMPLEMENTED + in-engine verified.
 
 ### ✅ DONE (cont.69p) — the akimbo OWNERSHIP refactor is IMPLEMENTED + in-engine verified.
 `CTSGun`'s arsenal is now the original's **items[]-by-tsweapon_t model** (`struct TSItem m_items[TSW_COUNT]`
