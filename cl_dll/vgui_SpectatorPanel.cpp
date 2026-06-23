@@ -283,8 +283,9 @@ void SpectatorPanel::ShowMenu(bool isVisible)
 	{
 		gViewPort->HideCommandMenu();
 
-		// if switching from visible menu to invisible menu, show help text
-		if (m_menuVisible && this->isVisible())
+		// if switching from visible menu to invisible menu, show help text. NOT during the TS
+		// free-look spectate/buy phase — TS has its own bottom help bar (no "Press DUCK" prompt).
+		if (m_menuVisible && this->isVisible() && !gHUD.m_Spectate.IsActive())
 		{
 			char string[64];
 
