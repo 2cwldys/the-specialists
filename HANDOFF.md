@@ -37,20 +37,37 @@ touching that area):**
   + holster→deploy; the real command set vs our stand-ins).
 - `reference/BUY.md` — the buy/loadout-config command protocol (`tkw`/`tki`/`tka`/`rst_cfg`/`cashala…`).
 
-## Where things stand (2026-06-22, through cont.69g)
+## Where things stand (2026-06-23, through cont.69k)
 
-### cont.69g (this batch) — per-category weapon lists DONE (RE-grounded + in-engine verified)
-The buy menu's per-category weapon lists (Handguns/SMGs/Rifles/Shotguns/Other) are **built + verified**.
-Full RE in `reference/MENUS.md` ("Per-category weapon lists — RESOLVED"): ONE builder `FUN_100108b0`
-(parameterised by category at `clientobj+0x20`) reads the `[cat][9]` weapon-id table `DAT_1007a950`
-(dumped exactly from the PE), with display names from each weapon struct `+0x44` (all 36 per-weapon init
-funcs decompiled → id→name map). Reproduced as a dynamic `PAGE_WEAPONS` in `cl_dll/vgui_TSBuyMenu.cpp`
-(`ShowCategory(cat)`), M61 team-gated, weapon-click emits the real `tkw <id>_1`. **Screenshot-verified on
-tm_avana** (Handguns = all 9 + Cancel, single green numbers; bg box hugs each page). **Remaining buy-menu
-slices:** (a) the per-weapon detail submenu (`6 Full Load`/`6 Buy Akimbo`, panel `+0x2d90`) + the faithful
-client loadout-queue/apply sequencer (`FUN_10012050`); (b) the client free-slots red/unavailable gate;
-(c) the config-panel EXACT colours/positions — still needs the **runtime hbreak capture** (user's clean
-Proton relaunch; procedure in MENUS.md "Runtime capture"). These are the only buy-menu items left.
+### ⚠️⚠️ THE BUY MENU — we reproduced the WRONG (legacy) menu; the REAL one is fully RE'd, NOT yet rebuilt.
+**Read `reference/MENUS.md` "★ THE REAL BUY MENU" FIRST — it is the rebuild spec.** The TS client.dll has
+**two** buy-menu code paths: the **legacy/dead** one (`0x10010xxx`, a **vgui::Panel**, literal strings, the
+`DAT_1007a950` table) — which is what `cl_dll/vgui_TSBuyMenu.{cpp,h}` currently reproduces (cont.69e–j:
+config + category + weapon-list + per-weapon attachment submenu + mouse/keys + compact green styling, all
+built + in-engine verified) — and the **REAL** one the game actually draws (`0x10037xxx`). The user's
+reference screenshots (cascade columns, "Special Purpose", "Go Back", attachment costs, Beretta 92F +
+Contender G2 in Handguns) are the REAL menu. All on-disk client.dll copies incl. the Steam install are
+byte-identical (688128b) — **same binary, we just RE'd the wrong builder.** **User decision: RE + rebuild
+the real cascade menu.** RE is COMPLETE (cont.69k); the **rebuild is the next task**.
+
+**The real menu (full RE in MENUS.md — the rebuild target is a `CHudBase` HUD element, NOT vgui):**
+- **HUD-drawn** — entries via `FUN_1004ff10` → **`FUN_10021ce0` = `TSHud_DrawString`** + the TS HUD font
+  `DAT_100d5908` + `titles.txt` token localization. So it reuses our existing HUD draw/font (it'll look right).
+- **Cascade**: orchestrator `FUN_10036750` (switch on `obj+4` = level 0 config/1 category/2 weapons/3 detail/
+  4-7 accessory&c/8 off); columns side-by-side at X=8/0x88/0x108/0x188, rowH 0x14, width 0x80; top header bar
+  (`FUN_10036af0`: Total + Free Slots). Builders: config `FUN_10037540`, category `FUN_100377d0`, weapons
+  `FUN_10037960`, detail `FUN_10037ba0`.
+- **Real weapon roster** (`obj+0x2d6c`, indexed `row*5+cat`, filled by `FUN_10036200`): Handguns
+  [1,9,12,14,2,21,22,28,31,36], SMGs [3,6,7,17,19,23], Rifles [5,13,15,27,18], Shotguns [4,11,20,26,33],
+  Special Purpose [24,25,32,34,35]. **Attachment costs**: Silencer 900, Lasersight 800, Flashlight 500,
+  Scope 1800. Colours: available=half-hud dim, over-budget=red(195,45,45), Random/affordable-Buy=green
+  (45,195,45), Cancel/GoBack=blue(100,100,205).
+- **Still to RE for the rebuild**: the input/level-advance handler, the accessory column (states 4-7), the
+  `FUN_10038180` weapon-preview geometry. The legacy-menu RE findings on per-weapon attachment data
+  (0xE0/0xE4 masks, akimbo 0xC8, full 0xDC) + the styling (compact font, colours) CARRY OVER.
+- **Also raised by the user (separate, not started):** the weapon-select bar (invnext/invprev) doubles as the
+  loadout preview (bought items before applying config) AND the in-game weapon HUD when ALIVE, showing
+  per-weapon attachment icons — `CHudTSWeaponBar` (Image #4 in the consult thread).
 
 ### Where things stood (through cont.69f)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
