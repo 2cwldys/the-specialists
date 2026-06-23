@@ -5,6 +5,33 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-23 (cont. 69n) — death=spectate, spectator-chrome suppression, weapon-select rebuild
+
+Playtest fixes (all RE-grounded + in-engine/user-confirmed):
+- **Death re-enters spectate** (not timer-respawn): PlayerDeathThink, once the death anim finishes,
+  routes to TSEnterSpectate (free-look + buy menu); respawn on FIRE after the gate. Verified via `kill`.
+- **Spectator chrome suppressed in the TS phase**: the top-left green-grid overlay = the stock
+  CHudSpectator overview/inset (DrawOverview, gated off in HUD_DrawNormalTriangles while
+  m_Spectate.IsActive()); "Press DUCK for Spectator Menu" (#Spec_Duck, SpectatorPanel::ShowMenu)
+  suppressed. The dark bottom bar = the stock SpectatorPanel bottom border geometry (height
+  YRES_HD(PANEL_HEIGHT=64), mode at YRES_HD(6)) drawn via pfnFillRGBABlend (pfnFillRGBA is additive →
+  black was invisible); user-confirmed match.
+- **Config-apply flicker fixed**: the buy menu opened every spectate tick (server resends each
+  countdown second) → reopened after apply. Now opens once on entering spectate. Kung-fu (TSW_MELEE)
+  given on every spawn (BuyArmament). Status panel hidden while dead/spectating.
+- **Weapon select REBUILT** (the stock yellow CHudAmmo menu retired; TS bar is the select UI). RE'd
+  from FUN_1004f500/FUN_1004f220/FUN_1004d2cf/FUN_1004e030 (reference/WEAPON_SELECT.md): slot1-5 +
+  invnext/invprev open the bar + move a cursor; FIRE commits `weapon_<N>` (holster→deploy, plays
+  weapons/switch.wav); closes on commit/cancel (NO timer). Bar ALWAYS draws but very transparent;
+  selecting brightens it, cursor most opaque (3-level additive opacity, no box); cursor shows
+  curclip/maxclip. Mouse-scroll SKIPS kung-fu (type 0) + a single whose akimbo is owned (still
+  slot-reachable). +attack consumed on commit (m_iKeyBits, like CHudAmmo::Think).
+- **Kung-fu = fists** (v_melee.mdl, no clip; was the MK23 placeholder). **Dropping an akimbo throws
+  TWO base singles** (clip split, ±4; CBasePlayer::DropWeapon @0x84900, TSAkimboBase = reverse iAkimboType).
+- OPEN (need the akimbo-as-2×-single ownership model, our model is akimbo-as-one-slot): "drop the
+  single (while holding akimbo) leaves the other"; the per-side single ownership.
+- Commits 269420b/2bac9c7/96d1e93/58991ef/2f769d9/504d62f/43880b9/a679c18.
+
 ## 2026-06-23 (cont. 69m) — buy-menu config flow, TSMessage notifications, spectate HUD polish
 
 User playtest feedback round (all RE-grounded + screenshot/user-confirmed):
