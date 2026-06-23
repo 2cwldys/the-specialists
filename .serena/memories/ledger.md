@@ -5,6 +5,27 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-23 (cont. 69m) — buy-menu config flow, TSMessage notifications, spectate HUD polish
+
+User playtest feedback round (all RE-grounded + screenshot/user-confirmed):
+- **First-start random + config toggle** (FUN_10036670 = menu open): first open per map randomizes the
+  loadout → "Use New Config"; later opens reload the last-applied config → "Use Last Config". Open() guards
+  on already-open (the server resends the spectate msg each countdown tick). Apply() saves the last config.
+- **TSMessage SVC notification** (cl_dll/ts_message.{cpp,h} = CHudTSMessage): RE'd the handler chain
+  FUN_100499e0 → FUN_1004c0a0 (parse: byte R,G,B,flags,holdtime + string) → FUN_1004b520 (15-slot centred
+  queue). Our server already sends TSMessage (ts_utils.cpp); this adds the client handler (fixes the "No pfn
+  TSMessage" error). Centred just below screen centre (flags 0); 0,0,0 → light text; **fades out** as it
+  expires (additive font dimmed over the last second). The buy "Using new/last config." notice + the
+  spectate "Press fire to play" prompt go through it ("press fire" is now a one-shot fade on the
+  countdown→READY transition, was a permanent orange overlay).
+- **Spectate bottom bar**: the original's dark bar IS the stock SpectatorPanel bottom border — geometry
+  matched (height YRES_HD(PANEL_HEIGHT=64), bottom-anchored, "Free-Look" mode at YRES_HD(6), help near the
+  bottom). Drawn with **pfnFillRGBABlend** (pfnFillRGBA is additive → black was invisible). User-confirmed match.
+- **Status panel** (CHudTSStatus) hidden while dead/spectating (gHUD.m_Spectate.IsActive()).
+- Commits 47d91fd (config/notify/fixes) / 2f769d9 (bar geometry).
+- **AUTO-AMMO max field** captured from the LIVE hl.exe (PID via /proc/<pid>/mem, client.dll base
+  0x0c070000, caliber table @0x0c10ffc0) — the static-0 max field [3]; see cont.69l + reference/MENUS.md.
+
 ## 2026-06-23 (cont. 69l) — REAL cascade buy menu REBUILT as a HUD element + verified vs user refs
 
 Rebuilt the real cascade buy menu (the `0x10037xxx` cluster RE'd in 69k) as **`CHudTSBuyMenu : CHudBase`**
