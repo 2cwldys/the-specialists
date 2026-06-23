@@ -578,10 +578,11 @@ TeamFortressViewport::TeamFortressViewport(int x, int y, int wide, int tall) : P
 
 	// VGUI MENUS
 	CreateTeamMenu();
-	CreateTSBuyMenu();
 	CreateClassMenu();
 	CreateSpectatorMenu();
 	CreateScoreBoard();
+	CreateTSBuyMenu(); // created LAST so it's the topmost sibling (gets vgui mouse focus over the
+	                   // full-screen SpectatorPanel/ScoreBoard during the spectate-wait buy phase)
 
 	// Init command menus
 	m_iNumMenus = 0;
@@ -1607,10 +1608,9 @@ void TeamFortressViewport::CreateTSBuyMenu()
 {
 	// RE'd menu dimensions: width 0x80(128), row height 0x14(20) (FUN_100667e0). The panel
 	// POSITION is still approximate pending the +0x2d84 builder RE (reference/MENUS.md).
-	const int wide = XRES(128);
-	const int tall = YRES(20) * 10; // tall enough for the largest page (Handguns: 9 weapons + Cancel);
-	                                // ShowPage resizes the bg box to the active page's row count.
-	m_pTSBuyMenu = new CTSBuyMenuPanel(XRES(40), YRES(120), wide, tall);
+	// Full-screen panel (like the class/team menus) so it owns the vgui mouse-focus traversal and the
+	// entry buttons receive clicks; the menu box + entries are positioned at the menu origin inside it.
+	m_pTSBuyMenu = new CTSBuyMenuPanel(0, 0, ScreenWidth, ScreenHeight);
 	m_pTSBuyMenu->setParent(this);
 	m_pTSBuyMenu->setVisible(false);
 }
@@ -1679,8 +1679,9 @@ void TeamFortressViewport::UpdateOnPlayerInfo()
 
 void TeamFortressViewport::UpdateCursorState()
 {
-	// Need cursor if any VGUI window is up
-	if (m_pSpectatorPanel->m_menuVisible || m_pCurrentMenu || m_pTeamMenu->isVisible() || GetClientVoiceMgr()->IsInSquelchMode())
+	// Need cursor if any VGUI window is up (incl. the TS buy menu — without this the player stays
+	// locked to aiming and can't click the menu entries; cont.69g)
+	if (m_pSpectatorPanel->m_menuVisible || m_pCurrentMenu || m_pTeamMenu->isVisible() || GetClientVoiceMgr()->IsInSquelchMode() || (m_pTSBuyMenu && m_pTSBuyMenu->IsUp()))
 	{
 		g_iVisibleMouse = true;
 		App::getInstance()->setCursorOveride(App::getInstance()->getScheme()->getCursor(Scheme::scu_arrow));

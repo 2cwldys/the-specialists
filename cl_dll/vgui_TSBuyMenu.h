@@ -58,8 +58,9 @@ private:
 	CommandButton* m_pAccessory[TS_MAX_BUTTONS];
 	CommandButton* m_pWeapon[TS_MAX_BUTTONS]; // reusable slots, rebuilt per category
 	int m_weaponId[TS_MAX_BUTTONS];           // tsweapon_t for each slot (-1 = the Cancel/back row)
+	vgui::Panel* m_pBg = nullptr;             // the faint menu box behind the entries (resized per page)
 	int m_nConfig = 0, m_nCategory = 0, m_nAccessory = 0, m_nWeaponShown = 0;
-	int m_rowH = 0, m_wide = 0;
+	int m_rowH = 0, m_wide = 0, m_mx = 0, m_my = 0; // box width + menu origin (offset in the full-screen panel)
 	Page m_page = PAGE_CONFIG;
 	bool m_up = false;
 };

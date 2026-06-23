@@ -5,6 +5,28 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 69h) — buy-menu interaction fixes (close/reopen/cursor/mouse-click)
+
+User-reported bugs on the live menu, all fixed + in-engine verified:
+- **Close:** config items 1/7/0 (Use New Config / Buy Random / Cancel — server TSMenuSelect cases 1/7/10)
+  now hide the CLIENT panel via a new `CTSMenuHandler_SelectClose` (sends the menuselect cmd + `ShowTSBuyMenu(false)`).
+  Before, they used `CMenuHandler_StringCommand(..., true)` → `HideTopMenu()`, which only closes the viewport's
+  command menu, not our panel, so the menu persisted.
+- **Reopen:** the client `buy` command (bound `b`) was forwarding to the server's now-no-op `TSSendBuyMenu`;
+  it now reopens the client vgui panel directly (`gViewPort->ShowTSBuyMenu(true)`), gated on
+  `gHUD.m_Spectate.IsActive()` (spectate-wait only). `cl_dll/ts_commands.cpp`.
+- **Cursor:** `UpdateCursorState()` didn't include the buy menu, so the player stayed locked to aiming and
+  couldn't click. Added `(m_pTSBuyMenu && m_pTSBuyMenu->IsUp())` to the "need cursor" condition.
+- **Mouse-click on entries (the hard one):** clicks reached NOTHING in our panel (proven with a temp
+  InputSignal that flips the box red on mousePressed — it never fired). TWO fixes: (1) the panel was a small
+  child that lost vgui mouse-focus → rebuilt as a **full-screen panel** (0,0,ScreenWidth,ScreenHeight) with
+  the box (a child `m_pBg`, resized per page) + entries at the menu origin inside it — the class/team-menu
+  pattern; (2) it was created 2nd in `Initialize()`, BEHIND the later full-screen SpectatorPanel/ScoreBoard
+  in z-order, which captured the mouse → moved `CreateTSBuyMenu()` to **LAST** so it's the topmost sibling.
+  After the reorder the diagnostic box turned red (clicks reach the panel); removed the diagnostic.
+  **Screenshot-verified:** clicking "2 Buy" → category page; clicking a category → its weapon list; the
+  bound number keys still work too. Both client arches build clean.
+
 ## 2026-06-22 (cont. 69g) — per-category weapon lists RE'd + built + in-engine verified
 
 Closed the buy menu's remaining static-RE slice: the per-category weapon lists (Handguns/SMGs/Rifles/

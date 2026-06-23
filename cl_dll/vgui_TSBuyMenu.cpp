@@ -80,6 +80,25 @@ private:
 	int m_slot;
 };
 
+// A config action that CLOSES the menu: sends the server command (menuselect N) then hides the
+// whole buy menu. The original closes the menu on "Use New Config" (1), "Buy Random" (7) and
+// "Cancel" (0) — all confirm/cancel the loadout (server TSMenuSelect cases 1/7/10 -> TSCloseMenu).
+// The other config items (Remove/Reset/Save/Load) keep the menu up.
+class CTSMenuHandler_SelectClose : public ActionSignal
+{
+public:
+	CTSMenuHandler_SelectClose(const char* cmd) { strncpy(m_cmd, cmd, sizeof(m_cmd) - 1); m_cmd[sizeof(m_cmd) - 1] = 0; }
+	void actionPerformed(Panel* panel) override
+	{
+		gEngfuncs.pfnClientCmd(m_cmd);
+		if (gViewPort)
+			gViewPort->ShowTSBuyMenu(false); // hide the panel + release the cursor (UpdateCursorState)
+	}
+
+private:
+	char m_cmd[32];
+};
+
 // A cvar-toggle action: clicking the entry flips a client cvar (the accessory selection state;
 // RE: the Player Accessory page toggles cl_buykevlar/cl_laser, shown via the selected-bit).
 class CTSMenuHandler_ToggleCvar : public ActionSignal
@@ -164,15 +183,23 @@ static const int s_categoryWeapons[5][9] = {
 #define TS_M61_WEAPON_ID 24 // M61 Grenade: shown only in team mode (FUN_100108b0: iVar5 != 0x18 gate)
 
 CTSBuyMenuPanel::CTSBuyMenuPanel(int x, int y, int wide, int tall)
-	: Panel(x, y, wide, tall)
+	: Panel(x, y, wide, tall) // full-screen; the menu box + entries sit at the menu origin within it
 {
-	setBgColor(0, 0, 0, 100); // faint background panel (the shared menu/HUD look)
-	m_wide = wide;
-	m_rowH = YRES(20);        // RE'd row height 0x14 (FUN_100667e0)
-	BuildConfig(wide);
-	BuildCategory(wide);
-	BuildAccessory(wide);
-	BuildWeapons(wide);
+	setBgColor(0, 0, 0, 255);  // the full-screen panel itself is transparent (alpha 255 = transparent)
+	m_mx = XRES(40);           // menu origin (was the panel pos; now an offset inside the full-screen panel)
+	m_my = YRES(120);
+	m_wide = XRES(128);        // RE'd box/entry width 0x80 (FUN_100667e0)
+	m_rowH = YRES(20);         // RE'd row height 0x14
+
+	// The faint menu box (the shared menu/HUD look), behind the entry buttons; resized per page.
+	m_pBg = new Panel(m_mx, m_my, m_wide, m_rowH * 8);
+	m_pBg->setParent(this);
+	m_pBg->setBgColor(0, 0, 0, 100);
+
+	BuildConfig(m_wide);
+	BuildCategory(m_wide);
+	BuildAccessory(m_wide);
+	BuildWeapons(m_wide);
 	setVisible(false);
 	ShowPage(PAGE_CONFIG);
 }
@@ -183,13 +210,16 @@ void CTSBuyMenuPanel::BuildConfig(int wide)
 	for (int i = 0; i < m_nConfig; i++)
 	{
 		// static config actions: white (the exact colour awaits the +0x2d84 runtime inspect).
-		m_pConfig[i] = new CTSMenuButton(s_config[i].label, 0, m_rowH * i, wide, m_rowH, 255, 255, 255);
+		m_pConfig[i] = new CTSMenuButton(s_config[i].label, m_mx, m_my + m_rowH * i, wide, m_rowH, 255, 255, 255);
 		m_pConfig[i]->setParent(this);
 		m_pConfig[i]->setBoundKey(s_config[i].key);
-		if (s_config[i].cmd)
-			m_pConfig[i]->addActionSignal(new CMenuHandler_StringCommand(s_config[i].cmd, true));
-		else // "2 Buy" -> the category page (client-side navigation)
+		char key = s_config[i].key;
+		if (!s_config[i].cmd) // "2 Buy" -> the category page (client-side navigation)
 			m_pConfig[i]->addActionSignal(new CTSMenuHandler_Page(this, PAGE_CATEGORY));
+		else if (key == '1' || key == '7' || key == '0') // confirm/cancel -> send + close the menu
+			m_pConfig[i]->addActionSignal(new CTSMenuHandler_SelectClose(s_config[i].cmd));
+		else // Remove/Reset/Save/Load -> send, keep the menu up
+			m_pConfig[i]->addActionSignal(new CMenuHandler_StringCommand(s_config[i].cmd, false));
 	}
 }
 
@@ -203,7 +233,7 @@ void CTSBuyMenuPanel::BuildCategory(int wide)
 		// slice). Drawn white for now where not yet pinned.
 		int r = 255, g = 255, b = 255;
 		if (s_category[i].key == '0') { r = 100; g = 100; b = 205; } // Cancel (RE'd)
-		m_pCategory[i] = new CTSMenuButton(s_category[i].label, 0, m_rowH * i, wide, m_rowH, r, g, b);
+		m_pCategory[i] = new CTSMenuButton(s_category[i].label, m_mx, m_my + m_rowH * i, wide, m_rowH, r, g, b);
 		m_pCategory[i]->setParent(this);
 		m_pCategory[i]->setBoundKey(s_category[i].key);
 		if (s_category[i].key == '0') // Cancel -> back to config
@@ -224,7 +254,7 @@ void CTSBuyMenuPanel::BuildWeapons(int wide)
 	{
 		// available weapons draw green (45,195,45) — RE'd availability colour (FUN_10011160; the
 		// red 195,45,45 unavailable/free-slots gate is the deferred client loadout-cost model).
-		m_pWeapon[i] = new CTSMenuButton("", 0, m_rowH * i, wide, m_rowH, 45, 195, 45);
+		m_pWeapon[i] = new CTSMenuButton("", m_mx, m_my + m_rowH * i, wide, m_rowH, 45, 195, 45);
 		m_pWeapon[i]->setParent(this);
 		m_pWeapon[i]->addActionSignal(new CTSMenuHandler_BuyWeapon(this, i));
 		m_pWeapon[i]->setVisible(false);
@@ -240,7 +270,7 @@ void CTSBuyMenuPanel::BuildAccessory(int wide)
 	{
 		int r = 255, g = 255, b = 255;
 		if (s_accessory[i].key == '0') { r = 100; g = 100; b = 205; } // Cancel (RE'd colour)
-		m_pAccessory[i] = new CTSMenuButton(s_accessory[i].label, 0, m_rowH * i, wide, m_rowH, r, g, b);
+		m_pAccessory[i] = new CTSMenuButton(s_accessory[i].label, m_mx, m_my + m_rowH * i, wide, m_rowH, r, g, b);
 		m_pAccessory[i]->setParent(this);
 		m_pAccessory[i]->setBoundKey(s_accessory[i].key);
 		if (s_accessory[i].key == '0') // Cancel -> back to the category page
@@ -273,7 +303,7 @@ void CTSBuyMenuPanel::ShowCategory(int cat)
 		b->setText(TSWeaponDisplayName(id));
 		b->setBoundKey((char)('1' + shown));
 		b->SetColor(45, 195, 45); // available = green
-		b->setPos(0, m_rowH * shown);
+		b->setPos(m_mx, m_my + m_rowH * shown);
 		b->setVisible(true);
 		m_weaponId[shown] = id;
 		shown++;
@@ -283,7 +313,7 @@ void CTSBuyMenuPanel::ShowCategory(int cat)
 	c->setText("Cancel"); // bound-key '0' column drawn by CommandButton (matches the other pages)
 	c->setBoundKey('0');
 	c->SetColor(100, 100, 205); // RE'd Cancel colour
-	c->setPos(0, m_rowH * shown);
+	c->setPos(m_mx, m_my + m_rowH * shown);
 	c->setVisible(true);
 	m_weaponId[shown] = -1;
 	shown++;
@@ -339,7 +369,8 @@ void CTSBuyMenuPanel::ShowPage(Page page)
 	case PAGE_WEAPONS:   rows = m_nWeaponShown; break;
 	default:             rows = m_nConfig;      break;
 	}
-	setSize(m_wide, m_rowH * rows);
+	if (m_pBg)
+		m_pBg->setSize(m_wide, m_rowH * rows); // hug the box to the active page (panel stays full-screen)
 }
 
 CommandButton** CTSBuyMenuPanel::CurrentPage(int& count)
