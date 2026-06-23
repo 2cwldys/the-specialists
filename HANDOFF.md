@@ -37,7 +37,22 @@ touching that area):**
   + holster→deploy; the real command set vs our stand-ins).
 - `reference/BUY.md` — the buy/loadout-config command protocol (`tkw`/`tki`/`tka`/`rst_cfg`/`cashala…`).
 
-## Where things stand (2026-06-22, through cont.69f)
+## Where things stand (2026-06-22, through cont.69g)
+
+### cont.69g (this batch) — per-category weapon lists DONE (RE-grounded + in-engine verified)
+The buy menu's per-category weapon lists (Handguns/SMGs/Rifles/Shotguns/Other) are **built + verified**.
+Full RE in `reference/MENUS.md` ("Per-category weapon lists — RESOLVED"): ONE builder `FUN_100108b0`
+(parameterised by category at `clientobj+0x20`) reads the `[cat][9]` weapon-id table `DAT_1007a950`
+(dumped exactly from the PE), with display names from each weapon struct `+0x44` (all 36 per-weapon init
+funcs decompiled → id→name map). Reproduced as a dynamic `PAGE_WEAPONS` in `cl_dll/vgui_TSBuyMenu.cpp`
+(`ShowCategory(cat)`), M61 team-gated, weapon-click emits the real `tkw <id>_1`. **Screenshot-verified on
+tm_avana** (Handguns = all 9 + Cancel, single green numbers; bg box hugs each page). **Remaining buy-menu
+slices:** (a) the per-weapon detail submenu (`6 Full Load`/`6 Buy Akimbo`, panel `+0x2d90`) + the faithful
+client loadout-queue/apply sequencer (`FUN_10012050`); (b) the client free-slots red/unavailable gate;
+(c) the config-panel EXACT colours/positions — still needs the **runtime hbreak capture** (user's clean
+Proton relaunch; procedure in MENUS.md "Runtime capture"). These are the only buy-menu items left.
+
+### Where things stood (through cont.69f)
 Pipeline fully working: decompile → recover typed prototypes → write modern C++ →
 **build into `hl.so`/`client.so`** → **run in-engine** (ReHLDS for server; xash3d-fwgs
 for the graphical client — this box HAS a GPU) → **gdb** any crash. Everything below is

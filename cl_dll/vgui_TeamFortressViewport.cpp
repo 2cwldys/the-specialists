@@ -1608,7 +1608,8 @@ void TeamFortressViewport::CreateTSBuyMenu()
 	// RE'd menu dimensions: width 0x80(128), row height 0x14(20) (FUN_100667e0). The panel
 	// POSITION is still approximate pending the +0x2d84 builder RE (reference/MENUS.md).
 	const int wide = XRES(128);
-	const int tall = YRES(20) * 8;
+	const int tall = YRES(20) * 10; // tall enough for the largest page (Handguns: 9 weapons + Cancel);
+	                                // ShowPage resizes the bg box to the active page's row count.
 	m_pTSBuyMenu = new CTSBuyMenuPanel(XRES(40), YRES(120), wide, tall);
 	m_pTSBuyMenu->setParent(this);
 	m_pTSBuyMenu->setVisible(false);

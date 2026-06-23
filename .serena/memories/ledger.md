@@ -5,6 +5,43 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-22 (cont. 69g) — per-category weapon lists RE'd + built + in-engine verified
+
+Closed the buy menu's remaining static-RE slice: the per-category weapon lists (Handguns/SMGs/Rifles/
+Shotguns/Other). **All RE in reference/MENUS.md "Per-category weapon lists — RESOLVED".**
+
+**RE (client.dll, via the persistent Ghidra client project):**
+- The 3 "unmapped" action thunks resolved: `FUN_10010890`/`FUN_10010bb0` are just panel-hide stubs; the
+  real builder is **ONE** function **`FUN_100108b0`**, parameterised by category at `clientobj+0x20`,
+  rebuilding the `+0x2d8c` weapon-list panel. It iterates a `[cat][9]` weapon-id table **`DAT_1007a950`**,
+  drops -1/restricted/(M61=id24 in non-team mode, `DAT_100cf97c>1` gate), labels `"%i %s"` green/red by
+  affordability, ends with `0 Cancel` (100,100,205). Dumped the exact table from the PE:
+  Handguns[1,9,12,14,8,21,22,28,31] SMGs[3,6,7,17,19,23] Rifles[5,13,15,27,18] Shotguns[4,11,20,26,33]
+  Other[24,32,34,25,35].
+- **Display names** = weapon struct `+0x44` (client table `DAT_100aa050`, stride `0xf7*4=0x3DC`,
+  `FUN_100071c0`). Decompiled all 36 per-weapon init funcs (dispatcher `FUN_10007de0`) + resolved the
+  `+0x44` source string for each → full id→name map (e.g. 3=Mini-Uzi, 19=MP7-PDW, 32=M60E3, 5=M4A1,
+  27=M16A4, 15=STEYR-AUG, 25=Combat Knife, 35=Seal Knife — several differ from our server pszName).
+- Confirmed via objdump that the entry label is `sprintf("%i %s", onscreenIdx+1, name)` and the entry-add
+  is `FUN_100668f0(panel, idx, label, r,g,b, 0x32, scale, action=8)`; the availability green/Cancel-blue
+  colours match the prior FUN_10011160 RE.
+
+**Built + in-engine verified (cl_dll/vgui_TSBuyMenu.{h,cpp}):** a dynamic `PAGE_WEAPONS` rebuilt by
+`ShowCategory(cat)` from the RE'd table (+ the M61 team-gate via `gViewPort->GetNumberOfTeams()>1`); the 5
+buy-category buttons navigate to it; each weapon click emits the real **`tkw <id>_1`** (queues into the
+server armament; commits on "Use New Config"→spawn `BuyArmament`); `0 Cancel` → back to category.
+Reusable 10-slot page with one persistent per-slot action reading the live `m_weaponId[]` (categories swap
+in place). **Screenshot-verified on tm_avana**: Handguns shows all 9 (Glock-18…Raging Bull) + blue Cancel,
+SMGs shows the 6, single green numbers (the SDK CommandButton draws the bound-key column, so labels are the
+bare name — matching the config/category pages). Fixed: panel `tall` 8→10 rows + per-page `setSize` so the
+bg box hugs the active page (Handguns is 10 rows; was clipping rows 9-10). Both client arches build clean.
+
+**STILL UNFINISHED:** (1) the per-weapon **detail submenu** (`6 Full Load`/`6 Buy Akimbo`, panel `+0x2d90`,
+action 8's real target) + the faithful client-side **loadout queue + apply sequencer** (FUN_10012050 emits
+rst_cfg+the tkw/tki/tka list at once — we bridge per-click); (2) the client **free-slots** red/unavailable
+gate (`+0x430` vs 81); (3) the config-panel EXACT colours/positions (the runtime hbreak capture — still
+needs the user's clean Proton relaunch; procedure in MENUS.md "Runtime capture").
+
 ## 2026-06-22 (cont. 69f) — buy-menu vgui reproduction (4 of 5 pages) + runtime-debug findings
 
 Built the client-side buy menu as a faithful vgui reproduction (cl_dll/vgui_TSBuyMenu.{cpp,h} =

@@ -27,8 +27,17 @@ public:
 	void Close();  // hide the menu
 
 	// Menu pages (the original's separate sub-panels, here as toggled button sets).
-	enum Page { PAGE_CONFIG = 0, PAGE_CATEGORY, PAGE_ACCESSORY, PAGE_COUNT };
+	// PAGE_WEAPONS is the per-category weapon list (the original's +0x2d8c panel, FUN_100108b0):
+	// a single page rebuilt for the selected category.
+	enum Page { PAGE_CONFIG = 0, PAGE_CATEGORY, PAGE_ACCESSORY, PAGE_WEAPONS, PAGE_COUNT };
 	void ShowPage(Page page); // switch which page's buttons are visible
+
+	// Rebuild + show the weapon list for a buy category (0..4 = Handguns/SMGs/Rifles/Shotguns/Other).
+	// RE'd from FUN_100108b0: iterates the DAT_1007a950[cat][9] weapon-id table, drops -1 / restricted
+	// / (M61 in non-team mode), labels each "%i %s" (index+1, display name), ends with "0 Cancel".
+	void ShowCategory(int cat);
+	// A weapon-list slot was selected (mouse or key): queue the weapon, or (slot==Cancel) go back.
+	void OnWeaponSlot(int slot);
 
 	bool IsUp() const { return m_up; }
 	// Fire the visible page's button bound to this number key ('0'-'9'). Returns true if consumed.
@@ -40,14 +49,17 @@ private:
 	void BuildConfig(int wide);
 	void BuildCategory(int wide);
 	void BuildAccessory(int wide);
+	void BuildWeapons(int wide);
 	CommandButton** CurrentPage(int& count);
 
 	enum { TS_MAX_BUTTONS = 10 };
 	CommandButton* m_pConfig[TS_MAX_BUTTONS];
 	CommandButton* m_pCategory[TS_MAX_BUTTONS];
 	CommandButton* m_pAccessory[TS_MAX_BUTTONS];
-	int m_nConfig = 0, m_nCategory = 0, m_nAccessory = 0;
-	int m_rowH = 0;
+	CommandButton* m_pWeapon[TS_MAX_BUTTONS]; // reusable slots, rebuilt per category
+	int m_weaponId[TS_MAX_BUTTONS];           // tsweapon_t for each slot (-1 = the Cancel/back row)
+	int m_nConfig = 0, m_nCategory = 0, m_nAccessory = 0, m_nWeaponShown = 0;
+	int m_rowH = 0, m_wide = 0;
 	Page m_page = PAGE_CONFIG;
 	bool m_up = false;
 };

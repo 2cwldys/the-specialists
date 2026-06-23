@@ -221,9 +221,50 @@ each invoke a builder. Mapped:
 - `0x10011382` → `FUN_10010630` (Remove-Item list — player loadout `+0xb0`)
 - `0x100113be` → `FUN_10011160` (config item-1 colour update)
 - `0x100113d0` → `FUN_10012c20`
-- **`0x1001140e` → `FUN_10010890`** · **`0x10011415` → `FUN_10010bb0`** · **`0x1001143b` → `FUN_100108b0`**
-  ← these three are the UNMAPPED builders = the most likely **per-category weapon-list builders**
-  (Handguns→pistols, etc.). Decompile these next: they should iterate the weapon table filtered by the
-  selected category and `FUN_100668f0` each weapon entry. The weapon table + the category field are set by
-  the per-weapon init funcs (e.g. `FUN_10010080` sets "Akimbo Mini Uzi" + fields incl. a category byte) —
-  cross-ref our server `dlls/ts_weapons.cpp` (38 weapons) for the names; RE the category byte to bucket them.
+- **`0x1001140e` → `FUN_10010890`** (sets `+0xc=1`, hides the buy-category panel `+0x2d88`) ·
+  **`0x10011415` → `FUN_10010bb0`** (sets `+0xc=2`, hides the weapon-list panel `+0x2d8c`) ·
+  **`0x1001143b` → `FUN_100108b0`** = **THE per-category weapon-list builder** (resolved below).
+
+### Per-category weapon lists — RESOLVED (cont.69g, RE-grounded + in-engine verified)
+
+There is **ONE** weapon-list builder, **`FUN_100108b0`**, parameterised by the selected category index
+at `clientobj+0x20`; it rebuilds the weapon-list panel `+0x2d8c` (NOT three separate builders). It:
+- iterates **9 slots** of a `[category][9]` int table **`DAT_1007a950`** (`*(DAT_1007a950 + (slot + cat*9)*4)`),
+  dropping `-1` (empty), restricted weapons (`FUN_1000b6d0` = IsRestrictedWeapon), and — in non-team mode —
+  weapon id **`0x18`(24) = M61 Grenade** (`1 < DAT_100cf97c` = team count > 1 ⇒ team mode);
+- labels each entry **`sprintf("%i %s", onscreenIndex+1, name)`** (`"%i %s"` @0x10092974), colour **green
+  if affordable / red `(195,45,45)` if over the free-slots cap `0x51`(81)** (the slot/cash gate), via
+  `FUN_100668f0(panel, idx, label, r,g,b, 0x32, scale, action=8)`;
+- ends with one **`"0 Cancel"`** entry at **`(100,100,205)`** action 0.
+
+**The exact `DAT_1007a950` category→weapon-id table** (read straight from `client.dll`):
+
+| category (cat) | weapon ids (tsweapon_t) |
+|---|---|
+| **Handguns** (0) | 1, 9, 12, 14, 8, 21, 22, 28, 31 |
+| **SMGs** (1) | 3, 6, 7, 17, 19, 23 |
+| **Rifles** (2) | 5, 13, 15, 27, 18 |
+| **Shotguns** (3) | 4, 11, 20, 26, 33 |
+| **Other** (4) | 24, 32, 34, 25, 35 |
+
+**Display names** come from each weapon struct's `+0x44` field (client weapon table `DAT_100aa050`,
+**stride `0xf7*4 = 0x3DC`**, `FUN_100071c0` = get_weapon_info), copied at init by the per-weapon init
+funcs (dispatcher `FUN_10007de0` calls each with `&DAT_100aa050 + id*0x3DC`). The full id→name map
+(recovered by decompiling all 36 init funcs + resolving the `+0x44` source string): 1 Glock-18, 2 Beretta 92F,
+3 Mini-Uzi, 4 Benelli M3, 5 M4A1, 6 MP5SD, 7 MP5K, 8 Akimbo Berettas, 9 SOCOM-MK23, 10 Akimbo MK23,
+11 USAS-12, 12 Desert Eagle, 13 AK47, 14 Five-seveN, 15 STEYR-AUG, 16 Akimbo Mini-Uzi, 17 Skorpion,
+18 Barrett M82A1, 19 MP7-PDW, 20 SPAS-12, 21 Golden Colts, 22 Glock-20C, 23 UMP, 24 M61 Grenade,
+25 Combat Knife, 26 Mossberg 500, 27 M16A4, 28 Ruger-MK1, 30 Akimbo Five-seveN, 31 Raging Bull,
+32 M60E3, 33 Sawed-off, 34 Katana, 35 Seal Knife, 36 Contender G2, 37 Akimbo Skorpions.
+
+**Reproduced** (`cl_dll/vgui_TSBuyMenu.cpp`, cont.69g): a single dynamic `PAGE_WEAPONS` rebuilt by
+`ShowCategory(cat)` from the table above (with the M61 team-gate), green entries + blue Cancel; clicking
+a weapon emits the real swap-contract command **`tkw <id>_1`** (queues into the server armament;
+`reference/BUY.md`) — committed on "Use New Config" (menuselect 1 → spawn with `BuyArmament`). The number is
+drawn by the SDK CommandButton's bound-key column (so the label is the bare name, matching the config/category
+pages — the `"%i %s"` number is the same thing rendered our way). **NOT yet built** (further slice): the
+per-weapon **detail submenu** (`6 Full Load` @0x10092854 / `6 Buy Akimbo` @0x10092860, the 4th panel
+`+0x2d90`, action 8's real target) and the faithful **client-side loadout queue + apply sequencer**
+(`FUN_10012050` emits `rst_cfg`+the full `tkw/tki/tka` list at once); we bridge per-click instead. The
+client-side **free-slots cost / red-unavailable** gate (`+0x430` vs cap 81) is also deferred (weapons draw
+green = available, correct for the free-buy default).
