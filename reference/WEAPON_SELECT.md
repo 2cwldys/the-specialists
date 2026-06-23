@@ -125,3 +125,32 @@ handler — TODO. Working answer: available while the dead/spectating loadout-co
 play (the spawn-wait / between-rounds), as part of the buy/config flow.
 </content>
 </invoke>
+
+## Akimbo ownership model — full RE (cont.69o)
+
+RE'd from `TakeWeapon@0x80a04`, `DropWeapon@0x8094c`(CTSGun)/`@0x84900`(CBasePlayer), `SwitchItems`
+(=`FUN_00081564`, the `useitems` cmd), `GetBetterWeapon@0x80f40`, `IsWeaponAkimbo@0x8019c` /
+`IsOnlyAkimbo@0x801d4`. The original stores the arsenal as an **items[]-by-tsweapon_t array**
+(`gun + type*0x38 + 0x114`, 0x38/slot): `+0x114` owned, `+0x115` mode, `+0x116` fire-mode, `+0x118`
+total clip, **`+0x130`/`+0x134` = the akimbo's two barrel clips (left/right)**, `+0x124`/`+0x128`
+attachment masks, `+0xc8` = active type. Per-weapon table fields: `+0x84` byte = akimbo class
+(4 = akimbo-capable single, 5 = only-akimbo variant; IsWeaponAkimbo/IsOnlyAkimbo), `DAT_0017dc08[type]`
+= the akimbo PARTNER (single↔akimbo link), `DAT_0017dc0c[type]`(=`+0xcc`) = the akimbo's base single.
+
+- **Pickup combine** (`TakeWeapon`): picking up a single you already own → take its akimbo partner
+  (`DAT_0017dc08[single]`); the akimbo item COMBINES — `+0x118 = single.clip + akimbo.clip`,
+  `+0x130`/`+0x134` = the two barrels. So owning the akimbo is one item that carries both barrels.
+- **Drop akimbo** (`CBasePlayer::DropWeapon`): throws **TWO** of the base single (`+0xcc`), clip split
+  (`+0x118/2` each), tossed ±4 left/right. ✅ IMPLEMENTED (cont.69n, a679c18, via TSAkimboBase).
+- **useitems** (`SwitchItems`): toggles the active akimbo's barrel mask (`item+0x14` bits 2/4 =
+  left/right/both) — the dual-wield "fire one / fire both" swap; plays a swap sound.
+- **GetBetterWeapon**: after a drop, auto-selects the next owned weapon by `g_iWeaponPriority`.
+- **Scroll skip**: the select cursor skips a single whose akimbo is owned + skips kung-fu (type 0).
+  ✅ IMPLEMENTED (cont.69n, FindOwned).
+
+**REMAINING (the "drop the single while holding akimbo leaves the other"):** requires migrating our
+CTSGun arsenal from the compact `m_arsenalType[]` list (akimbo = one upgraded slot) to the original's
+**items[]-by-type with the two barrel clips** + keeping the base single owned alongside the akimbo, so
+a single can be wielded/dropped independently (leaving the other barrel). This is a sizable, careful
+refactor of the verified weapon engine (fire/reload/ammo/switch/drop all read the arsenal) — scoped
+here; best done as a dedicated pass with full in-engine retest.
