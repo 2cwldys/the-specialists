@@ -106,10 +106,17 @@ prerequisites for (B) too.
     didn't reliably wield the M4 (random loadout auto-selects the highest-priority owned weapon, often a
     knife). What worked: spawn (click through the gate 3-4×), then `drop` ×2 in console to shed the
     melee and auto-select an owned GUN. Then fire (MOUSE1=+attack; note ENTER is ALSO +attack).
+  - **✅ DEDICATED-SERVER firing pass DONE (no regression).** Ran the ReHLDS rig (metamod+rcbot,
+    `~/Containers/hlds/hlds-linux64-test`, ts_wyndham, bots) with a TEMP bot-give hook (M4 + ammo +
+    `m_iClip=2` in TSDeployArsenal) + TEMP server `[TSSRV]` fire/reload probes — pure server-side, NO
+    client prediction. Result: bots fire the M4 in sustained full-auto (clip 29→3, 70 events) AND the
+    full empty→reload→refill cycle works (`fire clip=0 → reload → fire clip=29 → fire 28…`, 52 fire/5
+    reload). No fire-once-stuck, no crash. So the UTIL_WeaponTimeBase()+UseDecrement 0-base holds on a
+    pure dedicated server (the player.cpp:2823 decrement loop drives it). Temp probes + bot-give
+    REVERTED (`git checkout dlls/ts_gun.cpp`); clean hl.so restored to the rig. Tree = ee642ab.
   - **3e (remaining, OPTIONAL):** the 11-handler .sc port is now polish — viewmodel anims already
     predict via SendWeaponAnim. The events only add predicted EFFECTS (EV_TSFire already does fire's).
-    Could wire predicted-effect events for coldcock/empty/pump/closecombat/grenade/knife/katana. Also
-    TODO: test server-only (dedicated, no prediction) firing across weapons to confirm the 0-base holds.
+    Could wire predicted-effect events for coldcock/empty/pump/closecombat/grenade/knife/katana.
 - **3d** — verify the predicted reload/fire viewmodel anim STICKS (re-run the cont.69s test).
 - **3e** — then port the 11 .sc handlers as predicted (now that anims stick), OR — if prediction
   proves too fragile — note that once anims stick via SendWeaponAnim, the .sc events are only needed

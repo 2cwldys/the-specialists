@@ -89,8 +89,13 @@ The remaining 11-handler port (3e) is now OPTIONAL polish: the viewmodel ANIMS a
 SendWeaponAnim in the predicted ItemPostFrame, so the `.sc` events are only needed for predicted
 EFFECTS (muzzle sprite/shell/sound) — which EV_TSFire already does for fire. The other actions
 (coldcock/empty/pump/closecombat/grenade/knife/katana) could get predicted-effect events too, but their
-anims already stick. TODO if pursuing 3e: also test server-only (dedicated, no client prediction)
-firing across weapons to confirm the time-base change holds there.
+anims already stick.
+
+**Dedicated-server firing pass — ✅ VERIFIED (no regression).** Ran the ReHLDS rig (metamod+rcbot,
+bots, ts_wyndham) with bots armed with an M4 — pure server-side, NO client prediction. Bots fire
+sustained full-auto (clip 29→3) and the full empty→reload→refill cycle works (fire clip=0 → reload →
+fire clip=29 → keep firing). No fire-once-stuck, no crash. The UTIL_WeaponTimeBase()+UseDecrement
+0-base holds server-side (the CBasePlayer::ItemPostFrame decrement loop @player.cpp drives it).
 
 ---
 ### (historical) The original blocker — anim-prediction was BLOCKED by the server-authoritative CTSGun
