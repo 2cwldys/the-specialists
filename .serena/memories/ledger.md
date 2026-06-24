@@ -81,14 +81,22 @@ prerequisites for (B) too.
     (muzzle/shells, no event dedup). No crash (EMIT_SOUND = client no-op via hl_baseentity.cpp;
     MESSAGE_BEGIN only in UpdateClientData/SendWeaponStatus, NOT on the prediction path).
   - **To re-enable:** flip UseDecrement→true + uncomment the 2 registration lines in hl_weapons.cpp.
-  - **Debug plan (3c/3d), instrument with gEngfuncs.Con_Printf in the client CTSGun path** — full
-    list in reference/EVENTS.md "cont.69s 3b/3c": (1) confirm ItemPostFrame actually runs for id 16
-    (the HUD_WeaponsPostThink gates); (2) confirm SetWeaponData mirrors m_weaponType/clip/reserve
-    (wrong → predicts kung-fu/empty → overwrites viewmodel with idle = the likely "anim doesn't
-    stick" cause); (3) TIMING — CTSGun uses absolute gpGlobals->time but prediction compares the
-    server's absolute m_flNextPrimaryAttack vs client time; verify the attack/reload gate fires
-    client-side (reconcile vs UTIL_WeaponTimeBase()==0 under CLIENT_WEAPONS); (4) once correct,
-    dedup the fire event (FEV_NOTHOST / predicted-event path) so it isn't doubled.
+  - **ROOT CAUSE FOUND (Con_Printf-instrumented HUD_WeaponsPostThink, then reverted).** 3b/3c are
+    actually CORRECT: ItemPostFrame runs client-side for id 16, gates pass, SetWeaponData mirrors
+    right (wpnType=5/clip/reserve). The bug is a **TIME-BASE mismatch**: the engine decrements a
+    UseDecrement weapon's m_flNextPrimaryAttack as a RELATIVE countdown each client frame (observed
+    37.92→37.85 while client time rose), but CTSGun uses ABSOLUTE gpGlobals->time → timers corrupt →
+    predicted attack gate misfires → SendWeaponAnim never driven (animBefore==animAfter==0) → idle
+    viewmodel = "anim doesn't stick". CTSGun uses absolute time because **CLIENT_WEAPONS is defined
+    GLOBALLY** (CMakeLists, both hl+client targets) making UTIL_WeaponTimeBase()==0 on the server too
+    — cont.69q's gpGlobals->time was the workaround, which is incompatible with prediction.
+  - **THE FIX (next task; full steps in reference/EVENTS.md "ROOT CAUSE FOUND"):** (1) scope
+    CLIENT_WEAPONS to the CLIENT target only (CMakeLists) → UTIL_WeaponTimeBase() = gpGlobals->time
+    server / 0 client (HL-standard); (2) revert CTSGun timers gpGlobals->time → UTIL_WeaponTimeBase();
+    (3) re-enable UseDecrement + the 2 hl_weapons.cpp registration lines; (4) retest predicted AND
+    server-only (dedicated) firing; (5) dedup the fire event (FEV_NOTHOST) so muzzle/shells aren't
+    doubled. Wide blast radius on core firing timing — test across weapons. Disabled checkpoint is
+    regression-free.
 - **3d** — verify the predicted reload/fire viewmodel anim STICKS (re-run the cont.69s test).
 - **3e** — then port the 11 .sc handlers as predicted (now that anims stick), OR — if prediction
   proves too fragile — note that once anims stick via SendWeaponAnim, the .sc events are only needed

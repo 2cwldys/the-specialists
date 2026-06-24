@@ -112,17 +112,36 @@ correct — DO NOT ship enabled:**
 - No crash (EMIT_SOUND is a client no-op; messages aren't on the prediction path; FireBulletsPlayer
   is client-safe).
 
-**What to debug next (3c/3d), with Con_Printf instrumentation in the client CTSGun path:**
-1. Confirm `HUD_WeaponsPostThink` actually runs `g_TSGun.ItemPostFrame()` for `m_iId==16` (check the
-   gates: `from->client.m_iId==TSGUN_WEAPON_ID`, `player.pev->viewmodel!=0`, `m_flNextAttack<=0`).
-2. Confirm `SetWeaponData` mirrors `m_weaponType`/clip/reserve correctly (else the client predicts
-   kung-fu/empty and overwrites the viewmodel with idle — the likely cause of "anim doesn't stick").
-3. TIMING: CTSGun uses absolute `gpGlobals->time`; the predicted client compares the server's
-   absolute `m_flNextPrimaryAttack` against client time. Verify the attack/reload gate actually
-   fires client-side (if it never does, SendWeaponAnim never runs → idle). HL weapons use
-   `UTIL_WeaponTimeBase()` (0 under CLIENT_WEAPONS); reconcile CTSGun's time base for prediction.
-4. EVENT DEDUP: once prediction is correct, play the fire/muzzle event so the host client is excluded
-   (FEV_NOTHOST / the predicted-event path) so it isn't doubled.
+**ROOT CAUSE FOUND (cont.69s, Con_Printf-instrumented) — a TIME-BASE mismatch.** The diagnostic
+(logged in HUD_WeaponsPostThink) confirmed the good news first: `ItemPostFrame` DOES run client-side
+for id 16, the gates pass, and `SetWeaponData` mirrors correctly (`wpnType=5` for the M4, reserve,
+clip). So registration + state-shipping (3b/3c) are CORRECT. But:
+- `m_flNextPrimaryAttack` was seen DECREASING frame-to-frame (37.92→37.85…) while client time rose —
+  i.e. **the engine decrements a UseDecrement weapon's `m_flNextPrimaryAttack` as a RELATIVE
+  countdown each client frame.** CTSGun sets it to ABSOLUTE `gpGlobals->time + delay`, so the
+  decrement corrupts it → the predicted attack/reload gate misfires → `SendWeaponAnim` isn't driven
+  client-side (`animBefore==animAfter==0`) → the viewmodel stays idle. THAT is "anim doesn't stick".
+- **Why CTSGun uses absolute time:** `CLIENT_WEAPONS` is defined GLOBALLY in CMakeLists (both the
+  `hl` and `client` targets — line ~62, applied to every target). That makes `UTIL_WeaponTimeBase()`
+  return 0 on the SERVER too, so cont.69q switched CTSGun's timers to `gpGlobals->time` to avoid the
+  "fire-once-stuck" (a 0 base the server never decrements). That workaround is incompatible with
+  prediction.
+
+**THE FIX (next task — wide blast radius on core firing timing, test across weapons):**
+1. Scope `CLIENT_WEAPONS` to the **client** target only (CMakeLists `set_common_properties` →
+   move it onto the client target), matching the stock HL SDK. Then `UTIL_WeaponTimeBase()` =
+   `gpGlobals->time` server-side (CTSGun server firing unchanged from cont.69q) and `0` client-side
+   (the engine's relative decrement is then correct).
+2. Revert CTSGun's timers `gpGlobals->time` → `UTIL_WeaponTimeBase()` everywhere
+   (m_flNextPrimaryAttack/Secondary, m_flTimeWeaponIdle, the reload delays, GetNextAttackDelay).
+3. Re-enable prediction: `UseDecrement()` → the CLIENT_WEAPONS form + uncomment the 2 hl_weapons.cpp
+   registration lines. Re-test (the anim should now stick).
+4. Retest server-only firing (dedicated, no client prediction) — confirm cont.69q "fire/reload/
+   stuck" fixes still hold with the time base now `gpGlobals->time` server-side.
+5. EVENT DEDUP: once prediction is correct, play the fire/muzzle event excluding the host client
+   (FEV_NOTHOST) so muzzle/shell effects aren't doubled.
+
+Verified the disabled checkpoint is regression-free (prediction off; instrumentation removed).
 
 ## Per-event RE (fill in as each is decompiled + implemented)
 

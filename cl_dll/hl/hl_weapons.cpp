@@ -597,11 +597,9 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		pWeapon = &g_Snark;
 		break;
 
-	// TS: CTSGun prediction is SCAFFOLDED but DISABLED (CTSGun::UseDecrement returns false).
-	// Registering it here ran CTSGun::ItemPostFrame client-side, but the predicted viewmodel anim
-	// still did not stick (fire/reload stayed in the idle pose) and fire effects appeared doubled —
-	// real prediction-integration issues (predicted-attack timing gate + SendWeaponAnim path +
-	// event dedup) that need instrumented debugging. Re-enable + debug as a focused step (3c/3d).
+	// TS: CTSGun prediction is SCAFFOLDED but DISABLED pending the time-base fix (see ts_gun.h /
+	// reference/EVENTS.md cont.69s 3d — CTSGun's absolute gpGlobals->time timers get corrupted by
+	// the engine's UseDecrement relative-countdown). Re-enable this case + HUD_PrepEntity once fixed.
 	// case TSGUN_WEAPON_ID:
 	//     pWeapon = &g_TSGun;
 	//     break;
