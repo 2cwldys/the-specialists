@@ -528,6 +528,13 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 	TraceResult tr;
 	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
 
+	// 1st-person viewmodel slash — now CLIENT-PREDICTED (CTSGun is a UseDecrement weapon). The melee
+	// viewmodels carry slash sequences (v_knife slash1=3; v_katana/v_sealknife slash1=2). A fixed slash
+	// keeps the predicted anim in lockstep with the server (random per-swing would snap on reconcile).
+	const bool isKatana = (wi->iFireType == TSFT_KATANA);
+	SendWeaponAnim((m_weaponType == TSW_KNIFE) ? 3 : 2);
+	// Swing whoosh (per attack) — server-driven EMIT_SOUND (a client no-op during prediction).
+	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM);
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 	const float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.25f;
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
@@ -539,6 +546,12 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
 	if (pHit)
 	{
+		// Surface vs flesh hit sound (players/monsters → body; world/props → blade-on-surface).
+		const bool flesh = pHit->IsPlayer() || (pHit->pev->flags & FL_MONSTER) != 0;
+		const char *hitSnd = isKatana
+			? (flesh ? "weapons/katana/hit-body.wav" : "weapons/katana/hit.wav")
+			: (flesh ? "weapons/knife/knife_hitbody.wav" : "weapons/knife/knife_hit.wav");
+		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, hitSnd, VOL_NORM, ATTN_NORM);
 		ClearMultiDamage();
 		pHit->TraceAttack(m_pPlayer->pev, wi->flDamage * TSDamageMult(), gpGlobals->v_forward, &tr,
 			DMG_CLUB | DMG_NEVERGIB);
@@ -771,6 +784,7 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 	float dmg = ((wi->flDamage > 0) ? wi->flDamage * 4.0f : 120.0f) * TSDamageMult();
 	TSThrowM61(m_pPlayer->pev, vecSrc, vecVel, 4.0f, dmg);
 
+	SendWeaponAnim(3); // 1st-person "throw" (v_m61.mdl seq 3) — client-predicted
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_GRENADE); // 3rd-person "grenade" throw
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 1.0f;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;

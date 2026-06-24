@@ -46,6 +46,14 @@ void PrecacheAllTSWeapons()
 
 	PRECACHE_SOUND("weapons/scock1.wav"); // pump-shotgun per-shell insert (ShotgunReload)
 
+	// Melee slash sounds (CTSGun::MeleeAttack — knife/katana/seal-knife): swing (miss) + surface/flesh hit.
+	PRECACHE_SOUND("weapons/knife/knife_miss.wav");
+	PRECACHE_SOUND("weapons/knife/knife_hit.wav");
+	PRECACHE_SOUND("weapons/knife/knife_hitbody.wav");
+	PRECACHE_SOUND("weapons/katana/miss.wav");
+	PRECACHE_SOUND("weapons/katana/hit.wav");
+	PRECACHE_SOUND("weapons/katana/hit-body.wav");
+
 	// weapon event scripts (CTSGun::Precache @0x80660) — must be precached at map
 	// load so a runtime weapon give doesn't precache an event mid-game.
 	PRECACHE_EVENT(1, "events/fire.sc");
