@@ -90,13 +90,26 @@ prerequisites for (B) too.
     viewmodel = "anim doesn't stick". CTSGun uses absolute time because **CLIENT_WEAPONS is defined
     GLOBALLY** (CMakeLists, both hl+client targets) making UTIL_WeaponTimeBase()==0 on the server too
     — cont.69q's gpGlobals->time was the workaround, which is incompatible with prediction.
-  - **THE FIX (next task; full steps in reference/EVENTS.md "ROOT CAUSE FOUND"):** (1) scope
-    CLIENT_WEAPONS to the CLIENT target only (CMakeLists) → UTIL_WeaponTimeBase() = gpGlobals->time
-    server / 0 client (HL-standard); (2) revert CTSGun timers gpGlobals->time → UTIL_WeaponTimeBase();
-    (3) re-enable UseDecrement + the 2 hl_weapons.cpp registration lines; (4) retest predicted AND
-    server-only (dedicated) firing; (5) dedup the fire event (FEV_NOTHOST) so muzzle/shells aren't
-    doubled. Wide blast radius on core firing timing — test across weapons. Disabled checkpoint is
-    regression-free.
+  - **✅ FIXED + ENABLED (committed ee642ab) — CTSGun is now CLIENT-PREDICTED, anims stick.** The fix
+    was NOT to rescope CLIENT_WEAPONS (it must stay global — the server needs it for GetWeaponData +
+    the CBasePlayer::ItemPostFrame decrement loop @player.cpp:2823, gated `#if CLIENT_WEAPONS` +
+    `gun->UseDecrement()`). The real fix: revert CTSGun's 34 timer sites gpGlobals->time →
+    UTIL_WeaponTimeBase() (0-base; the 4 real-time deltas m_lastCCTime/m_blockBar keep gpGlobals->time).
+    With UseDecrement()==true the server decrement loop now decrements CTSGun's 0-base timers (cont.69q's
+    absolute-time workaround was only needed because UseDecrement was false). Re-enabled UseDecrement +
+    the g_TSGun registration. Fire/akimbo events → FEV_NOTHOST so the predicting host plays its own
+    predicted muzzle/shell (no double).
+  - **Verified in-engine** (Con_Printf, removed): `cl: StandardFire`/`cl: Reload` run client-side;
+    predicted clip decrements; fire (slide) + reload viewmodel anims ANIMATE (were static); SINGLE
+    muzzle (dedup works); server fires repeatedly (no fire-once-stuck). No crash. Both DLLs build.
+  - **TEST-HARNESS NOTE for next agent:** the buy/select is flaky under blind xdotool — `tkw`/`weapon_N`
+    didn't reliably wield the M4 (random loadout auto-selects the highest-priority owned weapon, often a
+    knife). What worked: spawn (click through the gate 3-4×), then `drop` ×2 in console to shed the
+    melee and auto-select an owned GUN. Then fire (MOUSE1=+attack; note ENTER is ALSO +attack).
+  - **3e (remaining, OPTIONAL):** the 11-handler .sc port is now polish — viewmodel anims already
+    predict via SendWeaponAnim. The events only add predicted EFFECTS (EV_TSFire already does fire's).
+    Could wire predicted-effect events for coldcock/empty/pump/closecombat/grenade/knife/katana. Also
+    TODO: test server-only (dedicated, no prediction) firing across weapons to confirm the 0-base holds.
 - **3d** — verify the predicted reload/fire viewmodel anim STICKS (re-run the cont.69s test).
 - **3e** — then port the 11 .sc handlers as predicted (now that anims stick), OR — if prediction
   proves too fragile — note that once anims stick via SendWeaponAnim, the .sc events are only needed
