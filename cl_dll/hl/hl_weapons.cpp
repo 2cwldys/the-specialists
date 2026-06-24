@@ -30,6 +30,8 @@
 #include "../com_weapons.h"
 #include "../demo.h"
 
+#include "ts_gun.h" // CTSGun — predicted client-side so its viewmodel anims stick (step 3b)
+
 extern int g_iUser1;
 
 // Pool of client side entities/entvars_t
@@ -51,6 +53,7 @@ Vector previousorigin;
 
 // HLDM Weapon placeholder entities.
 CGlock g_Glock;
+CTSGun g_TSGun; // the client-predicted TS arsenal weapon (weapon_tsgun)
 CCrowbar g_Crowbar;
 CPython g_Python;
 CMP5 g_Mp5;
@@ -470,6 +473,7 @@ void HUD_InitClientWeapons()
 	HUD_PrepEntity(&g_Satchel, &player);
 	HUD_PrepEntity(&g_Tripmine, &player);
 	HUD_PrepEntity(&g_Snark, &player);
+	// HUD_PrepEntity(&g_TSGun, &player); // TS: enable when CTSGun prediction is debugged (3c/3d)
 }
 
 /*
@@ -592,6 +596,15 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 	case WEAPON_SNARK:
 		pWeapon = &g_Snark;
 		break;
+
+	// TS: CTSGun prediction is SCAFFOLDED but DISABLED (CTSGun::UseDecrement returns false).
+	// Registering it here ran CTSGun::ItemPostFrame client-side, but the predicted viewmodel anim
+	// still did not stick (fire/reload stayed in the idle pose) and fire effects appeared doubled —
+	// real prediction-integration issues (predicted-attack timing gate + SendWeaponAnim path +
+	// event dedup) that need instrumented debugging. Re-enable + debug as a focused step (3c/3d).
+	// case TSGUN_WEAPON_ID:
+	//     pWeapon = &g_TSGun;
+	//     break;
 	}
 
 	// Store pointer to our destination entity_state_t so we can get our origin, etc. from it

@@ -91,6 +91,39 @@ comment already noted for the fire anim.)
   (`HUD_GetWeaponData`), mirroring CTSGun's clip/timers/state — a separate, larger effort. **This
   is the real gate** on the "FULL byte-faithful prediction" goal. Decision needed (see ledger).
 
+## cont.69s — step 3b/3c: CTSGun client-prediction SCAFFOLDED; enabling it surfaced bugs to debug
+
+Built the harness to make CTSGun a client-predicted weapon (so SendWeaponAnim predicts and the anim
+sticks). Done + committed as inert scaffolding (DISABLED — no runtime change):
+- `dlls/ts_gun.h` — extracted the CTSGun class so the client harness can instantiate it.
+- `CTSGun::GetWeaponData`/`SetWeaponData` (3c) — ship the TS active state the prediction needs that
+  the generic weapon_data loop doesn't: weapon TYPE (iuser1), active-caliber RESERVE (iuser2),
+  fire-mode (iuser3). (m_iClip + timers + m_fInReload are shipped generically.)
+- `CTSGun::UseDecrement()` — gates GetWeaponData packing + client prediction. Currently `false`.
+- `cl_dll/hl/hl_weapons.cpp` — `CTSGun g_TSGun;` + the registration (HUD_PrepEntity + the
+  `case TSGUN_WEAPON_ID` in HUD_WeaponsPostThink) are present but COMMENTED OUT.
+
+**Enabling it (UseDecrement→true + uncomment the registration) was tested in-engine and is NOT yet
+correct — DO NOT ship enabled:**
+- The predicted viewmodel anim STILL did not stick — firing + reloading kept the idle pose (reload
+  frames were pixel-identical; the fire frame showed the idle pose while the muzzle/impacts played).
+- Fire effects appeared DOUBLED (muzzle/shells) — the fire event plays from both the client
+  prediction and the server without dedup.
+- No crash (EMIT_SOUND is a client no-op; messages aren't on the prediction path; FireBulletsPlayer
+  is client-safe).
+
+**What to debug next (3c/3d), with Con_Printf instrumentation in the client CTSGun path:**
+1. Confirm `HUD_WeaponsPostThink` actually runs `g_TSGun.ItemPostFrame()` for `m_iId==16` (check the
+   gates: `from->client.m_iId==TSGUN_WEAPON_ID`, `player.pev->viewmodel!=0`, `m_flNextAttack<=0`).
+2. Confirm `SetWeaponData` mirrors `m_weaponType`/clip/reserve correctly (else the client predicts
+   kung-fu/empty and overwrites the viewmodel with idle — the likely cause of "anim doesn't stick").
+3. TIMING: CTSGun uses absolute `gpGlobals->time`; the predicted client compares the server's
+   absolute `m_flNextPrimaryAttack` against client time. Verify the attack/reload gate actually
+   fires client-side (if it never does, SendWeaponAnim never runs → idle). HL weapons use
+   `UTIL_WeaponTimeBase()` (0 under CLIENT_WEAPONS); reconcile CTSGun's time base for prediction.
+4. EVENT DEDUP: once prediction is correct, play the fire/muzzle event so the host client is excluded
+   (FEV_NOTHOST / the predicted-event path) so it isn't doubled.
+
 ## Per-event RE (fill in as each is decompiled + implemented)
 
 - **fire.sc** (FUN_1003de40): muzzle-flash sprite at the muzzle attachment (the
