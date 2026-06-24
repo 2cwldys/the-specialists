@@ -69,18 +69,30 @@ prerequisites for (B) too.
   client no-op stubs (server-authoritative side-effects the prediction must skip; none on the
   hot path). ZERO edits to ts_gun.cpp. 35 CTSGun methods now in client.so. Infra only — nothing
   runs the client CTSGun yet; client loads+spawns+fires fine.
-- **3b NEXT** — register the client CTSGun: HUD_InitClientWeapons (create + HUD_PrepEntity →
-  g_pWpns[TSGUN_WEAPON_ID]); HUD_WeaponsPostThink add a case for TSGUN_WEAPON_ID that mirrors
-  player state + runs CTSGun::ItemPostFrame each prediction frame. cl_dll/hl/hl_weapons.cpp.
-- **3c** — ship CTSGun state to the client via weapon_data_t (server CTSGun::GetWeaponData /
-  UpdateClientData fills m_iClip + timers + m_fInReload + the TS state m_weaponType into the spare
-  iuser/fuser; client mirrors it before ItemPostFrame). m_ammoReserve[16] won't fit weapon_data —
-  ship only what prediction needs (active clip + type + a "has reserve" flag). Watch the classic
-  prediction PITFALL: EMIT_SOUND/PLAYBACK_EVENT in CTSGun run client-side during prediction and
-  will DOUBLE with the server unless gated (predict on the client, suppress server-side for the
-  predicting player) — HL routes weapon sounds through events for exactly this reason.
-- **3d** — verify the predicted reload/fire viewmodel anim now STICKS (the cont.69s test, re-run).
-- **3e** — then port the 11 .sc handlers as predicted (the original step-3), now that anims stick.
+- **3b/3c SCAFFOLDED (committed 98fa78e), DISABLED pending debug.** Built the whole harness:
+  extracted the CTSGun class to dlls/ts_gun.h; added CTSGun::GetWeaponData/SetWeaponData (ship
+  weapon TYPE=iuser1, active-caliber RESERVE=iuser2, fire-mode=iuser3; clip/timers/m_fInReload ship
+  generically); added the client g_TSGun + HUD_PrepEntity + the HUD_WeaponsPostThink TSGUN_WEAPON_ID
+  case in cl_dll/hl/hl_weapons.cpp. UseDecrement() gates it.
+  - **Enabled it and tested in-engine — NOT correct, so left DISABLED (UseDecrement=false +
+    registration COMMENTED OUT; runtime verified unchanged / no regression):** prediction RAN
+    (ItemPostFrame client-side) but (a) the predicted viewmodel anim STILL didn't stick (fire +
+    reload stayed in the idle pose — reload frames pixel-identical), and (b) fire effects DOUBLED
+    (muzzle/shells, no event dedup). No crash (EMIT_SOUND = client no-op via hl_baseentity.cpp;
+    MESSAGE_BEGIN only in UpdateClientData/SendWeaponStatus, NOT on the prediction path).
+  - **To re-enable:** flip UseDecrement→true + uncomment the 2 registration lines in hl_weapons.cpp.
+  - **Debug plan (3c/3d), instrument with gEngfuncs.Con_Printf in the client CTSGun path** — full
+    list in reference/EVENTS.md "cont.69s 3b/3c": (1) confirm ItemPostFrame actually runs for id 16
+    (the HUD_WeaponsPostThink gates); (2) confirm SetWeaponData mirrors m_weaponType/clip/reserve
+    (wrong → predicts kung-fu/empty → overwrites viewmodel with idle = the likely "anim doesn't
+    stick" cause); (3) TIMING — CTSGun uses absolute gpGlobals->time but prediction compares the
+    server's absolute m_flNextPrimaryAttack vs client time; verify the attack/reload gate fires
+    client-side (reconcile vs UTIL_WeaponTimeBase()==0 under CLIENT_WEAPONS); (4) once correct,
+    dedup the fire event (FEV_NOTHOST / predicted-event path) so it isn't doubled.
+- **3d** — verify the predicted reload/fire viewmodel anim STICKS (re-run the cont.69s test).
+- **3e** — then port the 11 .sc handlers as predicted (now that anims stick), OR — if prediction
+  proves too fragile — note that once anims stick via SendWeaponAnim, the .sc events are only needed
+  for the muzzle-sprite/shell EFFECTS (EV_TSFire already does those), so 3e may be minimal.
 
 ## 2026-06-23 (cont. 69r) — committed the batch; chose the FULL .sc client-prediction subsystem as next
 
