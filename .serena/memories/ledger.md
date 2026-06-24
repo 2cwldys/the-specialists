@@ -5,6 +5,46 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-23 (cont. 69s) — .sc client weapon-param subsystem: steps 1+2 (table shared + deploy cache)
+
+Started the FULL client weapon-param subsystem (the cont.69r NEXT TASK). Steps 1 & 2 done +
+in-engine verified. Committed as **fa44c26** (one commit for both steps — ev_ts.cpp +
+cl_dll/CMakeLists.txt straddle both, so a clean split would need non-buildable intermediates).
+NOTE: committed with `--no-gpg-sign` (user authorized "just commit skipping gpg" after the
+gpg-agent passphrase cache expired mid-session + pinentry timed out headless). Re-sign later if
+the unsigned commit matters.
+
+**Step 1 — shared s_weapon_info table into the client.** Split the pure weapon DATA layer
+(tsweapon_t, s_weapon_info, get_weapon_info, the per-caliber ammo/fire-mode helpers) out of
+dlls/ts_weapons.{h,cpp} into a new SHARED TU dlls/ts_weapon_info.{h,cpp}, built into BOTH hl.so
+and client.so (the original keeps a client copy at DAT_100aa050 via a client compile_weapons_info
+mirror — we share one TU). ts_weapons.{h,cpp} now hold only the server-only PrecacheAllTSWeapons.
+ev_ts.cpp muzzle-grip reads get_weapon_info()->pszAnimExt (was a duplicated local array). Verified:
+both build (glibc 2.14), get_weapon_info linked into client.so, M4 fires + flare draws in-engine.
+
+**Step 2 — the active-weapon param cache (client) + draw event.** RE'd the handler architecture
+(client.dll Ghidra): each handler caches its args at entry (FUN_100425b0 draw / FUN_10042690 reload:
+type=iparam1, info=get_weapon_info(type), barrelMask=iparam2, entindex=args+4, origin/angles/vel);
+the fire handler FUN_1003de40 dispatches on the fire-type byte weapon_info+0xd2 (==our iFireType:
+1=pump, 4/5=akimbo, else standard) — so the WEAPON TYPE TRAVELS IN THE EVENT. The ~70 DAT_10189xxx
+globals are the client's INTERNAL prediction state, NOT the protocol. **The contract = event NAME +
+iparam/fparam/bparam packing** (reload also packs fparam1=stage 0/9/10). Per CLAUDE.md (behaviour,
+not byte) the cache is a clean modern struct, not a 70-global byte-port. Full RE in reference/EVENTS.md
+"cont.69s".
+- cl_dll/ts_weapon_predict.{h,cpp}: `struct TSActiveWeapon {type, info, barrelMask, entindex,
+  origin/angles/velocity, isLocal; UpdateFromEvent(args);}` + global g_tsActive + EV_TSDraw (draw.sc
+  handler = seeds the cache). EV_TSFire now refreshes g_tsActive too. draw.sc hooked in hl_events.cpp.
+- Server (ts_gun.cpp): m_usDraw precached; Deploy() plays draw.sc ADDITIVELY (iparam1=type,
+  iparam2=akimbo barrel mask 2/4/6 else 1) — keeps the server DefaultDeploy visuals, only primes
+  client state. Verified in-engine: deploys (knife/M4) fire the draw event, NO crash, no bad-event
+  errors, fire path unchanged.
+
+**NEXT = step 3**: port the remaining 10 handlers (reload/coldcock/empty/pump/closecombat/firelinked/
+knife/katana/grenade + finish draw's view) as predicted events — client hook reading g_tsActive +
+get_weapon_info, server PLAYBACK_EVENT_FULL at each playback site (matching the RE'd arg packing),
+replacing the server SendWeaponAnim/EMIT_SOUND stand-ins. Start with reload (RE'd: re_reload.c —
+stages 0/9/10, per-weapon sounds, shell/clip eject). Go one handler at a time, build green, verify.
+
 ## 2026-06-23 (cont. 69r) — committed the batch; chose the FULL .sc client-prediction subsystem as next
 
 Committed everything (git): **1ca0ca4** (akimbo refactor + kung-fu + all playtest fixes — cont.69p/q),

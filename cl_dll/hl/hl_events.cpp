@@ -31,10 +31,12 @@ That was what we were going to do, but we ran out of time...oh well.
 ======================
 */
 void EV_TSFire(struct event_args_s* args); // The Specialists predicted fire (ev_ts.cpp)
+void EV_TSDraw(struct event_args_s* args); // The Specialists deploy: seed the param cache (ts_weapon_predict.cpp)
 
 void Game_HookEvents()
 {
 	gEngfuncs.pfnHookEvent("events/fire.sc", EV_TSFire); // TS: weapon_tsgun StandardFire
+	gEngfuncs.pfnHookEvent("events/draw.sc", EV_TSDraw); // TS: weapon_tsgun Deploy (param-cache seed)
 	gEngfuncs.pfnHookEvent("events/glock1.sc", EV_FireGlock1);
 	gEngfuncs.pfnHookEvent("events/glock2.sc", EV_FireGlock2);
 	gEngfuncs.pfnHookEvent("events/shotgun1.sc", EV_FireShotGunSingle);

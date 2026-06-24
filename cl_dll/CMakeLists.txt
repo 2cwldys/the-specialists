@@ -112,6 +112,7 @@ target_sources(client PRIVATE
 	ts_status.cpp
 	ts_ammo.cpp
 	ts_weaponbar.cpp
+	ts_weapon_predict.cpp
 	ts_spectate.cpp
 	ts_commands.cpp
 	ev_ts.cpp
@@ -164,6 +165,7 @@ target_sources(client PRIVATE
 	../dlls/tripmine.cpp
 	../dlls/weapons_shared.cpp
 	../dlls/glock.cpp
+	../dlls/ts_weapon_info.cpp
 
 	../game_shared/filesystem_utils.cpp
 	../game_shared/vgui_checkbutton2.cpp

@@ -31,6 +31,8 @@
 #include "event_api.h"
 #include "pm_defs.h"
 #include "eventscripts.h"
+#include "ts_weapon_info.h" // the SHARED s_weapon_info table (now built into the client too)
+#include "ts_weapon_predict.h" // the active-weapon param cache (refreshed by each TS event)
 
 #include <string.h>
 
@@ -52,26 +54,15 @@ static const char* const s_fireSound[] = {
 	/*34*/ nullptr, /*35*/ nullptr, /*36*/ "weapons/contender/fire.wav", /*37*/ "weapons/tmp/fire.wav",
 };
 
-// Per-tsweapon_t viewmodel "shoot" sequence (-1 = none), mirroring dlls/ts_weapons.cpp kFireAnim.
-static const int s_fireAnim[] = {
-	-1, 3, 1, 3, 6, 3, 1, 3, 3, 1, 1, 3, 3, 3, 3, 2, 18, 3, 3, 3,
-	6, 3, 3, 3, -1, -1, 1, 3, 1, -1, 3, 1, 2, 3, -1, -1, 3, 6,
-};
-static const int TSW_NUM = sizeof(s_fireAnim) / sizeof(s_fireAnim[0]);
-
-// Per-tsweapon_t muzzle-flash grip: true = one-handed (pistols + akimbo barrels) -> the small
+// Muzzle-flash grip for tsweapon_t `w`: true = one-handed (pistols + akimbo barrels) -> the small
 // ts_muzzleflash1h sprite; false = two-handed (rifles/SMGs/shotguns) -> the larger ts_muzzleflash6.
-// Mirrors the server s_weapon_info pszAnimExt (onehanded/akimbo vs twohanded). (RE: client.dll
-// FUN_100474b0 loads ts_muzzleflash1h + ts_muzzleflash6.)
-static const bool s_muzzle1h[] = {
-	/* 0 melee*/false,/*1 glock18*/true,/*2 beretta*/true,/*3 uzi*/true,/*4 m3*/false,/*5 m4*/false,
-	/*6 mp5sd*/false,/*7 mp5k*/false,/*8 ber_ak*/true,/*9 mk23*/true,/*10 mk23_ak*/true,/*11 usas*/false,
-	/*12 desert*/true,/*13 ak47*/false,/*14 fnh*/true,/*15 aug*/false,/*16 uzi_ak*/true,/*17 skorpion*/true,
-	/*18 barrett*/false,/*19 pdw*/true,/*20 spas12*/false,/*21 gold*/true,/*22 glock22*/true,/*23 ump*/false,
-	/*24 m61*/false,/*25 knife*/false,/*26 mossberg*/false,/*27 m16*/false,/*28 ruger*/true,/*29 flag*/false,
-	/*30 fnh_ak*/true,/*31 bull*/true,/*32 m60*/false,/*33 sawedoff*/false,/*34 katana*/false,/*35 seal*/false,
-	/*36 contender*/true,/*37 skorp_ak*/true,
-};
+// Read from the SHARED s_weapon_info pszAnimExt (onehanded/akimbo vs twohanded) — the same table
+// the server builds. (RE: client.dll FUN_100474b0 loads ts_muzzleflash1h + ts_muzzleflash6.)
+static bool TSWeaponOneHanded(int w)
+{
+	const s_weapon_info* wi = get_weapon_info((tsweapon_t)w);
+	return wi->pszAnimExt && strcmp(wi->pszAnimExt, "twohanded") != 0; // onehanded/akimbo -> 1h
+}
 
 // Draw the TS muzzle-flash flare sprite at the firing gun's muzzle attachment. `side` selects the
 // attachment (0 = right/primary barrel, 1 = left barrel for akimbo). RE: client.dll FUN_100474b0
@@ -91,7 +82,7 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side)
 	if (side < 0 || side > 3)
 		side = 0;
 
-	const bool oneHand = (weaponType >= 0 && weaponType < (int)(sizeof(s_muzzle1h) / sizeof(s_muzzle1h[0]))) && s_muzzle1h[weaponType];
+	const bool oneHand = (weaponType >= 0 && weaponType < TSW_COUNT) && TSWeaponOneHanded(weaponType);
 	const int spr = oneHand ? s_spr1h : s_spr6;
 	if (spr <= 0)
 		return;
@@ -110,8 +101,10 @@ void EV_TSFire(event_args_t* args)
 	const int idx = args->entindex;
 	const int weaponType = args->iparam1;
 	const int barrelSide = args->iparam2; // akimbo: 0 = right barrel (attachment 0), 1 = left (1)
-	if (weaponType < 0 || weaponType >= TSW_NUM)
+	if (weaponType < 0 || weaponType >= TSW_COUNT)
 		return;
+
+	g_tsActive.UpdateFromEvent(args); // refresh the active-weapon cache (matches the original fire handler)
 
 	Vector origin;
 	VectorCopy(args->origin, origin);

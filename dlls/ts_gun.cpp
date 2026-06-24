@@ -117,6 +117,7 @@ public:
 	float m_blockBar = 100.0f;  // kung-fu block stamina (UpdateMeleeBar): each block costs, regens
 	float m_blockBarTime = 0.0f;// last time the block bar was updated (for regen)
 	unsigned short m_usFire = 0; // events/fire.sc handle (predicted fire: sound/flash/anim)
+	unsigned short m_usDraw = 0; // events/draw.sc handle (deploy: seed the client param cache)
 
 	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends
 	// WeaponInfo on change from CTSGun::UpdateClientData @0x758c8; we mirror that.
@@ -382,6 +383,7 @@ void CTSGun::Precache()
 	// this re-call just resolves the cached indices for a runtime give.
 	PrecacheAllTSWeapons();
 	m_usFire = PRECACHE_EVENT(1, "events/fire.sc"); // predicted fire (sound/flash/anim + shell)
+	m_usDraw = PRECACHE_EVENT(1, "events/draw.sc"); // deploy: seed the client active-weapon param cache
 	PRECACHE_SOUND("player/kungfuhit.wav");   // kung-fu flesh hit (also the coldcock bash)
 	PRECACHE_SOUND("player/closecombat.wav"); // kung-fu swing whoosh (miss / surface)
 	PRECACHE_SOUND("player/block.wav");       // kung-fu block "hooah" (reload)
@@ -423,6 +425,16 @@ bool CTSGun::Deploy()
 	m_pPlayer->m_TSAnim.m_bKungFu = (m_weaponType == TSW_MELEE); // kung-fu uses the combat_idle stance
 	if (ok)
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_DRAW); // 3rd-person draw_<grip>
+
+	// events/draw.sc → EV_TSDraw: seed the CLIENT active-weapon param cache for the predicted
+	// fire/reload handlers (iparam1 = type, iparam2 = active barrel mask: akimbo 2/4/6, else 1).
+	// Additive — the deploy view/anim above stays server-driven; this only primes client state.
+	if (ok && m_usDraw)
+	{
+		const int barrelMask = (m_items[m_weaponType].barrelMask & 6) ? (m_items[m_weaponType].barrelMask & 6) : 1;
+		PLAYBACK_EVENT_FULL(0, m_pPlayer->edict(), m_usDraw, 0.0, g_vecZero, g_vecZero,
+			0.0, 0.0, m_weaponType, barrelMask, 0, 0);
+	}
 	return ok;
 }
 
