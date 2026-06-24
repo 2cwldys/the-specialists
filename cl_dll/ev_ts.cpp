@@ -187,6 +187,15 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 	gEngfuncs.pEventAPI->EV_PopPMStates();
 }
 
+// events/knife.sc → EV_TSMelee — the original FUN_10043c90. A knife/katana slash hitting a HARD
+// surface throws sparks + a scuff decal (the server only plays this on non-flesh hits; the impact
+// point rides in args->origin). RE: the original sparks (scintille_metal) on metal/concrete/glass,
+// skipping wood/dirt — we spark on every surface hit the server passed (a minor fidelity slice).
+void EV_TSMelee(event_args_t* args)
+{
+	gEngfuncs.pEfxAPI->R_SparkShower(args->origin);
+}
+
 void EV_TSFire(event_args_t* args)
 {
 	const int idx = args->entindex;

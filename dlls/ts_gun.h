@@ -111,6 +111,7 @@ public:
 	float m_blockBarTime = 0.0f;// last time the block bar was updated (for regen)
 	unsigned short m_usFire = 0; // events/fire.sc handle (predicted fire: sound/flash/anim)
 	unsigned short m_usDraw = 0; // events/draw.sc handle (deploy: seed the client param cache)
+	unsigned short m_usMelee = 0; // events/knife.sc handle (predicted melee impact spark/decal)
 
 	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends
 	// WeaponInfo on change from CTSGun::UpdateClientData @0x758c8; we mirror that.

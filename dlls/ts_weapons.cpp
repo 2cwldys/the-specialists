@@ -64,4 +64,5 @@ void PrecacheAllTSWeapons()
 	PRECACHE_EVENT(1, "events/fire.sc");
 	PRECACHE_EVENT(1, "events/reload.sc");
 	PRECACHE_EVENT(1, "events/draw.sc");
+	PRECACHE_EVENT(1, "events/knife.sc"); // melee impact spark
 }

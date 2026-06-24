@@ -298,6 +298,7 @@ void CTSGun::Precache()
 	PrecacheAllTSWeapons();
 	m_usFire = PRECACHE_EVENT(1, "events/fire.sc"); // predicted fire (sound/flash/anim + shell)
 	m_usDraw = PRECACHE_EVENT(1, "events/draw.sc"); // deploy: seed the client active-weapon param cache
+	m_usMelee = PRECACHE_EVENT(1, "events/knife.sc"); // melee impact spark/decal on a hard surface
 	PRECACHE_SOUND("player/kungfuhit.wav");   // kung-fu flesh hit (also the coldcock bash)
 	PRECACHE_SOUND("player/closecombat.wav"); // kung-fu swing whoosh (miss / surface)
 	PRECACHE_SOUND("player/block.wav");       // kung-fu block "hooah" (reload)
@@ -552,6 +553,11 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 			? (flesh ? "weapons/katana/hit-body.wav" : "weapons/katana/hit.wav")
 			: (flesh ? "weapons/knife/knife_hitbody.wav" : "weapons/knife/knife_hit.wav");
 		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, hitSnd, VOL_NORM, ATTN_NORM);
+		// events/knife.sc → EV_TSMelee: blade-on-surface spark + decal (the original FUN_10043c90).
+		// Only on hard surfaces (not flesh) — the impact point rides in the event origin.
+		if (!flesh && m_usMelee)
+			PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usMelee, 0.0,
+				tr.vecEndPos, g_vecZero, 0.0, 0.0, 0, 0, 0, 0);
 		ClearMultiDamage();
 		pHit->TraceAttack(m_pPlayer->pev, wi->flDamage * TSDamageMult(), gpGlobals->v_forward, &tr,
 			DMG_CLUB | DMG_NEVERGIB);
