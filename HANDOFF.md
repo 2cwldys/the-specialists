@@ -40,21 +40,62 @@ touching that area):**
   coldcock/closecombat/pump/empty/firelinked): the complete RE map (server handles + client
   hook→handler addrs + playback sites) + the build order for the client weapon-param subsystem.
 
-## ⭐ NEXT TASK (user-approved, cont.69r) — connect the `.sc` events = the FULL client weapon-param subsystem
-Read `reference/EVENTS.md` first. The user chose the byte-faithful path: reconstruct the client weapon
-prediction state so the 11 `.sc` event handlers run faithfully (not the simplified per-event approach).
-**Foundation already RE'd + documented:** client `get_weapon_info` (`FUN_100071c0` → `DAT_100aa050`, the
-SAME 988-byte `s_weapon_info[38]` the server builds) + the `DAT_10189xxx` active-weapon param cache
-(filled on deploy, read by every handler) + the studio/event API ptrs. **Build order (do IN ORDER, each
-RE'd + in-engine verified):** (1) share the `s_weapon_info` table into the client + a client
-`get_weapon_info`; (2) reconstruct the deploy/weapon-switch param-cache; (3) port the 11 handlers (hook
-client-side + server `PLAYBACK_EVENT_FULL` at the playback sites, replacing the SendWeaponAnim/EMIT_SOUND
-stand-ins). NOTE: only `events/fire.sc` is wired today (`EV_TSFire`); the rest are driven server-side
-(works, not predicted). This touches the working weapon code — go carefully, one step at a time, and keep
-the build green. Tooling: `scripts/ghidra/{DecompAt,DecompRefs,FindStr}.java` (server proj `recovered/ghidra/server`,
-client proj `recovered/ghidra/client`); remember Ghidra addr = nm addr + 0x10000 for the server `.so`.
+## ⭐ NEXT TASK (cont.69u) — finish the user's weapon-feature queue (RE-grounded, then PLAYTEST)
+The `.sc` client-prediction subsystem (cont.69s) AND the weapon-effect polish batch (cont.69t) are DONE +
+committed (see "Where things stand" below). **The user playtests now — don't fight the xdotool screenshot
+harness for visual confirmation; build it RE-grounded, then ASK the user to test.** Remaining queue from the
+user (newest ledger entry = cont.69t has the RE notes):
 
-## Where things stand (2026-06-23, through cont.69r) — all committed (git log: 1ca0ca4 / c675ef0 / 7a66e5c)
+1. **Proximity auto-kick (non-kung-fu)** — "any weapon except kung-fu auto-kicks when next to + aiming at a
+   breakable/person." RE is the blocker: the kick is `CloseCombatAttack__11CBasePlayer`@0x95f88 dispatched via
+   an INDIRECT function pointer (`PTR_…@0x176858`) — static caller not found; it's NOT in CTSGun::PrimaryAttack
+   (0x81a20) and CTSGun has no ItemPostFrame symbol. Kick helpers RE'd: VKickback@0x80414,
+   GetCloseCombatVectors@0x86e2c, DropKickback@0x86e9c. NEXT: trace the indirect ptr / find the CBasePlayer
+   per-frame think that calls it; RE the proximity radius + aim + damage — do NOT guess them.
+2. **Katana right-click** = `CTSGun::KatanaThrow` (separate from the knife throw, which is done) — RE + impl.
+3. **Coldcock viewmodel whip** — ColdCock has the hit sound + 3rd-person anim but no 1st-person SendWeaponAnim;
+   most gun v_models lack a whip seq — RE coldcock.sc (LAB_10043800) for the seq.
+4. **Predicted-effect events for empty/pump/closecombat** — low value (anims predict; sounds already play).
+
+**Method reminder:** RE-ground every value (the user reverts guessed work — see cont.69 notes). Tooling:
+`scripts/ghidra/{DecompAt,DecompRefs,FindStr}.java` (server proj dir `recovered/ghidra/server` name `serverso`,
+client proj dir `recovered/ghidra/client` name `clientdll`); Ghidra addr = `nm` addr + 0x10000 for the server
+`.so`. The model-sequence dumper from cont.69t lives at `scratchpad/dumpseq.py` (struct: numseq@164, seqindex@168,
+176-byte seqdesc, name@0). Commits are `--no-gpg-sign` (user authorized; gpg-agent passphrase expires mid-session).
+
+## Where things stand (2026-06-24, through cont.69t) — all committed (`--no-gpg-sign`)
+
+### cont.69t — weapon-effect polish batch (RE-grounded; user playtests). Read the ledger top for full detail.
+- **Bullet impact smoke** (8430ea3) — client `EV_TSBulletImpact` (cl_dll/ev_ts.cpp): a SMOKE puff per surface
+  material at the hit (RE: client dispatcher `FUN_10048f60` — wood/dirt→wood_smoke_add, metal/glass/grate/vent/
+  computer→gun_smoke_add+R_SparkShower, concrete/default→gun_smoke, flesh→none). Server already did damage+
+  texture-sound+decal+blood; this adds the visual. Reuses `PM_FindTextureType` + `EV_TraceTexture`.
+- **knife.sc melee spark** (6876988) — `MeleeAttack` plays `events/knife.sc` on a non-flesh surface hit →
+  client `EV_TSMelee` R_SparkShower at the impact (origin carries the point).
+- **Predicted melee/grenade anims** (62d754e) — knife/katana slash (SendWeaponAnim slash1 = v_knife 3 /
+  v_katana 2) + swing/hit sounds; grenade throw seq. (Once CTSGun is predicted, these stick.)
+- **Knife right-click THROW** (dee455c + c16e960) — `dlls/ts_knife.cpp` = `CTSKnife` projectile. SecondaryAttack
+  (fire-type KNIFE) → `CTSGun::ThrowKnife` (spends m_iClip, throw seq v_knife 7 / v_sealknife 5, auto-switch when
+  dry). COLLISION (RE: BounceTouch@0x6decc): STICK in non-breakable surfaces (embed), BOUNCE off unbreakable
+  breakables, BREAK-THROUGH breakables it can kill + stick in the wall beyond (ignore_glass forward trace),
+  stab flesh. Pickup = press-E (IN_USE) in a trigger radius (NOT run-over). **Fixed a server crash** (Host_Error
+  "trigger in clipping list" — relink after changing pev->solid).
+- **Dropped-weapon GLOW** = WHITE `kRenderFxGlowShell` (CTSWorldGun + stuck knife) — model shell, not a light.
+- **Breakable shatter** — ALREADY WORKS (stock HL CBreakable::Die TE_BREAKMODEL by material; verified glass→
+  glassgibs on ts_kissmeyerbasic). No change needed.
+
+### cont.69s — ✅ CTSGun is CLIENT-PREDICTED; the `.sc` weapon-prediction subsystem is COMPLETE. Read `reference/EVENTS.md`.
+- Steps 1–2: shared `s_weapon_info` table into client (`dlls/ts_weapon_info.{h,cpp}` built into both DLLs) +
+  the active-weapon param cache (`cl_dll/ts_weapon_predict.{h,cpp}`, `g_tsActive`) + the draw event.
+- **3a–3d: CTSGun is now a real CLIENT-PREDICTED weapon** so its viewmodel anims STICK. `ts_gun.cpp` compiles
+  into client.so (class extracted to `dlls/ts_gun.h`; client stubs in `cl_dll/ts_gun_stubs.cpp`); `g_TSGun`
+  registered in `cl_dll/hl/hl_weapons.cpp` (HUD_InitClientWeapons + the TSGUN_WEAPON_ID case); state shipped
+  via `CTSGun::GetWeaponData/SetWeaponData` (type/reserve/firemode). **The key fix = TIME BASE:** CTSGun's
+  timers reverted from absolute `gpGlobals->time` to `UTIL_WeaponTimeBase()` (34 sites) + `UseDecrement()`
+  returns true, so the engine/server decrement loop drives the 0-base correctly. Fire/akimbo events use
+  FEV_NOTHOST (no double muzzle). Verified predicted (listenserver) AND server-only (dedicated rig, bots).
+
+## Where things stood (2026-06-23, through cont.69r) — all committed (git log: 1ca0ca4 / c675ef0 / 7a66e5c)
 
 ### cont.69q–r — kung-fu close-combat + many playtest fixes (all RE-grounded, in-engine/user-verified, COMMITTED)
 - **Akimbo OWNERSHIP refactor** (items[]-by-type) — see cont.69p note below; done + verified.
