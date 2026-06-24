@@ -133,6 +133,43 @@ prerequisites for (B) too.
   proves too fragile — note that once anims stick via SendWeaponAnim, the .sc events are only needed
   for the muzzle-sprite/shell EFFECTS (EV_TSFire already does those), so 3e may be minimal.
 
+## 2026-06-24 (cont. 69t) — weapon-effect polish batch (impacts/knife-spark/knife-throw) + RE notes
+
+After the .sc prediction subsystem (cont.69s), a user-requested polish batch. All RE-grounded, in-engine
+verified, committed:
+- **Bullet impact smoke** (8430ea3) — client EV_TSBulletImpact: a SMOKE puff per surface material at
+  the bullet hit (RE: client dispatcher FUN_10048f60 — wood/dirt→wood_smoke_add, metal/glass/grate/vent/
+  computer→gun_smoke_add+R_SparkShower, concrete/default→gun_smoke, flesh→none). The server side already
+  did damage+texture sound+decal+blood; this adds the missing VISUAL. Centre-ray trace; predicted via
+  the fire event. Verified: floor/wall impacts puff smoke.
+- **knife.sc melee spark** (6876988) — MeleeAttack plays events/knife.sc (m_usMelee, FEV_NOTHOST, impact
+  in the origin) on a non-flesh surface hit; client EV_TSMelee R_SparkShower. (RE: FUN_10043c90.)
+- **Knife right-click THROW** (dee455c) — RE'd CTSGun::SecondaryAttack@0x817a8 (fire-type KNIFE→KnifeFire
+  throw branch) + CreateKnife@0x6d9e4. New dlls/ts_knife.cpp = CTSKnife projectile (per-type w_model,
+  MOVETYPE_TOSS + avelocity tumble, damages a victim / thunks a surface, drops a recoverable CTSWorldGun).
+  CTSGun::ThrowKnife (spends m_iClip, throw seq v_knife 7 / v_sealknife 5, knife_miss whoosh, auto-switch
+  when dry), routed from ItemPostFrame IN_ATTACK2 (gated m_flNextSecondaryAttack). TSThrowKnife + client
+  stub. Verified: right-click → throw anim + CTSKnife spawns (w_knife.mdl), no crash.
+- **Breakable shatter particles — ALREADY WORKS, no change.** Verified on ts_kissmeyerbasic: punching/
+  shooting glass → it breaks + `glassgibs.mdl` loads. Stock HL CBreakable::Die (dlls/func_break.cpp) emits
+  TE_BREAKMODEL with the material gib (m_idShard = glassgibs/woodgibs/… by m_Material) + count=0 (engine
+  fills the brush volume = covers the surface) + the BREAK_GLASS/WOOD flag. TS uses stock CBreakable (no
+  override). If denser coverage is wanted, bump the TE_BREAKMODEL count.
+
+**STILL QUEUED (user-requested, RE notes for the next session):**
+- **Proximity auto-kick (non-kung-fu)** — "any weapon except kung-fu auto-kicks when next to + aiming at
+  a breakable/person." RE is HARD: the kick is `CloseCombatAttack__11CBasePlayer` (@0x95f88) called via an
+  INDIRECT function pointer (PTR_CloseCombatAttack…@0x176858) — static caller not found. The per-frame
+  trigger (proximity + aim check) isn't in CTSGun::PrimaryAttack (0x81a20, pure fire-type dispatch) and
+  CTSGun has no ItemPostFrame symbol (uses base). Kick helpers RE'd: VKickback@0x80414,
+  GetCloseCombatVectors@0x86e2c, DropKickback@0x86e9c, GaitCloseCombat. NEXT: trace the indirect ptr / find
+  the CBasePlayer think that calls it; don't guess the range/damage (RE-ground it).
+- **Coldcock viewmodel whip** — ColdCock has the hit sound + 3rd-person anim but no 1st-person SendWeaponAnim;
+  most gun v_models lack a whip seq. RE coldcock.sc (LAB_10043800) for the seq it uses (may be a generic).
+- **Predicted-effect events for empty/pump/closecombat** — low value (anims already predict; empty already
+  clicks via PlayEmptySound; pump scock1 + closecombat sounds are server-side EMIT_SOUND).
+- **Katana right-click** = KatanaThrow (separate from the knife throw) — not yet done.
+
 ## 2026-06-23 (cont. 69r) — committed the batch; chose the FULL .sc client-prediction subsystem as next
 
 Committed everything (git): **1ca0ca4** (akimbo refactor + kung-fu + all playtest fixes — cont.69p/q),
