@@ -65,6 +65,32 @@ the byte-level global soup.
 | reload.sc| tsweapon_t | barrel mask | reload stage (0/9/10) | — |
 (origin/angles/velocity are filled by PLAYBACK_EVENT_FULL from the player edict — pass g_vecZero.)
 
+## cont.69s — ⚠️ anim-prediction is BLOCKED by the server-authoritative CTSGun (in-engine proven)
+
+The original predicts the viewmodel anim in each handler (it `EV_WeaponAnimation`s the shoot/
+reload seq) because the original CTSGun **is** client-predicted. **Ours is not** — our
+reconstruction drives CTSGun server-authoritatively (ledger cont.69p), and the build defines
+`CLIENT_WEAPONS`, so `HUD_WeaponsPostThink` runs the HL weapon-prediction loop every frame.
+CTSGun is not registered in that loop, so the predicted viewmodel anim is **overwritten each
+frame** and never shows.
+
+**Proven in-engine (reload experiment, reverted):** replaced `SendWeaponAnim(iReloadAnim)` in
+`CTSGun::Reload` with a predicted `events/reload.sc` → `EV_WeaponAnimation`. Result: the clip
+**refilled** (server reload ran) but the reload viewmodel anim **never played** across ~1.8 s of
+capture. The fire event's local effects (muzzle flash / punch) DO work, so `EV_IsLocal` is fine —
+it's specifically `EV_WeaponAnimation` that doesn't stick. (This is exactly what the `EV_TSFire`
+comment already noted for the fire anim.)
+
+**Consequences for the .sc port:**
+- Predicted events CAN faithfully do **sounds + effects** (muzzle-flash sprite, shell eject, view
+  punch, temp-entities) — `EV_TSFire` already does. These are worth porting (drop-in arg packing).
+- Predicted events CANNOT do the **viewmodel anim** — that must stay `SendWeaponAnim` (server),
+  which already triggers the model's embedded clipout/clipin/reload sound events.
+- The fully faithful predicted path (anims included) requires **making CTSGun client-predicted**
+  first: a client-side weapon object registered in `HUD_InitClientWeapons`/`HUD_WeaponsPostThink`
+  (`HUD_GetWeaponData`), mirroring CTSGun's clip/timers/state — a separate, larger effort. **This
+  is the real gate** on the "FULL byte-faithful prediction" goal. Decision needed (see ledger).
+
 ## Per-event RE (fill in as each is decompiled + implemented)
 
 - **fire.sc** (FUN_1003de40): muzzle-flash sprite at the muzzle attachment (the

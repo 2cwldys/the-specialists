@@ -39,11 +39,27 @@ not byte) the cache is a clean modern struct, not a 70-global byte-port. Full RE
   client state. Verified in-engine: deploys (knife/M4) fire the draw event, NO crash, no bad-event
   errors, fire path unchanged.
 
-**NEXT = step 3**: port the remaining 10 handlers (reload/coldcock/empty/pump/closecombat/firelinked/
-knife/katana/grenade + finish draw's view) as predicted events — client hook reading g_tsActive +
-get_weapon_info, server PLAYBACK_EVENT_FULL at each playback site (matching the RE'd arg packing),
-replacing the server SendWeaponAnim/EMIT_SOUND stand-ins. Start with reload (RE'd: re_reload.c —
-stages 0/9/10, per-weapon sounds, shell/clip eject). Go one handler at a time, build green, verify.
+**Step 3 — ⚠️ anim-prediction BLOCKED (in-engine proven), decision needed.** Tried porting reload
+as a predicted event (EV_TSReload → EV_WeaponAnimation, replacing the server SendWeaponAnim).
+In-engine: the clip refilled (server reload ran) but the reload viewmodel anim NEVER played across
+~1.8s. Root cause: our CTSGun is server-authoritative + not registered in the client weapon-
+prediction loop, and CLIENT_WEAPONS is defined, so HUD_WeaponsPostThink overwrites any predicted
+viewmodel anim every frame. (The fire event's local effects DO work, so EV_IsLocal is fine — it's
+specifically EV_WeaponAnimation that can't stick. Matches the long-standing EV_TSFire comment.)
+**Experiment reverted** (reload back to SendWeaponAnim, no regression); finding documented in
+reference/EVENTS.md "cont.69s — anim-prediction BLOCKED" + a code note at CTSGun::Reload.
+
+**The real fork (user decision):**
+- (A) Port only the SOUND/EFFECT half of each event (drop-in arg packing + sprites/shells/punch/
+  temp-entities), anims stay SendWeaponAnim. Low value — EV_TSFire already covers the main effect
+  case and SendWeaponAnim already triggers the models' embedded reload/clip sound events.
+- (B) Make CTSGun CLIENT-PREDICTED first (a client weapon object in HUD_InitClientWeapons /
+  HUD_WeaponsPostThink / HUD_GetWeaponData, mirroring CTSGun clip/timers/state) — the real gate for
+  faithful predicted anims, and a large separate effort. Then the 11 handlers predict properly.
+- (C) Stop at the foundation (steps 1+2 shipped); revisit prediction later.
+
+Steps 1+2 (committed 1cf2499) stand regardless — the shared table + the active-weapon cache are
+prerequisites for (B) too.
 
 ## 2026-06-23 (cont. 69r) — committed the batch; chose the FULL .sc client-prediction subsystem as next
 

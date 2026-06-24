@@ -1085,6 +1085,13 @@ void CTSGun::Reload()
 	if (m_iClip >= wi->iClip || m_ammoReserve[caliber] <= 0)
 		return;
 
+	// NOTE (cont.69s experiment, reverted): a predicted reload viewmodel anim via events/reload.sc
+	// → EV_WeaponAnimation does NOT stick — our CTSGun is server-authoritative and is not registered
+	// in the client weapon-prediction loop, so HUD_WeaponsPostThink overwrites the predicted anim
+	// every frame (proven in-engine: clip refilled but no reload anim showed). The viewmodel reload
+	// anim therefore stays server-driven via SendWeaponAnim (the model's embedded clipout/clipin
+	// sound events play with it). Predicting weapon ANIMS requires making CTSGun client-predicted
+	// first (a separate, larger effort). See reference/EVENTS.md "cont.69s — anim-prediction blocked".
 	if (wi->iReloadAnim >= 0)
 		SendWeaponAnim(wi->iReloadAnim);
 
