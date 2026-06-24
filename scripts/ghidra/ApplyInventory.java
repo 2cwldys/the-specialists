@@ -399,6 +399,10 @@ public class ApplyInventory extends GhidraScript {
         // RE-curated transient members (m_flExpire, … — verified by decompile, but NOT in any save table,
         // so not auto-recoverable). These are OUR RE-grounded names layered on top of the save-table ones.
         loadTsv(new File(cov, "members_re.tsv"), members, 0);
+        // auto-recovered transient members (DumpMembers): OFFSET+TYPE only, placeholder field_0xNN names.
+        // Lowest priority (classStruct's putIfAbsent keeps the first = saved > curated > auto), so this only
+        // TYPES the members we haven't named yet -> `this->field_0x94` (a float) instead of a raw cast.
+        loadTsv(new File(cov, "members_auto.tsv"), members, 0);
         Map<String, List<String[]>> hier = new HashMap<>();
         loadTsv(new File(cov, "hierarchy.tsv"), hier, 0);
         for (Map.Entry<String, List<String[]>> e : hier.entrySet())
