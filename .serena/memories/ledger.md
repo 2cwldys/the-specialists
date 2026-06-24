@@ -114,9 +114,20 @@ prerequisites for (B) too.
     reload). No fire-once-stuck, no crash. So the UTIL_WeaponTimeBase()+UseDecrement 0-base holds on a
     pure dedicated server (the player.cpp:2823 decrement loop drives it). Temp probes + bot-give
     REVERTED (`git checkout dlls/ts_gun.cpp`); clean hl.so restored to the rig. Tree = ee642ab.
-  - **3e (remaining, OPTIONAL):** the 11-handler .sc port is now polish — viewmodel anims already
-    predict via SendWeaponAnim. The events only add predicted EFFECTS (EV_TSFire already does fire's).
-    Could wire predicted-effect events for coldcock/empty/pump/closecombat/grenade/knife/katana.
+  - **3e DONE (committed 62d754e) — filled the 1st-person melee/grenade gaps the prediction exposed.**
+    Audited the .sc actions: most were already covered once anims predict (fire/reload via SendWeaponAnim,
+    empty via the client PlayEmptySound click, pump reload anim, kung-fu CloseCombat). The genuine GAPS:
+    knife/katana/sealknife MeleeAttack + GrenadeThrow set only the 3rd-person body anim, never
+    SendWeaponAnim → silent, unanimated 1st-person. Fixed: MeleeAttack SendWeaponAnim the slash seq
+    (v_knife slash1=3, v_katana/v_sealknife slash1=2 — dumped from the .mdl headers via scratchpad/
+    dumpseq.py) + swing/surface/flesh sounds (weapons/knife/*, weapons/katana/*, precached); GrenadeThrow
+    SendWeaponAnim(3)=v_m61 throw. FIXED slash (not random) to stay in lockstep with the server's anim
+    (random would snap on the reconcile). Verified in-engine: knife slash animates (was static) + sounds,
+    no crash. coldcock left server-driven (its viewmodel is the held gun's — no reliable whip seq).
+  - **The .sc client weapon-param subsystem (cont.69r NEXT TASK) is COMPLETE:** shared table (1) +
+    param cache (2) + CTSGun client-prediction (3a-3d, anims stick, dedicated-verified) + melee/grenade
+    predicted anims (3e). Remaining nice-to-haves (not blocking): byte-faithful knife.sc impact spark/
+    decal (FUN_10046f50/100492b0), coldcock viewmodel whip, predicted-EFFECT events for the rest.
 - **3d** — verify the predicted reload/fire viewmodel anim STICKS (re-run the cont.69s test).
 - **3e** — then port the 11 .sc handlers as predicted (now that anims stick), OR — if prediction
   proves too fragile — note that once anims stick via SendWeaponAnim, the .sc events are only needed
