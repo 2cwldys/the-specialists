@@ -796,6 +796,43 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 }
 
+// @ KnifeFire__6CTSGun (throw branch, reached via SecondaryAttack@0x817a8) — right-click hurls the
+// active knife as a tumbling CTSKnife projectile. The arsenal carries a stack of throwables (m_iClip);
+// each throw spends one, and running dry auto-selects the next-best weapon. The viewmodel plays the
+// model's "throw" sequence (v_knife throw=7, v_sealknife throw=5) — predicted via SendWeaponAnim.
+void CTSGun::ThrowKnife()
+{
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	if (!(m_pPlayer->m_afButtonPressed & IN_ATTACK2))
+		return; // one throw per press
+	if (m_iClip <= 0)
+	{
+		PlayEmptySound();
+		m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.5f;
+		return;
+	}
+	m_iClip--;
+
+	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
+	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_forward * 16;
+	Vector vecVel = gpGlobals->v_forward * 1000 + m_pPlayer->pev->velocity;
+	const float dmg = (wi->flDamage > 0 ? wi->flDamage : 40.0f) * TSDamageMult();
+	TSThrowKnife(m_pPlayer, m_weaponType, dmg, vecSrc, vecVel); // server-only (client stub no-ops)
+
+	SendWeaponAnim((m_weaponType == TSW_KNIFE) ? 7 : 5); // "throw" seq — client-predicted
+	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM);
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.5f;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+
+	// Thrown the last one — drop the (now empty) knife slot + auto-select the next-best weapon.
+	if (m_iClip <= 0)
+	{
+		m_items[m_weaponType].owned = false;
+		GetBetterWeapon(m_weaponType);
+	}
+}
+
 // @ AkimboFire__6CTSGun — the dual-wield fire-types (4 combinable, 5 gold-only). The
 // faithful engine splits the clip into a left/right barrel (m_pActiveItem+0x1c/+0x20)
 // and, in alternating fire-mode, fires one barrel per trigger (IN_ATTACK vs IN_ATTACK2)
@@ -1002,12 +1039,15 @@ void CTSGun::ItemPostFrame()
 		}
 	}
 
-	if ((m_pPlayer->pev->button & IN_ATTACK2) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
+	if ((m_pPlayer->pev->button & IN_ATTACK2) && m_flNextSecondaryAttack <= UTIL_WeaponTimeBase())
 	{
 		// Kung-fu's right-click attacks (back-kick / handstand kick / dropkick) — CCombatAttack
-		// reads IN_ATTACK2 too. Other weapons have no secondary here (zoom/coldcock are separate).
+		// reads IN_ATTACK2 too. Knives THROW on right-click (CTSGun::SecondaryAttack@0x817a8 routes
+		// fire-type KNIFE -> KnifeFire's throw branch). Other weapons: zoom/coldcock are separate.
 		if (m_weaponType == TSW_MELEE)
 			CloseCombatAttack(true);
+		else if (wi->iFireType == TSFT_KNIFE)
+			ThrowKnife();
 	}
 	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
 	{

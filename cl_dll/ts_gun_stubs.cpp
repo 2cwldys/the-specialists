@@ -40,6 +40,7 @@ void PrecacheAllTSWeapons() {}
 CBaseEntity *TSCreateWorldGun(int, int, const Vector &, const Vector &) { return nullptr; }
 CBaseEntity *TSCreateAmmoPack(entvars_s *, const int *, const Vector &, const Vector &) { return nullptr; }
 CBaseEntity *TSThrowM61(entvars_s *, const Vector &, const Vector &, float, float) { return nullptr; }
+CBaseEntity *TSThrowKnife(CBasePlayer *, int, float, const Vector &, const Vector &) { return nullptr; }
 
 // --- engine entity glue (server-only; used only by CTSGun's drop/pickup helpers).
 int DispatchSpawn(edict_t *) { return 0; }

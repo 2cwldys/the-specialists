@@ -80,6 +80,7 @@ public:
 	void CloseCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
 	void CloseCombatBlock();                     // @CCombatBlock — kung-fu reload: "hooah" block (stamina)
 	void GrenadeThrow(const s_weapon_info *wi);  // grenade fire-type
+	void ThrowKnife();                           // @KnifeFire throw branch — right-click hurls the knife
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
 	void SwitchFireMode();                       // cycle the held weapon's fire-mode
 	void SwitchItems();                          // @SwitchItems (useitems) — akimbo dual-wield swap
