@@ -37,13 +37,15 @@ build() {  # <projdir> <projname> <binary>
 build "$ROOT/recovered/ghidra/server" serverso reference/ts_i386.so
 build "$ROOT/recovered/ghidra/client" clientdll reference/client.dll
 
-# Apply recovered gcc2 signatures as real prototypes on the server program (typed `this` +
-# call args in every decompile). Idempotent — safe to re-run.
-if [ -f "$ROOT/reference/signatures-gcc2.map" ] && [ -d "$ROOT/recovered/ghidra/server/serverso.rep" ]; then
-  echo ">>> applying typed prototypes to the server program (ApplyTypes)"
+# Apply the recovered inventory to the server program: real per-class member STRUCTS (from the save
+# tables) + typed prototypes + entvars_t, so decompiles read `this->poweruptype` / `this->pev->origin`
+# instead of `*(int *)(this + 0x84)`. (ApplyInventory is a superset of ApplyTypes; needs the coverage
+# tsvs — run scripts/coverage/run.py first.) Idempotent — safe to re-run.
+if [ -f "$ROOT/reference/coverage/members.tsv" ] && [ -d "$ROOT/recovered/ghidra/server/serverso.rep" ]; then
+  echo ">>> applying recovered inventory to the server program (ApplyInventory: member structs + prototypes)"
   "$GH" "$ROOT/recovered/ghidra/server" serverso -process ts_i386.so -noanalysis \
-    -scriptPath "$SP" -postScript ApplyTypes.java "$ROOT/reference/signatures-gcc2.map" \
-    >/tmp/ghidra-applytypes.log 2>&1 && grep -h "ApplyTypes:" /tmp/ghidra-applytypes.log || echo "    (ApplyTypes failed — see /tmp/ghidra-applytypes.log)"
+    -scriptPath "$SP" -postScript ApplyInventory.java "$ROOT/reference/coverage" \
+    >/tmp/ghidra-applyinv.log 2>&1 && grep -h "ApplyInventory:" /tmp/ghidra-applyinv.log || echo "    (ApplyInventory failed — see /tmp/ghidra-applyinv.log)"
 fi
 echo ">>> done. (projects under recovered/ghidra/ — gitignored, survive reboot)"
 echo "    decompile by addr:  analyzeHeadless recovered/ghidra/server serverso -process ts_i386.so -noanalysis -scriptPath scripts/ghidra -postScript DecompAt.java 0x<addr>"

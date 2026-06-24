@@ -1,0 +1,4 @@
+Class	offset	fieldtype	cpptype	name	count
+CTSPhysicObject	0x88	TIME	float	m_flExpire	1
+CTSPhysicObject	0x8c	EHANDLE	edict_t*	m_pOwner	1
+CTSPhysicObject	0xa0	INTEGER	int	m_iType	1

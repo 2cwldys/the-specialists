@@ -98,6 +98,14 @@ def main():
         for _, n in syms:
             cls_files[classname(n)].add(f)
 
+    # machine-readable function -> original file (consumed by ApplyInventory.java for plate comments)
+    ff = os.path.join(ROOT, "reference", "coverage", "funcfile.tsv")
+    rows = ["symbol\tfile"]
+    for f, syms in sorted(per_file.items()):
+        for _, n in sorted(syms):
+            rows.append(f"{n}\t{f}")
+    open(ff, "w").write("\n".join(rows) + "\n")
+
     if len(sys.argv) > 1:
         want = sys.argv[1]
         for f, syms in sorted(per_file.items()):
