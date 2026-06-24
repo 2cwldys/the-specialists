@@ -113,6 +113,7 @@ target_sources(client PRIVATE
 	ts_ammo.cpp
 	ts_weaponbar.cpp
 	ts_weapon_predict.cpp
+	ts_gun_stubs.cpp
 	ts_spectate.cpp
 	ts_commands.cpp
 	ev_ts.cpp
@@ -166,6 +167,7 @@ target_sources(client PRIVATE
 	../dlls/weapons_shared.cpp
 	../dlls/glock.cpp
 	../dlls/ts_weapon_info.cpp
+	../dlls/ts_gun.cpp
 
 	../game_shared/filesystem_utils.cpp
 	../game_shared/vgui_checkbutton2.cpp
