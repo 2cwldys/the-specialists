@@ -65,7 +65,35 @@ the byte-level global soup.
 | reload.sc| tsweapon_t | barrel mask | reload stage (0/9/10) | — |
 (origin/angles/velocity are filled by PLAYBACK_EVENT_FULL from the player edict — pass g_vecZero.)
 
-## cont.69s — ⚠️ anim-prediction is BLOCKED by the server-authoritative CTSGun (in-engine proven)
+## cont.69s — ✅ RESOLVED: CTSGun is now CLIENT-PREDICTED, the viewmodel anims STICK
+
+The "anim doesn't stick" problem (documented below as the original blocker) is FIXED. CTSGun was made
+a real client-predicted weapon: ts_gun.cpp compiles into client.so (3a); the class is in ts_gun.h;
+CTSGun::GetWeaponData/SetWeaponData ship the TS active state (type/reserve/fire-mode) the generic
+weapon_data loop doesn't (3c); g_TSGun is registered in HUD_InitClientWeapons + the HUD_WeaponsPostThink
+TSGUN_WEAPON_ID case (3b); UseDecrement() returns true. **The key fix (3d) was the TIME BASE:** CTSGun's
+attack/idle/reload timers were on absolute gpGlobals->time (the cont.69q workaround); with UseDecrement
+the engine + the server's CBasePlayer::ItemPostFrame decrement loop treat them as a 0-based RELATIVE
+countdown, so absolute values corrupted. Reverted them all to UTIL_WeaponTimeBase() (0 under the global
+CLIENT_WEAPONS, decremented on both sides). The fire/muzzle events now play with FEV_NOTHOST so the
+predicting host plays its own predicted copy and isn't double-sent the server copy.
+
+**Verified in-engine (Con_Printf-instrumented, then cleaned up):** `cl: [TSDIAG] StandardFire()` and
+`cl: [TSDIAG] Reload()` both fire (client prediction runs the weapon code); the predicted clip
+decrements; the fire (slide) and reload viewmodel anims now ANIMATE (frames differ — were
+pixel-identical/static before); a SINGLE muzzle flash (FEV_NOTHOST dedup, no doubling); server fires
+repeatedly (no fire-once-stuck regression — the server decrement loop handles the 0-base now that
+UseDecrement is true). No crash.
+
+The remaining 11-handler port (3e) is now OPTIONAL polish: the viewmodel ANIMS already predict via
+SendWeaponAnim in the predicted ItemPostFrame, so the `.sc` events are only needed for predicted
+EFFECTS (muzzle sprite/shell/sound) — which EV_TSFire already does for fire. The other actions
+(coldcock/empty/pump/closecombat/grenade/knife/katana) could get predicted-effect events too, but their
+anims already stick. TODO if pursuing 3e: also test server-only (dedicated, no client prediction)
+firing across weapons to confirm the time-base change holds there.
+
+---
+### (historical) The original blocker — anim-prediction was BLOCKED by the server-authoritative CTSGun
 
 The original predicts the viewmodel anim in each handler (it `EV_WeaponAnimation`s the shoot/
 reload seq) because the original CTSGun **is** client-predicted. **Ours is not** — our

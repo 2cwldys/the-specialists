@@ -57,15 +57,18 @@ public:
 	// client registration in hl_weapons.cpp) makes the server pack CTSGun into weapon_data and the
 	// client run CTSGun::ItemPostFrame each prediction frame. That ran, but the predicted viewmodel
 	// anim still didn't stick + fire effects doubled — prediction-integration bugs to debug (3c/3d).
-	// Flip to the CLIENT_WEAPONS form below (and uncomment the hl_weapons.cpp registration) once the
-	// time-base fix lands. DISABLED for now: enabling it makes the engine decrement CTSGun's
-	// m_flNextPrimaryAttack as a relative countdown, but CTSGun uses ABSOLUTE gpGlobals->time (the
-	// cont.69q workaround for CLIENT_WEAPONS being defined globally) → the timers corrupt and the
-	// predicted attack gate misfires, so SendWeaponAnim never drives the anim. THE FIX (cont.69s 3d):
-	// (1) scope CLIENT_WEAPONS to the CLIENT build only (CMakeLists) so UTIL_WeaponTimeBase() is
-	// gpGlobals->time server-side / 0 client-side; (2) revert CTSGun's timers from gpGlobals->time to
-	// UTIL_WeaponTimeBase(). Then return true here.
-	bool UseDecrement() override { return false; }
+	// ENABLED (cont.69s 3d): CTSGun is client-predicted so its viewmodel anims stick. UseDecrement()
+	// == true makes (a) the server pack CTSGun into weapon_data (GetWeaponData) + decrement its 0-based
+	// timers each frame (CBasePlayer::ItemPostFrame), and (b) the client run CTSGun::ItemPostFrame each
+	// prediction frame. Requires CTSGun's timers on UTIL_WeaponTimeBase() (done) — NOT absolute time.
+	bool UseDecrement() override
+	{
+#if defined(CLIENT_WEAPONS)
+		return true;
+#else
+		return false;
+#endif
+	}
 	void GetWeaponData(weapon_data_t &data) override; // server: pack the TS-specific active state (3c)
 	void SetWeaponData(const weapon_data_t &data) override; // client: unpack it before ItemPostFrame (3c)
 

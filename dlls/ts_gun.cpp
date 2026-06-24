@@ -22,12 +22,17 @@
 #include "ts_weapons.h"
 #include "ts_player.h" // DoubleFireRate (powerup accessor)
 
-// WEAPON TIMING: the build defines CLIENT_WEAPONS, so UTIL_WeaponTimeBase() == 0 and the stock
-// weapon timers are a 0-based RELATIVE clock that the CLIENT prediction advances. The original TS
-// CTSGun IS client-predicted (events/fire.sc), so it uses that 0-base. OUR reconstruction drives
-// CTSGun SERVER-authoritatively (not predicted — see the header note), so its m_flNextPrimaryAttack/
-// m_flTimeWeaponIdle/reload timers use gpGlobals->time directly (NOT UTIL_WeaponTimeBase()=0, against
-// which a positive next-attack would NEVER elapse → "fire once then stuck, reload never completes").
+// WEAPON TIMING: the build defines CLIENT_WEAPONS (both targets), so UTIL_WeaponTimeBase() == 0 — a
+// 0-based RELATIVE clock that gets DECREMENTED each frame by gpGlobals->frametime, on the CLIENT by
+// the prediction engine and on the SERVER by CBasePlayer::ItemPostFrame's decrement loop (player.cpp,
+// `#if defined(CLIENT_WEAPONS)` + `gun->UseDecrement()`). CTSGun is now CLIENT-PREDICTED (UseDecrement()
+// == true), so its attack/idle/reload timers use UTIL_WeaponTimeBase() like every predicted weapon —
+// set/compared against that base, decremented on both sides, consistent for prediction.
+// (cont.69q earlier used absolute gpGlobals->time as a workaround for "fire-once-stuck"; that was only
+// needed because UseDecrement() was false → the server decrement loop above skipped CTSGun. With
+// UseDecrement()==true the server decrements it, so the 0-base elapses correctly. See EVENTS.md.)
+// NOTE: real-time DELTAS (m_lastCCTime combo window, m_blockBar stamina regen) keep gpGlobals->time —
+// they measure wall-clock elapsed, not a decremented weapon timer.
 
 // The single weapon_tsgun (id 16) IS the player's whole TS arsenal. The original
 // keeps an `s_weapon_status items[]` array INDEXED BY tsweapon_t (0x38-byte entries
@@ -447,7 +452,7 @@ void CTSGun::Fire()
 	if (m_iClip <= 0)
 	{
 		PlayEmptySound();
-		m_flNextPrimaryAttack = (gpGlobals->time + 0.2f);
+		m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + 0.2f);
 		m_burstCount = 0;
 		return;
 	}
@@ -470,14 +475,15 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH; // 3rd-person muzzleflash on the player model
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 
-	// Viewmodel "shoot" animation — server-driven (the cont.49 path that works). NOTE: the
-	// predicted-event EV_WeaponAnimation does NOT stick because CTSGun isn't client-predicted,
-	// so the event only handles the fire sound + shell eject + viewmodel muzzleflash.
+	// Viewmodel "shoot" animation — now CLIENT-PREDICTED (CTSGun is a UseDecrement weapon, cont.69s
+	// 3d): SendWeaponAnim runs in the client's predicted ItemPostFrame, so the anim plays instantly.
 	if (wi->iFireAnim >= 0)
 		SendWeaponAnim(wi->iFireAnim);
 
-	// events/fire.sc → EV_TSFire: predicted fire sound + brass shell + viewmodel muzzleflash.
-	PLAYBACK_EVENT_FULL(0, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
+	// events/fire.sc → EV_TSFire: predicted fire sound + brass shell + viewmodel muzzleflash. Played
+	// with FEV_NOTHOST so the predicting host plays its OWN predicted copy (and isn't sent the server
+	// copy too — otherwise the muzzle/shell would double); other clients get the server copy.
+	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
 		flSpread, flSpread, m_weaponType, 0, (m_iClip == 0) ? 1 : 0, 0);
 
 	Vector vecSrc = m_pPlayer->GetGunPosition();
@@ -500,9 +506,9 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 		if (DoubleFireRate(m_pPlayer)) // double-firerate powerup -> twice as fast
 			flRate *= 0.5f;
 	}
-	m_flNextPrimaryAttack = (gpGlobals->time + flRate);
+	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
 	// Short idle during a burst so WeaponIdle drives the remaining rounds; else normal.
-	m_flTimeWeaponIdle = gpGlobals->time +
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() +
 		((m_fireMode == TSFM_BURST && m_burstCount > 0) ? flRate : 5.0f);
 }
 
@@ -524,8 +530,8 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 	const float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.25f;
-	m_flNextPrimaryAttack = (gpGlobals->time + flRate);
-	m_flTimeWeaponIdle = gpGlobals->time + 5.0f;
+	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 
 	if (tr.flFraction >= 1.0f)
 		return; // miss
@@ -554,7 +560,7 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 // constants (DAT_00107f7c…) are approximated; the selection + anims + damage are RE-faithful.
 void CTSGun::CloseCombatAttack(bool fSecondary)
 {
-	if (m_flNextPrimaryAttack > gpGlobals->time)
+	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
 		return;
 
 	const int btn = m_pPlayer->pev->button;
@@ -626,9 +632,9 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 	case ANIM_BACKKICK: bodySeq = "backkick";   break;
 	}
 	m_pPlayer->m_TSAnim.PlayKungFu(m_pPlayer, bodySeq, delay);
-	m_flNextPrimaryAttack = gpGlobals->time + delay;
-	m_flNextSecondaryAttack = gpGlobals->time + delay;
-	m_flTimeWeaponIdle = gpGlobals->time + 5.0f;
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + delay;
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + delay;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 
 	// Kung-fu hit sounds (RE: the .so close-combat path + player/* sounds): a PLAYER/monster hit is
 	// the wet "kungfuhit.wav" punch (+ damage); a WORLD/surface hit thuds (a footstep-material sound
@@ -664,7 +670,7 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 // plays the exhausted breathing (player/breathe2.wav) instead and does not block. The bar regens.
 void CTSGun::CloseCombatBlock()
 {
-	if (m_flNextPrimaryAttack > gpGlobals->time)
+	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
 		return; // mid-attack / already blocking
 
 	// Regen the block bar since it was last touched (~25/sec → full in ~4s), then update the stamp.
@@ -678,7 +684,7 @@ void CTSGun::CloseCombatBlock()
 	{
 		// exhausted — the Valve breathing puff, no block, short lockout.
 		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/breathe2.wav", VOL_NORM, ATTN_NORM);
-		m_flNextPrimaryAttack = gpGlobals->time + 0.5f;
+		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 		m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 		return;
 	}
@@ -687,16 +693,16 @@ void CTSGun::CloseCombatBlock()
 	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/block.wav", VOL_NORM, ATTN_NORM); // "hooah"
 	SendWeaponAnim(4); // block_low stance (v_melee.mdl seq 4, 1st person)
 	m_pPlayer->m_TSAnim.PlayKungFu(m_pPlayer, "kungfu_block1", 0.8f); // 3rd-person block pose
-	m_flNextPrimaryAttack = gpGlobals->time + 0.8f;   // the block window — gates attacks
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.8f;   // the block window — gates attacks
 	m_flNextSecondaryAttack = m_flNextPrimaryAttack;
-	m_flTimeWeaponIdle = gpGlobals->time + 1.0f;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 1.0f;
 }
 
 // @ AlternateAttack__6CTSGun @0x81ba8 — the +alt2 input: pistol-whip (ColdCock) when the
 // active weapon has a round loaded (the .so gates on the active slot's clip > 0).
 void CTSGun::AlternateAttack()
 {
-	if (m_flNextPrimaryAttack > gpGlobals->time)
+	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
 		return; // mid-attack cooldown
 	if (m_iClip <= 0)
 		return; // .so: only coldcock with a loaded weapon
@@ -718,8 +724,8 @@ void CTSGun::ColdCock()
 	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
 
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
-	m_flNextPrimaryAttack = gpGlobals->time + 0.5f; // pistol-whip cadence
-	m_flTimeWeaponIdle = gpGlobals->time + 5.0f;
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f; // pistol-whip cadence
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 
 	if (tr.flFraction >= 1.0f)
 		return; // miss (swing is the visual; no sound)
@@ -753,7 +759,7 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 	if (m_iClip <= 0)
 	{
 		PlayEmptySound();
-		m_flNextPrimaryAttack = gpGlobals->time + 0.5f;
+		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 		return;
 	}
 	m_iClip--;
@@ -766,8 +772,8 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 	TSThrowM61(m_pPlayer->pev, vecSrc, vecVel, 4.0f, dmg);
 
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_GRENADE); // 3rd-person "grenade" throw
-	m_flNextPrimaryAttack = gpGlobals->time + 1.0f;
-	m_flTimeWeaponIdle = gpGlobals->time + 5.0f;
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 1.0f;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 }
 
 // @ AkimboFire__6CTSGun — the dual-wield fire-types (4 combinable, 5 gold-only). The
@@ -797,7 +803,7 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	{
 		m_iClip = 0;
 		PlayEmptySound();
-		m_flNextPrimaryAttack = (gpGlobals->time + 0.2f);
+		m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + 0.2f);
 		return;
 	}
 
@@ -826,7 +832,7 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 
 	// events/fire.sc → EV_TSFire: fire sound + shell + the muzzle-flash flare at THIS barrel's
 	// attachment (iparam2 = m_akimboSide: 0 = right/attachment 0, 1 = left/attachment 1).
-	PLAYBACK_EVENT_FULL(0, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
+	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
 		flSpread, flSpread, m_weaponType, m_akimboSide, (m_iClip == 0) ? 1 : 0, 0);
 
 	m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
@@ -836,8 +842,8 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
 	if (DoubleFireRate(m_pPlayer))
 		flRate *= 0.5f;
-	m_flNextPrimaryAttack = (gpGlobals->time + flRate);
-	m_flTimeWeaponIdle = gpGlobals->time + 5.0f;
+	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 }
 
 // @ UpdateClientData__6CTSGun @0x758c8 — send the TS WeaponInfo HUD message (the ammo
@@ -926,7 +932,7 @@ void CTSGun::ItemPostFrame()
 	const bool pumpShotgun = (wi->iFireType == TSFT_PUMP);
 
 	// Finish a reload once its delay elapses.
-	if (m_fInReload && m_flNextPrimaryAttack <= gpGlobals->time)
+	if (m_fInReload && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
 	{
 		if (pumpShotgun)
 		{
@@ -944,9 +950,9 @@ void CTSGun::ItemPostFrame()
 				// more to load — arm the next shell (and replay the insert anim).
 				if (wi->iReloadAnim >= 0)
 					SendWeaponAnim(wi->iReloadAnim);
-				m_flNextPrimaryAttack = gpGlobals->time + 0.5f;
+				m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 				m_flNextSecondaryAttack = m_flNextPrimaryAttack;
-				m_flTimeWeaponIdle = gpGlobals->time + 0.5f;
+				m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.5f;
 			}
 			else
 			{
@@ -976,14 +982,14 @@ void CTSGun::ItemPostFrame()
 		}
 	}
 
-	if ((m_pPlayer->pev->button & IN_ATTACK2) && m_flNextPrimaryAttack <= gpGlobals->time)
+	if ((m_pPlayer->pev->button & IN_ATTACK2) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
 	{
 		// Kung-fu's right-click attacks (back-kick / handstand kick / dropkick) — CCombatAttack
 		// reads IN_ATTACK2 too. Other weapons have no secondary here (zoom/coldcock are separate).
 		if (m_weaponType == TSW_MELEE)
 			CloseCombatAttack(true);
 	}
-	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= gpGlobals->time)
+	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
 	{
 		if (m_fInReload && pumpShotgun && m_iClip > 0)
 			m_fInReload = false; // a pump shot interrupts the shell-by-shell reload
@@ -1002,7 +1008,7 @@ void CTSGun::ItemPostFrame()
 		// auto-reload a dry clip (melee/grenade have no caliber -> hasReserve is false)
 		if (!m_fInReload && m_iClip <= 0 && hasReserve)
 			Reload();
-		else if (m_flTimeWeaponIdle <= gpGlobals->time)
+		else if (m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
 			WeaponIdle();
 	}
 }
@@ -1019,22 +1025,18 @@ void CTSGun::Reload()
 	if (m_iClip >= wi->iClip || m_ammoReserve[caliber] <= 0)
 		return;
 
-	// NOTE (cont.69s experiment, reverted): a predicted reload viewmodel anim via events/reload.sc
-	// → EV_WeaponAnimation does NOT stick — our CTSGun is server-authoritative and is not registered
-	// in the client weapon-prediction loop, so HUD_WeaponsPostThink overwrites the predicted anim
-	// every frame (proven in-engine: clip refilled but no reload anim showed). The viewmodel reload
-	// anim therefore stays server-driven via SendWeaponAnim (the model's embedded clipout/clipin
-	// sound events play with it). Predicting weapon ANIMS requires making CTSGun client-predicted
-	// first (a separate, larger effort). See reference/EVENTS.md "cont.69s — anim-prediction blocked".
+	// Viewmodel reload anim — now CLIENT-PREDICTED (CTSGun is a UseDecrement weapon, cont.69s 3d):
+	// SendWeaponAnim runs in the client's predicted ItemPostFrame, so the reload anim plays instantly
+	// (the model's embedded clipout/clipin sound events play with it). Verified in-engine.
 	if (wi->iReloadAnim >= 0)
 		SendWeaponAnim(wi->iReloadAnim);
 
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 3rd-person relo_<grip>
 
 	m_fInReload = true;
-	m_flNextPrimaryAttack = gpGlobals->time + TS_RELOAD_TIME;
-	m_flNextSecondaryAttack = gpGlobals->time + TS_RELOAD_TIME;
-	m_flTimeWeaponIdle = gpGlobals->time + TS_RELOAD_TIME + 0.5f;
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + TS_RELOAD_TIME;
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + TS_RELOAD_TIME;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + TS_RELOAD_TIME + 0.5f;
 }
 
 // @ WeaponIdle__6CTSGun (@0x854dc) — drives the remaining burst rounds: while a burst is
@@ -1043,7 +1045,7 @@ void CTSGun::Reload()
 void CTSGun::WeaponIdle()
 {
 	if (m_fireMode == TSFM_BURST && m_burstCount > 0 &&
-		m_flTimeWeaponIdle <= gpGlobals->time)
+		m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
 	{
 		Fire();
 		return;

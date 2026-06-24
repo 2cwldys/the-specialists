@@ -59,6 +59,12 @@ function(set_common_properties TARGET_NAME)
 	target_compile_definitions(${TARGET_NAME} PRIVATE
 		_CRT_SECURE_NO_WARNINGS
 		$<$<CONFIG:DEBUG>:_DEBUG>
+		# CLIENT_WEAPONS is defined on BOTH targets (server + client) BY DESIGN: the server needs it
+		# for GetWeaponData (ship prediction state) AND the per-frame weapon-timer decrement loop
+		# (CBasePlayer::ItemPostFrame @player.cpp, gated `#if defined(CLIENT_WEAPONS)` + UseDecrement()).
+		# It makes UTIL_WeaponTimeBase()==0 on both sides (a RELATIVE/decremented time base). Predicted
+		# weapons MUST use UTIL_WeaponTimeBase() + UseDecrement()==true so the timers get decremented on
+		# both server and client (NOT absolute gpGlobals->time). See reference/EVENTS.md "ROOT CAUSE".
 		CLIENT_WEAPONS
 		# These are defined for OSX as well
 		$<$<PLATFORM_ID:Linux, Darwin>:POSIX _POSIX LINUX _LINUX GNUC>

@@ -114,9 +114,9 @@ void EV_TSFire(event_args_t* args)
 	if (EV_IsLocal(idx))
 	{
 		EV_MuzzleFlash(); // the dynamic light / model flash on top of the sprite
-		// NOTE: the viewmodel "shoot" anim is driven server-side via SendWeaponAnim
-		// (CTSGun::StandardFire) — EV_WeaponAnimation here doesn't stick because CTSGun
-		// isn't client-predicted.
+		// NOTE: the viewmodel "shoot" anim is now CLIENT-PREDICTED in CTSGun::StandardFire's
+		// SendWeaponAnim (CTSGun is a UseDecrement weapon, cont.69s 3d) — this event handles the
+		// muzzle-flash sprite + sound + shell + recoil; the anim plays via the predicted ItemPostFrame.
 		V_PunchAxis(0, -2.0);
 	}
 

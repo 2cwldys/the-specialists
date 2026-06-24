@@ -473,7 +473,7 @@ void HUD_InitClientWeapons()
 	HUD_PrepEntity(&g_Satchel, &player);
 	HUD_PrepEntity(&g_Tripmine, &player);
 	HUD_PrepEntity(&g_Snark, &player);
-	// HUD_PrepEntity(&g_TSGun, &player); // TS: enable when CTSGun prediction is debugged (3c/3d)
+	HUD_PrepEntity(&g_TSGun, &player); // TS: predict CTSGun so its viewmodel anims stick
 }
 
 /*
@@ -597,12 +597,9 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		pWeapon = &g_Snark;
 		break;
 
-	// TS: CTSGun prediction is SCAFFOLDED but DISABLED pending the time-base fix (see ts_gun.h /
-	// reference/EVENTS.md cont.69s 3d — CTSGun's absolute gpGlobals->time timers get corrupted by
-	// the engine's UseDecrement relative-countdown). Re-enable this case + HUD_PrepEntity once fixed.
-	// case TSGUN_WEAPON_ID:
-	//     pWeapon = &g_TSGun;
-	//     break;
+	case TSGUN_WEAPON_ID:
+		pWeapon = &g_TSGun; // TS: run CTSGun::ItemPostFrame client-side each prediction frame
+		break;
 	}
 
 	// Store pointer to our destination entity_state_t so we can get our origin, etc. from it
