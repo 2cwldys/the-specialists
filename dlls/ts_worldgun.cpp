@@ -51,6 +51,14 @@ void CTSWorldGun::Spawn()
 
 	pev->movetype = MOVETYPE_TOSS;
 	pev->solid = SOLID_BBOX;
+
+	// Every TS dropped weapon wears a GLOW SHELL — the model-outline glow (kRenderFxGlowShell, the
+	// AMXMODX-style shell), NOT a dynamic light — so dropped guns are easy to spot. (A renderfx, set
+	// in the original's CTSWorldGun visible-pickup setup; colour approximated.)
+	pev->renderfx = kRenderFxGlowShell;
+	pev->rendercolor = Vector(255, 255, 255); // WHITE pickup glow
+	pev->renderamt = 4;                        // shell thickness
+
 	// While falling the world gun must NOT block the player. The original (CTSWorldGun::Spawn
 	// @0xa0954) gives the falling gun a ZERO-size bbox (UTIL_SetSize with DAT_00106a08 = 0.0),
 	// so the SOLID_BBOX point still drops + lands (FL_ONGROUND) yet the player walks through it
