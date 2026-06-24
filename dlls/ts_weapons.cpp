@@ -48,6 +48,10 @@ void PrecacheAllTSWeapons()
 	// wood_smoke for wood/dirt. The texture/flesh impact SOUND + decal + blood are server-side.
 	PRECACHE_MODEL("sprites/gun_smoke_add.spr");
 	PRECACHE_MODEL("sprites/wood_smoke_add.spr");
+	// Falling impact debris chips (client EV_TSBulletImpact): woodfrag for wood/dirt,
+	// debris_concrete3 for concrete/default. Fly out + drop under gravity.
+	PRECACHE_MODEL("sprites/woodfrag.spr");
+	PRECACHE_MODEL("sprites/debris_concrete3.spr");
 
 	PRECACHE_SOUND("weapons/scock1.wav"); // pump-shotgun per-shell insert (ShotgunReload)
 

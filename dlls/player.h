@@ -381,6 +381,8 @@ public:
 	float m_flSlowMotionRamp = 0;     // 0x180 — slow-motion interpolation ramp
 	byte m_iKungFu = 0;               // 0x74e — kung-fu state
 	byte m_bLowGravity = 0;           // 0x74f — low-gravity powerup active
+	float m_flNextJumpKick = 0;       // jump-kick cooldown (orig CTSStunt+8): one kick per ~0.7s
+	EHANDLE m_hRunThroughLast;        // last entity barged through (orig player+0x798): don't re-hit it
 	bool m_bSlowMoveApplied = false;  // slow-motion has lowered pev->maxspeed (restore on exit)
 
 	// TS 3rd-person body/gait animation (ts_animation.cpp). The original embeds

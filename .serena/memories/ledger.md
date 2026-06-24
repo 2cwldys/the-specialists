@@ -5,6 +5,202 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-24 (cont. 69u) — the "auto-kick" = the JUMP-KICK (RE'd + implemented; user to playtest)
+
+The cont.69t "proximity auto-kick" RE blocker is RESOLVED — and the premise was wrong. User
+clarified (with screenshots: a mid-air flying-kick pose + a shattered window): **"Jumping with a
+non-kungfu weapon while facing a breakable would kick it. If in kung fu it did NOT kick."** So it's
+the **JUMP-KICK**, not the coldcock and not an automatic proximity trigger.
+
+**RE debunked the previous agent's theory:** the "indirect function pointer @0x176858" is just the
+normal **PLT/GOT JUMP_SLOT** for CloseCombatAttack — there ARE static callers. CloseCombatAttack
+(@0x95f88) is reached from exactly two places: `CCombatAttack__6CTSGun` (bare-hands KUNG-FU, from
+Primary/SecondaryAttack only when the active item ptr gun+0xcc==0) and **`CloseAttack__8CTSStunt`
+(@0x9c630) = the jump-kick**. (`VKickback`/`DropKickback` are gun RECOIL, not leg kicks. The
+coldcock — `AlternateAttack`→`ColdCock`→`ColdCockAttack` via button 0x40/IN_CANCEL — is the +alt2
+pistol-whip = task #2, separate.)
+
+**Jump-kick call path:** `CBasePlayer::PreThink` (orig 0x908cc) `if (button & IN_JUMP) Jump()` (same
+as ours, player.cpp:2123) → `CBasePlayer::Jump` (orig 0x92864, vtable 0x158) tries
+`CTSStunt::CloseAttack` FIRST (kick takes priority over the wall-flip/wheel acrobatics; basic jump
+velocity is engine pmove). Called every think while IN_JUMP held → connects mid-flight.
+
+**CTSStunt::CloseAttack RE (stunt obj @ player+0x4f0), all constants recovered** (⚠️ FILE OFFSET =
+Ghidra addr − 0x10000; the FP constant pool reads 0 at the naive offset — the .so's DAT_001xxxxx
+are .rodata at addr−0x10000; speed scale/thresholds are 8-byte DOUBLES the decompiler truncated):
+- gates (return 0 = no kick): stunt-state timers, FL_FROZEN, **active weapon is the tsgun in
+  kung-fu mode (id 0x10 && item+0xcc==0)** ← "no kick in kung fu".
+- damage = clamp(|velocity| × 1/15, 10, 20) [scale 0.0666667 @0x109b10, lo 10.0 @0x107140, hi 20.0
+  @0x107698, floor 10.0 @0x106da4, ceil 20.0 @0x107628]; ×2 if KungFu() power; reach 48.0 @0x106da8.
+- hit resolver = CloseCombatAttack via CheckHull (@0x95e28 = TraceLine, then a **head_hull TraceHull
+  fallback** = the "auto-connect when roughly facing it" feel); knockback only if damage > 30.0
+  @0x107600 (victim shoved at kicker speed + velocity.z=235); EMIT player/closecombat.wav.
+- 3rd-person body anim = RANDOM_LONG(0,2)→ids {0:10,1:14,2:13} → HandleCloseCombat (@0x6d8d0) maps
+  10/13/14 → **circfront / circback / latback** (player-model kick seqs). Cooldown 0.7s.
+
+**Implemented** (`dlls/ts_gun.cpp` `TSTryJumpKick(CBasePlayer*)`, `#ifndef CLIENT_DLL`-guarded;
+decl `dlls/ts_weapons.h`; cooldown `m_flNextJumpKick` in `player.h`; hooked at the top of
+`CBasePlayer::Jump` in `dlls/player.cpp` BEFORE the pogo gate so it runs every think). All constants
+RE-grounded. Uses GetPlayerTSGun/KungFu/GetGunPosition/m_TSAnim.PlayKungFu(circfront/circback/latback).
+**Built clean** server + client (glibc 2.14); TSTryJumpKick in hl.so, correctly ABSENT from client.so
+(guarded — it'd otherwise pull the server-only KungFu/UTIL_TraceHull into the prediction build).
+Installed to the xash root. **NOT yet playtested — handed to the user to test** (their preference).
+Not committed yet (pending playtest).
+
+**Queue still open:** task #2 coldcock viewmodel whip (LAB_10043800/coldcock.sc), #3 predicted
+empty/pump/closecombat effects, + katana right-click (KatanaThrow) noted in 69t.
+
+### cont.69u (later) — bullet/breakable/slow-mo/sound RE batch → reference/BULLETS.md (no impl yet)
+User opened a new front (bullet penetration, glass shatter, slow-mo bullets, sound pitch). RE'd +
+documented in **reference/BULLETS.md**. Key confirmed (LIVE, not dead-code — user confirmed the
+bullet behavior is correct):
+- **Live fire path = `ShootBulletsPlayer`@0x6f69c** (from StandardFire/ShotgunFire/AkimboFire), NOT
+  stock FireBulletsPlayer (= our current gap). It **recurses for PENETRATION**: after a hit, step
+  `min(dmg×2, 48)` forward; if `PointContents` past != SOLID (surface thinner than that) → recurse
+  (mode 2) to hit the solid beyond. So firing glass breaks it AND hits the wall behind. Dual
+  enter+exit decals = TODO (pin the decal sites).
+- **Glass shatter** = `Die__10CBreakable`@0x752e0 material switch: case 0 GLASS →
+  **gmsgTSCreateDebris** (client SPRITE shower); all others → **TE_BREAKMODEL** (gib MODEL). Exactly
+  the user's spec (glass=sprites, wood=model). Shatter dir = attack dir; init vel = this+0x110 ×
+  material mult. Client gmsgTSCreateDebris handler + glass sprite + base velocity = TODO RE.
+- **Slow-mo bullets-as-models** = `CBulletManager` (rbullet gate: TSGameRules+0x578 slow-PAUSE or
+  slow player → tracked-model bullets; else instant hitscan). Both live.
+- **Sound pitch** (weapons recorded slow → played fast): fire sound is client-side (FUN_1003dfa0);
+  pitch presumably from the slow-mo factor. Mechanism NOT yet pinned — flagged as TODO.
+Saved two memories: `ghidra-rodata-const-offset` (file=Ghidra−0x10000, doubles) and
+`flag-overriding-and-dead-code` (the user's live-vs-dead RE preference, buy-menu lesson).
+
+### cont.69u (later 2) — ✅ GLASS SPRITE SHATTER implemented (built, awaiting playtest)
+RE'd the full glass-shatter pipeline + implemented it:
+- **Server** (dlls/func_break.cpp): `CBreakable::Die` for `matGlass` now sends a new `gmsgTSCreateDebris`
+  (origin, pev->size, material byte 0, **g_vecAttackDir** = the bullet/attack dir, refpoint, glassfrag
+  sprite index, velMag) INSTEAD of TE_BREAKMODEL; other materials keep TE_BREAKMODEL (gib model).
+  Precaches `sprites/glassfrag.spr`. (Matches Die@0x752e0 material switch: case 0 glass→message.)
+  ⚠️ velMag=150 is a FLAGGED placeholder — the per-pane base (CBreakable+0x110) is a runtime/keyvalue
+  value not recovered statically; tune from playtest (user said "discover the init velocity").
+- **Client** (cl_dll/ts_debris.{h,cpp}, CHudTSDebris registered in hud.{h,cpp}, added to CMakeLists):
+  MsgFunc_TSCreateDebris reads the payload + reconstructs FUN_10047cb0 — a **9×9=81-fragment grid** of
+  glassfrag.spr `R_TempSprite`s across the pane FACE (drops the smallest dim = pane normal; centre 0.5,
+  step 1/9), each flying in the shatter dir ×velMag with ±15 spread, gravity, FTENT_FADEOUT|GRAVITY|
+  COLLIDEWORLD|ROTATE, life RANDOM(2,5)s. Constants RE'd from client.dll (file=VA−0x10000000).
+  Both DLLs build clean (glibc 2.14); glassfrag.spr present in the xash ts root; installed.
+  **Blend-mode fix (user playtest):** glassfrag.spr is **SPR_ADDITIVE** (texFormat 1) → must use
+  **kRenderTransAdd** (black keys out); kRenderTransAlpha showed the black bg. Also the scale was way
+  too big (pane-sum/18 → clamped 1.5) → now pane-sum/180 clamped [0.08,0.3] = little shards. General
+  rule: match the temp-sprite rendermode to the .spr texFormat (ADDITIVE→TransAdd, ALPHTEST/INDEXALPHA→
+  TransAlpha). woodfrag=ALPHTEST + debris_concrete3=INDEXALPHA impact chips already on kRenderTransAlpha.
+  **Playtest round 2 fixes (glass + chips):** (1) the .spr files have MULTIPLE FRAMES = different shard
+  SHAPES (glassfrag 9, woodfrag 7, debris_concrete3 5); the original picks a RANDOM frame per fragment —
+  mine all used frame 0 (identical shapes). Now set `t->entity.curstate.frame = RANDOM(0,nframes-1)`.
+  (2) spin rate too low → bumped baseline.angles[2] to ±500°/s (was ±120). (3) velocity too directional
+  (all flew one way → clumped on landing) → forward-bias along dir ×0.4 + LARGE per-axis random scatter
+  (±velMag*0.6). (4) **direction was BACKWARDS** — glass flew toward the shooter; g_vecAttackDir points
+  breakable→attacker (the stock gib code uses -g_vecAttackDir), so the glass message now negates it
+  (flies away, the bullet travel dir). Sprite rotation gotcha: xash rolls type-2 (SPR_FWD_PARALLEL)
+  sprites only when angles[ROLL]≠0 (gl_sprite.c promotes to _ORIENTED) — so the initial roll must be set.
+### cont.69u (later 3) — ✅ BULLET-IMPACT FALLING FRAGMENTS implemented (built, awaiting playtest)
+User: "bullet hits spawn sparks + smoke + little fragments that drop to the floor." Smoke+sparks were
+already in EV_TSBulletImpact (cont.69t); added the falling chips. RE'd the client impact dispatcher
+FUN_10048f60 (switch on texture char) → FUN_10046bd0 (the fragment temp-ent spawner): velocity =
+surface-normal×16 + RANDOM(±32) spread, gravity, rotation, ~2-5 chips, short life. Per-material:
+**wood/dirt → woodfrag.spr, concrete/default → debris_concrete3.spr**; metal/grate/vent/glass → sparks
+(scintille_metal, no chips); flesh/water → none (server blood). Impl: cl_dll/ev_ts.cpp EV_TSBulletImpact
+spawns count=RANDOM(2,5) R_TempSprite chips (FTENT_FADEOUT|GRAVITY|COLLIDEWORLD|ROTATE, life 0.8-1.4s) in
+the material switch; precached woodfrag/debris_concrete3 server-side (dlls/ts_weapons.cpp). Both build
+clean, assets present, installed.
+
+### cont.69u (later 4) — ✅ BULLET PENETRATION + DIVE-THROUGH-GLASS implemented (built, awaiting playtest)
+- **Penetration** (dlls/ts_gun.cpp `TSFireBulletsPenetrate`, #ifndef CLIENT_DLL; called from StandardFire
+  + AkimboFire server-side, client keeps the prediction FireBulletsPlayer): per pellet, player-synced
+  spread then a pierce loop (max 4) — TraceAttack+texture-sound+ENTRY DecalGunshot, then if the hit is a
+  brush/world and dmg>5, step `min(dmg*2,48)` forward; if PointContents there ≠ SOLID (thin slice OR an
+  entity brush like glass), decal the EXIT/back face + continue the trace (dmg ×0.75). So fire at glass →
+  glass breaks AND the round hits the wall behind, bullet-holes on both faces. (orig ShootBulletsPlayer
+  @0x6f69c pierce recursion.) Penetration gated to brush surfaces (not players).
+- **Dive-through-glass** (dlls/ts_gun.cpp `TSCheckRunThrough`, #ifndef CLIENT_DLL; called every
+  CBasePlayer::PreThink): speed≥64 → hull-trace 64u forward ALONG THE VELOCITY direction → TraceAttack the
+  hit (damage = speed, ×0.1 grounded vs full airborne) → breaks glass / shoves people, NO kick anim.
+  Last-hit guard via new EHANDLE m_hRunThroughLast (player.h). (orig CTSStunt::CheckForBreakables@0x9bd9c.)
+- Both build clean (server+client); symbols in hl.so, absent from client.so (guarded); installed.
+### cont.69u (later 5) — penetration/knife glass-CHAIN + knife steep-angle (RE'd) + impact-chip polish
+- **Bullet chain through multiple glass** (dlls/ts_gun.cpp TSFireBulletsPenetrate): the continuation
+  jumped the full pierce-depth (min(dmg*2,48)) past the hit → OVERSHOT a 2nd pane within 48u. Fixed: if
+  the surface SHATTERED (pHit->pev->solid==SOLID_NOT after ApplyMultiDamage), continue from just past the
+  ENTRY (+1u) so a close next pane is still hit; only jump past the back face for still-solid walls. Cap
+  raised 4→8. Whole glass chain now breaks.
+- **Knife glass-CHAIN** (dlls/ts_knife.cpp KnifeTouch): was "break 1st pane → trace forward ignore_glass →
+  stick in the wall beyond" (skipped every pane past the 1st). Now on a breakable it CAN break, the knife
+  KEEPS FLYING (velocity ×0.9/pane); the broken pane is SOLID_NOT so it won't re-touch it → it hits + breaks
+  the next pane, chaining until a non-breakable wall.
+- **Knife steep-angle no-stick** (RE CTSKnife::BounceTouch@0x7decc): a glancing wall hit DEFLECTS instead of
+  sticking — bounce when `-(normal·flyDir) < 0.4` AND `normal.z <= 0.98` (not a flat floor); else stick.
+  Constants RE'd (doubles): align 0.4 @0x107ed8, normal.z 0.98 @0x107ed0, speed thresh 100, glance ÷2,
+  embed 6. Uses tr.vecPlaneNormal (SDK TraceResult has it; cf. gauss.cpp).
+- **Impact chips** (cl_dll/ev_ts.cpp): count 1-3, per-chip random eject speed 120-300 along the normal +
+  ±130 spread, kRenderTransAdd (additive=bright; rendercolor only MODULATES so couldn't brighten), no
+  FTENT_FADEOUT (abrupt 1s cutoff), random frame (woodfrag 7/concrete 5 shapes), spin ±500.
+- **Glass shards** (cl_dll/ts_debris.cpp): random frame (9 shapes — was all frame 0), spin ±500, velocity
+  forward-bias ×0.4 + ±velMag*0.6 scatter, dir NEGATED (g_vecAttackDir points at shooter), small scale.
+
+### cont.69u (later 6) — knife glass health/chain/angle + dive-barge airborne gate (RE notes)
+- **Walking-breaks-glass FIXED (RE-confirmed):** CheckForBreakables@0x9bd9c line ~46 returns early when
+  `pev->flags & FL_ONGROUND` (and the +0x79c stunt flag is 0) → the original ONLY barges through glass
+  when AIRBORNE. Our TSCheckRunThrough was missing that gate; added `if (FL_ONGROUND) return;`.
+- **Knife glass (dlls/ts_knife.cpp KnifeTouch rewritten as a unified per-surface trace-loop):** ALWAYS
+  TraceAttack a breakable it hits → damage ACCUMULATES (weak glass breaks after a few throws; strong/
+  high-health glass survives any number — standard CBreakable health). Head-on break → punch through to
+  the next pane (whole chain breaks); survived OR glancing → Deflect (reflect+½ speed, keeps the damage).
+  Walls stick head-on / deflect glancing.
+- **RE flag (faithfulness):** the steep-angle thresholds ARE RE-grounded — BounceTouch@0x7decc bounces
+  when `-(normal·flyDir) < 0.4` AND `normal.z <= 0.98` (consts: 0.4 @0x107ed8 dbl, 0.98 @0x107ed0 dbl,
+  speed 100, ÷2, embed 6). BUT in the binary that check sits in the **worldspawn (solid wall)** branch;
+  BounceTouch's damage path is gated on **IsPlayer (vtable+0xc8)** so only PLAYERS get knife-TraceAttacked
+  there — breakables take a separate embed path. So how the original knife damages/chains/angle-deflects
+  GLASS isn't fully resolved statically (likely the glass's own engine break-on-touch + physics). I
+  implemented the user's OBSERVED behavior using the RE-grounded thresholds + standard CBreakable health;
+  applying the angle check to breakables is an extrapolation, flagged to the user.
+
+### cont.69u (later 8) — ⭐ LIVE gdb trace found the knife→glass break path (mechanism = THINK, not touch)
+The user is running the ORIGINAL TS in hl.exe under Proton (PID 3844527; mp.dll loaded, Wine maps PE by
+RVA — effective base 0x1e13ffb0, i.e. CBreakable::Die RVA 0x4b9a0 → live 0x1e18b950). Attached gdb,
+HARDWARE-bp on Die, user threw a knife at glass, captured the stack. **Backtrace (definitive):**
+`GetNewDLLFunctions(engine think dispatch) → CTSKnife::WaitThink → [swept-move fn] → CBreakable::TakeDamage
+→ CBreakable::Die`. So the thrown knife breaks glass through its **per-frame physics THINK (a swept move
+that TakeDamages breakables it crosses)** — NOT through BounceTouch (the touch), and NOT BreakTouch (which
+IS IsPlayer-gated, verified: CBreakable vtable+0xc8 reloc → IsPlayer). Our reconstruction breaks glass in
+KnifeTouch — the WRONG MECHANISM, which is why it was inconsistent/angle-wrong. RestorePhysics/SavePhysics
+(vtable 0x118/0x11c, called by WaitThink) are only slow-mo velocity scaling; the swept-damage fn (the Windows
+frame between WaitThink and TakeDamage, unexported) isn't cleanly Linux-mapped yet. **Next:** either rework
+the knife to a think-based swept-damage, OR a 2nd live trace (bp on CBreakable::TakeDamage, read the damage
+arg + dir) to confirm the exact damage/angle formula. gdb how-to saved in [[flag-unfound-re-early]].
+**Method memories saved:** `flag-unfound-re-early` (don't make shit up vs the RE; dynamic gdb trace recipe).
+
+### cont.69u (later 7) — knife↔glass behavior reworked to the user's observation (RE caveat noted)
+RE'd the glass-break paths fully: **CBreakable::BreakTouch@0xc0c44** (velocity break-on-touch) is gated on
+`pOther->IsPlayer()`, and **CTSKnife::BounceTouch@0x7decc**'s only TraceAttack/damage path is ALSO gated on
+IsPlayer — so a thrown knife never breaks glass via either in the binary (breakable → bounce-off + fall;
+ShouldCollide just returns 1). The knife→glass BREAK path is NOT statically locatable. User corrected: knives
+break glass head-on OR **fall straight down if they can't** — they NEVER stick in glass; and they usually
+break ONE pane then **drop at the second** (energy loss per pane). Implemented (dlls/ts_knife.cpp KnifeTouch):
+ANGLE-SCALED damage `m_flDamage * -(normal·flyDir)` (head-on full → breaks weak glass; glancing chips;
+accumulates), break → punch through to the next surface with **dmg ×0.5 per pane** (so it rarely chains
+past ~two), survive → **fall straight down** (kill horizontal velocity + back off the pane; lands as a floor
+pickup). Walls keep the RE-grounded stick-head-on / deflect-glancing (0.4/0.98). Flagged: the knife-breaks-
+glass mechanic itself isn't byte-faithful (couldn't locate it) — modeled on the observation + RE'd angle/health.
+
+- ⚠️ Remaining queue: **sound pitch** (recorded-slow/played-fast) still needs the focused client decompile
+  (FUN_1003dfa0 sound-play pitch vs the slow-mo factor) — flagged, not pinned. Plus #2 coldcock viewmodel
+  whip, #3 predicted empty/pump/closecombat, katana right-click throw.
+
+- **glass break paths (RE'd):** (1) shoot it → CBulletManager/ShootBulletsPlayer TraceAttack (penetration
+  also lets the bullet continue to the wall behind); (2) jump NEXT to it → the jump-kick (CloseAttack,
+  kick anim); (3) **dive/run INTO it fast → CTSStunt::CheckForBreakables@0x9bd9c** (per-think from
+  PreThink: speed≥64 → velocity-direction hull trace 64u → TraceAttack damage=speed; no kick anim =
+  "jump before reaching it, shatter, dive through"). #3 documented in reference/BULLETS.md, NOT yet impl
+  (new task #6).
+
+---
+
 ## 2026-06-23 (cont. 69s) — .sc client weapon-param subsystem: steps 1+2 (table shared + deploy cache)
 
 Started the FULL client weapon-param subsystem (the cont.69r NEXT TASK). Steps 1 & 2 done +

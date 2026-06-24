@@ -43,6 +43,7 @@
 #include "client.h"
 #include "ts_utils.h" // TSHudMessageOne (the `respawn`-gate "wait" message)
 #include "ts_gamerules.h" // TSGameRules() — armor_absorb (kevlar damage reduction)
+#include "ts_weapons.h" // TSTryJumpKick (jump-kick from CBasePlayer::Jump)
 
 // #define DUCKFIX
 
@@ -1685,6 +1686,13 @@ void CBasePlayer::Jump()
 		return;
 	}
 
+	// TS jump-kick (orig CBasePlayer::Jump tries CTSStunt::CloseAttack first): jumping into a
+	// breakable/person with a real weapon kicks it. Runs BEFORE the pogo gate so it fires every
+	// think while jump is held — i.e. mid-flight as you reach the target, not only on the press
+	// frame. (The original skips its wall-flip acrobatics when the kick connects; we have no
+	// acrobatics yet, so the normal jump just proceeds.)
+	TSTryJumpKick(this);
+
 	// jump velocity is sqrt( height * gravity * 2)
 
 	// If this isn't the first frame pressing the jump button, break out.
@@ -1949,6 +1957,10 @@ void CBasePlayer::PreThink()
 	}
 
 	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame
+
+	// TS: barge through breakables — diving/running fast into glass shatters it (clean dive-through),
+	// into a person shoves them (orig CTSStunt::CheckForBreakables, called every PreThink).
+	TSCheckRunThrough(this);
 
 	m_TSAnim.UpdateTimers(this); // TS: decay the gait aim/leg/grenade hold timers
 

@@ -170,6 +170,7 @@ private:
 #include "ts_spectate.h"
 #include "ts_buymenu.h"
 #include "ts_message.h"
+#include "ts_debris.h"
 
 
 #define FADE_TIME 100
@@ -586,6 +587,7 @@ public:
 	CHudSpectate m_Spectate;
 	CHudTSBuyMenu m_TSBuyMenu;
 	CHudTSMessage m_TSMessage;
+	CHudTSDebris m_TSDebris;
 
 	void Init();
 	void VidInit();

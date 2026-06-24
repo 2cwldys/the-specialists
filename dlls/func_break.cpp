@@ -28,6 +28,13 @@
 #include "decals.h"
 #include "explode.h"
 
+// TS glass shatter: GLASS breakables shower sprite fragments (gmsgTSCreateDebris → client
+// CHudTSDebris) instead of the TE_BREAKMODEL gib model the other materials use. Faithful to
+// CBreakable::Die @0x752e0 (material switch: case 0 glass → gmsgTSCreateDebris). The fragments
+// fly in g_vecAttackDir (the bullet/attack direction). See reference/BULLETS.md.
+int gmsgTSCreateDebris = 0;
+static int g_idGlassFrag = 0; // sprites/glassfrag.spr model index (precached)
+
 // =================== FUNC_Breakable ==============================================
 
 // Just add more items to the bottom of this array and they will automagically be supported
@@ -323,6 +330,9 @@ void CBreakable::Precache()
 
 		PRECACHE_SOUND("debris/bustglass1.wav");
 		PRECACHE_SOUND("debris/bustglass2.wav");
+		g_idGlassFrag = PRECACHE_MODEL("sprites/glassfrag.spr"); // the TS glass-shatter fragment
+		if (gmsgTSCreateDebris == 0)
+			gmsgTSCreateDebris = REG_USER_MSG("TSCreateDebris", -1);
 		break;
 	case matMetal:
 		pGibName = "models/metalplategibs.mdl";
@@ -705,6 +715,42 @@ void CBreakable::Die()
 	}
 
 	vecSpot = pev->origin + (pev->mins + pev->maxs) * 0.5;
+
+	// GLASS → the TS sprite shower (gmsgTSCreateDebris); the client lays an 81-fragment grid of
+	// glassfrag.spr across the pane, flying in g_vecAttackDir. Other materials fall through to the
+	// stock TE_BREAKMODEL gib model below. (CBreakable::Die @0x752e0 material case 0.)
+	if (m_Material == matGlass && gmsgTSCreateDebris != 0)
+	{
+		// VERIFY: the original's per-pane velocity base (CBreakable+0x110) is a runtime/keyvalue
+		// value not recovered statically — 150 is a grounded starting point (cf. the directed-gib
+		// 200 below); tune from playtest. The fragments fly forward along the bullet/attack dir.
+		const float velMag = 150.0f;
+		// shatter direction = the bullet TRAVEL direction (away from the shooter). g_vecAttackDir
+		// points FROM the breakable TOWARD the attacker (that's why the gib code below uses
+		// -g_vecAttackDir), so negate it — otherwise the glass flew back at the shooter.
+		Vector vecShatter = g_vecAttackDir * -1.0f;
+		MESSAGE_BEGIN(MSG_PVS, gmsgTSCreateDebris, vecSpot);
+		WRITE_COORD(vecSpot.x);
+		WRITE_COORD(vecSpot.y);
+		WRITE_COORD(vecSpot.z);
+		WRITE_COORD(pev->size.x);
+		WRITE_COORD(pev->size.y);
+		WRITE_COORD(pev->size.z);
+		WRITE_BYTE(0); // material 0 = glass
+		WRITE_COORD(vecShatter.x); // shatter direction = bullet travel dir (away from shooter)
+		WRITE_COORD(vecShatter.y);
+		WRITE_COORD(vecShatter.z);
+		WRITE_COORD(vecSpot.x); // reference point (centre)
+		WRITE_COORD(vecSpot.y);
+		WRITE_COORD(vecSpot.z);
+		WRITE_SHORT(g_idGlassFrag);
+		WRITE_COORD(velMag);
+		MESSAGE_END();
+
+		// skip the gib-model TE_BREAKMODEL block; continue to the item-spawn/removal below.
+		goto break_done;
+	}
+
 	MESSAGE_BEGIN(MSG_PVS, SVC_TEMPENTITY, vecSpot);
 	WRITE_BYTE(TE_BREAKMODEL);
 
@@ -739,6 +785,7 @@ void CBreakable::Die()
 	WRITE_BYTE(cFlag);
 	MESSAGE_END();
 
+break_done:
 	float size = pev->size.x;
 	if (size < pev->size.y)
 		size = pev->size.y;

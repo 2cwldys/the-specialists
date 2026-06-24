@@ -109,6 +109,7 @@ target_sources(client PRIVATE
 	ts_hud.cpp
 	ts_buymenu.cpp
 	ts_message.cpp
+	ts_debris.cpp
 	ts_status.cpp
 	ts_ammo.cpp
 	ts_weaponbar.cpp

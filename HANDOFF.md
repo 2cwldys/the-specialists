@@ -46,12 +46,13 @@ committed (see "Where things stand" below). **The user playtests now — don't f
 harness for visual confirmation; build it RE-grounded, then ASK the user to test.** Remaining queue from the
 user (newest ledger entry = cont.69t has the RE notes):
 
-1. **Proximity auto-kick (non-kung-fu)** — "any weapon except kung-fu auto-kicks when next to + aiming at a
-   breakable/person." RE is the blocker: the kick is `CloseCombatAttack__11CBasePlayer`@0x95f88 dispatched via
-   an INDIRECT function pointer (`PTR_…@0x176858`) — static caller not found; it's NOT in CTSGun::PrimaryAttack
-   (0x81a20) and CTSGun has no ItemPostFrame symbol. Kick helpers RE'd: VKickback@0x80414,
-   GetCloseCombatVectors@0x86e2c, DropKickback@0x86e9c. NEXT: trace the indirect ptr / find the CBasePlayer
-   per-frame think that calls it; RE the proximity radius + aim + damage — do NOT guess them.
+1. ~~**Proximity auto-kick**~~ ✅ DONE (cont.69u) — it was the **JUMP-KICK**, not a proximity trigger. User
+   clarified: "jumping with a non-kungfu weapon while facing a breakable kicks it; in kung-fu it does not."
+   The "indirect pointer @0x176858" was a red herring (just the PLT slot for CloseCombatAttack). RE'd
+   `CTSStunt::CloseAttack`@0x9c630 (called from `CBasePlayer::Jump`@0x92864) end-to-end + all constants
+   (⚠️ FILE OFFSET = Ghidra addr − 0x10000; FP pool is .rodata, speed consts are doubles). Implemented as
+   `TSTryJumpKick` (dlls/ts_gun.cpp, hooked in CBasePlayer::Jump). Built clean; installed; **awaiting the
+   user's playtest** (not committed). See the cont.69u ledger entry for the full RE + constants.
 2. **Katana right-click** = `CTSGun::KatanaThrow` (separate from the knife throw, which is done) — RE + impl.
 3. **Coldcock viewmodel whip** — ColdCock has the hit sound + 3rd-person anim but no 1st-person SendWeaponAnim;
    most gun v_models lack a whip seq — RE coldcock.sc (LAB_10043800) for the seq.

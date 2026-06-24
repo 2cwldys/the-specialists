@@ -489,9 +489,18 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;
+#ifndef CLIENT_DLL
+	// Server: penetrating fire (glass/thin walls let the round through to what's behind, decalling
+	// both faces) — the original ShootBulletsPlayer path.
+	TSFireBulletsPenetrate(m_pPlayer, cPellets, vecSrc, vecAiming,
+		Vector(flSpread, flSpread, flSpread), 8192,
+		(int)(wi->flDamage * TSDamageMult()), m_pPlayer->random_seed);
+#else
+	// Client prediction: spread/recoil only (damage + decals are server-authoritative).
 	m_pPlayer->FireBulletsPlayer(cPellets, vecSrc, vecAiming,
 		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
 		0, (int)(wi->flDamage * TSDamageMult()), m_pPlayer->pev, m_pPlayer->random_seed);
+#endif
 
 	float flRate;
 	if (m_fireMode == TSFM_BURST)
@@ -767,6 +776,211 @@ void TSAlternateAttack(CBasePlayer *pPlayer)
 		pGun->AlternateAttack();
 }
 
+// @ CTSStunt::CloseAttack (@0x9c630) — the JUMP-KICK. CBasePlayer::Jump tries this every think
+// while IN_JUMP is held (before the wall-flip acrobatics); jumping into a breakable/person with a
+// real weapon kicks it. With KUNG-FU equipped it does NOT kick — the original returns 0 when the
+// active item is the tsgun (id 0x10) in bare-hands mode (item+0xcc==0), because kung-fu is its own
+// manual attack. All constants RE'd from the .so (file offset = Ghidra addr − 0x10000; the speed
+// scale/thresholds are doubles): reach 48u, damage clamp(|velocity|/15, 10, 20) [scale 1/15,
+// lo 10, hi 20], ×2 under the kung-fu power, knockback only when damage > 30 (so only with that
+// doubling), cooldown 0.7s, closecombat-timer bump 0.35, melee-bar 1.5×. Returns true on a hit.
+// Server-only (called from CBasePlayer::Jump): ts_gun.cpp also compiles into client.so for
+// prediction, but this never runs there — guarded out so it doesn't pull in the server-only
+// KungFu()/UTIL_TraceHull symbols.
+#ifndef CLIENT_DLL
+bool TSTryJumpKick(CBasePlayer *pPlayer)
+{
+	// cooldown (orig CTSStunt+8) + frozen guard (orig pev->flags & FL_FROZEN)
+	if (pPlayer->m_flNextJumpKick > gpGlobals->time)
+		return false;
+	if ((pPlayer->pev->flags & FL_FROZEN) != 0)
+		return false;
+
+	// no kick when KUNG-FU (bare hands) is the active weapon — kung-fu is manual when equipped.
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (pGun && pGun->m_weaponType == TSW_MELEE)
+		return false;
+
+	// speed-scaled melee damage: clamp(|velocity| / 15, 10, 20)
+	float spd = pPlayer->pev->velocity.Length() * (1.0f / 15.0f);
+	float dmg = (spd < 10.0f) ? 10.0f : (spd <= 20.0f) ? spd : 20.0f;
+	if (KungFu(pPlayer)) // kung-fu powerup doubles it
+		dmg *= 2.0f;
+
+	// forward reach 48u from the eye; TraceLine, head-hull fallback (the original CheckHull @0x95e28
+	// does a thin ray then a hull trace — the hull is what makes the kick "auto-connect" when you're
+	// roughly facing the target).
+	UTIL_MakeVectors(pPlayer->pev->v_angle);
+	Vector vecSrc = pPlayer->GetGunPosition();
+	Vector vecEnd = vecSrc + gpGlobals->v_forward * 48.0f;
+
+	TraceResult tr;
+	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(pPlayer->pev), &tr);
+	if (tr.flFraction >= 1.0f)
+		UTIL_TraceHull(vecSrc, vecEnd, dont_ignore_monsters, head_hull, ENT(pPlayer->pev), &tr);
+	if (tr.flFraction >= 1.0f)
+		return false; // nothing in front
+
+	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+	if (!pHit || pHit == pPlayer || pHit->pev->takedamage == DAMAGE_NO)
+		return false;
+
+	// damage the target (a breakable OR a person) — DMG_CLUB melee.
+	ClearMultiDamage();
+	pHit->TraceAttack(pPlayer->pev, dmg, gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
+	ApplyMultiDamage(pPlayer->pev, pPlayer->pev);
+
+	// knockback a living victim on a hard kick (orig knockback gate: damage > 30): shove away at the
+	// kicker's speed + pop them up (orig sets victim velocity.z = 235).
+	if (dmg > 30.0f && pHit->IsAlive() && (pHit->IsPlayer() || pHit->MyMonsterPointer() != NULL))
+	{
+		Vector dir = pHit->Center() - pPlayer->Center();
+		dir.z = 0;
+		dir = dir.Normalize();
+		pHit->pev->velocity = pHit->pev->velocity + dir * pPlayer->pev->velocity.Length();
+		pHit->pev->velocity.z = 235.0f;
+	}
+
+	// 3rd-person body kick: random circfront / latback / circback (orig CloseAttack ids 10/14/13 →
+	// HandleCloseCombat @0x6d8d0 maps them to these sequence names).
+	static const char *const kicks[3] = { "circfront", "latback", "circback" };
+	pPlayer->m_TSAnim.PlayKungFu(pPlayer, kicks[RANDOM_LONG(0, 2)], 0.5f);
+
+	EMIT_SOUND(ENT(pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM);
+	pPlayer->m_flNextJumpKick = gpGlobals->time + 0.7f;
+	return true;
+}
+
+// @ ShootBulletsPlayer (@0x6f69c) — the TS bullet path's PENETRATION (the original's pierce
+// recursion). Fires cShots pellets (player-synced spread, mirroring FireBulletsPlayer), and on each
+// brush/world hit lets the bullet PUNCH THROUGH a thin surface to damage what's behind: after a hit,
+// step `min(damage*2, 48)` forward; if that point is NOT inside world solid (the slice is thinner
+// than the bullet can pierce, OR it's an entity brush like glass), the bullet continues — decalling
+// BOTH the entry face and the exit (back) face, and re-tracing onward. So firing at glass breaks it
+// AND the round hits the wall beyond, with bullet-holes punched in each surface it crossed. Server
+// only: the client's prediction FireBulletsPlayer (hl_weapons.cpp) just does the spread/recoil.
+// (still inside the #ifndef CLIENT_DLL opened above for TSTryJumpKick)
+void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vector vecDir,
+	Vector vecSpread, float flDist, int iDamage, int seed)
+{
+	entvars_t *pevAttacker = pPlayer->pev;
+	const Vector vecRight = gpGlobals->v_right;
+	const Vector vecUp = gpGlobals->v_up;
+
+	for (int iShot = 1; iShot <= cShots; iShot++)
+	{
+		// player-synced gaussian spread (same formula as FireBulletsPlayer)
+		float x = UTIL_SharedRandomFloat(seed + iShot, -0.5, 0.5) +
+			UTIL_SharedRandomFloat(seed + (1 + iShot), -0.5, 0.5);
+		float y = UTIL_SharedRandomFloat(seed + (2 + iShot), -0.5, 0.5) +
+			UTIL_SharedRandomFloat(seed + (3 + iShot), -0.5, 0.5);
+		Vector dir = vecDir + x * vecSpread.x * vecRight + y * vecSpread.y * vecUp;
+
+		Vector start = vecSrc;
+		float dmg = (float)iDamage;
+
+		// penetration chain: pierce through every layer it can (cap = runaway backstop)
+		for (int pen = 0; pen < 8; pen++)
+		{
+			TraceResult tr;
+			UTIL_TraceLine(start, start + dir * flDist, dont_ignore_monsters, ENT(pevAttacker), &tr);
+			if (tr.flFraction == 1.0f)
+				break; // hit nothing
+
+			CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+			ClearMultiDamage();
+			gMultiDamage.type = DMG_BULLET | DMG_NEVERGIB;
+			pHit->TraceAttack(pevAttacker, dmg, dir, &tr,
+				DMG_BULLET | ((dmg > 16.0f) ? DMG_ALWAYSGIB : DMG_NEVERGIB));
+			TEXTURETYPE_PlaySound(&tr, start, start + dir * flDist, BULLET_PLAYER_9MM);
+			DecalGunshot(&tr, BULLET_PLAYER_9MM); // ENTRY bullet-hole
+			ApplyMultiDamage(pevAttacker, pevAttacker); // may shatter glass -> solid becomes SOLID_NOT
+
+			bool brush = (pHit == NULL) || (pHit->pev->solid == SOLID_BSP) || (tr.pHit == ENT(0));
+			bool broke = (pHit != NULL) && (pHit->pev->solid == SOLID_NOT); // glass shattered just now
+			if ((!brush && !broke) || dmg <= 5.0f)
+				break; // a living target / too weak to keep going
+
+			if (broke)
+			{
+				// the pane shattered and is no longer solid — continue from JUST PAST the entry so a
+				// CLOSE next pane is still hit (jumping the full pierce-depth overshot it). The whole
+				// chain of glass breaks. No exit decal (the pane is gone).
+				start = tr.vecEndPos + dir * 1.0f;
+			}
+			else
+			{
+				// a still-solid surface (world / unbroken brush): must be thin enough to pierce.
+				float penDepth = dmg * 2.0f;
+				if (penDepth > 48.0f)
+					penDepth = 48.0f;
+				Vector beyond = tr.vecEndPos + dir * penDepth;
+				if (UTIL_PointContents(beyond) == CONTENTS_SOLID)
+					break; // wall thicker than the round can pierce — stop here
+
+				// EXIT bullet-hole on the back face (trace back from beyond the wall to the entry).
+				TraceResult trExit;
+				UTIL_TraceLine(beyond, tr.vecEndPos, ignore_monsters, ENT(pevAttacker), &trExit);
+				if (trExit.flFraction < 1.0f)
+					DecalGunshot(&trExit, BULLET_PLAYER_9MM);
+				start = beyond; // continue past the back face
+			}
+			dmg *= 0.75f; // a little energy lost punching through
+		}
+	}
+}
+
+// @ CTSStunt::CheckForBreakables (@0x9bd9c) — the dive/run-THROUGH-breakables barge, called every
+// PreThink. When moving fast (speed ≥ 64), trace a hull forward ALONG THE VELOCITY direction (64u)
+// and damage whatever is there (damage = speed), so flying/running into glass shatters it (a clean
+// dive-through, NO kick anim — distinct from the jump-kick) and into a person shoves them. RE'd
+// constants: speed/reach 64 (DAT_00107ea0), grounded damage ×0.1 vs full airborne (DAT_00107138).
+void TSCheckRunThrough(CBasePlayer *pPlayer)
+{
+	// AIRBORNE only — the original (CheckForBreakables @0x9bd9c, line ~46) returns early when the player
+	// is ON GROUND, so only a mid-air dive barges through breakables. (This was the "walking up to glass
+	// breaks it" bug — walking is grounded.)
+	if ((pPlayer->pev->flags & FL_ONGROUND) != 0)
+	{
+		pPlayer->m_hRunThroughLast = NULL;
+		return;
+	}
+
+	const float speed = pPlayer->pev->velocity.Length();
+	if (speed < 64.0f) // must be moving fast enough (orig DAT_00107ea0)
+	{
+		pPlayer->m_hRunThroughLast = NULL;
+		return;
+	}
+
+	// trace forward along the VELOCITY direction (orig velocity-mode), reach 64u, head hull.
+	Vector dir = pPlayer->pev->velocity.Normalize();
+	Vector src = pPlayer->pev->origin;
+	Vector end = src + dir * 64.0f;
+
+	TraceResult tr;
+	UTIL_TraceHull(src, end, dont_ignore_monsters, head_hull, ENT(pPlayer->pev), &tr);
+	if (tr.flFraction >= 1.0f)
+		return;
+
+	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+	if (!pHit || pHit == pPlayer || pHit->pev->takedamage == DAMAGE_NO || !pHit->IsAlive())
+		return;
+	if ((CBaseEntity *)pPlayer->m_hRunThroughLast == pHit)
+		return; // already barged through this one (don't re-hit every frame)
+
+	// damage = speed; reduced when grounded (running), full when airborne (diving) — orig 0.1 factor.
+	const float dmg = (pPlayer->pev->flags & FL_ONGROUND) ? speed * 0.1f : speed;
+
+	ClearMultiDamage();
+	gMultiDamage.type = DMG_CLUB | DMG_NEVERGIB;
+	pHit->TraceAttack(pPlayer->pev, dmg, dir, &tr, DMG_CLUB | DMG_NEVERGIB);
+	ApplyMultiDamage(pPlayer->pev, pPlayer->pev);
+
+	pPlayer->m_hRunThroughLast = pHit;
+}
+#endif // !CLIENT_DLL
+
 // Reload the active weapon from its own per-slot reserve (the original draws from
 // the per-caliber armament; here each arsenal slot carries its own spare rounds).
 // @ GrenadeFire__6CTSGun — toss an M61 grenade (one per trigger pull).
@@ -892,9 +1106,15 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
 		flSpread, flSpread, m_weaponType, m_akimboSide, (m_iClip == 0) ? 1 : 0, 0);
 
+#ifndef CLIENT_DLL
+	TSFireBulletsPenetrate(m_pPlayer, 1, vecSrc, vecAiming,
+		Vector(flSpread, flSpread, flSpread), 8192,
+		(int)(wi->flDamage * TSDamageMult()), m_pPlayer->random_seed);
+#else
 	m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
 		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
 		0, (int)(wi->flDamage * TSDamageMult()), m_pPlayer->pev, m_pPlayer->random_seed);
+#endif
 
 	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
 	if (DoubleFireRate(m_pPlayer))

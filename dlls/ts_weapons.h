@@ -40,6 +40,22 @@ void TSDeployArsenal(CBasePlayer *pPlayer);
 // Trigger the held TS gun's alternate attack (+alt2 → coldcock pistol-whip).
 void TSAlternateAttack(CBasePlayer *pPlayer);
 
+// Try the jump-kick (orig CTSStunt::CloseAttack from CBasePlayer::Jump): jumping into a
+// breakable/person with a real weapon kicks it. No kick when kung-fu is equipped. Returns
+// true if it connected (then the wall-flip acrobatics are skipped, as in the original).
+bool TSTryJumpKick(CBasePlayer *pPlayer);
+
+// The TS bullet path with PENETRATION (orig ShootBulletsPlayer @0x6f69c): fire cShots pellets;
+// bullets punch through thin surfaces (glass/thin walls) to hit + decal what's behind. Server only.
+void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vector vecDir,
+	Vector vecSpread, float flDist, int iDamage, int seed);
+
+// Barge through breakables (orig CTSStunt::CheckForBreakables @0x9bd9c, called every PreThink):
+// when moving fast, trace forward along the VELOCITY direction and damage what's there (damage =
+// speed) — so diving/running into glass shatters it (clean dive-through), and into a person shoves
+// them. Distinct from the jump-kick (no kick anim). Server only.
+void TSCheckRunThrough(CBasePlayer *pPlayer);
+
 // Cycle the held weapon's fire-mode (the `firemode` command -> CTSGun::SwitchFireMode).
 void TSSwitchFireMode(CBasePlayer *pPlayer);
 

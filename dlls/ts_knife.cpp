@@ -25,6 +25,7 @@ public:
 	void EXPORT KnifeTouch(CBaseEntity *pOther);
 	void EXPORT PickupTouch(CBaseEntity *pOther);
 	void StickAt(const Vector &pos, const Vector &flyDir);
+	void Deflect(const Vector &pos, const Vector &normal, const Vector &flyDir);
 	static CTSKnife *Throw(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel);
 
 	int m_knifeType = TSW_KNIFE;
@@ -77,6 +78,29 @@ void CTSKnife::StickAt(const Vector &pos, const Vector &flyDir)
 	pev->nextthink = gpGlobals->time + 30.0f; // linger as a pickup, then vanish
 }
 
+// Too-glancing (steep-angle) hit? RE CTSKnife::BounceTouch: the knife only sticks/breaks-through when
+// it hits flat enough — deflect when the blade↔surface alignment -(normal·flyDir) < 0.4 AND it's not a
+// near-flat floor (normal.z <= 0.98). Applied at EVERY surface (each pane in a chain, and walls).
+static bool KnifeGlances(const Vector &normal, const Vector &flyDir)
+{
+	const float align = -DotProduct(normal, flyDir); // 1 = head-on, ~0 = glancing
+	return (align < 0.4f && normal.z <= 0.98f);
+}
+
+// Deflect off a too-steeply-hit surface: reposition at the surface with a reflected, dampened velocity
+// and keep flying (the physics carries it on). Does NOT break/stick.
+void CTSKnife::Deflect(const Vector &pos, const Vector &normal, const Vector &flyDir)
+{
+	const float speed = pev->velocity.Length();
+	Vector refl = flyDir - normal * (2.0f * DotProduct(flyDir, normal)); // mirror off the surface
+	UTIL_SetOrigin(pev, pos - flyDir * 4.0f);
+	pev->velocity = refl * (speed * 0.5f); // lose half the speed on the glance
+	pev->angles = UTIL_VecToAngles(refl);
+	if (UTIL_PointContents(pos) != CONTENTS_SKY)
+		UTIL_Sparks(pos);
+	EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
+}
+
 void CTSKnife::KnifeTouch(CBaseEntity *pOther)
 {
 	if (!pOther || pOther->edict() == pev->owner)
@@ -86,51 +110,91 @@ void CTSKnife::KnifeTouch(CBaseEntity *pOther)
 
 	entvars_t *pevOwner = pev->owner ? VARS(pev->owner) : pev;
 	const Vector flyDir = pev->velocity.Normalize();
-	const bool flesh = pOther->IsPlayer() || (pOther->pev->flags & FL_MONSTER) != 0;
-	const bool damageable = pOther->pev->takedamage != DAMAGE_NO;
-
-	if (flesh)
+	// Walk the knife's flight path one surface at a time: ALWAYS damage a breakable it hits (so damage
+	// ACCUMULATES across throws — weak glass breaks after a few, strong/high-health glass survives any
+	// number); on a head-on break it PUNCHES THROUGH to the next pane (the whole chain breaks); a
+	// glancing hit, or a pane that survives, DEFLECTS it off. Walls stick head-on / deflect glancing.
+	// A trace-loop (not physics) because MOVETYPE_TOSS clips the velocity flat against a pane (slides).
+	// The knife LOSES ENERGY per pane it breaks (dmg halves), so it usually breaks one pane and drops
+	// at the next — it almost never chains through more than ~two, matching the original.
+	TraceResult tr = UTIL_GetGlobalTrace();
+	CBaseEntity *pSurf = pOther;
+	float dmg = m_flDamage;
+	for (int layer = 0; layer < 8; layer++)
 	{
-		// Stab a victim — damage, then drop a recoverable knife where it struck.
-		TraceResult tr = UTIL_GetGlobalTrace();
-		ClearMultiDamage();
-		pOther->TraceAttack(pevOwner, m_flDamage, flyDir, &tr, DMG_CLUB | DMG_NEVERGIB);
-		ApplyMultiDamage(pev, pevOwner);
-		EMIT_SOUND(ENT(pev), CHAN_WEAPON, BodySound(), VOL_NORM, ATTN_NORM);
-		TSCreateWorldGun(m_knifeType, 1, pev->origin, g_vecZero);
-		SetTouch(nullptr);
-		UTIL_Remove(this);
-		return;
-	}
+		const Vector normal = tr.vecPlaneNormal;
+		const bool glancing = KnifeGlances(normal, flyDir);
+		const bool surfFlesh = pSurf && (pSurf->IsPlayer() || (pSurf->pev->flags & FL_MONSTER) != 0);
+		const bool surfDamageable = pSurf && pSurf->pev->takedamage != DAMAGE_NO;
 
-	if (damageable)
-	{
-		// A breakable / prop. Can our throw break it (enough damage for its remaining health)?
-		const bool canBreak = (pOther->pev->health <= m_flDamage);
-		TraceResult tr = UTIL_GetGlobalTrace();
-		ClearMultiDamage();
-		pOther->TraceAttack(pevOwner, m_flDamage, flyDir, &tr, DMG_CLUB | DMG_NEVERGIB);
-		ApplyMultiDamage(pev, pevOwner);
-
-		if (canBreak)
+		if (surfFlesh)
 		{
-			// It shatters — punch THROUGH and stick in the wall beyond. Trace forward IGNORING glass
-			// (transparent brushes) so we find the solid surface past the breakable it just destroyed.
-			TraceResult fwd;
-			UTIL_TraceLine(pev->origin, pev->origin + flyDir * 4096.0f, ignore_monsters, ignore_glass, ENT(pev), &fwd);
-			StickAt(fwd.vecEndPos, flyDir);
+			// Stab a body — damage + drop a recoverable knife where it struck.
+			ClearMultiDamage();
+			pSurf->TraceAttack(pevOwner, m_flDamage, flyDir, &tr, DMG_CLUB | DMG_NEVERGIB);
+			ApplyMultiDamage(pev, pevOwner);
+			EMIT_SOUND(ENT(pev), CHAN_WEAPON, BodySound(), VOL_NORM, ATTN_NORM);
+			TSCreateWorldGun(m_knifeType, 1, tr.vecEndPos, g_vecZero);
+			SetTouch(nullptr);
+			UTIL_Remove(this);
 			return;
 		}
 
-		// Couldn't break it — bounce off (the original reverses + dampens the velocity).
-		EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
-		pev->velocity = pev->velocity * -0.4f;
-		pev->avelocity = pev->avelocity * -1.0f;
+		if (surfDamageable)
+		{
+			// ANGLE-SCALED damage: a head-on throw does full damage (breaks weak glass), a glancing
+			// hit does proportionally less (just chips it). Damage ACCUMULATES across throws, so a
+			// pane chips down over several hits; a strong / high-health pane survives any number.
+			// (RE caveat: the binary's knife→glass break path isn't statically located — both
+			// BreakTouch & BounceTouch gate on IsPlayer — so this models the OBSERVED behaviour with
+			// the RE-grounded angle (-(normal·flyDir)) + standard CBreakable health.)
+			float align = -DotProduct(normal, flyDir); // 1 = head-on, ~0 = glancing
+			if (align < 0.0f)
+				align = 0.0f;
+			ClearMultiDamage();
+			pSurf->TraceAttack(pevOwner, dmg * align, flyDir, &tr, DMG_CLUB | DMG_NEVERGIB);
+			ApplyMultiDamage(pev, pevOwner);
+			const bool broke = (pSurf->pev->solid == SOLID_NOT) || (pSurf->pev->health <= 0);
+
+			if (broke)
+			{
+				// Broke it — punch THROUGH to the next surface, but with HALF the energy, so the next
+				// pane usually survives and the knife drops there (it rarely chains past ~two panes).
+				dmg *= 0.5f;
+				Vector start = tr.vecEndPos + flyDir * 2.0f;
+				UTIL_TraceLine(start, start + flyDir * 4096.0f, dont_ignore_monsters, ENT(pev), &tr);
+				if (tr.flFraction == 1.0f)
+				{
+					StickAt(tr.vecEndPos, flyDir); // open air ahead — settle at the end
+					return;
+				}
+				pSurf = tr.pHit ? CBaseEntity::Instance(tr.pHit) : nullptr;
+				continue; // process the next pane / wall
+			}
+
+			// Couldn't break it (too strong, or too glancing to do enough) — the knife FALLS STRAIGHT
+			// DOWN. It NEVER sticks in glass; it keeps the damage it dealt (so later throws chip it
+			// down). Kill the horizontal velocity + back off the pane so it doesn't re-touch, and let
+			// gravity drop it (it becomes a floor pickup when it lands).
+			EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
+			if (UTIL_PointContents(tr.vecEndPos) != CONTENTS_SKY)
+				UTIL_Sparks(tr.vecEndPos);
+			pev->velocity.x = 0;
+			pev->velocity.y = 0;
+			if (pev->velocity.z > 0)
+				pev->velocity.z = 0; // drop, don't pop up
+			UTIL_SetOrigin(pev, pev->origin - flyDir * 6.0f);
+			return;
+		}
+
+		// A non-breakable solid wall — STICK head-on, DEFLECT if glancing (RE thresholds 0.4 / 0.98).
+		if (glancing)
+			Deflect(tr.vecEndPos, normal, flyDir);
+		else
+			StickAt(tr.vecEndPos, flyDir);
 		return;
 	}
-
-	// A non-breakable solid (wall / floor) — embed in place.
-	StickAt(pev->origin, flyDir);
+	StickAt(pev->origin, flyDir); // safety: ran out of layers
 }
 
 void CTSKnife::PickupTouch(CBaseEntity *pOther)

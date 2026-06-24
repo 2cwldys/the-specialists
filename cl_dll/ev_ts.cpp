@@ -106,11 +106,15 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side)
 // missing VISUAL puff). Client-side + predicted via the fire event (so no lag, no double sound/decal).
 static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 {
-	static int s_gunSmoke = 0, s_woodSmoke = 0;
+	static int s_gunSmoke = 0, s_woodSmoke = 0, s_woodFrag = 0, s_concreteFrag = 0;
 	if (s_gunSmoke == 0)
 		s_gunSmoke = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/gun_smoke_add.spr");
 	if (s_woodSmoke == 0)
 		s_woodSmoke = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/wood_smoke_add.spr");
+	if (s_woodFrag == 0)
+		s_woodFrag = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/woodfrag.spr");
+	if (s_concreteFrag == 0)
+		s_concreteFrag = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/debris_concrete3.spr");
 
 	Vector end;
 	for (int i = 0; i < 3; i++)
@@ -153,27 +157,33 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 		const Vector drift(0, 0, 12); // smoke rises a little
 
 		int smokeSpr = s_gunSmoke;
+		int fragSpr = 0; // per-material falling debris (woodfrag / debris_concrete3); 0 = none
+		int fragFrames = 1; // # of shard shapes in the chosen frag sprite (random per chip)
 		bool sparks = false;
 		switch (chType)
 		{
 		case CHAR_TEX_FLESH:
 		case CHAR_TEX_SLOSH:
-			smokeSpr = 0; // flesh/water: no smoke (blood / splash handled elsewhere)
+			smokeSpr = 0; // flesh/water: no smoke/frags (blood / splash handled elsewhere)
 			break;
 		case CHAR_TEX_WOOD:
 		case CHAR_TEX_DIRT:
 			smokeSpr = s_woodSmoke;
+			fragSpr = s_woodFrag; // wood -> woodfrag chips (dispatcher case 'W')
+			fragFrames = 7;       // woodfrag.spr = 7 frames
 			break;
 		case CHAR_TEX_METAL:
 		case CHAR_TEX_GRATE:
 		case CHAR_TEX_VENT:
 		case CHAR_TEX_GLASS:
 		case CHAR_TEX_COMPUTER:
-			sparks = true; // metal/glass throw sparks in addition to the smoke
+			sparks = true; // metal/glass throw sparks (no falling chips — the original sparks only)
 			smokeSpr = s_gunSmoke;
 			break;
 		default: // concrete / tile / snow / etc.
 			smokeSpr = s_gunSmoke;
+			fragSpr = s_concreteFrag; // concrete/default -> debris_concrete3 chips (dispatcher default)
+			fragFrames = 5;           // debris_concrete3.spr = 5 frames
 			break;
 		}
 
@@ -182,6 +192,42 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 		if (smokeSpr > 0)
 			gEngfuncs.pEfxAPI->R_TempSprite(pos, drift, 0.4f, smokeSpr,
 				kRenderTransAdd, kRenderFxNone, 0.7f, 0.7f, FTENT_FADEOUT | FTENT_SPRCYCLE);
+
+		// Falling debris chips (RE: client impact dispatcher FUN_10048f60 -> FUN_10046bd0): a few
+		// little fragment sprites fly out along the surface normal (velocity = normal*16 + spread)
+		// and DROP to the floor under gravity, tumbling, for ~1s. Wood -> woodfrag, concrete/default
+		// -> debris_concrete3; metal/glass spark instead, flesh/water none.
+		if (fragSpr > 0)
+		{
+			const int count = gEngfuncs.pfnRandomLong(1, 3); // 1-3 chips per impact
+			for (int n = 0; n < count; n++)
+			{
+				// "equal-and-opposite" ejection: the chips fly FAST back out along the surface
+				// normal (toward the shooter, opposite the bullet) in a WIDE spray — not a weak
+				// dribble dropping in front. Each chip ejects at its OWN random speed.
+				const float ejectSpeed = gEngfuncs.pfnRandomFloat(120.0f, 300.0f);
+				Vector vel;
+				for (int i = 0; i < 3; i++)
+					vel[i] = tr.plane.normal[i] * ejectSpeed + gEngfuncs.pfnRandomFloat(-130.0f, 130.0f);
+				TEMPENTITY* t = gEngfuncs.pEfxAPI->R_TempSprite(pos, vel, 0.3f, fragSpr,
+					kRenderTransAdd, kRenderFxNone, 1.0f, // additive = bright/white (TransAlpha was dark)
+					1.0f, // live exactly 1s then vanish abruptly (NO FTENT_FADEOUT)
+					FTENT_GRAVITY | FTENT_COLLIDEWORLD | FTENT_ROTATE);
+				if (t)
+				{
+					// random shard SHAPE (frame) + initial roll + a high spin rate (FTENT_ROTATE
+					// applies baseline.angles as angular velocity — the chip tumbles as it falls).
+					t->entity.curstate.frame = (float)gEngfuncs.pfnRandomLong(0, fragFrames - 1);
+					t->entity.angles[2] = gEngfuncs.pfnRandomFloat(0.0f, 360.0f);
+					t->entity.baseline.angles[2] = gEngfuncs.pfnRandomFloat(-500.0f, 500.0f);
+					// near-white tint — the INDEXALPHA (concrete) sprite takes its colour from
+					// rendercolor (default 0,0,0 = too dark); the original chips are near-white.
+					t->entity.curstate.rendercolor.r = 255;
+					t->entity.curstate.rendercolor.g = 255;
+					t->entity.curstate.rendercolor.b = 255;
+				}
+			}
+		}
 	}
 
 	gEngfuncs.pEventAPI->EV_PopPMStates();
