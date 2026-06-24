@@ -15,3 +15,7 @@ recovered/
 
 # session working files (decompiles, RE notes)
 scratchpad/
+
+# python bytecode
+__pycache__/
+*.pyc

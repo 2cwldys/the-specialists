@@ -47,7 +47,11 @@ def parse_type(s, i, seen):
         n = ''
         while i < len(s) and s[i].isdigit(): n += s[i]; i += 1
         if not n: raise Fail('T')
-        k = int(n)                  # gnu-v2 T backrefs are 0-based
+        k = int(n)                  # gnu-v2 T backref. NOTE: exact index base is ambiguous across the
+        # corpus (value/ref args vs pointer args disagree — `CreateKnife`'s T2 wants the 2nd type while
+        # `AddToFullPack`'s T2 wants the 3rd), so we DON'T guess: in-range → use it, else honest 'T?'.
+        # A wrong-but-plausible type is worse than a marked unknown for the reconstruction. (gnu-v2 spec
+        # work could resolve this; until then MSVC signatures-mp/client are the authoritative typed source.)
         base = seen[k] if 0 <= k < len(seen) else ('T%s?' % n)
     elif ch.isdigit():                 # <len><name> class
         n = ''

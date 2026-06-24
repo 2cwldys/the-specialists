@@ -8,7 +8,7 @@ scope (not a drop-in requirement — see CLAUDE.md).
 
 _Original = the TS FGD's mapper-facing entity set; ours = LINK_ENTITY_TO_CLASS classnames. MISSING = an FGD entity we don't implement (the reconstruction work-list). EXTRA = we link an entity the FGD omits (stock HL helpers / non-mapper entities — low signal)._
 
-- matched: **140**  |  missing (orig→not ours): **8**  |  extra (ours→not orig): **141**
+- matched: **140**  |  missing (orig→not ours): **8**  |  extra (ours→not orig): **142**
 
 **MISSING (in original, not in ours — implement / RE):**
 
@@ -16,17 +16,17 @@ _Original = the TS FGD's mapper-facing entity set; ours = LINK_ENTITY_TO_CLASS c
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `DelayedUse`, `ammo_357`, `ammo_9mmAR`, `ammo_9mmbox`, `ammo_9mmclip`, `ammo_ARgrenades`, `ammo_buckshot`, `ammo_crossbow`, `ammo_egonclip`, `ammo_gaussclip`, `ammo_glockclip`, `ammo_mp5clip`, `ammo_mp5grenades`, `ammo_rpgclip`, `beam`, `bmortar`, `bodyque`, `cine_blood`, `controller_energy_ball`, `controller_head_ball`, `crossbow_bolt`, `cycler_prdroid`, `env_debris`, `env_lightning`, `env_smoker`, `fireanddie`, `func_vehicle`, `func_vehiclecontrols`, `func_vip_safetyzone`, `garg_stomp`, `grenade`, `hornet`, `hvr_rocket`, `item_sodacan`, `laser_spot`, `mapClassName`, `monster_alien_controller`, `monster_alien_grunt`, `monster_alien_slave`, `monster_apache`, `monster_babycrab`, `monster_barnacle`, `monster_barney`, `monster_barney_dead`, `monster_bigmomma`, `monster_bloater`, `monster_bullchicken`, `monster_cine2_hvyweapons`, `monster_cine2_scientist`, `monster_cine2_slave`, `monster_cine3_barney`, `monster_cine3_scientist`, `monster_cine_barney`, `monster_cine_panther`, `monster_cine_scientist`, `monster_cockroach`, `monster_flyer`, `monster_flyer_flock`, `monster_furniture`, `monster_gargantua`, `monster_generic`, `monster_gman`, `monster_grunt_repel`, `monster_headcrab`, `monster_hevsuit_dead`, `monster_hgrunt_dead`, `monster_houndeye`, `monster_human_assassin`, `monster_human_grunt`, `monster_ichthyosaur`, `monster_leech`, `monster_miniturret`, `monster_mortar`, `monster_nihilanth`, `monster_osprey`, `monster_player`, `monster_rat`, `monster_satchel`, `monster_scientist`, `monster_scientist_dead`, `monster_sentry`, `monster_sitting_scientist`, `monster_snark`, `monster_tentacle`, `monster_tentaclemaw`, `monster_tripmine`, `monster_turret`, `monster_vortigaunt`, `monster_zombie`, `monstermaker`, `my_monster`, `nihilanth_energy_ball`, `node_viewer`, `node_viewer_fly`, `node_viewer_human`, `node_viewer_large`, `player`, `rpg_rocket`, `soundent`, `spark_shower`, `squidspit`, `streak_spiral`, `test_effect`, `testhull`, `trigger`, `trip_beam`, `ts_ammopack`, `ts_corpse`, `ts_flag`, `ts_shrapnel`, `ts_slowmotionpoint`, `ts_superjump`, `ts_worldgun`, `weapon_357`, `weapon_9mmAR`, `weapon_9mmhandgun`, `weapon_crossbow`, `weapon_crowbar`, `weapon_egon`, `weapon_gauss`, `weapon_glock`, `weapon_handgrenade`, `weapon_hornetgun`, `weapon_mp5`, `weapon_python`, `weapon_rpg`, `weapon_satchel`, `weapon_shotgun`, `weapon_snark`, `weapon_tripmine`, `weapon_tsgun`, `weaponbox`, `world_items`, `xen_hair`, `xen_hull`, `xen_plantlight`, `xen_spore_large`, `xen_spore_medium`, `xen_spore_small`, `xen_tree`, `xen_ttrigger`
+  `DelayedUse`, `ammo_357`, `ammo_9mmAR`, `ammo_9mmbox`, `ammo_9mmclip`, `ammo_ARgrenades`, `ammo_buckshot`, `ammo_crossbow`, `ammo_egonclip`, `ammo_gaussclip`, `ammo_glockclip`, `ammo_mp5clip`, `ammo_mp5grenades`, `ammo_rpgclip`, `beam`, `bmortar`, `bodyque`, `cine_blood`, `controller_energy_ball`, `controller_head_ball`, `crossbow_bolt`, `cycler_prdroid`, `env_debris`, `env_lightning`, `env_smoker`, `fireanddie`, `func_vehicle`, `func_vehiclecontrols`, `func_vip_safetyzone`, `garg_stomp`, `grenade`, `hornet`, `hvr_rocket`, `item_sodacan`, `laser_spot`, `mapClassName`, `monster_alien_controller`, `monster_alien_grunt`, `monster_alien_slave`, `monster_apache`, `monster_babycrab`, `monster_barnacle`, `monster_barney`, `monster_barney_dead`, `monster_bigmomma`, `monster_bloater`, `monster_bullchicken`, `monster_cine2_hvyweapons`, `monster_cine2_scientist`, `monster_cine2_slave`, `monster_cine3_barney`, `monster_cine3_scientist`, `monster_cine_barney`, `monster_cine_panther`, `monster_cine_scientist`, `monster_cockroach`, `monster_flyer`, `monster_flyer_flock`, `monster_furniture`, `monster_gargantua`, `monster_generic`, `monster_gman`, `monster_grunt_repel`, `monster_headcrab`, `monster_hevsuit_dead`, `monster_hgrunt_dead`, `monster_houndeye`, `monster_human_assassin`, `monster_human_grunt`, `monster_ichthyosaur`, `monster_leech`, `monster_miniturret`, `monster_mortar`, `monster_nihilanth`, `monster_osprey`, `monster_player`, `monster_rat`, `monster_satchel`, `monster_scientist`, `monster_scientist_dead`, `monster_sentry`, `monster_sitting_scientist`, `monster_snark`, `monster_tentacle`, `monster_tentaclemaw`, `monster_tripmine`, `monster_turret`, `monster_vortigaunt`, `monster_zombie`, `monstermaker`, `my_monster`, `nihilanth_energy_ball`, `node_viewer`, `node_viewer_fly`, `node_viewer_human`, `node_viewer_large`, `player`, `rpg_rocket`, `soundent`, `spark_shower`, `squidspit`, `streak_spiral`, `test_effect`, `testhull`, `trigger`, `trip_beam`, `ts_ammopack`, `ts_corpse`, `ts_flag`, `ts_knife`, `ts_shrapnel`, `ts_slowmotionpoint`, `ts_superjump`, `ts_worldgun`, `weapon_357`, `weapon_9mmAR`, `weapon_9mmhandgun`, `weapon_crossbow`, `weapon_crowbar`, `weapon_egon`, `weapon_gauss`, `weapon_glock`, `weapon_handgrenade`, `weapon_hornetgun`, `weapon_mp5`, `weapon_python`, `weapon_rpg`, `weapon_satchel`, `weapon_shotgun`, `weapon_snark`, `weapon_tripmine`, `weapon_tsgun`, `weaponbox`, `world_items`, `xen_hair`, `xen_hull`, `xen_plantlight`, `xen_spore_large`, `xen_spore_medium`, `xen_spore_small`, `xen_tree`, `xen_ttrigger`
 
 ### Client cldll exports
 
 _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI decoration; cross-check by base name._
 
-- matched: **40**  |  missing (orig→not ours): **2**  |  extra (ours→not orig): **57**
+- matched: **41**  |  missing (orig→not ours): **1**  |  extra (ours→not orig): **57**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `HUD_DirectorEvent`, `weapon_tsgun`
+  `HUD_DirectorEvent`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
@@ -60,15 +60,15 @@ _Commands the client registers. Many are stock HL (shared); focus on TS-specific
 
 _Original = names hooked in client.dll (pfnHookUserMsg); ours = HOOK_MESSAGE in cl_dll. These are the client↔server message NAMES (the wire contract). MISSING = a message the original client reads that ours doesn't; EXTRA = ours-only (invented or inherited-HL)._
 
-- matched: **51**  |  missing (orig→not ours): **25**  |  extra (ours→not orig): **7**
+- matched: **52**  |  missing (orig→not ours): **24**  |  extra (ours→not orig): **8**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `ActItems`, `ClipInfo`, `CustomWP`, `KFuPower`, `NextStunt`, `Objective`, `PTakeDam`, `PlInfo`, `PwUp`, `PwUpTime`, `ShowObj`, `SrvSett`, `TSBTime`, `TSFade`, `TSFlag`, `TSFrags`, `TSHVoice`, `TSMBlur`, `TSMessage`, `TSPAward`, `TSPSys`, `TSSlowMo`, `TSSpace`, `TSState`, `Wires`
+  `ActItems`, `ClipInfo`, `CustomWP`, `KFuPower`, `NextStunt`, `Objective`, `PTakeDam`, `PlInfo`, `PwUp`, `PwUpTime`, `ShowObj`, `SrvSett`, `TSBTime`, `TSFade`, `TSFlag`, `TSFrags`, `TSHVoice`, `TSMBlur`, `TSPAward`, `TSPSys`, `TSSlowMo`, `TSSpace`, `TSState`, `Wires`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `FlashBat`, `Flashlight`, `ResetFade`, `SpecFade`, `ViewMode`, `Weapons`, `x`
+  `FlashBat`, `Flashlight`, `ResetFade`, `SpecFade`, `TSCreateDebris`, `ViewMode`, `Weapons`, `x`
 
 ### Entity keyvalue coverage (FGD keys vs our KeyValue handlers)
 
@@ -80,17 +80,17 @@ _For entities we implement: FGD-declared map keys that no `KeyValue()` in our DL
 
 _The registered byte-size per message (−1 = variable). A MISMATCH silently corrupts the wire format = a drop-in breaker. Compared for messages present in both with a literal size._
 
-- original messages with a recovered size: **64**  |  ours (literal sizes): **46**  |  size mismatches: **0**
+- original messages with a recovered size: **64**  |  ours (literal sizes): **47**  |  size mismatches: **0**
 
 ### Events (events/*.sc)
 
 _Predicted-event scripts referenced by each server. MISSING = a TS event we don't reference; EXTRA = a stock-HL event we still precache that the original removed (HL leftover)._
 
-- matched: **4**  |  missing (orig→not ours): **8**  |  extra (ours→not orig): **19**
+- matched: **5**  |  missing (orig→not ours): **7**  |  extra (ours→not orig): **19**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `events/closecombat.sc`, `events/coldcock.sc`, `events/empty.sc`, `events/firelinked.sc`, `events/grenade.sc`, `events/katana.sc`, `events/knife.sc`, `events/pump.sc`
+  `events/closecombat.sc`, `events/coldcock.sc`, `events/empty.sc`, `events/firelinked.sc`, `events/grenade.sc`, `events/katana.sc`, `events/pump.sc`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 

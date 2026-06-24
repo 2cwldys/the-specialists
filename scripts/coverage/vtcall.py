@@ -60,7 +60,7 @@ def main():
         cls, off = a
         method, cand = lookup(vts, cls, off)
         if method: print(method)
-        elif cand: print(f"unknown class '{cls}'. did you mean: {', '.join(cand[:8])}")
+        elif cand: print(f"unknown class '{cls}'. did you mean: {', '.join(cand)}")
         else: print(f"no method at {cls} vtable {off}")
         return
     sys.exit(__doc__)

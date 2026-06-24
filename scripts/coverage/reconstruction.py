@@ -7,15 +7,17 @@ This is the "are all the methods present?" roadmap view (a COMPLETENESS metric �
 match; method bodies/offsets aren't compared, only which named methods exist). Missing methods
 = the precise per-class reconstruction work-list, complementing reference/RECONSTRUCTION.md.
 
-Source: original methods from reference/signatures-gcc2.txt (demangled); ours from
-`nm hl.so | c++filt`. Matched by method NAME (overloads collapse — fine for completeness).
+Source: original methods from the COMPLETE ts_i386.so symbol table (`nm`, parsing the gnu-v2 mangled
+names directly — this host's c++filt can't demangle them); ours from `nm hl.so | c++filt`. The binary
+symtab is ~10% more complete than reference/signatures-gcc2.txt (the demangler resolves only ~74%), so
+this no longer undercounts. Matched by method NAME (overloads collapse — fine for completeness).
 
   python3 scripts/coverage/reconstruction.py        -> reference/coverage/RECONSTRUCTION_COVERAGE.md
 """
 import os, re, subprocess, sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-SIGS = os.path.join(ROOT, "reference", "signatures-gcc2.txt")
+SO   = os.path.join(ROOT, "reference", "ts_i386.so")
 OUR = os.path.join(ROOT, "build-amd64", "dlls", "hl.so")
 OUT = os.path.join(ROOT, "reference", "coverage", "RECONSTRUCTION_COVERAGE.md")
 
@@ -23,7 +25,7 @@ OUT = os.path.join(ROOT, "reference", "coverage", "RECONSTRUCTION_COVERAGE.md")
 TS_RE = re.compile(r"^(CTS|CVip|CM61|CInfoBreakable|CBulletManager|CBaseTS)")
 
 def methods_from(lines):
-    """{class: set(method_name)} for TS-specific classes, from demangled 'Class::method(...)'."""
+    """{class: set(method_name)} for TS-specific classes, from DEMANGLED 'Class::method(...)' (our .so)."""
     cls = {}
     for ln in lines:
         m = re.search(r"\b([A-Z]\w+)::~?(\w+)\s*\(", ln)
@@ -33,9 +35,45 @@ def methods_from(lines):
         cls.setdefault(c, set()).add(meth)
     return cls
 
+def _classname(mangled):
+    m = re.match(r"^[A-Za-z0-9_]+__(\d+)([A-Za-z0-9_]+)", mangled)
+    return m.group(2)[: int(m.group(1))] if m else None
+
+def orig_methods_from_binary():
+    """{class: set(method)} for TS classes, from the COMPLETE ts_i386.so symtab (gnu-v2 MANGLED).
+    A method symbol is `Method__<len><Class>...`; ctors/dtors/operators/templates are skipped."""
+    nm = subprocess.run(f"nm '{SO}'", shell=True, capture_output=True, text=True).stdout
+    cls = {}
+    for ln in nm.splitlines():
+        p = ln.split()
+        if len(p) < 2 or p[-2] not in ("T", "t", "W"): continue
+        sym = p[-1]
+        if "__" not in sym: continue
+        head = sym.partition("__")[0]
+        c = _classname(sym)
+        if not c or not re.match(r"^[A-Za-z]\w*$", head): continue  # skip ctor/dtor/operator/template
+        if not TS_RE.match(c): continue
+        cls.setdefault(c, set()).add(head)
+    return cls
+
+WORKLIST = os.path.join(ROOT, "reference", "coverage", "ts_specific.txt")
+
+def orig_from_worklist():
+    """{class: set(method)} from baseline.py's data-driven TS work-list (stock SDK already subtracted).
+    Preferred over the TS_RE heuristic: includes TS methods added to STOCK classes (CBasePlayer, …)."""
+    cls = {}
+    for ln in open(WORKLIST, errors="replace"):
+        ln = ln.strip()
+        if "::" in ln:
+            c, m = ln.split("::", 1)
+            cls.setdefault(c, set()).add(m)
+    return cls
+
 def main():
-    if not os.path.exists(SIGS): sys.exit("missing reference/signatures-gcc2.txt")
-    orig = methods_from(open(SIGS, errors="replace").read().splitlines())
+    if not os.path.exists(SO): sys.exit("missing reference/ts_i386.so")
+    # Prefer baseline.py's TS-specific work-list (run scripts/coverage/baseline.py first); else fall
+    # back to the TS_RE class-name heuristic on the full binary inventory.
+    orig = orig_from_worklist() if os.path.exists(WORKLIST) else orig_methods_from_binary()
     ours = {}
     if os.path.exists(OUR):
         nm = subprocess.run(f"nm '{OUR}' | c++filt", shell=True, capture_output=True, text=True).stdout
@@ -59,7 +97,7 @@ def main():
          f"({100*total_impl//total_methods if total_methods else 0}%) · {done} classes fully covered.**",
          "", "| class | methods | impl | % | missing |", "|---|--:|--:|--:|---|"]
     for c, n, i, pct, miss in rows:
-        ms = ", ".join(miss[:12]) + (f" …(+{len(miss)-12})" if len(miss) > 12 else "")
+        ms = ", ".join(miss)   # full list — never truncated
         L.append(f"| `{c}` | {n} | {i} | {pct}% | {ms} |")
     open(OUT, "w").write("\n".join(L) + "\n")
     print(f"wrote {OUT}: {len(rows)} TS classes, {total_impl}/{total_methods} methods ({100*total_impl//total_methods if total_methods else 0}%)")

@@ -1,0 +1,21 @@
+name	kind	home	handler
+cashala	inline	ClientCommand__FP7edict_s	
+changeteam	inline	ClientCommand__FP7edict_s	
+drop	inline	ClientCommand__FP7edict_s	
+firemode	inline	ClientCommand__FP7edict_s	
+fov	inline	ClientCommand__FP7edict_s	
+fullupdate	inline	ClientCommand__FP7edict_s	
+jointeam	inline	ClientCommand__FP7edict_s	
+lastinv	inline	ClientCommand__FP7edict_s	
+motd	inline	ClientCommand__FP7edict_s	
+powerup	inline	ClientCommand__FP7edict_s	
+respawn	inline	ClientCommand__FP7edict_s	
+rst_cfg	inline	ClientCommand__FP7edict_s	
+say	inline	Host_Say__FP7edict_si	
+say_team	inline	Host_Say__FP7edict_si	
+tka	inline	ClientCommand__FP7edict_s	
+tki	inline	ClientCommand__FP7edict_s	
+tkw	inline	ClientCommand__FP7edict_s	
+use	inline	ClientCommand__FP7edict_s	
+useitems	inline	ClientCommand__FP7edict_s	
+usepowerup	inline	ClientCommand__FP7edict_s	

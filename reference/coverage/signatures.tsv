@@ -1,0 +1,1452 @@
+Class	method	return	params	qual	virtual	source
+CActAnimating	Restore	?	CRestore &		0	gcc2
+CActAnimating	Save	?	CSave &		0	gcc2
+CActAnimating	SetActivity	?	Activity		0	gcc2
+CAmbientGeneric	InitModulationParms	?			0	gcc2
+CAmbientGeneric	KeyValue	?	KeyValueData_s *		0	gcc2
+CAmbientGeneric	Precache	?			0	gcc2
+CAmbientGeneric	RampThink	void			0	msvc
+CAmbientGeneric	Restore	?	CRestore &		0	gcc2
+CAmbientGeneric	Save	?	CSave &		0	gcc2
+CAmbientGeneric	Spawn	?			0	gcc2
+CAmbientGeneric	ToggleUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CAutoTrigger	KeyValue	?	KeyValueData_s *		0	gcc2
+CAutoTrigger	Precache	?			0	gcc2
+CAutoTrigger	Restore	?	CRestore &		0	gcc2
+CAutoTrigger	Save	?	CSave &		0	gcc2
+CAutoTrigger	Spawn	?			0	gcc2
+CAutoTrigger	Think	?			0	gcc2
+CBaseAnimating	DispatchAnimEvents	?	float		0	gcc2
+CBaseAnimating	ExtractBbox	?	int, float *, T2?		0	gcc2
+CBaseAnimating	FindTransition	?	int, int, int *		0	gcc2
+CBaseAnimating	GetAttachment	?	int, Vector &, T2?		0	gcc2
+CBaseAnimating	GetAutomovement	?	Vector &, T1?, float		0	gcc2
+CBaseAnimating	GetBodygroup	?	int		0	gcc2
+CBaseAnimating	GetBonePosition	?	int, Vector &, T2?		0	gcc2
+CBaseAnimating	GetSequenceFlags	?			0	gcc2
+CBaseAnimating	InitBoneControllers	?			0	gcc2
+CBaseAnimating	LookupActivity	?	int		0	gcc2
+CBaseAnimating	LookupActivityHeaviest	?	int		0	gcc2
+CBaseAnimating	LookupSequence	?	const char *		0	gcc2
+CBaseAnimating	ResetSequenceInfo	?			0	gcc2
+CBaseAnimating	Restore	?	CRestore &		0	gcc2
+CBaseAnimating	Save	?	CSave &		0	gcc2
+CBaseAnimating	SetBlending	?	int, float		0	gcc2
+CBaseAnimating	SetBodygroup	?	int, int		0	gcc2
+CBaseAnimating	SetBoneController	?	int, float		0	gcc2
+CBaseAnimating	SetSequenceBox	?			0	gcc2
+CBaseAnimating	StudioFrameAdvance	?	float		0	gcc2
+CBaseButton	ButtonActivate	?			0	gcc2
+CBaseButton	ButtonBackHome	void			0	msvc
+CBaseButton	ButtonResponseToTouch	?			0	gcc2
+CBaseButton	ButtonReturn	void			0	msvc
+CBaseButton	ButtonSpark	void			0	msvc
+CBaseButton	ButtonTouch	void	CBaseEntity *		0	msvc
+CBaseButton	ButtonUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CBaseButton	KeyValue	?	KeyValueData_s *		0	gcc2
+CBaseButton	Precache	?			0	gcc2
+CBaseButton	Restore	?	CRestore &		0	gcc2
+CBaseButton	Save	?	CSave &		0	gcc2
+CBaseButton	Spawn	?			0	gcc2
+CBaseButton	TakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CBaseButton	TriggerAndWait	void			0	msvc
+CBaseDMStart	IsTriggered	?	CBaseEntity *		0	gcc2
+CBaseDMStart	KeyValue	?	KeyValueData_s *		0	gcc2
+CBaseDelay	DelayThink	void			0	msvc
+CBaseDelay	KeyValue	?	KeyValueData_s *		0	gcc2
+CBaseDelay	Restore	?	CRestore &		0	gcc2
+CBaseDelay	SUB_UseTargets	?	CBaseEntity *, USE_TYPE, float		0	gcc2
+CBaseDelay	Save	?	CSave &		0	gcc2
+CBaseDoor	Blocked	?	CBaseEntity *		0	gcc2
+CBaseDoor	BreakableRespawn	?	bool		0	gcc2
+CBaseDoor	DoorActivate	?			0	gcc2
+CBaseDoor	DoorGoDown	void			0	msvc
+CBaseDoor	DoorGoUp	void			0	msvc
+CBaseDoor	DoorHitBottom	void			0	msvc
+CBaseDoor	DoorHitTop	void			0	msvc
+CBaseDoor	DoorTouch	void	CBaseEntity *		0	msvc
+CBaseDoor	KeyValue	?	KeyValueData_s *		0	gcc2
+CBaseDoor	Precache	?			0	gcc2
+CBaseDoor	Restore	?	CRestore &		0	gcc2
+CBaseDoor	Save	?	CSave &		0	gcc2
+CBaseDoor	SetToggleState	?	int		0	gcc2
+CBaseDoor	Spawn	?			0	gcc2
+CBaseDoor	TraceAttack	?	entvars_s *, float, Vector, TraceResult *, int		0	gcc2
+CBaseEntity	Create	?	char *, const Vector &, T2?, edict_s *		0	gcc2
+CBaseEntity	DamageDecal	?	int		0	gcc2
+CBaseEntity	FVisible	?	CBaseEntity *		0	gcc2
+CBaseEntity	FireBullets	?	unsigned long, Vector, Vector, Vector, float, int, int, int, entvars_s *		0	gcc2
+CBaseEntity	FireBulletsPlayer	?	unsigned long, Vector, Vector, Vector, float, int, int, int, entvars_s *, int		0	gcc2
+CBaseEntity	GetNextTarget	?			0	gcc2
+CBaseEntity	Intersects	?	CBaseEntity *		0	gcc2
+CBaseEntity	IsDormant	?			0	gcc2
+CBaseEntity	IsInWorld	?			0	gcc2
+CBaseEntity	Killed	?	entvars_s *, int		0	gcc2
+CBaseEntity	MakeDormant	?			0	gcc2
+CBaseEntity	Restore	?	CRestore &		0	gcc2
+CBaseEntity	SUB_CallUseToggle	void			0	msvc
+CBaseEntity	SUB_DoNothing	void			0	msvc
+CBaseEntity	SUB_FadeOut	void			0	msvc
+CBaseEntity	SUB_Remove	void			0	msvc
+CBaseEntity	SUB_StartFadeOut	void			0	msvc
+CBaseEntity	SUB_UseTargets	?	CBaseEntity *, USE_TYPE, float		0	gcc2
+CBaseEntity	Save	?	CSave &		0	gcc2
+CBaseEntity	SetObjectCollisionBox	?			0	gcc2
+CBaseEntity	ShouldToggle	?	USE_TYPE, int		0	gcc2
+CBaseEntity	TakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CBaseEntity	TakeHealth	?	float, int		0	gcc2
+CBaseEntity	Think	?			0	gcc2
+CBaseEntity	Touch	?	CBaseEntity *		0	gcc2
+CBaseEntity	TraceAttack	?	entvars_s *, float, Vector, TraceResult *, int		0	gcc2
+CBaseEntity	TraceBleed	?	float, Vector, TraceResult *, int		0	gcc2
+CBaseEntity	UpdateOnRemove	?			0	gcc2
+CBaseMonster	BecomeDead	?			0	gcc2
+CBaseMonster	BestVisibleEnemy	?			0	gcc2
+CBaseMonster	CallGibMonster	?			0	gcc2
+CBaseMonster	ChangeYaw	?	int		0	gcc2
+CBaseMonster	CheckTraceHullAttack	?	float, int, int		0	gcc2
+CBaseMonster	CorpseFallThink	void			0	msvc
+CBaseMonster	DamageForce	?	float		0	gcc2
+CBaseMonster	DeadTakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CBaseMonster	FCheckAITrigger	?			0	gcc2
+CBaseMonster	FInViewCone	?	CBaseEntity *		0	gcc2
+CBaseMonster	FadeMonster	?			0	gcc2
+CBaseMonster	GetDeathActivity	?			0	gcc2
+CBaseMonster	GetSmallFlinchActivity	?			0	gcc2
+CBaseMonster	GibMonster	?			0	gcc2
+CBaseMonster	HasAlienGibs	?			0	gcc2
+CBaseMonster	HasHumanGibs	?			0	gcc2
+CBaseMonster	IRelationship	?	CBaseEntity *		0	gcc2
+CBaseMonster	KeyValue	?	KeyValueData_s *		0	gcc2
+CBaseMonster	Killed	?	entvars_s *, int		0	gcc2
+CBaseMonster	Look	?	int		0	gcc2
+CBaseMonster	MakeDamageBloodDecal	?	int, float, TraceResult *, const Vector &		0	gcc2
+CBaseMonster	MakeIdealYaw	?	Vector		0	gcc2
+CBaseMonster	MonsterInitDead	?			0	gcc2
+CBaseMonster	RadiusDamage	?	Vector, entvars_s *, T2?, float, int, int		0	gcc2
+CBaseMonster	ReportAIState	?			0	gcc2
+CBaseMonster	ShouldFadeOnDeath	?			0	gcc2
+CBaseMonster	ShouldGibMonster	?	int		0	gcc2
+CBaseMonster	TakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CBaseMonster	TakeHealth	?	float, int		0	gcc2
+CBaseMonster	TraceAttack	?	entvars_s *, float, Vector, TraceResult *, int		0	gcc2
+CBasePlatTrain	KeyValue	?	KeyValueData_s *		0	gcc2
+CBasePlatTrain	Precache	?			0	gcc2
+CBasePlatTrain	Restore	?	CRestore &		0	gcc2
+CBasePlatTrain	Save	?	CSave &		0	gcc2
+CBasePlayer	AddAmmoToArmament	?	int, int		0	gcc2
+CBasePlayer	AddItem	?	int		0	gcc2
+CBasePlayer	AddItemToArmament	?	tsweapon_t, int, bool		0	gcc2
+CBasePlayer	AddPlayerItem	?	CBasePlayerItem *		0	gcc2
+CBasePlayer	AddPoints	?	int, int		0	gcc2
+CBasePlayer	AddPointsToTeam	?	int, int		0	gcc2
+CBasePlayer	AmmoInventory	?	int		0	gcc2
+CBasePlayer	AutoaimDeflection	?	Vector &, float, float		0	gcc2
+CBasePlayer	BarnacleVictimBitten	?	entvars_s *		0	gcc2
+CBasePlayer	BarnacleVictimReleased	?			0	gcc2
+CBasePlayer	BlockPlayer	?	float		0	gcc2
+CBasePlayer	BuyAmmo	?	int		0	gcc2
+CBasePlayer	BuyArmament	?			0	gcc2
+CBasePlayer	BuyWeapon	?	tsweapon_t, int		0	gcc2
+CBasePlayer	CheatImpulseCommands	?	int		0	gcc2
+CBasePlayer	CheckForWires	?			0	gcc2
+CBasePlayer	CheckHull	?	Vector, T1?, TraceResult &, int		0	gcc2
+CBasePlayer	CheckSuitUpdate	?			0	gcc2
+CBasePlayer	CheckTimeBasedDamage	?			0	gcc2
+CBasePlayer	Classify	?			0	gcc2
+CBasePlayer	CutWire	?	int		0	gcc2
+CBasePlayer	DeactivateSlowMotionFlow	?			0	gcc2
+CBasePlayer	DeathSound	?			0	gcc2
+CBasePlayer	DropAmmo	?			0	gcc2
+CBasePlayer	DropArmor	?			0	gcc2
+CBasePlayer	DropFlag	?	bool		0	gcc2
+CBasePlayer	DropPlayerItem	?	char *		0	gcc2
+CBasePlayer	DropWeapon	?	tsweapon_t, float		0	gcc2
+CBasePlayer	Duck	?			0	gcc2
+CBasePlayer	EnableControl	?	int		0	gcc2
+CBasePlayer	FBecomeProne	?			0	gcc2
+CBasePlayer	ForceClientDllUpdate	?			0	gcc2
+CBasePlayer	GetAmmoIndex	?	const char *		0	gcc2
+CBasePlayer	GetAutoaimVector	?	float		0	gcc2
+CBasePlayer	GetCustomDecalFrames	?			0	gcc2
+CBasePlayer	GetGunPosition	?			0	gcc2
+CBasePlayer	GetMeleeMultiplier	?			0	gcc2
+CBasePlayer	GiveAmmo	?	int, char *, int		0	gcc2
+CBasePlayer	GiveCash	?	int		0	gcc2
+CBasePlayer	GiveNamedItem	?	const char *		0	gcc2
+CBasePlayer	GiveSlowMul	?			0	gcc2
+CBasePlayer	GoSlow	?	float, char		0	gcc2
+CBasePlayer	HasNamedPlayerItem	?	const char *		0	gcc2
+CBasePlayer	HasPlayerItem	?	CBasePlayerItem *		0	gcc2
+CBasePlayer	HasWeapons	?			0	gcc2
+CBasePlayer	Illumination	?			0	gcc2
+CBasePlayer	ImpulseCommands	?			0	gcc2
+CBasePlayer	InSlow	?			0	gcc2
+CBasePlayer	IsOnLadder	?			0	gcc2
+CBasePlayer	ItemPostFrame	?			0	gcc2
+CBasePlayer	ItemPreFrame	?			0	gcc2
+CBasePlayer	Jump	?			0	gcc2
+CBasePlayer	Killed	?	entvars_s *, int		0	gcc2
+CBasePlayer	Observer_FindNextPlayer	?	bool		0	gcc2
+CBasePlayer	Observer_HandleButtons	?			0	gcc2
+CBasePlayer	Observer_Idle	?			0	gcc2
+CBasePlayer	Observer_SetMode	?	int		0	gcc2
+CBasePlayer	PackDeadPlayerItems	?			0	gcc2
+CBasePlayer	Pain	?			0	gcc2
+CBasePlayer	PickUpWeapon	?	tsweapon_t, void *, int, bool, T4?		0	gcc2
+CBasePlayer	PlayerDeathThink	void			0	msvc
+CBasePlayer	PlayerUse	?			0	gcc2
+CBasePlayer	PostThink	?			0	gcc2
+CBasePlayer	PreThink	?			0	gcc2
+CBasePlayer	Precache	?			0	gcc2
+CBasePlayer	PunchScreen	?	float, Vector		0	gcc2
+CBasePlayer	RemoveAllItems	?	int		0	gcc2
+CBasePlayer	RemovePlayerItem	?	CBasePlayerItem *		0	gcc2
+CBasePlayer	RenewItems	?			0	gcc2
+CBasePlayer	ResetArmament	?			0	gcc2
+CBasePlayer	ResetAutoaim	?			0	gcc2
+CBasePlayer	Restore	?	CRestore &		0	gcc2
+CBasePlayer	Save	?	CSave &		0	gcc2
+CBasePlayer	SelectItem	?	const char *		0	gcc2
+CBasePlayer	SelectLastItem	?			0	gcc2
+CBasePlayer	SelectNextItem	?	int		0	gcc2
+CBasePlayer	SelectPrevItem	?	int		0	gcc2
+CBasePlayer	SendAmmoUpdate	?			0	gcc2
+CBasePlayer	SetAnimation	?	PLAYER_ANIM		0	gcc2
+CBasePlayer	SetCustomDecalFrames	?	int		0	gcc2
+CBasePlayer	SetPlayerGravity	?	float, float		0	gcc2
+CBasePlayer	SetPlayerSpeed	?	float		0	gcc2
+CBasePlayer	SetSuitUpdate	?	char *, int, int		0	gcc2
+CBasePlayer	ShootBulletsPlayer	?	unsigned char, Vector, Vector, Vector, float, int, int, int		0	gcc2
+CBasePlayer	SlowMotionFlow	?			0	gcc2
+CBasePlayer	Spawn	?			0	gcc2
+CBasePlayer	StartDeathCam	?			0	gcc2
+CBasePlayer	StartObserver	?	Vector, T1?		0	gcc2
+CBasePlayer	StopObserver	?			0	gcc2
+CBasePlayer	SwitchWeapon	?	CBasePlayerItem *		0	gcc2
+CBasePlayer	TSInit	?			0	gcc2
+CBasePlayer	TSUse	?			0	gcc2
+CBasePlayer	TabulateAmmo	?			0	gcc2
+CBasePlayer	TakeArmor	?	int		0	gcc2
+CBasePlayer	TakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CBasePlayer	TakeFlag	?	s_flag_status *		0	gcc2
+CBasePlayer	TakeHealth	?	float, int		0	gcc2
+CBasePlayer	TeamID	?			0	gcc2
+CBasePlayer	ThrowWeapon	?	tsweapon_t, void *, float *, T3?		0	gcc2
+CBasePlayer	TraceAttack	?	entvars_s *, float, Vector, TraceResult *, int		0	gcc2
+CBasePlayer	UpdateClientData	?			0	gcc2
+CBasePlayer	UpdateGeigerCounter	?			0	gcc2
+CBasePlayer	UpdateMeleeBar	?	float		0	gcc2
+CBasePlayer	UpdatePlayerSound	?			0	gcc2
+CBasePlayer	UpdatePlayerState	?			0	gcc2
+CBasePlayer	UpdatePowerUpState	?			0	gcc2
+CBasePlayer	UsePowerUp	?			0	gcc2
+CBasePlayer	WaterMove	?			0	gcc2
+CBasePlayerAmmo	DefaultTouch	void	CBaseEntity *		0	msvc
+CBasePlayerAmmo	Materialize	void			0	msvc
+CBasePlayerAmmo	Respawn	?			0	gcc2
+CBasePlayerAmmo	Spawn	?			0	gcc2
+CBasePlayerItem	AddToPlayer	?	CBasePlayer *		0	gcc2
+CBasePlayerItem	AttachToPlayer	?	CBasePlayer *		0	gcc2
+CBasePlayerItem	AttemptToMaterialize	void			0	msvc
+CBasePlayerItem	CheckRespawn	?			0	gcc2
+CBasePlayerItem	DefaultTouch	void	CBaseEntity *		0	msvc
+CBasePlayerItem	DestroyItem	void			0	msvc
+CBasePlayerItem	Drop	?			0	gcc2
+CBasePlayerItem	FallInit	?			0	gcc2
+CBasePlayerItem	FallThink	void			0	msvc
+CBasePlayerItem	Holster	?	int		0	gcc2
+CBasePlayerItem	Kill	?			0	gcc2
+CBasePlayerItem	Materialize	void			0	msvc
+CBasePlayerItem	Respawn	?			0	gcc2
+CBasePlayerItem	Restore	?	CRestore &		0	gcc2
+CBasePlayerItem	Save	?	CSave &		0	gcc2
+CBasePlayerItem	SetObjectCollisionBox	?			0	gcc2
+CBasePlayerWeapon	AddDuplicate	?	CBasePlayerItem *		0	gcc2
+CBasePlayerWeapon	AddPrimaryAmmo	?	int, char *, int, int		0	gcc2
+CBasePlayerWeapon	AddSecondaryAmmo	?	int, char *, int		0	gcc2
+CBasePlayerWeapon	AddToPlayer	?	CBasePlayer *		0	gcc2
+CBasePlayerWeapon	CanDeploy	?			0	gcc2
+CBasePlayerWeapon	DefaultDeploy	?	char *, T1?, int, T1?, int, int		0	gcc2
+CBasePlayerWeapon	DefaultReload	?	int, int, float, int		0	gcc2
+CBasePlayerWeapon	ExtractAmmo	?	CBasePlayerWeapon *		0	gcc2
+CBasePlayerWeapon	ExtractClipAmmo	?	CBasePlayerWeapon *		0	gcc2
+CBasePlayerWeapon	Holster	?	int		0	gcc2
+CBasePlayerWeapon	IsUseable	?			0	gcc2
+CBasePlayerWeapon	ItemPostFrame	?			0	gcc2
+CBasePlayerWeapon	PlayEmptySound	?			0	gcc2
+CBasePlayerWeapon	PrimaryAmmoIndex	?			0	gcc2
+CBasePlayerWeapon	PrintState	?			0	gcc2
+CBasePlayerWeapon	ResetEmptySound	?			0	gcc2
+CBasePlayerWeapon	Restore	?	CRestore &		0	gcc2
+CBasePlayerWeapon	RetireWeapon	?			0	gcc2
+CBasePlayerWeapon	Save	?	CSave &		0	gcc2
+CBasePlayerWeapon	SecondaryAmmoIndex	?			0	gcc2
+CBasePlayerWeapon	SendWeaponAnim	?	int, int, int		0	gcc2
+CBasePlayerWeapon	UpdateClientData	?	CBasePlayer *		0	gcc2
+CBaseSpectator	Spawn	?			0	gcc2
+CBaseSpectator	SpectatorConnect	?			0	gcc2
+CBaseSpectator	SpectatorDisconnect	?			0	gcc2
+CBaseSpectator	SpectatorImpulseCommand	?			0	gcc2
+CBaseSpectator	SpectatorThink	?			0	gcc2
+CBaseToggle	AngularMove	?	Vector, float		0	gcc2
+CBaseToggle	AngularMoveDone	void			0	msvc
+CBaseToggle	AxisDelta	?	int, const Vector &, T2?		0	gcc2
+CBaseToggle	AxisDir	?	entvars_s *		0	gcc2
+CBaseToggle	AxisValue	?	int, const Vector &		0	gcc2
+CBaseToggle	IsLockedByMaster	?			0	gcc2
+CBaseToggle	KeyValue	?	KeyValueData_s *		0	gcc2
+CBaseToggle	LinearMove	?	Vector, float		0	gcc2
+CBaseToggle	LinearMoveDone	void			0	msvc
+CBaseToggle	Restore	?	CRestore &		0	gcc2
+CBaseToggle	Save	?	CSave &		0	gcc2
+CBaseTrigger	ActivateMultiTrigger	?	CBaseEntity *		0	gcc2
+CBaseTrigger	CounterUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CBaseTrigger	HurtTouch	void	CBaseEntity *		0	msvc
+CBaseTrigger	InitTrigger	?			0	gcc2
+CBaseTrigger	KeyValue	?	KeyValueData_s *		0	gcc2
+CBaseTrigger	MultiTouch	void	CBaseEntity *		0	msvc
+CBaseTrigger	MultiWaitOver	void			0	msvc
+CBaseTrigger	TeleportTouch	void	CBaseEntity *		0	msvc
+CBaseTrigger	ToggleUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CBeam	BeamCreate	?	const char *, int		0	gcc2
+CBeam	BeamDamage	?	TraceResult *		0	gcc2
+CBeam	BeamInit	?	const char *, int		0	gcc2
+CBeam	DoSparks	?	const Vector &, T1?		0	gcc2
+CBeam	EntsInit	?	int, int		0	gcc2
+CBeam	GetEndPos	?			0	gcc2
+CBeam	GetStartPos	?			0	gcc2
+CBeam	HoseInit	?	const Vector &, T1?		0	gcc2
+CBeam	PointEntInit	?	const Vector &, int		0	gcc2
+CBeam	PointsInit	?	const Vector &, T1?		0	gcc2
+CBeam	Precache	?			0	gcc2
+CBeam	RandomTargetname	?	const char *		0	gcc2
+CBeam	RelinkBeam	?			0	gcc2
+CBeam	SetEndEntity	?	int		0	gcc2
+CBeam	SetStartEntity	?	int		0	gcc2
+CBeam	Spawn	?			0	gcc2
+CBeam	TriggerTouch	void	CBaseEntity *		0	msvc
+CBlood	BloodPosition	?	CBaseEntity *		0	gcc2
+CBlood	Direction	?			0	gcc2
+CBlood	KeyValue	?	KeyValueData_s *		0	gcc2
+CBlood	Spawn	?			0	gcc2
+CBloodSplat	Spawn	?	entvars_s *		0	gcc2
+CBloodSplat	Spray	?			0	gcc2
+CBreakable	BreakTouch	void	CBaseEntity *		0	msvc
+CBreakable	BreakableRespawn	?	bool		0	gcc2
+CBreakable	DamageDecal	?	int		0	gcc2
+CBreakable	DamageSound	?			0	gcc2
+CBreakable	Die	void			0	msvc
+CBreakable	IsBreakable	?			0	gcc2
+CBreakable	KeyValue	?	KeyValueData_s *		0	gcc2
+CBreakable	Killed	?	entvars_s *, int		0	gcc2
+CBreakable	MaterialSoundList	?	Materials, int &		0	gcc2
+CBreakable	MaterialSoundPrecache	?	Materials		0	gcc2
+CBreakable	MaterialSoundRandom	?	edict_s *, Materials, float		0	gcc2
+CBreakable	Precache	?			0	gcc2
+CBreakable	Restore	?	CRestore &		0	gcc2
+CBreakable	Save	?	CSave &		0	gcc2
+CBreakable	Spawn	?			0	gcc2
+CBreakable	TakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CBreakable	TraceAttack	?	entvars_s *, float, Vector, TraceResult *, int		0	gcc2
+CBubbling	FizzThink	void			0	msvc
+CBubbling	KeyValue	?	KeyValueData_s *		0	gcc2
+CBubbling	Precache	?			0	gcc2
+CBubbling	Restore	?	CRestore &		0	gcc2
+CBubbling	Save	?	CSave &		0	gcc2
+CBubbling	Spawn	?			0	gcc2
+CBulletManager	CBulletManager	?			0	gcc2
+CBulletManager	DestroyBullet	?	int		0	gcc2
+CBulletManager	FireBullet	?	CBasePlayer *, Vector &, T2?, float &, int &, int		0	gcc2
+CBulletManager	Reset	?			0	gcc2
+CBulletManager	Think	?			0	gcc2
+CBulletManager	UpdateBullet	?	int, TraceResult *		0	gcc2
+CBulletManager	UpdateBulletTimeSlice	?	float, CBasePlayer *		0	gcc2
+CButtonTarget	ObjectCaps	?			0	gcc2
+CButtonTarget	Spawn	?			0	gcc2
+CButtonTarget	TakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CChangeLevel	AddTransitionToList	?	LEVELLIST *, int, const char *, T3?, edict_s *		0	gcc2
+CChangeLevel	ChangeLevelNow	?	CBaseEntity *		0	gcc2
+CChangeLevel	ChangeList	?	LEVELLIST *, int		0	gcc2
+CChangeLevel	ExecuteChangeLevel	void			0	msvc
+CChangeLevel	FindLandmark	?	const char *		0	gcc2
+CChangeLevel	InTransitionVolume	?	CBaseEntity *, char *		0	gcc2
+CChangeLevel	KeyValue	?	KeyValueData_s *		0	gcc2
+CChangeLevel	Restore	?	CRestore &		0	gcc2
+CChangeLevel	Save	?	CSave &		0	gcc2
+CChangeLevel	Spawn	?			0	gcc2
+CChangeLevel	TouchChangeLevel	void	CBaseEntity *		0	msvc
+CChangeLevel	UseChangeLevel	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CCycler	GenericCyclerSpawn	?	char *, Vector, T2?		0	gcc2
+CCycler	Restore	?	CRestore &		0	gcc2
+CCycler	Save	?	CSave &		0	gcc2
+CCycler	Spawn	?			0	gcc2
+CCycler	TakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CCycler	Think	?			0	gcc2
+CCyclerProbe	Spawn	?			0	gcc2
+CCyclerSprite	Animate	?	float		0	gcc2
+CCyclerSprite	Restore	?	CRestore &		0	gcc2
+CCyclerSprite	Save	?	CSave &		0	gcc2
+CCyclerSprite	Spawn	?			0	gcc2
+CCyclerSprite	TakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CCyclerSprite	Think	?			0	gcc2
+CDeadHEV	KeyValue	?	KeyValueData_s *		0	gcc2
+CDeadHEV	Spawn	?			0	gcc2
+CDecal	KeyValue	?	KeyValueData_s *		0	gcc2
+CDecal	Spawn	?			0	gcc2
+CDecal	StaticDecal	void			0	msvc
+CDecal	TriggerDecal	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CEnvBeverage	Precache	?			0	gcc2
+CEnvBeverage	Spawn	?			0	gcc2
+CEnvExplosion	KeyValue	?	KeyValueData_s *		0	gcc2
+CEnvExplosion	Restore	?	CRestore &		0	gcc2
+CEnvExplosion	Save	?	CSave &		0	gcc2
+CEnvExplosion	Smoke	void			0	msvc
+CEnvExplosion	Spawn	?			0	gcc2
+CEnvFunnel	Precache	?			0	gcc2
+CEnvFunnel	Spawn	?			0	gcc2
+CEnvGlobal	KeyValue	?	KeyValueData_s *		0	gcc2
+CEnvGlobal	Restore	?	CRestore &		0	gcc2
+CEnvGlobal	Save	?	CSave &		0	gcc2
+CEnvGlobal	Spawn	?			0	gcc2
+CEnvLight	KeyValue	?	KeyValueData_s *		0	gcc2
+CEnvLight	Spawn	?			0	gcc2
+CEnvShooter	CreateGib	?			0	gcc2
+CEnvShooter	KeyValue	?	KeyValueData_s *		0	gcc2
+CEnvShooter	Precache	?			0	gcc2
+CEnvSound	KeyValue	?	KeyValueData_s *		0	gcc2
+CEnvSound	Restore	?	CRestore &		0	gcc2
+CEnvSound	Save	?	CSave &		0	gcc2
+CEnvSound	Spawn	?			0	gcc2
+CEnvSound	Think	?			0	gcc2
+CEnvSpark	KeyValue	?	KeyValueData_s *		0	gcc2
+CEnvSpark	Precache	?			0	gcc2
+CEnvSpark	Restore	?	CRestore &		0	gcc2
+CEnvSpark	Save	?	CSave &		0	gcc2
+CEnvSpark	SparkStart	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CEnvSpark	SparkStop	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CEnvSpark	SparkThink	void			0	msvc
+CEnvSpark	Spawn	?			0	gcc2
+CFade	KeyValue	?	KeyValueData_s *		0	gcc2
+CFade	Spawn	?			0	gcc2
+CFireAndDie	Precache	?			0	gcc2
+CFireAndDie	Spawn	?			0	gcc2
+CFireAndDie	Think	?			0	gcc2
+CFrictionModifier	ChangeFriction	void	CBaseEntity *		0	msvc
+CFrictionModifier	KeyValue	?	KeyValueData_s *		0	gcc2
+CFrictionModifier	Restore	?	CRestore &		0	gcc2
+CFrictionModifier	Save	?	CSave &		0	gcc2
+CFrictionModifier	Spawn	?			0	gcc2
+CFuncConveyor	Spawn	?			0	gcc2
+CFuncConveyor	UpdateSpeed	?	float		0	gcc2
+CFuncIllusionary	KeyValue	?	KeyValueData_s *		0	gcc2
+CFuncIllusionary	Spawn	?			0	gcc2
+CFuncMonsterClip	Spawn	?			0	gcc2
+CFuncPlat	Blocked	?	CBaseEntity *		0	gcc2
+CFuncPlat	CallGoDown	void			0	msvc
+CFuncPlat	CallHitBottom	void			0	msvc
+CFuncPlat	CallHitTop	void			0	msvc
+CFuncPlat	GoDown	?			0	gcc2
+CFuncPlat	GoUp	?			0	gcc2
+CFuncPlat	HitBottom	?			0	gcc2
+CFuncPlat	HitTop	?			0	gcc2
+CFuncPlat	KeyValue	?	KeyValueData_s *		0	gcc2
+CFuncPlat	PlatUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CFuncPlat	Precache	?			0	gcc2
+CFuncPlat	Restore	?	CRestore &		0	gcc2
+CFuncPlat	Save	?	CSave &		0	gcc2
+CFuncPlat	Setup	?			0	gcc2
+CFuncPlat	Spawn	?			0	gcc2
+CFuncPlatRot	GoDown	?			0	gcc2
+CFuncPlatRot	GoUp	?			0	gcc2
+CFuncPlatRot	HitBottom	?			0	gcc2
+CFuncPlatRot	HitTop	?			0	gcc2
+CFuncPlatRot	Restore	?	CRestore &		0	gcc2
+CFuncPlatRot	RotMove	?	Vector &, float		0	gcc2
+CFuncPlatRot	Save	?	CSave &		0	gcc2
+CFuncPlatRot	SetupRotation	?			0	gcc2
+CFuncPlatRot	Spawn	?			0	gcc2
+CFuncRotating	Blocked	?	CBaseEntity *		0	gcc2
+CFuncRotating	HurtTouch	void	CBaseEntity *		0	msvc
+CFuncRotating	KeyValue	?	KeyValueData_s *		0	gcc2
+CFuncRotating	Precache	?			0	gcc2
+CFuncRotating	RampPitchVol	?	int		0	gcc2
+CFuncRotating	Restore	?	CRestore &		0	gcc2
+CFuncRotating	Rotate	void			0	msvc
+CFuncRotating	RotatingUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CFuncRotating	Save	?	CSave &		0	gcc2
+CFuncRotating	Spawn	?			0	gcc2
+CFuncRotating	SpinDown	void			0	msvc
+CFuncRotating	SpinUp	void			0	msvc
+CFuncTank	AdjustAnglesForBarrel	?	Vector &, float		0	gcc2
+CFuncTank	ControllerPostFrame	?			0	gcc2
+CFuncTank	FindTarget	?	edict_s *		0	gcc2
+CFuncTank	Fire	?	const Vector &, T1?, entvars_s *		0	gcc2
+CFuncTank	InRange	?	float		0	gcc2
+CFuncTank	KeyValue	?	KeyValueData_s *		0	gcc2
+CFuncTank	OnControls	?	entvars_s *		0	gcc2
+CFuncTank	Precache	?			0	gcc2
+CFuncTank	Restore	?	CRestore &		0	gcc2
+CFuncTank	Save	?	CSave &		0	gcc2
+CFuncTank	Spawn	?			0	gcc2
+CFuncTank	StartControl	?	CBasePlayer *		0	gcc2
+CFuncTank	StartRotSound	?			0	gcc2
+CFuncTank	StopControl	?			0	gcc2
+CFuncTank	StopRotSound	?			0	gcc2
+CFuncTank	TankTrace	?	const Vector &, const Vector &, const Vector &, TraceResult &		0	gcc2
+CFuncTank	Think	?			0	gcc2
+CFuncTank	TrackTarget	?			0	gcc2
+CFuncTankControls	ObjectCaps	?			0	gcc2
+CFuncTankControls	Restore	?	CRestore &		0	gcc2
+CFuncTankControls	Save	?	CSave &		0	gcc2
+CFuncTankControls	Spawn	?			0	gcc2
+CFuncTankControls	Think	?			0	gcc2
+CFuncTankGun	Fire	?	const Vector &, T1?, entvars_s *		0	gcc2
+CFuncTankLaser	Activate	?			0	gcc2
+CFuncTankLaser	Fire	?	const Vector &, T1?, entvars_s *		0	gcc2
+CFuncTankLaser	GetLaser	?			0	gcc2
+CFuncTankLaser	KeyValue	?	KeyValueData_s *		0	gcc2
+CFuncTankLaser	Restore	?	CRestore &		0	gcc2
+CFuncTankLaser	Save	?	CSave &		0	gcc2
+CFuncTankLaser	Think	?			0	gcc2
+CFuncTankMortar	Fire	?	const Vector &, T1?, entvars_s *		0	gcc2
+CFuncTankMortar	KeyValue	?	KeyValueData_s *		0	gcc2
+CFuncTankRocket	Fire	?	const Vector &, T1?, entvars_s *		0	gcc2
+CFuncTankRocket	Precache	?			0	gcc2
+CFuncTrackAuto	UpdateAutoTargets	?	int		0	gcc2
+CFuncTrackChange	EvaluateTrain	?	CPathTrack *		0	gcc2
+CFuncTrackChange	Find	void			0	msvc
+CFuncTrackChange	GoDown	void			1	msvc
+CFuncTrackChange	GoUp	void			1	msvc
+CFuncTrackChange	HitBottom	?			0	gcc2
+CFuncTrackChange	HitTop	?			0	gcc2
+CFuncTrackChange	KeyValue	?	KeyValueData_s *		0	gcc2
+CFuncTrackChange	OverrideReset	?			0	gcc2
+CFuncTrackChange	Precache	?			0	gcc2
+CFuncTrackChange	Restore	?	CRestore &		0	gcc2
+CFuncTrackChange	Save	?	CSave &		0	gcc2
+CFuncTrackChange	Spawn	?			0	gcc2
+CFuncTrackChange	Touch	?	CBaseEntity *		0	gcc2
+CFuncTrackChange	UpdateAutoTargets	?	int		0	gcc2
+CFuncTrackChange	UpdateTrain	?	Vector &		0	gcc2
+CFuncTrackTrain	Blocked	?	CBaseEntity *		0	gcc2
+CFuncTrackTrain	DeadEnd	void			0	msvc
+CFuncTrackTrain	Find	void			0	msvc
+CFuncTrackTrain	Instance	?	edict_s *		0	gcc2
+CFuncTrackTrain	KeyValue	?	KeyValueData_s *		0	gcc2
+CFuncTrackTrain	NearestPath	void			0	msvc
+CFuncTrackTrain	Next	void			0	msvc
+CFuncTrackTrain	NextThink	?	float, int		0	gcc2
+CFuncTrackTrain	OnControls	?	entvars_s *		0	gcc2
+CFuncTrackTrain	OverrideReset	?			0	gcc2
+CFuncTrackTrain	Precache	?			0	gcc2
+CFuncTrackTrain	Restore	?	CRestore &		0	gcc2
+CFuncTrackTrain	Save	?	CSave &		0	gcc2
+CFuncTrackTrain	SetControls	?	entvars_s *		0	gcc2
+CFuncTrackTrain	Spawn	?			0	gcc2
+CFuncTrackTrain	StopSound	?			0	gcc2
+CFuncTrackTrain	UpdateSound	?			0	gcc2
+CFuncTrain	Activate	?			0	gcc2
+CFuncTrain	Blocked	?	CBaseEntity *		0	gcc2
+CFuncTrain	KeyValue	?	KeyValueData_s *		0	gcc2
+CFuncTrain	Next	void			0	msvc
+CFuncTrain	OverrideReset	?			0	gcc2
+CFuncTrain	Precache	?			0	gcc2
+CFuncTrain	Restore	?	CRestore &		0	gcc2
+CFuncTrain	Save	?	CSave &		0	gcc2
+CFuncTrain	Spawn	?			0	gcc2
+CFuncTrain	Wait	void			0	msvc
+CFuncTrainControls	Find	void			0	msvc
+CFuncTrainControls	Spawn	?			0	gcc2
+CFuncWall	Spawn	?			0	gcc2
+CFuncWallToggle	IsOn	?			0	gcc2
+CFuncWallToggle	Spawn	?			0	gcc2
+CFuncWallToggle	TurnOff	?			0	gcc2
+CFuncWallToggle	TurnOn	?			0	gcc2
+CGameCounter	Spawn	?			0	gcc2
+CGamePlayerEquip	EquipPlayer	?	CBaseEntity *		0	gcc2
+CGamePlayerEquip	KeyValue	?	KeyValueData_s *		0	gcc2
+CGamePlayerEquip	Touch	?	CBaseEntity *		0	gcc2
+CGamePlayerTeam	TargetTeamName	?	const char *		0	gcc2
+CGamePlayerZone	KeyValue	?	KeyValueData_s *		0	gcc2
+CGamePlayerZone	Restore	?	CRestore &		0	gcc2
+CGamePlayerZone	Save	?	CSave &		0	gcc2
+CGameRules	CanHaveAmmo	?	CBasePlayer *, const char *, int		0	gcc2
+CGameRules	CanHavePlayerItem	?	CBasePlayer *, CBasePlayerItem *		0	gcc2
+CGameRules	GetPlayerSpawnSpot	?	CBasePlayer *		0	gcc2
+CGameRules	RefreshSkillData	?			0	gcc2
+CGameScore	KeyValue	?	KeyValueData_s *		0	gcc2
+CGameScore	Spawn	?			0	gcc2
+CGameTeamMaster	IsTriggered	?	CBaseEntity *		0	gcc2
+CGameTeamMaster	KeyValue	?	KeyValueData_s *		0	gcc2
+CGameTeamMaster	TeamID	?			0	gcc2
+CGameTeamMaster	TeamMatch	?	CBaseEntity *		0	gcc2
+CGameText	KeyValue	?	KeyValueData_s *		0	gcc2
+CGameText	Restore	?	CRestore &		0	gcc2
+CGameText	Save	?	CSave &		0	gcc2
+CGib	BounceGibTouch	void	CBaseEntity *		0	msvc
+CGib	LimitVelocity	?			0	gcc2
+CGib	Spawn	?	const char *		0	gcc2
+CGib	SpawnHeadGib	?	entvars_s *		0	gcc2
+CGib	SpawnRandomGibs	?	entvars_s *, int, int		0	gcc2
+CGib	SpawnStickyGibs	?	entvars_s *, Vector, int		0	gcc2
+CGib	StickyGibTouch	void	CBaseEntity *		0	msvc
+CGib	WaitTillLand	void			0	msvc
+CGibShooter	CreateGib	?			0	gcc2
+CGibShooter	KeyValue	?	KeyValueData_s *		0	gcc2
+CGibShooter	Precache	?			0	gcc2
+CGibShooter	Restore	?	CRestore &		0	gcc2
+CGibShooter	Save	?	CSave &		0	gcc2
+CGibShooter	ShootThink	void			0	msvc
+CGibShooter	Spawn	?			0	gcc2
+CGlobalState	CGlobalState	?			0	gcc2
+CGlobalState	ClearStates	?			0	gcc2
+CGlobalState	DumpGlobals	?			0	gcc2
+CGlobalState	EntityAdd	?	int, int, GLOBALESTATE		0	gcc2
+CGlobalState	EntityFromTable	?	int		0	gcc2
+CGlobalState	EntityGetState	?	int		0	gcc2
+CGlobalState	EntitySetState	?	int, GLOBALESTATE		0	gcc2
+CGlobalState	EntityUpdate	?	int, int		0	gcc2
+CGlobalState	Find	?	int		0	gcc2
+CGlobalState	Reset	?			0	gcc2
+CGlobalState	Restore	?	CRestore &		0	gcc2
+CGlobalState	Save	?	CSave &		0	gcc2
+CGlow	Animate	?	float		0	gcc2
+CGlow	Restore	?	CRestore &		0	gcc2
+CGlow	Save	?	CSave &		0	gcc2
+CGlow	Spawn	?			0	gcc2
+CGlow	Think	?			0	gcc2
+CGraph	AllocNodes	?			0	gcc2
+CGraph	CheckNODFile	?	char *		0	gcc2
+CGraph	FLoadGraph	?	char *		0	gcc2
+CGraph	FSetGraphPointers	?			0	gcc2
+CGraph	FindNearestNode	?	const Vector &, int		0	gcc2
+CGraph	InitGraph	?			0	gcc2
+CGraph	ShowNodeConnections	?	int		0	gcc2
+CGrenade	DetonateUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CGunTarget	Activate	?			0	gcc2
+CGunTarget	Next	void			0	msvc
+CGunTarget	Restore	?	CRestore &		0	gcc2
+CGunTarget	Save	?	CSave &		0	gcc2
+CGunTarget	Spawn	?			0	gcc2
+CGunTarget	Start	void			0	msvc
+CGunTarget	Stop	?			0	gcc2
+CGunTarget	TakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CGunTarget	Wait	void			0	msvc
+CHalfLifeMultiplay	AllowAutoTargetCrosshair	?			0	gcc2
+CHalfLifeMultiplay	AmmoShouldRespawn	?	CBasePlayerAmmo *		0	gcc2
+CHalfLifeMultiplay	CHalfLifeMultiplay	?			0	gcc2
+CHalfLifeMultiplay	CanHaveItem	?	CBasePlayer *, CItem *		0	gcc2
+CHalfLifeMultiplay	CanHavePlayerItem	?	CBasePlayer *, CBasePlayerItem *		0	gcc2
+CHalfLifeMultiplay	ChangeLevel	?			0	gcc2
+CHalfLifeMultiplay	ClientCommand	?	CBasePlayer *, const char *		0	gcc2
+CHalfLifeMultiplay	ClientConnected	?	edict_s *, const char *, T2?, char *		0	gcc2
+CHalfLifeMultiplay	ClientDisconnected	?	edict_s *		0	gcc2
+CHalfLifeMultiplay	ClientUserInfoChanged	?	CBasePlayer *, char *		0	gcc2
+CHalfLifeMultiplay	DeadPlayerAmmo	?	CBasePlayer *		0	gcc2
+CHalfLifeMultiplay	DeadPlayerWeapons	?	CBasePlayer *		0	gcc2
+CHalfLifeMultiplay	DeathNotice	?	CBasePlayer *, entvars_s *, T2?, char *		0	gcc2
+CHalfLifeMultiplay	FAllowMonsters	?			0	gcc2
+CHalfLifeMultiplay	FPlayerCanRespawn	?	CBasePlayer *		0	gcc2
+CHalfLifeMultiplay	FPlayerCanTakeDamage	?	CBasePlayer *, CBaseEntity *		0	gcc2
+CHalfLifeMultiplay	FShouldSwitchWeapon	?	CBasePlayer *, CBasePlayerItem *		0	gcc2
+CHalfLifeMultiplay	FlAmmoRespawnTime	?	CBasePlayerAmmo *		0	gcc2
+CHalfLifeMultiplay	FlHEVChargerRechargeTime	?			0	gcc2
+CHalfLifeMultiplay	FlHealthChargerRechargeTime	?			0	gcc2
+CHalfLifeMultiplay	FlItemRespawnTime	?	CItem *		0	gcc2
+CHalfLifeMultiplay	FlPlayerFallDamage	?	CBasePlayer *		0	gcc2
+CHalfLifeMultiplay	FlPlayerSpawnTime	?	CBasePlayer *		0	gcc2
+CHalfLifeMultiplay	FlWeaponRespawnTime	?	CBasePlayerItem *		0	gcc2
+CHalfLifeMultiplay	FlWeaponTryRespawn	?	CBasePlayerItem *		0	gcc2
+CHalfLifeMultiplay	GetGameDescription	?			0	gcc2
+CHalfLifeMultiplay	GetNextBestWeapon	?	CBasePlayer *, CBasePlayerItem *		0	gcc2
+CHalfLifeMultiplay	GetPlayerSpawnSpot	?	CBasePlayer *		0	gcc2
+CHalfLifeMultiplay	GoToIntermission	?			0	gcc2
+CHalfLifeMultiplay	IPointsForKill	?	CBasePlayer *, T1?		0	gcc2
+CHalfLifeMultiplay	InitHUD	?	CBasePlayer *		0	gcc2
+CHalfLifeMultiplay	IsAllowedToSpawn	?	CBaseEntity *		0	gcc2
+CHalfLifeMultiplay	IsCoOp	?			0	gcc2
+CHalfLifeMultiplay	IsDeathmatch	?			0	gcc2
+CHalfLifeMultiplay	IsMultiplayer	?			0	gcc2
+CHalfLifeMultiplay	IsValidTeam	?	char *		0	gcc2
+CHalfLifeMultiplay	ItemShouldRespawn	?	CItem *		0	gcc2
+CHalfLifeMultiplay	PlayFootstepSounds	?	CBasePlayer *, float		0	gcc2
+CHalfLifeMultiplay	PlayerGotAmmo	?	CBasePlayer *, char *, int		0	gcc2
+CHalfLifeMultiplay	PlayerGotItem	?	CBasePlayer *, CItem *		0	gcc2
+CHalfLifeMultiplay	PlayerGotWeapon	?	CBasePlayer *, CBasePlayerItem *		0	gcc2
+CHalfLifeMultiplay	PlayerKilled	?	CBasePlayer *, entvars_s *, T2?		0	gcc2
+CHalfLifeMultiplay	PlayerRelationship	?	CBaseEntity *, T1?		0	gcc2
+CHalfLifeMultiplay	PlayerSpawn	?	CBasePlayer *		0	gcc2
+CHalfLifeMultiplay	PlayerThink	?	CBasePlayer *		0	gcc2
+CHalfLifeMultiplay	RefreshSkillData	?			0	gcc2
+CHalfLifeMultiplay	SendMOTDToClient	?	edict_s *		0	gcc2
+CHalfLifeMultiplay	Think	?			0	gcc2
+CHalfLifeMultiplay	UpdateGameMode	?	CBasePlayer *		0	gcc2
+CHalfLifeMultiplay	VecAmmoRespawnSpot	?	CBasePlayerAmmo *		0	gcc2
+CHalfLifeMultiplay	VecItemRespawnSpot	?	CItem *		0	gcc2
+CHalfLifeMultiplay	VecWeaponRespawnSpot	?	CBasePlayerItem *		0	gcc2
+CHalfLifeMultiplay	WeaponShouldRespawn	?	CBasePlayerItem *		0	gcc2
+CHalfLifeRules	AllowAutoTargetCrosshair	?			0	gcc2
+CHalfLifeRules	AmmoShouldRespawn	?	CBasePlayerAmmo *		0	gcc2
+CHalfLifeRules	CHalfLifeRules	?			0	gcc2
+CHalfLifeRules	CanHaveItem	?	CBasePlayer *, CItem *		0	gcc2
+CHalfLifeRules	ClientConnected	?	edict_s *, const char *, T2?, char *		0	gcc2
+CHalfLifeRules	ClientDisconnected	?	edict_s *		0	gcc2
+CHalfLifeRules	DeadPlayerAmmo	?	CBasePlayer *		0	gcc2
+CHalfLifeRules	DeadPlayerWeapons	?	CBasePlayer *		0	gcc2
+CHalfLifeRules	DeathNotice	?	CBasePlayer *, entvars_s *, T2?, char *		0	gcc2
+CHalfLifeRules	FAllowMonsters	?			0	gcc2
+CHalfLifeRules	FPlayerCanRespawn	?	CBasePlayer *		0	gcc2
+CHalfLifeRules	FShouldSwitchWeapon	?	CBasePlayer *, CBasePlayerItem *		0	gcc2
+CHalfLifeRules	FlAmmoRespawnTime	?	CBasePlayerAmmo *		0	gcc2
+CHalfLifeRules	FlHealthChargerRechargeTime	?			0	gcc2
+CHalfLifeRules	FlItemRespawnTime	?	CItem *		0	gcc2
+CHalfLifeRules	FlPlayerFallDamage	?	CBasePlayer *		0	gcc2
+CHalfLifeRules	FlPlayerSpawnTime	?	CBasePlayer *		0	gcc2
+CHalfLifeRules	FlWeaponRespawnTime	?	CBasePlayerItem *		0	gcc2
+CHalfLifeRules	FlWeaponTryRespawn	?	CBasePlayerItem *		0	gcc2
+CHalfLifeRules	GetNextBestWeapon	?	CBasePlayer *, CBasePlayerItem *		0	gcc2
+CHalfLifeRules	IPointsForKill	?	CBasePlayer *, T1?		0	gcc2
+CHalfLifeRules	InitHUD	?	CBasePlayer *		0	gcc2
+CHalfLifeRules	IsAllowedToSpawn	?	CBaseEntity *		0	gcc2
+CHalfLifeRules	IsCoOp	?			0	gcc2
+CHalfLifeRules	IsDeathmatch	?			0	gcc2
+CHalfLifeRules	IsMultiplayer	?			0	gcc2
+CHalfLifeRules	ItemShouldRespawn	?	CItem *		0	gcc2
+CHalfLifeRules	PlayerGotAmmo	?	CBasePlayer *, char *, int		0	gcc2
+CHalfLifeRules	PlayerGotItem	?	CBasePlayer *, CItem *		0	gcc2
+CHalfLifeRules	PlayerGotWeapon	?	CBasePlayer *, CBasePlayerItem *		0	gcc2
+CHalfLifeRules	PlayerKilled	?	CBasePlayer *, entvars_s *, T2?		0	gcc2
+CHalfLifeRules	PlayerRelationship	?	CBaseEntity *, T1?		0	gcc2
+CHalfLifeRules	PlayerSpawn	?	CBasePlayer *		0	gcc2
+CHalfLifeRules	PlayerThink	?	CBasePlayer *		0	gcc2
+CHalfLifeRules	Think	?			0	gcc2
+CHalfLifeRules	VecAmmoRespawnSpot	?	CBasePlayerAmmo *		0	gcc2
+CHalfLifeRules	VecItemRespawnSpot	?	CItem *		0	gcc2
+CHalfLifeRules	VecWeaponRespawnSpot	?	CBasePlayerItem *		0	gcc2
+CHalfLifeRules	WeaponShouldRespawn	?	CBasePlayerItem *		0	gcc2
+CHalfLifeTeamplay	CHalfLifeTeamplay	?			0	gcc2
+CHalfLifeTeamplay	ChangePlayerTeam	?	CBasePlayer *, const char *, int, int		0	gcc2
+CHalfLifeTeamplay	ClientCommand	?	CBasePlayer *, const char *		0	gcc2
+CHalfLifeTeamplay	ClientUserInfoChanged	?	CBasePlayer *, char *		0	gcc2
+CHalfLifeTeamplay	DeathNotice	?	CBasePlayer *, entvars_s *, T2?, char *		0	gcc2
+CHalfLifeTeamplay	FPlayerCanTakeDamage	?	CBasePlayer *, CBaseEntity *		0	gcc2
+CHalfLifeTeamplay	GetGameDescription	?			0	gcc2
+CHalfLifeTeamplay	GetIndexedTeamName	?	int		0	gcc2
+CHalfLifeTeamplay	GetTeamID	?	CBaseEntity *		0	gcc2
+CHalfLifeTeamplay	GetTeamIndex	?	const char *		0	gcc2
+CHalfLifeTeamplay	IPointsForKill	?	CBasePlayer *, T1?		0	gcc2
+CHalfLifeTeamplay	InitHUD	?	CBasePlayer *		0	gcc2
+CHalfLifeTeamplay	IsTeamplay	?			0	gcc2
+CHalfLifeTeamplay	IsValidTeam	?	const char *		0	gcc2
+CHalfLifeTeamplay	PlayerKilled	?	CBasePlayer *, entvars_s *, T2?		0	gcc2
+CHalfLifeTeamplay	PlayerRelationship	?	CBaseEntity *, T1?		0	gcc2
+CHalfLifeTeamplay	RecountTeams	?	bool		0	gcc2
+CHalfLifeTeamplay	SetDefaultPlayerTeam	?	CBasePlayer *		0	gcc2
+CHalfLifeTeamplay	ShouldAutoAim	?	CBasePlayer *, edict_s *		0	gcc2
+CHalfLifeTeamplay	TeamWithFewestPlayers	?			0	gcc2
+CHalfLifeTeamplay	Think	?			0	gcc2
+CHalfLifeTeamplay	UpdateGameMode	?	CBasePlayer *		0	gcc2
+CHealthKit	MyTouch	?	CBasePlayer *		0	gcc2
+CHealthKit	Precache	?			0	gcc2
+CHealthKit	Spawn	?			0	gcc2
+CInfoBreakable	RespawnThink	void			0	msvc
+CInfoIntermission	Spawn	?			0	gcc2
+CInfoIntermission	Think	?			0	gcc2
+CItem	ItemTouch	void	CBaseEntity *		0	msvc
+CItem	Materialize	void			0	msvc
+CItem	Respawn	?			0	gcc2
+CItem	Spawn	?			0	gcc2
+CItemSoda	CanThink	void			0	msvc
+CItemSoda	CanTouch	void	CBaseEntity *		0	msvc
+CItemSoda	Precache	?			0	gcc2
+CItemSoda	Spawn	?			0	gcc2
+CLadder	KeyValue	?	KeyValueData_s *		0	gcc2
+CLadder	Precache	?			0	gcc2
+CLadder	Spawn	?			0	gcc2
+CLaser	FireAtPoint	?	TraceResult &		0	gcc2
+CLaser	IsOn	?			0	gcc2
+CLaser	KeyValue	?	KeyValueData_s *		0	gcc2
+CLaser	Precache	?			0	gcc2
+CLaser	Restore	?	CRestore &		0	gcc2
+CLaser	Save	?	CSave &		0	gcc2
+CLaser	Spawn	?			0	gcc2
+CLaser	StrikeThink	void			0	msvc
+CLaser	TurnOff	?			0	gcc2
+CLaser	TurnOn	?			0	gcc2
+CLight	KeyValue	?	KeyValueData_s *		0	gcc2
+CLight	Restore	?	CRestore &		0	gcc2
+CLight	Save	?	CSave &		0	gcc2
+CLight	Spawn	?			0	gcc2
+CLightning	Activate	?			0	gcc2
+CLightning	BeamUpdateVars	?			0	gcc2
+CLightning	DamageThink	void			0	msvc
+CLightning	KeyValue	?	KeyValueData_s *		0	gcc2
+CLightning	Precache	?			0	gcc2
+CLightning	RandomArea	?			0	gcc2
+CLightning	RandomPoint	?	Vector &		0	gcc2
+CLightning	Restore	?	CRestore &		0	gcc2
+CLightning	Save	?	CSave &		0	gcc2
+CLightning	Spawn	?			0	gcc2
+CLightning	StrikeThink	void			0	msvc
+CLightning	StrikeUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CLightning	ToggleUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CLightning	Zap	?	const Vector &, T1?		0	gcc2
+CM61Grenade	BounceTouch	void	CBaseEntity *		1	msvc
+CM61Grenade	CreateGrenade	?	CBasePlayer *, float, Vector, T3?		0	gcc2
+CM61Grenade	Spawn	?			0	gcc2
+CM61Grenade	WaitThink	void			1	msvc
+CMessage	KeyValue	?	KeyValueData_s *		0	gcc2
+CMessage	Precache	?			0	gcc2
+CMessage	Spawn	?			0	gcc2
+CMomentaryDoor	KeyValue	?	KeyValueData_s *		0	gcc2
+CMomentaryDoor	Precache	?			0	gcc2
+CMomentaryDoor	Restore	?	CRestore &		0	gcc2
+CMomentaryDoor	Save	?	CSave &		0	gcc2
+CMomentaryDoor	Spawn	?			0	gcc2
+CMomentaryRotButton	KeyValue	?	KeyValueData_s *		0	gcc2
+CMomentaryRotButton	Off	void			0	msvc
+CMomentaryRotButton	PlaySound	?			0	gcc2
+CMomentaryRotButton	Restore	?	CRestore &		0	gcc2
+CMomentaryRotButton	Return	void			0	msvc
+CMomentaryRotButton	Save	?	CSave &		0	gcc2
+CMomentaryRotButton	Spawn	?			0	gcc2
+CMomentaryRotButton	UpdateAllButtons	?	float, int		0	gcc2
+CMomentaryRotButton	UpdateSelf	?	float		0	gcc2
+CMomentaryRotButton	UpdateSelfReturn	?	float		0	gcc2
+CMomentaryRotButton	UpdateTarget	?	float		0	gcc2
+CMultiManager	Clone	?			0	gcc2
+CMultiManager	HasTarget	?	int		0	gcc2
+CMultiManager	KeyValue	?	KeyValueData_s *		0	gcc2
+CMultiManager	ManagerThink	void			0	msvc
+CMultiManager	ManagerUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CMultiManager	Restore	?	CRestore &		0	gcc2
+CMultiManager	Save	?	CSave &		0	gcc2
+CMultiManager	Spawn	?			0	gcc2
+CMultiSource	IsTriggered	?	CBaseEntity *		0	gcc2
+CMultiSource	KeyValue	?	KeyValueData_s *		0	gcc2
+CMultiSource	Register	void			0	msvc
+CMultiSource	Restore	?	CRestore &		0	gcc2
+CMultiSource	Save	?	CSave &		0	gcc2
+CMultiSource	Spawn	?			0	gcc2
+CNullEntity	Spawn	?			0	gcc2
+CPathCorner	KeyValue	?	KeyValueData_s *		0	gcc2
+CPathCorner	Restore	?	CRestore &		0	gcc2
+CPathCorner	Save	?	CSave &		0	gcc2
+CPathCorner	Spawn	?			0	gcc2
+CPathTrack	Activate	?			0	gcc2
+CPathTrack	GetNext	?			0	gcc2
+CPathTrack	GetPrevious	?			0	gcc2
+CPathTrack	Instance	?	edict_s *		0	gcc2
+CPathTrack	KeyValue	?	KeyValueData_s *		0	gcc2
+CPathTrack	Link	?			0	gcc2
+CPathTrack	LookAhead	?	Vector *, float, int		0	gcc2
+CPathTrack	Nearest	?	Vector		0	gcc2
+CPathTrack	Project	?	CPathTrack *, T1?, Vector *, float		0	gcc2
+CPathTrack	Restore	?	CRestore &		0	gcc2
+CPathTrack	Save	?	CSave &		0	gcc2
+CPathTrack	SetPrevious	?	CPathTrack *		0	gcc2
+CPathTrack	Spawn	?			0	gcc2
+CPathTrack	ValidPath	?	CPathTrack *, int		0	gcc2
+CPendulum	Blocked	?	CBaseEntity *		0	gcc2
+CPendulum	KeyValue	?	KeyValueData_s *		0	gcc2
+CPendulum	PendulumUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CPendulum	Restore	?	CRestore &		0	gcc2
+CPendulum	RopeTouch	void	CBaseEntity *		0	msvc
+CPendulum	Save	?	CSave &		0	gcc2
+CPendulum	Spawn	?			0	gcc2
+CPendulum	Stop	void			0	msvc
+CPendulum	Swing	void			0	msvc
+CPendulum	Touch	?	CBaseEntity *		0	gcc2
+CPlane	CPlane	?			0	gcc2
+CPlane	InitializePlane	?	const Vector &, T1?		0	gcc2
+CPlane	PointInFront	?	const Vector &		0	gcc2
+CPlatTrigger	SpawnInsideTrigger	?	CFuncPlat *		0	gcc2
+CPlatTrigger	Touch	?	CBaseEntity *		0	gcc2
+CPointEntity	Spawn	?			0	gcc2
+CPushable	KeyValue	?	KeyValueData_s *		0	gcc2
+CPushable	Move	?	CBaseEntity *, int		0	gcc2
+CPushable	Precache	?			0	gcc2
+CPushable	Restore	?	CRestore &		0	gcc2
+CPushable	Save	?	CSave &		0	gcc2
+CPushable	Spawn	?			0	gcc2
+CPushable	TakeDamage	?	entvars_s *, T1?, float, int		0	gcc2
+CPushable	Touch	?	CBaseEntity *		0	gcc2
+CRecharge	KeyValue	?	KeyValueData_s *		0	gcc2
+CRecharge	Off	void			0	msvc
+CRecharge	Precache	?			0	gcc2
+CRecharge	Recharge	void			0	msvc
+CRecharge	Restore	?	CRestore &		0	gcc2
+CRecharge	Save	?	CSave &		0	gcc2
+CRecharge	Spawn	?			0	gcc2
+CRenderFxManager	Spawn	?			0	gcc2
+CRestore	BufferCheckZString	?	const char *		0	gcc2
+CRestore	BufferPointer	?			0	gcc2
+CRestore	BufferReadBytes	?	char *, int		0	gcc2
+CRestore	BufferReadHeader	?	HEADER *		0	gcc2
+CRestore	BufferSkipBytes	?	int		0	gcc2
+CRestore	BufferSkipZString	?			0	gcc2
+CRestore	ReadEntVars	?	const char *, entvars_s *		0	gcc2
+CRestore	ReadField	?	void *, TYPEDESCRIPTION *, int, int, int, char *, TYPEDESCRIPTION *		0	gcc2
+CRestore	ReadFields	?	const char *, void *, TYPEDESCRIPTION *, int		0	gcc2
+CRestore	ReadInt	?			0	gcc2
+CRestore	ReadNamedInt	?	const char *		0	gcc2
+CRestore	ReadNamedString	?	const char *		0	gcc2
+CRestore	ReadShort	?			0	gcc2
+CRevertSaved	KeyValue	?	KeyValueData_s *		0	gcc2
+CRevertSaved	LoadThink	void			0	msvc
+CRevertSaved	MessageThink	void			0	msvc
+CRevertSaved	Restore	?	CRestore &		0	gcc2
+CRevertSaved	Save	?	CSave &		0	gcc2
+CRotButton	Spawn	?			0	gcc2
+CRotDoor	BreakableRespawn	?	bool		0	gcc2
+CRotDoor	SetToggleState	?	int		0	gcc2
+CRotDoor	Spawn	?			0	gcc2
+CRuleBrushEntity	Spawn	?			0	gcc2
+CRuleEntity	CanFireForActivator	?	CBaseEntity *		0	gcc2
+CRuleEntity	KeyValue	?	KeyValueData_s *		0	gcc2
+CRuleEntity	Restore	?	CRestore &		0	gcc2
+CRuleEntity	Save	?	CSave &		0	gcc2
+CRuleEntity	Spawn	?			0	gcc2
+CRulePointEntity	Spawn	?			0	gcc2
+CSave	BufferData	?	const char *, int		0	gcc2
+CSave	BufferField	?	const char *, int, int		0	gcc2
+CSave	BufferHeader	?	const char *, int		0	gcc2
+CSave	BufferString	?	char *, int		0	gcc2
+CSave	DataEmpty	?	const char *, int		0	gcc2
+CSave	WriteData	?	const char *, int, int		0	gcc2
+CSave	WriteEntVars	?	const char *, entvars_s *		0	gcc2
+CSave	WriteFields	?	const char *, void *, TYPEDESCRIPTION *, int		0	gcc2
+CSave	WriteFloat	?	const char *, const float *, int		0	gcc2
+CSave	WriteFunction	?	const char *, const int *, int		0	gcc2
+CSave	WriteInt	?	const char *, const int *, int		0	gcc2
+CSave	WritePositionVector	?	const char *, const Vector &		0	gcc2
+CSave	WriteShort	?	const char *, const short *, int		0	gcc2
+CSave	WriteString	?	const char *, T1?		0	gcc2
+CSave	WriteTime	?	const char *, const float *, int		0	gcc2
+CSave	WriteVector	?	const char *, const Vector &		0	gcc2
+CSaveRestoreBuffer	BufferRewind	?	int		0	gcc2
+CSaveRestoreBuffer	CSaveRestoreBuffer	?			0	gcc2
+CSaveRestoreBuffer	EntityFlagsSet	?	int, int		0	gcc2
+CSaveRestoreBuffer	EntityFromIndex	?	int		0	gcc2
+CSaveRestoreBuffer	EntityIndex	?	CBaseEntity *		0	gcc2
+CSaveRestoreBuffer	HashString	?	const char *		0	gcc2
+CSaveRestoreBuffer	TokenHash	?	const char *		0	gcc2
+CShake	KeyValue	?	KeyValueData_s *		0	gcc2
+CShake	Spawn	?			0	gcc2
+CShower	Spawn	?			0	gcc2
+CShower	Think	?			0	gcc2
+CShower	Touch	?	CBaseEntity *		0	gcc2
+CSound	Clear	?			0	gcc2
+CSound	FIsScent	?			0	gcc2
+CSound	FIsSound	?			0	gcc2
+CSound	Reset	?			0	gcc2
+CSoundEnt	ActiveList	?			0	gcc2
+CSoundEnt	ClientSoundIndex	?	edict_s *		0	gcc2
+CSoundEnt	FreeList	?			0	gcc2
+CSoundEnt	FreeSound	?	int, int		0	gcc2
+CSoundEnt	IAllocSound	?			0	gcc2
+CSoundEnt	ISoundsInList	?	int		0	gcc2
+CSoundEnt	Initialize	?			0	gcc2
+CSoundEnt	InsertSound	?	int, const Vector &, int, float		0	gcc2
+CSoundEnt	Precache	?			0	gcc2
+CSoundEnt	SoundPointerForIndex	?	int		0	gcc2
+CSoundEnt	Spawn	?			0	gcc2
+CSoundEnt	Think	?			0	gcc2
+CSpeaker	KeyValue	?	KeyValueData_s *		0	gcc2
+CSpeaker	Precache	?			0	gcc2
+CSpeaker	Restore	?	CRestore &		0	gcc2
+CSpeaker	Save	?	CSave &		0	gcc2
+CSpeaker	Spawn	?			0	gcc2
+CSpeaker	SpeakerThink	void			0	msvc
+CSpeaker	ToggleUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CSprayCan	Spawn	?	entvars_s *		0	gcc2
+CSprayCan	Think	?			0	gcc2
+CSprite	Animate	?	float		0	gcc2
+CSprite	AnimateThink	void			0	msvc
+CSprite	AnimateUntilDead	void			0	msvc
+CSprite	Expand	?	float, float		0	gcc2
+CSprite	ExpandThink	void			0	msvc
+CSprite	Precache	?			0	gcc2
+CSprite	Restore	?	CRestore &		0	gcc2
+CSprite	Save	?	CSave &		0	gcc2
+CSprite	Spawn	?			0	gcc2
+CSprite	SpriteCreate	?	const char *, const Vector &, int		0	gcc2
+CSprite	SpriteInit	?	const char *, const Vector &		0	gcc2
+CSprite	TurnOff	?			0	gcc2
+CSprite	TurnOn	?			0	gcc2
+CTSAmmoPack	CreateAmmoPack	?	CBaseEntity *, s_ammo_info *, int		0	gcc2
+CTSAmmoPack	Fall	void			0	msvc
+CTSAmmoPack	OnGround	?			0	gcc2
+CTSAmmoPack	Precache	?			0	gcc2
+CTSAmmoPack	Spawn	?			0	gcc2
+CTSAmmoPack	WaitThink	void			0	msvc
+CTSAmmoPack	WaitTouch	void	CBaseEntity *		0	msvc
+CTSAnimation	Animate	?	CBasePlayer *, int		0	gcc2
+CTSAnimation	BlendAnimationsForSlide	?	CBasePlayer *		0	gcc2
+CTSAnimation	BlendJumpAnimations	?	CBasePlayer *		0	gcc2
+CTSAnimation	BulletDance	?	CBasePlayer *		0	gcc2
+CTSAnimation	CTSAnimation	?			0	gcc2
+CTSAnimation	DisableBulletDance	?	CBasePlayer *		0	gcc2
+CTSAnimation	EnableBulletDance	?	CBasePlayer *		0	gcc2
+CTSAnimation	GaitCloseCombat	?	int, CBasePlayer *		0	gcc2
+CTSAnimation	HandleCloseCombat	?	CBasePlayer *, int		0	gcc2
+CTSAnimation	Init	?			0	gcc2
+CTSAnimation	IsInCloseCombat	?	int		0	gcc2
+CTSAnimation	SetAnim	?	CBasePlayer *, const char *, int, int		0	gcc2
+CTSAnimation	UpdateTimers	?	CBasePlayer *		0	gcc2
+CTSBigPistolAmmo	Spawn	?			0	gcc2
+CTSBigPistolWeapon	GetWeapon	?	CBaseEntity *		0	gcc2
+CTSBigPistolWeapon	RandomBigPistol	?			0	gcc2
+CTSBigPistolWeapon	Spawn	?			0	gcc2
+CTSBomb	CutWire	?	int, CBasePlayer *		0	gcc2
+CTSBomb	EnableObjective	?	bool		0	gcc2
+CTSBomb	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSBomb	Precache	?			0	gcc2
+CTSBomb	Restore	?	CRestore &		0	gcc2
+CTSBomb	Save	?	CSave &		0	gcc2
+CTSBomb	SetRandomWires	?			0	gcc2
+CTSBomb	Spawn	?			0	gcc2
+CTSBomb	WaitThink	void			0	msvc
+CTSBriefcase	CTSBriefcase	?			0	gcc2
+CTSBriefcase	CanInteract	?	CBasePlayer *		0	gcc2
+CTSBriefcase	CaptureTouch	void	CBaseEntity *		0	msvc
+CTSBriefcase	FlagFall	?			0	gcc2
+CTSBriefcase	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSBriefcase	Spawn	?			0	gcc2
+CTSBriefcase	WaitThink	?			0	gcc2
+CTSCustomTarget	FireTarget	?	int		0	gcc2
+CTSCustomTarget	GetTargets	?	char *		0	gcc2
+CTSCustomTarget	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSCustomTarget	Spawn	?			0	gcc2
+CTSDMHill	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSDMHill	Restore	?	CRestore &		0	gcc2
+CTSDMHill	Save	?	CSave &		0	gcc2
+CTSDMHill	Spawn	?			0	gcc2
+CTSDMHill	WaitThink	void			0	msvc
+CTSDMHill	WaitTouch	void	CBaseEntity *		0	msvc
+CTSDeadCorpse	Precache	?			0	gcc2
+CTSDeadCorpse	Spawn	?			0	gcc2
+CTSDeadCorpse	TraceAttack	?	entvars_s *, float, Vector, TraceResult *, int		0	gcc2
+CTSDeadCorpse	WaitThink	?			0	gcc2
+CTSEmitter	CheckValues	?			0	gcc2
+CTSEmitter	InitThink	void			0	msvc
+CTSEmitter	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSEmitter	Spawn	?			0	gcc2
+CTSFlag	BounceTouch	void	CBaseEntity *		0	msvc
+CTSFlag	CanInteract	?	CBasePlayer *		0	gcc2
+CTSFlag	CreateFlag	?	CBasePlayer *, s_flag_status *		0	gcc2
+CTSFlag	Destroy	?			0	gcc2
+CTSFlag	Fall	void			0	msvc
+CTSFlag	OnGround	?			0	gcc2
+CTSFlag	PlayerTakeFlag	?	CBaseEntity *		0	gcc2
+CTSFlag	Precache	?			0	gcc2
+CTSFlag	RespawnFlag	?			0	gcc2
+CTSFlag	Spawn	?			0	gcc2
+CTSFlag	WaitThink	void			1	msvc
+CTSFlag	WaitTouch	void	CBaseEntity *		0	msvc
+CTSFog	Spawn	?			0	gcc2
+CTSGameRules	AddObjectiveInList	?	CTSObjective *, int *		0	gcc2
+CTSGameRules	CTSGameRules	?			0	gcc2
+CTSGameRules	CallCheckDeads	?			0	gcc2
+CTSGameRules	CheckDeads	?			0	gcc2
+CTSGameRules	CheckVotes	?			0	gcc2
+CTSGameRules	ClearObjectiveList	?			0	gcc2
+CTSGameRules	CountPlayers	?			0	gcc2
+CTSGameRules	FindIndexByObjective	?	CTSObjective *		0	gcc2
+CTSGameRules	GetPlayerModel	?	CBasePlayer *		0	gcc2
+CTSGameRules	GetRandomPowerup	?	int		0	gcc2
+CTSGameRules	GetTeamCash	?	CBasePlayer *		0	gcc2
+CTSGameRules	GetTeamIndex	?	const char *		0	gcc2
+CTSGameRules	GetTeamsNum	?			0	gcc2
+CTSGameRules	GlobalSlowMotion2	?	float, bool		0	gcc2
+CTSGameRules	Init	?			0	gcc2
+CTSGameRules	InitHUD	?	CBasePlayer *		0	gcc2
+CTSGameRules	InitObjectives	?			0	gcc2
+CTSGameRules	InitTeamScore	?	int *		0	gcc2
+CTSGameRules	InitTeams	?			0	gcc2
+CTSGameRules	IsCTB	?			0	gcc2
+CTSGameRules	PlayerVote	?	edict_s *, char *		0	gcc2
+CTSGameRules	PutPowerUp	?	int		0	gcc2
+CTSGameRules	ResetRestartRound	?	int		0	gcc2
+CTSGameRules	RespawnEntities	?	bool		0	gcc2
+CTSGameRules	RestartRound	?			0	gcc2
+CTSGameRules	RoundTimeLeft	?			0	gcc2
+CTSGameRules	SelectRandomTheOne	?			0	gcc2
+CTSGameRules	SendObjectiveList	?	CBaseEntity *		0	gcc2
+CTSGameRules	SendObjectiveToHud	?	int, CBaseEntity *		0	gcc2
+CTSGameRules	SetGlobalSlowMotion	?	float, float		0	gcc2
+CTSGameRules	SetObjective	?			0	gcc2
+CTSGameRules	SetPlayerTheOne	?	CBasePlayer *		0	gcc2
+CTSGameRules	SetTeamList	?	const char *		0	gcc2
+CTSGameRules	SetTeamModelList	?	const char *		0	gcc2
+CTSGameRules	ShowObjectiveOnHud	?	CTSObjective *, bool		0	gcc2
+CTSGameRules	TeamWin	?	int, int, bool, T3?		0	gcc2
+CTSGameRules	TheOneIsDead	?	CBasePlayer *, T1?		0	gcc2
+CTSGameRules	Think	?			0	gcc2
+CTSGameRules	TogglePlayerFromSlow	?	CBasePlayer *		0	gcc2
+CTSGameRules	UpdateTeamScores	?	int, int		0	gcc2
+CTSGrenade	BounceTouch	void	CBaseEntity *		1	msvc
+CTSGrenade	Precache	?			0	gcc2
+CTSGrenadeWeapon	Spawn	?			0	gcc2
+CTSGroundAmmo	Fall	void			0	msvc
+CTSGroundAmmo	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSGroundAmmo	OnGround	?			0	gcc2
+CTSGroundAmmo	Precache	?			0	gcc2
+CTSGroundAmmo	PutOnWall	?			0	gcc2
+CTSGroundAmmo	Spawn	?			0	gcc2
+CTSGroundAmmo	WaitThink	void			0	msvc
+CTSGroundAmmo	WaitTouch	void	CBaseEntity *		0	msvc
+CTSGroundWeapon	Fall	void			0	msvc
+CTSGroundWeapon	GetWeapon	?	CBaseEntity *		0	gcc2
+CTSGroundWeapon	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSGroundWeapon	OnGround	?			0	gcc2
+CTSGroundWeapon	Precache	?			0	gcc2
+CTSGroundWeapon	PutOnWall	?			0	gcc2
+CTSGroundWeapon	Restore	?	CRestore &		0	gcc2
+CTSGroundWeapon	Save	?	CSave &		0	gcc2
+CTSGroundWeapon	Spawn	?			0	gcc2
+CTSGroundWeapon	WaitThink	void			0	msvc
+CTSGroundWeapon	WaitTouch	void	CBaseEntity *		0	msvc
+CTSGun	AddAmmo	?	unsigned char, int		0	gcc2
+CTSGun	AddItem	?	int		0	gcc2
+CTSGun	AkimboFire	?			0	gcc2
+CTSGun	AlternateAttack	?			0	gcc2
+CTSGun	CCombatAttack	?			0	gcc2
+CTSGun	CCombatBlock	?			0	gcc2
+CTSGun	CCombatIdle	?			0	gcc2
+CTSGun	ColdCock	?			0	gcc2
+CTSGun	Deploy	?			0	gcc2
+CTSGun	DropWeapon	?	int, bool		0	gcc2
+CTSGun	EmptySound	?			0	gcc2
+CTSGun	Fire	?			0	gcc2
+CTSGun	GetActiveItems	?			0	gcc2
+CTSGun	GetBetterWeapon	?	int		0	gcc2
+CTSGun	GetItemInfo	?	ItemInfo *		0	gcc2
+CTSGun	GrenadeFire	?			0	gcc2
+CTSGun	GrenadeIdle	?	int		0	gcc2
+CTSGun	Holster	?	int		0	gcc2
+CTSGun	HolsterWeapon	?			0	gcc2
+CTSGun	KatanaFire	?			0	gcc2
+CTSGun	KatanaThrow	?			0	gcc2
+CTSGun	KnifeFire	?			0	gcc2
+CTSGun	MultiplyClips	?			0	gcc2
+CTSGun	Precache	?			0	gcc2
+CTSGun	PrimaryAttack	?			0	gcc2
+CTSGun	Reload	?			0	gcc2
+CTSGun	ReloadWeapon	?	int, int, float		0	gcc2
+CTSGun	Reset	?			0	gcc2
+CTSGun	ScaleSpread	?	float &, float, int		0	gcc2
+CTSGun	SecondaryAttack	?			0	gcc2
+CTSGun	SelectWeapon	?	tsweapon_t, bool		0	gcc2
+CTSGun	ShotgunFire	?			0	gcc2
+CTSGun	ShotgunReload	?			0	gcc2
+CTSGun	Spawn	?			0	gcc2
+CTSGun	StandardFire	?			0	gcc2
+CTSGun	StopReload	?			0	gcc2
+CTSGun	SwitchFireMode	?			0	gcc2
+CTSGun	SwitchItems	?			0	gcc2
+CTSGun	TakeWeapon	?	int, s_weapon_status *, int		0	gcc2
+CTSGun	Unzoom	?			0	gcc2
+CTSGun	UpdateClientData	?	CBasePlayer *		0	gcc2
+CTSGun	VKickback	?	float, int, bool, float, float, float		0	gcc2
+CTSGun	WeaponIdle	?			0	gcc2
+CTSGun	Zoom	?	int		0	gcc2
+CTSHack	EnableObjective	?	bool		0	gcc2
+CTSHack	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSHack	Precache	?			0	gcc2
+CTSHack	Restore	?	CRestore &		0	gcc2
+CTSHack	Save	?	CSave &		0	gcc2
+CTSHack	Spawn	?			0	gcc2
+CTSHack	WaitThink	void			0	msvc
+CTSKatanaWeapon	Spawn	?			0	gcc2
+CTSKnife	BounceTouch	void	CBaseEntity *		1	msvc
+CTSKnife	CreateKnife	?	CBasePlayer *, Vector, T2?, int		0	gcc2
+CTSKnife	GetDescription	?			0	gcc2
+CTSKnife	ShouldCollide	?	CBaseEntity *		0	gcc2
+CTSKnife	Spawn	?			0	gcc2
+CTSKnife	WaitThink	void			1	msvc
+CTSKnife	WaitTouch	void	CBaseEntity *		0	msvc
+CTSKnifeWeapon	GetWeapon	?	CBaseEntity *		0	gcc2
+CTSKnifeWeapon	RandomKnife	?			0	gcc2
+CTSKnifeWeapon	Spawn	?			0	gcc2
+CTSMGWeapon	Spawn	?			0	gcc2
+CTSMapGlobals	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSMapGlobals	Precache	?			0	gcc2
+CTSMapGlobals	Restore	?	CRestore &		0	gcc2
+CTSMapGlobals	Save	?	CSave &		0	gcc2
+CTSMapGlobals	Spawn	?			0	gcc2
+CTSMapGlobals	WaitThink	void			0	msvc
+CTSMapGlobals	get_weapon_restriction	?			0	gcc2
+CTSModel	Precache	?			0	gcc2
+CTSModel	Spawn	?			0	gcc2
+CTSObjective	CanInteract	?	CBasePlayer *		0	gcc2
+CTSObjective	Freeze	?	bool		0	gcc2
+CTSObjective	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSObjective	Restore	?	CRestore &		0	gcc2
+CTSObjective	Save	?	CSave &		0	gcc2
+CTSObjectiveManager	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSObjectiveManager	Reset	?			0	gcc2
+CTSObjectiveManager	Restore	?	CRestore &		0	gcc2
+CTSObjectiveManager	Save	?	CSave &		0	gcc2
+CTSObjectiveManager	Spawn	?			0	gcc2
+CTSObjectivePointer	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSObjectivePointer	Spawn	?			0	gcc2
+CTSParticle	CheckValues	?			0	gcc2
+CTSParticle	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSParticle	Spawn	?			0	gcc2
+CTSPhysicObject	Precache	?			0	gcc2
+CTSPhysicObject	RestorePhysycs	?			0	gcc2
+CTSPhysicObject	SavePhysics	?			0	gcc2
+CTSPhysicObject	Spawn	?			0	gcc2
+CTSPhysicObject	WaitThink	void			1	msvc
+CTSPistolAmmo	Spawn	?			0	gcc2
+CTSPistolWeapon	GetWeapon	?	CBaseEntity *		0	gcc2
+CTSPistolWeapon	RandomPistol	?			0	gcc2
+CTSPistolWeapon	Spawn	?			0	gcc2
+CTSPlayerAmount	ClientConnect	?			0	gcc2
+CTSPlayerAmount	ClientDisconnect	?			0	gcc2
+CTSPlayerAmount	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSPlayerAmount	Spawn	?			0	gcc2
+CTSPowerUp	CreatePowerUp	?	int, int		0	gcc2
+CTSPowerUp	Fall	void			0	msvc
+CTSPowerUp	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSPowerUp	OnGround	?			0	gcc2
+CTSPowerUp	Precache	?			0	gcc2
+CTSPowerUp	Restore	?	CRestore &		0	gcc2
+CTSPowerUp	Save	?	CSave &		0	gcc2
+CTSPowerUp	SetupPowerUp	?	int, int, float, bool		0	gcc2
+CTSPowerUp	Spawn	?			0	gcc2
+CTSPowerUp	WaitThink	void			0	msvc
+CTSPowerUp	WaitTouch	void	CBaseEntity *		0	msvc
+CTSRifleAmmo	Spawn	?			0	gcc2
+CTSRifleWeapon	GetWeapon	?	CBaseEntity *		0	gcc2
+CTSRifleWeapon	RandomRifle	?			0	gcc2
+CTSRifleWeapon	Spawn	?			0	gcc2
+CTSSMGAmmo	Spawn	?			0	gcc2
+CTSSMGWeapon	GetWeapon	?	CBaseEntity *		0	gcc2
+CTSSMGWeapon	RandomSMG	?			0	gcc2
+CTSSMGWeapon	Spawn	?			0	gcc2
+CTSScoreGiver	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSScoreGiver	Spawn	?			0	gcc2
+CTSSellZone	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSSellZone	SellTouch	void	CBaseEntity *		0	msvc
+CTSSellZone	Spawn	?			0	gcc2
+CTSSharedEmitter	AddEmitter	?	sharedemitter_s *		0	gcc2
+CTSSharedEmitter	AddParticle	?	sharedparticle_s *		0	gcc2
+CTSSharedEmitter	CTSSharedEmitter	?			0	gcc2
+CTSSharedEmitter	EmitterKeyValue	?	sharedemitter_s *, char *, T2?		0	gcc2
+CTSSharedEmitter	KillAll	?			0	gcc2
+CTSSharedEmitter	KillEmitter	?	int		0	gcc2
+CTSSharedEmitter	NextEmitter	?			0	gcc2
+CTSSharedEmitter	NextParticle	?			0	gcc2
+CTSSharedEmitter	ParticleKeyValue	?	sharedparticle_s *, char *, T2?		0	gcc2
+CTSSharedEmitter	SV_UpdateClient	?	int		0	gcc2
+CTSSharedEmitter	SetEmitterParticle	?	int, int		0	gcc2
+CTSShotgunAmmo	Spawn	?			0	gcc2
+CTSShotgunWeapon	GetWeapon	?	CBaseEntity *		0	gcc2
+CTSShotgunWeapon	RandomShotgun	?			0	gcc2
+CTSShotgunWeapon	Spawn	?			0	gcc2
+CTSShrapnel	BounceTouch	void	CBaseEntity *		1	msvc
+CTSShrapnel	Create	?	entvars_s *, Vector, T2?		0	gcc2
+CTSShrapnel	Precache	?			0	gcc2
+CTSShrapnel	Spawn	?			0	gcc2
+CTSShrapnel	WaitThink	void			1	msvc
+CTSSlowMotion	ActivateSlow	?			0	gcc2
+CTSSlowMotion	CheckPlayersDistance	?			0	gcc2
+CTSSlowMotion	DeactivateSlow	?			0	gcc2
+CTSSlowMotion	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSSlowMotion	Restore	?	CRestore &		0	gcc2
+CTSSlowMotion	Save	?	CSave &		0	gcc2
+CTSSlowMotion	Spawn	?			0	gcc2
+CTSSlowMotion	WaitThink	void			0	msvc
+CTSSlowMotion	WaitTouch	void	CBaseEntity *		0	msvc
+CTSSlowMotionPoint	ActivateSlow	?	float, float, float, bool		0	gcc2
+CTSSlowMotionPoint	CreateSlowMotionPoint	?	Vector, float, float, float, bool		0	gcc2
+CTSSlowMotionPoint	DeactivateSlow	?			0	gcc2
+CTSSlowMotionPoint	Spawn	?			0	gcc2
+CTSSlowMotionPoint	WaitThink	void			0	msvc
+CTSSniperAmmo	Spawn	?			0	gcc2
+CTSSniperWeapon	Spawn	?			0	gcc2
+CTSStunt	CanDiveHigh	?			0	gcc2
+CTSStunt	CanDiveLow	?			0	gcc2
+CTSStunt	CanDiveMedium	?			0	gcc2
+CTSStunt	CheckForBreakables	?			0	gcc2
+CTSStunt	CheckForWallClimb	?			0	gcc2
+CTSStunt	CheckForWallDive	?			0	gcc2
+CTSStunt	CheckForWallJump	?			0	gcc2
+CTSStunt	CloseAttack	?			0	gcc2
+CTSStunt	GoBulletTime	?			0	gcc2
+CTSStunt	GoDive	?			0	gcc2
+CTSStunt	GoRoll	?	int		0	gcc2
+CTSStunt	GoWallClimb	?			0	gcc2
+CTSStunt	GoWallJump	?			0	gcc2
+CTSStunt	GoWheel	?			0	gcc2
+CTSStunt	HandleDive	?			0	gcc2
+CTSStunt	HandleSlide	?			0	gcc2
+CTSStunt	HandleStunt	?			0	gcc2
+CTSStunt	HandleWallClimb	?			0	gcc2
+CTSStunt	HandleWallJump	?			0	gcc2
+CTSStunt	HandleWheel	?			0	gcc2
+CTSStunt	Init	?	CBasePlayer *		0	gcc2
+CTSStunt	Landing	?			0	gcc2
+CTSStunt	NextDive	?			0	gcc2
+CTSStunt	Play	?			0	gcc2
+CTSStunt	SlotBonus	?			0	gcc2
+CTSSuperJump	Spawn	?			0	gcc2
+CTSTeamEscape	EnableObjective	?	bool		0	gcc2
+CTSTeamEscape	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSTeamEscape	Precache	?			0	gcc2
+CTSTeamEscape	Restore	?	CRestore &		0	gcc2
+CTSTeamEscape	Save	?	CSave &		0	gcc2
+CTSTeamEscape	Spawn	?			0	gcc2
+CTSTeamEscape	WaitThink	void			0	msvc
+CTSTeamEscape	WaitTouch	void	CBaseEntity *		0	msvc
+CTSTimer	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSTimer	Spawn	?			0	gcc2
+CTSTimer	ToggleTimer	?			0	gcc2
+CTSTimer	WaitThink	void			0	msvc
+CTSTrigger	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSTrigger	Spawn	?			0	gcc2
+CTSTrigger	WaitThink	void			0	msvc
+CTSTrigger	WaitTouch	void	CBaseEntity *		0	msvc
+CTSWinGiver	EnableObjective	?	bool		0	gcc2
+CTSWinGiver	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSWinGiver	Restore	?	CRestore &		0	gcc2
+CTSWinGiver	Save	?	CSave &		0	gcc2
+CTSWinGiver	Spawn	?			0	gcc2
+CTSWind	BlowThink	?			0	gcc2
+CTSWind	KeyValue	?	KeyValueData_s *		0	gcc2
+CTSWind	Spawn	?			0	gcc2
+CTSWorldGun	BounceTouch	void	CBaseEntity *		0	msvc
+CTSWorldGun	CreateWeapon	?	CBasePlayer *, tsweapon_t, s_weapon_status *		0	gcc2
+CTSWorldGun	Fall	void			0	msvc
+CTSWorldGun	GetWeapon	?	CBaseEntity *		0	gcc2
+CTSWorldGun	OnGround	?			0	gcc2
+CTSWorldGun	Precache	?			0	gcc2
+CTSWorldGun	ShouldCollide	?	CBaseEntity *		0	gcc2
+CTSWorldGun	Spawn	?			0	gcc2
+CTSWorldGun	WaitThink	void			1	msvc
+CTSWorldGun	WaitTouch	void	CBaseEntity *		0	msvc
+CTargetCDAudio	KeyValue	?	KeyValueData_s *		0	gcc2
+CTargetCDAudio	Play	?			0	gcc2
+CTargetCDAudio	Spawn	?			0	gcc2
+CTargetCDAudio	Think	?			0	gcc2
+CTestEffect	Precache	?			0	gcc2
+CTestEffect	Spawn	?			0	gcc2
+CTestEffect	TestThink	void			0	msvc
+CTriggerCDAudio	PlayTrack	?			0	gcc2
+CTriggerCDAudio	Spawn	?			0	gcc2
+CTriggerCDAudio	Touch	?	CBaseEntity *		0	gcc2
+CTriggerCamera	FollowTarget	void			0	msvc
+CTriggerCamera	KeyValue	?	KeyValueData_s *		0	gcc2
+CTriggerCamera	Move	?			0	gcc2
+CTriggerCamera	Restore	?	CRestore &		0	gcc2
+CTriggerCamera	Save	?	CSave &		0	gcc2
+CTriggerCamera	Spawn	?			0	gcc2
+CTriggerChangeTarget	KeyValue	?	KeyValueData_s *		0	gcc2
+CTriggerChangeTarget	Restore	?	CRestore &		0	gcc2
+CTriggerChangeTarget	Save	?	CSave &		0	gcc2
+CTriggerChangeTarget	Spawn	?			0	gcc2
+CTriggerCounter	Spawn	?			0	gcc2
+CTriggerEndSection	EndSectionTouch	void	CBaseEntity *		0	msvc
+CTriggerEndSection	EndSectionUse	void	CBaseEntity *, CBaseEntity *, enum USE_TYPE, float		0	msvc
+CTriggerEndSection	KeyValue	?	KeyValueData_s *		0	gcc2
+CTriggerEndSection	Spawn	?			0	gcc2
+CTriggerGravity	GravityTouch	void	CBaseEntity *		0	msvc
+CTriggerGravity	Spawn	?			0	gcc2
+CTriggerHurt	RadiationThink	void			0	msvc
+CTriggerHurt	Spawn	?			0	gcc2
+CTriggerMonsterJump	Spawn	?			0	gcc2
+CTriggerMonsterJump	Think	?			0	gcc2
+CTriggerMonsterJump	Touch	?	CBaseEntity *		0	gcc2
+CTriggerMultiple	Spawn	?			0	gcc2
+CTriggerOnce	Spawn	?			0	gcc2
+CTriggerPush	KeyValue	?	KeyValueData_s *		0	gcc2
+CTriggerPush	Spawn	?			0	gcc2
+CTriggerPush	Touch	?	CBaseEntity *		0	gcc2
+CTriggerRelay	KeyValue	?	KeyValueData_s *		0	gcc2
+CTriggerRelay	Restore	?	CRestore &		0	gcc2
+CTriggerRelay	Save	?	CSave &		0	gcc2
+CTriggerRelay	Spawn	?			0	gcc2
+CTriggerSave	SaveTouch	void	CBaseEntity *		0	msvc
+CTriggerSave	Spawn	?			0	gcc2
+CTriggerTeleport	Spawn	?			0	gcc2
+CTriggerVolume	Spawn	?			0	gcc2
+CVipEscape	KeyValue	?	KeyValueData_s *		0	gcc2
+CVipEscape	Precache	?			0	gcc2
+CVipEscape	Spawn	?			0	gcc2
+CVoiceGameMgr	CVoiceGameMgr	?			0	gcc2
+CVoiceGameMgr	ClientCommand	?	CBasePlayer *, const char *		0	gcc2
+CVoiceGameMgr	ClientConnected	?	edict_s *		0	gcc2
+CVoiceGameMgr	Init	?	IVoiceGameMgrHelper *, int		0	gcc2
+CVoiceGameMgr	SetHelper	?	IVoiceGameMgrHelper *		0	gcc2
+CVoiceGameMgr	Update	?	double		0	gcc2
+CVoiceGameMgr	UpdateMasks	?			0	gcc2
+CWallHealth	KeyValue	?	KeyValueData_s *		0	gcc2
+CWallHealth	Off	void			0	msvc
+CWallHealth	Precache	?			0	gcc2
+CWallHealth	Recharge	void			0	msvc
+CWallHealth	Restore	?	CRestore &		0	gcc2
+CWallHealth	Save	?	CSave &		0	gcc2
+CWallHealth	Spawn	?			0	gcc2
+CWeaponBox	GiveAmmo	?	int, char *, int, int *		0	gcc2
+CWeaponBox	HasWeapon	?	CBasePlayerItem *		0	gcc2
+CWeaponBox	IsEmpty	?			0	gcc2
+CWeaponBox	KeyValue	?	KeyValueData_s *		0	gcc2
+CWeaponBox	Kill	void			0	msvc
+CWeaponBox	PackAmmo	?	int, int		0	gcc2
+CWeaponBox	PackWeapon	?	CBasePlayerItem *		0	gcc2
+CWeaponBox	Precache	?			0	gcc2
+CWeaponBox	Restore	?	CRestore &		0	gcc2
+CWeaponBox	Save	?	CSave &		0	gcc2
+CWeaponBox	SetObjectCollisionBox	?			0	gcc2
+CWeaponBox	Spawn	?			0	gcc2
+CWeaponBox	Touch	?	CBaseEntity *		0	gcc2
+CWeaponCycler	Deploy	?			0	gcc2
+CWeaponCycler	Holster	?	int		0	gcc2
+CWeaponCycler	PrimaryAttack	?			0	gcc2
+CWeaponCycler	SecondaryAttack	?			0	gcc2
+CWeaponCycler	Spawn	?			0	gcc2
+CWorld	KeyValue	?	KeyValueData_s *		0	gcc2
+CWorld	Precache	?			0	gcc2
+CWorld	Spawn	?			0	gcc2
+CWorldItem	KeyValue	?	KeyValueData_s *		0	gcc2
+CWorldItem	Spawn	?			0	gcc2
+CWreckage	Precache	?			0	gcc2
+CWreckage	Restore	?	CRestore &		0	gcc2
+CWreckage	Save	?	CSave &		0	gcc2
+CWreckage	Spawn	?			0	gcc2
+CWreckage	Think	?			0	gcc2
+CXenHair	Precache	?			0	gcc2
+CXenHair	Spawn	?			0	gcc2
+CXenHair	Think	?			0	gcc2
+CXenHull	CreateHull	?	CBaseEntity *, const Vector &, const Vector &, const Vector &		0	gcc2
+CXenPLight	LightOff	?			0	gcc2
+CXenPLight	LightOn	?			0	gcc2
+CXenPLight	Precache	?			0	gcc2
+CXenPLight	Restore	?	CRestore &		0	gcc2
+CXenPLight	Save	?	CSave &		0	gcc2
+CXenPLight	Spawn	?			0	gcc2
+CXenPLight	Think	?			0	gcc2
+CXenPLight	Touch	?	CBaseEntity *		0	gcc2
+CXenSpore	Precache	?			0	gcc2
+CXenSpore	Spawn	?			0	gcc2
+CXenSpore	Think	?			0	gcc2
+CXenSpore	Touch	?	CBaseEntity *		0	gcc2
+CXenSporeLarge	Spawn	?			0	gcc2
+CXenSporeMed	Spawn	?			0	gcc2
+CXenSporeSmall	Spawn	?			0	gcc2
+CXenTree	Attack	?			0	gcc2
+CXenTree	HandleAnimEvent	?	MonsterEvent_t *		0	gcc2
+CXenTree	Precache	?			0	gcc2
+CXenTree	Restore	?	CRestore &		0	gcc2
+CXenTree	Save	?	CSave &		0	gcc2
+CXenTree	Spawn	?			0	gcc2
+CXenTree	Think	?			0	gcc2
+CXenTree	Touch	?	CBaseEntity *		0	gcc2
+CXenTreeTrigger	Touch	?	CBaseEntity *		0	gcc2
+CXenTreeTrigger	TriggerCreate	?	edict_s *, const Vector &		0	gcc2
+EHANDLE	Get	?			0	gcc2
+EHANDLE	Set	?	edict_s *		0	gcc2
+UTIL_GroupTrace	UTIL_GroupTrace	?	int, int		0	gcc2

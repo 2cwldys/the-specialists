@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+"""
+members.py — recover CLASS MEMBER VARIABLES (name + byte-offset + type) from the original TS binary.
+
+The HL save/restore system stores, per class, a `DEFINE_FIELD` array of TYPEDESCRIPTION as a data symbol
+`_<len><Class>.m_SaveData` (CBasePlayer uses `m_playerSaveData`). Each 16-byte entry is:
+    int   fieldType   @0   (FIELDTYPE enum)
+    char *fieldName   @4   (R_386_RELATIVE — in-place value is the .rodata string vaddr)
+    int   fieldOffset @8   (byte offset of the member in the object)
+    short fieldSize   @12  (array count)
+    short flags       @14
+So every SAVED member's name/offset/type is recoverable — the variable inventory for Phase 1, and the
+anchor for the struct-layout refactor. (Transient/non-saved members aren't in the table; they need the
+decompile.) NOTE: offsets are the original gcc2 layout (provenance) — we build on the modern SDK, so they
+are NOT targets, but the NAMES + TYPES + relative order are what we verify/replicate.
+
+Outputs:
+  reference/coverage/MEMBERS.md    — human report, per class
+  reference/coverage/members.tsv   — machine-readable: Class<TAB>offset<TAB>fieldtype<TAB>cpptype<TAB>name<TAB>count
+
+  python3 scripts/coverage/members.py           # all classes
+  python3 scripts/coverage/members.py <Class>    # one class to stdout
+"""
+import os, re, struct, subprocess, sys
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+SO   = os.path.join(ROOT, "reference", "ts_i386.so")
+OUT_MD  = os.path.join(ROOT, "reference", "coverage", "MEMBERS.md")
+OUT_TSV = os.path.join(ROOT, "reference", "coverage", "members.tsv")
+
+# FIELDTYPE enum (HL cbase.h) -> (name, C++-ish type for the refactor)
+FIELD = [
+    ("FLOAT", "float"), ("STRING", "string_t"), ("ENTITY", "edict_t*"), ("CLASSPTR", "CBaseEntity*"),
+    ("EHANDLE", "EHANDLE"), ("EVARS", "entvars_t*"), ("EDICT", "edict_t*"), ("VECTOR", "Vector"),
+    ("POSITION_VECTOR", "Vector"), ("POINTER", "void*"), ("INTEGER", "int"), ("FUNCTION", "void*"),
+    ("BOOLEAN", "BOOL"), ("SHORT", "short"), ("CHARACTER", "char"), ("TIME", "float"),
+    ("MODELNAME", "string_t"), ("SOUNDNAME", "string_t"),
+]
+
+DATA = open(SO, "rb").read()
+
+
+def sections():
+    out = subprocess.check_output(["readelf", "-SW", SO], text=True)
+    secs = []
+    for ln in out.splitlines():
+        m = re.search(r"\]\s+(\S+)\s+(\S+)\s+([0-9a-f]+)\s+([0-9a-f]+)\s+([0-9a-f]+)", ln)
+        if m:
+            name, typ, addr, off, size = m.group(1), m.group(2), int(m.group(3), 16), int(m.group(4), 16), int(m.group(5), 16)
+            if typ == "PROGBITS":
+                secs.append((addr, off, size))
+    return secs
+
+
+SECS = sections()
+
+
+def va_off(va):
+    for addr, off, size in SECS:
+        if addr <= va < addr + size:
+            return off + (va - addr)
+    return None
+
+
+def u32(o): return struct.unpack_from("<I", DATA, o)[0]
+def u16(o): return struct.unpack_from("<H", DATA, o)[0]
+
+
+def cstr(va):
+    o = va_off(va)
+    if o is None:
+        return None
+    e = DATA.index(b"\0", o)
+    return DATA[o:e].decode("latin1", "replace")
+
+
+def save_tables():
+    """[(class, table_vaddr, n_entries)] from nm -S, for *.m_*SaveData* data symbols."""
+    nm = subprocess.run(f"nm -S '{SO}'", shell=True, capture_output=True, text=True).stdout
+    out = []
+    for ln in nm.splitlines():
+        p = ln.split()
+        if len(p) < 4:
+            continue
+        addr, size, typ, name = p[0], p[1], p[2], p[3]
+        if typ not in ("D", "d", "R", "r"):
+            continue
+        m = re.match(r"^_(\d+)([A-Za-z_]\w*)\.(m_\w*[Ss]ave\w*)$", name)
+        if not m:
+            continue
+        n = int(m.group(1))
+        cls = m.group(2)[:n]
+        out.append((cls, int(addr, 16), int(size, 16) // 16))
+    return out
+
+
+def parse_table(va, n):
+    rows = []
+    base = va_off(va)
+    if base is None:
+        return rows
+    for i in range(n):
+        o = base + i * 16
+        ft = u32(o)
+        name = cstr(u32(o + 4)) or "?"
+        foff = u32(o + 8)
+        cnt = u16(o + 12)
+        ftn, cpp = (FIELD[ft] if ft < len(FIELD) else (str(ft), "?"))
+        rows.append((foff, ftn, cpp, name, cnt))
+    return rows
+
+
+def main():
+    tables = sorted(save_tables())
+    parsed = {cls: parse_table(va, n) for cls, va, n in tables}
+
+    if len(sys.argv) > 1:
+        c = sys.argv[1]
+        rows = parsed.get(c)
+        if not rows:
+            print(f"no save table for {c} (transient-only members aren't recoverable here)")
+            return
+        print(f"# {c}  ({len(rows)} saved members)")
+        for foff, ftn, cpp, name, cnt in rows:
+            arr = f"[{cnt}]" if cnt != 1 else ""
+            print(f"  +0x{foff:<4x} {cpp:<14} {name}{arr}   ({ftn})")
+        return
+
+    total = sum(len(v) for v in parsed.values())
+    L = ["# Recovered class member variables (from the save/restore TYPEDESCRIPTION tables)", "",
+         "Generated by `scripts/coverage/members.py`. Name + offset + type for every **saved** member of "
+         "each class that has a `DEFINE_FIELD` table in ts_i386.so. Offsets are the original gcc2 layout "
+         "(provenance, NOT a target on our modern SDK) — the NAMES, TYPES and order are what we "
+         "verify/replicate. Transient (non-saved) members are not in these tables.", "",
+         f"**{len(parsed)} classes · {total} saved members recovered.**", ""]
+    tsv = ["Class\toffset\tfieldtype\tcpptype\tname\tcount"]
+    for c in sorted(parsed):
+        rows = parsed[c]
+        if not rows:
+            continue
+        L += [f"## {c}  ({len(rows)})", "", "| offset | type | name | count |", "|---|---|---|--:|"]
+        for foff, ftn, cpp, name, cnt in rows:
+            L.append(f"| +0x{foff:x} | `{cpp}` ({ftn}) | `{name}` | {cnt} |")
+            tsv.append(f"{c}\t0x{foff:x}\t{ftn}\t{cpp}\t{name}\t{cnt}")
+        L.append("")
+
+    open(OUT_MD, "w").write("\n".join(L) + "\n")
+    open(OUT_TSV, "w").write("\n".join(tsv) + "\n")
+    print(f"wrote {OUT_MD} + {OUT_TSV}: {len(parsed)} classes, {total} saved members")
+
+
+if __name__ == "__main__":
+    main()
