@@ -44,6 +44,11 @@ void PrecacheAllTSWeapons()
 	PRECACHE_MODEL("sprites/ts_muzzleflash1h.spr");
 	PRECACHE_MODEL("sprites/ts_muzzleflash6.spr");
 
+	// Bullet-impact smoke puffs (client EV_TSBulletImpact): gun_smoke for metal/concrete/glass,
+	// wood_smoke for wood/dirt. The texture/flesh impact SOUND + decal + blood are server-side.
+	PRECACHE_MODEL("sprites/gun_smoke_add.spr");
+	PRECACHE_MODEL("sprites/wood_smoke_add.spr");
+
 	PRECACHE_SOUND("weapons/scock1.wav"); // pump-shotgun per-shell insert (ShotgunReload)
 
 	// Melee slash sounds (CTSGun::MeleeAttack — knife/katana/seal-knife): swing (miss) + surface/flesh hit.

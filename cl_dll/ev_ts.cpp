@@ -30,6 +30,8 @@
 #include "cl_entity.h"
 #include "event_api.h"
 #include "pm_defs.h"
+#include "pm_materials.h" // CHAR_TEX_* material classes
+#include "pm_shared.h"    // PM_FindTextureType
 #include "eventscripts.h"
 #include "ts_weapon_info.h" // the SHARED s_weapon_info table (now built into the client too)
 #include "ts_weapon_predict.h" // the active-weapon param cache (refreshed by each TS event)
@@ -96,6 +98,95 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side)
 		kRenderTransAdd, kRenderFxNoDissipation, 1.0f, 0.01f, 0);
 }
 
+// TS bullet impact: a SMOKE puff per surface material (NOT sparks-by-default), with metal/glass
+// also throwing sparks. RE'd from the client impact dispatcher FUN_10048f60(pos, normal, type,
+// texChar): wood/dirt -> wood_smoke_add; metal/grate/vent/glass/computer -> gun_smoke_add + metal
+// sparks; concrete/tile/etc -> gun_smoke_add; flesh -> nothing (the server's FireBulletsPlayer
+// already does the blood + the texture/flesh impact SOUND + the bullet decal — this only adds the
+// missing VISUAL puff). Client-side + predicted via the fire event (so no lag, no double sound/decal).
+static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
+{
+	static int s_gunSmoke = 0, s_woodSmoke = 0;
+	if (s_gunSmoke == 0)
+		s_gunSmoke = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/gun_smoke_add.spr");
+	if (s_woodSmoke == 0)
+		s_woodSmoke = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/wood_smoke_add.spr");
+
+	Vector end;
+	for (int i = 0; i < 3; i++)
+		end[i] = src[i] + dir[i] * 8192.0f;
+
+	gEngfuncs.pEventAPI->EV_SetUpPlayerPrediction(0, 1);
+	gEngfuncs.pEventAPI->EV_PushPMStates();
+	gEngfuncs.pEventAPI->EV_SetSolidPlayers(idx - 1);
+	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
+	pmtrace_t tr;
+	gEngfuncs.pEventAPI->EV_PlayerTrace((float*)src, end, PM_NORMAL, -1, &tr);
+
+	if (tr.fraction < 1.0f)
+	{
+		// Classify the hit surface. Brush (world/breakable) -> texture material char; anything else
+		// (player/monster bbox) -> flesh.
+		physent_t* pe = gEngfuncs.pEventAPI->EV_GetPhysent(tr.ent);
+		char chType = CHAR_TEX_CONCRETE;
+		bool isBrush = pe && (pe->solid == SOLID_BSP || pe->movetype == MOVETYPE_PUSH || tr.ent == 0);
+		if (isBrush)
+		{
+			const char* texName = gEngfuncs.pEventAPI->EV_TraceTexture(tr.ent, (float*)src, end);
+			if (texName && texName[0])
+			{
+				char buf[64];
+				strncpy(buf, texName, sizeof(buf) - 1);
+				buf[sizeof(buf) - 1] = 0;
+				chType = PM_FindTextureType(buf);
+			}
+		}
+		else
+		{
+			chType = CHAR_TEX_FLESH; // player/monster — server already sprays blood; no smoke
+		}
+
+		// Spawn the impact puff a touch off the surface so it isn't clipped into the wall.
+		Vector pos;
+		for (int i = 0; i < 3; i++)
+			pos[i] = tr.endpos[i] + tr.plane.normal[i] * 2.0f;
+		const Vector drift(0, 0, 12); // smoke rises a little
+
+		int smokeSpr = s_gunSmoke;
+		bool sparks = false;
+		switch (chType)
+		{
+		case CHAR_TEX_FLESH:
+		case CHAR_TEX_SLOSH:
+			smokeSpr = 0; // flesh/water: no smoke (blood / splash handled elsewhere)
+			break;
+		case CHAR_TEX_WOOD:
+		case CHAR_TEX_DIRT:
+			smokeSpr = s_woodSmoke;
+			break;
+		case CHAR_TEX_METAL:
+		case CHAR_TEX_GRATE:
+		case CHAR_TEX_VENT:
+		case CHAR_TEX_GLASS:
+		case CHAR_TEX_COMPUTER:
+			sparks = true; // metal/glass throw sparks in addition to the smoke
+			smokeSpr = s_gunSmoke;
+			break;
+		default: // concrete / tile / snow / etc.
+			smokeSpr = s_gunSmoke;
+			break;
+		}
+
+		if (sparks)
+			gEngfuncs.pEfxAPI->R_SparkShower(tr.endpos);
+		if (smokeSpr > 0)
+			gEngfuncs.pEfxAPI->R_TempSprite(pos, drift, 0.4f, smokeSpr,
+				kRenderTransAdd, kRenderFxNone, 0.7f, 0.7f, FTENT_FADEOUT | FTENT_SPRCYCLE);
+	}
+
+	gEngfuncs.pEventAPI->EV_PopPMStates();
+}
+
 void EV_TSFire(event_args_t* args)
 {
 	const int idx = args->entindex;
@@ -128,6 +219,17 @@ void EV_TSFire(event_args_t* args)
 	const int shell = gEngfuncs.pEventAPI->EV_FindModelIndex("models/shell.mdl");
 	EV_GetDefaultShellInfo(args, origin, velocity, shellVel, shellOrigin, fwd, right, up, 20, -12, 4);
 	EV_EjectBrass(shellOrigin, shellVel, angles[1], shell, TE_BOUNCE_SHELL);
+
+	// Bullet impact puff (smoke on surfaces, sparks on metal/glass) at where the shot lands. Melee/
+	// grenade fire-types don't fire bullets, so skip them; the rest trace a centre ray (the server
+	// does the per-pellet damage/decal/sound — this is the missing visual feedback).
+	const s_weapon_info* wi = get_weapon_info((tsweapon_t)weaponType);
+	if (wi->iFireType != TSFT_GRENADE && wi->iFireType != TSFT_KNIFE && wi->iFireType != TSFT_KATANA)
+	{
+		Vector vecSrc;
+		EV_GetGunPosition(args, vecSrc, origin);
+		EV_TSBulletImpact(idx, vecSrc, fwd);
+	}
 
 	const char* snd = s_fireSound[weaponType];
 	if (snd)
