@@ -156,6 +156,16 @@ verified, committed:
   fills the brush volume = covers the surface) + the BREAK_GLASS/WOOD flag. TS uses stock CBreakable (no
   override). If denser coverage is wanted, bump the TE_BREAKMODEL count.
 
+**cont.69t follow-ups (user feedback, committed c16e960):**
+- Knife throw COLLISION (RE: CTSKnife::BounceTouch@0x6decc) — STICK into non-breakable non-flesh
+  surfaces (embed + point the way it flew); BOUNCE off a breakable it can't break; break-through a
+  breakable it CAN break + stick in the wall beyond (forward trace w/ ignore_glass); flesh = stab +
+  drop a recoverable knife. **Fixed a server CRASH** (Host_Error "trigger in clipping list") — StickAt
+  set pev->solid=SOLID_TRIGGER without relinking; now sets solid+size and relinks (UTIL_SetSize/Origin).
+- Pickup = press-E (IN_USE) in a trigger radius, NOT run-over, matching CTSWorldGun::WaitTouch (no aim).
+- Dropped-weapon GLOW = WHITE kRenderFxGlowShell (CTSWorldGun + stuck knife) — model shell, not a light.
+  (User-corrected: white not orange; E-pickup not run-over.)
+
 **STILL QUEUED (user-requested, RE notes for the next session):**
 - **Proximity auto-kick (non-kung-fu)** — "any weapon except kung-fu auto-kicks when next to + aiming at
   a breakable/person." RE is HARD: the kick is `CloseCombatAttack__11CBasePlayer` (@0x95f88) called via an
