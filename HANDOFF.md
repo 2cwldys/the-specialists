@@ -152,9 +152,9 @@ gitignored (decompiles/RE notes live there). Commits are `--no-gpg-sign` (gpg pa
 work on `main`; no `Co-Authored-By` trailers. Don't commit the user's `test.sh` (their launcher).
 
 ## Where things stand (2026-06-24, through cont.69w) — cont.69w (recoil/shake/penetration/glass/weapon-table)
-## was BUILT + DEPLOYED to the xash rig but NOT yet committed — review `git status`/`git diff` and commit
-## the cont.69w changes (dlls/ts_gun.cpp, dlls/ts_weapon_info.cpp, cl_dll/view.cpp, cl_dll/ev_ts.cpp,
-## cl_dll/ts_recoil.h) on `main` (`--no-gpg-sign`, no Co-Authored-By). Older state below is through cont.69t:
+## was BUILT + DEPLOYED to the xash rig AND COMMITTED on `main` as **72e96fa** (`--no-gpg-sign`). Still
+## uncommitted on disk: `test.sh` (the user's launcher — DO NOT commit) + pre-existing `reference/coverage/*`
+## edits (not cont.69w work). Older state below is through cont.69t:
 
 ### cont.69t — weapon-effect polish batch (RE-grounded; user playtests). Read the ledger top for full detail.
 - **Bullet impact smoke** (8430ea3) — client `EV_TSBulletImpact` (cl_dll/ev_ts.cpp): a SMOKE puff per surface
