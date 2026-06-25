@@ -350,30 +350,33 @@ static void TSP_SparkShower(const float* o, const float* n, int count, float spr
 	}
 }
 
-// SMOKE — FUN_10046680. A rising additive puff (gun_smoke_add / wood_smoke_add). VERIFY exact params.
-static void TSP_Smoke(const float* o, const float* n, const char* spr, short rendermode, short framecnt, float size)
+// SMOKE — FUN_10046680. An additive puff (gun_smoke_add / wood_smoke_add) that plays its frame
+// animation once and vanishes (fadeRate=0, life=0). `count` = the mode-derived puff count; the
+// sprite frames cycle at `frameRate` (50 metal/glass, 20 concrete, 30 dirt/wood). RE-audited.
+static void TSP_Smoke(const float* o, const float* n, const char* spr, short rendermode,
+	int count, float size, float frameRate)
 {
 	int idx = TSP_RegisterSprite(spr, rendermode);
 	if (idx < 0)
 		return;
-	int cnt = framecnt < 1 ? 1 : framecnt;
+	int cnt = count < 1 ? 1 : count;
 	for (int i = 0; i < cnt; i++)
 	{
 		TSParticle* p = TSP_Scratch();
 		p->spriteIdx = (short)idx;
 		p->active = true;
 		p->orient = 0;
-		p->gravity = 0.1f;     // +0xd0
-		p->drag = 3.3f;        // +0xf4 (heavy drag — slows fast)
-		p->bright = 0.5f;      // +0xdc
-		p->fadeRate = 0.05f;   // (VERIFY: original sets 0 then fades by frame anim)
-		p->frameRate = (float)gEngfuncs.pfnRandomLong(8, 14);
-		p->life = 0.4f;
-		p->size = size;        // +0x108 (~16)
+		p->gravity = 0.1f;       // +0xd0
+		p->drag = 3.3f;          // +0xf4 (heavy drag — slows fast)
+		p->bright = 0.5f;        // +0xdc
+		p->fadeRate = 0.0f;      // ends by frame-animation, not brightness fade
+		p->life = 0.0f;
+		p->frameRate = frameRate;// +0xfc
+		p->size = size;          // +0x108
 		p->stretch = 0;
-		// drift out along the normal + a little randomness; smoke barely moves.
-		Vector drift(n[0], n[1], n[2] + 0.5f);
-		p->vel = drift * gEngfuncs.pfnRandomFloat(8.0f, 12.0f);
+		// vel = normal * RandFloat(8,24) / count (FUN_10046680 loop)
+		float sp = gEngfuncs.pfnRandomFloat(8.0f, 24.0f) / (float)cnt;
+		p->vel = Vector(n[0] * sp, n[1] * sp, n[2] * sp);
 		p->pos = Vector(o[0] + n[0] * 0.5f, o[1] + n[1] * 0.5f, o[2] + n[2] * 0.5f);
 		p->frame = TSP_RandomFrame(idx);
 		if (TSP_Commit(p) == -1)
@@ -441,19 +444,21 @@ static void TSP_Pellets(const float* o, const float* n, const char* spr, short r
 //-----------------------------------------------------------------------------
 // Visual dispatcher  (FUN_10048f60) — per-surface texture-char switch + roll gating.
 //-----------------------------------------------------------------------------
-void TS_ImpactEffect(const float* origin, const float* normal, int /*mode*/, char texChar)
+void TS_ImpactEffect(const float* origin, const float* normal, int mode, char texChar)
 {
 	const int roll = gEngfuncs.pfnRandomLong(0, 100);
+	// smoke puff count = mode-derived (FUN_10048f60: 1 if mode==1, 2 if mode==2, else 4).
+	const int smokeN = (mode == 1) ? 1 : (mode == 2) ? 2 : 4;
 
 	switch (texChar)
 	{
 	case 'D': // dirt — smoke only
-		TSP_Smoke(origin, normal, "sprites/wood_smoke_add.spr", 5, 5, 16);
+		TSP_Smoke(origin, normal, "sprites/wood_smoke_add.spr", 5, smokeN, 16, 30.0f);
 		break;
 
 	case 'W': // wood — fragments + smoke (RE FUN_10046bd0: count=RandomLong(5/2,5)=2-5, spread=32)
 		TSP_Debris(origin, normal, "sprites/woodfrag.spr", 5, 5, 5.0f, 32, 1.0f, 0.75f, 1);
-		TSP_Smoke(origin, normal, "sprites/wood_smoke_add.spr", 5, 5, 16);
+		TSP_Smoke(origin, normal, "sprites/wood_smoke_add.spr", 5, smokeN, 16, 30.0f);
 		break;
 
 	case 'F': // flesh
@@ -468,7 +473,7 @@ void TS_ImpactEffect(const float* origin, const float* normal, int /*mode*/, cha
 		TSP_SparkShower(origin, normal, 23, 1.15f, 25.0f);
 		if (roll > 70)
 			TSP_Pellets(origin, normal, "sprites/shotgun_pellets.spr", 5, 5, 0.0f, 0.75f, 0.015f, 0.25f);
-		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, 5, 16);
+		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 50.0f);
 		break;
 
 	case 'P': // computer
@@ -476,14 +481,14 @@ void TS_ImpactEffect(const float* origin, const float* normal, int /*mode*/, cha
 		TSP_Scintille(origin, normal, "sprites/scintille_metal.spr", 5, 48);
 		if (roll > 50)
 			TSP_SparkShower(origin, normal, 3, 1.15f, 25.0f);
-		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, 5, 16);
+		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 50.0f);
 		break;
 
 	default: // concrete / tile / snow / etc. (RE: count=RandomLong(5/2,5)=2-5, spread=32)
 		// debris_concrete3 is INDEXALPHA — the original's rendermode 1 (TransColor) renders as an
 		// unmasked square in our TriAPI; kRenderTransAlpha(4) masks it to white chips. (engine deviation)
 		TSP_Debris(origin, normal, "sprites/debris_concrete3.spr", 4, 5, 4.0f, 32, 1.0f, 1.0f, 1);
-		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, 5, 16);
+		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 20.0f);
 		if (roll > 50)
 		{
 			TSP_Scintille(origin, normal, "sprites/scintille_metal.spr", 5, 3);
