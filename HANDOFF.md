@@ -6,8 +6,11 @@ source-faithful HL mod. This is the continuation brief — not a tutorial.
 ## Read these first (in order)
 1. **`CLAUDE.md`** (repo root, auto-loaded on this machine) — mission, method,
    tooling, conventions. The stable reference.
-2. **Serena ledger** — `read_memory("ledger")` (or `.serena/memories/ledger.md`).
-   The full chronological history of what was done and why. Newest on top.
+2. **Serena ledger** — read **`.serena/memories/ledger.md` directly** (Read tool). The full
+   chronological history of what was done and why. Newest on top.
+   ⚠️ **Serena gotcha:** do NOT use `read_memory("ledger")` via the Serena MCP tool — it returns one
+   giant single-line JSON (`{"result":"…"}`, ~150 KB) that overflows the read limit. Read the `.md`
+   file directly, or `jq -r '.result' <savedfile>` on the file the tool saves.
 3. **`reference/RECONSTRUCTION.md`** — the 60-class work-list + live status table.
 
 If those three and this file agree, you're oriented. If they disagree, the
@@ -39,30 +42,54 @@ touching that area):**
 - `reference/EVENTS.md` — **the 11 TS `.sc` weapon events** (fire/reload/draw/grenade/knife/katana/
   coldcock/closecombat/pump/empty/firelinked): the complete RE map (server handles + client
   hook→handler addrs + playback sites) + the build order for the client weapon-param subsystem.
+- `reference/BULLETS.md` (cont.69u) — the **bullet/breakable/slow-mo/sound** RE: live fire path
+  `ShootBulletsPlayer` + penetration, glass shatter (`Die__10CBreakable` → gmsgTSCreateDebris sprite
+  shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
+  knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐ NEXT TASK (cont.69u) — finish the user's weapon-feature queue (RE-grounded, then PLAYTEST)
-The `.sc` client-prediction subsystem (cont.69s) AND the weapon-effect polish batch (cont.69t) are DONE +
-committed (see "Where things stand" below). **The user playtests now — don't fight the xdotool screenshot
-harness for visual confirmation; build it RE-grounded, then ASK the user to test.** Remaining queue from the
-user (newest ledger entry = cont.69t has the RE notes):
+## ⭐ NEXT TASK (cont.69u) — weapon/breakable batch DONE+committed; knife rework + queue remain (PLAYTEST-driven)
+The big cont.69u batch is **committed (`7cd6981`, `--no-gpg-sign`)**: jump-kick, glass sprite shatter, bullet
+penetration, bullet-impact debris chips, dive-through-glass, + the knife throw. The newest knife→glass rework
+(below) is **built + installed but NOT yet committed — awaiting the user's playtest**. Full detail: the
+**cont.69u ledger entries** (newest on top) + **`reference/BULLETS.md`** (the RE for the whole bullet/breakable
+subsystem). **Workflow: build it RE-grounded → ASK the user to playtest (they're hands-on and iterate fast);
+don't fight the xdotool screenshot harness.**
 
-1. ~~**Proximity auto-kick**~~ ✅ DONE (cont.69u) — it was the **JUMP-KICK**, not a proximity trigger. User
-   clarified: "jumping with a non-kungfu weapon while facing a breakable kicks it; in kung-fu it does not."
-   The "indirect pointer @0x176858" was a red herring (just the PLT slot for CloseCombatAttack). RE'd
-   `CTSStunt::CloseAttack`@0x9c630 (called from `CBasePlayer::Jump`@0x92864) end-to-end + all constants
-   (⚠️ FILE OFFSET = Ghidra addr − 0x10000; FP pool is .rodata, speed consts are doubles). Implemented as
-   `TSTryJumpKick` (dlls/ts_gun.cpp, hooked in CBasePlayer::Jump). Built clean; installed; **awaiting the
-   user's playtest** (not committed). See the cont.69u ledger entry for the full RE + constants.
-2. **Katana right-click** = `CTSGun::KatanaThrow` (separate from the knife throw, which is done) — RE + impl.
-3. **Coldcock viewmodel whip** — ColdCock has the hit sound + 3rd-person anim but no 1st-person SendWeaponAnim;
-   most gun v_models lack a whip seq — RE coldcock.sc (LAB_10043800) for the seq.
-4. **Predicted-effect events for empty/pump/closecombat** — low value (anims predict; sounds already play).
+### 🔴 NEW CAPABILITY — debug the LIVE original (read CLAUDE.md §4b + the `live-original-ts-debuggable` memory)
+The user **keeps the original TS running in `hl.exe` (Proton/Wine) and it's ALWAYS available to gdb-attach.**
+When a static trace dead-ends on a virtual/indirect call, **do a live gdb backtrace instead of guessing**
+(guessing = "making shit up vs the RE", the cardinal sin). This is how the knife→glass break was finally
+found. Recipe in **CLAUDE.md §4b** (find PID via `pgrep -f 'Half-Life/hl.exe'`; Wine maps PE by RVA so find a
+fn's live addr by byte-searching `/proc/<pid>/mem` for its prologue; HARDWARE bp; resolve return addrs via
+`mp.dll`'s 159 typed MSVC exports → find the same fn in `ts_i386.so`). mp.dll Ghidra project: `recovered/ghidra/mpdll`.
 
-**Method reminder:** RE-ground every value (the user reverts guessed work — see cont.69 notes). Tooling:
-`scripts/ghidra/{DecompAt,DecompRefs,FindStr}.java` (server proj dir `recovered/ghidra/server` name `serverso`,
-client proj dir `recovered/ghidra/client` name `clientdll`); Ghidra addr = `nm` addr + 0x10000 for the server
-`.so`. The model-sequence dumper from cont.69t lives at `scratchpad/dumpseq.py` (struct: numseq@164, seqindex@168,
-176-byte seqdesc, name@0). Commits are `--no-gpg-sign` (user authorized; gpg-agent passphrase expires mid-session).
+### Current task-tool list (status)
+- ✅ #1 jump-kick · ✅ #4 glass sprite shatter · ✅ #5 bullet penetration · ✅ #6 dive-through-glass ·
+  ✅ #7 bullet-impact fragments  (all committed in 7cd6981)
+- ⏳ **#2 Coldcock viewmodel whip** — ColdCock has hit sound + 3rd-person anim but no 1st-person SendWeaponAnim;
+  most gun v_models lack a whip seq — RE coldcock.sc (LAB_10043800) for the seq.
+- ⏳ **#3 Predicted-effect events for empty/pump/closecombat** — low value (anims predict; sounds already play).
+- ⏳ **#8 Breakable periodic respawn** — RE leads: `BreakableRespawn__10CBreakable`, `RespawnThink__14CInfoBreakable`,
+  + CBreakable::Die's respawn-timer branch (sets a delay + RespawnThink when this+0x90 >= 0). Implement.
+- ⏳ **Katana right-click** = `CTSGun::KatanaThrow` (separate from the knife throw) — RE + impl (not yet a task).
+
+### ⚠️ Knife→glass rework — AWAITING PLAYTEST (not committed); + a self-correction lesson
+Found `WaitThink__8CTSKnife`@0x6ea30 via the LIVE trace (it was in ts_i386.so all along — I'd missed a grep).
+The REAL rule (all constants confirmed): the knife's in-flight THINK runs every **0.1s**; if speed > **64** it
+sweeps a **64u forward trace along velocity** and breaks a NON-player breakable iff `health <= 0.1*speed`
+(`TraceAttack(0.1*speed)`, DMG 0x8001000) — **NO angle scaling, NO accumulation**. Implemented (ts_knife.cpp
+`WaitThink` + `SweepBreak`; KnifeTouch simplified: stab / break-through / bounce-off-if-too-strong / stick-or-
+deflect walls). **Earlier in cont.69u I had INVENTED an angle-scaled+accumulation model — wrong; deleted.**
+TODO once the user confirms it plays right: **audit the docs/ledger for other "couldn't find / made-shit-up"
+spots and re-RE them via the live-trace/mp.dll method.**
+
+**Method reminders:** RE-ground every value (the user REVERTS guessed work). ⚠️ FILE OFFSET for `.rodata`
+constants = **Ghidra addr − 0x10000** (the FP pool reads 0 at the naive offset; many consts are DOUBLES the
+decompiler shows as `(float)`). Tooling: `scripts/ghidra/{DecompAt,DecompRefs,FindStr}.java` (server proj
+`recovered/ghidra/server` name `serverso`, client `recovered/ghidra/client` `clientdll`, Windows
+`recovered/ghidra/mpdll` `mpdll`); Ghidra addr = `nm` + 0x10000 for the server `.so`. `scratchpad/` is
+gitignored (decompiles/RE notes live there). Commits are `--no-gpg-sign` (gpg passphrase expires mid-session);
+work on `main`; no `Co-Authored-By` trailers. Don't commit the user's `test.sh` (their launcher).
 
 ## Where things stand (2026-06-24, through cont.69t) — all committed (`--no-gpg-sign`)
 
@@ -268,19 +295,36 @@ HL-leftover to remove.** Cvars/usermsg-sizes come from the BINARY (pfnRegisterVa
 structs / LinkUserMessages), NOT config.cfg (config.cfg holds only the archived subset — that bit us).
 
 **2. RE the gap — the Ghidra flow (persistent, typed):**
+
+**Server side — prefer the `re.sh` orchestrator** (one entry point; applied project at `recovered/ghidra/re`):
 ```bash
-scripts/coverage/setup-ghidra.sh             # build recovered/ghidra/{server,client} once (gitignored,
-                                             #   survives reboot; runs DisableNoReturn + ApplyTypes)
-# decompile a function by address (server addr = nm addr + 0x10000):
-analyzeHeadless recovered/ghidra/server serverso -process ts_i386.so -noanalysis \
+scripts/ghidra/re.sh setup            # run.py (refresh inventory) + fresh import/analyze + ApplyInventory.
+                                      #   Do once, and after coverage/script changes. FRESH each run (rename
+                                      #   step isn't idempotent). ApplyInventory ⊃ ApplyTypes: builds member +
+                                      #   vtable structs, types entvars_t/enginefuncs_t/FP consts, clean names.
+scripts/ghidra/re.sh <Class>          # decompile every method of a class (addrs via filemap.py = nm + 0x10000)
+scripts/ghidra/re.sh 0x<addr> ...     # decompile by address
+scripts/ghidra/re.sh refs <Class|addr># who CALLS/uses it (DecompRefs over all the class's methods)
+scripts/ghidra/re.sh export <Class>   # -> recovered/decomp/<Class>.c
+scripts/ghidra/re.sh members          # DumpMembers -> reference/coverage/members_auto.tsv (transient members:
+                                      #   offset+type, placeholder names — curate into members_re.tsv)
+```
+Reads now show `this->m_flExpire`, `this->vtbl->Precache(this)`, `g_engfuncs->pfnSetModel(...)`, `dc_0_1`.
+See CLAUDE.md §4a.1 for what ApplyInventory/DumpMembers/DecompRefs do + the correctness guards.
+
+**Client / mp.dll / lower-level** — `setup-ghidra.sh` builds the persistent `recovered/ghidra/{server,client}`
+projects (DisableNoReturn + ApplyTypes), and you can still drive a single decompile by hand:
+```bash
+analyzeHeadless recovered/ghidra/client clientdll -process client.dll -noanalysis \
   -scriptPath scripts/ghidra -postScript DecompAt.java 0x<ghidraAddr>
 python3 scripts/coverage/vtcall.py CTSGun 0x128      # resolve a vtable-dispatch offset -> method
 python3 scripts/coverage/vtcall.py --file recovered/server/CTSGun.c CTSGun   # annotate a decompile's vt calls
 ```
-Ghidra scripts (`scripts/ghidra/`): **DisableNoReturn** (preScript — stops the noreturn truncation),
-**FixNoReturn** (postScript), **ApplyTypes** (applies the gcc2 signatures as real prototypes + populates
-`entvars_t` + merges MSVC return types — so decompiles read with typed `this`/args/returns + `pev->fields`),
-**DecompAt** (decompile by addr, auto-creates a function if Ghidra missed it), **DecompRefs** (callers).
+Ghidra scripts (`scripts/ghidra/`): **ApplyInventory** (the omni applier; superset of ApplyTypes — see §4a.1),
+**DumpMembers** (transient-member offset+type skeleton), **DisableNoReturn** (preScript — stops the noreturn
+truncation), **FixNoReturn** (postScript), **ApplyTypes** (gcc2 prototypes + `entvars_t` + MSVC returns),
+**DecompAt** (decompile by addr, auto-creates a function if Ghidra missed it), **DecompRefs** (callers; takes
+multiple addrs), **DecompExport** (decompile a whole class to a `.c`), **FindStr** (string search).
 NOTE: `ClientCommand` is a huge function Ghidra still truncates — for its command dispatch use **objdump**
 disassembly + resolve the PIC string operands via the GOT (`_GLOBAL_OFFSET_TABLE_` = 0x165E10): the pattern
 is `lea -0xoff(%ebx) ; … ; call <strcmp@plt>` → string at `0x165E10 - off`. The relocation table
