@@ -201,7 +201,7 @@ void EV_TSMelee(event_args_t* args)
 	}
 
 	gEngfuncs.pEventAPI->EV_PopPMStates();
-	TS_ImpactEffect(pos, normal, 0, chType);
+	TS_MeleeImpact(pos, normal, chType); // glint + sparks only (no smoke/debris) — FUN_10043c90
 }
 
 void EV_TSFire(event_args_t* args)

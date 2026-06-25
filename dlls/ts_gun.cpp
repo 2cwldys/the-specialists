@@ -643,10 +643,16 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 			: (flesh ? "weapons/knife/knife_hitbody.wav" : "weapons/knife/knife_hit.wav");
 		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, hitSnd, VOL_NORM, ATTN_NORM);
 		// events/knife.sc → EV_TSMelee: blade-on-surface spark + decal (the original FUN_10043c90).
-		// Only on hard surfaces (not flesh) — the impact point rides in the event origin.
+		// SERVER-AUTHORITATIVE (not predicted): the client-predicted melee world-trace is unreliable
+		// and usually misses, so playing it from prediction (FEV_NOTHOST) gave the local slasher no
+		// spark. The server's trace reliably hits, so broadcast to EVERYONE incl. the host (flags 0).
+		// Only on hard surfaces (not flesh) — impact point in the origin, player aim in the angles so
+		// the client can trace the surface (material + normal).
+#ifndef CLIENT_DLL
 		if (!flesh && m_usMelee)
-			PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usMelee, 0.0,
-				tr.vecEndPos, g_vecZero, 0.0, 0.0, 0, 0, 0, 0);
+			PLAYBACK_EVENT_FULL(0, m_pPlayer->edict(), m_usMelee, 0.0,
+				tr.vecEndPos, m_pPlayer->pev->v_angle, 0.0, 0.0, 0, 0, 0, 0);
+#endif
 		ClearMultiDamage();
 		pHit->TraceAttack(m_pPlayer->pev, wi->flDamage * TSDamageMult(), gpGlobals->v_forward, &tr,
 			DMG_CLUB | DMG_NEVERGIB);
@@ -972,6 +978,12 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 	const Vector vecRight = gpGlobals->v_right;
 	const Vector vecUp = gpGlobals->v_up;
 
+	// Per-pierce damage multiplier, RE-matched to ShootBulletsPlayer: damage_adjust = the `damagemult`
+	// cvar VALUE (read raw as *(damagemult+0xc)), NOT a fixed 0.75. It defaults to 0, so a penetrating
+	// round does ZERO damage to layers beyond the first — they get a bullet DECAL but do NOT break
+	// (this is why shooting two glass panes breaks only the first and just decals the one behind it).
+	const float damageAdjust = CVAR_GET_FLOAT("damagemult");
+
 	for (int iShot = 1; iShot <= cShots; iShot++)
 	{
 		// player-synced gaussian spread (same formula as FireBulletsPlayer)
@@ -1021,7 +1033,7 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 			if (trExit.flFraction < 1.0f)
 				DecalGunshot(&trExit, BULLET_PLAYER_9MM);
 			start = beyond; // continue past this layer
-			dmg *= 0.75f; // VERIFY: orig per-pierce damage_adjust = damagemult[+0xc] (relocated; pin live)
+			dmg *= damageAdjust; // orig damage_adjust = damagemult cvar value (default 0 → 0 dmg beyond layer 1)
 		}
 	}
 }

@@ -32,7 +32,9 @@ extern Vector v_origin, v_angles;
 
 struct TSSprite
 {
-	char name[24];   // +0xc  the "sprites/foo.spr" key
+	char name[64];   // +0xc  the "sprites/foo.spr" key (must hold the full path — a too-small
+	                 //       buffer truncated the name, broke the cache strcmp, and filled the
+	                 //       64-entry table within seconds, killing all effects permanently)
 	HSPRITE handle;  // +0x2c SPR_Load result
 	short rendermode;// +0x30 kRenderMode (the second registration key)
 	short frames;    // +0x32 SPR_Frames(handle)
@@ -106,24 +108,24 @@ static void TSP_Free(int i)
 }
 
 // FUN_10050b60 — copy the scratch particle into a free pool slot. Returns slot, or -1 if full.
+// Round-robin from freeCursor, WRAPPING and bounded — the cursor must never index past the array
+// (an earlier non-wrapping cursor walked off the end and corrupted the pool permanently).
 static int TSP_Commit(TSParticle* scratch)
 {
-	int slot = g_tsPool.freeCursor;
-	if (g_tsPool.particles[slot].active)
+	int slot = -1;
+	for (int n = 0; n < TSP_MAX_PARTICLES; n++)
 	{
-		// cursor slot taken — scan forward for the next free one.
-		slot = -1;
-		for (int i = g_tsPool.freeCursor; i < TSP_MAX_PARTICLES; i++)
+		int i = g_tsPool.freeCursor + n;
+		if (i >= TSP_MAX_PARTICLES)
+			i -= TSP_MAX_PARTICLES;
+		if (!g_tsPool.particles[i].active)
 		{
-			if (!g_tsPool.particles[i].active)
-			{
-				slot = i;
-				break;
-			}
+			slot = i;
+			break;
 		}
-		if (slot == -1)
-			return -1; // pool full
 	}
+	if (slot < 0)
+		return -1; // pool genuinely full
 
 	TSParticle* p = &g_tsPool.particles[slot];
 	*p = *scratch;
@@ -133,7 +135,7 @@ static int TSP_Commit(TSParticle* scratch)
 	if (p->drag < 0.1f)              // commit clamps drag >= 0.1 (_DAT_1007a84c)
 		p->drag = 0.1f;
 
-	g_tsPool.freeCursor = slot + 1;
+	g_tsPool.freeCursor = (slot + 1 >= TSP_MAX_PARTICLES) ? 0 : slot + 1;
 	if (slot > g_tsPool.highWater)
 		g_tsPool.highWater = slot;
 	return slot;
@@ -196,16 +198,19 @@ void TSParticles_Update()
 			p->size += dt * p->accelRate * 100.0f;
 
 		// Integrate motion (gravity + drag), faithful to FUN_10050ce0 imode 0.
+		// gravity accel = gravity * _DAT_1007a540(0.1) * _DAT_100963ec(sv_gravity=800) = gravity*80.
 		if (dt > 0.0f && p->imode == 0)
 		{
-			p->vel.z -= dt * p->gravity * 800.0f; // grav coeff * gravity accel (VERIFY scale)
+			p->vel.z -= dt * p->gravity * 80.0f;
 			float d = dt * p->drag;
 			if (d > 1.0f)
 				d = 1.0f;
 			p->vel = p->vel - p->vel * d;
 		}
 		p->savedPos = p->pos;
-		p->pos = p->pos + p->vel * dt;
+		// pos += vel * frametime * _DAT_10079e88(10) — velocity is in deci-units/s, the ×10 makes
+		// sparks move fast AND turns the velocity-space gravity (×80) into the real 800 u/s² fall.
+		p->pos = p->pos + p->vel * (dt * 10.0f);
 
 		// Draw (only particles that carry a sprite).
 		if (p->spriteIdx >= 0)
@@ -446,8 +451,8 @@ void TS_ImpactEffect(const float* origin, const float* normal, int /*mode*/, cha
 		TSP_Smoke(origin, normal, "sprites/wood_smoke_add.spr", 5, 5, 16);
 		break;
 
-	case 'W': // wood — fragments + smoke
-		TSP_Debris(origin, normal, "sprites/woodfrag.spr", 5, 32, 5.0f, 32, 1.0f, 0.75f, 1);
+	case 'W': // wood — fragments + smoke (RE FUN_10046bd0: count=RandomLong(5/2,5)=2-5, spread=32)
+		TSP_Debris(origin, normal, "sprites/woodfrag.spr", 5, 5, 5.0f, 32, 1.0f, 0.75f, 1);
 		TSP_Smoke(origin, normal, "sprites/wood_smoke_add.spr", 5, 5, 16);
 		break;
 
@@ -474,8 +479,10 @@ void TS_ImpactEffect(const float* origin, const float* normal, int /*mode*/, cha
 		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, 5, 16);
 		break;
 
-	default: // concrete / tile / snow / etc.
-		TSP_Debris(origin, normal, "sprites/debris_concrete3.spr", 1, 32, 4.0f, 32, 1.0f, 1.0f, 1);
+	default: // concrete / tile / snow / etc. (RE: count=RandomLong(5/2,5)=2-5, spread=32)
+		// debris_concrete3 is INDEXALPHA — the original's rendermode 1 (TransColor) renders as an
+		// unmasked square in our TriAPI; kRenderTransAlpha(4) masks it to white chips. (engine deviation)
+		TSP_Debris(origin, normal, "sprites/debris_concrete3.spr", 4, 5, 4.0f, 32, 1.0f, 1.0f, 1);
 		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, 5, 16);
 		if (roll > 50)
 		{
@@ -489,4 +496,15 @@ void TS_ImpactEffect(const float* origin, const float* normal, int /*mode*/, cha
 void TS_SurfaceImpact(const float* origin, const float* normal, char texChar, int mode)
 {
 	TS_ImpactEffect(origin, normal, mode, texChar);
+}
+
+// MELEE impact — original client FUN_10043c90 (EV_TSMelee). Just the scintille_metal glint
+// (count 6) + sparks.spr shower (count 7); NO smoke, NO debris. Skips dirt/wood/flesh (the
+// original switch breaks with no spark on 'D'/'W'/'F' / untextured); everything else sparks.
+void TS_MeleeImpact(const float* origin, const float* normal, char texChar)
+{
+	if (texChar == 'D' || texChar == 'W' || texChar == 'F' || texChar == 0)
+		return;
+	TSP_Scintille(origin, normal, "sprites/scintille_metal.spr", 5, 6);
+	TSP_SparkShower(origin, normal, 7, 1.15f, 25.0f);
 }
