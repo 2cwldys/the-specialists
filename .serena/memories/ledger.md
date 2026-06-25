@@ -5,6 +5,30 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-24 (cont. 69v) — ⭐ LIVE TRACE located the angle-recoil (client view-prediction, NOT punchangle)
+
+Static RE dead-ended on the aim recoil (no server v_angle write; CL_CreateMove + all 3 SetViewAngles
+callers are standard mouse/keyboard). Resolved with a LIVE gdb WATCHPOINT on the running original (user
+fired one shot, NO mouse): pitch kicked 1.61→1.12 (~0.49° UP) = the recoil moves cl.viewangles (the real
+aim), confirming the user's "punchangle isn't a thing; recoil is angle-based."
+
+ENTRY POINT (client.dll, live base this run = 0xc070000; PE imagebase 0x10000000 so live = base + RVA):
+- cl.viewangles live @ 0x2d8aec4 (pitch)/0xc8/0xcc — found by reading engine GetViewAngles (ptr at
+  gEngfuncs+0x88; gEngfuncs = Initialize's DAT_100d5b28 = RVA 0xd5b28) and decoding its mov-from-abs.
+- The recoil write chain (bt): engine 0x1db74e0 (= gEngfuncs slot DAT_100d5c60) ← client FUN_1005b3c0
+  (thunk, RVA 0x5b3c0, wraps that engine fn) ← client method @RVA 0x648c0.
+- @0x648c0 is a per-frame client view-compute: it calls a VIRTUAL `this->vtable[0x38]`(&pitch,&yaw,&roll)
+  to get the recoiled angles, then FUN_1005b3c0(&angles) commits them via the engine. **THE RECOIL MATH
+  IS IN vtable[0x38]** of that client object (param_1; big object, fields 0x83/0x85-0x8a/0x2a9/0x2aa).
+NEXT: decompile vtable[0x38] to extract the per-shot pitch/yaw recoil formula (scaled by weapon — small,
+bigger on knives), then reconstruct it client-side. To find the vtable[0x38] target: read param_1's vtable
+(*param_1) in the live process, slot 14 (0x38/4); param_1 is likely a client singleton.
+
+WATCHPOINT RECIPE (reusable): gdb -p <pid> -batch with `watch *(float*)<cl.viewangles_pitch_addr>` (a
+value-watch only fires on CHANGE — with no mouse, only the recoil changes it), `commands{ bt; detach; quit}`,
+`continue`. Resolve bt return addrs to module+RVA: addr − module_base = RVA → rz-bin -E name. Module bases
+via reloc-free prologue scan of /proc/<pid>/mem (CBreakable::Die for mp.dll, V_CalcRefdef for client.dll).
+
 ## 2026-06-24 (cont. 69v) — recoil view-punch (VKickback) + dynamic accuracy/spread WIRED + kungfu smoke
 
 VKickback @0x70414 (recoil view-punch → pev->punchangle): vert = 0.85*flViewKick(0x30), horiz per firetype
