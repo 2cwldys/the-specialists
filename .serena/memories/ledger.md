@@ -5,6 +5,31 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-24 (cont. 69v) — knife→glass rework RE-VERIFIED vs ts_i386.so + 3 fidelity fixes
+
+Decompiled the original `CTSKnife` (Spawn @0x6db54, WaitThink @0x6ea30, BounceTouch @0x6decc, WaitTouch
+@0x6dce8, CreateKnife @0x6d9e4) + `KnifeFire` @0x74044 via the typed `re.sh` flow and checked the
+uncommitted rework line-by-line. **The glass-break core is faithful — every readable constant matches the
+binary**: WaitThink (think+0.1, speed>64, 64u velocity sweep, dont_ignore_monsters, flFraction<1, !IsPlayer
+[vtbl +0xC8], health ≤ 0.1·speed, TraceAttack(knife_pev, 0.1·speed, dir·64, tr), ApplyMultiDamage(pev,pev));
+BounceTouch (owner-ignore, per-type stab 150/100/50, player stab velocity=-0.25·vel + expire+10, worldspawn
+speed≥100 && glance[−(normal·dir)<0.4 && normal.z≤0.98] → sparks+sound+velocity·0.5+return, else stick back
+off dir·6, other-solid bounce -0.25·vel); Spawn (BOUNCE/BBOX, friction 0.8, gravity 0.85/0.75/0.3, expire+30);
+ThrowKnife velocity = v_forward·**1900** (const @0x107f68 = 1900.0, NO player-vel term — confirmed in KnifeFire).
+
+**3 fixes applied to dlls/ts_knife.cpp (build-clean, `T ts_knife` exported, glibc 2.14):**
+1. `BounceTouch` now opens with the original's `if (pOther->pev->effects & EF_NODRAW) return;` (orig
+   `(char)effects < 0`) — replacing an invented top-level `FClassnameIs("ts_knife")` self-ignore that was in
+   the wrong place + skipped the NODRAW gate. 2. Knife-vs-knife ignore RELOCATED to the other-solid branch
+   (where the orig's `classname=="knife"` check lives). 3. `StickAt` sets `angles.z = 90` (orig blade-roll).
+
+**Known remaining divergences (intentional / low):** post-contact the orig switches SetTouch→WaitTouch +
+gravity→0.75 (we substitute SettleAsPickup/StickAt pickup model); stick uses SOLID_TRIGGER+PickupTouch vs
+orig SOLID_NOT+MOVETYPE_FLY; WaitThink dmg bits DMG_CLUB|DMG_NEVERGIB vs orig 0x8001000 (no glass-outcome
+change); LINK name "ts_knife" vs orig "knife". **Tooling:** fixed `scripts/ghidra/re.sh` — its `sed` output
+filter dropped every multi-line decompile body (only the log-prefixed first line survived); replaced with a
+block-aware `_filter` awk helper, so `re.sh <Class>` now prints full typed bodies (how this verify was done).
+
 ## 2026-06-24 (cont. 69u) — the "auto-kick" = the JUMP-KICK (RE'd + implemented; user to playtest)
 
 The cont.69t "proximity auto-kick" RE blocker is RESOLVED — and the premise was wrong. User
@@ -174,6 +199,22 @@ frame between WaitThink and TakeDamage, unexported) isn't cleanly Linux-mapped y
 the knife to a think-based swept-damage, OR a 2nd live trace (bp on CBreakable::TakeDamage, read the damage
 arg + dir) to confirm the exact damage/angle formula. gdb how-to saved in [[flag-unfound-re-early]].
 **Method memories saved:** `flag-unfound-re-early` (don't make shit up vs the RE; dynamic gdb trace recipe).
+
+### cont.69u (later 9) — ✅ knife→glass reworked to the ACTUAL implementation (WaitThink swept-break)
+Found `WaitThink__8CTSKnife` @0x6ea30 (it WAS in ts_i386.so; I'd missed the grep — the live trace + mp.dll
+export name `CTSKnife::WaitThink` pointed right at it). The real rule (RE'd, all constants confirmed):
+the knife's in-flight THINK runs every **0.1s** (DAT_00107138), and if speed > **64** (DAT_00107ea0) it
+sweeps a **64u forward trace along the velocity**; if it hits a NON-player breakable whose
+`health <= 0.1*speed` (DAT_00107138 * speed) it `TraceAttack`s `0.1*speed` (DMG 0x8001000) and breaks it.
+**NO angle scaling, NO accumulation** — either the throw kills the pane in one hit or nothing happens.
+Reworked dlls/ts_knife.cpp: added `CTSKnife::WaitThink` (the sweep) + `SweepBreak` (the shared one-hit
+rule), Spawn now SetThink(WaitThink)@0.1s + a 15s expire; KnifeTouch simplified — stab flesh / break-and-
+fly-through if SweepBreak succeeds / **bounce off (0.25*-vel) if too strong** / stick-or-deflect walls.
+Removed the invented angle-scaled + accumulation + energy-falloff chain. Built clean, installed.
+**Docs:** added CLAUDE.md **§4b** (live gdb trace + mp.dll cross-ref method) next to the Ghidra flow;
+enriched the `flag-unfound-re-early` memory. mp.dll Ghidra project at recovered/ghidra/mpdll.
+**TODO (user): if this plays right, audit docs/ledger for other "couldn't find / made-shit-up" spots and
+re-RE them via the mp.dll/live-trace method.**
 
 ### cont.69u (later 7) — knife↔glass behavior reworked to the user's observation (RE caveat noted)
 RE'd the glass-break paths fully: **CBreakable::BreakTouch@0xc0c44** (velocity break-on-touch) is gated on

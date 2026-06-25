@@ -1029,7 +1029,7 @@ void CTSGun::ThrowKnife()
 
 	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_forward * 16;
-	Vector vecVel = gpGlobals->v_forward * 1000 + m_pPlayer->pev->velocity;
+	Vector vecVel = gpGlobals->v_forward * 1900; // RE KnifeFire: _UNK_00107f68 = 1900 (no player-vel term)
 	const float dmg = (wi->flDamage > 0 ? wi->flDamage : 40.0f) * TSDamageMult();
 	TSThrowKnife(m_pPlayer, m_weaponType, dmg, vecSrc, vecVel); // server-only (client stub no-ops)
 

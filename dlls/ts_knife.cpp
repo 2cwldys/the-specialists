@@ -1,14 +1,18 @@
 /***
-*  ts_knife.cpp — CTSKnife, the thrown knife/seal-knife projectile (right-click throw).
+*  ts_knife.cpp — CTSKnife, the thrown knife/seal-knife/katana projectile (right-click throw).
 *
-*  RE: CTSGun::SecondaryAttack (@0x817a8) routes a knife (fire-type 3) to KnifeFire's THROW branch,
-*  which spawns a CTSKnife via CreateKnife (@0x6d9e4) flying forward + tumbling. Collision (RE:
-*  CTSKnife::BounceTouch @0x6decc): it embeds in a non-breakable surface (worldspawn → stick), bounces
-*  off solids it strikes at a glance / can't damage, and damages what it hits. The faithful BEHAVIOUR
-*  the user asked for: STICK into non-breakable non-flesh surfaces; BOUNCE off a breakable it can't
-*  break; if it CAN break it, the breakable shatters and the knife punches THROUGH to stick in the
-*  wall beyond. CTSKnife is a CTSPhysicObject in the original; this is a clean modern projectile on
-*  the stock SDK.
+*  ORIGINAL SOURCE: the CTSKnife class lives in the original's **TS_grenades.cpp** (grouped with all
+*  the throwables — CM61Grenade/CTSShrapnel/CTSGrenade/CTSPhysicObject); the original's TS_knife.cpp
+*  holds only Write_knife (the s_weapon_info table entry). Original method set (keep these names so the
+*  name-matched coverage diff stays accurate — see scripts/coverage/{filemap,reconstruction}.py):
+*    Spawn, WaitThink, BounceTouch, WaitTouch, Use, ShouldCollide, ObjectCaps, GetDescription, CreateKnife.
+*
+*  RE: CTSGun::SecondaryAttack (@0x817a8) routes a knife (fire-type 3) to KnifeFire (@0x74044), which
+*  spawns the projectile (CreateKnife @0x6d9e4) at speed 1900 along v_forward. It is MOVETYPE_BOUNCE
+*  (Spawn @0x6db54). Breaking is done ONLY by the swept WaitThink (@0x6ea30); BounceTouch (@0x6decc)
+*  stabs players / sticks in worldspawn / bounces off everything else — never breaks. So break (pass
+*  through) and bounce are mutually exclusive. CTSKnife is a CTSPhysicObject; this is a clean modern
+*  projectile on the stock SDK (engine MOVETYPE_BOUNCE replaces the original's CTSPhysicObject physics).
 ***/
 #include "extdll.h"
 #include "util.h"
@@ -22,14 +26,25 @@ class CTSKnife : public CBaseEntity
 public:
 	void Spawn() override;
 	int Classify() override { return CLASS_NONE; }
-	void EXPORT KnifeTouch(CBaseEntity *pOther);
+	void EXPORT BounceTouch(CBaseEntity *pOther); // @CTSKnife::BounceTouch @0x6decc — contact handler
+	void EXPORT WaitThink();                     // @CTSKnife::WaitThink @0x6ea30 — in-flight swept break
 	void EXPORT PickupTouch(CBaseEntity *pOther);
 	void StickAt(const Vector &pos, const Vector &flyDir);
-	void Deflect(const Vector &pos, const Vector &normal, const Vector &flyDir);
+	void SettleAsPickup();                        // come to rest as a recoverable floor pickup
 	static CTSKnife *Throw(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel);
+
+	float StabDamage() const // RE BounceTouch: per-type player-stab damage (DAT_00107ec0/eac/0010761c)
+	{
+		return (m_knifeType == TSW_KATANA) ? 150.0f : (m_knifeType == TSW_SEALKNIFE) ? 50.0f : 100.0f;
+	}
+	float Gravity() const // RE Spawn: pev->gravity by knife type
+	{
+		return (m_knifeType == TSW_KATANA) ? 0.85f : (m_knifeType == TSW_SEALKNIFE) ? 0.3f : 0.75f;
+	}
 
 	int m_knifeType = TSW_KNIFE;
 	float m_flDamage = 40.0f;
+	float m_flExpire = 0; // auto-remove time if it never lands (orig this+0x88)
 
 	const char *HitSound() const { return (m_knifeType == TSW_KATANA) ? "weapons/katana/hit.wav" : "weapons/knife/knife_hit.wav"; }
 	const char *BodySound() const { return (m_knifeType == TSW_KATANA) ? "weapons/katana/hit-body.wav" : "weapons/knife/knife_hitbody.wav"; }
@@ -39,19 +54,59 @@ LINK_ENTITY_TO_CLASS(ts_knife, CTSKnife);
 
 void CTSKnife::Spawn()
 {
-	pev->movetype = MOVETYPE_TOSS; // a gravity arc (the original's CTSPhysicObject bounces; TOSS is close)
+	// RE CTSKnife::Spawn @0x6db54: the knife is a MOVETYPE_BOUNCE physics object with per-type gravity
+	// and friction 0.8 — the engine bounces it; breaking is done ONLY by the swept WaitThink (below).
+	pev->movetype = MOVETYPE_BOUNCE;
 	pev->solid = SOLID_BBOX;
-	pev->gravity = 0.5f;
+	pev->gravity = Gravity();   // 0.75 knife / 0.3 sealknife / 0.85 katana
+	pev->friction = 0.8f;       // RE pev+0x120 = 0x3f4ccccd
 	const char *mdl = (m_knifeType == TSW_KATANA) ? "models/w_katana.mdl"
 		: (m_knifeType == TSW_SEALKNIFE) ? "models/w_sealknife.mdl"
 		: "models/w_knife.mdl";
 	SET_MODEL(ENT(pev), (char *)mdl); // precached at map load (PrecacheAllTSWeapons)
-	UTIL_SetSize(pev, Vector(0, 0, 0), Vector(0, 0, 0));
+	UTIL_SetSize(pev, Vector(0, 0, 0), Vector(0, 0, 0)); // a point hull (RE SetSize zero,zero)
 	pev->angles = UTIL_VecToAngles(pev->velocity);
-	pev->avelocity = Vector(-1300, 0, 0); // tumble end-over-end (RE: ~-1300 pitch spin)
-	SetTouch(&CTSKnife::KnifeTouch);
-	SetThink(&CBaseEntity::SUB_Remove); // clean up if it never strikes anything
-	pev->nextthink = gpGlobals->time + 15.0f;
+	pev->avelocity = Vector(-1300, 0, 0); // tumble end-over-end (visual)
+	SetTouch(&CTSKnife::BounceTouch);
+	SetThink(&CTSKnife::WaitThink);
+	pev->nextthink = gpGlobals->time + 0.1f;
+	m_flExpire = gpGlobals->time + 30.0f; // RE DAT_00107148 = 30s vanish-if-it-never-lands
+}
+
+// @ CTSKnife::WaitThink (@0x6ea30) — the in-flight physics think, the SOLE breaker. Every 0.1s, if
+// moving (speed > 64), trace a 64u forward SWEEP along the velocity and break any NON-PLAYER entity in
+// front whose health the throw can kill outright (health <= 0.1*speed). The pane shatters BEFORE the
+// knife's physics move reaches it, so the knife flies cleanly through (no collision, no bounce).
+// (RE: attacker = the knife's own pev; damage = 0.1*speed; DMG bits 0x8001000; NO takedamage gate —
+// TraceAttack is a no-op on a non-damageable hit.) The contact handler (BounceTouch) never breaks.
+void CTSKnife::WaitThink()
+{
+	if (m_flExpire != 0 && gpGlobals->time > m_flExpire)
+	{
+		UTIL_Remove(this);
+		return;
+	}
+	pev->nextthink = gpGlobals->time + 0.1f; // RE: DAT_00107138 think interval
+
+	const float speed = pev->velocity.Length();
+	if (speed > 64.0f) // RE: DAT_00107ea0 = 64 speed threshold + sweep distance
+	{
+		Vector dir = pev->velocity * (1.0f / speed);
+		Vector end = pev->origin + dir * 64.0f;
+		TraceResult tr;
+		UTIL_TraceLine(pev->origin, end, dont_ignore_monsters, ENT(pev), &tr);
+		if (tr.flFraction < 1.0f)
+		{
+			CBaseEntity *pHit = tr.pHit ? CBaseEntity::Instance(tr.pHit) : nullptr;
+			const float dmg = 0.1f * speed; // RE: DAT_00107138(0.1) * speed
+			if (pHit && !pHit->IsPlayer() && pHit->pev->health <= dmg)
+			{
+				ClearMultiDamage();
+				pHit->TraceAttack(pev, dmg, dir * 64.0f, &tr, DMG_CLUB | DMG_NEVERGIB);
+				ApplyMultiDamage(pev, pev);
+			}
+		}
+	}
 }
 
 // Embed the knife at `pos`, pointing the way it flew, as a recoverable pickup (walk into it).
@@ -61,6 +116,7 @@ void CTSKnife::StickAt(const Vector &pos, const Vector &flyDir)
 	pev->avelocity = g_vecZero;
 	pev->movetype = MOVETYPE_NONE;
 	pev->angles = UTIL_VecToAngles(flyDir);
+	pev->angles.z = 90.0f; // RE worldspawn stick: roll the embedded blade 90° (orig sets angles.z = 90)
 	// Become a recoverable trigger. Set the solid + a real (small) trigger size, THEN relink via
 	// UTIL_SetSize/SetOrigin — changing pev->solid without relinking trips "trigger in clipping list".
 	pev->solid = SOLID_TRIGGER;
@@ -78,123 +134,82 @@ void CTSKnife::StickAt(const Vector &pos, const Vector &flyDir)
 	pev->nextthink = gpGlobals->time + 30.0f; // linger as a pickup, then vanish
 }
 
-// Too-glancing (steep-angle) hit? RE CTSKnife::BounceTouch: the knife only sticks/breaks-through when
-// it hits flat enough — deflect when the blade↔surface alignment -(normal·flyDir) < 0.4 AND it's not a
-// near-flat floor (normal.z <= 0.98). Applied at EVERY surface (each pane in a chain, and walls).
+// Too-glancing (steep-angle) hit? RE CTSKnife::BounceTouch worldspawn path: the knife only sticks when
+// it hits flat enough — it SLIDES/deflects when the blade↔surface alignment -(normal·flyDir) < 0.4 AND
+// it's not a near-flat floor (normal.z <= 0.98). Thresholds DAT_00107ed8 (0.4) / DAT_00107ed0 (0.98).
 static bool KnifeGlances(const Vector &normal, const Vector &flyDir)
 {
 	const float align = -DotProduct(normal, flyDir); // 1 = head-on, ~0 = glancing
 	return (align < 0.4f && normal.z <= 0.98f);
 }
 
-// Deflect off a too-steeply-hit surface: reposition at the surface with a reflected, dampened velocity
-// and keep flying (the physics carries it on). Does NOT break/stick.
-void CTSKnife::Deflect(const Vector &pos, const Vector &normal, const Vector &flyDir)
+// @ CTSKnife::BounceTouch (@0x6decc) — the contact handler. It NEVER breaks anything (the swept
+// WaitThink is the sole breaker). It only: stabs PLAYERS (per-type damage, then bounces off), sticks in
+// the WORLD head-on / slides off it glancing, and BOUNCES off every other solid (incl. breakables the
+// sweep couldn't kill — they bounce, they don't break). Break (sweep, pre-contact → fly through) and
+// bounce (here) are thus mutually exclusive, exactly like the original.
+void CTSKnife::BounceTouch(CBaseEntity *pOther)
 {
-	const float speed = pev->velocity.Length();
-	Vector refl = flyDir - normal * (2.0f * DotProduct(flyDir, normal)); // mirror off the surface
-	UTIL_SetOrigin(pev, pos - flyDir * 4.0f);
-	pev->velocity = refl * (speed * 0.5f); // lose half the speed on the glance
-	pev->angles = UTIL_VecToAngles(refl);
-	if (UTIL_PointContents(pos) != CONTENTS_SKY)
-		UTIL_Sparks(pos);
-	EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
-}
-
-void CTSKnife::KnifeTouch(CBaseEntity *pOther)
-{
+	pev->nextthink = gpGlobals->time + 0.1f; // RE BounceTouch resets nextthink
 	if (!pOther || pOther->edict() == pev->owner)
-		return; // never collide with the thrower or nothing
-	if (FClassnameIs(pOther->pev, "ts_knife"))
-		return; // ignore other thrown knives in flight
+		return; // never collide with the thrower
+	if (pOther->pev->effects & EF_NODRAW)
+		return; // RE BounceTouch @0x6decc: ((char)effects < 0) → skip EF_NODRAW (triggers/invisible brushes)
 
-	entvars_t *pevOwner = pev->owner ? VARS(pev->owner) : pev;
 	const Vector flyDir = pev->velocity.Normalize();
-	// Walk the knife's flight path one surface at a time: ALWAYS damage a breakable it hits (so damage
-	// ACCUMULATES across throws — weak glass breaks after a few, strong/high-health glass survives any
-	// number); on a head-on break it PUNCHES THROUGH to the next pane (the whole chain breaks); a
-	// glancing hit, or a pane that survives, DEFLECTS it off. Walls stick head-on / deflect glancing.
-	// A trace-loop (not physics) because MOVETYPE_TOSS clips the velocity flat against a pane (slides).
-	// The knife LOSES ENERGY per pane it breaks (dmg halves), so it usually breaks one pane and drops
-	// at the next — it almost never chains through more than ~two, matching the original.
+	const float speed = pev->velocity.Length();
 	TraceResult tr = UTIL_GetGlobalTrace();
-	CBaseEntity *pSurf = pOther;
-	float dmg = m_flDamage;
-	for (int layer = 0; layer < 8; layer++)
+
+	// PLAYER stab (RE: takedamage != 0 && IsPlayer()) — damage, then bounce off (knife does NOT stick in
+	// bodies in TS). Attacker credit goes to the thrower.
+	if (pOther->pev->takedamage != DAMAGE_NO && pOther->IsPlayer())
 	{
-		const Vector normal = tr.vecPlaneNormal;
-		const bool glancing = KnifeGlances(normal, flyDir);
-		const bool surfFlesh = pSurf && (pSurf->IsPlayer() || (pSurf->pev->flags & FL_MONSTER) != 0);
-		const bool surfDamageable = pSurf && pSurf->pev->takedamage != DAMAGE_NO;
-
-		if (surfFlesh)
-		{
-			// Stab a body — damage + drop a recoverable knife where it struck.
-			ClearMultiDamage();
-			pSurf->TraceAttack(pevOwner, m_flDamage, flyDir, &tr, DMG_CLUB | DMG_NEVERGIB);
-			ApplyMultiDamage(pev, pevOwner);
-			EMIT_SOUND(ENT(pev), CHAN_WEAPON, BodySound(), VOL_NORM, ATTN_NORM);
-			TSCreateWorldGun(m_knifeType, 1, tr.vecEndPos, g_vecZero);
-			SetTouch(nullptr);
-			UTIL_Remove(this);
-			return;
-		}
-
-		if (surfDamageable)
-		{
-			// ANGLE-SCALED damage: a head-on throw does full damage (breaks weak glass), a glancing
-			// hit does proportionally less (just chips it). Damage ACCUMULATES across throws, so a
-			// pane chips down over several hits; a strong / high-health pane survives any number.
-			// (RE caveat: the binary's knife→glass break path isn't statically located — both
-			// BreakTouch & BounceTouch gate on IsPlayer — so this models the OBSERVED behaviour with
-			// the RE-grounded angle (-(normal·flyDir)) + standard CBreakable health.)
-			float align = -DotProduct(normal, flyDir); // 1 = head-on, ~0 = glancing
-			if (align < 0.0f)
-				align = 0.0f;
-			ClearMultiDamage();
-			pSurf->TraceAttack(pevOwner, dmg * align, flyDir, &tr, DMG_CLUB | DMG_NEVERGIB);
-			ApplyMultiDamage(pev, pevOwner);
-			const bool broke = (pSurf->pev->solid == SOLID_NOT) || (pSurf->pev->health <= 0);
-
-			if (broke)
-			{
-				// Broke it — punch THROUGH to the next surface, but with HALF the energy, so the next
-				// pane usually survives and the knife drops there (it rarely chains past ~two panes).
-				dmg *= 0.5f;
-				Vector start = tr.vecEndPos + flyDir * 2.0f;
-				UTIL_TraceLine(start, start + flyDir * 4096.0f, dont_ignore_monsters, ENT(pev), &tr);
-				if (tr.flFraction == 1.0f)
-				{
-					StickAt(tr.vecEndPos, flyDir); // open air ahead — settle at the end
-					return;
-				}
-				pSurf = tr.pHit ? CBaseEntity::Instance(tr.pHit) : nullptr;
-				continue; // process the next pane / wall
-			}
-
-			// Couldn't break it (too strong, or too glancing to do enough) — the knife FALLS STRAIGHT
-			// DOWN. It NEVER sticks in glass; it keeps the damage it dealt (so later throws chip it
-			// down). Kill the horizontal velocity + back off the pane so it doesn't re-touch, and let
-			// gravity drop it (it becomes a floor pickup when it lands).
-			EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
-			if (UTIL_PointContents(tr.vecEndPos) != CONTENTS_SKY)
-				UTIL_Sparks(tr.vecEndPos);
-			pev->velocity.x = 0;
-			pev->velocity.y = 0;
-			if (pev->velocity.z > 0)
-				pev->velocity.z = 0; // drop, don't pop up
-			UTIL_SetOrigin(pev, pev->origin - flyDir * 6.0f);
-			return;
-		}
-
-		// A non-breakable solid wall — STICK head-on, DEFLECT if glancing (RE thresholds 0.4 / 0.98).
-		if (glancing)
-			Deflect(tr.vecEndPos, normal, flyDir);
-		else
-			StickAt(tr.vecEndPos, flyDir);
+		entvars_t *pevOwner = pev->owner ? VARS(pev->owner) : pev;
+		ClearMultiDamage();
+		pOther->TraceAttack(pevOwner, StabDamage(), flyDir, &tr, DMG_CLUB | DMG_NEVERGIB);
+		ApplyMultiDamage(pev, pevOwner);
+		EMIT_SOUND(ENT(pev), CHAN_WEAPON, BodySound(), VOL_NORM, ATTN_NORM);
+		pev->velocity = pev->velocity * -0.25f; // RE DAT_00107e98 bounce-back
+		m_flExpire = gpGlobals->time + 10.0f;   // RE DAT_00107140 post-bounce expire
 		return;
 	}
-	StickAt(pev->origin, flyDir); // safety: ran out of layers
+
+	// WORLDSPAWN (the BSP world) — the ONLY thing the knife sticks in (RE: func_wall/breakables bounce).
+	if (FClassnameIs(pOther->pev, "worldspawn"))
+	{
+		// Head-on (or slow) → embed as a recoverable pickup. Glancing & fast → slide off, dampened.
+		if (speed >= 100.0f && KnifeGlances(tr.vecPlaneNormal, flyDir)) // RE: speed >= DAT_0010761c(100)
+		{
+			if (UTIL_PointContents(pev->origin) != CONTENTS_SKY)
+				UTIL_Sparks(pev->origin);
+			EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
+			pev->velocity = pev->velocity * 0.5f; // RE: /= DAT_00107ec4(2); engine clip already slid it
+			return;
+		}
+		StickAt(pev->origin - flyDir * 6.0f, flyDir); // RE: back off DAT_00107e9c(6) along flight, embed
+		return;
+	}
+
+	// ANY OTHER non-player solid (breakable the sweep couldn't kill, func_wall, door…) → BOUNCE off.
+	if (FClassnameIs(pOther->pev, "ts_knife"))
+		return; // RE BounceTouch else-branch: ignore other thrown knives (orig classname "knife", ours "ts_knife")
+	if (speed < 60.0f)
+	{
+		SettleAsPickup(); // come to rest as a recoverable floor pickup once it's slow
+		return;
+	}
+	if (UTIL_PointContents(pev->origin) != CONTENTS_SKY)
+		UTIL_Sparks(pev->origin);
+	EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
+	pev->velocity = pev->velocity * -0.25f; // RE DAT_00107e98 bounce-back
+	m_flExpire = gpGlobals->time + 10.0f;   // RE DAT_00107140 post-bounce expire
+}
+
+// Come to rest where it is as a recoverable USE-pickup (our nicety: the original's settled knife is just
+// inert; we make a dropped knife pickable like every other TS drop).
+void CTSKnife::SettleAsPickup()
+{
+	StickAt(pev->origin, (pev->velocity.Length() > 0.1f) ? pev->velocity.Normalize() : gpGlobals->v_forward);
 }
 
 void CTSKnife::PickupTouch(CBaseEntity *pOther)
