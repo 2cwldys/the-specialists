@@ -48,9 +48,10 @@ touching that area):**
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
 ## ⭐ NEXT TASK (cont.69v) — reconstruct the ANGLE-RECOIL (located via live trace) + finish the weapon-feel pass
-cont.69v did a big weapon-FEEL pass, all **committed on `main` (`--no-gpg-sign`)**: latest = `1f978b9` (live.py
-+ ledger), `7cce5a7` (the weapon/view batch). Read the **cont.69v ledger entries** (newest on top) for full
-detail. The ONE thing located-but-not-yet-reimplemented is the angle recoil — make it the next task.
+cont.69v did a big weapon-FEEL pass, all **committed on `main` (`--no-gpg-sign`)**: `7cce5a7` (the weapon/view
+batch) + the tooling/docs through HEAD `91353aa` (live.py watch/break/vmethod, dc.sh, the recoil-finding
+ledger entry). Read the **cont.69v ledger entries** (newest on top) for full detail. The ONE thing
+located-but-not-yet-reimplemented is the angle recoil — make it the next task.
 
 ### 🥇 THE recoil reconstruction (entry point already found — don't re-hunt it)
 The user's recoil is **angle-based: it moves the player's actual aim (`cl.viewangles`), NOT `pev->punchangle`**
