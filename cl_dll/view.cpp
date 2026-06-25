@@ -43,6 +43,7 @@ void VectorAngles(const float* forward, float* angles);
 #include "r_studioint.h"
 #include "com_model.h"
 #include "kbutton.h"
+#include "ts_recoil.h"
 
 extern engine_studio_api_t IEngineStudio;
 
@@ -479,6 +480,148 @@ typedef struct
 
 /*
 ==================
+TS aim-recoil
+
+The Specialists' recoil moves the player's ACTUAL aim (cl.viewangles), persistently — you must pull
+down. RE of the original client.dll: FUN_10008230 (@0x8230, the client twin of the server VKickback)
+adds a per-shot kick to a recoil TARGET; FUN_10057ed0 (@0x57ed0, called from V_CalcRefdef) eases the
+APPLIED recoil toward the target each frame and folds the delta into the view. See
+scratchpad/recoil-live-findings.md (constants live-verified against a cl.viewangles trajectory).
+==================
+*/
+static Vector g_recoilTarget;  // pending recoil climb (deg): [PITCH] negative = up, [YAW] horizontal
+static Vector g_recoilApplied; // how much of the climb has been eased into the aim so far
+
+// --- MELEE screen-SHAKE (the knife/katana "bounce-back") -------------------------------------------------
+// RE: the client melee attack FUN_1000a270 (@0xa345) calls Shake_Setup(amp = flDamage*0.15 [*0.66667 in
+// bullet-time], dur 0.2, freq 10) on each swing (live-verified: knife dmg 30 -> amp 4.5). The shake is a
+// damped oscillation (FUN_10057fa0 setup + FUN_10058000 apply): a random +/-amp offset that sign-flips and
+// halves each 1/freq cycle, smoothed onto the view and settling back to 0 — a transient "shake + reset",
+// NOT an aim move. GUNS use the climb above and do NOT shake (the gun-recoil shake branch in FUN_10008230
+// did not fire in the live trace). Applied to the RENDER angle only (pparams->viewangles), so the aim is
+// untouched and it returns to where it was. See scratchpad/recoil-live-findings.md.
+static struct
+{
+	Vector offset;    // current random target (sign-flips + halves each cycle)
+	Vector applied;   // smoothed offset currently added to the render view
+	float duration;   // time remaining
+	float frequency;
+	float cycleTimer; // counts down 1/frequency
+} g_meleeShake;
+
+void TS_TriggerViewShake(float amplitude)
+{
+	g_meleeShake.duration = 0.2f;   // dur, freq fixed for the melee/kung-fu bounce (RE: both 0.2 / 10)
+	g_meleeShake.frequency = 10.0f;
+	g_meleeShake.cycleTimer = 1.0f / 10.0f;
+	g_meleeShake.offset[0] = gEngfuncs.pfnRandomFloat(-amplitude, amplitude);
+	g_meleeShake.offset[1] = gEngfuncs.pfnRandomFloat(-amplitude, amplitude);
+	g_meleeShake.offset[2] = 0.0f;
+}
+
+// Advance the shake one frame and add the current (transient) offset to the RENDER view angles. Called
+// AFTER pparams->viewangles is seeded from cl_viewangles, so it perturbs only the rendered view and decays
+// back to zero (the aim/usercmd is never touched).
+void TS_ApplyMeleeShake(struct ref_params_s* pparams)
+{
+	if (g_meleeShake.duration <= 0.0f && g_meleeShake.applied[0] == 0.0f &&
+		g_meleeShake.applied[1] == 0.0f && g_meleeShake.applied[2] == 0.0f)
+		return; // inactive
+	float dt = pparams->frametime;
+	Vector ofs;
+	float cyc;
+	if (g_meleeShake.duration <= 0.0f)
+	{
+		ofs[0] = ofs[1] = ofs[2] = 0.0f; // expired -> ease applied back to 0
+		cyc = 20.0f;
+	}
+	else
+	{
+		g_meleeShake.duration -= dt;
+		g_meleeShake.cycleTimer -= dt;
+		if (g_meleeShake.cycleTimer < 0.0f)
+		{
+			g_meleeShake.cycleTimer = 1.0f / g_meleeShake.frequency;
+			g_meleeShake.offset[0] = -g_meleeShake.offset[0] * 0.5f; // flip + halve
+			g_meleeShake.offset[1] = -g_meleeShake.offset[1] * 0.5f;
+			g_meleeShake.offset[2] = -g_meleeShake.offset[2] * 0.5f;
+		}
+		ofs = g_meleeShake.offset;
+		cyc = g_meleeShake.frequency;
+	}
+	float frac = cyc * dt;
+	if (frac > 1.0f)
+		frac = 1.0f;
+	g_meleeShake.applied[0] += (ofs[0] - g_meleeShake.applied[0]) * frac;
+	g_meleeShake.applied[1] += (ofs[1] - g_meleeShake.applied[1]) * frac;
+	g_meleeShake.applied[2] += (ofs[2] - g_meleeShake.applied[2]) * frac;
+	pparams->viewangles[PITCH] += g_meleeShake.applied[0];
+	pparams->viewangles[YAW] += g_meleeShake.applied[1];
+	pparams->viewangles[ROLL] += g_meleeShake.applied[2];
+}
+
+void TS_AddViewRecoil(float flViewKick, int iFireType, bool bDuck, bool bBulletTime)
+{
+	// FUN_10008230: vert = amount*0.85; horiz = vert*firetypeScale; *0.775 duck; *0.66667 bullet-time.
+	float vert = flViewKick * 0.85f;
+	float scale;
+	switch (iFireType)
+	{
+	case 1:         scale = -0.25f; break; // TSFT_PUMP
+	case 4: case 5: scale = 0.15f;  break; // TSFT_AKIMBO / TSFT_AKIMBO_ONLY
+	case 6: case 7: scale = -0.30f; break; // TSFT_AUTOSHOTGUN / TSFT_SNIPER
+	case 8:         scale = 0.35f;  break; // TSFT_SEMI8 (pistols)
+	case 9:         scale = -0.35f; break; // TSFT_AUTO (SMGs)
+	default:        scale = 0.0f;   break; // semi/grenade/knife/katana: vertical only
+	}
+	float horiz = vert * scale;
+	if (bDuck)
+	{
+		vert *= 0.775f;
+		horiz *= 0.775f;
+	}
+	if (bBulletTime)
+	{
+		vert *= 0.66667f;
+		horiz *= 0.66667f;
+	}
+	g_recoilTarget[PITCH] -= vert; // negative pitch = kick UP
+	g_recoilTarget[YAW] += horiz;
+}
+
+void TS_UpdateViewRecoil(struct ref_params_s* pparams)
+{
+	// FUN_10057ed0: ease the climb (applied -> target) at rate min(frametime*15, 1); snap to 0 when the
+	// remaining kick is within ~0.1deg. The delta is committed to the real aim (SetViewAngles) so it
+	// persists into the next usercmd, exactly like the original's viewport commit.
+	float remPitch = g_recoilTarget[PITCH] - g_recoilApplied[PITCH];
+	float remYaw = g_recoilTarget[YAW] - g_recoilApplied[YAW];
+	if (remPitch * remPitch + remYaw * remYaw < 0.01f) // 0x10079e60 (double) snap threshold
+	{
+		g_recoilTarget[PITCH] = g_recoilTarget[YAW] = 0.0f;
+		g_recoilApplied[PITCH] = g_recoilApplied[YAW] = 0.0f;
+		return;
+	}
+	float rate = pparams->frametime * 15.0f; // 0x1007a890 = 15.0
+	if (rate > 1.0f)
+		rate = 1.0f; // 0x10079e80 (double) = 1.0 clamp
+	float dPitch = remPitch * rate;
+	float dYaw = remYaw * rate;
+	g_recoilApplied[PITCH] += dPitch;
+	g_recoilApplied[YAW] += dYaw;
+
+	Vector va;
+	gEngfuncs.GetViewAngles(va);
+	va[PITCH] += dPitch;
+	va[YAW] += dYaw;
+	gEngfuncs.SetViewAngles(va);
+	// reflect it in THIS frame's render too (next frame GetViewAngles already includes it)
+	pparams->cl_viewangles[PITCH] += dPitch;
+	pparams->cl_viewangles[YAW] += dYaw;
+}
+
+/*
+==================
 V_CalcRefdef
 
 ==================
@@ -498,6 +641,10 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 	cl_entity_t* pwater;
 
 	V_DriftPitch(pparams);
+
+	// TS aim-recoil: ease the per-shot kick into the actual aim (persistent). Must run before the aim is
+	// copied into pparams->viewangles below so the kick shows this frame.
+	TS_UpdateViewRecoil(pparams);
 
 	if (0 != gEngfuncs.IsSpectateOnly())
 	{
@@ -724,6 +871,10 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 	VectorAdd(pparams->viewangles, (float*)&ev_punchangle, pparams->viewangles);
 
 	V_DropPunchAngle(pparams->frametime, (float*)&ev_punchangle);
+
+	// TS melee shake ("bounce-back"): a transient damped oscillation on the RENDER view only (decays to 0,
+	// returns to where it was). Triggered per knife/katana swing by TS_TriggerMeleeShake (CTSGun::MeleeAttack).
+	TS_ApplyMeleeShake(pparams);
 
 	// smooth out stair step ups
 #if 1

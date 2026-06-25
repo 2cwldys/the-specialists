@@ -7,7 +7,9 @@ in Ghidra); many FP constants are **doubles** the decompiler shows as `(float)`.
 
 ## ★ LIVE fire path (NOT stock FireBulletsPlayer) — confirmed by callers
 `CTSGun::StandardFire` / `ShotgunFire` / `AkimboFire` → **`CBasePlayer::ShootBulletsPlayer`**
-(@0x6f69c, ours currently uses stock `FireBulletsPlayer` = the faithfulness GAP). ShootBulletsPlayer
+(@**nm 0x5f69c** / Ghidra 0x6f69c — this line's old "@0x6f69c" was the GHIDRA addr; `dc.sh server` adds
+0x10000 to the nm addr, so pass `0x5f69c`). **cont.69w: ours NOW reconstructs penetration via
+TSFireBulletsPenetrate (uniform PointContents loop), NOT stock FireBulletsPlayer.** ShootBulletsPlayer
 **recurses into itself** for penetration. User confirmed this is the correct/live behavior.
 
 ### Per-shot flow (the `rbullet==0` instant-hitscan branch — normal play)

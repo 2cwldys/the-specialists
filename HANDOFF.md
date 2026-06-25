@@ -47,26 +47,61 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐ NEXT TASK (cont.69v) — reconstruct the ANGLE-RECOIL (located via live trace) + finish the weapon-feel pass
-cont.69v did a big weapon-FEEL pass, all **committed on `main` (`--no-gpg-sign`)**: `7cce5a7` (the weapon/view
-batch) + the tooling/docs through HEAD `91353aa` (live.py watch/break/vmethod, dc.sh, the recoil-finding
-ledger entry). Read the **cont.69v ledger entries** (newest on top) for full detail. The ONE thing
-located-but-not-yet-reimplemented is the angle recoil — make it the next task.
+## ⭐ NEXT TASK (cont.69w) — BYTE-PORT the TS client PARTICLE subsystem (impact effects)
+The user wants the impact-vs-surface effects (bullet/knife/katana/thrown/kung-fu/grenade sparks, smoke,
+debris) reconstructed faithfully for VISUAL fidelity — a full byte-port of the original's custom client
+particle pool (NOT engine tempents, NOT the R_SparkShower approximation we have). **Full RE + build plan
+is in `scratchpad/impact-effects-re.md`** (read it first). Mapped this session; the build is multi-step:
+1. `cl_dll/ts_particles.{h,cpp}`: the 300-byte particle struct + pool struct (layout in the doc).
+2. Manager: scratch-alloc (FUN_1004ffe0 → DAT_1018a720), sprite-register via SPR_Load (FUN_100509d0),
+   random-frame (FUN_100509a0), commit-to-pool-slot (FUN_10050b60). Pool = DAT_1018bde8.
+3. ★ STILL TO FIND: the per-frame UPDATE+RENDER fn (velocity integrate, age, frame cycle, sprite draw —
+   THE look). Pool refs cluster 0x35b61 / 0x39xxx–0x3dxxx (FUN_1003ab40 etc); hooked per-frame from the
+   client view/HUD draw — find where. This is the crux for getting the struct + motion exact.
+4. The 5 spawners: FUN_10046680 smoke / FUN_10046bd0 debris+woodfrag / FUN_10046f50 scintille_metal sparks
+   / FUN_100492b0 spark-shower / FUN_10046a70 shotgun_pellets.
+5. Dispatcher FUN_10048f60 (per-surface texture-char switch + RandomLong gating 33/50/70; per-surface map
+   table in the doc) + wrapper FUN_10044bf0.
+6. Route the 5 FUN_10044bf0 call sites (0x35ff6/0x36166/0x4528e/0x45b93/0x45d2a = bullet/knife/etc — map
+   each) through it; drop the R_SparkShower in EV_TSBulletImpact/EV_TSMelee (cl_dll/ev_ts.cpp). Add the
+   glass-crack ("windshield") DamageDecal on non-breaking glass hits (via CBreakable::DamageDecal).
+NB this is CLIENT-LOCAL — it does NOT affect 4-way drop-in compat (that's the protocol: events/messages/
+cvars/commands, already byte-faithful). The byte-port is purely for our client's visual fidelity (user's
+explicit goal). All 6 impact sprites already exist in the game dir.
 
-### 🥇 THE recoil reconstruction (entry point already found — don't re-hunt it)
-The user's recoil is **angle-based: it moves the player's actual aim (`cl.viewangles`), NOT `pev->punchangle`**
-(punchangle is gated to `FL_FAKECLIENT`/bots in the RE — confirmed; our `VKickback` is now bot-gated too).
-A LIVE gdb watchpoint on `cl.viewangles` (user fired one shot, no mouse → pitch kicked ~0.49° up) pinned it to
-the **client view-prediction**, NOT the fire path. Entry point (see the ledger "⭐ LIVE TRACE located the
-angle-recoil" entry for exact addrs):
-- client per-frame view-compute method `@client.dll RVA 0x648c0` calls a VIRTUAL `this->vtable[0x38]`
-  `(&pitch,&yaw,&roll)` to get the recoiled angles, then commits via `FUN_1005b3c0` → engine `0x1db74e0`.
-- **THE RECOIL MATH IS IN `vtable[0x38]`** of that client object. NEXT: read `param_1`'s vtable in the live
-  process (slot 14 = 0x38/4), decompile that virtual, extract the per-shot pitch/yaw formula (small, bigger
-  on knives — the knife throw sets a large spread `0.25*rate`), then reconstruct it client-side. Use the live
-  watchpoint to verify the reimplementation matches the original's kick.
+### Task-tool entries at handoff (this session)
+- #1 [in_progress] RE client impact dispatcher + 5 sprite spawners — foundation mapped (struct/pool/manager
+  decoded; update/render + spawner exact params still to pin via decompile + live-trace).
+- #2 [pending] Reconstruct client impact effects (the build steps above; route events; glass-crack decal).
+- #3 [DONE] bullet penetration (ShootBulletsPlayer uniform PointContents loop). #4 [DONE] glass-always-breaks.
 
-### 🔴 LIVE-original debugging — now scripted: `scripts/live.py` (+ CLAUDE.md §4b, `live-original-ts-debuggable` memory)
+### ✅ COMPLETED + DEPLOYED this session (cont.69w) — see the ledger for detail
+- **Angle-recoil** reconstructed (cl_dll/view.cpp TS_AddViewRecoil/TS_UpdateViewRecoil): per-shot aim climb,
+  ease `frametime*15` (cap 1), persistent, snap <0.1°. **The cont.69v "0x648c0/vtable[0x38]" lead was WRONG**
+  (that's a vgui Panel getAbsExtents). Real source: FUN_10008230 (client twin of server VKickback) → recoil
+  TARGET accumulator → eased in V_CalcRefdef (FUN_10057ed0). Guns = climb only (NO shake).
+- **Melee/kung-fu "bounce-back" shake** (the screen-shake — melee only, guns don't shake): knife/katana
+  amp=flDamage*0.15, kung-fu amp=min(power,45)*0.35 (punch 20/kick 25), dur 0.2/freq 10, transient render-
+  only. view.cpp TS_TriggerViewShake/TS_ApplyMeleeShake; triggered in CTSGun::MeleeAttack/CloseCombatAttack.
+- **Bullet penetration** (dlls/ts_gun.cpp TSFireBulletsPenetrate): rewrote to the original ShootBulletsPlayer
+  (@nm 0x5f69c) uniform PointContents loop — penDepth=min(dmg*2,48); pass-through gated by world-solid
+  thickness (so depends on weapon dmg + enter/exit angle). Removed the special glass branch.
+- **Glass** no longer always breaks: PointContents ignores entity brushes so bullets pass through glass;
+  it shatters only if dmg >= pane health (=20 in TS maps). damage_adjust per-pierce still 0.75 (VERIFY).
+- **Weapon table now byte-exact** (dlls/ts_weapon_info.cpp): the Write_<weapon> values are an EARLIER stage
+  OVERWRITTEN by Sparta()/SetSpartaWeapon (server) == client FUN_10007a80 (identical). Added SetSparta()
+  + 32 calls (spread/viewkick/recoil/damage); fixed m61/knife/katana/sealknife/flag Write_ outliers; added
+  Write_flag (idx 29). Verified 0 mismatches vs binary Write_ AND Sparta. See [[sparta-overrides-write-weapon]].
+
+### 🔴 STILL-OPEN weapon-feel TODOs (carried from cont.69v, not done)
+- ⏳ **Kung-fu KICKS dispatch** not RE-faithful (FIRE punch combo IS done). RE table in CCombatAttack @0x86078
+  (`re.sh 0x96078`); the kick side uses the old approximation.
+- ⏳ **Dynamic spread edge cases**: m60 5× recoil (field_0xc8==0x20), barrett max-spread-moving (==0x12).
+- ⏳ **Weapon sway**: amplitude smoothing + per-weapon grip + forward term not ported (figure-8 IS done).
+- ⏳ **Coldcock viewmodel whip** (coldcock.sc LAB_10043800); **breakable periodic respawn**; **Katana
+  right-click = CTSGun::KatanaThrow**.
+
+### 🔴 LIVE-original debugging — scripted: `scripts/live.py` (+ CLAUDE.md §4b, `live-original-ts-debuggable` memory)
 The user **keeps the original TS running in `hl.exe` (Proton/Wine), ALWAYS available to gdb-attach.** When
 static RE dead-ends on a virtual/indirect/client-side path, **live-trace it — don't guess** (guessing = the
 cardinal sin). **`scripts/live.py`** codifies the workflow (built cont.69v):
@@ -116,7 +151,10 @@ decompiler shows as `(float)`). Tooling: `scripts/ghidra/{DecompAt,DecompRefs,Fi
 gitignored (decompiles/RE notes live there). Commits are `--no-gpg-sign` (gpg passphrase expires mid-session);
 work on `main`; no `Co-Authored-By` trailers. Don't commit the user's `test.sh` (their launcher).
 
-## Where things stand (2026-06-24, through cont.69t) — all committed (`--no-gpg-sign`)
+## Where things stand (2026-06-24, through cont.69w) — cont.69w (recoil/shake/penetration/glass/weapon-table)
+## was BUILT + DEPLOYED to the xash rig but NOT yet committed — review `git status`/`git diff` and commit
+## the cont.69w changes (dlls/ts_gun.cpp, dlls/ts_weapon_info.cpp, cl_dll/view.cpp, cl_dll/ev_ts.cpp,
+## cl_dll/ts_recoil.h) on `main` (`--no-gpg-sign`, no Co-Authored-By). Older state below is through cont.69t:
 
 ### cont.69t — weapon-effect polish batch (RE-grounded; user playtests). Read the ledger top for full detail.
 - **Bullet impact smoke** (8430ea3) — client `EV_TSBulletImpact` (cl_dll/ev_ts.cpp): a SMOKE puff per surface

@@ -5,6 +5,146 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-24 (cont. 69w) — IMPACT-vs-surface effects: penetration+glass DONE; particle byte-port STARTED (THE next task)
+
+User asked to validate/fix bullet·knife·thrown-knife·katana·thrown-katana·kungfu·grenade impact-vs-surface
+logic + effects. Full RE + build plan in **scratchpad/impact-effects-re.md**.
+
+DONE + DEPLOYED:
+- BULLET PENETRATION rewritten to match the original CBasePlayer::ShootBulletsPlayer (@nm 0x5f69c; BULLETS.md
+  had the wrong addr 0x6f69c=Ghidra). Uniform PointContents loop: penDepth=min(dmg*2,48); pass-through iff
+  UTIL_PointContents(endpos+dir*penDepth)!=CONTENTS_SOLID. So pass-through depends on weapon damage + the
+  enter→exit slice thickness (angle) — matches the user's spec. Removed our special glass branch.
+  (dlls/ts_gun.cpp TSFireBulletsPenetrate.) damage_adjust per-pierce = 0.75 (VERIFY: orig reads damagemult[+0xc],
+  relocated — pin live).
+- GLASS no longer always breaks: PointContents tests WORLD brushes only, so glass (func_breakable ENTITY)
+  always reads non-solid → bullets pass through; the pane SHATTERS only via ApplyMultiDamage iff dmg >= its
+  health = **20** in TS maps (one 40). So most guns (>=20 dmg) one-shot it (correct), weak ones (skorpion 16,
+  pdw 16, usas 7) don't.
+
+THE NEXT TASK — BYTE-PORT the TS client PARTICLE subsystem (user: visual fidelity; it's CLIENT-LOCAL, does
+NOT affect drop-in compat — that's protocol, already faithful). Impact effects feed a custom particle pool
+(DAT_1018bde8), NOT engine tempents; our current EV_TSBulletImpact/EV_TSMelee use R_SparkShower = wrong (orig
+sparks via sprites/scintille_metal.spr). Mapped: 300-byte particle struct (scratch DAT_1018a720), pool +
+manager fns (FUN_1004ffe0/100509d0/100509a0/10050b60), spawner pattern, the dispatcher FUN_10048f60
+(per-surface texture-char switch + RandomLong gating) + wrapper FUN_10044bf0 (5 call sites). STILL TO FIND:
+the per-frame UPDATE+RENDER fn (the look). 6-step build plan + per-surface effect table + struct layout all
+in scratchpad/impact-effects-re.md. Glass also wants a CRACK ("windshield") decal on non-breaking hits
+(CBreakable::DamageDecal). NOT built — all builds clean+deployed so far; resume at the particle struct/manager.
+
+## 2026-06-24 (cont. 69w) — ⭐ ANGLE-RECOIL fully RE'd + reconstructed (client-side aim kick)
+
+Corrected the cont.69v trail (it pointed at vgui panel 0x648c0 / vtable[0x38] = a dead end; that slot
+is just vgui::Panel::getAbsExtents on a plain Panel). Found the REAL system via live trace + static RE:
+
+LIVE MODEL (unbuffered os.pread poll of cl.viewangles pitch @0x2d8aec4, user fired no-mouse): each shot
+eases the pitch UP and STAYS (2s between shots = zero recovery → PERSISTENT aim move, NOT punchangle).
+Per-frame deltas decay ×0.85, first frame ≈ 0.15× kick. Total ≈6.4° for the tested weapon.
+
+SOURCE (client.dll, static RE confirmed): the "0.85/0.15" is frametime-dependent — real constant = 15.0.
+- ON FIRE — FUN_10008230 @0x8230 (client twin of server VKickback@0x70414, SAME tuning): vert=amount*0.85;
+  horiz=vert*firetypeScale (ft1=-0.25, ft4/5=+0.15, ft6/7=-0.30, ft8=+0.35, ft9=-0.35, else 0); *0.775
+  duck; *0.66667 bullet-time. accum.pitch(DAT_10191d10)-=vert; accum.yaw(DAT_10191d14)+=horiz. amount =
+  flViewKick(weapon 0x30)*modifier (call-site mods 0.35/1.0/2.0 — NOT yet pinned to weapons), firetype=0x348.
+- EACH FRAME in V_CalcRefdef — FUN_10057ed0 @0x57ed0: remaining=target-applied; if |rem|²>=0.01:
+  rate=min(frametime*15,1); delta=rem*rate; applied+=delta; viewangles+=delta (PERSISTENT). else snap to 0.
+Full decompiles + constants (with file offsets) in scratchpad/recoil-live-findings.md.
+
+RECONSTRUCTED (built clean, deployed to xash rig; awaiting playtest):
+- NEW cl_dll/ts_recoil.h + TS_AddViewRecoil()/TS_UpdateViewRecoil() in cl_dll/view.cpp (g_recoilTarget/
+  g_recoilApplied; ease at frametime*15, snap <0.1°; commits to the aim via Get/SetViewAngles each frame
+  during the kick + bumps pparams->cl_viewangles for the current frame).
+- TS_UpdateViewRecoil(pparams) called early in V_CalcNormalRefdef (before cl_viewangles→viewangles copy).
+- EV_TSFire (cl_dll/ev_ts.cpp) local-player block now calls TS_AddViewRecoil(wi->flViewKick, wi->iFireType,
+  args->ducking, false) — replaced the old V_PunchAxis(0,-2.0) placeholder. bullet-time arg = false (VERIFY:
+  no client slow-mo flag wired). amount = flViewKick directly (modifier=1.0 assumed; CALIBRATE vs original).
+NEXT: playtest vs the running original per weapon; if magnitude off, pin the FUN_10008230 call-site
+modifier ([item+2]==1?1.0:0.35 @0x90be; bl?2.0:1.0 @0x9cea). Measure the YAW component live too.
+
+UPDATE (same session) — playtest showed ours UNDER-DRIFTS vs original (skorpion full-auto). Root cause
+found + fixed: the original recoil has a SECOND part — a per-shot damped SCREEN SHAKE (FUN_10057fa0 setup
+@0x57fa0 + FUN_10058000 apply @0x58000, called from V_CalcRefdef) whose amplitude RAMPS WITH FIRE RATE
+(amp=(0.15-dt)*15, cap 1, *0.775 duck; <=0.001 -> none). So single/slow shots = clean climb, full-auto =
+climb + growing scatter (the "pronounced drift"). I'd only built the climb. Verified flViewKick[skorpion]
+=0.25 is CORRECT from the binary (Write_skorpion @0x8d3f0), so the climb (0.21°/shot) is faithful — the
+shake was the gap. Added the shake to cl_dll/view.cpp — but REVERTED it: the user clarified GUNS DON'T SHAKE, they just move
+the aim (the climb); the screen-shake/"bounce-back" is the MELEE/KNIFE feel ("the knife doesn't recoil but
+it does bounce back"). My ±1° shake on guns drowned the small climb -> the skorpion felt like "no functional
+recoil." So view.cpp is now CLIMB-ONLY for guns (the working state for other weapons); the shake helpers were
+removed (reconstruct FUN_10057fa0/58000 on the knife/melee path later if the bounce is wanted — full algo is
+in scratchpad/recoil-live-findings.md). Debug Con_Printf removed. Built+deployed.
+
+Skorpion specifics (RE-confirmed, no bug): single skorpion (firetype 9) routes FUN_100091e0 -> amount =
+flViewKick directly (=0.25, verified Write_skorpion @0x8d3f0) -> climb 0.21°/shot — genuinely low, faithful.
+Akimbo skorpion (firetype 4) routes FUN_100096f0 -> amount = 2.0*flViewKick + fires both barrels -> ~4x the
+kick; user says the AKIMBO "looks more correct". So the single's weak climb matches the binary. OPEN: confirm
+vs original single skorpion; if original single kicks harder, recheck the FUN_100091e0 amount path / weapon
+0x38 gate. NEXT (separate): the KNIFE bounce-back = the shake on the melee path.
+
+⭐ ROOT CAUSE of the weak/wrong recoil (cont.69w) — the Write_<weapon> values are an EARLIER init stage that
+gets OVERWRITTEN on BOTH server and client by ONE authoritative combat table (NOT a server/client split):
+- server: compile_weapons_info -> Sparta() @0x6fa78 -> SetSpartaWeapon(idx, spread, viewKick, recoil, dmg)
+  @0x6fa34, sets s_weapon_info +0x28/+0x30/+0x34/+0x1c.
+- client: FUN_10007a80 -> FUN_10007a50 — BYTE-IDENTICAL calls (same indices, same hex values).
+So there's one real value per weapon. We had used the Write_ stage (the prev agent's "table verified from
+Write_<weapon>" read the wrong stage). Found by tracing the single-skorpion recoil amount (live break = 0.5,
+not the static 0.25; Sparta sets skorpion +0x30 = 0x3f000000 = 0.5). ~22 of 32 guns differ: skorpion 0.25→0.5,
+beretta 3→2.5, uzi 1.5→1.75, benelli 10→13, m4 4→3.75, mp5k 3→2.25, desert 8→7.5, ak47 5→5.5, mossberg 14→8.5,
+m16 4.5→4, ruger 0.3→0.35, bull 18→13, glock22 4.5→5, mac10 4→3, gold 5→5.5, contender/36 12→7.5, …
+FIX: replaced kViewKick[] in dlls/ts_weapon_info.cpp with the Sparta/SetSpartaWeapon values (all 32 decoded;
+the 6 melee/grenade indices Sparta doesn't list keep Write values). Built hl.so+client.so, deployed.
+MELEE "bounce-back" shake ADDED (cont.69w) — RE-confirmed it's melee-only, NOT guns. Live-traced Shake_Setup
+(client FUN_10057fa0 @0xc0c7fa0): swinging the knife fired it from FUN_1000a270 @0xa345 (the client melee
+attack) with amp=4.5/dur=0.2/freq=10; firing GUNS did NOT fire it (the gun-recoil shake branch in FUN_10008230
+@0x83b2 never tripped — confirms guns climb-only). Formula: amp = meleeWeapon flDamage * 0.15 (*0.66667 in
+bullet-time) — knife dmg 30 -> 4.5 (matches). Shake = damped oscillation (random ±amp offset, sign-flip+halve
+each 1/freq cycle, smoothed), TRANSIENT (settles to 0 = "shake + reset to where it was"), applied to the
+RENDER view only (never the aim). Impl: cl_dll/view.cpp g_meleeShake + TS_TriggerMeleeShake(dmg,bt) +
+TS_ApplyMeleeShake(pparams) (called after punchangle in V_CalcNormalRefdef, adds to pparams->viewangles);
+triggered per swing in CTSGun::MeleeAttack (dlls/ts_gun.cpp, #ifdef CLIENT_DLL -> client-predicted = local
+player; fire-rate gate = once per swing). Built hl.so+client.so (symbols: client.so has Trigger/ApplyMeleeShake,
+hl.so has none — gating correct), deployed.
+
+KUNG-FU shake ALSO added (cont.69w) — user reported knife bounced but kung-fu didn't (it's CCombatAttack,
+not MeleeAttack). Live-traced: kung-fu punch/kick fire Shake_Setup from a DIFFERENT site (client FUN_1000af10
+@0xb5e5) with amp = min(|velocity|*0.15385 [1/6.5, 0x1007a8f8], 45 [cap 0x1007a900]) * 0.35 [0x1007a8a8],
+dur 0.2/freq 10. So it's VELOCITY-scaled (punch~7.0/kick~8.75 in the trace = the player's move speed), a
+DIFFERENT multiplier (0.35) than the knife's fixed dmg*0.15. Generalized the trigger: TS_TriggerViewShake(amp)
+(caller computes amp); knife passes flDamage*0.15, kung-fu passes the velocity formula. Wired in
+CTSGun::CloseCombatAttack (#ifdef CLIENT_DLL, after SendWeaponAnim). CORRECTION (same session): user reported kung-fu only shook while MOVING — wrong, it must ALWAYS shake on
+attack. The decompile's SQRT(velocity) is the attack's LUNGE velocity (the kung-fu move imparts a forward
+lunge, non-zero even standing still), NOT the player's pre-attack movement — I'd wired m_pPlayer->pev->velocity
+which is 0 when stationary. Our reconstruction doesn't model the lunge yet, so we approximate `power` with the
+move's `dmg` (always > 0 -> always shakes): amp = min(dmg, 45) * 0.35. Built+deployed. AWAITING playtest:
+knife/katana bounce (fixed dmg*0.15), kung-fu bounce ALWAYS on punch/kick, guns climb-only.
+
+MAGNITUDE FIX (same session): user confirmed kung-fu bounce was too big (our dmg 35-55 vs original power ~20-25).
+The shake `power` = the move's LUNGE velocity*0.15385 (we don't model the lunge), measured live as punch~20 /
+kick~25 -> amp 7.0 / 8.75. Switched to per-category fixed power: kfPower = fSecondary ? 25 : 20; amp =
+kfPower*0.35 (CloseCombatAttack, ts_gun.cpp). Built+deployed. VERIFY: special kicks (side/back/spin) + uppercut
+not separately measured (assumed punch=20/kick=25 by the primary/secondary split).
+
+FULL COMBAT TABLE re-sourced from Sparta (cont.69w, DONE) — Sparta also overrides spread(0x28)/recoil(0x34)/
+DAMAGE(0x1c), so the Write_<weapon> values were the wrong stage for those too. Reconstructed the original's
+structure in dlls/ts_weapon_info.cpp: added a SetSparta(idx, spread, viewKick, recoil, dmg) helper (mirrors
+SetSpartaWeapon @0x6fa34) + 32 SetSparta(...) calls in the original Sparta() order, run after the Write_<weapon>
+calls — overwriting flSpread/flViewKick/flRecoil/flDamage for the 32 firearms (6 melee/grenade/flag keep Write
+values). Replaced the kViewKick array (now folded into Sparta); kept kUsesSpread. Decoded values from
+ts_i386.so Sparta @0x6fa78 (full table in scratchpad/recoil-live-findings.md). Damage examples now corrected:
+barrett 210->185, m4 34->33, beretta 29->27, desert 55->49, mk23 36->33. Built hl.so+client.so, deployed.
+
+FULL WRITE_ + SPARTA AUDIT (cont.69w, both byte-exact). Extracted every Write_<weapon> field from ts_i386.so
+(disasm of the 38 Write_ fns -> /tmp/write_fields) and diffed vs our table. All 32 guns' Write_ fields already
+matched; fixed the melee/grenade outliers: m61 (clip 25->1, rate 0.092->1.0, spread 0.028->0.1, dmg/recoil->0,
+pellets 1->2), knife pellets 1->5, sealknife 1->10, katana 1->0, flag firemodes 2->0. Added kWriteViewKick (the
+Write_-stage view-kick, all 38) applied before SetSparta so the WRITE stage is byte-exact too (Sparta then
+overrides the 32 guns; the 6 melee keep their Write_ vk, mostly unused). Verifier (parses our Write()+arrays+
+kWriteViewKick+SetSparta vs binary Write_ AND Sparta): 0 Write mismatches, 0 Sparta mismatches, 32 SetSparta
+calls. ONLY gap: flag (idx 29) is in the binary Write_flag but intentionally blank in our table (CTF objective,
+not a fired weapon) — add Write_flag if full coverage of the non-combat flag entry is ever wanted.
+AWAITING playtest. Recoil model = climb-only for guns (ease frametime*15, persistent); shake = melee/knife
+(fixed dmg*0.15) + kung-fu (per-category power*0.35), transient render-only.
+
 ## 2026-06-24 (cont. 69v) — ⭐ LIVE TRACE located the angle-recoil (client view-prediction, NOT punchangle)
 
 Static RE dead-ended on the aim recoil (no server v_angle write; CL_CreateMove + all 3 SetViewAngles

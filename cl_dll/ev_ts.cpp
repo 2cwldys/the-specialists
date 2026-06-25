@@ -35,6 +35,7 @@
 #include "eventscripts.h"
 #include "ts_weapon_info.h" // the SHARED s_weapon_info table (now built into the client too)
 #include "ts_weapon_predict.h" // the active-weapon param cache (refreshed by each TS event)
+#include "ts_recoil.h"      // TS_AddViewRecoil — the per-shot aim-recoil kick
 
 #include <string.h>
 
@@ -263,7 +264,13 @@ void EV_TSFire(event_args_t* args)
 		// NOTE: the viewmodel "shoot" anim is now CLIENT-PREDICTED in CTSGun::StandardFire's
 		// SendWeaponAnim (CTSGun is a UseDecrement weapon, cont.69s 3d) — this event handles the
 		// muzzle-flash sprite + sound + shell + recoil; the anim plays via the predicted ItemPostFrame.
-		V_PunchAxis(0, -2.0);
+		// TS AIM-recoil (RE client.dll FUN_10008230): kick the actual aim up + per-firetype horizontal,
+		// eased into cl.viewangles in V_CalcRefdef (TS_UpdateViewRecoil). Persistent — the player pulls
+		// down. Replaces the old -2.0 punchangle placeholder (the original gates server punchangle to
+		// bots; the real recoil moves the aim client-side). bullet-time: VERIFY (no client slow-mo flag
+		// wired yet -> false).
+		const s_weapon_info* wiLocal = get_weapon_info((tsweapon_t)weaponType);
+		TS_AddViewRecoil(wiLocal->flViewKick, wiLocal->iFireType, args->ducking != 0, false);
 	}
 
 	// Eject a brass shell from the viewmodel/player.

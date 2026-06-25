@@ -45,6 +45,9 @@
 // barrel clips, and a single can be wielded/dropped independently of its akimbo pair.
 
 #include "ts_gun.h" // the CTSGun class (extracted so the client prediction harness can instantiate it)
+#ifdef CLIENT_DLL
+#include "../cl_dll/ts_recoil.h" // TS_TriggerMeleeShake — the per-swing melee "bounce-back" (client only)
+#endif
 
 // Lazily-registered TS weapon-info HUD message (the ammo readout). Name + fixed size
 // are byte-faithful to LinkUserMessages (reference/HUD_MESSAGES.md): "WeaponInfo", 6.
@@ -613,6 +616,13 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 	const int nSlash = 3;                                       // RE: 3 slash variants (0x1d/1e/1f body anims)
 	SendWeaponAnim(slashBase + (m_slashStep % nSlash));
 	m_slashStep++;
+#ifdef CLIENT_DLL
+	// Knife/katana "bounce-back" screen-shake, per swing (RE client FUN_1000a270 @0xa345: Shake_Setup(amp =
+	// flDamage*0.15, dur 0.2, freq 10) — knife dmg 30 -> amp 4.5, live-verified). Client-predicted path =
+	// local player; transient render-only shake (TS_ApplyMeleeShake in V_CalcRefdef). The fire-rate gate
+	// (m_flNextPrimaryAttack below) means MeleeAttack runs once per swing, so prediction replay won't re-fire.
+	TS_TriggerViewShake(wi->flDamage * 0.15f);
+#endif
 	// Swing whoosh (per attack) — server-driven EMIT_SOUND (a client no-op during prediction).
 	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM);
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
@@ -712,6 +722,21 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
 
 	SendWeaponAnim(anim);                       // the v_melee.mdl punch/kick (1st-person fists)
+#ifdef CLIENT_DLL
+	// Kung-fu "bounce-back" screen-shake, per punch/kick — ALWAYS fires on attack (RE client FUN_1000af10
+	// @0xb5e5: Shake_Setup(amp = min(power, 45) * 0.35, 0.2, 10)). The original derives `power` from the
+	// attack's velocity (a forward LUNGE the move imparts, *0.15385=1/6.5), so it's non-zero even standing
+	// still — it is NOT the player's pre-attack movement (an earlier velocity-based version wrongly only
+	// shook while moving). We approximate `power` with the move's damage (always > 0). Live-verified amps:
+	// punch~7.0 (power~20), kick~8.75 (power~25). Transient render-only (TS_ApplyMeleeShake).
+	// `power` = the move's lunge velocity * 0.15385 (capped 45), which we don't model — so use the live-
+	// measured per-category power (punches 20, kicks 25 -> amp 7.0 / 8.75). fSecondary = the kick path.
+	// VERIFY: special kicks (side/back/spin) / the uppercut may have their own lunge; not separately measured.
+	{
+		float kfPower = fSecondary ? 25.0f : 20.0f;
+		TS_TriggerViewShake(kfPower * 0.35f); // 0x1007a8a8 = 0.35 -> punch 7.0, kick 8.75
+	}
+#endif
 	// 3rd-person player BODY animation (TS player models have these by name): map the attack to its
 	// kung-fu sequence so onlookers see the punch/kick instead of an aim pose.
 	const char *bodySeq = "punchright";
@@ -959,7 +984,13 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 		Vector start = vecSrc;
 		float dmg = (float)iDamage;
 
-		// penetration chain: pierce through every layer it can (cap = runaway backstop)
+		// Penetration chain, RE-matched to CBasePlayer::ShootBulletsPlayer (@0x5f69c): one UNIFORM loop —
+		// no glass-specific branch. Each layer takes the damage (ApplyMultiDamage shatters glass iff dmg >=
+		// its health), then the round penetrates iff the surface is thinner than min(dmg*2, 48): we step
+		// `beyond` that far along the ray and continue when UTIL_PointContents(beyond) != CONTENTS_SOLID.
+		// Because PointContents only tests WORLD brushes, entity brushes (glass/doors) always read non-solid,
+		// so the bullet always passes through them (leaving a hole) whether or not they shattered — exactly
+		// the original. (cap = runaway backstop; the original recurses with mode=2.)
 		for (int pen = 0; pen < 8; pen++)
 		{
 			TraceResult tr;
@@ -970,42 +1001,27 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 			CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
 			ClearMultiDamage();
 			gMultiDamage.type = DMG_BULLET | DMG_NEVERGIB;
-			pHit->TraceAttack(pevAttacker, dmg, dir, &tr,
-				DMG_BULLET | ((dmg > 16.0f) ? DMG_ALWAYSGIB : DMG_NEVERGIB));
+			pHit->TraceAttack(pevAttacker, dmg, dir, &tr, DMG_BULLET | DMG_NEVERGIB); // orig DMG bits 0x1002
 			TEXTURETYPE_PlaySound(&tr, start, start + dir * flDist, BULLET_PLAYER_9MM);
 			DecalGunshot(&tr, BULLET_PLAYER_9MM); // ENTRY bullet-hole
-			ApplyMultiDamage(pevAttacker, pevAttacker); // may shatter glass -> solid becomes SOLID_NOT
+			ApplyMultiDamage(pevAttacker, pevAttacker); // shatters glass iff dmg >= pane health (20)
 
-			bool brush = (pHit == NULL) || (pHit->pev->solid == SOLID_BSP) || (tr.pHit == ENT(0));
-			bool broke = (pHit != NULL) && (pHit->pev->solid == SOLID_NOT); // glass shattered just now
-			if ((!brush && !broke) || dmg <= 5.0f)
-				break; // a living target / too weak to keep going
+			if (dmg <= 5.0f) // orig: damage > 5.0 to keep piercing
+				break;
+			float penDepth = dmg * 2.0f; // orig: min(dmg*2, 48)
+			if (penDepth > 48.0f)
+				penDepth = 48.0f;
+			Vector beyond = tr.vecEndPos + dir * penDepth;
+			if (UTIL_PointContents(beyond) == CONTENTS_SOLID)
+				break; // world surface thicker than the round can pierce — stop here
 
-			if (broke)
-			{
-				// the pane shattered and is no longer solid — continue from JUST PAST the entry so a
-				// CLOSE next pane is still hit (jumping the full pierce-depth overshot it). The whole
-				// chain of glass breaks. No exit decal (the pane is gone).
-				start = tr.vecEndPos + dir * 1.0f;
-			}
-			else
-			{
-				// a still-solid surface (world / unbroken brush): must be thin enough to pierce.
-				float penDepth = dmg * 2.0f;
-				if (penDepth > 48.0f)
-					penDepth = 48.0f;
-				Vector beyond = tr.vecEndPos + dir * penDepth;
-				if (UTIL_PointContents(beyond) == CONTENTS_SOLID)
-					break; // wall thicker than the round can pierce — stop here
-
-				// EXIT bullet-hole on the back face (trace back from beyond the wall to the entry).
-				TraceResult trExit;
-				UTIL_TraceLine(beyond, tr.vecEndPos, ignore_monsters, ENT(pevAttacker), &trExit);
-				if (trExit.flFraction < 1.0f)
-					DecalGunshot(&trExit, BULLET_PLAYER_9MM);
-				start = beyond; // continue past the back face
-			}
-			dmg *= 0.75f; // a little energy lost punching through
+			// EXIT bullet-hole on the back face (trace back from beyond to the entry).
+			TraceResult trExit;
+			UTIL_TraceLine(beyond, tr.vecEndPos, ignore_monsters, ENT(pevAttacker), &trExit);
+			if (trExit.flFraction < 1.0f)
+				DecalGunshot(&trExit, BULLET_PLAYER_9MM);
+			start = beyond; // continue past this layer
+			dmg *= 0.75f; // VERIFY: orig per-pierce damage_adjust = damagemult[+0xc] (relocated; pin live)
 		}
 	}
 }
