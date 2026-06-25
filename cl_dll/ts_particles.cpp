@@ -378,7 +378,10 @@ static void TSP_Smoke(const float* o, const float* n, const char* spr, short ren
 		p->life = 0.0f;
 		p->accelRate = 0.1f;      // +0xe4 — the puff grows as it ages
 		p->stretch = 7.0f;        // +0x128 — velocity-stretch -> the conic flare
-		p->frameRate = frameRate + (float)gEngfuncs.pfnRandomLong(-5, 5);
+		// frameRate = base + RandomLong(±base/2) — live-traced range is ~10-30 for base 20, i.e. each
+		// puff animates at a noticeably different speed (a big chunk of the per-puff variation).
+		int fj = (int)(frameRate * 0.5f);
+		p->frameRate = frameRate + (float)gEngfuncs.pfnRandomLong(-fj, fj);
 		p->size = size;           // +0x108
 		// vel = normal * RandFloat(8,24) / (count - i) + a small (-2,2) x/y scatter. The divisor
 		// DECREMENTS each puff (count,…,1 — FUN_10046680's param_11--), so the chain-tip puffs eject
