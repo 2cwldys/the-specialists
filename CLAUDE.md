@@ -272,7 +272,10 @@ Don't guess; trace it.** Two tools settle it definitively:
 - **★ Live gdb backtrace on the running ORIGINAL.** The real TS runs in `hl.exe` under Proton/Wine (the
   server is `ts/dlls/mp.dll`, the client `ts/cl_dlls/client.dll`). This box can `gdb -p <pid>` it
   (ptrace_scope=1 but same user works; gdb shows the 32-bit code as garbage by default — read raw bytes,
-  not the auto-disasm). Recipe:
+  not the auto-disasm). **`scripts/live.py` scripts the boilerplate**: `live.py pid` / `base <module>`
+  (reloc-free prologue scan) / `resolve 0xADDR…` and `bt` (raw live addr / piped gdb backtrace → module +
+  RVA + nearest export) / `read <module> 0xRVA [f|d|u|p]`. This is how cont.69v located the angle-recoil
+  (a value-`watch` on `cl.viewangles` fires only on change → with no mouse, only the recoil moves it). Recipe:
   0. **Find the live PID each session** (it changes): `pgrep -f 'Half-Life/hl.exe'` (pick the actual
      `hl.exe` Wine process — the big RSS one, not the launcher/reaper). Ask the user to confirm it's
      running if `pgrep` is empty.

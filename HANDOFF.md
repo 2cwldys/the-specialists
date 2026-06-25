@@ -47,41 +47,63 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐ NEXT TASK (cont.69u) — weapon/breakable batch DONE+committed; knife rework + queue remain (PLAYTEST-driven)
-The big cont.69u batch is **committed (`7cd6981`, `--no-gpg-sign`)**: jump-kick, glass sprite shatter, bullet
-penetration, bullet-impact debris chips, dive-through-glass, + the knife throw. The newest knife→glass rework
-(below) is **built + installed but NOT yet committed — awaiting the user's playtest**. Full detail: the
-**cont.69u ledger entries** (newest on top) + **`reference/BULLETS.md`** (the RE for the whole bullet/breakable
-subsystem). **Workflow: build it RE-grounded → ASK the user to playtest (they're hands-on and iterate fast);
-don't fight the xdotool screenshot harness.**
+## ⭐ NEXT TASK (cont.69v) — reconstruct the ANGLE-RECOIL (located via live trace) + finish the weapon-feel pass
+cont.69v did a big weapon-FEEL pass, all **committed on `main` (`--no-gpg-sign`)**: latest = `1f978b9` (live.py
++ ledger), `7cce5a7` (the weapon/view batch). Read the **cont.69v ledger entries** (newest on top) for full
+detail. The ONE thing located-but-not-yet-reimplemented is the angle recoil — make it the next task.
 
-### 🔴 NEW CAPABILITY — debug the LIVE original (read CLAUDE.md §4b + the `live-original-ts-debuggable` memory)
-The user **keeps the original TS running in `hl.exe` (Proton/Wine) and it's ALWAYS available to gdb-attach.**
-When a static trace dead-ends on a virtual/indirect call, **do a live gdb backtrace instead of guessing**
-(guessing = "making shit up vs the RE", the cardinal sin). This is how the knife→glass break was finally
-found. Recipe in **CLAUDE.md §4b** (find PID via `pgrep -f 'Half-Life/hl.exe'`; Wine maps PE by RVA so find a
-fn's live addr by byte-searching `/proc/<pid>/mem` for its prologue; HARDWARE bp; resolve return addrs via
-`mp.dll`'s 159 typed MSVC exports → find the same fn in `ts_i386.so`). mp.dll Ghidra project: `recovered/ghidra/mpdll`.
+### 🥇 THE recoil reconstruction (entry point already found — don't re-hunt it)
+The user's recoil is **angle-based: it moves the player's actual aim (`cl.viewangles`), NOT `pev->punchangle`**
+(punchangle is gated to `FL_FAKECLIENT`/bots in the RE — confirmed; our `VKickback` is now bot-gated too).
+A LIVE gdb watchpoint on `cl.viewangles` (user fired one shot, no mouse → pitch kicked ~0.49° up) pinned it to
+the **client view-prediction**, NOT the fire path. Entry point (see the ledger "⭐ LIVE TRACE located the
+angle-recoil" entry for exact addrs):
+- client per-frame view-compute method `@client.dll RVA 0x648c0` calls a VIRTUAL `this->vtable[0x38]`
+  `(&pitch,&yaw,&roll)` to get the recoiled angles, then commits via `FUN_1005b3c0` → engine `0x1db74e0`.
+- **THE RECOIL MATH IS IN `vtable[0x38]`** of that client object. NEXT: read `param_1`'s vtable in the live
+  process (slot 14 = 0x38/4), decompile that virtual, extract the per-shot pitch/yaw formula (small, bigger
+  on knives — the knife throw sets a large spread `0.25*rate`), then reconstruct it client-side. Use the live
+  watchpoint to verify the reimplementation matches the original's kick.
 
-### Current task-tool list (status)
-- ✅ #1 jump-kick · ✅ #4 glass sprite shatter · ✅ #5 bullet penetration · ✅ #6 dive-through-glass ·
-  ✅ #7 bullet-impact fragments  (all committed in 7cd6981)
-- ⏳ **#2 Coldcock viewmodel whip** — ColdCock has hit sound + 3rd-person anim but no 1st-person SendWeaponAnim;
-  most gun v_models lack a whip seq — RE coldcock.sc (LAB_10043800) for the seq.
-- ⏳ **#3 Predicted-effect events for empty/pump/closecombat** — low value (anims predict; sounds already play).
-- ⏳ **#8 Breakable periodic respawn** — RE leads: `BreakableRespawn__10CBreakable`, `RespawnThink__14CInfoBreakable`,
-  + CBreakable::Die's respawn-timer branch (sets a delay + RespawnThink when this+0x90 >= 0). Implement.
-- ⏳ **Katana right-click** = `CTSGun::KatanaThrow` (separate from the knife throw) — RE + impl (not yet a task).
+### 🔴 LIVE-original debugging — now scripted: `scripts/live.py` (+ CLAUDE.md §4b, `live-original-ts-debuggable` memory)
+The user **keeps the original TS running in `hl.exe` (Proton/Wine), ALWAYS available to gdb-attach.** When
+static RE dead-ends on a virtual/indirect/client-side path, **live-trace it — don't guess** (guessing = the
+cardinal sin). **`scripts/live.py`** codifies the workflow (built cont.69v):
+`live.py pid` / `base <mp.dll|client.dll>` / `resolve 0xADDR…` (→ module+RVA+nearest export) / `bt` (pipe a
+gdb backtrace, resolves every frame) / `read <module> 0xRVA [f|d|u|p]`. Watchpoint recipe (in the ledger):
+`gdb -p <pid> -batch` + `watch *(float*)<addr>` (value-watch fires only on CHANGE; with no mouse, only recoil
+changes `cl.viewangles`) + `commands{ bt; detach; quit }`. **PROPOSED but not built** (do these to make the
+recoil step trivial): `live.py watch <module> <rva> --go` (arms + prints GO + auto-resolves the bt) and
+`live.py vmethod <objaddr> <slot>` (read a vtable slot → resolve — directly gets `vtable[0x38]`).
 
-### ⚠️ Knife→glass rework — AWAITING PLAYTEST (not committed); + a self-correction lesson
-Found `WaitThink__8CTSKnife`@0x6ea30 via the LIVE trace (it was in ts_i386.so all along — I'd missed a grep).
-The REAL rule (all constants confirmed): the knife's in-flight THINK runs every **0.1s**; if speed > **64** it
-sweeps a **64u forward trace along velocity** and breaks a NON-player breakable iff `health <= 0.1*speed`
-(`TraceAttack(0.1*speed)`, DMG 0x8001000) — **NO angle scaling, NO accumulation**. Implemented (ts_knife.cpp
-`WaitThink` + `SweepBreak`; KnifeTouch simplified: stab / break-through / bounce-off-if-too-strong / stick-or-
-deflect walls). **Earlier in cont.69u I had INVENTED an angle-scaled+accumulation model — wrong; deleted.**
-TODO once the user confirms it plays right: **audit the docs/ledger for other "couldn't find / made-shit-up"
-spots and re-RE them via the live-trace/mp.dll method.**
+### In-flight TODO (no formal task-tool entries this session — tracked here; newest weapon-feel work)
+- 🥇 **Angle recoil** — located (above); reconstruct `vtable[0x38]`'s math. THE next task.
+- ⏳ **Kung-fu KICKS (right-click) not RE-faithful** — the FIRE punch combo IS done (`field_0x9fc`: 3 jabs →
+  uppercut). The kick side still uses our OLD condition approximation, not the RE'd `field_0xa00` 3-kicks+
+  finisher counter + the back/drop/side/spin/air-kick dispatch. Full RE table is in CCombatAttack @0x86078
+  (decompile via `scripts/ghidra/re.sh 0x96078`; the cont.69v ledger has the decoded move table). Model seqs
+  are authoritative for anim indices (v_melee.mdl: punch_left2 punch_right3 uppercut7 kick5 sidekick6 …).
+- ⏳ **Dynamic spread — edge cases skipped**: `field_0xc8==0x20` (m60 = 5× recoil), `==0x12` (barrett =
+  max-spread-when-moving). The core (ScaleSpread grow + PreThink decay) IS wired.
+- ⏳ **Weapon sway — simplified vs the RE**: amplitude SMOOTHING (state DAT_10191d6c/d78), per-weapon GRIP
+  scaling (0.1/0.3/0.5/0.7/1.0 by anim-ext), and the forward base-position term `forward·(0.75−amp·0.5)`.
+  The figure-8 pendulum + mid-air stop ARE done (constants read live from client.dll FUN_10066e70).
+- ⏳ **Kung-fu wall smoke** is a server `TE_SPRITE` approximation; the original likely spawns it client-side
+  via the impact dispatcher (same path as bullets) — RE the kung-fu client event if you want exact fidelity.
+- ⏳ **Knife slash viewmodel cycle** uses deterministic `m_slashStep` (verified seq indices: knife {3,4,5},
+  katana/sealknife {2,3,4}); the original cycles 3 body anims + the knife.sc client event — fine, but VERIFY.
+- ⏳ Older queue (still open): **Coldcock viewmodel whip** (RE coldcock.sc LAB_10043800), **breakable periodic
+  respawn** (`BreakableRespawn`/`RespawnThink`/CBreakable::Die respawn branch), **Katana right-click** =
+  `CTSGun::KatanaThrow`.
+
+### Big tooling win this session — `scripts/ghidra/re.sh` (server-RE orchestrator) + ApplyInventory
+`re.sh setup` (fresh project + ApplyInventory: member/vtable structs, typed engine API, FP consts, clean
+names) then `re.sh <Class>` / `re.sh 0x<ghidraAddr>` / `re.sh refs <Class>` decompiles read like source.
+**The `re.sh` output filter was fixed cont.69v** (it was dropping multi-line decompile bodies — now full
+typed bodies print). See CLAUDE.md §4a.1. (re.sh is server-only / `ts_i386.so`; for client.dll/mp.dll use
+`analyzeHeadless recovered/ghidra/{client clientdll, mpdll mpdll}` directly — a re.sh `--mod` extension is
+PROPOSED.) `extract_weapons.py` is UNRELIABLE (stack-offset collisions corrupt values) — the cont.69v
+weapon-table was re-verified by decompiling all 38 `Write_<weapon>` functions; trust those, not the heuristic.
 
 **Method reminders:** RE-ground every value (the user REVERTS guessed work). ⚠️ FILE OFFSET for `.rodata`
 constants = **Ghidra addr − 0x10000** (the FP pool reads 0 at the naive offset; many consts are DOUBLES the
