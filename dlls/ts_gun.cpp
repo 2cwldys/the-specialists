@@ -1015,7 +1015,9 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 			gMultiDamage.type = DMG_BULLET | DMG_NEVERGIB;
 			pHit->TraceAttack(pevAttacker, dmg, dir, &tr, DMG_BULLET | DMG_NEVERGIB); // orig DMG bits 0x1002
 			TEXTURETYPE_PlaySound(&tr, start, start + dir * flDist, BULLET_PLAYER_9MM);
-			DecalGunshot(&tr, BULLET_PLAYER_9MM); // ENTRY bullet-hole
+			// NO server-side DecalGunshot: the original ShootBulletsPlayer places no decal (its decompile
+			// has zero decal calls) — the bullet decal is CLIENT-side (TS texture), not the stock Valve
+			// {shot we were stamping (the black "asterisk" dots the user saw). See EV_TSBulletImpact.
 			ApplyMultiDamage(pevAttacker, pevAttacker); // shatters glass iff dmg >= pane health (20)
 
 			if (dmg <= 5.0f) // orig: damage > 5.0 to keep piercing
@@ -1026,12 +1028,6 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 			Vector beyond = tr.vecEndPos + dir * penDepth;
 			if (UTIL_PointContents(beyond) == CONTENTS_SOLID)
 				break; // world surface thicker than the round can pierce — stop here
-
-			// EXIT bullet-hole on the back face (trace back from beyond to the entry).
-			TraceResult trExit;
-			UTIL_TraceLine(beyond, tr.vecEndPos, ignore_monsters, ENT(pevAttacker), &trExit);
-			if (trExit.flFraction < 1.0f)
-				DecalGunshot(&trExit, BULLET_PLAYER_9MM);
 			start = beyond; // continue past this layer
 			dmg *= damageAdjust; // orig damage_adjust = damagemult cvar value (default 0 → 0 dmg beyond layer 1)
 		}
