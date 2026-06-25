@@ -380,8 +380,10 @@ static void TSP_Smoke(const float* o, const float* n, const char* spr, short ren
 		p->stretch = 7.0f;        // +0x128 — velocity-stretch -> the conic flare
 		p->frameRate = frameRate + (float)gEngfuncs.pfnRandomLong(-5, 5);
 		p->size = size;           // +0x108
-		// vel = normal * RandFloat(8,24)/count + a small (-2,2) x/y scatter.
-		float sp = gEngfuncs.pfnRandomFloat(8.0f, 24.0f) / (float)cnt;
+		// vel = normal * RandFloat(8,24) / (count - i) + a small (-2,2) x/y scatter. The divisor
+		// DECREMENTS each puff (count,…,1 — FUN_10046680's param_11--), so the chain-tip puffs eject
+		// progressively faster/farther — that's the conic flare lunging out (live-traced cont.69x).
+		float sp = gEngfuncs.pfnRandomFloat(8.0f, 24.0f) / (float)(cnt - i);
 		p->vel = Vector(n[0] * sp, n[1] * sp, n[2] * sp);
 		p->vel.x += gEngfuncs.pfnRandomFloat(-2.0f, 2.0f);
 		p->vel.y += gEngfuncs.pfnRandomFloat(-2.0f, 2.0f);
