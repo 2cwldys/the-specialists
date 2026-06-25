@@ -350,37 +350,51 @@ static void TSP_SparkShower(const float* o, const float* n, int count, float spr
 	}
 }
 
-// SMOKE — FUN_10046680. An additive puff (gun_smoke_add / wood_smoke_add) that plays its frame
-// animation once and vanishes (fadeRate=0, life=0). `count` = the mode-derived puff count; the
-// sprite frames cycle at `frameRate` (50 metal/glass, 20 concrete, 30 dirt/wood). RE-audited.
+// SMOKE — FUN_10046680. A CONIC FLARE of additive puffs (gun_smoke_add / wood_smoke_add): the
+// puffs are spawned in a CHAIN marching out along the surface normal (pos = origin + normal*size*0.8*i)
+// with the size shrinking *0.8 per step, each puff velocity-STRETCHED along its outward velocity
+// (stretch 7.0) and GROWING as it ages (accelRate 0.1). Plays its frame animation once (fadeRate 0,
+// life 0). `count` = mode-derived puff count; frameRate 50 metal/glass / 20 concrete / 30 dirt-wood.
 static void TSP_Smoke(const float* o, const float* n, const char* spr, short rendermode,
-	int count, float size, float frameRate)
+	int count, float baseSize, float frameRate)
 {
 	int idx = TSP_RegisterSprite(spr, rendermode);
 	if (idx < 0)
 		return;
 	int cnt = count < 1 ? 1 : count;
+	float size = baseSize;
+	// puff 0 sits a touch off the surface (origin + normal*size*0.5).
+	Vector pos(o[0] + n[0] * baseSize * 0.5f, o[1] + n[1] * baseSize * 0.5f, o[2] + n[2] * baseSize * 0.5f);
 	for (int i = 0; i < cnt; i++)
 	{
 		TSParticle* p = TSP_Scratch();
 		p->spriteIdx = (short)idx;
 		p->active = true;
 		p->orient = 0;
-		p->gravity = 0.1f;       // +0xd0
-		p->drag = 3.3f;          // +0xf4 (heavy drag — slows fast)
-		p->bright = 0.5f;        // +0xdc
-		p->fadeRate = 0.0f;      // ends by frame-animation, not brightness fade
+		p->gravity = 0.1f;        // +0xd0
+		p->drag = 3.3f;           // +0xf4 (heavy drag)
+		p->bright = 0.5f;         // +0xdc
+		p->fadeRate = 0.0f;       // ends by frame-animation, not brightness fade
 		p->life = 0.0f;
-		p->frameRate = frameRate;// +0xfc
-		p->size = size;          // +0x108
-		p->stretch = 0;
-		// vel = normal * RandFloat(8,24) / count (FUN_10046680 loop)
+		p->accelRate = 0.1f;      // +0xe4 — the puff grows as it ages
+		p->stretch = 7.0f;        // +0x128 — velocity-stretch -> the conic flare
+		p->frameRate = frameRate + (float)gEngfuncs.pfnRandomLong(-5, 5);
+		p->size = size;           // +0x108
+		// vel = normal * RandFloat(8,24)/count + a small (-2,2) x/y scatter.
 		float sp = gEngfuncs.pfnRandomFloat(8.0f, 24.0f) / (float)cnt;
 		p->vel = Vector(n[0] * sp, n[1] * sp, n[2] * sp);
-		p->pos = Vector(o[0] + n[0] * 0.5f, o[1] + n[1] * 0.5f, o[2] + n[2] * 0.5f);
-		p->frame = TSP_RandomFrame(idx);
+		p->vel.x += gEngfuncs.pfnRandomFloat(-2.0f, 2.0f);
+		p->vel.y += gEngfuncs.pfnRandomFloat(-2.0f, 2.0f);
+		p->pos = pos;
+		p->frame = 0;             // start at frame 0 -> full billow
 		if (TSP_Commit(p) == -1)
 			return;
+		// next puff: march out along the normal, size shrinks (the cone tip).
+		float oldSize = size;
+		size *= 0.8f;             // _DAT_1007d570
+		pos = Vector(o[0] + n[0] * oldSize * 0.8f * (float)i,
+			o[1] + n[1] * oldSize * 0.8f * (float)i,
+			o[2] + n[2] * oldSize * 0.8f * (float)i);
 	}
 }
 
