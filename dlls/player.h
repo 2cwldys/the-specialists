@@ -374,6 +374,9 @@ public:
 	float m_flPowerupExpireTime = 0;// 0x72c — active timed-powerup end time
 	float m_flPowerupTime = 0;      // 0x730 — held powerup duration (seconds)
 	float m_flHealthRegen = 0;      // 0x73c — health-powerup regen tick time
+	float m_flSpreadAccum = 0;        // 0x778 — TS dynamic-accuracy spread accumulator: grows per shot in
+	                                  // CTSGun::ScaleSpread (capped 0.1), recovers in PreThink. Effective
+	                                  // bullet spread = weapon flSpread + this (so spraying widens the cone).
 	byte m_bSlowBullets = 0;          // 0x175 — slow-motion also slows bullets
 	float m_flSlowMotionGo = 1.0f;    // 0x168 — applied slow factor (1 = normal)
 	float m_flSlowMotionTarget = 1.0f;// 0x170 — target slow factor (1 = normal)

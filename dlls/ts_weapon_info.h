@@ -83,7 +83,12 @@ struct s_weapon_info
 	int   iFireType;   // s_weapon_info+0x348 — see TSFT_* below
 	float flFireRate;  // seconds between shots (s_weapon_info+0x18)
 	float flSpread;    // base bullet spread cone (s_weapon_info+0x28)
-	float flRecoil;    // recoil / spread-scale factor (s_weapon_info+0x34)
+	float flRecoil;    // per-shot spread INCREMENT fed to CTSGun::ScaleSpread (s_weapon_info+0x34)
+	// The TS dynamic-accuracy fields (RE'd from CTSGun::StandardFire @0x824a4 + ScaleSpread @0x802a8):
+	float flViewKick;  // +0x30 — VKickback view-punch magnitude per shot (bull 18, barrett 10, autos 4-5)
+	int   bUsesSpread; // +0x2c — if set, StandardFire runs ScaleSpread (dynamic recoil); 0 = static (shotgun/melee)
+	// NB: ScaleSpread accumulates spread into CBasePlayer+0x778 and the effective spread = flSpread + that
+	// accumulator; the accumulator's recovery path is still being RE'd, so the accumulation isn't wired yet.
 	// Akimbo pairing (recovered from Write_<weapon>): s_weapon_info+0xc8 = the akimbo
 	// variant this single upgrades into when a 2nd identical gun is picked up (-1 if
 	// none); +0xcc = the single-pistol base of an akimbo (= self for non-akimbo, -1

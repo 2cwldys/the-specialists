@@ -5,6 +5,77 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-24 (cont. 69v) — recoil view-punch (VKickback) + dynamic accuracy/spread WIRED + kungfu smoke
+
+VKickback @0x70414 (recoil view-punch → pev->punchangle): vert = 0.85*flViewKick(0x30), horiz per firetype
+(pistol +0.35, akimbo +0.15, pump -0.25, autoshotgun/sniper -0.30, auto-smg -0.35), *0.775 ducked, *0.667
+bullet-time. Gated on weaponinfo+0x38 (all guns=1, melee/grenade=0). Called from StandardFire. NOTE the
+original gates the SERVER apply on FL_FAKECLIENT (real players predict client-side) — we apply directly so
+it shows on the listenserver. User clarified: punchangle is VISUAL ONLY (recovers, and bullets use v_angle
+not punchangle) — the AIM-MOVE recoil is a SEPARATE client-side mechanism (viewangle kick on fire) NOT yet
+located; sweep of the server (FireBulletsPlayer/DropKickback/PreThink) found NO v_angle write → it's in the
+client CreateMove/input. TODO: RE the client-side aim recoil.
+
+Dynamic accuracy/spread NOW WIRED (RE ScaleSpread @0x802a8 + the decay finally found in PreThink @0x808cc):
+effective bullet spread = weapon flSpread(0x28) + per-player accumulator (CBasePlayer::m_flSpreadAccum =
+player+0x778); ScaleSpread grows it per shot: accum = (1-recovery)*flRecoil(0x34)*factor + accum, capped 0.1,
+factor=2.0 (*0.5 bullet-time, *0.775 duck), recovery = m_flSlowMotionGo*dt_since_last_shot (cap 0.5), duck
+also tightens base *0.875; gated on bUsesSpread(0x2c). PreThink decays: accum -= m_flSlowMotionGo*frametime*0.1.
+So spraying widens the cone, it recovers when you stop. SKIPPED edge cases: field_0xc8==0x20 (m60 5x recoil),
+==0x12 (barrett max-spread-when-moving). Added m_flSpreadAccum (player.h) + m_flLastShotTime (ts_gun.h).
+
+Kung-fu wall-hit smoke: added a server TE_SPRITE gun_smoke_add puff (smoke only, no decal/spark) in
+CloseCombatAttack's surface branch — APPROXIMATION; user wants the original spawn (likely the client impact
+dispatcher, same as bullets). TODO: RE the kung-fu client-event smoke spawn.
+
+## 2026-06-24 (cont. 69v) — viewbob: removed eye-bob + RE'd the TS weapon-sway (figure-8 pendulum)
+
+User: the stock HL bob dropped the EYES "like half-ducking" while running + snapped between 2 frames.
+Root cause: stock `cl_dll/view.cpp` adds V_CalcBob to the MAIN view origin and the bob saturates its
+-7..+4 clamp at TS speeds (square wave). RE of the ORIGINAL client.dll V_CalcRefdef (FUN_10067890):
+the bob is applied to the VIEWMODEL ONLY (eyes get only a SMOOTHED view-height lerp), and the gun "bob"
+is actually a custom **weapon-sway** (FUN_10066e70), not stock bob.
+
+Fixes: (1) removed `pparams->vieworg[2] += bob` (eyes no longer bob — faithful). (2) replaced the stock
+viewmodel vertical bob with the TS figure-8 sway. **Constants read LIVE from the running original**
+(client.dll base via V_CalcRefdef reloc-free prologue; the FP consts are mostly DOUBLES): velmult=0.00333
+(1/300), cap=1.1, phase wraps at **360**, accumscale=5.5, scale=100, ampvel=0.01, up-freq=0.0349 (≈2°),
+right-freq=0.0174 (≈1°) → **2:1 ratio = figure-8 pendulum** (the user's "pendulum, not up/down"), upscale=0.11,
+rightscale=0.3, fwdscale=0.65, ampscale=0.5, base=0.75, grip scales 0.1/0.3/0.5/0.7/1.0 (per weapon grip).
+Phase += clamp(speed/300,1.1)·frametime·550, wrap 360; amp=speed·0.01; swayUp=sin(phase·0.0349)·amp,
+swayRight=sin(phase·0.0174)·amp; viewmodel += right·swayRight·0.3 + up·swayUp·0.11.
+SIMPLIFIED (not yet faithful): the amplitude SMOOTHING (state DAT_10191d6c/d78), per-weapon GRIP scaling,
+and the forward base-position term (forward·(0.75−amp·0.5)) — the full FUN_100674a0 viewmodel-positioning.
+Next: port the amplitude-smoothing + grip + forward term for byte-faithful sway.
+
+## 2026-06-24 (cont. 69v) — knife slash + kung-fu combo + FULL weapon-table re-verification
+
+**Melee anims/combos** (RE CCombatAttack @0x86078, KnifeFire @0x84044, verified vs model seq dumps):
+- Knife `MeleeAttack`: removed the press-only gate → continuous slashing while held (gated by flFireRate like
+  kung-fu); cycles 3 verified v_*.mdl slash seqs (knife {3 slash1,4 left,5 right}; katana/sealknife {2,3,4}).
+- Kung-fu FIRE combo: replaced our mod-3+duck-uppercut with the real `field_0x9fc` counter — 3 jabs
+  (punch_left 2/punch_right 3/punch_right2 10) then UPPERCUT (7), looping; +back forces it early.
+- Lesson: the model sequence tables (v_melee 11 seqs, v_knife 8, v_katana 6) are the AUTHORITATIVE source
+  for raw anim indices — the decompile's `a3` is NOT the SendWeaponAnim arg (it's a melee-fn param, a3=0xb
+  exceeds v_melee's range). We ship the original's models, so model indices match by construction.
+
+**Weapon table FULLY re-verified** (decompiled all 38 Write_<weapon>; `scripts/extract_weapons.py` is
+UNRELIABLE — its `movl $imm,0xOFF(%reg)` regex grabs STACK temps colliding with struct offsets; e.g. the
+knife "rate 0.07" was a `[esp+0x18]` store, real `weaponinfo+0x18`=0.4). Field map confirmed (0x04 clip,
+0x08 caliber, 0x0c firemodes, 0x18 rate, 0x1c dmg, 0x24 pellets, 0x28 spread, 0x34 recoil, 0x30 view-kick,
+0x2c uses-spread, 0xc8 akimbo, 0xcc single, 0x348 firetype). Fixed: knife (clip 18→1, dmg 40→30, **rate
+0.07→0.4** — the user's "too fast" bug), katana (dmg 30→45, rate 0.4→0.7, spread 0.1→0.7), skorpion clip
+40→20, gun firetypes m4/mp5k/mk23/desert/m16 0→6/9/8/8/6. firemodes/caliber/pellets verified already-correct.
+TODO: rewrite extract_weapons.py to read the decompiles (authoritative) instead of the objdump heuristic.
+
+**Dynamic accuracy system RE'd** (CTSGun::StandardFire @0x824a4 + ScaleSpread @0x802a8): per-shot spread
+accumulates into CBasePlayer+0x778, effective spread = flSpread(0x28)+accum, grows by flRecoil(0x34)·factor
+(factor 2.0, ×0.5 in bullet-time/DoubleFireRate, ×0.775 ducked), capped 0.1; VKickback applies view-punch
+of flViewKick(0x30) per shot; 0x2c gates whether ScaleSpread runs. Added flViewKick+bUsesSpread to
+s_weapon_info w/ verified values. NOT yet wired: the accumulator's RECOVERY/decay path isn't located yet
+(0x778 only grows in ScaleSpread — decay must be in a per-frame path; flagged, not guessed). Next: find the
+0x778 decay + RE VKickback's exact kick pattern, then implement the accumulation + view-kick in StandardFire.
+
 ## 2026-06-24 (cont. 69v) — knife→glass rework RE-VERIFIED vs ts_i386.so + 3 fidelity fixes
 
 Decompiled the original `CTSKnife` (Spawn @0x6db54, WaitThink @0x6ea30, BounceTouch @0x6decc, WaitTouch

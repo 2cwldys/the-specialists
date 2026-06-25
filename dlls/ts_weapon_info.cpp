@@ -88,19 +88,19 @@ static void compile_weapons_info()
   Write(&g_weaponInfo[2], "Beretta 92F", "models/v_beretta.mdl", "models/p_beretta.mdl", "models/w_berettas.mdl", "onehanded", "weapons/beretta/fire.wav", 15, 29.0f, 8, 0.1f, 0.015f, 0.0f); // beretta
   Write(&g_weaponInfo[3], nullptr, "models/v_uzi.mdl", "models/p_uzi.mdl", "models/w_uzi.mdl", "onehanded", "weapons/uzi/uzi-fire.wav", 32, 22.0f, 9, 0.06f, 0.025f, 0.007f); // uzi
   Write(&g_weaponInfo[4], "Benelli M3", "models/v_m3.mdl", "models/p_m3.mdl", "models/w_m3.mdl", "twohanded", "weapons/m3/m3-fire.wav", 7, 12.5f, 1, 0.225f, 0.04f, 0.0f); // benellim3
-  Write(&g_weaponInfo[5], nullptr, "models/v_m4.mdl", "models/p_m4.mdl", "models/w_m4.mdl", "twohanded", "weapons/m4/m4-fire.wav", 30, 34.0f, 0, 0.07f, 0.006f, 0.003f); // m4
+  Write(&g_weaponInfo[5], nullptr, "models/v_m4.mdl", "models/p_m4.mdl", "models/w_m4.mdl", "twohanded", "weapons/m4/m4-fire.wav", 30, 34.0f, 6, 0.07f, 0.006f, 0.003f); // m4
   Write(&g_weaponInfo[6], nullptr, "models/v_mp5sd.mdl", nullptr, "models/w_mp5sd.mdl", "twohanded", nullptr, 30, 18.0f, 9, 0.074f, 0.01f, 0.0075f); // mp5sd
-  Write(&g_weaponInfo[7], nullptr, "models/v_mp5k.mdl", "models/p_mp5k.mdl", "models/w_mp5k.mdl", "twohanded", "weapons/mp5k/mp5k-fire.wav", 30, 28.0f, 0, 0.066f, 0.02f, 0.005f); // mp5k
+  Write(&g_weaponInfo[7], nullptr, "models/v_mp5k.mdl", "models/p_mp5k.mdl", "models/w_mp5k.mdl", "twohanded", "weapons/mp5k/mp5k-fire.wav", 30, 28.0f, 9, 0.066f, 0.02f, 0.005f); // mp5k
   Write(&g_weaponInfo[8], "Akimbo Berettas", "models/v_berettas.mdl", "models/p_berettas.mdl", "models/w_berettas.mdl", "akimbo", nullptr, 30, 29.0f, 4, 0.1f, 0.017f, 0.0f); // beretta_akimbo
-  Write(&g_weaponInfo[9], "SOCOM-MK23", "models/v_mk23.mdl", "models/p_mk23.mdl", "models/w_mk23.mdl", "onehanded", "weapons/mk23/mk23-fire.wav", 12, 36.0f, 0, 0.1f, 0.02f, 0.0f); // mk23
+  Write(&g_weaponInfo[9], "SOCOM-MK23", "models/v_mk23.mdl", "models/p_mk23.mdl", "models/w_mk23.mdl", "onehanded", "weapons/mk23/mk23-fire.wav", 12, 36.0f, 8, 0.1f, 0.02f, 0.0f); // mk23
   Write(&g_weaponInfo[10], "Akimbo MK23", "models/v_mk23_akimbo.mdl", "models/p_mk23_akimbo.mdl", "models/w_mk23.mdl", "akimbo", nullptr, 24, 36.0f, 4, 0.1f, 0.02f, 0.0f); // mk23akimbo
   Write(&g_weaponInfo[11], nullptr, "models/v_usas.mdl", "models/p_usas.mdl", "models/w_usas.mdl", "twohanded", "weapons/usas/usas-fire.wav", 20, 7.0f, 6, 0.166f, 0.07f, 0.0f); // usas12
-  Write(&g_weaponInfo[12], nullptr, "models/v_desert.mdl", "models/p_desert.mdl", "models/w_desert.mdl", "onehanded", "weapons/deagle/fire.wav", 7, 55.0f, 0, 0.1f, 0.015f, 0.0f); // desert
+  Write(&g_weaponInfo[12], nullptr, "models/v_desert.mdl", "models/p_desert.mdl", "models/w_desert.mdl", "onehanded", "weapons/deagle/fire.wav", 7, 55.0f, 8, 0.1f, 0.015f, 0.0f); // desert
   Write(&g_weaponInfo[13], nullptr, "models/v_ak47.mdl", "models/p_ak47.mdl", "models/w_ak47.mdl", "twohanded", "weapons/ak47/fire.wav", 30, 36.0f, 6, 0.08f, 0.004f, 0.0001f); // ak47
   Write(&g_weaponInfo[14], nullptr, "models/v_fnh.mdl", "models/p_fnh.mdl", "models/w_fnh.mdl", "onehanded", "weapons/fnh/fnh-fire.wav", 20, 21.0f, 8, 0.1f, 0.0075f, 0.0f); // fnh
   Write(&g_weaponInfo[15], nullptr, "models/v_aug.mdl", "models/p_aug.mdl", "models/w_aug.mdl", "twohanded", "weapons/aug/aug-fire.wav", 30, 30.0f, 6, 0.092f, 0.007f, 0.0125f); // aug
   Write(&g_weaponInfo[16], "Akimbo Mini-Uzi", "models/v_uzi_akimbo.mdl", "models/p_uzi_akimbo.mdl", "models/w_uzi.mdl", "akimbo", "weapons/uzi/uzi-fire.wav", 64, 22.0f, 4, 0.06f, 0.03f, 0.006f); // uzi_akimbo
-  Write(&g_weaponInfo[17], nullptr, "models/v_skorpion.mdl", "models/p_skorpion.mdl", "models/w_skorpion.mdl", "onehanded", "weapons/tmp/fire.wav", 40, 16.0f, 9, 0.07f, 0.03f, 0.0025f); // skorpion
+  Write(&g_weaponInfo[17], nullptr, "models/v_skorpion.mdl", "models/p_skorpion.mdl", "models/w_skorpion.mdl", "onehanded", "weapons/tmp/fire.wav", 20, 16.0f, 9, 0.07f, 0.03f, 0.0025f); // skorpion (RE-verified clip 20; akimbo is 40)
   Write(&g_weaponInfo[18], "Barrett M82A1", "models/v_m82.mdl", "models/p_m82.mdl", "models/w_m82.mdl", "twohanded", "weapons/barrett/fire.wav", 5, 210.0f, 7, 0.7f, 0.001f, 0.1f); // barrett
   Write(&g_weaponInfo[19], nullptr, "models/v_pdw.mdl", "models/p_pdw.mdl", "models/w_pdw.mdl", "onehanded", "weapons/pdw/fire.wav", 40, 16.0f, 9, 0.063f, 0.01f, 0.01f); // pdw
   Write(&g_weaponInfo[20], nullptr, "models/v_spas12.mdl", "models/p_spas12.mdl", "models/w_spas12.mdl", "twohanded", "weapons/spas12/spas12-fire.wav", 8, 12.0f, 1, 0.2f, 0.08f, 0.0f); // spas12
@@ -108,15 +108,15 @@ static void compile_weapons_info()
   Write(&g_weaponInfo[22], "Glock-20C", "models/v_glock22.mdl", "models/p_glock22.mdl", "models/w_glock22.mdl", "onehanded", "weapons/glock22/glock22-fire.wav", 15, 41.0f, 8, 0.1f, 0.025f, 0.0f); // glock22
   Write(&g_weaponInfo[23], nullptr, "models/v_ump.mdl", "models/p_ump.mdl", "models/w_ump.mdl", "twohanded", "weapons/ump/ump-fire.wav", 25, 30.0f, 9, 0.092f, 0.028f, 0.003f); // mac10
   Write(&g_weaponInfo[24], "M61 Grenade", "models/v_m61.mdl", "models/p_m61.mdl", "models/w_m61.mdl", nullptr, nullptr, 25, 30.0f, 2, 0.092f, 0.028f, 0.003f); // m61
-  Write(&g_weaponInfo[25], nullptr, "models/v_knife.mdl", "models/p_knife.mdl", "models/w_knife.mdl", nullptr, nullptr, 18, 40.0f, 3, 0.07f, 0.1f, 0.0f); // knife
+  Write(&g_weaponInfo[25], nullptr, "models/v_knife.mdl", "models/p_knife.mdl", "models/w_knife.mdl", nullptr, nullptr, 1, 30.0f, 3, 0.4f, 0.1f, 0.0f); // knife (RE-verified Write_knife @0x7745c: clip 1, dmg 30, rate 0.4, spread 0.1; was wrongly 18/40/0.07 from the heuristic extractor)
   Write(&g_weaponInfo[26], "Mossberg 500", "models/v_mossberg.mdl", "models/p_mossberg.mdl", "models/w_mossberg.mdl", "twohanded", nullptr, 8, 16.0f, 1, 0.25f, 0.06f, 0.0f); // mossberg (pump)
-  Write(&g_weaponInfo[27], nullptr, "models/v_m16.mdl", "models/p_m16.mdl", "models/w_m16.mdl", "twohanded", "weapons/m16/fire.wav", 18, 40.0f, 0, 0.07f, 0.003f, 0.0001f); // m16
+  Write(&g_weaponInfo[27], nullptr, "models/v_m16.mdl", "models/p_m16.mdl", "models/w_m16.mdl", "twohanded", "weapons/m16/fire.wav", 18, 40.0f, 6, 0.07f, 0.003f, 0.0001f); // m16
   Write(&g_weaponInfo[28], "Ruger-MK1", "models/v_ruger.mdl", nullptr, "models/w_ruger.mdl", "onehanded", nullptr, 17, 16.0f, 8, 0.1f, 0.005f, 0.0f); // ruger
   Write(&g_weaponInfo[30], "Akimbo Five-seveN", "models/v_fnh_akimbo.mdl", "models/p_fnh_akimbo.mdl", "models/w_fnh.mdl", "akimbo", "weapons/fnh/fnh-fire.wav", 40, 21.0f, 4, 0.1f, 0.0125f, 0.0f); // fnhakimbo
   Write(&g_weaponInfo[31], "Raging Bull", "models/v_bull.mdl", "models/p_bull.mdl", "models/w_bull.mdl", "onehanded", "weapons/bull/fire01.wav", 5, 85.0f, 8, 0.15f, 0.0075f, 0.0f); // bull
   Write(&g_weaponInfo[32], nullptr, "models/v_m60.mdl", "models/p_m60.mdl", "models/w_m60.mdl", "twohanded", "weapons/m60/m60-fire.wav", 100, 39.0f, 6, 0.109f, 0.02f, 0.009f); // m60
   Write(&g_weaponInfo[33], "Sawed-off", "models/v_sawedoff.mdl", "models/p_sawedoff.mdl", "models/w_sawedoff.mdl", "twohanded", "weapons/sawedoff/fire.wav", 2, 23.0f, 8, 0.1f, 0.13f, 0.0f); // sawedoff (semi, 2 barrels)
-  Write(&g_weaponInfo[34], nullptr, "models/v_katana.mdl", "models/p_katana.mdl", "models/w_katana.mdl", nullptr, nullptr, 1, 30.0f, 10, 0.4f, 0.1f, 0.0f); // katana
+  Write(&g_weaponInfo[34], nullptr, "models/v_katana.mdl", "models/p_katana.mdl", "models/w_katana.mdl", nullptr, nullptr, 1, 45.0f, 10, 0.7f, 0.7f, 0.0f); // katana (RE-verified: dmg 45, rate 0.7, spread 0.7)
   Write(&g_weaponInfo[35], nullptr, "models/v_sealknife.mdl", "models/p_sealknife.mdl", "models/w_sealknife.mdl", nullptr, nullptr, 1, 20.0f, 3, 0.25f, 0.1f, 0.0f); // sealknife
   Write(&g_weaponInfo[36], "Contender G2", "models/v_contender.mdl", "models/p_contender.mdl", "models/w_contender.mdl", "onehanded", "weapons/contender/fire.wav", 1, 95.0f, 8, 0.25f, 0.001f, 0.0f); // contender
   Write(&g_weaponInfo[37], "Akimbo Skorpions", "models/v_skorpion_ak.mdl", "models/p_skorpion_ak.mdl", "models/w_skorpion.mdl", "akimbo", "weapons/tmp/fire.wav", 40, 16.0f, 4, 0.07f, 0.035f, 0.0025f); // skorpion_akimbo
@@ -176,6 +176,29 @@ static void compile_weapons_info()
   };
   for (int i = 0; i < TSW_COUNT; i++)
     g_weaponInfo[i].iPellets = kPellets[i];
+
+  // Dynamic-accuracy fields, RE-verified from each Write_<weapon> (s_weapon_info+0x30 view-kick, +0x2c
+  // uses-spread flag). Consumed by CTSGun::StandardFire/ScaleSpread in the original; populated here so the
+  // data is captured for when the spread-accumulation system is wired up (see ts_weapon_info.h note).
+  static const float kViewKick[TSW_COUNT] = {
+    /* 0*/0, /* 1*/2.2f, /* 2*/3, /* 3*/1.5f, /* 4*/10, /* 5*/4, /* 6*/1.25f, /* 7*/3,
+    /* 8*/3, /* 9*/4, /*10*/4, /*11*/4, /*12*/8, /*13*/5, /*14*/1.5f, /*15*/2,
+    /*16*/2, /*17*/0.25f, /*18*/10, /*19*/1, /*20*/10, /*21*/5, /*22*/4.5f, /*23*/4,
+    /*24*/1, /*25*/1, /*26*/14, /*27*/4.5f, /*28*/0.3f, /*29*/0, /*30*/2.5f, /*31*/18,
+    /*32*/1.5f, /*33*/9.5f, /*34*/0, /*35*/1, /*36*/12, /*37*/0.55f,
+  };
+  static const int kUsesSpread[TSW_COUNT] = {
+    /* 0*/0, /* 1*/1, /* 2*/1, /* 3*/1, /* 4*/0, /* 5*/1, /* 6*/1, /* 7*/1,
+    /* 8*/1, /* 9*/1, /*10*/1, /*11*/0, /*12*/1, /*13*/1, /*14*/1, /*15*/1,
+    /*16*/1, /*17*/1, /*18*/1, /*19*/1, /*20*/0, /*21*/1, /*22*/1, /*23*/1,
+    /*24*/0, /*25*/0, /*26*/0, /*27*/1, /*28*/1, /*29*/0, /*30*/1, /*31*/1,
+    /*32*/1, /*33*/0, /*34*/0, /*35*/0, /*36*/0, /*37*/1,
+  };
+  for (int i = 0; i < TSW_COUNT; i++)
+  {
+    g_weaponInfo[i].flViewKick = kViewKick[i];
+    g_weaponInfo[i].bUsesSpread = kUsesSpread[i];
+  }
 
   // Viewmodel fire-animation sequence per weapon — the "shoot*" sequence index read
   // directly from each v_*.mdl. -1 for melee / grenade / akimbo (their own fire paths

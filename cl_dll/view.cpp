@@ -518,7 +518,11 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 
 	// refresh position
 	VectorCopy(pparams->simorg, pparams->vieworg);
-	pparams->vieworg[2] += (bob);
+	// RE original client.dll V_CalcRefdef (FUN_10067890 + FUN_100674a0): the bob is applied ONLY to the
+	// VIEWMODEL, never to the main view origin. Stock HL adds `bob` to vieworg[2] here, but at TS's high run
+	// speed V_CalcBob saturates its -7 clamp, dropping the eye ~7u (looks like half-ducking). The viewmodel
+	// still bobs below (view->origin[2] += bob). So the main view must NOT bob:
+	// pparams->vieworg[2] += (bob);   // <- removed: TS bobs the gun, not the eyes
 	VectorAdd(pparams->vieworg, pparams->viewheight, pparams->vieworg);
 
 	VectorCopy(pparams->cl_viewangles, pparams->viewangles);
@@ -647,11 +651,38 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 	// Let the viewmodel shake at about 10% of the amplitude
 	gEngfuncs.V_ApplyShake(view->origin, view->angles, 0.9);
 
-	for (i = 0; i < 3; i++)
+	// --- TS faithful weapon sway (RE'd from client.dll FUN_10066e70; constants read live from the running
+	// original). NOT stock HL's vertical-only bob: a phase-accumulation FIGURE-8 ("pendulum") sway. The
+	// phase advances with movement speed and wraps at 360; the gun sways along the RIGHT axis at 1x and the
+	// UP axis at 2x the phase frequency (the 2:1 ratio = figure-8), amplitude proportional to speed. The
+	// original also scales by weapon GRIP (0.1/0.3/0.5/0.7/1.0) and smooths the amplitude — simplified here
+	// to the default grip + linear amplitude pending validation against the original's feel.
 	{
-		view->origin[i] += bob * 0.4 * pparams->forward[i];
+		static float s_swayPhase = 0.0f;
+		static float s_swayAmp = 0.0f;
+		float sv[2] = { pparams->simvel[0], pparams->simvel[1] };
+		float speed = sqrt(sv[0] * sv[0] + sv[1] * sv[1]);
+		// RE FUN_10066e70: the phase only advances + the amplitude only tracks speed while ON GROUND
+		// (field +0x50). Airborne, the phase freezes and the amplitude decays out — so the sway STOPS in
+		// mid-air (you don't bob while jumping). (Original decays amp by half/frame down toward ampvel.)
+		if (0 != pparams->onground)
+		{
+			float velterm = speed * 0.00333333f;                 // velmult = 1/300
+			if (velterm > 1.1f) velterm = 1.1f;                  // cap
+			s_swayPhase += velterm * pparams->frametime * 5.5f * 100.0f; // accumscale * scale
+			if (s_swayPhase > 360.0f) s_swayPhase = 0.0f;        // RE phasereset = 360
+			s_swayAmp = speed * 0.01f;                           // ampvel
+		}
+		else
+		{
+			s_swayAmp *= 0.5f; // mid-air: decay the sway out (phase frozen), RE else-branch
+		}
+		float swayUp = sin(s_swayPhase * 0.0349066f) * s_swayAmp;  // up axis, 2x frequency
+		float swayRight = sin(s_swayPhase * 0.0174533f) * s_swayAmp; // right axis, 1x frequency -> figure-8
+		for (i = 0; i < 3; i++)
+			view->origin[i] += pparams->right[i] * swayRight * 0.3f   // rightscale 0.3
+			                 + pparams->up[i] * swayUp * 0.11f;       // upscale 0.11
 	}
-	view->origin[2] += bob;
 
 	if (0 != cl_bobtilt->value)
 	{

@@ -1936,6 +1936,16 @@ void CBasePlayer::UpdateStatusBar()
 
 void CBasePlayer::PreThink()
 {
+	// TS dynamic-accuracy recovery (RE PreThink @0x808cc): the spread accumulator decays back toward 0 each
+	// frame (scaled by the slow-mo factor, so it recovers in game-time during bullet-time), so accuracy
+	// returns when you stop spraying. Growth is in CTSGun::ScaleSpread on each shot.
+	if (m_flSpreadAccum > 0)
+	{
+		m_flSpreadAccum -= m_flSlowMotionGo * gpGlobals->frametime * 0.1f;
+		if (m_flSpreadAccum < 0)
+			m_flSpreadAccum = 0;
+	}
+
 	int buttonsChanged = (m_afButtonLast ^ pev->button); // These buttons have changed this frame
 
 	// Debounced button codes for pressed/released

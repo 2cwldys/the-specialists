@@ -29,8 +29,10 @@ public:
 	void EXPORT BounceTouch(CBaseEntity *pOther); // @CTSKnife::BounceTouch @0x6decc — contact handler
 	void EXPORT WaitThink();                     // @CTSKnife::WaitThink @0x6ea30 — in-flight swept break
 	void EXPORT PickupTouch(CBaseEntity *pOther);
+	void EXPORT SettleThink();                    // after first contact: fall, poll FL_ONGROUND, become the pickup
 	void StickAt(const Vector &pos, const Vector &flyDir);
-	void SettleAsPickup();                        // come to rest as a recoverable floor pickup
+	void StartSettle();                           // hand a bounced/stabbed knife off to SettleThink
+	void BecomePickup();                          // turn the stationary knife into a recoverable glowing E-pickup
 	static CTSKnife *Throw(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel);
 
 	float StabDamage() const // RE BounceTouch: per-type player-stab damage (DAT_00107ec0/eac/0010761c)
@@ -69,7 +71,10 @@ void CTSKnife::Spawn()
 	pev->avelocity = Vector(-1300, 0, 0); // tumble end-over-end (visual)
 	SetTouch(&CTSKnife::BounceTouch);
 	SetThink(&CTSKnife::WaitThink);
-	pev->nextthink = gpGlobals->time + 0.1f;
+	// RE Spawn @0x6db54 line 130: nextthink = gpGlobals->time (NOT +0.1) — the first sweep fires THIS
+	// frame, at the spawn point right in front of the thrower, so close glass breaks instantly. (Our old
+	// +0.1 let the knife fly ~190u and hit the pane via engine collision before the first sweep ran.)
+	pev->nextthink = gpGlobals->time;
 	m_flExpire = gpGlobals->time + 30.0f; // RE DAT_00107148 = 30s vanish-if-it-never-lands
 }
 
@@ -109,29 +114,37 @@ void CTSKnife::WaitThink()
 	}
 }
 
-// Embed the knife at `pos`, pointing the way it flew, as a recoverable pickup (walk into it).
-void CTSKnife::StickAt(const Vector &pos, const Vector &flyDir)
+// Turn the (now-stationary) knife into a recoverable USE-pickup: a small trigger with the white drop
+// glow, picked up on E. Our nicety — the original leaves a settled knife inert; we make every drop pickable.
+void CTSKnife::BecomePickup()
 {
 	pev->velocity = g_vecZero;
 	pev->avelocity = g_vecZero;
 	pev->movetype = MOVETYPE_NONE;
-	pev->angles = UTIL_VecToAngles(flyDir);
-	pev->angles.z = 90.0f; // RE worldspawn stick: roll the embedded blade 90° (orig sets angles.z = 90)
 	// Become a recoverable trigger. Set the solid + a real (small) trigger size, THEN relink via
 	// UTIL_SetSize/SetOrigin — changing pev->solid without relinking trips "trigger in clipping list".
 	pev->solid = SOLID_TRIGGER;
 	UTIL_SetSize(pev, Vector(-16, -16, -16), Vector(16, 16, 16)); // a USE-pickup radius (relinks the edict)
-	UTIL_SetOrigin(pev, pos - flyDir * 4.0f); // pull back a touch so the blade sits IN the surface
-	if (UTIL_PointContents(pos) != CONTENTS_SKY)
-		UTIL_Sparks(pos);
-	EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
-	// WHITE glow shell so the stuck knife reads as a pickup (every TS drop glows — see CTSWorldGun).
+	UTIL_SetOrigin(pev, pev->origin);                             // relink at the rest position
+	// WHITE glow shell so the dropped knife reads as a pickup (every TS drop glows — see CTSWorldGun).
 	pev->renderfx = kRenderFxGlowShell;
 	pev->rendercolor = Vector(255, 255, 255);
 	pev->renderamt = 4;
 	SetTouch(&CTSKnife::PickupTouch);
 	SetThink(&CBaseEntity::SUB_Remove);
 	pev->nextthink = gpGlobals->time + 30.0f; // linger as a pickup, then vanish
+}
+
+// Embed the knife at `pos`, pointing the way it flew, as a recoverable pickup (walk into it). Worldspawn only.
+void CTSKnife::StickAt(const Vector &pos, const Vector &flyDir)
+{
+	pev->angles = UTIL_VecToAngles(flyDir);
+	pev->angles.z = 90.0f; // RE worldspawn stick: roll the embedded blade 90° (orig sets angles.z = 90)
+	UTIL_SetOrigin(pev, pos - flyDir * 4.0f); // pull back a touch so the blade sits IN the surface
+	if (UTIL_PointContents(pos) != CONTENTS_SKY)
+		UTIL_Sparks(pos);
+	EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
+	BecomePickup(); // white glow + E-pickup at the embed point
 }
 
 // Too-glancing (steep-angle) hit? RE CTSKnife::BounceTouch worldspawn path: the knife only sticks when
@@ -171,6 +184,7 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 		EMIT_SOUND(ENT(pev), CHAN_WEAPON, BodySound(), VOL_NORM, ATTN_NORM);
 		pev->velocity = pev->velocity * -0.25f; // RE DAT_00107e98 bounce-back
 		m_flExpire = gpGlobals->time + 10.0f;   // RE DAT_00107140 post-bounce expire
+		StartSettle();                          // RE LAB_0007e985: hand off to the ground-settle handler
 		return;
 	}
 
@@ -191,25 +205,46 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 	}
 
 	// ANY OTHER non-player solid (breakable the sweep couldn't kill, func_wall, door…) → BOUNCE off.
+	// RE: the original NEVER sticks here — it bounces (-0.25·vel) and settles flat on the FLOOR (so it never
+	// ends up stuck in a glass pane); we then make the rested knife a glowing pickup like every other drop.
 	if (FClassnameIs(pOther->pev, "ts_knife"))
 		return; // RE BounceTouch else-branch: ignore other thrown knives (orig classname "knife", ours "ts_knife")
-	if (speed < 60.0f)
-	{
-		SettleAsPickup(); // come to rest as a recoverable floor pickup once it's slow
-		return;
-	}
 	if (UTIL_PointContents(pev->origin) != CONTENTS_SKY)
 		UTIL_Sparks(pev->origin);
 	EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
 	pev->velocity = pev->velocity * -0.25f; // RE DAT_00107e98 bounce-back
 	m_flExpire = gpGlobals->time + 10.0f;   // RE DAT_00107140 post-bounce expire
+	StartSettle();                          // RE LAB_0007e985: hand off to the ground-settle handler
 }
 
-// Come to rest where it is as a recoverable USE-pickup (our nicety: the original's settled knife is just
-// inert; we make a dropped knife pickable like every other TS drop).
-void CTSKnife::SettleAsPickup()
+// After its first non-stick contact (stab or bounce) the knife is done flying — settle it like every other
+// dropped weapon (mirrors CTSWorldGun: MOVETYPE_TOSS to the floor, poll FL_ONGROUND in a think, then become
+// the glowing USE-pickup). We use a think (not the original's touch-based WaitTouch @0x6dce8) because a
+// zero-hull MOVETYPE_BOUNCE knife rarely gets FL_ONGROUND from a touch, so most bounced knives never became
+// pickups (and so never lit the glow). This is our pickup nicety; the original leaves a bounced knife inert.
+void CTSKnife::StartSettle()
 {
-	StickAt(pev->origin, (pev->velocity.Length() > 0.1f) ? pev->velocity.Normalize() : gpGlobals->v_forward);
+	pev->gravity = 0.75f;            // RE LAB_0007e985: gravity 0.75 after first contact
+	pev->movetype = MOVETYPE_TOSS;  // fall + land reliably (FL_ONGROUND), exactly like CTSWorldGun
+	SetTouch(nullptr);              // no more contact handling — the sweep already had its chance
+	SetThink(&CTSKnife::SettleThink);
+	pev->nextthink = gpGlobals->time + 0.1f;
+}
+
+void CTSKnife::SettleThink()
+{
+	pev->nextthink = gpGlobals->time + 0.1f;
+	if (m_flExpire != 0 && gpGlobals->time > m_flExpire) // never reached the ground (fell in a pit, etc.)
+	{
+		UTIL_Remove(this);
+		return;
+	}
+	if (!(pev->flags & FL_ONGROUND)) // same landing test as CTSWorldGun::FallThink
+		return;
+	pev->avelocity = g_vecZero;
+	pev->angles.x = 0; // lie flat
+	pev->angles.z = 0;
+	BecomePickup();    // white glow + E-pickup, identical to every other TS ground weapon
 }
 
 void CTSKnife::PickupTouch(CBaseEntity *pOther)

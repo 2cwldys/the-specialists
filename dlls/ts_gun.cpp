@@ -470,7 +470,12 @@ void CTSGun::Fire()
 void CTSGun::StandardFire(const s_weapon_info *wi)
 {
 	const int cPellets = wi->iPellets > 0 ? wi->iPellets : 1; // 8 for shotguns (s_weapon_info+0x24)
-	const float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.01f;
+	float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.01f;
+	// TS dynamic accuracy (RE StandardFire @0x824a4): for weapons flagged bUsesSpread (s_weapon_info+0x2c —
+	// the firearms; shotguns/melee fire at the static base cone), grow the per-player spread accumulator and
+	// fold it into this shot's cone, so sustained fire walks the spread out (it recovers in PreThink).
+	if (wi->bUsesSpread)
+		ScaleSpread(flSpread, wi->flRecoil, (m_pPlayer->pev->flags & FL_DUCKING) != 0);
 
 	m_iClip--;
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH; // 3rd-person muzzleflash on the player model
@@ -502,6 +507,10 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 		0, (int)(wi->flDamage * TSDamageMult()), m_pPlayer->pev, m_pPlayer->random_seed);
 #endif
 
+	// Recoil view-punch (RE StandardFire: VKickback when weaponinfo+0x38 != 0 — all firearms; melee/grenade
+	// have it 0 and don't reach StandardFire anyway). Kicks the aim up + sideways like a mouse nudge.
+	VKickback(wi->flViewKick, wi->iFireType);
+
 	float flRate;
 	if (m_fireMode == TSFM_BURST)
 	{
@@ -522,14 +531,71 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 		((m_fireMode == TSFM_BURST && m_burstCount > 0) ? flRate : 5.0f);
 }
 
+// @ ScaleSpread__6CTSGun (@0x802a8) — TS dynamic accuracy. Folds the per-player spread accumulator
+// (CBasePlayer::m_flSpreadAccum, the .so's player+0x778) into THIS shot's cone, then grows the accumulator
+// for the next shot — so sustained fire walks the spread out. The accumulator recovers over time in
+// CBasePlayer::PreThink. `increment` = the weapon's flRecoil (s_weapon_info+0x34). Growth is faster when
+// firing rapidly (small gap → low recovery) and capped at 0.1; ducking + bullet-time tighten it.
+void CTSGun::ScaleSpread(float &spread, float increment, bool ducking)
+{
+	if (ducking)
+		spread *= 0.875f;                 // ducked → tighter base cone
+	if (increment <= 0.0f)
+		return;                           // weapon has no dynamic recoil
+	float factor = 2.0f;
+	if (DoubleFireRate(m_pPlayer)) factor *= 0.5f;    // bullet-time fires softer
+	if (ducking)                   factor *= 0.775f;
+	const float dt = gpGlobals->time - m_flLastShotTime; // time since this gun last fired
+	if (dt >= 0.001f)
+	{
+		spread += m_pPlayer->m_flSpreadAccum;            // effective spread = base + accumulator
+		float recovery = m_pPlayer->m_flSlowMotionGo * dt; // GiveSlowMul(player) * dt
+		if (recovery >= 1.0f) recovery = 0.5f;           // RE: cap the per-shot recovery at 0.5
+		float accum = (1.0f - recovery) * increment * factor + m_pPlayer->m_flSpreadAccum;
+		if (accum > 0.1f) accum = 0.1f;                  // RE: capped at 0.1
+		m_pPlayer->m_flSpreadAccum = accum;
+	}
+	m_flLastShotTime = gpGlobals->time;
+}
+
+// @ VKickback__6CTSGun (@0x70414) — the firearm recoil view-punch. Kicks pev->punchangle, which the engine
+// renders onto the view and decays back over time — so the aim jolts up like a mouse nudge and the player
+// pulls down to compensate (spraying walks the aim). Vertical = 0.85*magnitude (magnitude = wi->flViewKick,
+// s_weapon_info+0x30); the horizontal sign/size is per fire-type. Ducking and bullet-time (DoubleFireRate)
+// damp it. (The original gates the SERVER apply on FL_FAKECLIENT — real players predict it client-side; we
+// apply it directly so the kick shows on the listenserver. Client-prediction of the punch is a TODO.)
+void CTSGun::VKickback(float magnitude, int firetype)
+{
+	float vert = 0.85f * magnitude;
+	float horiz;
+	switch (firetype)
+	{
+	case 8:         horiz = vert *  0.35f; break; // pistol (semi)
+	case 4: case 5: horiz = vert *  0.15f; break; // akimbo / akimbo-only
+	case 1:         horiz = vert * -0.25f; break; // pump shotgun
+	case 6: case 7: horiz = vert * -0.30f; break; // autoshotgun / sniper
+	case 9:         horiz = vert * -0.35f; break; // auto SMG
+	default:        horiz = 0.0f;          break;
+	}
+	if (m_pPlayer->pev->flags & FL_DUCKING) { vert *= 0.775f;  horiz *= 0.775f; }  // ducked → tighter
+	if (DoubleFireRate(m_pPlayer))          { vert *= 0.6667f; horiz *= 0.6667f; } // bullet-time → softer
+	// RE @0x70414: the punchangle is applied ONLY to FL_FAKECLIENT (bots). Real players' recoil is the
+	// angle-based aim kick (client-side), NOT punchangle — so this is effectively a no-op for human players.
+	if (m_pPlayer->pev->flags & FL_FAKECLIENT)
+	{
+		m_pPlayer->pev->punchangle.x -= vert;  // kick the (bot's) view UP
+		m_pPlayer->pev->punchangle.y += horiz; // and sideways per the recoil pattern
+	}
+}
+
 // @ KnifeFire/KatanaFire — a short forward hull trace; on a hit, melee damage.
 // SLICE: no swing/hit sounds (the TS knife sounds aren't precached here) and no
 // faithful katana throw/charge — just the close-range slash.
 void CTSGun::MeleeAttack(const s_weapon_info *wi)
 {
-	if (!(m_pPlayer->m_afButtonPressed & IN_ATTACK))
-		return; // one slash per press
-
+	// RE KnifeFire melee branch: NOT one-per-press — holding ATTACK slashes continuously, gated only by
+	// m_flNextPrimaryAttack (flFireRate), exactly like the kung-fu CCombatAttack path. (Was a press-only
+	// gate, so the knife could only slash once per click.)
 	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	const float flRange = (wi->iFireType == TSFT_KATANA) ? 64.0f : 48.0f;
@@ -538,11 +604,15 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 	TraceResult tr;
 	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
 
-	// 1st-person viewmodel slash — now CLIENT-PREDICTED (CTSGun is a UseDecrement weapon). The melee
-	// viewmodels carry slash sequences (v_knife slash1=3; v_katana/v_sealknife slash1=2). A fixed slash
-	// keeps the predicted anim in lockstep with the server (random per-swing would snap on reconcile).
+	// 1st-person viewmodel slash — CLIENT-PREDICTED (CTSGun is a UseDecrement weapon). The melee viewmodels
+	// carry MULTIPLE slash sequences; the original cycles them (RE: 3 body anims 0x1d+RANDOM(0,2), viewmodel
+	// via knife.sc). We cycle them DETERMINISTICALLY (m_slashStep, predicted in lockstep with the server) so
+	// the held slash animates through its variants without snapping on reconcile. // VERIFY seq indices.
 	const bool isKatana = (wi->iFireType == TSFT_KATANA);
-	SendWeaponAnim((m_weaponType == TSW_KNIFE) ? 3 : 2);
+	const int slashBase = (m_weaponType == TSW_KNIFE) ? 3 : 2; // v_knife slash1=3; v_katana/v_sealknife slash1=2
+	const int nSlash = 3;                                       // RE: 3 slash variants (0x1d/1e/1f body anims)
+	SendWeaponAnim(slashBase + (m_slashStep % nSlash));
+	m_slashStep++;
 	// Swing whoosh (per attack) — server-driven EMIT_SOUND (a client no-op during prediction).
 	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM);
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
@@ -613,27 +683,24 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 	}
 	else
 	{
-		// FIRE = PUNCHES only (NEVER kicks — not even with jump). Duck → uppercut. The left/right/
-		// forward punch SEQUENCE only runs while attacking rapidly/held; a lone tap is a single punch.
-		if (ducking)
+		// FIRE = PUNCHES. RE CCombatAttack @0x86078 field_0x9fc combo: 3 standard punches then an UPPERCUT,
+		// then loop — the uppercut is the 4th hit of the held chain (NOT duck-gated as we wrongly had it;
+		// +back forces it early). Anims are the verified v_melee.mdl sequences (2 punch_left, 3 punch_right,
+		// 10 punch_right2, 7 uppercut). A lone tap restarts the chain, so a single click is just punch 1.
+		const bool chaining = (gpGlobals->time - m_lastCCTime) < 0.5f; // held / quick succession
+		if (!chaining)
+			m_comboStep = 0; // fresh tap → restart the chain at the first punch
+		static const int jab[3] = {ANIM_PUNCH_L, ANIM_PUNCH_R, ANIM_PUNCH_R2};
+		if (m_comboStep >= 3 || back) // RE field_0x9fc > 2 (3 punches thrown) → the uppercut finisher
 		{
-			anim = ANIM_UPPERCUT; dmg = 45; range = 48; delay = 0.45f;
+			anim = ANIM_UPPERCUT; dmg = 45; range = 48; delay = 0.4f;
+			m_comboStep = 0;
 		}
-		else
+		else // the 3 standard punches, cycling left → right → right2
 		{
-			static const int combo[3] = {ANIM_PUNCH_L, ANIM_PUNCH_R, ANIM_PUNCH_R2};
-			const bool chaining = (gpGlobals->time - m_lastCCTime) < 0.5f; // held / quick succession
-			if (chaining)
-			{
-				m_comboStep++;
-				anim = combo[m_comboStep % 3];
-			}
-			else
-			{
-				m_comboStep = 0; // fresh tap → a single regular punch (not the sequence)
-				anim = RANDOM_LONG(0, 1) ? ANIM_PUNCH_L : ANIM_PUNCH_R;
-			}
-			dmg = 35; range = 48; delay = 0.32f;
+			anim = jab[m_comboStep];
+			dmg = 35; range = 48; delay = 0.3f;
+			m_comboStep++;
 		}
 	}
 	m_lastCCTime = gpGlobals->time;
@@ -688,6 +755,19 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 			char step[24];
 			sprintf(step, "player/pl_step%d.wav", RANDOM_LONG(1, 4));
 			EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, step, VOL_NORM, ATTN_NORM);
+
+			// A kung-fu wall hit puffs the same impact SMOKE as bullets — but ONLY the smoke: no decal,
+			// no bullet hole, no sparks. A short-lived additive smoke sprite a touch off the surface.
+			Vector pos = tr.vecEndPos + tr.vecPlaneNormal * 2.0f;
+			MESSAGE_BEGIN(MSG_PVS, SVC_TEMPENTITY, pos);
+			WRITE_BYTE(TE_SPRITE);
+			WRITE_COORD(pos.x);
+			WRITE_COORD(pos.y);
+			WRITE_COORD(pos.z);
+			WRITE_SHORT(MODEL_INDEX("sprites/gun_smoke_add.spr")); // precached in PrecacheAllTSWeapons
+			WRITE_BYTE(4);   // scale 0.4 (matches the bullet-impact puff)
+			WRITE_BYTE(150); // brightness
+			MESSAGE_END();
 		}
 	}
 }
