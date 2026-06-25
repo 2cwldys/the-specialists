@@ -31,10 +31,11 @@ struct TSParticle
 	unsigned char imode;  // +0x06  integration mode (0 = velocity + gravity + drag)
 
 	Vector savedPos;      // +0x08  previous position (trail / motion blur)
+	float angle;          // +0x28  current sprite roll angle (deg) — accumulated for orient-1
 	Vector pos;           // +0x14  current world position
 	Vector auxPos;        // +0x20  orient-2 motion accumulator
 	Vector vel;           // +0x38  velocity (units/s)
-	Vector dir;           // +0x44  oriented-billboard direction
+	float spin;           // +0x4c  roll RATE (deg/s) — orient-1 debris tumble (angle += spin*dt*10)
 
 	float gravity;        // +0xd0  downward accel coefficient
 	float spawnTime;      // +0xd4  birth time (engine clock)

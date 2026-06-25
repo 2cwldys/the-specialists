@@ -207,6 +207,10 @@ void TSParticles_Update()
 				d = 1.0f;
 			p->vel = p->vel - p->vel * d;
 		}
+		// orient-1 (debris) tumble: roll angle accumulates at the spin rate (FUN_10050ce0 case 1:
+		// angle += spin * frametime * _DAT_1007a538(10)).
+		if (dt > 0.0f && p->orient == 1)
+			p->angle += p->spin * dt * 10.0f;
 		p->savedPos = p->pos;
 		// pos += vel * frametime * _DAT_10079e88(10) — velocity is in deci-units/s, the ×10 makes
 		// sparks move fast AND turns the velocity-space gravity (×80) into the real 800 u/s² fall.
@@ -248,8 +252,17 @@ void TSParticles_Update()
 				}
 				else
 				{
-					Vector r = right * half;
-					Vector u = up * half;
+					// Camera-facing quad, rolled by the sprite's angle (debris tumble).
+					Vector ax = right, ay = up;
+					if (p->angle != 0.0f)
+					{
+						float rad = p->angle * (3.14159265f / 180.0f);
+						float cs = cosf(rad), sn = sinf(rad);
+						ax = right * cs + up * sn;
+						ay = up * cs - right * sn;
+					}
+					Vector r = ax * half;
+					Vector u = ay * half;
 					c[0] = p->pos - r + u;
 					c[1] = p->pos + r + u;
 					c[2] = p->pos + r - u;
@@ -429,7 +442,9 @@ static void TSP_Debris(const float* o, const float* n, const char* spr, short re
 		p->vel.y = n[1] * 16.0f + gEngfuncs.pfnRandomLong(-spread, spread);
 		p->vel.z = n[2] * 16.0f + gEngfuncs.pfnRandomLong(-spread / 2, spread / 2);
 		float ang = (float)gEngfuncs.pfnRandomLong(-180, 180);
-		p->life = ang * 0.001f + life;  // _DAT_1007a868 = 0.001
+		p->life = ang * 0.001f + life;  // _DAT_1007a868 = 0.001 (the spin value doubles as life jitter)
+		p->spin = ang;                  // +0x4c — roll rate (deg/s); orient-1 tumble
+		p->angle = 0.0f;                // +0x28 — starts level, accumulates
 		p->pos = Vector(o[0] + n[0] * 2, o[1] + n[1] * 2, o[2] + n[2] * 2);
 		p->frame = TSP_RandomFrame(idx);
 		if (TSP_Commit(p) == -1)
