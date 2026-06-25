@@ -109,7 +109,9 @@ public:
 	int m_fireMode = TSFM_SEMI; // ACTIVE fire-mode (= m_arsenalMode[m_active])
 	int m_burstCount = 0;       // rounds left in the current burst (m_pActiveItem+8)
 	float m_flLastShotTime = 0; // gun+0x9e8 — last bullet-fire time, for ScaleSpread's per-shot recovery
-	int m_comboStep = 0;        // kung-fu ground-punch combo cycle (this+0x9fc in the .so): 3 jabs + uppercut
+	int m_comboStep = 0;        // kung-fu PUNCH combo counter (this+0x9fc in the .so): 3 jabs → uppercut, reset on finisher
+	int m_kickCombo = 0;        // kung-fu KICK combo counter (this+0xa00 in the .so): 3 kicks → spin finisher, reset on finisher/dive
+	int m_lastMeleeAnim = 0;    // last kung-fu attack id (this+0xa04): drives the no-repeat anim cycling per move
 	int m_slashStep = 0;        // knife slash anim cycle (RE KnifeFire melee: 0x1d + random(0,2) body anims)
 	float m_lastCCTime = 0.0f;  // last close-combat attack time (combo only continues if rapid/held)
 	float m_blockBar = 100.0f;  // kung-fu block stamina (UpdateMeleeBar): each block costs, regens

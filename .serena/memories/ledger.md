@@ -5,6 +5,61 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-25 (cont. 69y) — kung-fu KICKS dispatch RE-faithful (CCombatAttack__6CTSGun @0x86078)
+
+User picked the kung-fu KICKS dispatch from the carried weapon-feel TODOs. Rewrote `CTSGun::CloseCombatAttack`
+(dlls/ts_gun.cpp) as a faithful port of the decompiled CCombatAttack__6CTSGun (scratchpad/ccombatattack.c),
+replacing the old approximation. Static-RE'd, not guessed — decoded the raw decompile by computing the
+entvars_t offsets from progdefs.h and pulling every DAT_ constant from the binary.
+
+DECODE (entvars offsets): pev+0x180 = button (IN_ATTACK 1 / IN_DUCK 4 / IN_BACK 0x10 / IN_ATTACK2 0x800);
+pev+0x1a5 = byte 1 of flags → &2 = FL_ONGROUND(0x200), &0x40 = FL_DUCKING(0x4000); pev+0x174 = view_ofs
+(eye-height tweak on dive kicks); pev+0x250 = iuser4 (TS lock mask 0x50c30); player+0x79c = whiff-lunge
+timer. Damage = local_114 (punches 0x23=35, kicks 0x2d=45, back-kick 0x37=55). Combo counters: punch
+this+0x9fc (m_comboStep), kick this+0xa00 (m_kickCombo), last-anim this+0xa04 (m_lastMeleeAnim).
+
+⚠️ REFIRE = local_108 (CORRECTED mid-session — see below): kung-fu is FULL-AUTO (standard ItemPostFrame holds
+fire → repeats at the cap). I first read the refire as local_10c (0.1s normal punch) from the decompile's
+frame arith, BUT that was WRONG — Ghidra's stack analysis was corrupted by a function-boundary overlap
+(CCombatAttack tail mis-symbolizes as SlowMotionFlow; hand-disasm desyncs on the reordered blocks). The USER
+live-confirmed the original punch cadence: full-auto capped at ~4/sec, identical hold-vs-click. 4/sec = 0.25s
+= local_108 = DAT_00107e98 (the normal-punch constant) EXACTLY. So refire = local_108; local_10c (0.1-0.35) is
+the VICTIM block-stun (BlockPlayer(player, local_10c*0.75)). [[live-original-ts-debuggable]],
+[[flag-overriding-and-dead-code]].
+
+KICK dispatch (IN_ATTACK2), first-match: duckkick (onGround && (IN_DUCK||FL_DUCKING), 45dmg, 1.0s) →
+back-kick (movingBack: +back key when speed≤100, else v_forward·vel_unit ≤ −0.5; 55dmg, onGround?1.0:1.35s) →
+sidekick-dive (airborne && speed>270 && IN_DUCK && fwdDot>0.5; 45dmg, 1.0s, resets kick combo) → ground kick
+combo (onGround || speed≤200): 3 basic kicks (alt 0xb/0xc, 45dmg, 0.3s, m_kickCombo++) then a SPIN FINISHER
+when m_kickCombo>2 (no-repeat cycle 0xa/0xe/0xd/0xf, 45dmg, 0.5s, reset) → else flying/jump kick (cycle
+0x13/0x12/0xf, 45dmg, 0.75s, reset). PUNCH dispatch (IN_ATTACK), all 35dmg: airborne→air-punch (0.5s);
+onGround && (m_comboStep>2 || duck-TAP[IN_DUCK && !FL_DUCKING])→uppercut (0.65s, reset); else normal jab
+(0.25s, m_comboStep++, shown as 3 cycling v_melee jabs). Counters are PERSISTENT — reset only on a finisher/
+dive, no time-window (removed the old 0.5s chaining reset). USER-CONFIRMED feel ("this looks good"): visible
+3-jab→uppercut, full-auto 4/sec.
+
+ANIM REMAP: the original kung-fu viewmodel has ~26 seqs (ids 0xa..0x19); our v_melee.mdl has 11, so each id
+maps to the nearest seq + the 3rd-person player kung-fu seq. Dispatch/damage/timing are byte-faithful; the
+anim is a remap (consistent with the cont.69q 11-seq decision).
+
+SLICEs (documented in-code, not yet ported): the forward whiff-LUNGE (local_110 → player+0x79c, a decaying
+PreThink velocity push applied on a MISS, scaled by GetMeleeMultiplier + doubled by the KungFu powerup) is a
+separate PreThink subsystem (prethink.c lines 70/181) — kept as per-move magnitude comments; iuser4 lock-state
+(0x50c30 → forced light attack) and player+0x814/0x815 bits (special-punch 0x17 / forced finisher) default to
+"clear" (the common path). The melee screen-shake is unchanged (live-measured punch 20 / kick 25 → ×0.35).
+
+Also recovered the canonical attack-id → 3rd-person body-anim names from HandleCloseCombat__12CTSAnimation
+(0xa circfront / 0xb circkick / 0xc circkicklow / 0xd circback / 0xe latback / 0xf circspin / 0x10 sidekick /
+0x11 backkick / 0x12 airkick / 0x13 airkick2 / 0x14 duckkick / 0x16 punchleft / 0x17 punchright) — so 0x10 is
+SIDEKICK and 0x14 is DUCKKICK (my branch comments said dropkick/handstand; IDs/anims are what matter).
+
+VERIFIED: hl.so + client.so build clean (glibc 2.14); deployed to the xash rig; runs no-crash; USER playtested
+and confirmed "this looks good" (the full-auto 4/sec cadence + visible 3-jab→uppercut). See
+[[live-original-ts-debuggable]], [[match-original-names-for-coverage]]. Ready to commit.
+
+NEXT: remaining weapon-feel TODOs (dynamic-spread edge cases, weapon sway, coldcock whip, breakable respawn,
+katana throw).
+
 ## 2026-06-25 (cont. 69x) — TS client PARTICLE / impact-effect subsystem DONE + LIVE-VERIFIED
 
 The cont.69w next-task is COMPLETE. Byte-ported the original's custom client particle pool (NOT engine

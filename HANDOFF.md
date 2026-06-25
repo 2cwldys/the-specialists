@@ -75,10 +75,32 @@ gitignored). What's in it, all verified by **live gdb traces of the running orig
 - **Concrete debris** renders `kRenderTransAlpha(4)` not the RE's `TransColor(1)` — our TriAPI draws INDEXALPHA
   TransColor as an unmasked square; (4) masks it to the flake. Engine-quirk workaround.
 
-## ⭐ NEXT TASK — the carried-over WEAPON-FEEL TODOs (see the 🔴 list below)
-Particles are done; the open work is the weapon-feel items carried from cont.69v (kung-fu KICKS dispatch,
-dynamic-spread edge cases, weapon sway, coldcock whip, breakable respawn, katana throw). Use the same
-**live-trace-don't-guess** method (`scripts/live.py`) that nailed the particle values.
+## ✅ DONE (cont.69y) — kung-fu KICKS dispatch is now RE-faithful (CCombatAttack__6CTSGun @0x86078)
+Rewrote `CTSGun::CloseCombatAttack` (dlls/ts_gun.cpp) as a faithful port of the decompiled dispatch
+(scratchpad/ccombatattack.c). Decoded the untyped pev offsets: button@0x180, flags byte@0x1a5 (FL_ONGROUND
+0x200 / FL_DUCKING 0x4000), iuser4@0x250 (lock mask 0x50c30); pulled every DAT_ constant from the binary
+(damage 35/45/55). Kung-fu is FULL-AUTO; refire = `local_108` (normal punch **0.25s** = 4/sec cap, uppercut
+0.65, basic kick 0.3, finisher 0.5, heavy kicks 0.75–1.35). **NOTE:** my first pass read refire as `local_10c`
+(0.1s) — WRONG: Ghidra mis-attributed the load (the `CCombatAttack` tail mis-symbolizes as `SlowMotionFlow`,
+boundary-confused frame analysis shifted the slot 4 bytes). The user live-confirmed the original = ~4/sec
+full-auto (hold == click) = 0.25 = `local_108` (DAT_00107e98) EXACTLY; `local_10c` is the victim block-stun.
+KICK selection now mirrors the original: **duckkick** (onGround+duck) → **back-kick**
+(moving-backward: +back key when slow, vel·facing≤−0.5 when fast) → **dropkick** (airborne+speed>270+duck+
+moving-forward) → **3-kick ground combo → spin finisher** (the `m_kickCombo`/this+0xa00 counter, no-repeat
+cycle 0xa/0xe/0xd/0xf) → **flying kick** (fast+airborne, cycle 0x13/0x12/0xf). PUNCH side also made faithful:
+persistent `m_comboStep`/0x9fc counter (3 jabs → uppercut; reset only on finisher, NO time-window), air-punch
+when airborne, uppercut on combo>2 OR a duck-tap; all punches 35 dmg. Builds clean (hl.so + client.so, glibc
+2.14); **USER playtested + confirmed "this looks good"** (full-auto 4/sec, visible 3-jab→uppercut). Also
+recovered the canonical attack-id→body-anim names from `HandleCloseCombat` (0x10=sidekick, 0x14=duckkick, …).
+SLICEs (documented in-code): the forward whiff-LUNGE (orig
+local_110 → player+0x79c, a decaying PreThink velocity push on a miss) is a separate PreThink subsystem not
+yet ported; the iuser4 lock-state (0x50c30) and player+0x814/0x815 state bits (special-punch 0x17 / forced
+finisher) default to "clear". Original ids 0xa..0x19 remapped to v_melee.mdl's 11 seqs (dispatch/dmg/timing
+byte-faithful, anim a remap).
+
+## ⭐ NEXT TASK — the remaining WEAPON-FEEL TODOs (see the 🔴 list below)
+Kung-fu kicks done; open work carried from cont.69v: dynamic-spread edge cases, weapon sway, coldcock whip,
+breakable respawn, katana throw. Use the same **live-trace-don't-guess** method (`scripts/live.py`).
 
 ### Task-tool entries — ALL COMPLETE (cont.69x)
 #1 locate update/render fn · #2 struct/pool · #3 manager · #4 update/render+hook · #5 spawners (RE-audited
@@ -105,8 +127,7 @@ from raw ASM) · #6 dispatcher+wrapper · #7 route events / drop R_SparkShower �
   Write_flag (idx 29). Verified 0 mismatches vs binary Write_ AND Sparta. See [[sparta-overrides-write-weapon]].
 
 ### 🔴 STILL-OPEN weapon-feel TODOs (carried from cont.69v, not done)
-- ⏳ **Kung-fu KICKS dispatch** not RE-faithful (FIRE punch combo IS done). RE table in CCombatAttack @0x86078
-  (`re.sh 0x96078`); the kick side uses the old approximation.
+- ✅ **Kung-fu KICKS dispatch** — DONE (cont.69y), RE-faithful port of CCombatAttack__6CTSGun (above).
 - ⏳ **Dynamic spread edge cases**: m60 5× recoil (field_0xc8==0x20), barrett max-spread-moving (==0x12).
 - ⏳ **Weapon sway**: amplitude smoothing + per-weapon grip + forward term not ported (figure-8 IS done).
 - ⏳ **Coldcock viewmodel whip** (coldcock.sc LAB_10043800); **breakable periodic respawn**; **Katana
