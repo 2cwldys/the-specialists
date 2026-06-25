@@ -36,6 +36,7 @@
 #include "ts_weapon_info.h" // the SHARED s_weapon_info table (now built into the client too)
 #include "ts_weapon_predict.h" // the active-weapon param cache (refreshed by each TS event)
 #include "ts_recoil.h"      // TS_AddViewRecoil — the per-shot aim-recoil kick
+#include "ts_particles.h"   // TS_ImpactEffect — the byte-ported per-surface impact dispatcher
 
 #include <string.h>
 
@@ -99,24 +100,14 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side)
 		kRenderTransAdd, kRenderFxNoDissipation, 1.0f, 0.01f, 0);
 }
 
-// TS bullet impact: a SMOKE puff per surface material (NOT sparks-by-default), with metal/glass
-// also throwing sparks. RE'd from the client impact dispatcher FUN_10048f60(pos, normal, type,
-// texChar): wood/dirt -> wood_smoke_add; metal/grate/vent/glass/computer -> gun_smoke_add + metal
-// sparks; concrete/tile/etc -> gun_smoke_add; flesh -> nothing (the server's FireBulletsPlayer
-// already does the blood + the texture/flesh impact SOUND + the bullet decal — this only adds the
-// missing VISUAL puff). Client-side + predicted via the fire event (so no lag, no double sound/decal).
+// TS bullet impact: the byte-ported per-surface client particle dispatcher (FUN_10048f60),
+// fed by a surface trace. Metal/glass -> scintille glint + sparks.spr shower (+ pellet marks);
+// wood/concrete -> tumbling debris chips + smoke; dirt -> smoke; flesh/water -> nothing (the
+// server's FireBulletsPlayer already does blood + the texture impact SOUND + the bullet decal,
+// this only adds the missing VISUAL). Client-side + predicted via the fire event (no lag, no
+// double sound/decal). The old R_SparkShower/R_TempSprite approximation is gone (cont.69x).
 static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 {
-	static int s_gunSmoke = 0, s_woodSmoke = 0, s_woodFrag = 0, s_concreteFrag = 0;
-	if (s_gunSmoke == 0)
-		s_gunSmoke = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/gun_smoke_add.spr");
-	if (s_woodSmoke == 0)
-		s_woodSmoke = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/wood_smoke_add.spr");
-	if (s_woodFrag == 0)
-		s_woodFrag = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/woodfrag.spr");
-	if (s_concreteFrag == 0)
-		s_concreteFrag = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/debris_concrete3.spr");
-
 	Vector end;
 	for (int i = 0; i < 3; i++)
 		end[i] = src[i] + dir[i] * 8192.0f;
@@ -148,99 +139,69 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 		}
 		else
 		{
-			chType = CHAR_TEX_FLESH; // player/monster — server already sprays blood; no smoke
+			chType = CHAR_TEX_FLESH; // player/monster — server already sprays blood
 		}
 
-		// Spawn the impact puff a touch off the surface so it isn't clipped into the wall.
+		// Off the surface a touch so the sprites aren't clipped into the wall.
 		Vector pos;
 		for (int i = 0; i < 3; i++)
 			pos[i] = tr.endpos[i] + tr.plane.normal[i] * 2.0f;
-		const Vector drift(0, 0, 12); // smoke rises a little
 
-		int smokeSpr = s_gunSmoke;
-		int fragSpr = 0; // per-material falling debris (woodfrag / debris_concrete3); 0 = none
-		int fragFrames = 1; // # of shard shapes in the chosen frag sprite (random per chip)
-		bool sparks = false;
-		switch (chType)
-		{
-		case CHAR_TEX_FLESH:
-		case CHAR_TEX_SLOSH:
-			smokeSpr = 0; // flesh/water: no smoke/frags (blood / splash handled elsewhere)
-			break;
-		case CHAR_TEX_WOOD:
-		case CHAR_TEX_DIRT:
-			smokeSpr = s_woodSmoke;
-			fragSpr = s_woodFrag; // wood -> woodfrag chips (dispatcher case 'W')
-			fragFrames = 7;       // woodfrag.spr = 7 frames
-			break;
-		case CHAR_TEX_METAL:
-		case CHAR_TEX_GRATE:
-		case CHAR_TEX_VENT:
-		case CHAR_TEX_GLASS:
-		case CHAR_TEX_COMPUTER:
-			sparks = true; // metal/glass throw sparks (no falling chips — the original sparks only)
-			smokeSpr = s_gunSmoke;
-			break;
-		default: // concrete / tile / snow / etc.
-			smokeSpr = s_gunSmoke;
-			fragSpr = s_concreteFrag; // concrete/default -> debris_concrete3 chips (dispatcher default)
-			fragFrames = 5;           // debris_concrete3.spr = 5 frames
-			break;
-		}
-
-		if (sparks)
-			gEngfuncs.pEfxAPI->R_SparkShower(tr.endpos);
-		if (smokeSpr > 0)
-			gEngfuncs.pEfxAPI->R_TempSprite(pos, drift, 0.4f, smokeSpr,
-				kRenderTransAdd, kRenderFxNone, 0.7f, 0.7f, FTENT_FADEOUT | FTENT_SPRCYCLE);
-
-		// Falling debris chips (RE: client impact dispatcher FUN_10048f60 -> FUN_10046bd0): a few
-		// little fragment sprites fly out along the surface normal (velocity = normal*16 + spread)
-		// and DROP to the floor under gravity, tumbling, for ~1s. Wood -> woodfrag, concrete/default
-		// -> debris_concrete3; metal/glass spark instead, flesh/water none.
-		if (fragSpr > 0)
-		{
-			const int count = gEngfuncs.pfnRandomLong(1, 3); // 1-3 chips per impact
-			for (int n = 0; n < count; n++)
-			{
-				// "equal-and-opposite" ejection: the chips fly FAST back out along the surface
-				// normal (toward the shooter, opposite the bullet) in a WIDE spray — not a weak
-				// dribble dropping in front. Each chip ejects at its OWN random speed.
-				const float ejectSpeed = gEngfuncs.pfnRandomFloat(120.0f, 300.0f);
-				Vector vel;
-				for (int i = 0; i < 3; i++)
-					vel[i] = tr.plane.normal[i] * ejectSpeed + gEngfuncs.pfnRandomFloat(-130.0f, 130.0f);
-				TEMPENTITY* t = gEngfuncs.pEfxAPI->R_TempSprite(pos, vel, 0.3f, fragSpr,
-					kRenderTransAdd, kRenderFxNone, 1.0f, // additive = bright/white (TransAlpha was dark)
-					1.0f, // live exactly 1s then vanish abruptly (NO FTENT_FADEOUT)
-					FTENT_GRAVITY | FTENT_COLLIDEWORLD | FTENT_ROTATE);
-				if (t)
-				{
-					// random shard SHAPE (frame) + initial roll + a high spin rate (FTENT_ROTATE
-					// applies baseline.angles as angular velocity — the chip tumbles as it falls).
-					t->entity.curstate.frame = (float)gEngfuncs.pfnRandomLong(0, fragFrames - 1);
-					t->entity.angles[2] = gEngfuncs.pfnRandomFloat(0.0f, 360.0f);
-					t->entity.baseline.angles[2] = gEngfuncs.pfnRandomFloat(-500.0f, 500.0f);
-					// near-white tint — the INDEXALPHA (concrete) sprite takes its colour from
-					// rendercolor (default 0,0,0 = too dark); the original chips are near-white.
-					t->entity.curstate.rendercolor.r = 255;
-					t->entity.curstate.rendercolor.g = 255;
-					t->entity.curstate.rendercolor.b = 255;
-				}
-			}
-		}
+		TS_ImpactEffect(pos, tr.plane.normal, 0, chType);
 	}
 
 	gEngfuncs.pEventAPI->EV_PopPMStates();
 }
 
 // events/knife.sc → EV_TSMelee — the original FUN_10043c90. A knife/katana slash hitting a HARD
-// surface throws sparks + a scuff decal (the server only plays this on non-flesh hits; the impact
-// point rides in args->origin). RE: the original sparks (scintille_metal) on metal/concrete/glass,
-// skipping wood/dirt — we spark on every surface hit the server passed (a minor fidelity slice).
+// surface throws the per-surface impact effect (scintille glint + sparks on metal/glass, debris on
+// concrete/wood). The server only plays this on non-flesh hits; the impact point rides in
+// args->origin and the player aim in args->angles. We trace a short ray through the impact point to
+// recover the surface material, then run the byte-ported dispatcher (cont.69x; was R_SparkShower).
 void EV_TSMelee(event_args_t* args)
 {
-	gEngfuncs.pEfxAPI->R_SparkShower(args->origin);
+	Vector fwd, r, u;
+	AngleVectors(args->angles, fwd, r, u);
+
+	Vector start, stop;
+	for (int i = 0; i < 3; i++)
+	{
+		start[i] = args->origin[i] - fwd[i] * 16.0f;
+		stop[i] = args->origin[i] + fwd[i] * 16.0f;
+	}
+
+	gEngfuncs.pEventAPI->EV_SetUpPlayerPrediction(0, 1);
+	gEngfuncs.pEventAPI->EV_PushPMStates();
+	gEngfuncs.pEventAPI->EV_SetSolidPlayers(args->entindex - 1);
+	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
+	pmtrace_t tr;
+	gEngfuncs.pEventAPI->EV_PlayerTrace(start, stop, PM_NORMAL, -1, &tr);
+
+	char chType = CHAR_TEX_METAL; // melee on a hard surface defaults to a metallic scrape
+	Vector pos, normal(-fwd.x, -fwd.y, -fwd.z);
+	VectorCopy(args->origin, pos);
+	if (tr.fraction < 1.0f)
+	{
+		VectorCopy(tr.plane.normal, normal);
+		for (int i = 0; i < 3; i++)
+			pos[i] = tr.endpos[i] + tr.plane.normal[i] * 2.0f;
+		physent_t* pe = gEngfuncs.pEventAPI->EV_GetPhysent(tr.ent);
+		bool isBrush = pe && (pe->solid == SOLID_BSP || pe->movetype == MOVETYPE_PUSH || tr.ent == 0);
+		if (isBrush)
+		{
+			const char* texName = gEngfuncs.pEventAPI->EV_TraceTexture(tr.ent, start, stop);
+			if (texName && texName[0])
+			{
+				char buf[64];
+				strncpy(buf, texName, sizeof(buf) - 1);
+				buf[sizeof(buf) - 1] = 0;
+				chType = PM_FindTextureType(buf);
+			}
+		}
+	}
+
+	gEngfuncs.pEventAPI->EV_PopPMStates();
+	TS_ImpactEffect(pos, normal, 0, chType);
 }
 
 void EV_TSFire(event_args_t* args)

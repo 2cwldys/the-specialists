@@ -20,6 +20,7 @@
 
 #include "particleman.h"
 #include "tri.h"
+#include "ts_particles.h" // TS client impact-effect particle pool
 extern IParticleMan* g_pParticleMan;
 
 /*
@@ -54,4 +55,8 @@ void DLLEXPORT HUD_DrawTransparentTriangles()
 
 	if (g_pParticleMan)
 		g_pParticleMan->Update();
+
+	// TS custom impact-effect particle pool (sparks/smoke/debris) — original client.dll
+	// drew this from HUD_DrawTransparentTriangles via FUN_100520d0(pool). cont.69x.
+	TSParticles_Update();
 }
