@@ -272,10 +272,13 @@ Don't guess; trace it.** Two tools settle it definitively:
 - **★ Live gdb backtrace on the running ORIGINAL.** The real TS runs in `hl.exe` under Proton/Wine (the
   server is `ts/dlls/mp.dll`, the client `ts/cl_dlls/client.dll`). This box can `gdb -p <pid>` it
   (ptrace_scope=1 but same user works; gdb shows the 32-bit code as garbage by default — read raw bytes,
-  not the auto-disasm). **`scripts/live.py` scripts the boilerplate**: `live.py pid` / `base <module>`
+  not the auto-disasm). **`scripts/live.py` scripts the whole boilerplate**: `live.py pid` / `base <module>`
   (reloc-free prologue scan) / `resolve 0xADDR…` and `bt` (raw live addr / piped gdb backtrace → module +
-  RVA + nearest export) / `read <module> 0xRVA [f|d|u|p]`. This is how cont.69v located the angle-recoil
-  (a value-`watch` on `cl.viewangles` fires only on change → with no mouse, only the recoil moves it). Recipe:
+  RVA + nearest export) / `read <module> 0xRVA [f|d|u|p]` / `readabs 0xADDR` / `vmethod 0xOBJ <slot>`
+  (this→vtable[slot] → resolve) / **`watch <module|abs> 0xRVA|0xADDR --go "msg"`** and **`break … --go`**
+  (run BACKGROUNDED: prints `>>> ARMED — <msg>` once set so you tell the user the action, blocks until it
+  trips, then prints the resolved backtrace). A value-`watch` fires only on CHANGE → e.g. watching
+  `cl.viewangles` with no mouse isolates the recoil (this is how cont.69v located the angle-recoil). Recipe:
   0. **Find the live PID each session** (it changes): `pgrep -f 'Half-Life/hl.exe'` (pick the actual
      `hl.exe` Wine process — the big RSS one, not the launcher/reaper). Ask the user to confirm it's
      running if `pgrep` is empty.

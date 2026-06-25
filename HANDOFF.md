@@ -70,11 +70,13 @@ The user **keeps the original TS running in `hl.exe` (Proton/Wine), ALWAYS avail
 static RE dead-ends on a virtual/indirect/client-side path, **live-trace it — don't guess** (guessing = the
 cardinal sin). **`scripts/live.py`** codifies the workflow (built cont.69v):
 `live.py pid` / `base <mp.dll|client.dll>` / `resolve 0xADDR…` (→ module+RVA+nearest export) / `bt` (pipe a
-gdb backtrace, resolves every frame) / `read <module> 0xRVA [f|d|u|p]`. Watchpoint recipe (in the ledger):
-`gdb -p <pid> -batch` + `watch *(float*)<addr>` (value-watch fires only on CHANGE; with no mouse, only recoil
-changes `cl.viewangles`) + `commands{ bt; detach; quit }`. **PROPOSED but not built** (do these to make the
-recoil step trivial): `live.py watch <module> <rva> --go` (arms + prints GO + auto-resolves the bt) and
-`live.py vmethod <objaddr> <slot>` (read a vtable slot → resolve — directly gets `vtable[0x38]`).
+gdb backtrace, resolves every frame) / `read <module> 0xRVA [f|d|u|p]` / `readabs 0xADDR` / **`vmethod 0xOBJ
+<slot>`** (this→vtable[slot] → resolve) / **`watch <module|abs> 0xRVA|0xADDR --go "msg"`** and **`break …
+--go`** — run these BACKGROUNDED: they print `>>> ARMED — <msg>` once set (tell the user the action), block
+until the trip, then print the resolved backtrace; a value-`watch` fires only on CHANGE (no mouse → only the
+recoil moves `cl.viewangles`). **The recoil step is now ~3 commands:** `break client.dll 0x648c0` (read
+`param_1`/the object from the regs+stack dump) → `vmethod <param_1> 14` (→ the `vtable[0x38]` recoil fn) →
+decompile + reimplement → `watch abs 0x2d8aec4 --go "fire, no mouse"` to verify the kick matches the original.
 
 ### In-flight TODO (no formal task-tool entries this session — tracked here; newest weapon-feel work)
 - 🥇 **Angle recoil** — located (above); reconstruct `vtable[0x38]`'s math. THE next task.
@@ -100,9 +102,9 @@ recoil step trivial): `live.py watch <module> <rva> --go` (arms + prints GO + au
 `re.sh setup` (fresh project + ApplyInventory: member/vtable structs, typed engine API, FP consts, clean
 names) then `re.sh <Class>` / `re.sh 0x<ghidraAddr>` / `re.sh refs <Class>` decompiles read like source.
 **The `re.sh` output filter was fixed cont.69v** (it was dropping multi-line decompile bodies — now full
-typed bodies print). See CLAUDE.md §4a.1. (re.sh is server-only / `ts_i386.so`; for client.dll/mp.dll use
-`analyzeHeadless recovered/ghidra/{client clientdll, mpdll mpdll}` directly — a re.sh `--mod` extension is
-PROPOSED.) `extract_weapons.py` is UNRELIABLE (stack-offset collisions corrupt values) — the cont.69v
+typed bodies print). See CLAUDE.md §4a.1. (re.sh is server-only / `ts_i386.so`; for **client.dll / mp.dll**
+decompile-by-address use **`scripts/ghidra/dc.sh <client|mp|server> 0x<rva>`** — built cont.69v; feed it the
+RVA straight from `live.py resolve`/`bt`.) `extract_weapons.py` is UNRELIABLE (stack-offset collisions corrupt values) — the cont.69v
 weapon-table was re-verified by decompiling all 38 `Write_<weapon>` functions; trust those, not the heuristic.
 
 **Method reminders:** RE-ground every value (the user REVERTS guessed work). ⚠️ FILE OFFSET for `.rodata`

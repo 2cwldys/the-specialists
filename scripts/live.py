@@ -10,6 +10,17 @@ each time:
   scripts/live.py resolve 0xADDR [0xADDR...]  # raw live addr(s) -> module + RVA + nearest export name
   scripts/live.py bt                          # read a gdb backtrace on stdin, resolve every frame
   scripts/live.py read mp.dll 0xRVA [f|d|u|p] # read float/double/uint/ptr at module+RVA (live)
+  scripts/live.py readabs 0xADDR [f|d|u|p]    # read at an absolute live address
+  scripts/live.py vmethod 0xOBJ <slot>        # this->vtable[slot] -> resolve the virtual fn (e.g. slot 14)
+  scripts/live.py watch client.dll 0xRVA [--go "fire now"]   # value-watch (fires on CHANGE); auto-resolve bt
+  scripts/live.py watch abs 0x2d8aec4 --go "fire, no mouse"  # ...or watch an ABSOLUTE addr (e.g. engine data)
+  scripts/live.py break mp.dll 0xRVA [--go "..."]            # hardware bp -> regs + stack + resolved bt
+        # 1st positional is a module name OR the literal "abs" (then the 2nd arg is the absolute live addr).
+        # optional: [f|d|u] watch type, --timeout SECS (default 180).
+
+Run watch/break BACKGROUNDED (harness run_in_background): it prints ">>> ARMED — <go>" once set, blocks until
+it trips, then prints the resolved backtrace. Tell the user the --go message, wait for the trip. A value-watch
+only fires when the value CHANGES — so e.g. watching cl.viewangles pitch with no mouse isolates the recoil.
 
 Module base = (a known reloc-free anchor function's live address found by scanning /proc/<pid>/mem for its
 file prologue bytes) − its RVA.  resolve() then maps any live address to RVA via /proc/<pid>/maps and
@@ -92,12 +103,84 @@ def resolve(pid, addr):
     return f"0x{addr:x}  <unmapped or anonymous>"
 
 def read(pid, module, rva, fmt):
-    base = module_base(pid, module)
-    mem = open(f"/proc/{pid}/mem", "rb"); mem.seek(base + rva)
+    return readabs(pid, module_base(pid, module) + rva, fmt)
+
+def readabs(pid, addr, fmt):  # read at an ABSOLUTE live address (not module+rva)
+    mem = open(f"/proc/{pid}/mem", "rb"); mem.seek(addr)
     if fmt == "d": return struct.unpack("<d", mem.read(8))[0]
     if fmt == "u": return struct.unpack("<I", mem.read(4))[0]
     if fmt == "p": return hex(struct.unpack("<I", mem.read(4))[0])
     return struct.unpack("<f", mem.read(4))[0]
+
+def vmethod(pid, objaddr, slot):
+    # this->vtable[slot]: vtable = *obj; fn = *(vtable + slot*4); resolve it
+    try:
+        vt = readabs(pid, objaddr, "u")
+        fn = readabs(pid, vt + slot * 4, "u")
+    except OSError:
+        return f"obj 0x{objaddr:x}: unreadable — not a valid object pointer (need a live `this` from a break)"
+    return f"obj 0x{objaddr:x}  vtable 0x{vt:x}  slot {slot} (off 0x{slot*4:x}) -> " + resolve(pid, fn)
+
+def resolve_text(pid, text):
+    # resolve every hex address in `text` that lands in a mapped module region (for gdb backtraces)
+    rng = [(s, e) for s, e, _, p in maps(pid) if p]
+    seen, out = set(), []
+    for x in re.findall(r"0x[0-9a-f]{6,}", text):
+        v = int(x, 16)
+        if v not in seen and any(s <= v < e for s, e in rng):
+            seen.add(v); out.append("  " + resolve(pid, v))
+    return out
+
+def _run_gdb(pid, gdb_script, go_msg, timeout):
+    """Run a gdb batch script streaming its output; print >>> ARMED (then go_msg) once the bp/watchpoint is
+    set, block until it trips (or timeout), then print the capture + the resolved backtrace."""
+    f = "/tmp/_live_gdb.txt"
+    open(f, "w").write(gdb_script)
+    cmd = ["timeout", str(timeout), "gdb", "-p", str(pid), "-batch", "-nx", "-x", f]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    cap, armed = [], False
+    for line in proc.stdout:
+        cap.append(line)
+        if not armed and ("Hardware watchpoint" in line or "Hardware assisted breakpoint" in line):
+            armed = True
+            print(f">>> ARMED — {go_msg}", flush=True)
+    proc.wait()
+    text = "".join(cap)
+    print("\n=== gdb capture ===")
+    # keep the interesting lines (skip the LWP spam)
+    for ln in text.splitlines():
+        if not ln.startswith("[New LWP") and ln.strip():
+            print(ln)
+    print("\n=== resolved frames ===")
+    for r in resolve_text(pid, text):
+        print(r)
+    if not armed:
+        print("(!) never armed — check the address / that the original is running", file=sys.stderr)
+
+def _addr_of(pid, where, rva):
+    # where == "abs" -> rva IS the absolute live address; else where is a module + rva
+    return rva if where == "abs" else module_base(pid, where) + rva
+
+def watch(pid, where, rva, go_msg, fmt, timeout):
+    addr = _addr_of(pid, where, rva)
+    ctype = {"f": "float", "d": "double", "u": "int"}.get(fmt, "float")
+    print(f"watching {where}+0x{rva:x} = 0x{addr:x} (*{ctype}*, current={readabs(pid,addr,fmt)})")
+    script = (
+        "set pagination off\nset confirm off\nset height 0\nset width 0\n"
+        f"watch *({ctype}*)0x{addr:x}\n"
+        'commands\n  printf "\\n===WATCH HIT===\\n"\n  bt 24\n  detach\n  quit\nend\ncontinue\n')
+    _run_gdb(pid, script, go_msg, timeout)
+
+def brk(pid, where, rva, go_msg, timeout):  # hardware breakpoint -> dump regs + stack + bt (read this/args)
+    addr = _addr_of(pid, where, rva)
+    print(f"hbreak {where}+0x{rva:x} = 0x{addr:x}")
+    script = (
+        "set pagination off\nset confirm off\nset height 0\nset width 0\n"
+        f"hbreak *0x{addr:x}\n"
+        'commands\n  printf "\\n===BREAK HIT===\\n"\n'
+        '  printf "eax=%x ecx=%x edx=%x esi=%x edi=%x esp=%x ebp=%x\\n",$eax,$ecx,$edx,$esi,$edi,$esp,$ebp\n'
+        "  x/24xw $esp\n  bt 24\n  detach\n  quit\nend\ncontinue\n")
+    _run_gdb(pid, script, go_msg, timeout)
 
 def main():
     a = sys.argv[1:]
@@ -120,6 +203,19 @@ def main():
                 if any(s <= v < e for s, e, _, p in maps(pid) if p): print("  " + resolve(pid, v))
     elif cmd == "read":
         print(read(pid, a[1], int(a[2], 16), a[3] if len(a) > 3 else "f"))
+    elif cmd == "readabs":
+        print(readabs(pid, int(a[1], 16), a[2] if len(a) > 2 else "f"))
+    elif cmd == "vmethod":
+        print(vmethod(pid, int(a[1], 16), int(a[2])))
+    elif cmd in ("watch", "break"):
+        go, tmo = "GO — perform the action now", 180
+        if "--go" in a:
+            i = a.index("--go"); go = a[i + 1]; a = a[:i] + a[i + 2:]
+        if "--timeout" in a:
+            i = a.index("--timeout"); tmo = int(a[i + 1]); a = a[:i] + a[i + 2:]
+        fmt = a[4] if len(a) > 4 and not a[4].startswith("-") else "f"
+        (watch(pid, a[1], int(a[2], 16), go, fmt, tmo) if cmd == "watch"
+         else brk(pid, a[1], int(a[2], 16), go, tmo))
     else:
         print(__doc__)
 
