@@ -261,6 +261,22 @@ scripts/ghidra/re.sh export <Class>   # write the class's decompile to recovered
   and `entvars_t` array-size macros (`controller[NUM_ENT_CONTROLLERS]` etc.) are resolved before parsing so
   entvars doesn't drift and mislabel every field past `~scale`. See `[[ghidra-correctness-gotchas]]`.
 
+#### 4a.2 `dc.sh` — decompile-by-address for client.dll / mp.dll (the re.sh counterpart)
+
+`re.sh` is server-only (`ts_i386.so`, the `re` project). For the **Windows binaries** use
+**`scripts/ghidra/dc.sh <client|mp|server> 0x<addr> [0x<addr>…]`** (built cont.69v) — it picks the right
+Ghidra project (`recovered/ghidra/{client clientdll, mpdll mpdll, re re}`), applies the correct address base
+(PE imagebase `0x10000000 + RVA` for client/mp; `addr + 0x10000` for the server `.so`), runs `DecompAt.java`,
+and cleans the output with the same multi-line filter as re.sh. Feed it the **RVA straight from a live trace**
+(`live.py resolve`/`bt`). It replaces the long hand-typed `analyzeHeadless …` incantation. For the server,
+prefer `re.sh <Class>` (it resolves Class→methods + applies the full inventory); `dc.sh server` is the quick
+by-address path. The mp.dll has 159 typed MSVC exports → readable `Class::Method` signatures (use it to name a
+live-trace RVA, then find the SAME function in `ts_i386.so` and decompile it with the typed `re.sh` flow).
+
+The whole client/server RE + live-debug toolchain, at a glance: `re.sh` (server decompile, typed) · `dc.sh`
+(client/mp/server decompile by addr) · **`scripts/live.py`** (drive the running original — `pid`/`base`/
+`resolve`/`bt`/`read`/`readabs`/`vmethod`/`watch`/`break`; see §4b) · `scripts/coverage/*` (the gap harness).
+
 ### 4b. When static RE dead-ends: LIVE gdb trace + the Windows `mp.dll` cross-reference (cont.69u)
 
 Static reading dead-ends on **virtual/indirect calls** (you can't follow `entity->vtable[slot](...)` by
