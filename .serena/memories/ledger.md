@@ -5,6 +5,50 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-25 (cont. 69x) — TS client PARTICLE / impact-effect subsystem DONE + LIVE-VERIFIED
+
+The cont.69w next-task is COMPLETE. Byte-ported the original's custom client particle pool (NOT engine
+tempents, NOT R_SparkShower) into **cl_dll/ts_particles.{h,cpp}**; hooked `TSParticles_Update()` into
+`HUD_DrawTransparentTriangles` (cl_dll/tri.cpp); routed cl_dll/ev_ts.cpp `EV_TSBulletImpact`→`TS_ImpactEffect`
+(per-surface dispatcher) and `EV_TSMelee`→`TS_MeleeImpact` (glint+sparks only). Full RE map persists in
+scratchpad/impact-effects-re.md (on-disk, gitignored). Builds clean (glibc 2.14); runs in xash.
+
+CRUX LOCATED (the handoff's stated blocker): the per-frame update/render = **FUN_100520d0(pool)**, found via
+xrefs to the pool object DAT_1018bde8 from HUD_DrawTransparentTriangles. Reconstructed: manager
+(FUN_1004ffe0/100509d0/100509a0/10050b60), billboard (FUN_10050ce0/10050080), 5 spawners (smoke 46680 /
+debris 46bd0 / scintille 46f50 / spark-shower 492b0 / pellets 46a70), dispatcher FUN_10048f60 (per-surface
+texture-char switch + 33/50/70 RandomLong gating).
+
+VERIFIED BY LIVE GDB TRACE of the running original hl.exe (client.dll), NOT guessed — this caught what the
+static decompile got wrong:
+- pos += vel * frametime * _DAT_10079e88(**10**) — the missing ×10 velocity scale (sparks were too slow);
+  gravity = gravity*0.1*sv_gravity(800) = ×80 in velocity-space (×10 in pos → real 800 u/s²).
+- SMOKE = a CONIC FLARE: 4 puffs marching out pos=origin+normal*size*0.8*i (size ×0.8/step), each stretched
+  (stretch 7) + growing (accel 0.1). The velocity divisor **DECREMENTS /(count-i)** (live vel.x = 3.5,4.4,
+  13.0,9.9 across the 4 puffs) so the tip puffs eject faster — this is the "ejects further/faster" the user
+  saw; I'd misread param_11 as a constant. frameRate = 20±10 jitter (live range 10-30). Every spawn arg +
+  motion field (gravity/drag/bright/fade/accel/size/stretch/frameRate) byte-matched the live scratch particle.
+- Spawner params RE-audited from raw ASM of FUN_10048f60 (the FP10-garbled decompile mis-mapped some): debris
+  count = RandomLong(5/2,5) = 2-5 (the 0x20=32 is the velocity SPREAD, not count — I'd swapped them).
+
+BUG FIXES found along the way: sprite-table name buffer 24→64 (truncated name broke the cache → 64-entry
+table filled in seconds → all effects died PERMANENTLY); pool free-slot allocator OOB cursor walk; melee
+event made SERVER-AUTHORITATIVE (flags 0, #ifndef CLIENT_DLL — the client-predicted melee world-trace misses,
+so FEV_NOTHOST gave the local slasher no spark); glass penetration per-pierce **damage_adjust = damagemult
+cvar value** (default 0, RE-matched — `*(damagemult+0xc)`), NOT 0.75 → two panes break only the first +
+DECAL the second; the "black dots" were the stock Valve {shot decals from my added server DecalGunshot —
+restored as server-side (entry+exit) so all clients see them, resolving the TS {shot from ts/decals.wad
+(user: "bullet decals match TS exactly"). Debris chips now TUMBLE (orient-1 roll).
+
+KNOWN APPROXIMATIONS (faithful behaviour, not byte-exact rendering): velocity-stretch billboard geometry
+(FUN_10050080) reconstructed not byte-ported; debris roll done screen-space (orig uses hw.dll DAT_100d5b88);
+concrete debris uses kRenderTransAlpha(4) not RE's TransColor(1) (our TriAPI draws INDEXALPHA TransColor as
+an unmasked square). See [[sparta-overrides-write-weapon]], [[live-original-ts-debuggable]],
+[[flag-unfound-re-early]].
+
+NEXT: the carried-over weapon-feel TODOs (kung-fu KICKS dispatch, dynamic-spread edge cases, weapon sway,
+coldcock whip, breakable respawn, katana throw) — see HANDOFF.md. Same live-trace-don't-guess method.
+
 ## 2026-06-24 (cont. 69w) — IMPACT-vs-surface effects: penetration+glass DONE; particle byte-port STARTED (THE next task)
 
 User asked to validate/fix bullet·knife·thrown-knife·katana·thrown-katana·kungfu·grenade impact-vs-surface

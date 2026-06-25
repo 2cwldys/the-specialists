@@ -47,33 +47,42 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐ NEXT TASK (cont.69w) — BYTE-PORT the TS client PARTICLE subsystem (impact effects)
-The user wants the impact-vs-surface effects (bullet/knife/katana/thrown/kung-fu/grenade sparks, smoke,
-debris) reconstructed faithfully for VISUAL fidelity — a full byte-port of the original's custom client
-particle pool (NOT engine tempents, NOT the R_SparkShower approximation we have). **Full RE + build plan
-is in `scratchpad/impact-effects-re.md`** (read it first). Mapped this session; the build is multi-step:
-1. `cl_dll/ts_particles.{h,cpp}`: the 300-byte particle struct + pool struct (layout in the doc).
-2. Manager: scratch-alloc (FUN_1004ffe0 → DAT_1018a720), sprite-register via SPR_Load (FUN_100509d0),
-   random-frame (FUN_100509a0), commit-to-pool-slot (FUN_10050b60). Pool = DAT_1018bde8.
-3. ★ STILL TO FIND: the per-frame UPDATE+RENDER fn (velocity integrate, age, frame cycle, sprite draw —
-   THE look). Pool refs cluster 0x35b61 / 0x39xxx–0x3dxxx (FUN_1003ab40 etc); hooked per-frame from the
-   client view/HUD draw — find where. This is the crux for getting the struct + motion exact.
-4. The 5 spawners: FUN_10046680 smoke / FUN_10046bd0 debris+woodfrag / FUN_10046f50 scintille_metal sparks
-   / FUN_100492b0 spark-shower / FUN_10046a70 shotgun_pellets.
-5. Dispatcher FUN_10048f60 (per-surface texture-char switch + RandomLong gating 33/50/70; per-surface map
-   table in the doc) + wrapper FUN_10044bf0.
-6. Route the 5 FUN_10044bf0 call sites (0x35ff6/0x36166/0x4528e/0x45b93/0x45d2a = bullet/knife/etc — map
-   each) through it; drop the R_SparkShower in EV_TSBulletImpact/EV_TSMelee (cl_dll/ev_ts.cpp). Add the
-   glass-crack ("windshield") DamageDecal on non-breaking glass hits (via CBreakable::DamageDecal).
-NB this is CLIENT-LOCAL — it does NOT affect 4-way drop-in compat (that's the protocol: events/messages/
-cvars/commands, already byte-faithful). The byte-port is purely for our client's visual fidelity (user's
-explicit goal). All 6 impact sprites already exist in the game dir.
+## ✅ DONE (cont.69x) — the TS client PARTICLE / impact-effect subsystem is reconstructed + LIVE-VERIFIED
+The cont.69w next-task is **complete**. The original's custom client particle pool (NOT engine tempents,
+NOT the old R_SparkShower) is byte-ported in **`cl_dll/ts_particles.{h,cpp}`**, hooked into
+`HUD_DrawTransparentTriangles` (`cl_dll/tri.cpp` → `TSParticles_Update()`), and routed from
+`cl_dll/ev_ts.cpp`: `EV_TSBulletImpact` → `TS_ImpactEffect` (per-surface dispatcher), `EV_TSMelee` →
+`TS_MeleeImpact` (glint + sparks only). Full RE map: **`scratchpad/impact-effects-re.md`** (on-disk,
+gitignored). What's in it, all verified by **live gdb traces of the running original** (not guessed):
+- **Crux render/update** = `FUN_100520d0(pool)` (the handoff's stated blocker) — located via xrefs to the
+  pool object `DAT_1018bde8` from `HUD_DrawTransparentTriangles`. Per-frame: integrate `pos += vel*frametime*
+  _DAT_10079e88(10)`, gravity `vel.z -= dt*gravity*0.1*sv_gravity(800)=×80`, drag, brightness fade
+  (`-=dt*fade*100`), size accel, frame anim, TriAPI billboard draw (`gEngfuncs.pTriAPI`).
+- Manager (`FUN_1004ffe0`/`100509d0`/`100509a0`/`10050b60`), billboard (`FUN_10050ce0`/`10050080`, camera-
+  facing + velocity-STRETCH), 5 spawners (smoke `46680` / debris `46bd0` / scintille `46f50` / spark-shower
+  `492b0` / pellets `46a70`), dispatcher `FUN_10048f60` (per-surface char switch + 33/50/70 RandomLong gating).
+- **Smoke = a conic flare**: 4 puffs marching out `pos=origin+normal*size*0.8*i` (size ×0.8/step), each
+  velocity-STRETCHED (stretch 7) + growing (accel 0.1); **velocity divisor DECREMENTS** `/(count-i)` so tip
+  puffs eject faster; frameRate `20±10` jitter. (Spawn args + every motion field byte-matched live.)
+- Bullet decals = **server-side** `DecalGunshot` (entry + exit) so all clients see them; resolves the TS
+  `{shot` from `ts/decals.wad` (the Valve `{shot` asterisk only appears if that wad isn't resolved). The
+  glass-crack/`{bproof` decal on a non-breaking glass hit is handled by `CBreakable::DamageDecal` on this path.
 
-### Task-tool entries at handoff (this session)
-- #1 [in_progress] RE client impact dispatcher + 5 sprite spawners — foundation mapped (struct/pool/manager
-  decoded; update/render + spawner exact params still to pin via decompile + live-trace).
-- #2 [pending] Reconstruct client impact effects (the build steps above; route events; glass-crack decal).
-- #3 [DONE] bullet penetration (ShootBulletsPlayer uniform PointContents loop). #4 [DONE] glass-always-breaks.
+### ⚠ Known approximations / deviations (faithful BEHAVIOUR, not byte-exact rendering)
+- **Billboard velocity-stretch geometry** (`FUN_10050080`) is reconstructed, not byte-ported corner-for-corner.
+- **Debris tumble**: implemented as a screen-space roll (angle += spin*dt*10, spin=RandomLong(-180,180)); the
+  original rolls via the engine billboard fn `DAT_100d5b88` = `hw.dll`. Visual, close enough.
+- **Concrete debris** renders `kRenderTransAlpha(4)` not the RE's `TransColor(1)` — our TriAPI draws INDEXALPHA
+  TransColor as an unmasked square; (4) masks it to the flake. Engine-quirk workaround.
+
+## ⭐ NEXT TASK — the carried-over WEAPON-FEEL TODOs (see the 🔴 list below)
+Particles are done; the open work is the weapon-feel items carried from cont.69v (kung-fu KICKS dispatch,
+dynamic-spread edge cases, weapon sway, coldcock whip, breakable respawn, katana throw). Use the same
+**live-trace-don't-guess** method (`scripts/live.py`) that nailed the particle values.
+
+### Task-tool entries — ALL COMPLETE (cont.69x)
+#1 locate update/render fn · #2 struct/pool · #3 manager · #4 update/render+hook · #5 spawners (RE-audited
+from raw ASM) · #6 dispatcher+wrapper · #7 route events / drop R_SparkShower · #8 glass-crack decal — all ✅.
 
 ### ✅ COMPLETED + DEPLOYED this session (cont.69w) — see the ledger for detail
 - **Angle-recoil** reconstructed (cl_dll/view.cpp TS_AddViewRecoil/TS_UpdateViewRecoil): per-shot aim climb,
@@ -87,7 +96,9 @@ explicit goal). All 6 impact sprites already exist in the game dir.
   (@nm 0x5f69c) uniform PointContents loop — penDepth=min(dmg*2,48); pass-through gated by world-solid
   thickness (so depends on weapon dmg + enter/exit angle). Removed the special glass branch.
 - **Glass** no longer always breaks: PointContents ignores entity brushes so bullets pass through glass;
-  it shatters only if dmg >= pane health (=20 in TS maps). damage_adjust per-pierce still 0.75 (VERIFY).
+  it shatters only if dmg >= pane health (=20 in TS maps). **cont.69x FIX:** per-pierce damage_adjust =
+  the `damagemult` cvar value (default 0, RE-matched to ShootBulletsPlayer — `*(damagemult+0xc)`), NOT 0.75
+  — so two glass panes break only the first and DECAL the second (was breaking both at 0.75).
 - **Weapon table now byte-exact** (dlls/ts_weapon_info.cpp): the Write_<weapon> values are an EARLIER stage
   OVERWRITTEN by Sparta()/SetSpartaWeapon (server) == client FUN_10007a80 (identical). Added SetSparta()
   + 32 calls (spread/viewkick/recoil/damage); fixed m61/knife/katana/sealknife/flag Write_ outliers; added
