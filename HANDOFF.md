@@ -47,7 +47,54 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐⭐ START HERE (cont.69y, 2026-06-25) — POWERUP / SLOW-MOTION / SLOW-BULLET / WEAPON work — COMMITTED + IN-PROGRESS
+## ⭐⭐ START HERE (cont.69z, 2026-06-26) — WEAPON-FEEL / SLOTS / GRENADE / IMPACT pass — COMMITTED + LIVE-PLAYTESTED
+Committed to `main` (`--no-gpg-sign`, NO Co-Authored-By): **6f9b9d4** (this session) on top of cont.69y's
+8b2a42f/635c9ca. Uncommitted on disk (intentionally NOT committed): `test.sh` (the user's launcher — DO NOT
+commit) + pre-existing `reference/coverage/*` edits (not this session's work). Full RE detail in the cont.69z
+ledger entries (newest two). **No task-tool entries are open** — the work-list lives in this file (🔴 below).
+
+**Workflow this session:** the user runs the graphical xash himself and live-playtests each change ("launch but
+let me do the testing" — build + `scripts/setup-xash-mod.sh` + launch, then they verify; don't drive it via
+xdotool). `+deathmatch 1 +maxplayers 8` REQUIRED. The user keeps the ORIGINAL TS running for live gdb traces.
+
+### ✅ DONE this session (cont.69z, all RE-grounded + live-confirmed — see the ledger for addrs)
+- **#14 hold-position toggle** (right-click stance swap) + **#13 shotgun reload** (3-phase + per-shell racking) — both verified.
+- **Weapon SLOTS → move speed** (GetSpeedBySlots@0x66bd4): 38 slot costs (s_weapon_info+0xd0)→`slotCost`;
+  `TSSlotBaseSpeed` = 210+(120/81)*remaining, scaled by slow-mo in player.cpp PreThink; pickup gated by the
+  81-slot capacity (AddWeapon→bool, GiveTSWeapon→NULL, ground pickup leaves it); no re-pickup of owned (except akimbo).
+- **Double-firerate = 1.5x** not 2x (PostThink@0x81610). **Health powerup** over-heal decays 1/sec→max (PreThink@0x808cc).
+- **Slow-mo sound pitch** split: `TSSlowPitch` (normal-recorded 100*slow) vs `TSRecordedSlowPitch` (recorded-slow
+  100+300*slow). Applied to knife impacts, per-shell racking, bullet ric. **(This SUPERSEDES the old sawed-off #
+  open item — the formula split is the mechanism; per-weapon assignment still tunable.)**
+- **Slow bullets**: per-caliber speed (40*ammo_info+0x24), short trail dash riding the head + shotgun_pellets sprite, debris/ric ATTN_STATIC.
+- **Grenade** (CM61Grenade + TSExplosion@0x6d01c): breaks+flies THROUGH glass (swept WaitThink like the knife),
+  slowed-time fuse, faithful TSExplosion (shake + falloff radius dmg + screen-flash), have/don't-have ammo (vanishes when thrown).
+- **Bullet-impact shower removed + decal made compat-safe**: the ~50-dot shower was the engine's `TE_GUNSHOTDECAL`
+  (server `DecalGunshot`→`UTIL_GunshotDecalTrace`). VERIFIED original lays NO server decal; decal is CLIENT-side
+  (`DamageDecal` FUN_10001000 → `{break`/`{shot`/`{bproof1` by classnumber/rendermode). Moved decal to client
+  (`EV_TSBulletImpact`), removed server decal. ⚠️ decals.wad gotcha: bare `{shot`/`{splat` don't exist (numbered
+  only); bare `{break` is a DEBUG "BREAK"-text lump → use `{shot1-5`, `{break1-3`, `{bproof1`.
+
+### 🔴 INCOMPLETE / SLICES from THIS session (pick up here)
+- **Grenade TSExplosion visual**: uses a stock `TE_EXPLOSION` fireball. The ORIGINAL sends `gmsgTSCreateDebris`
+  **material 1** for a client fireball-debris effect (the client handler branch isn't written — only material 0
+  = glass exists in `cl_dll/ts_debris.cpp`). Also the **slow-mo-point-on-spectacular-kill** (CreateSlowMotionPoint
+  via DoSpectacularNess) is deferred. Blast **radius=400 / magnitude=110** are TUNED (the struct-Vector ABI
+  obscured the exact `TSExplosion` damage/radius params — re-RE if exactness wanted).
+- **Slow-mo bullet decal** still laid SERVER-side (ts_bulletmgr `DecalGunshot`=TE_DECAL) — minor compat gap vs the
+  client-side instant-bullet decal; the original's CBulletManager decal path isn't pinned.
+- **No bullet exit-hole decal** anymore (client traces first hit only — matches the original; flagged in case it's wanted).
+
+### 🔴 STILL OPEN (carried from cont.69y — not touched this session)
+- **#10 Double-firerate EXPIRY "permanent"** — distinct from the 1.5x RATE fix above. The held-powerup expiry/
+  countdown may not clear. Get the precise symptom or live-gdb it (does the green text count down + clear?).
+- **#11 BOUGHT-silencer `-sil` sounds** — silenced-base (mp5sd) done; bought silencers need the `<weapon>/fire-sil.wav`
+  table in EV_TSFire + the fire event aligned (orig: iparam2=attach-mask, **bparam1**=barrel side; ours mis-packs).
+- **#12 Thrown knife/katana FLYING speed** should slow in slow-mo (like the slow bullets); pitch already done.
+- **#15 Akimbo L/R independent fire** (modes 4/5 "Free Auto": L-click one gun, R-click the other). AUTO-both done.
+- **Scope ZOOM branch** of SecondaryAttack (hold-toggle done; the `attach&8`→Zoom path needs scope-attach plumbing).
+
+## START HERE (cont.69y, 2026-06-25) — POWERUP / SLOW-MOTION / SLOW-BULLET / WEAPON work — COMMITTED
 A large session. Two commits on `main` (`--no-gpg-sign`): **8b2a42f** (kung-fu KICKS dispatch) + **635c9ca**
 (powerup/slow-motion subsystem, slow-mo bullets, weapon fixes). Still uncommitted on disk: `test.sh` (the
 user's launcher — DO NOT commit) + pre-existing `reference/coverage/*` edits (not this session's work).
@@ -89,14 +136,9 @@ user's launcher — DO NOT commit) + pre-existing `reference/coverage/*` edits (
   uses iparam2=attach-mask / **bparam1**=barrel side — align the event + add the `-sil` table to EV_TSFire.
 - **#12 Melee THROWN speed** — pitch DONE; the thrown knife/katana FLYING speed should slow in slow-mo
   (differently slow-mo vs slow-pause), like the slow bullets. Not done.
-- **#13 Shotgun reload anim** — ✅ BUILT (cont.69z, awaiting playtest). RE'd ShotgunReload__6CTSGun@0x84aac:
-  a 3-phase machine (open reload1 → insert reload2 per shell @0.3s → close reload3). Old bug = replayed open
-  every shell + never played close (stuck on open pose). New CTSGun::ShotgunReload() in dlls/ts_gun.cpp.
-- **#14 Right-click HOLD-POSITION toggle** — ✅ BUILT (cont.69z, awaiting playtest). RE'd SecondaryAttack@0x717a8
-  (scope→zoom, else hold-toggle if `wi+0x28c != -1`, flips `item+0x2c` + change/rechange transition, timers
-  primary +0.3/secondary +1.0). Found it's UNIVERSAL (mk23/desert/ak47/m4/m16/mp5k/uzi/mossberg/sawedoff all
-  have paired stance sets), not just mk23/SOCOM. Impl in dlls/ts_gun.cpp + ts_weapon_info.{h,cpp}. SLICE: scope
-  zoom branch not wired (no scope-attach plumbing yet).
+- **#13 Shotgun reload anim** — ✅ DONE + live-playtested (cont.69z, committed 6f9b9d4). See the cont.69z block above.
+- **#14 Right-click HOLD-POSITION toggle** — ✅ DONE + live-playtested (cont.69z, committed 6f9b9d4). See above.
+  (SLICE still open: the scope-ZOOM branch of SecondaryAttack — needs scope-attach plumbing.)
 - **#15 Akimbo L/R independent fire** (modes 4/5 = "Free Auto": L-click one gun, R-click the other). The
   AUTO-both is DONE; the L/R-per-button split is NOT.
 - **#sawed-off pitch (NEW, unresolved)** — the sawed-off gun-fire doesn't audibly pitch in slow-mo. Diagnosis:
