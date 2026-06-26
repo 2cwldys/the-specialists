@@ -62,17 +62,31 @@ static float TSDamageMult()
 	return (m > 0.0f) ? m : 1.0f;
 }
 
-// Melee sound pitch (USER-DIRECTED): unlike the gun WAVs (recorded-slow → pitched UP to ~255 at normal),
-// the close-combat/knife/katana sounds are recorded at normal speed, so they sit at 100 normally and are
-// SLOWED (lower pitch) in slow-motion — never sped up. pitch = 100 * perceivedSlow (the world slow the
-// melee'er perceives): normal 100, slow-mo ~35, slow-pause ~22. Capped at 100 (never above normal).
-static int TSMeleePitch(CBasePlayer *p)
+// The world slow the player PERCEIVES (drives sound pitch): their applied dilation pev->fuser1, or the
+// others-scale ramp while they're the slow-motion activator. 1.0 normal, ~0.35 slow-mo, ~0.225 slow-pause.
+static float TSPerceivedSlow(CBasePlayer *p)
 {
 	float s = p->pev->fuser1;
 	if ((p->m_iPowerups & 9) && p->m_flSlowMotionRamp > 0.0f && p->m_flSlowMotionRamp < s)
 		s = p->m_flSlowMotionRamp; // slowmo 0.35 / slowpause 0.225
-	int pitch = (int)(100.0f * s);
+	return s;
+}
+
+// NORMAL-recorded combat sounds (close-combat/knife/katana, thrown-knife impacts) sit at 100 normally and
+// are SLOWED (lower pitch) in slow-motion — never sped up. pitch = 100 * perceivedSlow, capped at 100.
+int TSSlowPitch(CBasePlayer *p)
+{
+	int pitch = (int)(100.0f * TSPerceivedSlow(p));
 	return pitch < 1 ? 1 : (pitch > 100 ? 100 : pitch);
+}
+
+// RECORDED-SLOW sounds (the gun-fire WAVs + bullet-hit ric are recorded already slowed) must be pitched UP
+// for normal play and only deepen toward natural in slow-motion. pitch = 100 + 300 * perceivedSlow (the
+// same formula the client uses for gunshots in ev_ts.cpp): normal ~400→clamp 255, slow-mo ~205. 1..255.
+int TSRecordedSlowPitch(CBasePlayer *p)
+{
+	int pitch = (int)(100.0f + 300.0f * TSPerceivedSlow(p));
+	return pitch < 1 ? 1 : (pitch > 255 ? 255 : pitch);
 }
 
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
@@ -93,6 +107,22 @@ static CTSGun *GetPlayerTSGun(CBasePlayer *pPlayer)
 			if (FClassnameIs(p->pev, "weapon_tsgun"))
 				return (CTSGun *)p;
 	return NULL;
+}
+
+// @ GetSpeedBySlots__FP11CBasePlayer (@0x66bd4) — slot-based base movement speed. The player has 81
+// inventory slots (CBasePlayer+0x548 init 0x51); every CARRIED weapon deducts its slotCost, and the
+// remaining capacity sets the base maxspeed = 210 + (120/81)*remaining → empty ~330, fully loaded ~210.
+// More/heavier guns = slower. The original recomputes this after every TakeWeapon/Drop/Select; we derive
+// it from the owned-items set each PreThink (player.cpp) and slow-mo (fuser1) scales it on top.
+float TSSlotBaseSpeed(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	if (!pGun)
+		return 320.0f; // no TS arsenal yet → engine default
+	int remaining = 81 - pGun->SlotsUsed();
+	if (remaining < 0) remaining = 0;
+	if (remaining > 81) remaining = 81;
+	return 210.0f + (120.0f / 81.0f) * (float)remaining;
 }
 
 // @ Spawn__6CTSGun — classname weapon_tsgun, id 16, fall-init as a pickup.
@@ -138,6 +168,7 @@ void CTSGun::SyncActiveToItem()
 	TSItem &it = m_items[m_weaponType];
 	it.clip = m_iClip;
 	it.mode = m_fireMode;
+	it.holdPosition = m_bHoldPosition;
 }
 
 // Load the active item's clip/mode into the live state (Deploy side).
@@ -148,7 +179,9 @@ void CTSGun::LoadActiveFromItem()
 	const TSItem &it = m_items[m_weaponType];
 	m_iClip = it.clip;
 	m_fireMode = it.mode;
+	m_bHoldPosition = it.holdPosition;
 	m_burstCount = 0;
+	m_shotgunPhase = 0; // a weapon switch cancels any in-progress pump reload
 }
 
 // @ TakeWeapon__6CTSGun (@0x80a04) — add a weapon to the arsenal (fresh world pickup / buy),
@@ -158,13 +191,24 @@ void CTSGun::LoadActiveFromItem()
 //    single item is NOT cleared (both stay owned: scroll skips the single, slot1-5 still picks it).
 //  - a fresh akimbo (fire-type 4) reads its single base; a gold-colts only-akimbo (fire-type 5)
 //    splits its clip into two barrels; a normal single/weapon just loads its full clip.
-void CTSGun::AddWeapon(tsweapon_t type)
+// Sum the inventory slots the carried weapons occupy (the original tracks remaining = CBasePlayer+0x548;
+// we derive used from the owned set). Drives encumbrance: maxspeed + the pickup capacity gate.
+int CTSGun::SlotsUsed() const
+{
+	int used = 0;
+	for (int t = 0; t < TSW_COUNT; t++)
+		if (m_items[t].owned)
+			used += get_weapon_info((tsweapon_t)t)->slotCost;
+	return used;
+}
+
+bool CTSGun::AddWeapon(tsweapon_t type)
 {
 	if (type < 0 || type >= TSW_COUNT)
-		return;
+		return false;
 	const s_weapon_info *wi = get_weapon_info(type);
 	if (!wi->pszViewModel)
-		return; // invalid weapon (e.g. the unused flag slot 29)
+		return false; // invalid weapon (e.g. the unused flag slot 29)
 
 	// The active item's live clip lives in m_iClip; park it so the combine reads the current
 	// rounds when the single being upgraded is the one we're holding.
@@ -174,7 +218,8 @@ void CTSGun::AddWeapon(tsweapon_t type)
 	if (m_items[type].owned)
 	{
 		// Already own this type. If it upgrades to an akimbo we don't own yet, fill the
-		// akimbo (the combine). Otherwise just top the caliber reserve (resupply).
+		// akimbo (the combine — the ONE case picking up an owned weapon is allowed). Otherwise it's a
+		// duplicate of something we already carry: just top the caliber reserve (no second pickup).
 		if (wi->iAkimboType >= 0 && wi->iAkimboType < TSW_COUNT &&
 			get_weapon_info((tsweapon_t)wi->iAkimboType)->pszViewModel && !m_items[wi->iAkimboType].owned)
 		{
@@ -182,9 +227,17 @@ void CTSGun::AddWeapon(tsweapon_t type)
 		}
 		else
 		{
-			AddAmmo(wi->iCaliber, wi->iClip * 3); // resupply the shared caliber pool
-			return;
+			// We already own this weapon and it can't combine into a new akimbo — so DON'T pick it up
+			// (leave the world weapon on the floor). User-directed: no re-picking-up owned weapons.
+			return false;
 		}
+	}
+	else
+	{
+		// A fresh (un-owned) weapon — the encumbrance gate: refuse it if it won't fit the 81 slots
+		// (GetSpeedBySlots capacity). Akimbo COMBINES above bypass this (you already carry the single).
+		if (SlotsUsed() + wi->slotCost > 81)
+			return false;
 	}
 
 	// --- fill items[fill] (give path; world-pickup carrying a saved status is the SLICE case) ---
@@ -219,6 +272,7 @@ void CTSGun::AddWeapon(tsweapon_t type)
 	}
 
 	SelectWeaponType(fill);
+	return true;
 }
 
 // @ AddAmmo__6CTSGun (@0x808ac) — add `count` rounds to caliber's reserve, capped at the
@@ -355,12 +409,14 @@ void CTSGun::GetWeaponData(weapon_data_t &data)
 	data.iuser1 = m_weaponType;
 	data.iuser2 = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
 	data.iuser3 = m_fireMode;
+	data.iuser4 = m_bHoldPosition ? 1 : 0; // hold-position stance, so the client predicts the held-stance fire anim
 }
 
 void CTSGun::SetWeaponData(const weapon_data_t &data)
 {
 	m_weaponType = data.iuser1;
 	m_fireMode = data.iuser3;
+	m_bHoldPosition = (data.iuser4 != 0);
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	const int caliber = wi->iCaliber;
 	if (caliber > 0 && caliber < TS_NUM_CALIBERS)
@@ -502,8 +558,10 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 
 	// Viewmodel "shoot" animation — now CLIENT-PREDICTED (CTSGun is a UseDecrement weapon, cont.69s
 	// 3d): SendWeaponAnim runs in the client's predicted ItemPostFrame, so the anim plays instantly.
-	if (wi->iFireAnim >= 0)
-		SendWeaponAnim(wi->iFireAnim);
+	// In the hold-position stance the fire anim comes from the held shoot seq (the "b"/"c"/"2" set).
+	const int fireAnim = (m_bHoldPosition && wi->iHoldFireAnim >= 0) ? wi->iHoldFireAnim : wi->iFireAnim;
+	if (fireAnim >= 0)
+		SendWeaponAnim(fireAnim);
 
 	// events/fire.sc → EV_TSFire: predicted fire sound + brass shell + viewmodel muzzleflash. Played
 	// with FEV_NOTHOST so the predicting host plays its OWN predicted copy (and isn't sent the server
@@ -518,7 +576,7 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	// both faces) — the original ShootBulletsPlayer path.
 	TSFireBulletsPenetrate(m_pPlayer, cPellets, vecSrc, vecAiming,
 		Vector(flSpread, flSpread, flSpread), 8192,
-		(int)(wi->flDamage * TSDamageMult()), m_pPlayer->random_seed);
+		(int)(wi->flDamage * TSDamageMult()), m_pPlayer->random_seed, wi->iCaliber);
 #else
 	// Client prediction: spread/recoil only (damage + decals are server-authoritative).
 	m_pPlayer->FireBulletsPlayer(cPellets, vecSrc, vecAiming,
@@ -541,8 +599,11 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	else
 	{
 		flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
-		if (DoubleFireRate(m_pPlayer)) // double-firerate powerup -> twice as fast
-			flRate *= 0.5f;
+		// Double-firerate powerup is really 1.5x, NOT 2x (RE PostThink @0x81610: when player+0x724 & 0x10,
+		// the weapon-timer decrement is *= 1.5 — so timers drain 1.5x faster). We apply it to flRate here
+		// (Fire is client-predicted, so this stays in sync). It also makes semis fire-while-held (above).
+		if (DoubleFireRate(m_pPlayer))
+			flRate /= 1.5f;
 	}
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
 	// Short idle during a burst so WeaponIdle drives the remaining rounds; else normal.
@@ -640,7 +701,7 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 	TS_TriggerViewShake(wi->flDamage * 0.15f);
 #endif
 	// Swing whoosh (per attack) — server-driven EMIT_SOUND (a client no-op during prediction).
-	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
+	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 	const float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.25f;
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
@@ -657,7 +718,7 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 		const char *hitSnd = isKatana
 			? (flesh ? "weapons/katana/hit-body.wav" : "weapons/katana/hit.wav")
 			: (flesh ? "weapons/knife/knife_hitbody.wav" : "weapons/knife/knife_hit.wav");
-		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, hitSnd, VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
+		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, hitSnd, VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
 		// events/knife.sc → EV_TSMelee: blade-on-surface spark + decal (the original FUN_10043c90).
 		// SERVER-AUTHORITATIVE (not predicted): the client-predicted melee world-trace is unreliable
 		// and usually misses, so playing it from prediction (FEV_NOTHOST) gave the local slasher no
@@ -878,7 +939,7 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 
 	if (flesh)
 	{
-		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
+		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
 		ClearMultiDamage();
 		pHit->TraceAttack(m_pPlayer->pev, dmg * TSDamageMult(), gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
 		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
@@ -886,7 +947,7 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 	else
 	{
 		// miss OR surface: the swing whoosh.
-		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
+		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
 		if (surface)
 		{
 			// + the footstep-style surface thud (the material the fist struck).
@@ -976,7 +1037,7 @@ void CTSGun::ColdCock()
 	if (tr.flFraction >= 1.0f)
 		return; // miss (swing is the visual; no sound)
 
-	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
+	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
 	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
 	if (pHit)
 	{
@@ -1079,7 +1140,7 @@ bool TSTryJumpKick(CBasePlayer *pPlayer)
 // only: the client's prediction FireBulletsPlayer (hl_weapons.cpp) just does the spread/recoil.
 // (still inside the #ifndef CLIENT_DLL opened above for TSTryJumpKick)
 void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vector vecDir,
-	Vector vecSpread, float flDist, int iDamage, int seed)
+	Vector vecSpread, float flDist, int iDamage, int seed, int caliber)
 {
 	entvars_t *pevAttacker = pPlayer->pev;
 	const Vector vecRight = gpGlobals->v_right;
@@ -1110,7 +1171,7 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 
 		if (slowBullets)
 		{
-			TSFireSlowBullet(pPlayer, vecSrc, dir, (float)iDamage); // flies as a tracked bullet
+			TSFireSlowBullet(pPlayer, vecSrc, dir, (float)iDamage, caliber); // flies as a tracked bullet
 			continue;
 		}
 
@@ -1135,11 +1196,17 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 			ClearMultiDamage();
 			gMultiDamage.type = DMG_BULLET | DMG_NEVERGIB;
 			pHit->TraceAttack(pevAttacker, dmg, dir, &tr, DMG_BULLET | DMG_NEVERGIB); // orig DMG bits 0x1002
-			TEXTURETYPE_PlaySound(&tr, start, start + dir * flDist, BULLET_PLAYER_9MM);
-			// Server-side bullet decal (so all clients see the hole). The decal texture resolves "{shot1-5"
-			// by name from the loaded decals.wad — TS ships its own (a proper bullet mark); the stock Valve
-			// {shot (the black "asterisk") only appears if ts/decals.wad isn't the one the engine resolves.
-			DecalGunshot(&tr, BULLET_PLAYER_9MM); // ENTRY hole
+			// Bullet impact ricochet (debris/ric — TS doesn't use material texture sounds in MP), pitched
+			// DOWN by the shooter's slow factor (slow-mo deepens it).
+			{
+				char ric[20];
+				sprintf(ric, "debris/ric%d.wav", RANDOM_LONG(1, 5));
+				UTIL_EmitAmbientSound(CWorld::World->edict(), tr.vecEndPos, ric, VOL_NORM, ATTN_STATIC, 0, TSRecordedSlowPitch(pPlayer));
+			}
+			// NO server-side bullet decal — the original lays it CLIENT-side (cl_dll/ev_ts.cpp
+			// EV_TSBulletImpact -> R_DecalShoot "{shot"); its server ShootBulletsPlayer lays none. Doing
+			// it server-side broke drop-in compat (double decal vs the original client; none vs the
+			// original server). The client decals only the FIRST hit (one trace), so there's no exit hole.
 			ApplyMultiDamage(pevAttacker, pevAttacker); // shatters glass iff dmg >= pane health (20)
 
 			if (dmg <= 5.0f) // orig: damage > 5.0 to keep piercing
@@ -1151,11 +1218,8 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 			if (UTIL_PointContents(beyond) == CONTENTS_SOLID)
 				break; // world surface thicker than the round can pierce — stop here
 
-			// EXIT hole on the back face (penetration leaves a mark on both sides).
-			TraceResult trExit;
-			UTIL_TraceLine(beyond, tr.vecEndPos, ignore_monsters, ENT(pevAttacker), &trExit);
-			if (trExit.flFraction < 1.0f)
-				DecalGunshot(&trExit, BULLET_PLAYER_9MM);
+			// (No exit-hole decal — the original lays decals client-side on the first hit only, so there
+			// is no back-face mark. Penetration still steps past this layer for the damage pass below.)
 			start = beyond; // continue past this layer
 			dmg *= damageAdjust; // orig damage_adjust = damagemult cvar value (default 0 → 0 dmg beyond layer 1)
 		}
@@ -1240,6 +1304,14 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_GRENADE); // 3rd-person "grenade" throw
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 1.0f;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+
+	// The grenade is have/don't-have (clip 1): throwing the last one drops the slot + auto-selects the
+	// next-best weapon — it vanishes from the arsenal exactly like the thrown knife (USER-DIRECTED).
+	if (m_iClip <= 0)
+	{
+		m_items[m_weaponType].owned = false;
+		GetBetterWeapon(m_weaponType);
+	}
 }
 
 // @ KnifeFire__6CTSGun (throw branch, reached via SecondaryAttack@0x817a8) — right-click hurls the
@@ -1266,7 +1338,7 @@ void CTSGun::ThrowKnife()
 	TSThrowKnife(m_pPlayer, m_weaponType, dmg, vecSrc, vecVel); // server-only (client stub no-ops)
 
 	SendWeaponAnim((m_weaponType == TSW_KNIFE) ? 7 : 5); // "throw" seq — client-predicted
-	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
+	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
@@ -1340,7 +1412,7 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 #ifndef CLIENT_DLL
 		TSFireBulletsPenetrate(m_pPlayer, 1, vecSrc, vecAiming,
 			Vector(flSpread, flSpread, flSpread), 8192,
-			(int)(wi->flDamage * TSDamageMult()), m_pPlayer->random_seed);
+			(int)(wi->flDamage * TSDamageMult()), m_pPlayer->random_seed, wi->iCaliber);
 #else
 		m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
 			Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
@@ -1470,55 +1542,33 @@ void CTSGun::ItemPostFrame()
 
 	const bool pumpShotgun = (wi->iFireType == TSFT_PUMP);
 
-	// Finish a reload once its delay elapses.
-	if (m_fInReload && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
+	// Pump shotguns reload shell-by-shell via the 3-phase ShotgunReload state machine (open ->
+	// insert per shell -> close). It self-gates on m_flNextSecondaryAttack, so drive it every frame.
+	if (m_fInReload && pumpShotgun)
 	{
-		if (pumpShotgun)
+		ShotgunReload();
+	}
+	// Every other weapon: finish a normal whole-clip reload once its delay elapses.
+	else if (m_fInReload && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
+	{
+		if (caliber > 0 && caliber < TS_NUM_CALIBERS)
 		{
-			// @ ShotgunReload__6CTSGun (@0x84aac) — pump shotguns reload ONE shell at a time
-			// (a per-shell state machine, interruptible by firing). Insert a shell, then keep the
-			// reload going for the next shell until the tube is full or the reserve is empty.
-			if (caliber > 0 && caliber < TS_NUM_CALIBERS && m_ammoReserve[caliber] > 0 && m_iClip < wi->iClip)
+			int need = wi->iClip - m_iClip;
+			int take = (need < m_ammoReserve[caliber]) ? need : m_ammoReserve[caliber];
+			if (take > 0)
 			{
-				m_iClip++;
-				m_ammoReserve[caliber]--;
-				EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, "weapons/scock1.wav", VOL_NORM, ATTN_NORM);
-			}
-			if (m_iClip < wi->iClip && caliber > 0 && caliber < TS_NUM_CALIBERS && m_ammoReserve[caliber] > 0)
-			{
-				// more to load — arm the next shell (and replay the insert anim).
-				if (wi->iReloadAnim >= 0)
-					SendWeaponAnim(wi->iReloadAnim);
-				m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
-				m_flNextSecondaryAttack = m_flNextPrimaryAttack;
-				m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.5f;
-			}
-			else
-			{
-				m_fInReload = false; // tube full / out of shells — pump finished
+				m_iClip += take;
+				m_ammoReserve[caliber] -= take;
 			}
 		}
-		else
+		// akimbo: redistribute the reloaded total across the two barrels.
+		if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
 		{
-			if (caliber > 0 && caliber < TS_NUM_CALIBERS)
-			{
-				int need = wi->iClip - m_iClip;
-				int take = (need < m_ammoReserve[caliber]) ? need : m_ammoReserve[caliber];
-				if (take > 0)
-				{
-					m_iClip += take;
-					m_ammoReserve[caliber] -= take;
-				}
-			}
-			// akimbo: redistribute the reloaded total across the two barrels.
-			if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
-			{
-				TSItem &it = m_items[m_weaponType];
-				it.leftClip = m_iClip / 2;
-				it.rightClip = m_iClip - it.leftClip;
-			}
-			m_fInReload = false;
+			TSItem &it = m_items[m_weaponType];
+			it.leftClip = m_iClip / 2;
+			it.rightClip = m_iClip - it.leftClip;
 		}
+		m_fInReload = false;
 	}
 
 	if ((m_pPlayer->pev->button & IN_ATTACK2) && m_flNextSecondaryAttack <= UTIL_WeaponTimeBase())
@@ -1530,11 +1580,30 @@ void CTSGun::ItemPostFrame()
 			CloseCombatAttack(true);
 		else if (wi->iFireType == TSFT_KNIFE)
 			ThrowKnife();
+		else if (wi->iHoldChange >= 0 &&
+			wi->iFireType != TSFT_AKIMBO && wi->iFireType != TSFT_AKIMBO_ONLY)
+		{
+			// @ CTSGun::SecondaryAttack@0x717a8 hold-position branch — on a non-akimbo gun whose hold
+			// anim-block is set (wi+0x28c != -1, !scoped), right-click TOGGLES the alternate viewmodel
+			// stance (item+0x2c): play the model's change/rechange transition and re-point the active
+			// anim set so the fire anim comes from the held shoot seq. (A scoped weapon would Zoom
+			// instead — the attach&8 branch — which we don't wire yet.) Re-arms both timers: the
+			// recovered doubles set primary +0.3 (@0xf7fb8), secondary +1.0 (@0xf6df8).
+			m_bHoldPosition = !m_bHoldPosition;
+			m_items[m_weaponType].holdPosition = m_bHoldPosition;
+			SendWeaponAnim(m_bHoldPosition ? wi->iHoldChange : wi->iHoldRechange);
+			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;
+			m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 1.0f;
+		}
 	}
 	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
 	{
+		// @ StopReload__6CTSGun — a pump shot interrupts the shell-by-shell reload (resets item+8).
 		if (m_fInReload && pumpShotgun && m_iClip > 0)
-			m_fInReload = false; // a pump shot interrupts the shell-by-shell reload
+		{
+			m_fInReload = false;
+			m_shotgunPhase = 0;
+		}
 		PrimaryAttack();
 	}
 	else if ((m_pPlayer->pev->button & IN_RELOAD) && m_weaponType == TSW_MELEE)
@@ -1567,11 +1636,24 @@ void CTSGun::Reload()
 	if (m_iClip >= wi->iClip || m_ammoReserve[caliber] <= 0)
 		return;
 
+	// @ Reload__6CTSGun routes pump shotguns (fire-type 1) to the shell-by-shell ShotgunReload
+	// machine. Begin it here (phase 0 = open); the ItemPostFrame driver advances it each frame.
+	if (wi->iFireType == TSFT_PUMP)
+	{
+		m_fInReload = true;
+		m_shotgunPhase = 0;
+		ShotgunReload(); // do the open immediately (matches the original's Reload -> ShotgunReload)
+		return;
+	}
+
 	// Viewmodel reload anim — now CLIENT-PREDICTED (CTSGun is a UseDecrement weapon, cont.69s 3d):
 	// SendWeaponAnim runs in the client's predicted ItemPostFrame, so the reload anim plays instantly
 	// (the model's embedded clipout/clipin sound events play with it). Verified in-engine.
-	if (wi->iReloadAnim >= 0)
-		SendWeaponAnim(wi->iReloadAnim);
+	// In the hold-position stance, play the held-grip reload variant (RE Reload__6CTSGun reads the
+	// reload seq from the active stance's anim block) so the gun ENDS back in the hold stance.
+	const int reloadAnim = (m_bHoldPosition && wi->iHoldReloadAnim >= 0) ? wi->iHoldReloadAnim : wi->iReloadAnim;
+	if (reloadAnim >= 0)
+		SendWeaponAnim(reloadAnim);
 
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 3rd-person relo_<grip>
 
@@ -1579,6 +1661,79 @@ void CTSGun::Reload()
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + TS_RELOAD_TIME;
 	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + TS_RELOAD_TIME;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + TS_RELOAD_TIME + 0.5f;
+}
+
+// @ ShotgunReload__6CTSGun (@0x84aac) — the pump shotgun's shell-by-shell reload, a 3-phase
+// state machine (m_shotgunPhase == item+8) advanced one step per ItemPostFrame while m_fInReload:
+//   phase 0 = open the tube (play reload1, lock 0.3s) -> phase 1
+//   phase 1 = insert one shell every 0.3s (wi+0x14), play reload2, until the tube is full or the
+//             reserve is dry -> phase 2
+//   phase 2 = close/pump (play reload3), end the reload, secondary cooldown +3.0 (dc_3)
+// reload1/2/3 are consecutive in every pump v_*.mdl, and iReloadAnim already points at reload1, so
+// the insert/close seqs are iReloadAnim+1 / iReloadAnim+2. Firing interrupts via the StopReload path.
+void CTSGun::ShotgunReload()
+{
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	const int caliber = wi->iCaliber;
+	const bool haveShell = (caliber > 0 && caliber < TS_NUM_CALIBERS && m_ammoReserve[caliber] > 0);
+	// In the hold stance, use the held-grip reload set (e.g. mossberg reload1b/2b/3b at 13/14/15).
+	const int reloadBase = (m_bHoldPosition && wi->iHoldReloadAnim >= 0) ? wi->iHoldReloadAnim : wi->iReloadAnim;
+	const int openSeq = reloadBase;                          // reload1
+	const int insertSeq = (reloadBase >= 0) ? reloadBase + 1 : -1; // reload2
+	const int closeSeq = (reloadBase >= 0) ? reloadBase + 2 : -1;  // reload3
+
+	if (m_shotgunPhase == 0)
+	{
+		// Open the tube — only if there's a shell to chamber and room for it.
+		if (haveShell && m_iClip < wi->iClip)
+		{
+			m_shotgunPhase = 1;
+			if (openSeq >= 0)
+				SendWeaponAnim(openSeq);
+			m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 3rd-person reload
+			const float t = UTIL_WeaponTimeBase() + 0.3f; // dc_0_3
+			m_flNextPrimaryAttack = t;   // can't fire until the tube is open (then a shot interrupts)
+			m_flNextSecondaryAttack = t; // first shell goes in after the open completes
+			m_flTimeWeaponIdle = t;
+		}
+		else
+		{
+			m_fInReload = false; // nothing to load
+		}
+	}
+	else if (m_shotgunPhase == 1)
+	{
+		// Insert one shell per tick until the tube is full or the reserve is empty.
+		if (m_flNextSecondaryAttack <= UTIL_WeaponTimeBase())
+		{
+			if (!haveShell || m_iClip >= wi->iClip)
+			{
+				m_shotgunPhase = 2;
+			}
+			else
+			{
+				m_ammoReserve[caliber]--;
+				m_iClip++;
+				if (insertSeq >= 0)
+					SendWeaponAnim(insertSeq);
+				// Individual racking sound per shell loaded (pitched DOWN in slow-motion like every
+				// other combat sound). weapons/insert-shell.wav is the TS per-shell shuck.
+				EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, "weapons/insert-shell.wav",
+					VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
+				m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.3f; // wi+0x14, per-shell cadence
+			}
+		}
+	}
+	else // phase 2 — close/pump and finish
+	{
+		m_shotgunPhase = 0;
+		m_fInReload = false;
+		if (closeSeq >= 0)
+			SendWeaponAnim(closeSeq);
+		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;   // ready to fire after the pump
+		m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 3.0f; // dc_3 — no immediate re-reload
+		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.3f;
+	}
 }
 
 // @ WeaponIdle__6CTSGun (@0x854dc) — drives the remaining burst rounds: while a burst is
@@ -1620,7 +1775,8 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
 	CTSGun *pHeld = GetPlayerTSGun(pPlayer);
 	if (pHeld)
 	{
-		pHeld->AddWeapon(type);
+		if (!pHeld->AddWeapon(type))
+			return NULL; // won't fit the slot capacity (or invalid) — caller leaves it on the floor
 		return pHeld;
 	}
 

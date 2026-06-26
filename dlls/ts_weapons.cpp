@@ -33,7 +33,14 @@ void PrecacheAllTSWeapons()
 	PRECACHE_SOUND("items/gunpickup2.wav");
 	PRECACHE_SOUND("items/weapondrop1.wav");
 	PRECACHE_SOUND("misc/beep2.wav"); // CTSBomb countdown beep (runtime-armed bomb)
-	PRECACHE_MODEL("sprites/bullet_trail.spr"); // slow-motion bullet beam-trail (ts_bulletmgr.cpp)
+	PRECACHE_SOUND("weapons/insert-shell.wav"); // per-shell shotgun racking (ts_gun.cpp ShotgunReload)
+	PRECACHE_SOUND("debris/ric1.wav"); // bullet impact ricochet (ts_gun.cpp / ts_bulletmgr.cpp)
+	PRECACHE_SOUND("debris/ric2.wav");
+	PRECACHE_SOUND("debris/ric3.wav");
+	PRECACHE_SOUND("debris/ric4.wav");
+	PRECACHE_SOUND("debris/ric5.wav");
+	PRECACHE_MODEL("sprites/bullet_trail.spr");     // slow-motion bullet trail dash (ts_bulletmgr.cpp)
+	PRECACHE_MODEL("sprites/shotgun_pellets.spr");  // slow-motion bullet head sprite (ts_bulletmgr.cpp)
 	// the dynamic deathmatch powerup spawner (CTSGameRules::PutPowerUp) creates ts_powerup at
 	// runtime — precache its model here so a DM map with no ts_powerup placements doesn't
 	// PRECACHE_MODEL after spawn (Host_Error, seen on ts_dust2).

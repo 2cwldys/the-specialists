@@ -103,9 +103,11 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 		return;
 
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	// GiveTSWeapon adds to the player's existing TS arsenal (or creates it), so a
-	// player can now carry several TS weapons and switch between them.
-	GiveTSWeapon(pPlayer, (tsweapon_t)m_weaponType);
+	// GiveTSWeapon adds to the player's existing TS arsenal (or creates it), so a player can carry
+	// several TS weapons and switch. It returns NULL if the weapon won't fit the slot capacity (or is
+	// a duplicate that can't combine) — in that case LEAVE it on the floor (don't consume/hide it).
+	if (!GiveTSWeapon(pPlayer, (tsweapon_t)m_weaponType))
+		return;
 	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
 
 	if (pev->target)

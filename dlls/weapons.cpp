@@ -159,12 +159,14 @@ void DecalGunshot(TraceResult* pTrace, int iBulletType)
 		case BULLET_PLAYER_BUCKSHOT:
 		case BULLET_PLAYER_357:
 		default:
-			// smoke and decal
-			UTIL_GunshotDecalTrace(pTrace, DamageDecal(pEntity, DMG_BULLET));
+			// TS: plain decal (TE_DECAL). NOT UTIL_GunshotDecalTrace — that sends TE_GUNSHOTDECAL, whose
+			// engine effect is the stock ~50-dot bullet-impact PARTICLE shower + an engine ricochet. TS
+			// supplies its own impact particles (TS_ImpactEffect) and ric (debris/ric), so the engine ones
+			// are a doubled/unwanted shower. (USER-DIRECTED: remove the stock shower; keep the decal.)
+			UTIL_DecalTrace(pTrace, DamageDecal(pEntity, DMG_BULLET));
 			break;
 		case BULLET_MONSTER_12MM:
-			// smoke and decal
-			UTIL_GunshotDecalTrace(pTrace, DamageDecal(pEntity, DMG_BULLET));
+			UTIL_DecalTrace(pTrace, DamageDecal(pEntity, DMG_BULLET));
 			break;
 		case BULLET_PLAYER_CROWBAR:
 			// wall decal

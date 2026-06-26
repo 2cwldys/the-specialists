@@ -23,6 +23,7 @@
 #include "weapons.h"
 #include "effects.h" // CBeam — the extending bullet-trail
 #include "ts_player.h"
+#include "ts_weapons.h" // TSSlowPitch (slow-world sound pitch)
 
 // @ GetBulletVelocityMult__Ffc (@0x89160, TS_shared.cpp): a slow-mo bullet's speed as a fraction of
 // full bullet speed, from the shooter's slow factor + the slow-PAUSE flag. Slow-mo (pause=0) → ~slow
@@ -41,14 +42,28 @@ struct TSSlowBullet
 {
 	int active;
 	EHANDLE owner;
-	EHANDLE beam;    // the trail beam: muzzle → current position, extending as the bullet flies
+	EHANDLE beam;    // a SHORT trail dash (5..25u, speed-scaled) that follows the bullet head
+	EHANDLE flash;   // a flash sprite riding the bullet head, so a flying bullet reads at a glance
 	Vector pos, start, dir;
 	float damage;
+	float fullSpeed; // per-caliber base flight speed (40 * ammo_info[+0x24]), fixed at fire time
 };
 static TSSlowBullet g_slowBullets[256];
 
-// Approximate full bullet speed (orig = 40 * ammo_info[+0x24], per-ammo; not pinned). TUNE.
-static const float BULLET_FULL_SPEED = 6000.0f;
+// Per-caliber bullet flight speed unit, RE'd from compile_ammo_info (ammo_info[+0x24]). Full speed is
+// the literal original 40 * this (≈13k–40k u/s) — the muzzle→bullet growing trail keeps the path
+// visible even at these speeds. Index = caliber (1..13; 0/14/15 = none). Calibers: 1 9x19, 2 .45,
+// 3 SHELLS, 4 5.56, 5 .50AE, 6 7.62, 7 5.7, 8 50BMG, 9 10mm, 10 .22, 11 .454, 12 .32, 13 .45LC.
+static const int kBulletSpeedUnit[16] = {
+	0, 330, 480, 730, 280, 450, 900, 790, 1000, 350, 350, 400, 300, 850, 0, 0,
+};
+static float BulletFullSpeed(int caliber)
+{
+	int unit = (caliber >= 0 && caliber < 16) ? kBulletSpeedUnit[caliber] : 0;
+	if (unit == 0)
+		unit = 350; // fallback (~10mm) for melee/grenade/unknown
+	return 40.0f * (float)unit; // RE-faithful 40 * ammo_info[+0x24]
+}
 
 static void KillBeam(TSSlowBullet &b)
 {
@@ -56,11 +71,15 @@ static void KillBeam(TSSlowBullet &b)
 	if (e)
 		UTIL_Remove(e);
 	b.beam = NULL;
+	CBaseEntity *f = b.flash;
+	if (f)
+		UTIL_Remove(f);
+	b.flash = NULL;
 }
 
 // @ FireBullet__14CBulletManager — register a shot as a flying bullet (called from the fire path when
 // the shooter is slowed). Spawns the trail beam anchored at the muzzle; UpdateBullet extends its end.
-void TSFireSlowBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage)
+void TSFireSlowBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage, int caliber)
 {
 	for (int i = 0; i < 256; i++)
 	{
@@ -73,17 +92,32 @@ void TSFireSlowBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, 
 			b.start = src;
 			b.dir = dir.Normalize();
 			b.damage = damage;
+			b.fullSpeed = BulletFullSpeed(caliber);
 
-			// The visible "bullet tracing as it flies": a beam from the muzzle to the bullet, which
-			// extends as the bullet travels (SetEndPos each frame). bullet_trail.spr is the TS trail.
-			CBeam *beam = CBeam::BeamCreate("sprites/bullet_trail.spr", 8);
+			// The visible flying bullet, RE-matched to the client renderer (FUN_10035010): a SHORT
+			// trail dash (bullet_trail.spr, ~5..25u, speed-scaled) that RIDES the bullet head — NOT a
+			// long muzzle→current beam (which reads as a static line). UpdateBullet drags both ends each
+			// frame so the dash flies with the bullet.
+			// RE bullet visual (client FUN_10035010): a short bullet_trail.spr dash + a shotgun_pellets.spr
+			// head sprite, both at NATIVE color (the warm amber comes from the sprite textures themselves —
+			// render white + additive so they look like the original, not a tint).
+			CBeam *beam = CBeam::BeamCreate("sprites/bullet_trail.spr", 10);
 			if (beam)
 			{
 				beam->PointsInit(src, src);
-				beam->SetColor(255, 200, 120); // warm tracer
-				beam->SetBrightness(200);
+				beam->SetColor(255, 255, 255); // native sprite color (warm amber tracer)
+				beam->SetBrightness(255);
 				beam->SetNoise(0);
 				b.beam = beam;
+			}
+			// The bullet head: shotgun_pellets.spr (what the original client draws at the round's position).
+			CSprite *flash = CSprite::SpriteCreate("sprites/shotgun_pellets.spr", src, 0);
+			if (flash)
+			{
+				flash->SetTransparency(kRenderGlow, 255, 255, 255, 255, kRenderFxNoDissipation); // native, full bright
+				flash->SetScale(0.25f);
+				UTIL_SetOrigin(flash->pev, src);
+				b.flash = flash;
 			}
 			return;
 		}
@@ -116,6 +150,7 @@ void TSUpdateSlowBullets()
 			b.active = 0;
 			continue;
 		}
+		// RE-faithful slow: the bullet flies at GiveSlowMul = FixedSlowAmt(owner->fuser1) — max(fuser1,0.01).
 		float slow = owner->pev->fuser1;
 		if (slow < 0.01f)
 			slow = 0.01f;
@@ -126,7 +161,8 @@ void TSUpdateSlowBullets()
 			continue;
 		}
 
-		float speed = BULLET_FULL_SPEED * GetBulletVelocityMult(slow, owner->m_bSlowBullets);
+		const float velMult = GetBulletVelocityMult(slow, owner->m_bSlowBullets);
+		float speed = b.fullSpeed * velMult;
 		Vector newpos = b.pos + b.dir * (speed * gpGlobals->frametime);
 
 		TraceResult tr;
@@ -136,10 +172,15 @@ void TSUpdateSlowBullets()
 
 		if (tr.flFraction >= 1.0f)
 		{
-			b.pos = newpos; // flew on — extend the trail beam to the new position
+			b.pos = newpos; // flew on — extend the trail to the bullet's new position + move the head sprite.
+			// The trail beams from the muzzle (b.start, fixed) UP TO the bullet's current position, so it
+			// always trails behind the bullet and grows as it flies (only the end moves — SetEndPos).
 			CBaseEntity *beam = b.beam;
 			if (beam)
 				((CBeam *)beam)->SetEndPos(b.pos);
+			CBaseEntity *flash = b.flash;
+			if (flash)
+				UTIL_SetOrigin(flash->pev, b.pos);
 			if (UTIL_PointContents(b.pos) == CONTENTS_SOLID || (b.pos - b.start).Length() > 8192.0f)
 			{
 				KillBeam(b);
@@ -162,6 +203,11 @@ void TSUpdateSlowBullets()
 			pHit->TraceAttack(owner->pev, b.damage, b.dir, &tr, DMG_BULLET | DMG_NEVERGIB);
 			ApplyMultiDamage(owner->pev, owner->pev);
 		}
+		// Bullet impact ricochet (TS uses debris/ric, not material texture sounds — PlayTextureSounds is
+		// off in MP). Pitched DOWN by the shooter's slow factor so slow-mo deepens the impact.
+		char ric[20];
+		sprintf(ric, "debris/ric%d.wav", RANDOM_LONG(1, 5));
+		UTIL_EmitAmbientSound(CWorld::World->edict(), b.pos, ric, VOL_NORM, ATTN_STATIC, 0, TSRecordedSlowPitch(owner));
 		DecalGunshot(&tr, BULLET_PLAYER_9MM); // the bullet hole (this was missing)
 		KillBeam(b);
 		b.active = 0;

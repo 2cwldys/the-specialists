@@ -117,6 +117,26 @@ struct s_weapon_info
 	// Viewmodel reload-animation sequence index (the "reload" sequence in v_*.mdl).
 	// -1 = no reload anim (melee/grenade).
 	int   iReloadAnim;
+	// Hold-position (alternate stance) toggle — RE: CTSGun::SecondaryAttack@0x717a8. On a
+	// non-akimbo, non-scoped weapon, right-click toggles m_pActiveItem+0x2c and re-points the
+	// active anim block at the hold set (wi+0x28c) / normal set (wi+0x252), playing the model's
+	// change/rechange transition; the fire anim then comes from the alternate stance's shoot seq.
+	// Indices read straight from each v_*.mdl (the "b"/"c"/"2" sequence set). iHoldChange < 0 =>
+	// the weapon has no hold stance (right-click does nothing for it).
+	int   iHoldChange;    // normal -> hold transition anim (-1 = no hold stance)
+	int   iHoldRechange;  // hold -> normal transition anim
+	int   iHoldFireAnim;  // fire anim played while in the hold stance
+	// Reload anim while in the hold stance (the "b" reload variant, e.g. mk23 reloadb / mossberg
+	// reload1b). RE Reload__6CTSGun reads the reload seq from the active stance's anim block (item+0x28
+	// +2), so reloading in the hold stance plays the held-grip reload and ENDS back in the hold pose.
+	// -1 => use iReloadAnim in both stances. For pump shotguns this is the hold-stance reload1 base
+	// (insert/close = +1/+2, same as iReloadAnim).
+	int   iHoldReloadAnim;
+	// Inventory SLOT cost (s_weapon_info+0xd0, a byte). The player has 81 slots (CBasePlayer+0x548 init
+	// 0x51); each carried weapon's slotCost is deducted, and remaining capacity drives movement speed
+	// (GetSpeedBySlots: maxspeed = 210 + (120/81)*remaining) — more/heavier weapons => slower. Also gates
+	// floor pickups (can't pick up what won't fit). Recovered from each Write_<weapon> (+0xd0).
+	int   slotCost;
 };
 
 // Reload duration (seconds) — // VERIFY against the .so per-weapon reload time (the

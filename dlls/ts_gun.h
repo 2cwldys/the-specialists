@@ -31,6 +31,7 @@ struct TSItem
 	int  mode = TSFM_SEMI;
 	int  attach = 0;
 	int  barrelMask = 0;
+	bool holdPosition = false; // item+0x2c — alternate viewmodel stance (right-click toggle, see CTSGun::SecondaryAttack)
 };
 
 class CTSGun : public CBasePlayerWeapon
@@ -51,6 +52,7 @@ public:
 	void ItemPostFrame() override;
 	void PrimaryAttack() override;
 	void Reload() override;
+	void ShotgunReload(); // @ ShotgunReload__6CTSGun @0x84aac — pump shell-by-shell 3-phase machine
 	void WeaponIdle() override;
 
 	// Client prediction (step 3b/3c) — SCAFFOLDED but DISABLED. Returning true here (with the
@@ -90,7 +92,8 @@ public:
 	// arsenal (the items-by-tsweapon_t array). @ TakeWeapon/SelectWeapon/DropWeapon__6CTSGun.
 	bool IsOwned(int type) const { return type >= 0 && type < TSW_COUNT && m_items[type].owned; }
 	int  OwnedCount() const;          // number of owned weapon types
-	void AddWeapon(tsweapon_t type);  // @TakeWeapon — add/combine into the arsenal + wield it
+	bool AddWeapon(tsweapon_t type);  // @TakeWeapon — add/combine into the arsenal + wield it (false = won't fit)
+	int  SlotsUsed() const;           // sum of slotCost over owned items (CBasePlayer+0x548 = 81 - this)
 	void SelectWeaponType(int type);  // @SelectWeapon — wield an owned type (holster->deploy)
 	void GetBetterWeapon(int exclude);// @GetBetterWeapon — auto-select next owned by priority
 	void DropType(int type, bool fThrow); // @DropWeapon__6CTSGun — drop an owned item from the arsenal
@@ -107,6 +110,8 @@ public:
 	int m_lastType = TSW_MELEE; // previously-wielded type (for the `lastinv` toggle, player+0xa1c)
 	int m_akimboSide = 0; // which barrel fired last (alternates muzzle L/R for akimbo)
 	int m_fireMode = TSFM_SEMI; // ACTIVE fire-mode (= m_arsenalMode[m_active])
+	bool m_bHoldPosition = false; // ACTIVE weapon's hold-position stance (= m_pActiveItem+0x2c); see SecondaryAttack
+	int m_shotgunPhase = 0;       // pump-shotgun reload phase (= m_pActiveItem+8): 0 open, 1 insert-per-shell, 2 close
 	int m_burstCount = 0;       // rounds left in the current burst (m_pActiveItem+8)
 	float m_flLastShotTime = 0; // gun+0x9e8 — last bullet-fire time, for ScaleSpread's per-shot recovery
 	int m_comboStep = 0;        // kung-fu PUNCH combo counter (this+0x9fc in the .so): 3 jabs → uppercut, reset on finisher

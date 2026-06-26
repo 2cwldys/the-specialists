@@ -1965,6 +1965,22 @@ void CBasePlayer::PreThink()
 	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame (sets the slow triple)
 	SlowMotionFlow();     // TS: every 0.5s, slow self + LOS-visible enemies while a slow powerup is active
 
+	// TS health-powerup over-heal decay (RE PreThink @0x808cc, player+0x73c = m_flHealthRegen): the
+	// health powerup boosts health past max_health; while m_flHealthRegen is armed it bleeds 1 HP/sec
+	// back down until health reaches max_health, then disarms. (Set by the health powerup grant.)
+	if (m_flHealthRegen != 0.0f)
+	{
+		if (pev->health <= pev->max_health)
+		{
+			m_flHealthRegen = 0.0f; // back to max — stop the decay
+		}
+		else if (m_flHealthRegen < gpGlobals->time)
+		{
+			m_flHealthRegen = gpGlobals->time + 1.0f; // next tick in 1s
+			pev->health -= 1.0f;
+		}
+	}
+
 	// TS: barge through breakables — diving/running fast into glass shatters it (clean dive-through),
 	// into a person shoves them (orig CTSStunt::CheckForBreakables, called every PreThink).
 	TSCheckRunThrough(this);
@@ -1989,15 +2005,17 @@ void CBasePlayer::PreThink()
 		}
 		pev->fuser1 += d;
 	}
+	// Base move speed comes from the inventory-slot encumbrance (GetSpeedBySlots: more/heavier weapons →
+	// slower); slow-motion (fuser1) scales it on top. So maxspeed = slotBase * fuser1, every frame.
+	const float slotBase = TSSlotBaseSpeed(this);
+	pev->maxspeed = slotBase * pev->fuser1;
 	if (pev->fuser1 < 0.999f)
 	{
-		pev->maxspeed = 320.0f * pev->fuser1;                        // slowed movement
 		pev->framerate = pev->fuser1 < 0.01f ? 0.01f : pev->fuser1; // slowed animation (StudioFrameAdvance)
 		m_bSlowMoveApplied = true;
 	}
 	else if (m_bSlowMoveApplied)
 	{
-		pev->maxspeed = 0.0f;  // restore the engine default speed
 		pev->framerate = 1.0f; // restore the normal animation rate
 		m_bSlowMoveApplied = false;
 	}

@@ -142,6 +142,30 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 			chType = CHAR_TEX_FLESH; // player/monster — server already sprays blood
 		}
 
+		// Bullet-hole decal — laid CLIENT-side, matching the ORIGINAL (its server ShootBulletsPlayer
+		// lays NO bullet decal; the client picks "{shot" via DamageDecal + R_DecalShoot). This is the
+		// drop-in-compatible mechanism: the decal appears whether the server is ours or the original,
+		// and NO server sends a decal temp-entity, so original-client + our-server never double-decals.
+		if (isBrush && pe && gEngfuncs.pfnGetCvarFloat("r_decals") > 0.0f)
+		{
+			// Decal pick mimicking the original's DamageDecal (client.dll FUN_10001000): a BREAKABLE
+			// (classnumber == 1, e.g. glass) -> the cracked "{break" decal; a NORMAL-rendermode wall
+			// (rendermode == 0) -> the "{shot" bullet hole; anything else (transparent/special render,
+			// e.g. bulletproof glass) -> "{bproof1". (Original uses the bare names; TS's decals.wad has
+			// bare "{break"/"{bproof1" but only numbered "{shot1..5", so {shot is numbered here.)
+			char decalName[16];
+			if (pe->classnumber == 1)
+				sprintf(decalName, "{break%d", gEngfuncs.pfnRandomLong(1, 3)); // FUN_10001000: pe+0x8c == 1 (glass cracks; bare "{break" is a debug "BREAK" lump)
+			else if (pe->rendermode == kRenderNormal)
+				sprintf(decalName, "{shot%d", gEngfuncs.pfnRandomLong(1, 5)); // FUN_10001000: pe+0x68 == 0
+			else
+				strcpy(decalName, "{bproof1");                               // FUN_10001000: rendermode != 0
+			int decalIdx = gEngfuncs.pEfxAPI->Draw_DecalIndex(
+				gEngfuncs.pEfxAPI->Draw_DecalIndexFromName(decalName));
+			gEngfuncs.pEfxAPI->R_DecalShoot(decalIdx,
+				gEngfuncs.pEventAPI->EV_IndexFromTrace(&tr), 0, tr.endpos, 0);
+		}
+
 		// Off the surface a touch so the sprites aren't clipped into the wall.
 		Vector pos;
 		for (int i = 0; i < 3; i++)

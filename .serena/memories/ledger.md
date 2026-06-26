@@ -5,6 +5,86 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-26 (cont. 69z cont.) — weapon-feel + powerup + grenade + impact-effect pass (COMMITTED, live-playtested)
+
+Long interactive playtest session; all RE-grounded. Committed to `main`. Items:
+
+WEAPON SLOTS / MOVE SPEED (RE GetSpeedBySlots@0x66bd4, GetAccelBySlots@0x66c4c, slot cost = s_weapon_info+0xd0
+byte): recovered all 38 per-weapon slot costs -> s_weapon_info.slotCost (knife 1, pistols 10, SMG/uzi 20,
+rifle/shotgun 40, barrett/m60 70...). CBasePlayer base maxspeed = 210 + (120/81)*remaining (remaining = 81 -
+sum of owned slotCost) -> TSSlotBaseSpeed (ts_gun.cpp), wired into player.cpp PreThink as the base that slow-mo
+fuser1 scales. PICKUP GATE: AddWeapon -> bool, refuses a fresh weapon that won't fit 81 slots (GiveTSWeapon ->
+NULL -> ts_groundweapon leaves it on the floor); already-owned weapons aren't re-picked-up except akimbo combines.
+(Buy menu encumbrance was an explicit SLICE; slot cost is +0xd0, price is +0xd8 — distinct.)
+
+DOUBLE-FIRERATE (RE PostThink@0x81610): the powerup is 1.5x NOT 2x (player+0x724&0x10 -> weapon-timer decrement
+*= 1.5). Was an over-fast invented 2x (flRate*=0.5). Now flRate/=1.5 (predicted). Still makes semis fire-while-held.
+
+HEALTH POWERUP DECAY (RE PreThink@0x808cc, player+0x73c = m_flHealthRegen): over-heal bleeds 1 HP/sec back to
+max_health then disarms. Was set but never read; wired in player.cpp PreThink.
+
+SLOW-MO SOUND PITCH: split TSSlowPitch (normal-recorded combat sounds, 100*perceivedSlow, capped 100) vs
+TSRecordedSlowPitch (recorded-slow sounds — gun-fire + bullet-hit ric — 100+300*perceivedSlow, 1..255, sped up
+at normal play, deepening in slow-mo). Applied to: thrown-knife impacts (ts_knife.cpp), per-shell shotgun racking
+(weapons/insert-shell.wav, restored — the ShotgunReload rewrite had dropped it), and the bullet-impact ric.
+
+SLOW BULLETS (ts_bulletmgr.cpp): per-caliber RE'd base speed (40*ammo_info[+0x24], kBulletSpeedUnit table) instead
+of the flat 6000; faithful fuser1 slow factor (reverted a user-flagged "too slow" ramp deviation). Visual: a
+short bullet_trail.spr dash that RIDES the bullet head (RE FUN_10035010, speed-scaled 5..25u) + shotgun_pellets.spr
+head sprite (RE: original draws it via FUN_10050080) at native amber. Bullet-hit ric = debris/ricN, ATTN_STATIC.
+
+GRENADE (RE CM61Grenade Spawn@0x7c974 / WaitThink@0x7cacc / BounceTouch@0x7ca90 + TSExplosion@0x6d01c): rewrote
+CM61Grenade — swept WaitThink (trace 64u ahead, shatter anything with health <= 0.1*speed -> flies THROUGH glass
+like the knife, not break-then-bounce), fuse counts in SLOWED time, detonates via TSExplosion. TSExplosion = a
+FUNCTION (screen-shake + radius damage w/ linear falloff + ScreenFade flash on players); visual = TE_EXPLOSION
+(SLICE: original's gmsgTSCreateDebris material-1 client fireball + slow-mo-point-on-spectacular-kill deferred).
+Grenade ammo = have/don't-have (clip 1): throwing the last one drops the slot + GetBetterWeapon (like the knife).
+
+BULLET IMPACT SHOWER + DECAL COMPAT (the big RE/compat fix): the ~50-dot "shower" was the ENGINE's
+TE_GUNSHOTDECAL (our server DecalGunshot -> UTIL_GunshotDecalTrace sends 0x6d) = decal + R_BulletImpactParticles
+burst + engine ric. VERIFIED in the binary: original ShootBulletsPlayer@0x5f69c lays NO server decal/TE at all;
+the decal is CLIENT-side (client.dll DamageDecal FUN_10001000 picks {break/{shot/{bproof1/{splat by
+pe->classnumber(+0x8c)==1 / pe->rendermode(+0x68)==0, then R_DecalShoot). So our server-side decal broke drop-in
+compat (double vs original client, none vs original server). FIX: removed the server bullet decal (entry+exit) and
+lay it CLIENT-side in EV_TSBulletImpact mimicking FUN_10001000 (breakable->{break, normal->{shot, else->{bproof1).
+Decal-name gotcha (TS decals.wad): bare "{shot"/"{splat" don't exist (numbered only), bare "{break" is a DEBUG
+"BREAK"-text lump — so use {shot1..5 and {break1..3, "{bproof1" bare. [[match-original-names-for-coverage]]
+[[live-original-ts-debuggable]]
+
+## 2026-06-25 (cont. 69z) — #14 right-click HOLD-POSITION toggle + #13 shotgun RELOAD state machine (live-playtested)
+
+Both RE-grounded via typed Ghidra decompiles of the originals (re.sh) + viewmodel sequence dumps +
+binary FP-constant reads. Built clean (hl.so + client.so, glibc 2.14) and synced to the xash mod root.
+NOT yet committed — awaiting the user's live-playtest confirmation.
+
+#14 HOLD-POSITION (RE CTSGun::SecondaryAttack@0x717a8): decompiled the whole secondary dispatch —
+grenade/knife/katana/flag throw (fire-type 2/3/0xa/0xb) first, then akimbo modes 4/5 -> Fire(other gun),
+then else: scoped (item+0x10 attach & 8) -> Zoom/FOV, else HOLD-POSITION TOGGLE gated on wi+0x28c != -1.
+The toggle flips item+0x2c, plays the model's change/rechange transition (the +0xe field of the leaving
+anim block), re-points the active anim block item+0x28 between wi+0x252 (normal) and wi+0x28c (hold), and
+re-arms timers primary +0.3 / secondary +1.0 (verified doubles @0xf7fb8=0.3, @0xf6df8=1.0). KEY FINDING:
+this is NOT just mk23/SOCOM — viewmodel dumps show paired stance sets (change/rechange + alt idle/shoot)
+on mk23, desert, ak47, m4, m16, mp5k, uzi, mossberg, sawedoff. mk23 hold-idle = idlec(5) matches the
+RE'd wi+0x28c=5. IMPL: s_weapon_info.iHoldChange/iHoldRechange/iHoldFireAnim (per-weapon seq indices from
+each v_*.mdl), TSItem.holdPosition, CTSGun.m_bHoldPosition (synced to client predictor via weapon_data
+iuser4, persisted per-item in Sync/LoadActiveFromItem). Toggle added to ItemPostFrame IN_ATTACK2 block
+(non-akimbo + iHoldChange>=0); held-stance fire anim swapped in StandardFire (iHoldFireAnim). SLICE: scope
+zoom branch + reload-in-hold-stance anim swap not wired (we don't have scope-attach plumbing yet).
+
+#13 SHOTGUN RELOAD (RE ShotgunReload__6CTSGun@0x84aac + Reload@0x84d5c + StopReload@0x81288): Reload routes
+fire-type 1 (PUMP: benelli/spas12/mossberg) straight to ShotgunReload, a 3-phase machine on item+8:
+phase0 open (play seq, lock 0.3) -> phase1 insert 1 shell every 0.3s (wi+0x14=0.3, verified) until tube
+full / reserve dry -> phase2 close/pump, end, secondary cooldown +3.0 (dc_3). The anim seqs are sent as
+event fparam1 = 8/9/10 (phase codes the client remaps per-weapon, NOT raw indices — benelli reload1/2/3 are
+at 2/3/4, mossberg at 8/9/10). reload1/2/3 are CONSECUTIVE in every pump v_*.mdl and our iReloadAnim already
+= reload1 (open), so insert=+1, close=+2. THE BUG FIXED: old code replayed the OPEN seq every shell and never
+played CLOSE -> gun stuck on the open pose ("held up, no shell, stays til fire"). New: CTSGun::ShotgunReload()
+3-phase, driven each frame from ItemPostFrame while m_fInReload && pump; fire interrupt resets m_shotgunPhase
+(StopReload); m_shotgunPhase reset on deploy (LoadActiveFromItem). Constants: dc_0_3=0.3, dc_3=3.0, wi+0x14=0.3
+(disambiguated from a Write_mp5k spill via the +0x18 fire-rate store = mossberg 0.25). [[match-original-names-for-coverage]]
+
+---
+
 ## 2026-06-25 (cont. 69y) — POWERUP / SLOW-MOTION / SLOW-BULLET subsystem + weapon fixes (commit 635c9ca)
 
 Big session after the kung-fu kicks (below). All RE-grounded via 3 subagent RE passes (maps in scratchpad/):

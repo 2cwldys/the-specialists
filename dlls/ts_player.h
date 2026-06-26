@@ -22,7 +22,7 @@ int  KungFu(CBasePlayer *pPlayer);         // @ 0x65fd8 — m_iKungFu
 // Slow-motion "bullets as models" (ts_bulletmgr.cpp / CBulletManager). When the shooter is slowed
 // (slow factor < 0.99) the fire path registers each pellet as a flying bullet; TSUpdateSlowBullets
 // (per frame from gamerules Think) flies + traces + damages them; they vanish when slow-mo ends.
-void TSFireSlowBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage);
+void TSFireSlowBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage, int caliber);
 void TSUpdateSlowBullets();
 void TSResetSlowBullets();
 

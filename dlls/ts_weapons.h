@@ -48,7 +48,18 @@ bool TSTryJumpKick(CBasePlayer *pPlayer);
 // The TS bullet path with PENETRATION (orig ShootBulletsPlayer @0x6f69c): fire cShots pellets;
 // bullets punch through thin surfaces (glass/thin walls) to hit + decal what's behind. Server only.
 void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vector vecDir,
-	Vector vecSpread, float flDist, int iDamage, int seed);
+	Vector vecSpread, float flDist, int iDamage, int seed, int caliber);
+
+// Slow-world sound pitch (1..100 = 100*perceivedSlow); pitches NORMAL-recorded combat sounds DOWN in
+// slow-motion. Defined in ts_gun.cpp; shared by ts_knife.cpp / ts_bulletmgr.cpp. See its definition.
+int TSSlowPitch(CBasePlayer *p);
+// Pitch for RECORDED-SLOW sounds (gun-fire / bullet-hit ric): 1..255 = 100 + 300*perceivedSlow — high at
+// normal play (the slowed recording sped up to sound natural), deepening in slow-motion. See ts_gun.cpp.
+int TSRecordedSlowPitch(CBasePlayer *p);
+
+// @ GetSpeedBySlots — slot-based base movement speed (210..330) from the player's carried weapon slots;
+// more/heavier weapons => slower. Slow-mo (fuser1) scales it on top. Defined in ts_gun.cpp.
+float TSSlotBaseSpeed(CBasePlayer *pPlayer);
 
 // Barge through breakables (orig CTSStunt::CheckForBreakables @0x9bd9c, called every PreThink):
 // when moving fast, trace forward along the VELOCITY direction and damage what's there (damage =

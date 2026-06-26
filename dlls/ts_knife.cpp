@@ -135,6 +135,16 @@ void CTSKnife::BecomePickup()
 	pev->nextthink = gpGlobals->time + 30.0f; // linger as a pickup, then vanish
 }
 
+// Pitch a thrown-knife impact sound by the THROWER's slow factor (slow-motion deepens it, like every
+// other normal-recorded combat sound — see TSSlowPitch). 100 (normal) if the thrower isn't a player.
+static int KnifeHitPitch(CBaseEntity *knife)
+{
+	CBaseEntity *thrower = knife->pev->owner ? CBaseEntity::Instance(knife->pev->owner) : nullptr;
+	if (thrower && thrower->IsPlayer())
+		return TSSlowPitch((CBasePlayer *)thrower);
+	return 100;
+}
+
 // Embed the knife at `pos`, pointing the way it flew, as a recoverable pickup (walk into it). Worldspawn only.
 void CTSKnife::StickAt(const Vector &pos, const Vector &flyDir)
 {
@@ -143,7 +153,7 @@ void CTSKnife::StickAt(const Vector &pos, const Vector &flyDir)
 	UTIL_SetOrigin(pev, pos - flyDir * 4.0f); // pull back a touch so the blade sits IN the surface
 	if (UTIL_PointContents(pos) != CONTENTS_SKY)
 		UTIL_Sparks(pos);
-	EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
+	EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM, 0, KnifeHitPitch(this));
 	BecomePickup(); // white glow + E-pickup at the embed point
 }
 
@@ -181,7 +191,7 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 		ClearMultiDamage();
 		pOther->TraceAttack(pevOwner, StabDamage(), flyDir, &tr, DMG_CLUB | DMG_NEVERGIB);
 		ApplyMultiDamage(pev, pevOwner);
-		EMIT_SOUND(ENT(pev), CHAN_WEAPON, BodySound(), VOL_NORM, ATTN_NORM);
+		EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, BodySound(), VOL_NORM, ATTN_NORM, 0, KnifeHitPitch(this));
 		pev->velocity = pev->velocity * -0.25f; // RE DAT_00107e98 bounce-back
 		m_flExpire = gpGlobals->time + 10.0f;   // RE DAT_00107140 post-bounce expire
 		StartSettle();                          // RE LAB_0007e985: hand off to the ground-settle handler
@@ -196,7 +206,7 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 		{
 			if (UTIL_PointContents(pev->origin) != CONTENTS_SKY)
 				UTIL_Sparks(pev->origin);
-			EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
+			EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM, 0, KnifeHitPitch(this));
 			pev->velocity = pev->velocity * 0.5f; // RE: /= DAT_00107ec4(2); engine clip already slid it
 			return;
 		}
@@ -211,7 +221,7 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 		return; // RE BounceTouch else-branch: ignore other thrown knives (orig classname "knife", ours "ts_knife")
 	if (UTIL_PointContents(pev->origin) != CONTENTS_SKY)
 		UTIL_Sparks(pev->origin);
-	EMIT_SOUND(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM);
+	EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM, 0, KnifeHitPitch(this));
 	pev->velocity = pev->velocity * -0.25f; // RE DAT_00107e98 bounce-back
 	m_flExpire = gpGlobals->time + 10.0f;   // RE DAT_00107140 post-bounce expire
 	StartSettle();                          // RE LAB_0007e985: hand off to the ground-settle handler

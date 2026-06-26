@@ -41,6 +41,11 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iFireAnim = -1;   // default: no standard fire anim (overridden in compile_weapons_info)
 	w->iFireAnimL = -1;  // default: not akimbo (overridden in compile_weapons_info)
 	w->iReloadAnim = -1; // default: no reload anim (overridden in compile_weapons_info)
+	w->iHoldChange = -1; // default: no hold-position stance (overridden in compile_weapons_info)
+	w->iHoldRechange = -1;
+	w->iHoldFireAnim = -1;
+	w->iHoldReloadAnim = -1; // default: reload uses iReloadAnim in both stances
+	w->slotCost = 10;        // default inventory slot cost (overridden in compile_weapons_info)
 }
 
 // SetSpartaWeapon (ts_i386.so @0x6fa34): the combat-param override applied after the Write_<weapon> stage.
@@ -287,13 +292,58 @@ static void compile_weapons_info()
   // v_*.mdl). -1 = no reload anim (akimbo-uzi/grenade/melee).
   static const int kReloadAnim[TSW_COUNT] = {
     /* 0*/10, /* 1*/ 1, /* 2*/ 5, /* 3*/ 1, /* 4*/ 2, /* 5*/ 1, /* 6*/ 5, /* 7*/ 1,
-    /* 8*/ 1, /* 9*/10, /*10*/12, /*11*/ 1, /*12*/ 1, /*13*/ 1, /*14*/ 1, /*15*/ 3,
+    /* 8*/ 1, /* 9*/11, /*10*/12, /*11*/ 1, /*12*/ 1, /*13*/ 1, /*14*/ 1, /*15*/ 3,
     /*16*/-1, /*17*/ 2, /*18*/ 1, /*19*/ 1, /*20*/ 2, /*21*/ 1, /*22*/ 1, /*23*/ 2,
     /*24*/-1, /*25*/-1, /*26*/ 8, /*27*/ 1, /*28*/ 4, /*29*/-1, /*30*/ 5, /*31*/ 4,
     /*32*/ 4, /*33*/ 2, /*34*/-1, /*35*/-1, /*36*/ 2, /*37*/ 2,
   };
   for (int i = 0; i < TSW_COUNT; i++)
     g_weaponInfo[i].iReloadAnim = kReloadAnim[i];
+
+  // Inventory slot cost per weapon (s_weapon_info+0xd0), recovered from each Write_<weapon>. The player
+  // has 81 slots; carried weapons deduct these and the remaining capacity drives movement speed.
+  static const int kSlotCost[TSW_COUNT] = {
+    /* 0 melee   */ 10, /* 1 glock18  */ 10, /* 2 beretta */ 10, /* 3 uzi      */ 20,
+    /* 4 benelli */ 40, /* 5 m4       */ 40, /* 6 mp5sd   */ 25, /* 7 mp5k     */ 20,
+    /* 8 ber_aki */ 10, /* 9 mk23     */ 10, /*10 mk23_ak */ 10, /*11 usas12   */ 40,
+    /*12 desert  */ 15, /*13 ak47     */ 40, /*14 fnh     */ 10, /*15 aug      */ 30,
+    /*16 uzi_aki */ 20, /*17 skorpion */ 15, /*18 barrett */ 70, /*19 pdw      */ 25,
+    /*20 spas12  */ 30, /*21 gold     */ 20, /*22 glock22 */ 10, /*23 mac10    */ 30,
+    /*24 m61     */  7, /*25 knife    */  1, /*26 mossberg*/ 40, /*27 m16      */ 40,
+    /*28 ruger   */  5, /*29 flag     */ 20, /*30 fnh_aki */ 10, /*31 bull     */ 15,
+    /*32 m60     */ 70, /*33 sawedoff */ 20, /*34 katana  */ 10, /*35 sealknife*/  1,
+    /*36 contend */ 15, /*37 skorp_ak */ 15,
+  };
+  for (int i = 0; i < TSW_COUNT; i++)
+    g_weaponInfo[i].slotCost = kSlotCost[i];
+
+  // Hold-position (alternate stance) toggle per weapon — RE: CTSGun::SecondaryAttack@0x717a8 toggles
+  // the stance on any non-akimbo, non-scoped gun whose hold anim-block idle (wi+0x28c) is set. Each
+  // entry is {change, rechange, holdFire} — the model's normal->hold transition, hold->normal
+  // transition, and the alternate-stance shoot seq — read straight from each v_*.mdl's "b"/"c"/"2"
+  // sequence set (e.g. mk23 idleb/shootb1 normal vs idlec/shootc1 held; change=9, rechange=10).
+  // Weapons not listed have no hold stance (left at the -1 default; right-click is a no-op for them).
+  // {change, rechange, holdFire, holdReload} — last is the hold-stance reload anim (the "b" variant);
+  // for the pump mossberg it is the hold-stance reload1 base (insert/close = +1/+2, like iReloadAnim).
+  struct HoldAnim { int type, change, rechange, holdFire, holdReload; };
+  static const HoldAnim kHold[] = {
+    { TSW_MK23,     9, 10, 6,  12 }, // idleb/shootb1 -> idlec/shootc1; reload(11)->reloadb(12)
+    { TSW_DESERT,   9, 10, 7,  12 }, // idle/shoot1   -> idleb/shootb;   reload(1)->reloadb(12)
+    { TSW_AK47,     5,  6, 7,   8 }, // idle/shoot    -> idle2/shoot2;   reload(1)->reloadb(8)
+    { TSW_M4,       8,  9, 10, 14 }, // idle/shoot1   -> idle2/shoot3;   reload(1)->reload2(14)
+    { TSW_M16,      8,  9, 10, 14 }, // idle/shoot1   -> idle2/shoot3;   reload(1)->reload2(14)
+    { TSW_MP5K,     5,  6, 8,  10 }, // idle/shoot1   -> idle2/shoot1(b);reload(1)->reload(10)
+    { TSW_UZI,      8,  9, 10, 14 }, // idle/shoot_1  -> idle2/shoot_2;  reload(1)->reloadb(14)
+    { TSW_MOSSBERG, 11, 12, 4, 13 }, // idle/shoot    -> idleb/shootb;   reload1/2/3(8/9/10)->reload1b/2b/3b(13/14/15)
+    { TSW_SAWEDOFF, 11, 12, 7,  6 }, // idle/shoot1   -> idleb/shoot1b;  reload(2)->reloadb(6)
+  };
+  for (const HoldAnim &h : kHold)
+  {
+    g_weaponInfo[h.type].iHoldChange    = h.change;
+    g_weaponInfo[h.type].iHoldRechange  = h.rechange;
+    g_weaponInfo[h.type].iHoldFireAnim  = h.holdFire;
+    g_weaponInfo[h.type].iHoldReloadAnim = h.holdReload;
+  }
 
   g_weaponInfoCompiled = true;
 }

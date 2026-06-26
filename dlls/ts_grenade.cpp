@@ -102,81 +102,152 @@ CTSShrapnel *CTSShrapnel::Create(entvars_t *pevOwner, const Vector &vecOrigin, c
 	return pShrap;
 }
 
-// Spawn a burst of shrapnel from a grenade blast at `vecOrigin`.
-static void TSSpawnShrapnel(entvars_t *pevOwner, const Vector &vecOrigin, int count)
+//============================================================================
+// TSExplosion (@0x6d01c) — the grenade detonation logic. It's a FUNCTION, not a spawned entity:
+// screen-shake + the TS client explosion visual (gmsgTSCreateDebris material 1) + linear-falloff
+// radius damage with a white screen-flash on players caught in the blast. (SLICE: the original also
+// drops a brief CTSSlowMotionPoint on a "spectacular" kill via DoSpectacularNess — deferred.)
+//============================================================================
+extern int gmsgTSCreateDebris; // func_break.cpp (registered "TSCreateDebris")
+
+#define M61_BLAST_RADIUS 400.0f // damage falloff radius (tuned; the original's exact value was obscured by the struct-Vector ABI)
+#define M61_SHAKE_MAG    110.0f // screen-shake amplitude + debris size (RE @0x42dc0000 = 110)
+
+void TSExplosion(const Vector &origin, entvars_t *pevInflictor, entvars_t *pevAttacker,
+	float magnitude, float baseDamage, float radius)
 {
-	for (int i = 0; i < count; i++)
+	Vector pos = origin;
+	pos.z += 1.0f; // RE: nudge the blast centre 1u off the surface
+
+	UTIL_ScreenShake(pos, magnitude, 80.0f, 1.0f, radius * 2.0f);
+
+	// Explosion visual: a TE_EXPLOSION (dynamic light + fireball sprite + the engine's explode sound).
+	// SLICE: the original sends gmsgTSCreateDebris material 1 for its own client fireball-debris effect;
+	// that client handler isn't reconstructed yet, so we use the standard TE fireball as a faithful-enough
+	// boom (the screen-shake / radius damage / screen-flash below ARE the faithful TSExplosion gameplay).
+	MESSAGE_BEGIN(MSG_PAS, SVC_TEMPENTITY, pos);
+	WRITE_BYTE(TE_EXPLOSION);
+	WRITE_COORD(pos.x);
+	WRITE_COORD(pos.y);
+	WRITE_COORD(pos.z);
+	WRITE_SHORT(g_sModelIndexFireball);
+	WRITE_BYTE(25);              // sprite scale (×10)
+	WRITE_BYTE(15);              // framerate
+	WRITE_BYTE(TE_EXPLFLAG_NONE);
+	MESSAGE_END();
+
+	// Radius damage: full baseDamage at the centre, falling off linearly to 0 at `radius`. A wall in the
+	// way spares the target; players caught in the blast get a brief white screen-flash (RE UTIL_ScreenFade).
+	const float falloff = (radius > 0.0f) ? baseDamage / radius : baseDamage;
+	CBaseEntity *pEnt = NULL;
+	while ((pEnt = UTIL_FindEntityInSphere(pEnt, pos, radius)) != NULL)
 	{
-		Vector vecDir(RANDOM_FLOAT(-1, 1), RANDOM_FLOAT(-1, 1), RANDOM_FLOAT(0.2f, 1));
-		Vector vecVel = vecDir.Normalize() * RANDOM_FLOAT(400, 700);
-		CTSShrapnel::Create(pevOwner, vecOrigin + Vector(0, 0, 8), vecVel);
+		if (pEnt->pev->takedamage == DAMAGE_NO)
+			continue;
+		Vector vecTgt = pEnt->BodyTarget(pos);
+		float dmg = baseDamage - (vecTgt - pos).Length() * falloff;
+		if (dmg <= 0.0f)
+			continue;
+		TraceResult tr;
+		UTIL_TraceLine(pos, vecTgt, dont_ignore_monsters, pevInflictor ? ENT(pevInflictor) : NULL, &tr);
+		if (tr.flFraction < 1.0f && tr.pHit != pEnt->edict())
+			continue; // a wall is in the way
+		if (pEnt->IsPlayer())
+			UTIL_ScreenFade(pEnt, Vector(255, 255, 255), 0.1f, 0.05f, 75, 0);
+		ClearMultiDamage();
+		pEnt->TraceAttack(pevAttacker, dmg, (vecTgt - pos).Normalize(), &tr, DMG_BLAST);
+		ApplyMultiDamage(pevInflictor, pevAttacker);
 	}
 }
 
+//============================================================================
+// CM61Grenade (@0x7c974 Spawn / @0x7cacc WaitThink / @0x7ca90 BounceTouch) — the thrown M61. Faithful:
+// a MOVETYPE_BOUNCE physics object whose WaitThink (every 0.1s) (1) advances a fuse counter in SLOWED
+// time (slow-mo lengthens the fuse), (2) does a 64u swept break ahead of itself — shattering anything
+// it can outright kill (health <= 0.1*speed) so it flies THROUGH (e.g. glass), exactly like the thrown
+// knife — and (3) detonates via TSExplosion when the fuse runs out. BounceTouch just bounces off
+// whatever the sweep didn't break, so break-through and bounce stay mutually exclusive.
+//============================================================================
 class CM61Grenade : public CGrenade
 {
 public:
-	// @ CreateGrenade__11CM61Grenade — toss an M61 from `vecStart` with `vecVelocity`,
-	// detonating after `fuse` seconds for `damage`.
 	static CM61Grenade *Throw(entvars_t *pevOwner, Vector vecStart, Vector vecVelocity,
 		float fuse, float damage);
+	void EXPORT M61WaitThink(); // fuse + swept break-through + detonate (@0x7cacc)
 
-	void EXPORT M61Tumble();   // tumble + detonate at dmgtime (a CTSShrapnel-spawning detonate)
-	void EXPORT M61Detonate(); // shrapnel burst + the area-damage explosion
+	float m_flFuse = 0.0f;    // fuse counter, advanced in slowed time (orig CM61Grenade fuse field)
+	float m_flFuseEnd = 4.0f; // detonate once m_flFuse reaches this
 };
 
 CM61Grenade *CM61Grenade::Throw(entvars_t *pevOwner, Vector vecStart, Vector vecVelocity,
 	float fuse, float damage)
 {
 	CM61Grenade *pGrenade = GetClassPtr((CM61Grenade *)NULL);
-
-	// (Replicates CGrenade::ShootTimed's setup, but with the TS model so we don't
-	//  depend on models/grenade.mdl being precached.)
 	pGrenade->pev->movetype = MOVETYPE_BOUNCE;
 	pGrenade->pev->classname = MAKE_STRING("grenade");
 	pGrenade->pev->solid = SOLID_BBOX;
 	SET_MODEL(ENT(pGrenade->pev), "models/w_m61.mdl"); // precached via PrecacheAllTSWeapons
 	UTIL_SetSize(pGrenade->pev, Vector(0, 0, 0), Vector(0, 0, 0));
-	pGrenade->m_fRegisteredSound = false;
 
 	UTIL_SetOrigin(pGrenade->pev, vecStart);
 	pGrenade->pev->velocity = vecVelocity;
 	pGrenade->pev->angles = UTIL_VecToAngles(vecVelocity);
 	pGrenade->pev->owner = ENT(pevOwner);
+	pGrenade->pev->fuser1 = 1.0f; // slow factor (1 = normal); slow-mo lowers it so the fuse counts slower
 
-	pGrenade->SetTouch(&CGrenade::BounceTouch); // bounce off surfaces
-
-	pGrenade->pev->dmgtime = gpGlobals->time + fuse;
-	pGrenade->SetThink(&CM61Grenade::M61Tumble); // tumbles, then detonates (with shrapnel)
-	pGrenade->pev->nextthink = gpGlobals->time + 0.1f;
+	pGrenade->SetTouch(&CGrenade::BounceTouch);     // bounce off whatever the sweep didn't break
+	pGrenade->SetThink(&CM61Grenade::M61WaitThink);
+	pGrenade->pev->nextthink = gpGlobals->time;     // first sweep THIS frame (RE Spawn: nextthink = time)
+	pGrenade->m_flFuse = 0.0f;
+	pGrenade->m_flFuseEnd = fuse;
 
 	pGrenade->pev->sequence = 0;
 	pGrenade->pev->framerate = 1.0f;
-	pGrenade->pev->gravity = 0.5f;
+	pGrenade->pev->gravity = 0.75f; // RE Spawn: gravity 0.75
 	pGrenade->pev->friction = 0.8f;
 	pGrenade->pev->dmg = damage;
-
 	return pGrenade;
 }
 
-// @M61Tumble — spin in flight; at the fuse time, detonate (the .so's TumbleThink + dmgtime).
-void CM61Grenade::M61Tumble()
+void CM61Grenade::M61WaitThink()
 {
-	pev->nextthink = gpGlobals->time + 0.1f;
-	if (pev->dmgtime <= gpGlobals->time)
+	pev->nextthink = gpGlobals->time + 0.1f; // RE: 0.1s think interval
+
+	// Fuse advances in SLOWED time (RE WaitThink: += GiveSlowMul()*0.1) — slow-motion lengthens it.
+	const float slow = (pev->fuser1 < 0.01f) ? 0.01f : pev->fuser1;
+	m_flFuse += slow * 0.1f;
+	if (m_flFuse >= m_flFuseEnd)
 	{
-		M61Detonate();
+		if (IsInWorld())
+			TSExplosion(pev->origin, pev, pev->owner ? VARS(pev->owner) : pev,
+				M61_SHAKE_MAG, pev->dmg, M61_BLAST_RADIUS);
+		UTIL_Remove(this);
 		return;
 	}
-	pev->avelocity = Vector(400, 200, 0); // tumble
-}
 
-// @M61Detonate — throw a shrapnel burst, then the stock area-damage explosion (+ remove).
-void CM61Grenade::M61Detonate()
-{
-	entvars_t *pevOwner = pev->owner ? VARS(pev->owner) : pev;
-	TSSpawnShrapnel(pevOwner, pev->origin, 10);
-	Detonate(); // CGrenade::Detonate — RadiusDamage explosion + UTIL_Remove
+	// Swept break (RE WaitThink): while moving, trace 64u ahead and shatter anything we can outright
+	// kill (health <= 0.1*speed) — the pane breaks BEFORE the physics move reaches it, so the grenade
+	// flies cleanly THROUGH instead of bouncing off (the same model as the thrown knife).
+	const float speed = pev->velocity.Length();
+	if (speed > 64.0f)
+	{
+		Vector dir = pev->velocity * (1.0f / speed);
+		Vector end = pev->origin + dir * 64.0f;
+		TraceResult tr;
+		UTIL_TraceLine(pev->origin, end, dont_ignore_monsters, ENT(pev), &tr);
+		if (tr.flFraction < 1.0f)
+		{
+			CBaseEntity *pHit = tr.pHit ? CBaseEntity::Instance(tr.pHit) : NULL;
+			const float dmg = 0.1f * speed; // RE: 0.1 * speed
+			if (pHit && !pHit->IsPlayer() && pHit->pev->health <= dmg)
+			{
+				ClearMultiDamage();
+				pHit->TraceAttack(pev, dmg, dir, &tr, DMG_CLUB | DMG_NEVERGIB);
+				ApplyMultiDamage(pev, pev);
+			}
+		}
+	}
+	pev->avelocity = Vector(400, 200, 0); // tumble in flight
 }
 
 // Thrown by CTSGun::PrimaryAttack for the grenade fire-type (declared in ts_weapons.h).

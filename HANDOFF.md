@@ -89,10 +89,14 @@ user's launcher — DO NOT commit) + pre-existing `reference/coverage/*` edits (
   uses iparam2=attach-mask / **bparam1**=barrel side — align the event + add the `-sil` table to EV_TSFire.
 - **#12 Melee THROWN speed** — pitch DONE; the thrown knife/katana FLYING speed should slow in slow-mo
   (differently slow-mo vs slow-pause), like the slow bullets. Not done.
-- **#13 Shotgun reload anim** — per-shell reload ends on a wrong pose (gun held up, no shell inserted) and
-  stays til fire. RE the shotgun reload sequence/state machine. Not started.
-- **#14 Right-click HOLD-POSITION toggle** (SOCOM/mk23) — RE'd (`SecondaryAttack@0x717a8`: scope→zoom, else
-  hold-toggle if `wi+0x28c != -1`, mk23/SOCOM=5; flips `m_pActiveItem+0x2c` + SendWeaponAnim). NOT implemented.
+- **#13 Shotgun reload anim** — ✅ BUILT (cont.69z, awaiting playtest). RE'd ShotgunReload__6CTSGun@0x84aac:
+  a 3-phase machine (open reload1 → insert reload2 per shell @0.3s → close reload3). Old bug = replayed open
+  every shell + never played close (stuck on open pose). New CTSGun::ShotgunReload() in dlls/ts_gun.cpp.
+- **#14 Right-click HOLD-POSITION toggle** — ✅ BUILT (cont.69z, awaiting playtest). RE'd SecondaryAttack@0x717a8
+  (scope→zoom, else hold-toggle if `wi+0x28c != -1`, flips `item+0x2c` + change/rechange transition, timers
+  primary +0.3/secondary +1.0). Found it's UNIVERSAL (mk23/desert/ak47/m4/m16/mp5k/uzi/mossberg/sawedoff all
+  have paired stance sets), not just mk23/SOCOM. Impl in dlls/ts_gun.cpp + ts_weapon_info.{h,cpp}. SLICE: scope
+  zoom branch not wired (no scope-attach plumbing yet).
 - **#15 Akimbo L/R independent fire** (modes 4/5 = "Free Auto": L-click one gun, R-click the other). The
   AUTO-both is DONE; the L/R-per-button split is NOT.
 - **#sawed-off pitch (NEW, unresolved)** — the sawed-off gun-fire doesn't audibly pitch in slow-mo. Diagnosis:
