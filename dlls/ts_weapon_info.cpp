@@ -46,6 +46,10 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iHoldFireAnim = -1;
 	w->iHoldReloadAnim = -1; // default: reload uses iReloadAnim in both stances
 	w->slotCost = 10;        // default inventory slot cost (overridden in compile_weapons_info)
+	w->zoomFov1 = 0;         // default: no scope zoom (overridden in compile_weapons_info)
+	w->zoomFov2 = 0;
+	w->attachSupported = 0;  // default: mounts no attachments (overridden in compile_weapons_info)
+	w->attachBuiltin = 0;    // default: ships with none
 }
 
 // SetSpartaWeapon (ts_i386.so @0x6fa34): the combat-param override applied after the Write_<weapon> stage.
@@ -220,6 +224,46 @@ static void compile_weapons_info()
   };
   for (int i = 0; i < TSW_COUNT; i++)
     g_weaponInfo[i].flViewKick = kWriteViewKick[i];
+
+  // Scope zoom FOVs (s_weapon_info+0x3c / +0x40) and attachment masks (+0xe0 supported / +0xe4 built-in),
+  // recovered from each Write_<weapon>. zoom is the FOV cycle for the scoped secondary attack (attach & 8);
+  // 0 = that zoom level / weapon doesn't have it. attachBuiltin seeds item.attach on give (AUG/Barrett ship
+  // a scope = 8, MP5SD/Ruger ship a silencer = 1). attachSupported gates CTSGun::AddItem (bought attachments).
+  static const int kZoomFov1[TSW_COUNT] = {
+    /* 0*/ 0, /* 1*/ 0, /* 2*/ 0, /* 3*/ 0, /* 4*/40, /* 5*/26, /* 6*/32, /* 7*/32,
+    /* 8*/ 0, /* 9*/ 0, /*10*/ 0, /*11*/ 0, /*12*/60, /*13*/32, /*14*/ 0, /*15*/40,
+    /*16*/ 0, /*17*/ 0, /*18*/32, /*19*/40, /*20*/ 0, /*21*/ 0, /*22*/ 0, /*23*/40,
+    /*24*/ 0, /*25*/ 0, /*26*/ 0, /*27*/32, /*28*/ 0, /*29*/ 0, /*30*/ 0, /*31*/40,
+    /*32*/ 0, /*33*/ 0, /*34*/ 0, /*35*/ 0, /*36*/26, /*37*/ 0,
+  };
+  static const int kZoomFov2[TSW_COUNT] = {
+    /* 0*/ 0, /* 1*/ 0, /* 2*/ 0, /* 3*/ 0, /* 4*/ 0, /* 5*/ 0, /* 6*/ 0, /* 7*/ 0,
+    /* 8*/ 0, /* 9*/ 0, /*10*/ 0, /*11*/ 0, /*12*/ 0, /*13*/13, /*14*/ 0, /*15*/ 0,
+    /*16*/ 0, /*17*/ 0, /*18*/ 8, /*19*/ 0, /*20*/ 0, /*21*/ 0, /*22*/ 0, /*23*/ 0,
+    /*24*/ 0, /*25*/ 0, /*26*/ 0, /*27*/ 8, /*28*/ 0, /*29*/ 0, /*30*/ 0, /*31*/ 0,
+    /*32*/ 0, /*33*/ 0, /*34*/ 0, /*35*/ 0, /*36*/ 0, /*37*/ 0,
+  };
+  static const int kAttachSupported[TSW_COUNT] = {
+    /* 0*/ 0, /* 1*/ 7, /* 2*/ 7, /* 3*/ 1, /* 4*/0xE, /* 5*/0xF, /* 6*/0xF, /* 7*/0xF,
+    /* 8*/ 7, /* 9*/ 7, /*10*/ 7, /*11*/ 6, /*12*/0xB, /*13*/ 8, /*14*/ 7, /*15*/0xB,
+    /*16*/ 1, /*17*/ 0, /*18*/0xA, /*19*/0xB, /*20*/ 6, /*21*/ 0, /*22*/ 7, /*23*/0xF,
+    /*24*/ 0, /*25*/ 0, /*26*/ 6, /*27*/0xE, /*28*/ 3, /*29*/ 0, /*30*/ 7, /*31*/0xA,
+    /*32*/ 0, /*33*/ 2, /*34*/ 0, /*35*/ 0, /*36*/0xA, /*37*/ 0,
+  };
+  static const int kAttachBuiltin[TSW_COUNT] = {
+    /* 0*/ 0, /* 1*/ 0, /* 2*/ 0, /* 3*/ 0, /* 4*/ 0, /* 5*/ 0, /* 6*/ 1, /* 7*/ 0,
+    /* 8*/ 0, /* 9*/ 0, /*10*/ 0, /*11*/ 0, /*12*/ 0, /*13*/ 0, /*14*/ 0, /*15*/ 8,
+    /*16*/ 0, /*17*/ 0, /*18*/ 8, /*19*/ 0, /*20*/ 0, /*21*/ 0, /*22*/ 0, /*23*/ 0,
+    /*24*/ 0, /*25*/ 0, /*26*/ 0, /*27*/ 0, /*28*/ 1, /*29*/ 0, /*30*/ 0, /*31*/ 0,
+    /*32*/ 0, /*33*/ 0, /*34*/ 0, /*35*/ 0, /*36*/ 0, /*37*/ 0,
+  };
+  for (int i = 0; i < TSW_COUNT; i++)
+  {
+    g_weaponInfo[i].zoomFov1 = kZoomFov1[i];
+    g_weaponInfo[i].zoomFov2 = kZoomFov2[i];
+    g_weaponInfo[i].attachSupported = kAttachSupported[i];
+    g_weaponInfo[i].attachBuiltin = kAttachBuiltin[i];
+  }
 
   // === Sparta() — the authoritative combat-param OVERRIDE. RE: ts_i386.so Sparta() @0x6fa78 ->
   // SetSpartaWeapon(idx, spread, viewKick, recoil, dmg) @0x6fa34, BYTE-IDENTICAL to client.dll

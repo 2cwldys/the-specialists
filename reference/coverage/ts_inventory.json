@@ -5625,7 +5625,7 @@
       "CTSGun",
       "CBasePlayerItem",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -12070,10 +12070,10 @@
     "CBaseAnimating": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBaseDelay",
+     "base": "CBaseEntity",
      "ancestry": [
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -22603,7 +22603,7 @@
      "ancestry": [
       "CEnvExplosion",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -25907,7 +25907,7 @@
      "ancestry": [
       "CCycler",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -26132,7 +26132,7 @@
      "ancestry": [
       "CCyclerProbe",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -26469,7 +26469,7 @@
      "ancestry": [
       "CGenericCycler",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -26584,7 +26584,7 @@
       "CWeaponCycler",
       "CBasePlayerItem",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -26793,7 +26793,7 @@
      "ancestry": [
       "CWreckage",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -32670,7 +32670,7 @@
      "ancestry": [
       "CBaseMonster",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -35131,11 +35131,12 @@
     "CFuncPlat": {
      "ts_specific": true,
      "category": "extended",
-     "base": "CBaseAnimating",
+     "base": "CBasePlatTrain",
      "ancestry": [
       "CFuncPlat",
-      "CBaseAnimating",
-      "CBaseDelay"
+      "CBasePlatTrain",
+      "CBaseToggle",
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -35429,11 +35430,12 @@
     "CFuncPlatRot": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBaseAnimating",
+     "base": "CBasePlatTrain",
      "ancestry": [
       "CFuncPlatRot",
-      "CBaseAnimating",
-      "CBaseDelay"
+      "CBasePlatTrain",
+      "CBaseToggle",
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -35653,8 +35655,9 @@
      "ancestry": [
       "CFuncTrackAuto",
       "CFuncPlat",
-      "CBaseAnimating",
-      "CBaseDelay"
+      "CBasePlatTrain",
+      "CBaseToggle",
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -35771,8 +35774,9 @@
      "ancestry": [
       "CFuncTrackChange",
       "CFuncPlat",
-      "CBaseAnimating",
-      "CBaseDelay"
+      "CBasePlatTrain",
+      "CBaseToggle",
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -37015,7 +37019,7 @@
      "ancestry": [
       "CGunTarget",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -37511,7 +37515,7 @@
       "CBasePlayer",
       "CBaseMonster",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -39668,7 +39672,7 @@
      "ancestry": [
       "CDeadHEV",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -50054,7 +50058,7 @@
      "ancestry": [
       "CBasePlayerItem",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -50686,7 +50690,7 @@
       "CBasePlayerWeapon",
       "CBasePlayerItem",
       "CBaseAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -52352,10 +52356,10 @@
     "CActAnimating": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBaseDelay",
+     "base": "CBaseEntity",
      "ancestry": [
       "CActAnimating",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -52508,10 +52512,10 @@
     "CXenHair": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBaseDelay",
+     "base": "CBaseEntity",
      "ancestry": [
       "CXenHair",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -52749,10 +52753,10 @@
     "CXenPLight": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBaseDelay",
+     "base": "CBaseEntity",
      "ancestry": [
       "CXenPLight",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -52962,10 +52966,10 @@
     "CXenSpore": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBaseDelay",
+     "base": "CBaseEntity",
      "ancestry": [
       "CXenSpore",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -53124,10 +53128,10 @@
     "CXenSporeLarge": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBaseDelay",
+     "base": "CBaseEntity",
      "ancestry": [
       "CXenSporeLarge",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -53221,10 +53225,10 @@
     "CXenSporeMed": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBaseDelay",
+     "base": "CBaseEntity",
      "ancestry": [
       "CXenSporeMed",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -53318,10 +53322,10 @@
     "CXenSporeSmall": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBaseDelay",
+     "base": "CBaseEntity",
      "ancestry": [
       "CXenSporeSmall",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [],
      "statics": [],
@@ -53415,10 +53419,10 @@
     "CXenTree": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBaseDelay",
+     "base": "CBaseEntity",
      "ancestry": [
       "CXenTree",
-      "CBaseDelay"
+      "CBaseEntity"
      ],
      "members": [
       {
@@ -54981,97 +54985,50 @@
     "SetWeaponBit",
     "UpdateStatusBar"
    ],
-   "CBaseToggle": [
-    "IsAllowedToSpeak",
-    "MyTogglePointer",
-    "PlayScriptedSentence",
-    "PlaySentence",
-    "PlaySentenceCore",
-    "SentenceStop"
-   ],
-   "CGraph": [
-    "BuildLinkLookups",
-    "BuildRegionTables",
-    "CapIndex",
-    "CheckNode",
-    "ComputeStaticRoutingTables",
-    "DestNode",
-    "FSaveGraph",
-    "FindShortestPath",
-    "HandleLinkEnt",
-    "HashChoosePrimes",
-    "HashInsert",
-    "HashSearch",
-    "HullIndex",
-    "INodeLink",
-    "Link",
-    "LinkEntForLink",
-    "LinkVisibleNodes",
-    "NextNodeInRoute",
-    "Node",
-    "NodeLink",
-    "NodeType",
-    "PNodeLink",
-    "PathLength",
-    "RejectInlineLinks",
-    "SortNodes",
-    "SourceNode",
-    "TestRoutingTables"
-   ],
-   "CRuleBrushEntity": [
-    "ObjectCaps"
-   ],
-   "CHalfLifeMultiplay": [
-    "FAllowFlashlight"
-   ],
-   "CVoiceGameMgr": [
-    "PlayerHasBlockedPlayer"
-   ],
    "CPushable": [
     "DamageDecal",
     "StopSound"
-   ],
-   "CGamePlayerEquip": [
-    "Restore",
-    "Save"
    ],
    "CBasePlayerWeapon": [
     "CallDoRetireWeapon",
     "DoRetireWeapon",
     "GetNextAttackDelay"
    ],
-   "CBreakable": [
-    "SparkWhenHit"
-   ],
-   "CFuncTrackTrain": [
-    "Nearest"
-   ],
-   "CMomentaryDoor": [
-    "DoorMoveDone",
-    "StopMoveSound"
-   ],
-   "CChangeLevel": [
-    "TriggerChangeLevel"
-   ],
-   "CGlobalState": [
-    "EntityInTable"
-   ],
-   "CSaveRestoreBuffer": [
-    "EntityFlags",
-    "GetData",
-    "IsValidSaveRestoreData"
-   ],
-   "CFuncIllusionary": [
-    "SloshTouch"
-   ],
-   "CHalfLifeRules": [
-    "FAllowFlashlight"
-   ],
    "CBaseButton": [
     "ButtonShot",
     "IsAllowedToSpeak",
     "RotSpawn",
     "SparkSoundCache"
+   ],
+   "CCycler": [
+    "IsAllowedToSpeak"
+   ],
+   "CPathTrack": [
+    "Sparkle"
+   ],
+   "CRestore": [
+    "Empty",
+    "PrecacheMode",
+    "SetGlobalMode"
+   ],
+   "CGenericCycler": [
+    "GenericCyclerSpawn",
+    "Vector"
+   ],
+   "CFuncIllusionary": [
+    "SloshTouch"
+   ],
+   "CChangeLevel": [
+    "TriggerChangeLevel"
+   ],
+   "CBaseEntity": [
+    "BlockedSet",
+    "FStrEq",
+    "FunctionCheck",
+    "MyTogglePointer",
+    "ThinkSet",
+    "TouchSet",
+    "UseSet"
    ],
    "CBaseMonster": [
     "AdvanceRoute",
@@ -55193,17 +55150,23 @@
     "UpdateTarget",
     "VecToYaw"
    ],
-   "CPathTrack": [
-    "Sparkle"
+   "CGlobalState": [
+    "EntityInTable"
    ],
-   "CBaseEntity": [
-    "BlockedSet",
-    "FStrEq",
-    "FunctionCheck",
-    "MyTogglePointer",
-    "ThinkSet",
-    "TouchSet",
-    "UseSet"
+   "CRuleBrushEntity": [
+    "ObjectCaps"
+   ],
+   "CFuncTrackTrain": [
+    "Nearest"
+   ],
+   "CBreakable": [
+    "SparkWhenHit"
+   ],
+   "CBasePlayerItem": [
+    "CanAddToPlayer",
+    "DecrementTimers",
+    "GetWeaponData",
+    "SetWeaponData"
    ],
    "CGameRules": [
     "AmmoShouldRespawn",
@@ -55247,23 +55210,64 @@
     "VecWeaponRespawnSpot",
     "WeaponShouldRespawn"
    ],
-   "CRestore": [
-    "Empty",
-    "PrecacheMode",
-    "SetGlobalMode"
+   "CHalfLifeMultiplay": [
+    "FAllowFlashlight"
    ],
-   "CGenericCycler": [
-    "GenericCyclerSpawn",
-    "Vector"
+   "CBaseToggle": [
+    "IsAllowedToSpeak",
+    "MyTogglePointer",
+    "PlayScriptedSentence",
+    "PlaySentence",
+    "PlaySentenceCore",
+    "SentenceStop"
    ],
-   "CCycler": [
-    "IsAllowedToSpeak"
+   "CHalfLifeRules": [
+    "FAllowFlashlight"
    ],
-   "CBasePlayerItem": [
-    "CanAddToPlayer",
-    "DecrementTimers",
-    "GetWeaponData",
-    "SetWeaponData"
+   "CVoiceGameMgr": [
+    "PlayerHasBlockedPlayer"
+   ],
+   "CSaveRestoreBuffer": [
+    "EntityFlags",
+    "GetData",
+    "IsValidSaveRestoreData"
+   ],
+   "CGamePlayerEquip": [
+    "Restore",
+    "Save"
+   ],
+   "CGraph": [
+    "BuildLinkLookups",
+    "BuildRegionTables",
+    "CapIndex",
+    "CheckNode",
+    "ComputeStaticRoutingTables",
+    "DestNode",
+    "FSaveGraph",
+    "FindShortestPath",
+    "HandleLinkEnt",
+    "HashChoosePrimes",
+    "HashInsert",
+    "HashSearch",
+    "HullIndex",
+    "INodeLink",
+    "Link",
+    "LinkEntForLink",
+    "LinkVisibleNodes",
+    "NextNodeInRoute",
+    "Node",
+    "NodeLink",
+    "NodeType",
+    "PNodeLink",
+    "PathLength",
+    "RejectInlineLinks",
+    "SortNodes",
+    "SourceNode",
+    "TestRoutingTables"
+   ],
+   "CMomentaryDoor": [
+    "DoorMoveDone",
+    "StopMoveSound"
    ]
   }
  },

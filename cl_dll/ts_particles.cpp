@@ -146,6 +146,16 @@ static int TSP_Commit(TSParticle* scratch)
 //-----------------------------------------------------------------------------
 static const float TSP_EPS = 0.001f; // _DAT_1007a884
 
+// Drop all cached sprite handles + active particles. MUST be called on a map change (HUD VidInit):
+// SPR_Load handles are indices into the per-map client sprite list, so a handle cached on the old map
+// is STALE after a load — drawing with it renders garbage / corrupts TriAPI (the bullet/melee impact
+// sprites vanished after changing map). Zeroing nSprites forces each sprite to re-SPR_Load a fresh
+// handle on next use; clearing the particles avoids carrying dead slots across the load.
+void TSParticles_Reset()
+{
+	memset(&g_tsPool, 0, sizeof(g_tsPool));
+}
+
 void TSParticles_Update()
 {
 	float now = gEngfuncs.GetClientTime();

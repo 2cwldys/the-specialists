@@ -635,10 +635,12 @@ void ClientCommand(edict_t* pEntity)
 			player->AddItemToArmament(atoi(a), u ? atoi(u + 1) : 1, false);
 		}
 	}
-	else if (FStrEq(pcmd, "tki")) // TS "take item": queue weapons (one each). batched: `tki 2 5 9`.
-	{
+	else if (FStrEq(pcmd, "tki")) // TS "take item": queue loadout ITEMS (kevlar 0x10 / grenade 0x20 /
+	{                             // gun attachments 1/2/4/8). batched: `tki 1 16`. isItem=true so
+	                              // BuyArmament routes them to CBasePlayer::AddItem (NOT BuyWeapon) —
+	                              // the bits would otherwise collide with weapon type indices.
 		for (int i = 1; i < CMD_ARGC(); i++)
-			player->AddItemToArmament(atoi(CMD_ARGV(i)), 1, false);
+			player->AddItemToArmament(atoi(CMD_ARGV(i)), 1, true);
 	}
 	else if (FStrEq(pcmd, "tka")) // TS "take ammo": queue ammo per caliber. batched space-separated
 	{                             // "%i_%i" tokens: `tka 1_2 4_1` -> AddAmmoToArmament each.

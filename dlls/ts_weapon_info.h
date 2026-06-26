@@ -132,6 +132,19 @@ struct s_weapon_info
 	// -1 => use iReloadAnim in both stances. For pump shotguns this is the hold-stance reload1 base
 	// (insert/close = +1/+2, same as iReloadAnim).
 	int   iHoldReloadAnim;
+	// Scope ZOOM levels (s_weapon_info+0x3c / +0x40) — the FOV values cycled by CTSGun::SecondaryAttack's
+	// scoped branch (attach & 8): default FOV 0 (no zoom) -> zoomFov1 -> zoomFov2 -> back to 0. 0 = the
+	// level doesn't exist (most weapons have only one zoom; ak47/m16/barrett have a second). Recovered
+	// from each Write_<weapon>. Zoom hides the viewmodel when zoomFov1 < 40 (high-magnification scopes).
+	int  zoomFov1;    // +0x3c — first zoom FOV (0 = no scope zoom)
+	int  zoomFov2;    // +0x40 — second zoom FOV (0 = no second level)
+	// Attachment masks (s_weapon_info+0xe0 / +0xe4), bits 1/2/4/8 = silencer/laser/flashlight/scope.
+	// attachSupported = every attachment this weapon CAN mount; attachBuiltin = attachments it ships WITH
+	// (integral — can't be bought again, and present from the moment you pick the gun up). The buyable set
+	// the menu offers = attachSupported & ~attachBuiltin. Built-in examples: AUG/Barrett integral scope (8),
+	// MP5SD/Ruger integral silencer (1). Recovered from each Write_<weapon> (+0xe0/+0xe4).
+	int  attachSupported; // +0xe0 — attachments this weapon can mount
+	int  attachBuiltin;   // +0xe4 — attachments it ships with (item.attach defaults to this on give)
 	// Inventory SLOT cost (s_weapon_info+0xd0, a byte). The player has 81 slots (CBasePlayer+0x548 init
 	// 0x51); each carried weapon's slotCost is deducted, and remaining capacity drives movement speed
 	// (GetSpeedBySlots: maxspeed = 210 + (120/81)*remaining) — more/heavier weapons => slower. Also gates

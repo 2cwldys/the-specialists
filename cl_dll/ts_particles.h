@@ -57,6 +57,7 @@ struct TSParticle
 
 // Per-frame update + render — call once from HUD_DrawTransparentTriangles.
 void TSParticles_Update();
+void TSParticles_Reset();  // drop cached sprite handles + particles on a map change (call from VidInit)
 
 // The per-surface visual dispatcher (original FUN_10048f60). texChar is a CHAR_TEX_*
 // material class (pm_materials.h). mode: 0 = normal, 1/2 = forced (skip throttle).

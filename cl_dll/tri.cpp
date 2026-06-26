@@ -21,6 +21,7 @@
 #include "particleman.h"
 #include "tri.h"
 #include "ts_particles.h" // TS client impact-effect particle pool
+#include "ts_attachments.h" // TS gun lasersight + flashlight render
 extern IParticleMan* g_pParticleMan;
 
 /*
@@ -59,4 +60,8 @@ void DLLEXPORT HUD_DrawTransparentTriangles()
 	// TS custom impact-effect particle pool (sparks/smoke/debris) — original client.dll
 	// drew this from HUD_DrawTransparentTriangles via FUN_100520d0(pool). cont.69x.
 	TSParticles_Update();
+
+	// TS gun attachments drawn from each player's muzzle: the lasersight beam+dot and the
+	// flashlight beam+light (original client.dll FUN_1003d600 / FUN_1003b750, per-frame).
+	TS_Attachments_Draw();
 }

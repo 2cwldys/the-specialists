@@ -357,6 +357,20 @@ CBaseEntity *TSCreatePowerUpAt(int type, const Vector &vecOrigin)
 	return pPowerup;
 }
 
+// Notify the client to show the bottom-center indicator for an INDEPENDENT powerup (kung-fu /
+// super-jump). RE PlayerAddPowerUp@0x97bc8: the original sends gmsgTSPowerUp ("PwUp") = WriteShort(bit)
+// + WriteByte(0) for these (the dur-0 grant), distinct from the held timed-powerup slot (top-left).
+static void TSSendPowerupNotify(CBasePlayer *pPlayer, int bit)
+{
+	static int s_gmsgPwUp = 0;
+	if (s_gmsgPwUp == 0)
+		s_gmsgPwUp = REG_USER_MSG("PwUp", 3);
+	MESSAGE_BEGIN(MSG_ONE, s_gmsgPwUp, NULL, pPlayer->pev);
+	WRITE_SHORT(bit); // 4 = kung-fu, 0x100 = super-jump (low-gravity)
+	WRITE_BYTE(0);    // dur 0 -> persistent independent powerup (not the held countdown slot)
+	MESSAGE_END();
+}
+
 // @ PlayerAddPowerUp(CBasePlayer*, int type, CTSPowerUp*) — apply a powerup to a
 // player. Returns true if it took (and the powerup should be consumed). Instant
 // powerups are applied immediately; the timed ones (slow-motion/-pause/double-fire)
@@ -373,14 +387,17 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 	else if (type & TS_PWUP_KUNGFU)
 	{
 		if (!pPlayer->m_iKungFu)
-			pPlayer->m_iKungFu = 1; // SLICE: gmsgTSPowerUp HUD notify deferred (client side)
+		{
+			pPlayer->m_iKungFu = 1;
+			TSSendPowerupNotify(pPlayer, TS_PWUP_KUNGFU); // bottom-center HUD "Kung-Fu" icon
+		}
 	}
 	else if (type & TS_PWUP_LOWGRAV)
 	{
 		if (!pPlayer->m_bLowGravity)
 		{
-			pPlayer->m_bLowGravity = 1;
-			pPlayer->pev->gravity = 0.4f; // SLICE: original sets a client physics key
+			pPlayer->m_bLowGravity = 1; // super-jump: the duck+jump lift is driven in PreThink (player.cpp)
+			TSSendPowerupNotify(pPlayer, TS_PWUP_LOWGRAV); // bottom-center HUD "Super Jump" icon
 		}
 	}
 	else if (type & TS_PWUP_HEALTH)
@@ -432,14 +449,17 @@ bool TSGrantPowerup(CBasePlayer *pPlayer, int type, int duration)
 	else if (type & TS_PWUP_KUNGFU)
 	{
 		if (!pPlayer->m_iKungFu)
+		{
 			pPlayer->m_iKungFu = 1;
+			TSSendPowerupNotify(pPlayer, TS_PWUP_KUNGFU);
+		}
 	}
 	else if (type & TS_PWUP_LOWGRAV)
 	{
 		if (!pPlayer->m_bLowGravity)
 		{
-			pPlayer->m_bLowGravity = 1;
-			pPlayer->pev->gravity = 0.4f;
+			pPlayer->m_bLowGravity = 1; // super-jump lift driven in PreThink
+			TSSendPowerupNotify(pPlayer, TS_PWUP_LOWGRAV);
 		}
 	}
 	else if (type & TS_PWUP_HEALTH)

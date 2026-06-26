@@ -47,6 +47,86 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐ START HERE (cont.70, 2026-06-26) — ATTACHMENTS + POWERUPS + SLOW-MO/DAMAGE SOUNDS + STUNTS — **UNCOMMITTED ON DISK**
+
+A very long interactive playtest session. **NOTHING IS COMMITTED** — all work is on disk on top of `6ecf77b`
+(cont.69z): 21 modified files + 2 new (`cl_dll/ts_attachments.{cpp,h}`). Builds clean (`scripts/build.sh
+amd64 all`, glibc 2.14). The pre-existing `reference/coverage/*` edits + `test.sh` (the user's launcher —
+DO NOT commit) are NOT this session's work. **Decide whether to commit before continuing** (recommend yes —
+it's a big clean checkpoint). The user runs the graphical xash himself and live-playtests every change.
+
+### ✅ DONE this session (all RE-grounded + live-confirmed unless noted)
+- **#11 silencer + scope + lasersight + flashlight (gun attachments)** — the swap contract is `fire.sc`
+  `iparam2 = ATTACH MASK` (bit0 silencer), `bparam1 = clip==0` (RE StandardFire@0x824a4); barrel side moved
+  to `bparam2`. Silencer → `<weapon>/fire-sil.wav` + muzzle suppression (`cl_dll/ev_ts.cpp`). Scope → FOV
+  cycle `0→zoomFov1→zoomFov2→0` on secondary (RE SecondaryAttack@0x717a8 + Zoom/Unzoom); AUG/Barrett ship a
+  built-in scope, MP5SD/Ruger a built-in silencer (new `s_weapon_info` fields `zoomFov1/2`,`attachSupported`
+  (+0xe0),`attachBuiltin` (+0xe4)). **Lasersight + flashlight = NEW `cl_dll/ts_attachments.cpp`**: server
+  broadcasts each player's attach via the original `ActItems` msg (BYTE idx, BYTE attach — RE FUN_1004fa70),
+  client draws a TriAPI laser beam+dot (colour 1=green/2=blue/else=red, RE FUN_100582f0) / flashlight dlight.
+  `CTSGun::AddItem`@0x80794 validates supported/built-in; buy routes via `tki`/`CBasePlayer::AddItem`.
+- **Buy menu** — fixed the bit-INDEX-vs-VALUE bug in BOTH the display loop AND the mouse hit-test (pass
+  `1<<bit` to AttachAvailable); Buy/Akimbo/Full are green; akimbo: 2nd buy of an akimbo-capable single
+  COMBINES (shows BOTH the single + akimbo icons), RemoveSlot steps akimbo→single→gone; fresh akimbo loads
+  both barrels.
+- **Powerups (independent, coexist with the held slot)** — super-jump (`m_bLowGravity`) + kung-fu
+  (`m_iKungFu`) granted by `PlayerAddPowerUp`, send `PwUp(type,0)` → bottom-center WHITE indicators
+  (`ts_powerup_hud.cpp`). Kung-fu reload BLOCK: `CloseCombatBlock` opens a 0.5s window (`m_flKungFuBlock`),
+  `CloseCombatAttack` deflects a kick on a blocker (kungfuhit.wav + 0.5s attacker stun — RE CCombatBlock@
+  0x85ebc + VictimKungfuHold@0x66f50). Kung-fu powerup → secondary does a kick while armed.
+- **Slow-mo presentation** — `goslow.wav` on entry via **`EV_PlaySound`** (RE FUN_1004bef0; not
+  PlaySoundByName) + **4 fading heartbeats** (1.0→0.25, 0.75s apart, `ts_powerup_hud.cpp`). Tint made bluer
+  (`view.cpp` G60/B160; the RE doc says the original is motion-blur not a fixed colour, so it's user-tuned).
+- **Damage sounds** — `bodyhit1-4`/`headshot`+`1-2`(head)/`kevlarhit`(armored torso) on the victim in
+  `CBasePlayer::TraceAttack` (RE TraceAttack@0x901cc, CHAN_BODY); `pain1-4` voice via `Pain()` in TakeDamage.
+  **whizz1-5** bullet-flyby (`ev_ts.cpp TS_BulletWhizz`, closest-point-on-segment ≤56u, RE FUN_100450c0).
+- **Double-fire powerup** → EVERY weapon full-auto (fire while held), incl. semi/burst.
+- **Two bug fixes**: (1) impact sound "hear it as you walk up to old impacts" = the ric was
+  `EMIT_AMBIENT_SOUND` on the WORLD entity (engine spawns a PERSISTENT static sound). Moved CLIENT-side
+  (`EV_TSBulletImpact` → `EV_PlaySound(0, pos, …)` = entity-0 positional, distance-attenuated, one-shot).
+  (2) Map-change broke ALL impact/muzzle sprites (cached `SPR_Load`/model handles go stale on a new map) —
+  added `TSParticles_Reset()` + `TS_Attachments_VidInit()` + muzzle re-resolve, all called from `CHud::VidInit`.
+
+### 🔴 INCOMPLETE — the CTSStunt system (double-jump roll / wall-climb / +alt1 dive / prone) — **NOT FAITHFUL YET**
+Implemented as **ad-hoc approximations in `dlls/player.cpp` PreThink** (search `m_bDiveRolling`/`m_flWallClimbFuel`/
+`m_bProneSize`). The user playtested repeatedly — **it's still wrong** ("are you sure you RE'd this enough?").
+**THE CORE BLOCKER:** the dive/prone must make the player a SMALLER bbox + LOWER view that the **CLIENT
+PREDICTS** (others can land on you; your eye drops to the floor). Forcing `pev->flags|FL_DUCKING` /
+`UTIL_SetSize` / `pev->view_ofs` **in the DLL does NOT stick** — `pm_shared` (client prediction) recomputes
+the hull/view every frame and overwrites it. **The faithful fix needs `pm_shared` work**: reconstruct the TS
+dive/prone movement gated by the `pev->iuser4` stunt flags (networked), so the client predicts the small
+hull/view + dive trajectory. RE already done (decompiles in `scratchpad/`):
+- `CTSStunt::HandleStunt`@0x8b000 = per-frame dispatcher: `IN_JUMP held` + climbable wall → GoWallClimb
+  (paced by the stunt timer `CTSStunt+0` → AUTO-climb while held, NOT re-press); `+alt1` = `player+0x815 &
+  0x40` → GoDive (moving≥80) / GoBulletTime (still); wall-jump when `+alt1` + not jumping + wall.
+- `GoDive`@0x8b1a0: sets `iuser4`(player+0x250) bits **0x4 (prone) + 0x10** + a dive-height bit (0x40 high /
+  0x100 medium / 0x80 low, via CanDiveHigh/Medium/Low — gated on `player+0x74` v_angle pitch), sets
+  `pev->gravity`(+0x120) + `pev->friction`(+0x11c) per height, zeros punchangle(+0x174), `CTSAnimation::
+  Animate(0x28)`, `NextDive`→stunt timer, `gmsgTSNextStunt` + `gmsgTSMotionBlur`, `player/dive.wav`; dive
+  DIRECTION (`CTSStunt+0x20`) = normalized velocity, or `v_forward` if `iuser4(player+0x252)&0x80`.
+- `GoRoll`@0x8cfe8 (anim 0x2f, land.wav, prone flags `iuser4|0x40005`, GetDirection fwd/back/left/right),
+  `GoWallClimb`@0x8aa1c (anim 0x38, **player/airwheel.wav**, fuel=`max(accum,0.5)`), `HandleWallClimb`@0x8b644,
+  `HandleDive`@0x8b7e4, `FBecomeProne`@0xdc6f8 (`m_afPhysicsFlags|4`). Full CTSStunt method list: Init/Play/
+  HandleStunt/HandleDive/HandleSlide/HandleWheel/HandleWallClimb/HandleWallJump/Landing/Go{Dive,Roll,WallClimb,
+  WallJump,Wheel,BulletTime}/Can Dive{High,Medium,Low}/NextDive/CheckForWall{Jump,Dive,Climb}/CheckForBreakables.
+- **NEXT STEP: reconstruct `CTSStunt` as a real class + add the dive/prone to `pm_shared` (decompile
+  `PM_PlayerMove`@0xf08d8 + the duck path to see how `iuser4` flags drive `usehull`/view/movement).** The
+  3rd-person stunt ANIM poses (Animate 0x28/0x2f/0x38) need the TS specialist player models — **NOT in this
+  data extraction** (only `valve/player.mdl`); currently using stock `longjump`/`crouch_idle` stand-ins.
+
+### 🔴 PENDING (user-requested, NOT started — need RE)
+- **Glass DOUBLE-PANE penetration**: some calibers/guns break 2 panes, others 1; and whether the round
+  DAMAGES the glass + decals the surface behind. RE the gating (likely a per-caliber penetration value vs
+  the glass). Start from `ShootBulletsPlayer`@0x5f69c penetration + `CheckForBreakables` + `Die__10CBreakable`.
+- **Golden-colts NO fire-sound until a reload** — gold (akimbo-only, type 21) is silent on first deploy,
+  works after a reload. Suspect a client-prediction active-weapon-type sync on deploy (the predictor's
+  weaponType is stale until a weapon_data update). Live-trace it.
+- **Wall-climb weight** — currently scaled by `pev->maxspeed` (slot-based, a proxy); verify the real formula.
+
+### Open task-tool entries (this session)
+#4 superjump · #5 kung-fu powerup · #6 kung-fu block — all DONE. #7 slow-mo sounds · #8 tint · #9 rolls ·
+#10 damage sounds — all DONE (rolls = approximation, see 🔴 above). The live work-list = the 🔴 sections.
+
 ## ⭐⭐ START HERE (cont.69z, 2026-06-26) — WEAPON-FEEL / SLOTS / GRENADE / IMPACT pass — COMMITTED + LIVE-PLAYTESTED
 Committed to `main` (`--no-gpg-sign`, NO Co-Authored-By): **6f9b9d4** (this session) on top of cont.69y's
 8b2a42f/635c9ca. Uncommitted on disk (intentionally NOT committed): `test.sh` (the user's launcher — DO NOT

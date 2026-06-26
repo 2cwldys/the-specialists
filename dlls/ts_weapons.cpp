@@ -63,6 +63,29 @@ void PrecacheAllTSWeapons()
 
 	PRECACHE_SOUND("weapons/scock1.wav"); // pump-shotgun per-shell insert (ShotgunReload)
 
+	// Lasersight sprites (client EV draws the beam+dot from the muzzle for any player with a laser —
+	// cl_dll/ts_attachments.cpp). The flashlight uses a dynamic light (no sprite to precache).
+	PRECACHE_MODEL("sprites/laserbeam.spr");
+	PRECACHE_MODEL("sprites/laserdot.spr");
+
+	// Silenced fire sounds — played by the client fire event (EV_TSFire s_fireSilSound) when a weapon
+	// has a SILENCER attached (attach bit0). Precached so a silenced shot doesn't precache mid-game;
+	// these are the distinct `-sil` files referenced by the original (ts_i386.so/client.dll). The set
+	// matches s_fireSilSound[] in cl_dll/ev_ts.cpp (akimbo variants reuse their single's wav).
+	PRECACHE_SOUND("weapons/glock/glock-fire-sil.wav");
+	PRECACHE_SOUND("weapons/beretta/fire-sil.wav");
+	PRECACHE_SOUND("weapons/uzi/uzi-fire-sil.wav");
+	PRECACHE_SOUND("weapons/m4/m4-fire-sil.wav");
+	PRECACHE_SOUND("weapons/mp5k/mp5k-fire-sil.wav");
+	PRECACHE_SOUND("weapons/mk23/mk23-fire-sil.wav");
+	PRECACHE_SOUND("weapons/deagle/fire-sil.wav");
+	PRECACHE_SOUND("weapons/fnh/fnh-fire-sil.wav");
+	PRECACHE_SOUND("weapons/aug/aug-fire-sil.wav");
+	PRECACHE_SOUND("weapons/tmp/fire-sil.wav");
+	PRECACHE_SOUND("weapons/pdw/fire-sil.wav");
+	PRECACHE_SOUND("weapons/glock22/glock22-fire-sil.wav");
+	PRECACHE_SOUND("weapons/ump/ump-fire-sil.wav");
+
 	// Melee slash sounds (CTSGun::MeleeAttack — knife/katana/seal-knife): swing (miss) + surface/flesh hit.
 	PRECACHE_SOUND("weapons/knife/knife_miss.wav");
 	PRECACHE_SOUND("weapons/knife/knife_hit.wav");
@@ -70,6 +93,25 @@ void PrecacheAllTSWeapons()
 	PRECACHE_SOUND("weapons/katana/miss.wav");
 	PRECACHE_SOUND("weapons/katana/hit.wav");
 	PRECACHE_SOUND("weapons/katana/hit-body.wav");
+	PRECACHE_SOUND("player/superjump-land.wav"); // super-jump powerup landing thud (player.cpp PreThink)
+	PRECACHE_SOUND("player/airwheel.wav");       // double-jump wall-climb kick (player.cpp PreThink)
+	PRECACHE_SOUND("player/land.wav");           // dive-roll landing (player.cpp PreThink)
+	PRECACHE_SOUND("player/dive.wav");           // +alt1 dive (player.cpp PreThink)
+	for (int i = 1; i <= 5; i++) { char w[24]; sprintf(w, "weapons/whizz%d.wav", i); PRECACHE_SOUND(w); } // bullet flyby (cl_dll ev_ts)
+	PRECACHE_SOUND("goslow.wav");                // slow-mo initiation sound (cl_dll powerup HUD)
+	PRECACHE_SOUND("player/heartbeat1.wav");     // slow-mo init heartbeats (faded x4)
+
+	// TS damage feedback (player.cpp TraceAttack body-impact + Pain voice): bullet/melee hit on flesh,
+	// vest, head; the pain grunt.
+	{
+		char p[28];
+		for (int i = 1; i <= 4; i++) { sprintf(p, "player/bodyhit%d.wav", i); PRECACHE_SOUND(p); }
+		for (int i = 1; i <= 4; i++) { sprintf(p, "player/pain%d.wav", i); PRECACHE_SOUND(p); }
+		PRECACHE_SOUND("player/headshot.wav");
+		PRECACHE_SOUND("player/headshot1.wav");
+		PRECACHE_SOUND("player/headshot2.wav");
+		PRECACHE_SOUND("player/kevlarhit.wav");
+	}
 
 	// weapon event scripts (CTSGun::Precache @0x80660) — must be precached at map
 	// load so a runtime weapon give doesn't precache an event mid-game.

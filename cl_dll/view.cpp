@@ -1843,8 +1843,9 @@ void DLLEXPORT V_CalcRefdef(struct ref_params_s* pparams)
 			screenfade_t sf;
 			gEngfuncs.pfnGetScreenFade(&sf);
 			sf.fader = 0;
-			sf.fadeg = 100;
-			sf.fadeb = 125;
+			sf.fadeg = 60;
+			sf.fadeb = 160; // a clearly BLUE slow-mo tint (the original uses motion blur with no fixed
+			                // colour, so this is a tuned blue per playtest — was the greener 0,100,125)
 			int a = (int)((1.0f - g_flClientSlow) * 50.0f);
 			sf.fadealpha = (byte)(a > 50 ? 50 : a);
 			sf.fadeFlags = FFADE_OUT | FFADE_STAYOUT; // = 5: straight alpha, stays until changed

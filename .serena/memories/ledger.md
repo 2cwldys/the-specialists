@@ -5,6 +5,29 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-26 (cont. 70) — attachments + powerups + slow-mo/damage sounds + stunts (**UNCOMMITTED ON DISK**)
+
+Very long interactive playtest session, NOT committed (21 modified + new `cl_dll/ts_attachments.{cpp,h}` on
+top of `6ecf77b`; builds clean glibc 2.14). Full detail in HANDOFF.md "⭐⭐⭐ START HERE (cont.70)". Summary:
+- **Gun attachments #11 + scope/laser/flashlight**: silencer (fire-sil + muzzle suppress; `fire.sc` iparam2=
+  attach mask), scope (FOV cycle on secondary; AUG/Barrett built-in via weapon_info +0xe0/+0xe4 = new struct
+  fields), lasersight+flashlight (NEW `ts_attachments.cpp` — original `ActItems` msg, TriAPI beam+dot/dlight).
+- **Buy menu**: bit-index/value fix (display + mouse), green Buy/Akimbo, akimbo combine + both-icons + step-down.
+- **Powerups**: super-jump (m_bLowGravity) + kung-fu (m_iKungFu) independent + bottom-center white HUD; kung-fu
+  reload BLOCK (CCombatBlock window + VictimKungfuHold negate+stun). Double-fire → all weapons full-auto.
+- **Slow-mo**: goslow.wav (EV_PlaySound, RE FUN_1004bef0) + 4 fading heartbeats; tint bluer.
+- **Damage sounds**: bodyhit/headshot/kevlarhit (TraceAttack), pain1-4 (Pain), whizz1-5 flyby (closest-pt-on-seg).
+- **Bugs fixed**: impact-ric "hear on approach" (was EMIT_AMBIENT_SOUND on world = static sound; → client
+  entity-0 positional); map-change sprite-cache staleness (TSParticles_Reset + TS_Attachments_VidInit on VidInit).
+- **🔴 INCOMPLETE — CTSStunt (roll/wall-climb/+alt1 dive/prone)**: ad-hoc PreThink approximations, NOT faithful.
+  BLOCKER: dive/prone needs a client-PREDICTED small bbox+low view; DLL forcing (FL_DUCKING/UTIL_SetSize/
+  view_ofs) is overwritten by pm_shared each frame → **needs pm_shared reconstruction gated by pev->iuser4
+  stunt flags** (RE'd: HandleStunt@0x8b000, GoDive@0x8b1a0 sets iuser4 0x4/0x10+height bits, GoRoll@0x8cfe8,
+  GoWallClimb@0x8aa1c). Decompiles in scratchpad/. The 3rd-person poses need the TS player models (not extracted).
+- **🔴 PENDING (not started)**: glass double-pane penetration (RE the caliber gating + damage/decal-behind),
+  golden-colts no-fire-sound-until-reload (prediction sync), wall-climb weight formula.
+[[live-original-ts-debuggable]] [[flag-unfound-re-early]] [[match-original-names-for-coverage]]
+
 ## 2026-06-26 (cont. 69z cont.) — weapon-feel + powerup + grenade + impact-effect pass (COMMITTED, live-playtested)
 
 Long interactive playtest session; all RE-grounded. Committed to `main`. Items:

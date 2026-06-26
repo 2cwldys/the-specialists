@@ -54,6 +54,7 @@
 static int gmsgWeaponInfo = 0;
 // The weapon-select bar message: "WStatus", size 3 = BYTE type, BYTE owned, BYTE clip.
 static int gmsgWStatus = 0;
+static int gmsgActItems = 0; // per-player attach broadcast (laser/flashlight visible to all clients)
 
 // `damagemult` cvar (default 0.0 = off → 1x). A value > 0 scales all TS weapon damage.
 static float TSDamageMult()
@@ -245,17 +246,20 @@ bool CTSGun::AddWeapon(tsweapon_t type)
 	TSItem &it = m_items[fill];
 	it.owned = true;
 	it.mode = TSDefaultFireMode(fwi->iFireModes);
-	it.attach = 0;
+	it.attach = fwi->attachBuiltin; // integral attachments ship with the gun (AUG/Barrett scope, MP5SD/Ruger silencer)
 	it.barrelMask = 0;
 
 	if (fwi->iFireType == TSFT_AKIMBO && fwi->iSingleType >= 0 && fwi->iSingleType < TSW_COUNT)
 	{
-		// combinable akimbo: left barrel = the single you already hold, right barrel = a fresh single.
+		// combinable akimbo: right barrel = a fresh single; left barrel = the single you already hold
+		// (its current clip), or — when bought directly as the akimbo (single not owned) — a full clip,
+		// so a freshly-bought akimbo comes with BOTH barrels loaded (not one empty).
 		const int single = fwi->iSingleType;
-		it.leftClip = m_items[single].owned ? m_items[single].clip : 0;
-		it.rightClip = get_weapon_info((tsweapon_t)single)->iClip;
+		const int singleClip = get_weapon_info((tsweapon_t)single)->iClip;
+		it.leftClip = m_items[single].owned ? m_items[single].clip : singleClip;
+		it.rightClip = singleClip;
 		it.clip = it.leftClip + it.rightClip;
-		AddAmmo(get_weapon_info((tsweapon_t)single)->iCaliber, get_weapon_info((tsweapon_t)single)->iClip);
+		AddAmmo(get_weapon_info((tsweapon_t)single)->iCaliber, singleClip);
 	}
 	else if (fwi->iFireType == TSFT_AKIMBO_ONLY)
 	{
@@ -328,6 +332,10 @@ void CTSGun::SelectWeaponType(int type)
 
 	// --- HolsterWeapon (@0x85698): park the outgoing weapon's per-item state. ---
 	SyncActiveToItem();                // save the wielded weapon's clip + fire-mode
+#ifndef CLIENT_DLL
+	if (m_pPlayer && m_pPlayer->pev->fov != 0.0f) // leave any scope zoom when switching away (HolsterWeapon unzooms)
+		Unzoom();
+#endif
 	m_fInReload = false;               // a switch cancels an in-progress reload
 	m_burstCount = 0;
 	m_lastType = m_weaponType;         // remember the outgoing type (for `lastinv`)
@@ -490,6 +498,15 @@ void CTSGun::PrimaryAttack()
 	const bool held = (m_pPlayer->pev->button & IN_ATTACK) != 0;
 	const bool pressed = (m_pPlayer->m_afButtonPressed & IN_ATTACK) != 0;
 	bool fire = false;
+
+	// DOUBLE-FIRE powerup: EVERY weapon goes full-auto — fire while the trigger is held, regardless of
+	// the weapon's fire-mode (so a semi pistol or a burst SMG hoses while held). Overrides the per-mode
+	// trigger logic below entirely.
+	if (DoubleFireRate(m_pPlayer))
+	{
+		fire = held;
+	}
+	else
 	switch (m_fireMode)
 	{
 	case TSFM_AUTO:
@@ -499,8 +516,8 @@ void CTSGun::PrimaryAttack()
 		break;
 	case TSFM_SEMI:
 	case TSFM_AKIMBO_ALT:
-		// one round per pull; the double-firerate powerup lets a semi gun fire held.
-		fire = pressed || (DoubleFireRate(m_pPlayer) && held);
+		// one round per pull (semi).
+		fire = pressed;
 		break;
 	case TSFM_BURST:
 		// 3-round burst (2 for the MAC-10): start on a fresh pull, then run the queue
@@ -566,8 +583,13 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	// events/fire.sc → EV_TSFire: predicted fire sound + brass shell + viewmodel muzzleflash. Played
 	// with FEV_NOTHOST so the predicting host plays its OWN predicted copy (and isn't sent the server
 	// copy too — otherwise the muzzle/shell would double); other clients get the server copy.
+	// Arg packing is byte-faithful to the original StandardFire@0x824a4 pfnPlaybackEvent:
+	//   iparam1 = weaponType, iparam2 = ATTACH MASK (active item+0x10; bit0 = silencer),
+	//   bparam1 = (clip == 0).  The silencer bit drives the client's fire-sil sound + muzzle
+	//   suppression (EV_TSFire). Barrel side is always 0 here (non-akimbo); we carry it in bparam2
+	//   for the merged akimbo path (see AkimboFire) — our extension, not read by the original client.
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
-		flSpread, flSpread, m_weaponType, 0, (m_iClip == 0) ? 1 : 0, 0);
+		flSpread, flSpread, m_weaponType, m_items[m_weaponType].attach, (m_iClip == 0) ? 1 : 0, 0);
 
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;
@@ -939,10 +961,25 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 
 	if (flesh)
 	{
+		// Kung-fu BLOCK (RE VictimKungfuHold@0x66f50): a player victim holding a block (their block window,
+		// opened by CloseCombatBlock = IN_RELOAD while unarmed/melee) DEFLECTS this close-combat hit — the
+		// "kungfuhit.wav" clack plays but NO damage lands, and the ATTACKER is stunned 0.5s while the blocker
+		// recovers in 0.25s. So a kung-fu reload-block beats an incoming kick.
+		CBasePlayer *pVictim = pHit->IsPlayer() ? (CBasePlayer *)pHit : nullptr;
+		const bool blocked = pVictim && pVictim->m_flKungFuBlock > gpGlobals->time;
 		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-		ClearMultiDamage();
-		pHit->TraceAttack(m_pPlayer->pev, dmg * TSDamageMult(), gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
-		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
+		if (blocked)
+		{
+			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;   // attacker stunned (VictimKungfuHold)
+			m_flNextSecondaryAttack = m_flNextPrimaryAttack;
+			pVictim->m_flKungFuBlock = gpGlobals->time + 0.25f;     // blocker holds/recovers 0.25 more
+		}
+		else
+		{
+			ClearMultiDamage();
+			pHit->TraceAttack(m_pPlayer->pev, dmg * TSDamageMult(), gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
+			ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
+		}
 	}
 	else
 	{
@@ -1000,9 +1037,12 @@ void CTSGun::CloseCombatBlock()
 	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/block.wav", VOL_NORM, ATTN_NORM); // "hooah"
 	SendWeaponAnim(4); // block_low stance (v_melee.mdl seq 4, 1st person)
 	m_pPlayer->m_TSAnim.PlayKungFu(m_pPlayer, "kungfu_block1", 0.8f); // 3rd-person block pose
-	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.8f;   // the block window — gates attacks
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.8f;   // the attack-lockout window
 	m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 1.0f;
+	// Open the BLOCK window (RE CCombatBlock@0x85ebc sets player+0x7a8 = 0.5): for the next 0.5s an
+	// incoming close-combat attack is deflected (CloseCombatAttack -> VictimKungfuHold checks this).
+	m_pPlayer->m_flKungFuBlock = gpGlobals->time + 0.5f;
 }
 
 // @ AlternateAttack__6CTSGun @0x81ba8 — the +alt2 input: pistol-whip (ColdCock) when the
@@ -1196,13 +1236,9 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 			ClearMultiDamage();
 			gMultiDamage.type = DMG_BULLET | DMG_NEVERGIB;
 			pHit->TraceAttack(pevAttacker, dmg, dir, &tr, DMG_BULLET | DMG_NEVERGIB); // orig DMG bits 0x1002
-			// Bullet impact ricochet (debris/ric — TS doesn't use material texture sounds in MP), pitched
-			// DOWN by the shooter's slow factor (slow-mo deepens it).
-			{
-				char ric[20];
-				sprintf(ric, "debris/ric%d.wav", RANDOM_LONG(1, 5));
-				UTIL_EmitAmbientSound(CWorld::World->edict(), tr.vecEndPos, ric, VOL_NORM, ATTN_STATIC, 0, TSRecordedSlowPitch(pPlayer));
-			}
+			// NB: the bullet ric impact SOUND is played CLIENT-side now (cl_dll/ev_ts.cpp EV_TSBulletImpact),
+			// not here. The old server EMIT_AMBIENT_SOUND on the WORLD entity spawned a PERSISTENT static
+			// sound at the impact point, so far-away wall hits were heard "as you walked up to them".
 			// NO server-side bullet decal — the original lays it CLIENT-side (cl_dll/ev_ts.cpp
 			// EV_TSBulletImpact -> R_DecalShoot "{shot"); its server ShootBulletsPlayer lays none. Doing
 			// it server-side broke drop-in compat (double decal vs the original client; none vs the
@@ -1444,11 +1480,14 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	if (akAnim >= 0)
 		SendWeaponAnim(akAnim);
 
-	// events/fire.sc → EV_TSFire: sound + shell + muzzle flare(s). iparam2 barrel side: 0=right,
-	// 1=left, 2=BOTH (the client draws both flares for the AUTO-both shot).
+	// events/fire.sc → EV_TSFire: sound + shell + muzzle flare(s). Faithful packing (StandardFire@0x824a4):
+	// iparam2 = ATTACH MASK (bit0 = silencer), bparam1 = (clip==0). The barrel side (0=right, 1=left,
+	// 2=BOTH — the client draws both flares for the AUTO-both shot) rides in bparam2: the original splits
+	// akimbo into a separate handler/event (firelinked.sc), a SLICE pending #15; bparam2 is our merged-path
+	// extension and is unread by the original client for non-akimbo.
 	const int eventSide = (nSides == 2) ? 2 : sides[0];
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
-		flSpread, flSpread, m_weaponType, eventSide, (m_iClip == 0) ? 1 : 0, 0);
+		flSpread, flSpread, m_weaponType, it.attach, (m_iClip == 0) ? 1 : 0, eventSide);
 
 	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
 	if (DoubleFireRate(m_pPlayer))
@@ -1456,6 +1495,59 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 }
+
+// @ AddItem__6CTSGuni @0x80794 — attach a gun item (silencer/laser/flashlight/scope: bits 1/2/4/8) to
+// the ACTIVE weapon. The original validates against the weapon's supported-attachment mask
+// (s_weapon_info+0xe0) and a conflicting/silenced-base mask (+0xe4), refuses a duplicate, OR's the bits
+// into the active item's attach (item+0x10) — and into the per-slot save array — then re-selects/deploys
+// to refresh the attachment'd model. In our arsenal the active item IS m_items[m_weaponType], so one
+// store covers both. SLICE: we don't carry the +0xe0/+0xe4 masks yet, so we accept any not-already-held
+// bit — the client buy menu's AttachAvailable already gates which weapons can be sold a silencer, and
+// EV_TSFire only swaps the SOUND for weapons that have a `-sil` variant, so an unsupported attach is inert.
+// The attach mask travels to the client in the fire event (iparam2 — see StandardFire/AkimboFire).
+int CTSGun::AddItem(int bits)
+{
+	if (m_weaponType < 0 || m_weaponType >= TSW_COUNT)
+		return 0;
+	TSItem &it = m_items[m_weaponType];
+	if (!it.owned)
+		return 0;
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	// RE @0x80794: refuse if the weapon doesn't support the attachment (not in +0xe0), if it's a
+	// built-in/conflicting attachment (+0xe4, e.g. a silencer on the silenced-base MP5SD), or if it's
+	// already attached. Then OR the bits onto the active item's attach.
+	if ((bits & wi->attachSupported) == 0)   return 0; // unsupported
+	if ((bits & wi->attachBuiltin) != 0)     return 0; // built-in / can't re-add
+	if ((bits & it.attach) != 0)             return 0; // already attached
+	it.attach |= bits;
+	return 1;
+}
+
+#ifndef CLIENT_DLL
+// @ Zoom__6CTSGuni @0x71710 — enter a scope zoom level. Sets the player's networked view FOV; for a
+// high-magnification scope (zoomFov1 < 40) it ALSO hides the viewmodel (pev->viewmodel = 0), matching
+// the original (you look through the scope, not at the gun).
+void CTSGun::Zoom(int fov)
+{
+	m_pPlayer->pev->fov = (float)fov;
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	if (wi->zoomFov1 < 40)
+		m_pPlayer->pev->viewmodel = 0;
+}
+
+// @ Unzoom__6CTSGun @0x71748 — leave the scope: clear the view FOV and, if the viewmodel was hidden,
+// restore it to the weapon's v_model.
+void CTSGun::Unzoom()
+{
+	m_pPlayer->pev->fov = 0;
+	if (m_pPlayer->pev->viewmodel == 0)
+	{
+		const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+		if (wi->pszViewModel)
+			m_pPlayer->pev->viewmodel = MAKE_STRING(wi->pszViewModel);
+	}
+}
+#endif
 
 // @ UpdateClientData__6CTSGun @0x758c8 — send the TS WeaponInfo HUD message (the ammo
 // readout) on change. The original packs the active s_weapon_status slot:
@@ -1472,6 +1564,23 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	const int caliber = wi->iCaliber;
 	const int reserve = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
+
+	// ActItems — broadcast this player's active-weapon attach mask to ALL clients (so everyone sees
+	// the laser/flashlight, not just the owner) when it changes. The visible attachments (laser bit 2,
+	// flashlight bit 4) are rendered client-side from the muzzle (cl_dll/ts_attachments.cpp). Wire:
+	// BYTE playerIndex, BYTE attachMask (client handler FUN_1004fa70). Broadcast separately from the
+	// owner-only WeaponInfo below, and BEFORE its early-out, so an attach change always propagates.
+	const int activeAttach = m_items[m_weaponType].attach;
+	if (activeAttach != m_iClientAttach)
+	{
+		if (gmsgActItems == 0)
+			gmsgActItems = REG_USER_MSG("ActItems", 2);
+		m_iClientAttach = activeAttach;
+		MESSAGE_BEGIN(MSG_ALL, gmsgActItems);
+		WRITE_BYTE(ENTINDEX(pPlayer->edict())); // player entity index
+		WRITE_BYTE(activeAttach);               // attach mask (bit1 silencer / 2 laser / 4 flash / 8 scope)
+		MESSAGE_END();
+	}
 
 	if (m_weaponType == m_iClientWeaponType && m_iClip == m_iClientClip &&
 		reserve == m_iClientReserve && m_fireMode == m_iClientFireMode)
@@ -1580,6 +1689,29 @@ void CTSGun::ItemPostFrame()
 			CloseCombatAttack(true);
 		else if (wi->iFireType == TSFT_KNIFE)
 			ThrowKnife();
+		else if ((m_items[m_weaponType].attach & 8) &&
+			wi->iFireType != TSFT_AKIMBO && wi->iFireType != TSFT_AKIMBO_ONLY)
+		{
+			// @ CTSGun::SecondaryAttack@0x817a8 SCOPED branch (item attach & 8 — bought or built-in scope):
+			// right-click cycles the scope FOV: 0 (none) -> zoomFov1 -> zoomFov2 -> back to 0. The view FOV +
+			// viewmodel-hide are player pev fields the server networks to the client, so the zoom is server-
+			// authoritative (no client prediction needed). Timers re-arm primary +0.3 / secondary +1.0 (the
+			// recovered doubles @0xf7fb8 / @0xf6df8), the same as the hold-position toggle.
+#ifndef CLIENT_DLL
+			const float fov = m_pPlayer->pev->fov;
+			if (fov == 0.0f)
+			{
+				if (wi->zoomFov1 != 0)
+					Zoom(wi->zoomFov1);
+			}
+			else if (wi->zoomFov2 == 0 || (float)wi->zoomFov2 == fov)
+				Unzoom();
+			else
+				Zoom(wi->zoomFov2);
+#endif
+			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;
+			m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 1.0f;
+		}
 		else if (wi->iHoldChange >= 0 &&
 			wi->iFireType != TSFT_AKIMBO && wi->iFireType != TSFT_AKIMBO_ONLY)
 		{
@@ -1594,6 +1726,14 @@ void CTSGun::ItemPostFrame()
 			SendWeaponAnim(m_bHoldPosition ? wi->iHoldChange : wi->iHoldRechange);
 			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;
 			m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 1.0f;
+		}
+		else if (m_pPlayer->m_iKungFu)
+		{
+			// KUNG-FU POWERUP: while held it lets you close-combat WHILE ARMED — right-click throws a
+			// kung-fu KICK (a leg attack; the weapon stays in hand). This is the fallback AFTER the
+			// weapon's own secondary (scope/hold-stance), so guns without one gain the kick. (Exact
+			// in-game trigger is RE-approximate — flagged for refinement once live-confirmed.)
+			CloseCombatAttack(true);
 		}
 	}
 	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())

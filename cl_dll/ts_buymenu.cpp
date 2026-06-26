@@ -356,7 +356,25 @@ bool CHudTSBuyMenu::QueueWeapon(int id, int attachMask, bool akimboOrFull, bool 
 			Recount();
 			return true;
 		}
-		RemoveSlot(i); // re-buy toggles off
+		// 2nd buy of an akimbo-capable single -> COMBINE into akimbo (the server gives the akimbo
+		// variant). Tentatively upgrade, then revert if it busts the budget / slot cap. Re-buying an
+		// already-akimbo (or non-akimbo) weapon toggles it off.
+		if (w && w->akimbo >= 0 && !m_slots[i].akimbo)
+		{
+			const int prevCost = m_slots[i].cost;
+			m_slots[i].akimbo = true;
+			m_slots[i].cost = WeaponCost(id, m_slots[i].attachMask, true);
+			Recount();
+			if (m_spent > TS_BUDGET || m_slotsUsed > TS_SLOTCAP)
+			{
+				m_slots[i].akimbo = false;
+				m_slots[i].cost = prevCost;
+				Recount();
+				return false;
+			}
+			return true;
+		}
+		RemoveSlot(i); // re-buy steps down: akimbo -> single (RemoveSlot), single -> off
 		return true;
 	}
 
@@ -382,6 +400,16 @@ void CHudTSBuyMenu::RemoveSlot(int i)
 {
 	if (i < 0 || i >= MAX_SLOTS || !m_slots[i].used)
 		return;
+	// An akimbo slot steps DOWN to its single first (removing the dual-wield keeps the base weapon);
+	// a second remove deletes it. Non-akimbo slots delete outright.
+	if (m_slots[i].akimbo)
+	{
+		m_slots[i].akimbo = false;
+		m_slots[i].cost = WeaponCost(m_slots[i].weaponId, m_slots[i].attachMask, false);
+		Recount();
+		m_useNewConfig = true;
+		return;
+	}
 	m_slots[i] = Slot{};
 	Recount();
 	m_useNewConfig = true;
@@ -433,8 +461,12 @@ void CHudTSBuyMenu::Apply()
 				kevlar = true;
 			continue;
 		}
+		// An akimbo slot ships the akimbo VARIANT type (w->akimbo) directly — GiveTSWeapon gives the
+		// dual-wield (the single it derives from is loaded into both barrels). Non-akimbo emits its own id.
+		const TSWeapon* sw = WeaponInfo(s.weaponId);
+		const int emitId = (s.akimbo && sw && sw->akimbo >= 0) ? sw->akimbo : s.weaponId;
 		char buf[32];
-		sprintf(buf, " %d_%d", s.weaponId, s.count < 1 ? 1 : s.count);
+		sprintf(buf, " %d_%d", emitId, s.count < 1 ? 1 : s.count);
 		strncat(cmd, buf, sizeof(cmd) - strlen(cmd) - 1);
 		any = true;
 	}
@@ -442,6 +474,29 @@ void CHudTSBuyMenu::Apply()
 	{
 		strncat(cmd, "\n", sizeof(cmd) - strlen(cmd) - 1);
 		gEngfuncs.pfnClientCmd(cmd);
+	}
+
+	// gun attachments (silencer/laser/flashlight/scope = bits 1/2/4/8) — the original's bare item list
+	// `tki <bits> <bits> …` (FUN_10039400 accessory branch, fmt DAT_10091200 = "%i "). Each routes to the
+	// server's CBasePlayer::AddItem → the ACTIVE CTSGun (CTSGun::AddItem). The silencer (bit 1) drives the
+	// fire-sil sound + muzzle suppression. SLICE: the wire carries no per-weapon target, so in a multi-
+	// weapon loadout the attachment lands on whichever weapon is WIELDED when applied (buy the silencer
+	// while holding the gun you want it on); per-weapon spawn-time targeting needs a BuyArmament RE pass.
+	char tki[256] = "tki";
+	bool anyItem = false;
+	for (const auto& s : m_slots)
+	{
+		if (!s.used || s.accessory || s.attachMask == 0)
+			continue;
+		char buf[16];
+		sprintf(buf, " %d", s.attachMask);
+		strncat(tki, buf, sizeof(tki) - strlen(tki) - 1);
+		anyItem = true;
+	}
+	if (anyItem)
+	{
+		strncat(tki, "\n", sizeof(tki) - strlen(tki) - 1);
+		gEngfuncs.pfnClientCmd(tki);
 	}
 
 	// the auto-bought ammo: one `tka <caliber>_<units>` batch (FUN_10039400's tka loop).
@@ -681,7 +736,7 @@ void CHudTSBuyMenu::MouseToEntry(int mx, int my, int& level, int& key)
 		int line = 1;
 		for (int bit = 0; bit < 4; bit++)
 		{
-			if (!AttachAvailable(m_weapon, bit))
+			if (!AttachAvailable(m_weapon, 1 << bit)) // bit VALUE, matching the display loop (DrawColumnDetail)
 				continue;
 			if (row == line) { level = LVL_DETAIL; key = bit + 2; return; }
 			line++;
@@ -775,15 +830,30 @@ void CHudTSBuyMenu::DrawLoadoutPreview()
 				}
 				continue;
 			}
-			const TSWeapon* w = WeaponInfo(s.weaponId);
-			if (!w || w->hudCol != col)
+			// A slot shows its single in the single's column; an AKIMBO slot ALSO shows the akimbo
+			// variant in column 5 (so the bar shows BOTH the base gun and the dual-wield). Figure out
+			// which icon, if any, belongs in THIS column.
+			const TSWeapon* base = WeaponInfo(s.weaponId);
+			int dispId = -1;
+			bool isAkimboIcon = false;
+			if (base && base->hudCol == col)
+				dispId = s.weaponId; // the single (always shown)
+			else if (s.akimbo && base && base->akimbo >= 0)
+			{
+				const TSWeapon* ak = WeaponInfo(base->akimbo);
+				if (ak && ak->hudCol == col) { dispId = base->akimbo; isAkimboIcon = true; }
+			}
+			if (dispId < 0)
 				continue;
+			const TSWeapon* w = WeaponInfo(dispId);
 
 			// number to the LEFT of the icon (FUN_10036af0): for ammo weapons = the auto-bought rounds
 			// (Glock 210 / M16 120), for full-load throwables = the count (Seal Knife 10 / Combat Knife 5).
+			// The akimbo icon carries no separate count (its ammo shows on the single's row).
 			int iconX = x;
 			int cal = WeaponCaliber(s.weaponId);
-			int lead = (cal > 0 && cal < 16 && m_ammoRounds[cal] > 0) ? m_ammoRounds[cal]
+			int lead = isAkimboIcon ? 0
+					   : (cal > 0 && cal < 16 && m_ammoRounds[cal] > 0) ? m_ammoRounds[cal]
 					   : (s.count > 1 ? s.count : 0);
 			if (lead > 0)
 			{
@@ -792,10 +862,10 @@ void CHudTSBuyMenu::DrawLoadoutPreview()
 				TSHud_DrawString(x, y + 4, ScreenWidth, cnt, hr, hg, hb);
 				iconX = x + 0x18;
 			}
-			if (m_hIcon[s.weaponId])
+			if (m_hIcon[dispId])
 			{
-				SPR_Set(m_hIcon[s.weaponId], hr, hg, hb);
-				SPR_DrawAdditive(0, iconX, y, &m_rcIcon[s.weaponId]);
+				SPR_Set(m_hIcon[dispId], hr, hg, hb);
+				SPR_DrawAdditive(0, iconX, y, &m_rcIcon[dispId]);
 			}
 			else
 			{
@@ -916,31 +986,33 @@ void CHudTSBuyMenu::DrawColumnDetail()
 	const TSWeapon* w = WeaponInfo(m_weapon);
 	int baseCost = WeaponCost(m_weapon, m_attachMask, false);
 	bool afford = m_spent + baseCost <= TS_BUDGET;
-	if (afford) { r = dr; g = dg; b = db; } else { COL_RED; }
+	if (afford) { COL_GREEN; } else { COL_RED; } // a confirm action — green like "7 Random"
 	DrawEntry(c, "1 Buy", r, g, b);
 
 	char buf[48];
-	int key = 2;
+	// Attachments use FIXED keys 2..5 (silencer/laser/flashlight/scope = bits 1/2/4/8), matching the
+	// key handler (`bit = 1 << (key-2)`). AttachAvailable takes the bit VALUE (1<<bit), not the index —
+	// the s_attachName/s_attachCost arrays are indexed by `bit`. Only supported, not-yet-bought ones show
+	// (so the numbering can have gaps, e.g. the SOCOM has no Scope), but each attachment keeps its own key.
 	for (int bit = 0; bit < 4; bit++)
 	{
-		if (!AttachAvailable(m_weapon, bit))
+		if (!AttachAvailable(m_weapon, 1 << bit))
 			continue;
 		int cost = m_spent + baseCost + s_attachCost[bit];
 		if (cost <= TS_BUDGET) { r = dr; g = dg; b = db; } else { COL_RED; }
-		sprintf(buf, "%d %s  %d", key, s_attachName[bit], s_attachCost[bit]);
+		sprintf(buf, "%d %s  %d", bit + 2, s_attachName[bit], s_attachCost[bit]);
 		DrawEntry(c, buf, r, g, b);
-		key++;
 	}
 	if (w && w->akimbo >= 0)
 	{
 		bool ak = m_spent + WeaponCost(m_weapon, m_attachMask, true) <= TS_BUDGET;
-		if (ak) { r = dr; g = dg; b = db; } else { COL_RED; }
+		if (ak) { COL_GREEN; } else { COL_RED; } // a confirm action — green like "7 Random"
 		DrawEntry(c, "6 Buy Akimbo", r, g, b);
 	}
 	else if (w && w->full)
 	{
 		bool fl = m_spent + WeaponCost(m_weapon, m_attachMask, true) <= TS_BUDGET;
-		if (fl) { r = dr; g = dg; b = db; } else { COL_RED; }
+		if (fl) { COL_GREEN; } else { COL_RED; } // a confirm action — green like "7 Random"
 		DrawEntry(c, "6 Full Load", r, g, b);
 	}
 	if (m_level == LVL_DETAIL)

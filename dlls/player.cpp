@@ -155,16 +155,10 @@ LINK_ENTITY_TO_CLASS(player, CBasePlayer);
 
 void CBasePlayer::Pain()
 {
-	float flRndSound; //sound randomizer
-
-	flRndSound = RANDOM_FLOAT(0, 1);
-
-	if (flRndSound <= 0.33)
-		EMIT_SOUND(ENT(pev), CHAN_VOICE, "player/pl_pain5.wav", 1, ATTN_NORM);
-	else if (flRndSound <= 0.66)
-		EMIT_SOUND(ENT(pev), CHAN_VOICE, "player/pl_pain6.wav", 1, ATTN_NORM);
-	else
-		EMIT_SOUND(ENT(pev), CHAN_VOICE, "player/pl_pain7.wav", 1, ATTN_NORM);
+	// TS player pain voice (player/pain1..4.wav), CHAN_VOICE — replaces the stock pl_pain5..7.
+	char snd[20];
+	sprintf(snd, "player/pain%d.wav", RANDOM_LONG(1, 4));
+	EMIT_SOUND(ENT(pev), CHAN_VOICE, snd, 1, ATTN_NORM);
 }
 
 /* 
@@ -337,6 +331,30 @@ void CBasePlayer::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vec
 		SpawnBlood(ptr->vecEndPos, BloodColor(), flDamage); // a little surface blood.
 		TraceBleed(flDamage, vecDir, ptr, bitsDamageType);
 		AddMultiDamage(pevAttacker, this, flDamage, bitsDamageType);
+
+#ifndef CLIENT_DLL
+		// TS body-impact sound on the victim (RE TraceAttack@0x901cc: EMIT_SOUND_DYN on the victim,
+		// CHAN_BODY). A HEAD hit -> headshot; a torso hit while wearing kevlar -> kevlarhit (the round
+		// smacks the vest); otherwise a random bodyhit. CHAN_BODY collapses a multi-pellet shot to one
+		// audible hit. Bullet/club impacts only (explosions/falls have their own feedback).
+		if (bitsDamageType & (DMG_BULLET | DMG_CLUB))
+		{
+			char snd[24];
+			const int hg = ptr->iHitgroup;
+			const bool torso = (hg == HITGROUP_GENERIC || hg == HITGROUP_CHEST || hg == HITGROUP_STOMACH);
+			if (hg == HITGROUP_HEAD)
+			{
+				const int n = RANDOM_LONG(0, 2);
+				if (n == 0) strcpy(snd, "player/headshot.wav");
+				else sprintf(snd, "player/headshot%d.wav", n); // headshot1 / headshot2
+			}
+			else if (m_bHasKevlar && torso)
+				strcpy(snd, "player/kevlarhit.wav"); // round stopped by the vest
+			else
+				sprintf(snd, "player/bodyhit%d.wav", RANDOM_LONG(1, 4));
+			EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, snd, VOL_NORM, ATTN_NORM, 0, PITCH_NORM);
+		}
+#endif
 	}
 }
 
@@ -433,6 +451,15 @@ bool CBasePlayer::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, fl
 	ftrivial = (pev->health > 75 || m_lastDamageAmount < 5);
 	fmajor = (m_lastDamageAmount > 25);
 	fcritical = (pev->health < 30);
+
+	// TS pain VOICE (player/pain1-4) — the player grunts when hit, throttled so a burst doesn't spam it.
+	// Separate from the body-impact sound in TraceAttack (the round smacking flesh/vest). Skips trivial
+	// scratches; the death cry is handled by DeathSound.
+	if (fTookDamage && pev->health > 0 && !ftrivial && gpGlobals->time >= m_flNextPainTime)
+	{
+		Pain();
+		m_flNextPainTime = gpGlobals->time + 0.7f;
+	}
 
 	// handle all bits set in this damage message,
 	// let the suit give player the diagnosis
@@ -1965,6 +1992,150 @@ void CBasePlayer::PreThink()
 	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame (sets the slow triple)
 	SlowMotionFlow();     // TS: every 0.5s, slow self + LOS-visible enemies while a slow powerup is active
 
+	// TS SUPER-JUMP powerup — an INDEPENDENT persistent powerup (m_bLowGravity, set by PlayerAddPowerUp)
+	// that coexists with the held slow/double slot. The original sets an engine physinfo key ("mj") that
+	// the engine's movement reads for the lift; our engine has no such hook, so we drive it here. Behaviour
+	// (per playtest): hold DUCK+JUMP to thrust upward, capped by a per-launch fuel budget (the max height);
+	// RELEASE jump and you fall (gravity is normal). Fuel refills on the ground; landing thuds.
+	if (m_bLowGravity)
+	{
+		const bool onGround = (pev->flags & FL_ONGROUND) != 0;
+		const bool holdLift = (pev->button & IN_JUMP) && (pev->button & IN_DUCK);
+		const float kLiftSpeed = 240.0f; // upward velocity held while thrusting
+		const float kFuelMax = 1.2f;     // seconds of lift per launch -> the max height
+		if (onGround)
+		{
+			m_flSuperJumpFuel = kFuelMax; // refuel on the ground
+			if (m_bSuperJumpAir)          // just landed after a flight
+			{
+				EMIT_SOUND(ENT(pev), CHAN_BODY, "player/superjump-land.wav", VOL_NORM, ATTN_NORM);
+				m_bSuperJumpAir = 0;
+			}
+		}
+		if (holdLift && m_flSuperJumpFuel > 0.0f && !onGround)
+		{
+			// sustained lift while held + fuel remains; gravity still pulls (release => fall)
+			if (pev->velocity.z < kLiftSpeed)
+				pev->velocity.z = kLiftSpeed;
+			m_flSuperJumpFuel -= gpGlobals->frametime;
+			m_bSuperJumpAir = 1;
+		}
+		else if (!onGround)
+			m_bSuperJumpAir = 1;
+	}
+
+	// TS double-jump WALL-CLIMB (RE CTSStunt::CheckForWallClimb@0x9ae6c + GoWallClimb@0x9aa1c): when
+	// AIRBORNE and you press JUMP again (a "double jump") while facing a wall right in front of you, you
+	// kick up the wall (anim 0x38 + player/airwheel.wav). Each kick costs fuel; the budget refills on the
+	// ground and is scaled DOWN by how loaded you are (heavier loadout = climb less — the original keys it
+	// on carry weight). This is a base stunt, independent of any powerup.
+	{
+		const bool onGround = (pev->flags & FL_ONGROUND) != 0;
+		bool climbing = false;
+		UTIL_MakeVectors(pev->v_angle);
+		const Vector fwd = gpGlobals->v_forward, right = gpGlobals->v_right;
+
+		// Wall right in front of us?
+		TraceResult wtr;
+		UTIL_TraceLine(pev->origin, pev->origin + fwd * 40.0f, ignore_monsters, dont_ignore_glass, ENT(pev), &wtr);
+		const bool wallAhead = (wtr.flFraction < 1.0f && wtr.pHit && VARS(wtr.pHit)->solid == SOLID_BSP);
+
+		Vector hv = pev->velocity; hv.z = 0;
+		const float spd2d = hv.Length();
+		// weight factor 0 (heavy / maxspeed 210) .. 1 (light / maxspeed 330): pev->maxspeed is the slot-
+		// based speed (GetSpeedBySlots — heavier loadout = lower maxspeed). Caps how high you wall-climb.
+		float wf = (pev->maxspeed - 210.0f) / 120.0f;
+		wf = wf < 0.0f ? 0.0f : (wf > 1.0f ? 1.0f : wf);
+
+		if (onGround)
+		{
+			m_flWallClimbFuel = 1.0f + 2.5f * wf; // refuel the wall-climb KICK budget (heavy ~1, light ~3.5)
+			if (m_bDiveRolling)                   // landed out of a dive/roll
+			{
+				EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, ATTN_NORM, 0, 95 + RANDOM_LONG(0, 0x1f));
+				if (m_iDiveRollDir != 1)          // forward/side land PRONE; backward on feet
+				{
+					m_flProneUntil = gpGlobals->time + 0.6f;
+					m_TSAnim.PlayKungFu(this, "crouch_idle", 0.6f);
+				}
+				m_bDiveRolling = 0;
+			}
+			m_bDivePressed = 0; // dive re-arms once you touch the ground
+		}
+		else // airborne — WALL-CLIMB: paced auto-kicks while JUMP is HELD against a wall (no re-press),
+		{    // capped by the weight-scaled kick budget. Each kick is a discrete up-hop ~0.32s apart.
+			if ((pev->button & IN_JUMP) && wallAhead && m_flWallClimbFuel >= 1.0f && gpGlobals->time >= m_flNextClimbKick)
+			{
+				pev->velocity.z = 230.0f;   // one up-the-wall kick (paced, NOT every frame)
+				pev->velocity.x *= 0.5f;     // hug the wall
+				pev->velocity.y *= 0.5f;
+				m_flWallClimbFuel -= 1.0f;
+				m_flNextClimbKick = gpGlobals->time + 0.32f;
+				climbing = true;
+				m_TSAnim.PlayKungFu(this, "longjump", 0.32f);
+				EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, ATTN_NORM, 0, 95 + RANDOM_LONG(0, 0x1f));
+			}
+			// DOUBLE-JUMP dive-ROLL: a fresh JUMP press in the air while moving, not climbing/at a wall.
+			if (!climbing && (m_afButtonPressed & IN_JUMP) && !wallAhead && !m_bDiveRolling && spd2d >= 80.0f)
+			{
+				Vector v = hv * (1.0f / spd2d);
+				const float df = DotProduct(v, fwd), dr = DotProduct(v, right);
+				int dir;
+				if (fabs(df) >= fabs(dr)) dir = (df >= 0) ? 0 : 1;
+				else                      dir = (dr >= 0) ? 3 : 2;
+				pev->velocity.x = v.x * 320.0f;
+				pev->velocity.y = v.y * 320.0f;
+				pev->velocity.z = 140.0f;
+				m_bDiveRolling = 1;
+				m_iDiveRollDir = (byte)dir;
+				m_TSAnim.PlayKungFu(this, "longjump", 0.6f);
+			}
+		}
+		m_bWasClimbing = climbing ? 1 : 0;
+
+		// +alt1 DIVE (RE GoDive@0x8b1a0) — works on the GROUND or in the AIR: one forward dive per press,
+		// propelled along your aim, landing prone (dive.wav). Re-arms when you next touch the ground.
+		if ((pev->button & IN_ALT1) && !m_bDivePressed && !climbing)
+		{
+			m_bDivePressed = 1;
+			EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/dive.wav", VOL_NORM, ATTN_NORM, 0, 95 + RANDOM_LONG(0, 0x1f));
+			pev->velocity = fwd * 360.0f;
+			pev->velocity.z = 150.0f;            // a hop off the ground into the dive
+			m_bDiveRolling = 1;
+			m_iDiveRollDir = 0;                  // forward -> land prone
+			m_TSAnim.PlayKungFu(this, "longjump", 0.6f);
+		}
+
+		// DIVE / PRONE = the player goes SMALL (RE: the dive changes the bbox): a short ducked hull + a low
+		// eye, so others can land on top of you and your view drops near the floor. Active while diving
+		// (m_bDiveRolling) or in the post-landing prone window; restored when it ends (if there's headroom).
+		const bool proneNow = m_bDiveRolling || (m_flProneUntil > gpGlobals->time);
+		if (proneNow)
+		{
+			pev->flags |= FL_DUCKING;
+			m_afPhysicsFlags |= PFLAG_DUCKING;
+			pev->view_ofs.z = 12.0f;             // ducked/prone eye height (networked -> view drops)
+			if (!m_bProneSize)
+			{
+				UTIL_SetSize(pev, Vector(-16, -16, -18), Vector(16, 16, 18)); // short ducked hull
+				m_bProneSize = 1;
+			}
+		}
+		else if (m_bProneSize)
+		{
+			// stand back up only if there's headroom above (else stay short until there is)
+			TraceResult up;
+			UTIL_TraceHull(pev->origin, pev->origin, ignore_monsters, human_hull, ENT(pev), &up);
+			if (!up.fStartSolid && !up.fAllSolid)
+			{
+				pev->flags &= ~FL_DUCKING;
+				pev->view_ofs.z = 28.0f;
+				UTIL_SetSize(pev, Vector(-16, -16, -36), Vector(16, 16, 36));
+				m_bProneSize = 0;
+			}
+		}
+	}
+
 	// TS health-powerup over-heal decay (RE PreThink @0x808cc, player+0x73c = m_flHealthRegen): the
 	// health powerup boosts health past max_health; while m_flHealthRegen is armed it bleeds 1 HP/sec
 	// back down until health reaches max_health, then disarms. (Set by the health powerup grant.)
@@ -3112,6 +3283,10 @@ void CBasePlayer::Spawn()
 	pev->dmg_save = 0;
 	pev->friction = 1.0;
 	pev->gravity = 1.0;
+	// TS per-life powerups (independent of the held slot) clear on respawn: super-jump (low-gravity)
+	// and kung-fu. (pev->gravity reset to 1.0 just above covers the super-jump restore.)
+	m_bLowGravity = 0;
+	m_iKungFu = 0;
 	m_bitsHUDDamage = -1;
 	m_bitsDamageType = 0;
 	m_afPhysicsFlags = 0;

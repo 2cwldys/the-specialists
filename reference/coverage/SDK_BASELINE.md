@@ -258,23 +258,23 @@ _Noisier: mixes methods TS genuinely dropped with accessors our newer SDK added.
 | `CBasePlayer` | Center, ClearWeaponBit, DeathMessage, EquipWeapon, FlashlightIsOn, FlashlightTurnOff, FlashlightTurnOn, HasPlayerItemFromID, HasSuit, InitStatusBar, InternalSendSingleAmmoUpdate, Observer_CheckProperties, Observer_CheckTarget, SendSingleAmmoUpdate, SetHasSuit, SetPrefsFromUserinfo, SetWeaponAnimType, SetWeaponBit, UpdateStatusBar |
 | `CBaseEntity` | BlockedSet, FStrEq, FunctionCheck, MyTogglePointer, ThinkSet, TouchSet, UseSet |
 | `CBaseToggle` | IsAllowedToSpeak, MyTogglePointer, PlayScriptedSentence, PlaySentence, PlaySentenceCore, SentenceStop |
-| `CBasePlayerItem` | CanAddToPlayer, DecrementTimers, GetWeaponData, SetWeaponData |
 | `CBaseButton` | ButtonShot, IsAllowedToSpeak, RotSpawn, SparkSoundCache |
-| `CRestore` | Empty, PrecacheMode, SetGlobalMode |
-| `CSaveRestoreBuffer` | EntityFlags, GetData, IsValidSaveRestoreData |
+| `CBasePlayerItem` | CanAddToPlayer, DecrementTimers, GetWeaponData, SetWeaponData |
 | `CBasePlayerWeapon` | CallDoRetireWeapon, DoRetireWeapon, GetNextAttackDelay |
-| `CPushable` | DamageDecal, StopSound |
+| `CSaveRestoreBuffer` | EntityFlags, GetData, IsValidSaveRestoreData |
+| `CRestore` | Empty, PrecacheMode, SetGlobalMode |
 | `CGenericCycler` | GenericCyclerSpawn, Vector |
-| `CGamePlayerEquip` | Restore, Save |
+| `CPushable` | DamageDecal, StopSound |
 | `CMomentaryDoor` | DoorMoveDone, StopMoveSound |
-| `CHalfLifeRules` | FAllowFlashlight |
-| `CGlobalState` | EntityInTable |
-| `CBreakable` | SparkWhenHit |
-| `CHalfLifeMultiplay` | FAllowFlashlight |
-| `CChangeLevel` | TriggerChangeLevel |
+| `CGamePlayerEquip` | Restore, Save |
 | `CRuleBrushEntity` | ObjectCaps |
-| `CFuncIllusionary` | SloshTouch |
-| `CVoiceGameMgr` | PlayerHasBlockedPlayer |
+| `CBreakable` | SparkWhenHit |
+| `CGlobalState` | EntityInTable |
 | `CPathTrack` | Sparkle |
 | `CCycler` | IsAllowedToSpeak |
+| `CChangeLevel` | TriggerChangeLevel |
+| `CVoiceGameMgr` | PlayerHasBlockedPlayer |
+| `CHalfLifeMultiplay` | FAllowFlashlight |
+| `CHalfLifeRules` | FAllowFlashlight |
 | `CFuncTrackTrain` | Nearest |
+| `CFuncIllusionary` | SloshTouch |

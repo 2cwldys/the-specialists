@@ -54,6 +54,11 @@ public:
 	void Reload() override;
 	void ShotgunReload(); // @ ShotgunReload__6CTSGun @0x84aac — pump shell-by-shell 3-phase machine
 	void WeaponIdle() override;
+	int  AddItem(int bits); // @ AddItem__6CTSGuni @0x80794 — attach a gun item (silencer/laser/.. bits 1/2/4/8) to the active weapon
+#ifndef CLIENT_DLL
+	void Zoom(int fov);     // @ Zoom__6CTSGuni @0x71710 — scope: set pev->fov (+ hide viewmodel for high-mag scopes)
+	void Unzoom();          // @ Unzoom__6CTSGun @0x71748 — scope: clear pev->fov + restore the viewmodel
+#endif
 
 	// Client prediction (step 3b/3c) — SCAFFOLDED but DISABLED. Returning true here (with the
 	// client registration in hl_weapons.cpp) makes the server pack CTSGun into weapon_data and the
@@ -131,6 +136,7 @@ public:
 	int m_iClientClip = -1;
 	int m_iClientReserve = -1;
 	int m_iClientFireMode = -1;
+	int m_iClientAttach = -1; // last-broadcast active-weapon attach mask (ActItems change-detect)
 
 	// Cached per-weapon-type WStatus (the weapon-select bar): clip if owned, else -1.
 	// The original sends WStatus per arsenal slot on change; we diff against this.

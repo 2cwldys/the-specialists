@@ -204,10 +204,12 @@ void TSUpdateSlowBullets()
 			ApplyMultiDamage(owner->pev, owner->pev);
 		}
 		// Bullet impact ricochet (TS uses debris/ric, not material texture sounds — PlayTextureSounds is
-		// off in MP). Pitched DOWN by the shooter's slow factor so slow-mo deepens the impact.
+		// off in MP). Pitched DOWN by the shooter's slow factor so slow-mo deepens the impact. Emitted on
+		// the OWNER (the shooter watching their slow-mo bullet), NOT EMIT_AMBIENT_SOUND on the world — the
+		// latter spawns a PERSISTENT static sound at the point (heard "as you walk up to old impacts").
 		char ric[20];
 		sprintf(ric, "debris/ric%d.wav", RANDOM_LONG(1, 5));
-		UTIL_EmitAmbientSound(CWorld::World->edict(), b.pos, ric, VOL_NORM, ATTN_STATIC, 0, TSRecordedSlowPitch(owner));
+		EMIT_SOUND_DYN(ENT(owner->pev), CHAN_AUTO, ric, VOL_NORM, ATTN_NORM, 0, TSRecordedSlowPitch(owner));
 		DecalGunshot(&tr, BULLET_PLAYER_9MM); // the bullet hole (this was missing)
 		KillBeam(b);
 		b.active = 0;

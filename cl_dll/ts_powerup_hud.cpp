@@ -12,6 +12,8 @@
 #include "cl_util.h"
 #include "parsemsg.h"
 #include "ts_hud.h"
+#include "cl_entity.h"  // cl_entity_t (GetLocalPlayer)
+#include "event_api.h"  // pEventAPI->EV_PlaySound (goslow.wav, the original's mechanism)
 #include "ts_powerup_hud.h"
 
 #include <stdio.h>
@@ -24,6 +26,9 @@ DECLARE_MESSAGE(m_TSPowerUp, TSSlowMo)
 #define PWUP_SLOWMO    0x01
 #define PWUP_SLOWPAUSE 0x08
 #define PWUP_DBLFIRE   0x10
+// independent persistent powerups (bottom-center indicators)
+#define TS_PWUP_KUNGFU_BIT    0x04
+#define TS_PWUP_SUPERJUMP_BIT 0x100
 
 bool CHudTSPowerUp::Init()
 {
@@ -46,6 +51,11 @@ void CHudTSPowerUp::Reset()
 	m_iHeldType = 0;
 	m_iSecondsAvail = 0;
 	m_bActive = false;
+	m_bKungFu = false;    // per-life independent powerups clear on respawn (ResetHUD)
+	m_bSuperJump = false;
+	m_bSlowActive = false;
+	m_iHeartbeatsLeft = 0;
+	m_flNextHeartbeat = 0;
 	m_flCountdownEnd = 0;
 	m_flSlowAmt = 100.0f;
 }
@@ -56,8 +66,12 @@ bool CHudTSPowerUp::MsgFunc_PwUp(const char* pszName, int iSize, void* pbuf)
 	BEGIN_READ(pbuf, iSize);
 	int type = READ_SHORT();
 	int dur = READ_BYTE();
-	// the one-shot grant notifies (kung-fu / low-grav) come through PwUp too, with dur 0 and a
-	// non-held type — ignore those here (they aren't a held timed powerup).
+	// The INDEPENDENT persistent powerups (kung-fu = bit 4, super-jump/low-grav = bit 0x100) come through
+	// PwUp with dur 0 — they're NOT the held timed slot; latch a bottom-center indicator that persists
+	// until respawn (Reset). They coexist with a held slow/double powerup.
+	if (type == TS_PWUP_KUNGFU_BIT)  { m_bKungFu = true; return true; }
+	if (type == TS_PWUP_SUPERJUMP_BIT) { m_bSuperJump = true; return true; }
+
 	if (type == PWUP_SLOWMO || type == PWUP_SLOWPAUSE || type == PWUP_DBLFIRE)
 	{
 		if (type != m_iHeldType)
@@ -91,6 +105,23 @@ bool CHudTSPowerUp::MsgFunc_TSSlowMo(const char* pszName, int iSize, void* pbuf)
 	BEGIN_READ(pbuf, iSize);
 	float amt = READ_COORD();
 	m_flSlowAmt = (amt == 0.0f) ? 100.0f : amt;
+
+	// Slow-mo INITIATION (RE FUN_1004bef0): the normal->slow transition plays goslow.wav, and (RE the
+	// heartbeat state machine in FUN_1004ce10) kicks off heartbeat1.wav beats that fade in volume. We
+	// edge-detect entry here: slowing means m_flSlowAmt drops below ~normal.
+	const bool slowNow = m_flSlowAmt < 99.0f;
+	if (slowNow && !m_bSlowActive)
+	{
+		// goslow.wav — play it the way the ORIGINAL does (RE FUN_1004bef0): EV_PlaySound on the local
+		// player, channel 0, vol 1.0, attn 0.8, pitch 100. (PlaySoundByName wasn't reliably audible.)
+		cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+		if (lp)
+			gEngfuncs.pEventAPI->EV_PlaySound(lp->index, lp->origin, CHAN_AUTO, "goslow.wav",
+				1.0f, ATTN_NORM, 0, 100);
+		m_iHeartbeatsLeft = 4;                    // 4 heartbeats, fading
+		m_flNextHeartbeat = 0.0f;                 // 0 = "play the first beat on the next Draw" (uses flTime)
+	}
+	m_bSlowActive = slowNow;
 	return true;
 }
 
@@ -98,6 +129,29 @@ bool CHudTSPowerUp::MsgFunc_TSSlowMo(const char* pszName, int iSize, void* pbuf)
 // RE: client DAT_100963e8 — consumed by the weapon-fire events to pitch the gunshot sounds (the more
 // time is dilated, the deeper they sound). See ev_ts.cpp.
 float g_flClientSlow = 1.0f;
+
+// Draw one independent-powerup indicator centred horizontally at row `y`: the named sprite (additive,
+// drawn at its natural colour) if it loads, otherwise a whitish text label. It's a binary "have it /
+// don't" indicator — NOT tinted green like the timed slow-powerup HUD. The original shows
+// sprites/weapons/<n>.spr here; that file isn't in this (partial) game-data extraction, so the by-name
+// SPR_Load returns 0 and we fall back to a label. (When the .spr is present it draws as the sprite.)
+static void DrawIndependentPowerup(const char* spriteName, const char* label, int y)
+{
+	const int wr = 200, wg = 200, wb = 200; // soft white
+	HSPRITE spr = SPR_Load(spriteName);
+	if (spr)
+	{
+		const int w = SPR_Width(spr, 0);
+		SPR_Set(spr, wr, wg, wb);
+		SPR_DrawAdditive(0, (ScreenWidth - w) / 2, y, NULL); // NULL rect = the whole sprite frame
+	}
+	else
+	{
+		int tw, th;
+		GetConsoleStringSize(label, &tw, &th);
+		TSHud_DrawString((ScreenWidth - tw) / 2, y, ScreenWidth, label, wr, wg, wb);
+	}
+}
 
 bool CHudTSPowerUp::Draw(float flTime)
 {
@@ -119,6 +173,28 @@ bool CHudTSPowerUp::Draw(float flTime)
 	// The slow-motion screen tint is drawn in V_CalcRefdef (cl_dll/view.cpp) via the engine screen-
 	// fade — the faithful teal RGBA(0,100,125) at alpha (1-slow)*50, NOT a green fill here. (That
 	// drives off g_flClientSlow, which this element eases above.)
+
+	// Slow-mo init heartbeats: 4 beats of heartbeat1.wav fading in volume (1.0 -> 0.25), spaced ~0.75s
+	// apart (slow, distinct beats — a stressed heartbeat in dilated time), kicked off on slow-mo entry.
+	// m_flNextHeartbeat == 0 is the "play the first beat now" sentinel; all timing is in flTime so the
+	// beats don't bunch up. heartbeat1.wav is a single beat, so we replay it.
+	if (m_iHeartbeatsLeft > 0 && (m_flNextHeartbeat == 0.0f || flTime >= m_flNextHeartbeat))
+	{
+		float vol = (float)m_iHeartbeatsLeft / 4.0f; // 1.0, 0.75, 0.5, 0.25
+		gEngfuncs.pfnPlaySoundByName("player/heartbeat1.wav", vol);
+		m_iHeartbeatsLeft--;
+		m_flNextHeartbeat = flTime + 0.75f;
+	}
+
+	// INDEPENDENT persistent powerups (kung-fu / super-jump): a bottom-center indicator each, shown the
+	// whole life once picked up and coexisting with any held slow/double powerup. Drawn BEFORE the held
+	// early-out below so they show even with nothing held. Sprite if it loads (sprites/weapons/<n>.spr),
+	// else a text label.
+	{
+		int y = gHUD.m_scrinfo.iHeight - 64;
+		if (m_bSuperJump) { DrawIndependentPowerup("sprites/weapons/superjump.spr", "Super Jump", y); y -= 28; }
+		if (m_bKungFu)    { DrawIndependentPowerup("sprites/weapons/kungfu.spr", "Kung-Fu", y); }
+	}
 
 	// The held-powerup label + seconds, at the TOP-LEFT, on the weapon-bar header row (raw
 	// coords: the bar's header is at y=8 with slot 1 at x=8, so the label overlays its left edge —

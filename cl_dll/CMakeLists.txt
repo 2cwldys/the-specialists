@@ -112,6 +112,7 @@ target_sources(client PRIVATE
 	ts_powerup_hud.cpp
 	ts_debris.cpp
 	ts_particles.cpp
+	ts_attachments.cpp
 	ts_status.cpp
 	ts_ammo.cpp
 	ts_weaponbar.cpp

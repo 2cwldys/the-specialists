@@ -58,6 +58,27 @@ static const char* const s_fireSound[] = {
 	/*34*/ nullptr, /*35*/ nullptr, /*36*/ "weapons/contender/fire.wav", /*37*/ "weapons/tmp/fire.wav",
 };
 
+// Silenced fire sound, indexed by tsweapon_t — used when the weapon has a SILENCER attached
+// (fire-event iparam2 bit0). nullptr = the weapon has no `-sil` variant in the binary's sound table
+// (it can't take a silencer, or it's silenced-base like the mp5sd which keeps its normal — already
+// quiet — fire.wav). The names are the literal `weapons/<w>/...fire-sil.wav` strings the original
+// client references (verified present in ts_i386.so + client.dll). Akimbo variants reuse their
+// single's `-sil` wav (beretta_akimbo/uzi_akimbo/mk23_akimbo/fnh_akimbo/skorpion_akimbo).
+static const char* const s_fireSilSound[] = {
+	/* 0*/ nullptr, /* 1*/ "weapons/glock/glock-fire-sil.wav", /* 2*/ "weapons/beretta/fire-sil.wav",
+	/* 3*/ "weapons/uzi/uzi-fire-sil.wav", /* 4*/ nullptr, /* 5*/ "weapons/m4/m4-fire-sil.wav",
+	/* 6*/ nullptr, /* 7*/ "weapons/mp5k/mp5k-fire-sil.wav", /* 8*/ "weapons/beretta/fire-sil.wav",
+	/* 9*/ "weapons/mk23/mk23-fire-sil.wav", /*10*/ "weapons/mk23/mk23-fire-sil.wav", /*11*/ nullptr,
+	/*12*/ "weapons/deagle/fire-sil.wav", /*13*/ nullptr, /*14*/ "weapons/fnh/fnh-fire-sil.wav",
+	/*15*/ "weapons/aug/aug-fire-sil.wav", /*16*/ "weapons/uzi/uzi-fire-sil.wav", /*17*/ "weapons/tmp/fire-sil.wav",
+	/*18*/ nullptr, /*19*/ "weapons/pdw/fire-sil.wav", /*20*/ nullptr,
+	/*21*/ nullptr, /*22*/ "weapons/glock22/glock22-fire-sil.wav", /*23*/ "weapons/ump/ump-fire-sil.wav",
+	/*24*/ nullptr, /*25*/ nullptr, /*26*/ nullptr, /*27*/ nullptr,
+	/*28*/ nullptr, /*29*/ nullptr, /*30*/ "weapons/fnh/fnh-fire-sil.wav",
+	/*31*/ nullptr, /*32*/ nullptr, /*33*/ nullptr,
+	/*34*/ nullptr, /*35*/ nullptr, /*36*/ nullptr, /*37*/ "weapons/tmp/fire-sil.wav",
+};
+
 // Muzzle-flash grip for tsweapon_t `w`: true = one-handed (pistols + akimbo barrels) -> the small
 // ts_muzzleflash1h sprite; false = two-handed (rifles/SMGs/shotguns) -> the larger ts_muzzleflash6.
 // Read from the SHARED s_weapon_info pszAnimExt (onehanded/akimbo vs twohanded) — the same table
@@ -74,11 +95,12 @@ static bool TSWeaponOneHanded(int w)
 // attachment[side]. For the local player it's the viewmodel; otherwise the player's world model.
 static void EV_TSMuzzleFlare(int idx, int weaponType, int side)
 {
-	static int s_spr1h = 0, s_spr6 = 0;
-	if (s_spr1h == 0)
-		s_spr1h = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/ts_muzzleflash1h.spr");
-	if (s_spr6 == 0)
-		s_spr6 = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/ts_muzzleflash6.spr");
+	// Resolve the model index each shot — NOT cached in a static. A cached index is stale after a map
+	// change (model indices are reassigned per map), so a cached muzzle-flash index would point at the
+	// wrong/invalid model after a load (sprites broke + zombie temp-entities). EV_FindModelIndex is a
+	// cheap by-name lookup, fine to call per shot.
+	const int s_spr1h = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/ts_muzzleflash1h.spr");
+	const int s_spr6 = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/ts_muzzleflash6.spr");
 
 	cl_entity_t* ent = EV_IsLocal(idx) ? gEngfuncs.GetViewModel() : gEngfuncs.GetEntityByIndex(idx);
 	if (!ent)
@@ -172,6 +194,26 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 			pos[i] = tr.endpos[i] + tr.plane.normal[i] * 2.0f;
 
 		TS_ImpactEffect(pos, tr.plane.normal, 0, chType);
+
+		// Bullet ric impact sound — played CLIENT-side here (positional, predicted), NOT server-side:
+		// the old server path used EMIT_AMBIENT_SOUND on the WORLD entity, which the engine spawns as a
+		// PERSISTENT static sound at that point, so you'd hear buffered far-away wall hits "as you walk
+		// up to them". A local EV_PlaySound is a one-shot at the impact, no static-sound spawn. Hard
+		// surfaces only (the server already does blood + sound on a flesh hit). Pitched by the smoothed
+		// slow factor like the gunshots (slow-mo deepens it).
+		if (chType != CHAR_TEX_FLESH)
+		{
+			extern float g_flClientSlow; // cl_dll/ts_powerup_hud.cpp — smoothed slow factor
+			int pitch = 100 + (int)(300.0f * g_flClientSlow);
+			if (pitch > 255) pitch = 255;
+			if (pitch < 1) pitch = 1;
+			char ric[24];
+			sprintf(ric, "debris/ric%d.wav", gEngfuncs.pfnRandomLong(1, 5));
+			// Entity 0 (the WORLD), so the sound is spatialised AT the impact `pos` and attenuates with
+			// distance (ATTN_NORM) — NOT on the shooter's entity (idx), which would glue it to your ear.
+			// It's a client-side one-shot (no server static-sound spawn), so no "hear it as you approach".
+			gEngfuncs.pEventAPI->EV_PlaySound(0, pos, CHAN_STATIC, ric, VOL_NORM, ATTN_NORM, 0, pitch);
+		}
 	}
 
 	gEngfuncs.pEventAPI->EV_PopPMStates();
@@ -228,30 +270,73 @@ void EV_TSMelee(event_args_t* args)
 	TS_MeleeImpact(pos, normal, chType); // glint + sparks only (no smoke/debris) — FUN_10043c90
 }
 
+// Bullet-flyby "whizz" (RE client.dll FUN_100450c0 tracer path): when a round fired by SOMEONE ELSE
+// passes within a glaze radius of the LOCAL player, a random weapons/whizz1-5.wav cracks past your ear.
+// The original gates it on the perpendicular distance from the local view origin to the bullet line
+// (Heron's-formula area / base); we use the equivalent closest-point-on-segment distance. Your own
+// rounds never whizz you.
+static void TS_BulletWhizz(int idx, const Vector& start, const Vector& dir)
+{
+	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
+	if (!local || local->index == idx)
+		return;
+
+	Vector end = start + dir * 8192.0f;
+	Vector p(local->origin[0], local->origin[1], local->origin[2] + 20.0f); // ~head height
+	Vector seg = end - start;
+	float segLen2 = DotProduct(seg, seg);
+	if (segLen2 < 1.0f)
+		return;
+	float t = DotProduct(p - start, seg) / segLen2;
+	if (t < 0.0f) t = 0.0f;
+	else if (t > 1.0f) t = 1.0f;
+	Vector closest = start + seg * t;
+	if ((p - closest).Length() < 56.0f) // glaze radius — a close near-miss
+	{
+		char w[24];
+		sprintf(w, "weapons/whizz%d.wav", gEngfuncs.pfnRandomLong(1, 5));
+		gEngfuncs.pEventAPI->EV_PlaySound(local->index, p, CHAN_STATIC, w, VOL_NORM, ATTN_NORM, 0,
+			95 + gEngfuncs.pfnRandomLong(0, 15));
+	}
+}
+
 void EV_TSFire(event_args_t* args)
 {
 	const int idx = args->entindex;
 	const int weaponType = args->iparam1;
-	const int barrelSide = args->iparam2; // akimbo: 0 = right barrel (attachment 0), 1 = left (1)
+	const int attachMask = args->iparam2;  // RE StandardFire@0x824a4: iparam2 = active item attach mask
+	const int barrelSide = args->bparam2;  // our merged-akimbo extension: 0=right, 1=left, 2=both
 	if (weaponType < 0 || weaponType >= TSW_COUNT)
 		return;
+
+	// Silencer (attach bit0). The original client gates the muzzle flash on `iparam2 & 1` (FUN_1003dfa0:
+	// `(DAT_10189d10 & 1)`) and swaps the fire sound to the weapon's `-sil` variant. A weapon with no
+	// `-sil` entry (s_fireSilSound[type] == nullptr) keeps its normal fire sound (silenced-base mp5sd,
+	// or a weapon that can't take a silencer).
+	const bool silenced = (attachMask & 1) != 0;
 
 	g_tsActive.UpdateFromEvent(args); // refresh the active-weapon cache (matches the original fire handler)
 
 	Vector origin;
 	VectorCopy(args->origin, origin);
 
-	if (barrelSide == 2) // akimbo AUTO-both: a muzzle flare at BOTH barrels
+	// Silenced fire shows (almost) no muzzle flash — the original passes the `(attach&1)<<3` flag to the
+	// flash builder and skips the bright flare/dynamic-light. We suppress the flare sprite + dynamic light.
+	if (!silenced)
 	{
-		EV_TSMuzzleFlare(idx, weaponType, 0);
-		EV_TSMuzzleFlare(idx, weaponType, 1);
+		if (barrelSide == 2) // akimbo AUTO-both: a muzzle flare at BOTH barrels
+		{
+			EV_TSMuzzleFlare(idx, weaponType, 0);
+			EV_TSMuzzleFlare(idx, weaponType, 1);
+		}
+		else
+			EV_TSMuzzleFlare(idx, weaponType, barrelSide); // the TS muzzle-flash sprite at the barrel
 	}
-	else
-		EV_TSMuzzleFlare(idx, weaponType, barrelSide); // the TS muzzle-flash sprite at the barrel
 
 	if (EV_IsLocal(idx))
 	{
-		EV_MuzzleFlash(); // the dynamic light / model flash on top of the sprite
+		if (!silenced)
+			EV_MuzzleFlash(); // the dynamic light / model flash on top of the sprite
 		// NOTE: the viewmodel "shoot" anim is now CLIENT-PREDICTED in CTSGun::StandardFire's
 		// SendWeaponAnim (CTSGun is a UseDecrement weapon, cont.69s 3d) — this event handles the
 		// muzzle-flash sprite + sound + shell + recoil; the anim plays via the predicted ItemPostFrame.
@@ -282,9 +367,11 @@ void EV_TSFire(event_args_t* args)
 		Vector vecSrc;
 		EV_GetGunPosition(args, vecSrc, origin);
 		EV_TSBulletImpact(idx, vecSrc, fwd);
+		TS_BulletWhizz(idx, vecSrc, fwd); // a near-miss flyby "whizz" if this round grazes the local player
 	}
 
-	const char* snd = s_fireSound[weaponType];
+	const char* snd = (silenced && s_fireSilSound[weaponType]) ? s_fireSilSound[weaponType]
+	                                                           : s_fireSound[weaponType];
 	if (snd)
 	{
 		// RE (scratchpad/SLOWMO_PRESENTATION_RE.md): the original pitches ALL weapon-fire sounds UP —

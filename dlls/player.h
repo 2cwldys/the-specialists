@@ -388,8 +388,20 @@ public:
 	int m_iClientHeldDur = -1;        // 0x734 — last-sent held powerup duration
 	float m_flClientSlowAmt = -1;     // 0x16c — last-sent slow amount (gmsgTSSlowAmt change-detect)
 	int m_iClientBulletTime = -1;     // 0x174 — last-sent bullet-time flag (gmsgTSBulletTime)
-	byte m_iKungFu = 0;               // 0x74e — kung-fu state
-	byte m_bLowGravity = 0;           // 0x74f — low-gravity powerup active
+	byte m_iKungFu = 0;               // 0x74e — kung-fu state (kung-fu powerup)
+	byte m_bLowGravity = 0;           // 0x74f — super-jump powerup active (engine physinfo "mj")
+	float m_flKungFuBlock = 0;        // close-combat BLOCK window expire time (RE CCombatBlock player+0x7a8)
+	float m_flSuperJumpFuel = 0;      // super-jump remaining lift time (refills on the ground)
+	float m_flNextPainTime = 0;       // cooldown for the TS pain voice (player/pain1-4)
+	byte m_bSuperJumpAir = 0;         // super-jump: was airborne last frame (to detect the landing thud)
+	float m_flWallClimbFuel = 0;      // double-jump wall-climb budget (refills on ground; weight-scaled)
+	byte m_bDiveRolling = 0;          // mid double-jump dive-roll (land prone on touchdown)
+	byte m_iDiveRollDir = 0;          // roll direction: 0 fwd / 1 back / 2 left / 3 right (back = land on feet)
+	float m_flProneUntil = 0;         // forced-prone (ducked) until this time after a roll landing
+	byte m_bWasClimbing = 0;          // wall-climb engaged last frame (so the kick sound plays once per engage)
+	byte m_bDivePressed = 0;          // +alt1 dive consumed (one dive per press)
+	byte m_bProneSize = 0;            // dive/prone has shrunk the hull (so we restore it on exit)
+	float m_flNextClimbKick = 0;      // wall-climb: next auto-kick time (paces the kicks while held)
 	float m_flNextJumpKick = 0;       // jump-kick cooldown (orig CTSStunt+8): one kick per ~0.7s
 	EHANDLE m_hRunThroughLast;        // last entity barged through (orig player+0x798): don't re-hit it
 	bool m_bSlowMoveApplied = false;  // slow-motion has lowered pev->maxspeed (restore on exit)

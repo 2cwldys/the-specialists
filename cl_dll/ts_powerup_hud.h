@@ -27,6 +27,15 @@ private:
 	bool m_bActive;        // activated (counting down)
 	float m_flCountdownEnd; // local end time while active
 	float m_flSlowAmt;     // applied slow amount (TSSlowMo): 100 = normal, <100 = slowed → green overlay
+	// INDEPENDENT persistent powerups (kung-fu / super-jump) — coexist with the held slot, shown
+	// bottom-center on pickup (PwUp type 4 / 0x100, dur 0). Cleared on respawn (Reset).
+	bool m_bKungFu;
+	bool m_bSuperJump;
+	// slow-mo INITIATION sounds (RE client FUN_1004bef0/FUN_1004ce10): goslow.wav on the normal->slow
+	// transition + 4 heartbeat1.wav beats fading in volume.
+	bool m_bSlowActive;       // currently in slow-mo (edge-detect the entry)
+	int   m_iHeartbeatsLeft;  // remaining init heartbeats to play
+	float m_flNextHeartbeat;  // time of the next heartbeat
 };
 
 #endif // TS_POWERUP_HUD_H

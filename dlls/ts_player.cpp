@@ -320,9 +320,8 @@ void CBasePlayer::UpdatePowerUpState()
 	{
 		if ((m_iPowerups & (TS_PWUP_SLOWMO | TS_PWUP_SLOWPAUSE)) == 0)
 		{
-			// double-firerate (no slow-motion): only the low-gravity tweak applies
-			if (m_iPowerups & TS_PWUP_LOWGRAV)
-				pev->gravity = 0.15f;
+			// double-firerate (no slow-motion): nothing to apply here. (Super-jump/low-gravity is an
+			// INDEPENDENT powerup driven from PreThink — m_bLowGravity — not this held-slot machine.)
 		}
 		else if (m_flPowerupExpireTime < gpGlobals->time || !IsAlive())
 		{
@@ -354,10 +353,7 @@ void CBasePlayer::UpdatePowerUpState()
 
 		if (gpGlobals->time <= m_flPowerupExpireTime && IsAlive())
 			return; // still active
-
-		// expired (or dead): SLICE re-drop deferred; restore low-gravity tweak
-		if (m_iPowerups & TS_PWUP_LOWGRAV)
-			pev->gravity = 1.0f;
+		// expired (or dead): SLICE re-drop deferred. (Low-gravity is independent — see PreThink.)
 	}
 
 	m_flPowerupExpireTime = 0;

@@ -23,6 +23,7 @@
 #include "gamerules.h"
 #include "ts_gamerules.h"
 #include "ts_weapons.h"   // tsweapon_t, get_weapon_info, GiveTSWeapon, TSAddAmmo
+#include "ts_gun.h"       // CTSGun + TSGUN_WEAPON_ID — attachment routing (AddItem)
 
 // M61 grenade weapon index (tsweapon_t) — special-cased in BuyWeapon (team-mode only, cap 2).
 #define TSW_M61 24
@@ -118,7 +119,17 @@ void CBasePlayer::AddItem(int itemBits)
 		if (TSGameRules()->IsTeamMode()) // grenades are team-mode only
 			BuyWeapon(TSW_M61);
 	}
-	// SLICE: gun attachments (bits 1/2/4/8 -> CTSGun::AddItem, silencer/laser/...) deferred.
+	else
+	{
+		// gun attachments (bits 1/2/4/8: silencer/laser/flashlight/scope) -> the active CTSGun
+		// (RE AddItem@0x8440c: requires m_pActiveItem with m_iId == TSGUN_WEAPON_ID(0x10), then
+		// CTSGun::AddItem ORs the bits onto the active weapon). The silencer (bit 1) drives the
+		// fire-sil sound + muzzle suppression via the fire event (iparam2). NB: applies to the
+		// WIELDED weapon — buy a silencer while holding the gun you want it on (the spawn-time
+		// loadout-apply order is a SLICE; see ts_buymenu.cpp Apply()).
+		if (m_pActiveItem && m_pActiveItem->m_iId == TSGUN_WEAPON_ID)
+			((CTSGun *)m_pActiveItem)->AddItem(itemBits);
+	}
 }
 
 // @ AddAmmoToArmament — queue ammo (rounds) for a caliber into the loadout.

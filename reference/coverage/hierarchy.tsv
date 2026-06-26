@@ -1,6 +1,6 @@
 Class	base
-CActAnimating	CBaseDelay
-CBaseAnimating	CBaseDelay
+CActAnimating	CBaseEntity
+CBaseAnimating	CBaseEntity
 CBaseButton	CBaseEntity
 CBaseDoor	CBaseEntity
 CBaseMonster	CBaseAnimating
@@ -18,8 +18,8 @@ CDeadHEV	CBaseAnimating
 CEnvExplosion	CBaseAnimating
 CEnvShooter	CBaseEntity
 CFuncIllusionary	CBaseEntity
-CFuncPlat	CBaseAnimating
-CFuncPlatRot	CBaseAnimating
+CFuncPlat	CBasePlatTrain
+CFuncPlatRot	CBasePlatTrain
 CFuncTank	CBaseEntity
 CFuncTankGun	CBaseEntity
 CFuncTankLaser	CBaseEntity
@@ -96,10 +96,10 @@ CTriggerTeleport	CBaseEntity
 CWallHealth	CBaseEntity
 CWeaponCycler	CBasePlayerItem
 CWreckage	CBaseAnimating
-CXenHair	CBaseDelay
-CXenPLight	CBaseDelay
-CXenSpore	CBaseDelay
-CXenSporeLarge	CBaseDelay
-CXenSporeMed	CBaseDelay
-CXenSporeSmall	CBaseDelay
-CXenTree	CBaseDelay
+CXenHair	CBaseEntity
+CXenPLight	CBaseEntity
+CXenSpore	CBaseEntity
+CXenSporeLarge	CBaseEntity
+CXenSporeMed	CBaseEntity
+CXenSporeSmall	CBaseEntity
+CXenTree	CBaseEntity
