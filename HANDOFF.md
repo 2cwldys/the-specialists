@@ -47,6 +47,70 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐ START HERE (cont.69y, 2026-06-25) — POWERUP / SLOW-MOTION / SLOW-BULLET / WEAPON work — COMMITTED + IN-PROGRESS
+A large session. Two commits on `main` (`--no-gpg-sign`): **8b2a42f** (kung-fu KICKS dispatch) + **635c9ca**
+(powerup/slow-motion subsystem, slow-mo bullets, weapon fixes). Still uncommitted on disk: `test.sh` (the
+user's launcher — DO NOT commit) + pre-existing `reference/coverage/*` edits (not this session's work).
+
+**The user is doing a long live-playtest loop** (graphical xash, see CLAUDE.md §3 — `+deathmatch 1
++maxplayers 8`). Test powerups with the `powerup <N>` cheat: 6/anything=Slow-Motion, 1=Slow-Pause,
+5=Double-Fire, 2=grenade, 3=health, 4=inf-clip. Double-tap +use (E) activates a held timed powerup.
+
+### ✅ DONE this session (RE-grounded; the RE maps are in `scratchpad/`)
+- **Kung-fu KICKS** (commit 8b2a42f): RE-faithful CCombatAttack port — see the cont.69y kung-fu section below.
+- **Powerups + slow-motion** (RE: `scratchpad/POWERUP_RE.md`, `SLOWMO_PRESENTATION_RE.md`):
+  - Held-powerup HUD `cl_dll/ts_powerup_hud.{cpp,h}` — green top-left "Slow Motion N" (PwUp msg) + PwUpTime
+    countdown. Double-tap +use in `cl_dll/input.cpp` CL_CreateMove (0.30s window, cvar `cl_usepowerup`).
+  - `SlowMotionFlow`/`DeactivateSlowMotionFlow` (`dlls/ts_player.cpp`): slow self 0.6/0.8 + LOS-visible enemies
+    0.35/0.225 every 0.5s. Mutual exclusion = one held slot (structural).
+  - **Time dilation = `pev->fuser1`** (networked, eased toward the GoSlow target in PreThink) → scales
+    maxspeed, `pev->framerate` (animation), and the weapon-timer decrement on BOTH server (`player.cpp`
+    PostThink) and client prediction (`cl_dll/hl/hl_weapons.cpp`). So fire-rate + anim slow in slow-mo.
+  - **Sound pitch**: guns `100+300*slow` (`ev_ts.cpp` EV_TSFire — for "recorded-slow" wavs, ~255 normal →
+    drops in slow-mo); melee `100*slow` (`ts_gun.cpp` TSMeleePitch — for normal-recorded wavs, slowed not
+    sped). ⚠️ See OPEN #sawed-off below: some gun wavs are ALSO normal-recorded.
+  - **Teal screen tint** (`cl_dll/view.cpp` V_CalcRefdef): engine screen-fade RGBA(**0,100,125**), alpha
+    `(1-slow)*50`, gated by `cl_slowfade` (NOT a green FillRGBA — that was wrong). `TSSlowMo` msg = perceived
+    world slow. ⚠️ The user wanted green earlier but the RE'd color is teal; confirm.
+- **Slow-mo bullets** `dlls/ts_bulletmgr.cpp` (RE: `scratchpad/bulletmgr.c`): shooter slowed (<0.99) → each
+  pellet flies as a tracked bullet (GetBulletVelocityMult: slow-mo ≈ slow / slow-pause ÷10 = dodgeable); a
+  CBeam `bullet_trail.spr` extends muzzle→bullet; HITS glass + decals; vanishes when slow-mo ends. Driven
+  from `CTSGameRules::Think`. SLICE: no pierce re-seed; full speed approximated (6000, TUNE).
+- **Weapon fixes**: akimbo AUTO fires BOTH guns (uzi `akimbo_shoot1`=12 / beretta+gold `linkedshoot`; from
+  the viewmodel seq dump) not alternate; mp5sd + mossberg fire sounds restored; ammo powerup → clip = 2× MAX.
+
+### 🔴 OPEN / IN-PROGRESS — the live task-tool list (#10–15) + new items, all need RE-grounding
+- **#10 Double-firerate timeout** — user says it's "permanent"; the `UpdatePowerUpState` expiry code LOOKS
+  correct on inspection. NEED the precise symptom (does the green text count down + clear? can you pick up
+  slow-mo after?) or a live gdb test to pin it.
+- **#11 Silencer "tic" for BOUGHT silencers** — silenced-base (mp5sd) DONE. RE (`scratchpad` agent summary,
+  see ledger): the client picks `<weapon>/fire-sil.wav` when silenced; the silencer bit is bit0 of the attach
+  mask. Our buy doesn't wire `attach` yet, and our fire EVENT packs barrel-side in iparam2 but the original
+  uses iparam2=attach-mask / **bparam1**=barrel side — align the event + add the `-sil` table to EV_TSFire.
+- **#12 Melee THROWN speed** — pitch DONE; the thrown knife/katana FLYING speed should slow in slow-mo
+  (differently slow-mo vs slow-pause), like the slow bullets. Not done.
+- **#13 Shotgun reload anim** — per-shell reload ends on a wrong pose (gun held up, no shell inserted) and
+  stays til fire. RE the shotgun reload sequence/state machine. Not started.
+- **#14 Right-click HOLD-POSITION toggle** (SOCOM/mk23) — RE'd (`SecondaryAttack@0x717a8`: scope→zoom, else
+  hold-toggle if `wi+0x28c != -1`, mk23/SOCOM=5; flips `m_pActiveItem+0x2c` + SendWeaponAnim). NOT implemented.
+- **#15 Akimbo L/R independent fire** (modes 4/5 = "Free Auto": L-click one gun, R-click the other). The
+  AUTO-both is DONE; the L/R-per-button split is NOT.
+- **#sawed-off pitch (NEW, unresolved)** — the sawed-off gun-fire doesn't audibly pitch in slow-mo. Diagnosis:
+  it uses the SAME `EV_TSFire` pitched path as every gun, so it's not a code branch — its wav is apparently
+  NORMAL-recorded (not recorded-slow), so `100+300*slow` is the wrong formula; it (and maybe other shotguns)
+  should use the melee-style `100*slow`. **Waiting on the user to say which weapons sound wrong**, then flag
+  those to the slowed formula (add a per-weapon "recorded-slow" bool or a sound-name set in EV_TSFire).
+- **Deviation flagged in-code**: slow-pause self-slow set to **0.6** (= slow-mo, user-directed) vs the RE's
+  **0.8** — so your fire/move don't speed up in slow-pause, only the bullets go slower. Live-trace to pin if
+  exactness wanted.
+
+### Method reminders specific to this work
+- The slow factor lives in **`pev->fuser1`** (current, networked) eased toward `m_flSlowMotionGo` (target).
+  `FixedSlowAmt(x)=max(x,0.01)`. The CLIENT smoothed slow is `g_flClientSlow` (`ts_powerup_hud.cpp`, eased in
+  its Draw). Perceived-world slow (for pitch/overlay) = the others-scale (0.35/0.225), NOT the 0.6 self.
+- `scratchpad/WEAPON_SECONDARY_RE.md` was the agent's target but the file write didn't persist — the full
+  findings are in the cont.69y ledger entry (akimbo/right-click/silencer/fire-mode decompiles).
+
 ## ✅ DONE (cont.69x) — the TS client PARTICLE / impact-effect subsystem is reconstructed + LIVE-VERIFIED
 The cont.69w next-task is **complete**. The original's custom client particle pool (NOT engine tempents,
 NOT the old R_SparkShower) is byte-ported in **`cl_dll/ts_particles.{h,cpp}`**, hooked into

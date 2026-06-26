@@ -5,6 +5,58 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-25 (cont. 69y) — POWERUP / SLOW-MOTION / SLOW-BULLET subsystem + weapon fixes (commit 635c9ca)
+
+Big session after the kung-fu kicks (below). All RE-grounded via 3 subagent RE passes (maps in scratchpad/):
+POWERUP_RE.md, SLOWMO_PRESENTATION_RE.md, bulletmgr.c, ccombatattack.c. Committed `635c9ca` on `main`.
+
+POWERUPS (RE POWERUP_RE.md): held timed powerups (slowmo 1 / slowpause 8 / dblfire 0x10) share ONE held slot
+(player+0x728) + a double-tap-+use activation (client-side, CL_CreateMove 0.30s, cvar cl_usepowerup). Built:
+cl_dll/ts_powerup_hud.{cpp,h} (green top-left "Slow Motion N" via PwUp msg = WriteShort(held)+WriteByte(dur)
+from UpdateClientData; PwUpTime countdown); double-tap in cl_dll/input.cpp; UsePowerUp/UpdatePowerUpState in
+ts_player.cpp; SlowMotionFlow (self 0.6/0.8 + LOS enemies 0.35/0.225 every 0.5s) + DeactivateSlowMotionFlow.
+Pickup = TOUCH only (CTSPowerUp::WaitTouch, no FCAP_IMPULSE_USE — the IN_USE there is an optional swap). Mutual
+exclusion is structural (single held slot overwritten on pickup).
+
+SLOW-MOTION TIMING (RE SLOWMO_PRESENTATION_RE.md — the key doc): the slow factor lives in pev->fuser1 (CURRENT,
+networked entvars float), eased toward m_flSlowMotionGo (TARGET, set by GoSlow) via InterpolateSlowMotion
+(min(ft*7,1) step, 0.05 snap). fuser1 scales: maxspeed (movement), pev->framerate=max(fuser1,0.01) (animation),
+AND the weapon-timer decrement (player.cpp PostThink + client prediction hl_weapons.cpp, both reading fuser1)
+→ fire rate slows. ×1.5 if dblfire. SOUND PITCH: guns 100+300*slow (ev_ts.cpp; the wavs are "recorded-slow" so
+~255 at normal → down in slow-mo), melee 100*slow (ts_gun.cpp TSMeleePitch; normal-recorded → slowed not sped).
+SCREEN TINT: the original hijacks the engine SCREEN-FADE in V_CalcRefdef — RGBA(0,100,125) teal (NOT a green
+fill — first RE pass wrongly said "no tint"), alpha (1-slow)*50, cvar cl_slowfade. TSSlowMo msg = WriteCoord(100*
+PERCEIVED-world-slow) = the others-scale 0.35/0.225 (NOT the 0.6 self), drives the client smoothed g_flClientSlow.
+
+SLOW-MO BULLETS (RE bulletmgr.c): dlls/ts_bulletmgr.cpp ≈ CBulletManager (256-slot ring). ShootBulletsPlayer
+gate `rbullet = shooter slow < 0.99` → each pellet becomes a flying bullet instead of instant hitscan. Per
+frame (CTSGameRules::Think): advance by GetBulletVelocityMult(slow,pauseFlag)*6000*frametime (slow-mo ≈ slow
+= fast tracer; slow-pause = slow/((1-slow²)*10) ≈ dodgeable), trace (dont_ignore_glass → HITS glass), damage +
+DecalGunshot on hit, else fly on; vanish when slow ends. Visual = a CBeam sprites/bullet_trail.spr extending
+muzzle→bullet (from the model — TE_TRACER was invisible). SLICEs: no pierce re-seed; speed approximated 6000.
+
+WEAPON FIXES: (1) AKIMBO — AkimboFire now fires BOTH guns in AUTO mode (uzi_akimbo iFireModes 0x21→AUTO; the
+viewmodel both-fire seq from the .mdl dump: uzi akimbo_shoot1=12, beretta/gold linkedshoot=26/7) not alternate
+(fixed "switches hands"). (2) mp5sd (silenced-base) + mossberg fire sounds restored (were nullptr / wrong path
+weapons/mossberg/fire.wav, neither precached). (3) ammo powerup MultiplyClips → clip = wi->iClip*2 (DOUBLE MAX,
+user-directed) split across akimbo barrels. USER-DIRECTED DEVIATION: slow-pause self-slow 0.8→0.6 (= slow-mo,
+so fire/move don't speed up; only bullets slower).
+
+WEAPON-SECONDARY RE (the agent's scratchpad/WEAPON_SECONDARY_RE.md write didn't persist — findings here):
+SecondaryAttack@0x717a8 dispatches firetype (grenade/knife/katana throw) → mode 4/5 (fire other gun) → per-
+weapon: scope(attach&8)→ZOOM, else HOLD-POSITION toggle if wi+0x28c!=-1 (mk23/SOCOM=5, flips m_pActiveItem+0x2c
++ SendWeaponAnim). Akimbo fireBoth = bothButtonsHeld || mode==0(AUTO); barrel side = item+0x24; both uses
+firelinked.sc. Fire-modes 0-5 = AUTO/SEMI/BURST/PUMP/AKIMBO_ALT/AKIMBO_BOTH at item+0x02, default from the
+wi+0xc mask. SILENCER: client FUN_1003de90 picks <weapon>/fire-sil.wav when (iparam2&1); silencer = bit0 of the
+attach mask (item+0x10 live / +0x124 stored); server docks dmg ×0.775. **Our fire event mis-packs barrel-side
+in iparam2 — the original uses iparam2=attach-mask, bparam1=barrel side (align this when wiring #11/#15).**
+
+OPEN (task tool #10-15 + sawed-off): #10 dblfire timeout (code looks right — need symptom/live test); #11
+bought-silencer -sil sounds + event attach-mask align; #12 thrown knife/katana flying-speed slow; #13 shotgun
+reload pose; #14 SOCOM hold-toggle (RE'd, not impl); #15 akimbo L/R-per-button (mode 4/5); sawed-off + maybe
+other shotgun wavs are normal-recorded → need the 100*slow formula not 100+300*slow (ask user which weapons).
+[[live-original-ts-debuggable]] [[match-original-names-for-coverage]]
+
 ## 2026-06-25 (cont. 69y) — kung-fu KICKS dispatch RE-faithful (CCombatAttack__6CTSGun @0x86078)
 
 User picked the kung-fu KICKS dispatch from the carried weapon-feel TODOs. Rewrote `CTSGun::CloseCombatAttack`
