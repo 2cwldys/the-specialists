@@ -1645,8 +1645,8 @@ void CBasePlayer::PlayerUse()
 		//!!!UNDONE: traceline here to prevent USEing buttons through walls
 		int caps = pObject->ObjectCaps();
 
-		if ((m_afButtonPressed & IN_USE) != 0)
-			EMIT_SOUND(ENT(pev), CHAN_ITEM, "common/wpn_select.wav", 0.4, ATTN_NORM);
+		// TS plays NO +use button click (the stock common/wpn_select.wav is removed) — +use is also
+		// the powerup double-tap activator, so the constant clicking is gone in the original.
 
 		if (((pev->button & IN_USE) != 0 && (caps & FCAP_CONTINUOUS_USE) != 0) ||
 			((m_afButtonPressed & IN_USE) != 0 && (caps & (FCAP_IMPULSE_USE | FCAP_ONOFF_USE)) != 0))
@@ -1662,11 +1662,7 @@ void CBasePlayer::PlayerUse()
 			pObject->Use(this, this, USE_SET, 0);
 		}
 	}
-	else
-	{
-		if ((m_afButtonPressed & IN_USE) != 0)
-			EMIT_SOUND(ENT(pev), CHAN_ITEM, "common/wpn_denyselect.wav", 0.4, ATTN_NORM);
-	}
+	// (TS: no common/wpn_denyselect.wav on an empty +use either — the +use sound is gone entirely.)
 }
 
 
@@ -1966,7 +1962,8 @@ void CBasePlayer::PreThink()
 		return;
 	}
 
-	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame
+	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame (sets the slow triple)
+	SlowMotionFlow();     // TS: every 0.5s, slow self + LOS-visible enemies while a slow powerup is active
 
 	// TS: barge through breakables — diving/running fast into glass shatters it (clean dive-through),
 	// into a person shoves them (orig CTSStunt::CheckForBreakables, called every PreThink).
@@ -1974,19 +1971,34 @@ void CBasePlayer::PreThink()
 
 	m_TSAnim.UpdateTimers(this); // TS: decay the gait aim/leg/grenade hold timers
 
-	// TS slow-motion: make GoSlow/InSlow/GlobalSlowMotion2/slowmatch VISIBLE by scaling the
-	// player's speed cap by the applied slow factor (m_flSlowMotionGo; 1 = normal). pev->
-	// maxspeed flows to pmove via clientdata, so a slowed player physically moves slower.
-	// SLICE: full pmove time-dilation (gravity/jump arcs/animation rate) needs the slow
-	// value threaded into client-predicted pm_shared; this is the server-side speed portion.
-	if (m_flSlowMotionGo > 0.0f && m_flSlowMotionGo < 1.0f)
+	// TS slow-motion time-dilation. pev->fuser1 is the CURRENT slow factor, eased toward the GoSlow
+	// TARGET (m_flSlowMotionGo). It's a stock NETWORKED entvars float, so the client receives it and
+	// runs the identical weapon-timer decrement → fire-rate prediction stays in sync. It scales
+	// movement (maxspeed), animation (pev->framerate) and the weapon-timer decrement (PostThink).
+	// RE scratchpad/SLOWMO_PRESENTATION_RE.md §B: ease = InterpolateSlowMotion, anim = max(fuser1,0.01).
+	if (pev->fuser1 == 0.0f)
+		pev->fuser1 = 1.0f; // entvars defaults to 0; the slow factor's neutral is 1.0
 	{
-		pev->maxspeed = 320.0f * m_flSlowMotionGo;
+		float d = m_flSlowMotionGo - pev->fuser1; // ease CURRENT → TARGET
+		float ad = d < 0.0f ? -d : d;
+		if (ad > 0.05f)
+		{
+			float s = gpGlobals->frametime * 7.0f;
+			if (s > 1.0f) s = 1.0f;
+			d *= s;
+		}
+		pev->fuser1 += d;
+	}
+	if (pev->fuser1 < 0.999f)
+	{
+		pev->maxspeed = 320.0f * pev->fuser1;                        // slowed movement
+		pev->framerate = pev->fuser1 < 0.01f ? 0.01f : pev->fuser1; // slowed animation (StudioFrameAdvance)
 		m_bSlowMoveApplied = true;
 	}
 	else if (m_bSlowMoveApplied)
 	{
-		pev->maxspeed = 0.0f; // restore the engine default speed
+		pev->maxspeed = 0.0f;  // restore the engine default speed
+		pev->framerate = 1.0f; // restore the normal animation rate
 		m_bSlowMoveApplied = false;
 	}
 
@@ -2843,6 +2855,15 @@ void CBasePlayer::PostThink()
 
 pt_end:
 #if defined(CLIENT_WEAPONS)
+	// TS slow-motion fire-rate dilation (RE scratchpad/SLOWMO_PRESENTATION_RE.md §B): the per-frame
+	// weapon-timer decrement is the player's effective frametime, scaled by the current slow factor
+	// (pev->fuser1, floored at 0.01) — so a slowed player's next-attack countdowns drain slower and
+	// they fire slower. The DoubleFireRate powerup (m_iPowerups & 0x10) drains 1.5x faster. The client
+	// runs the identical scaled decrement in its prediction (fuser1 is networked), so it stays in sync.
+	float slowFrametime = (pev->fuser1 < 0.01f ? 0.01f : pev->fuser1) * gpGlobals->frametime;
+	if (m_iPowerups & 0x10) // TS_PWUP_DBLFIRE
+		slowFrametime *= 1.5f;
+
 	// Decay timers on weapons
 	// go through all of the weapons and make a list of the ones to pack
 	for (int i = 0; i < MAX_ITEM_TYPES; i++)
@@ -2857,17 +2878,17 @@ pt_end:
 
 				if (gun && gun->UseDecrement())
 				{
-					gun->m_flNextPrimaryAttack = V_max(gun->m_flNextPrimaryAttack - gpGlobals->frametime, -1.0f);
-					gun->m_flNextSecondaryAttack = V_max(gun->m_flNextSecondaryAttack - gpGlobals->frametime, -0.001f);
+					gun->m_flNextPrimaryAttack = V_max(gun->m_flNextPrimaryAttack - slowFrametime, -1.0f);
+					gun->m_flNextSecondaryAttack = V_max(gun->m_flNextSecondaryAttack - slowFrametime, -0.001f);
 
 					if (gun->m_flTimeWeaponIdle != 1000)
 					{
-						gun->m_flTimeWeaponIdle = V_max(gun->m_flTimeWeaponIdle - gpGlobals->frametime, -0.001f);
+						gun->m_flTimeWeaponIdle = V_max(gun->m_flTimeWeaponIdle - slowFrametime, -0.001f);
 					}
 
 					if (gun->pev->fuser1 != 1000)
 					{
-						gun->pev->fuser1 = V_max(gun->pev->fuser1 - gpGlobals->frametime, -0.001f);
+						gun->pev->fuser1 = V_max(gun->pev->fuser1 - slowFrametime, -0.001f);
 					}
 
 					gun->DecrementTimers();
@@ -2884,7 +2905,7 @@ pt_end:
 		}
 	}
 
-	m_flNextAttack -= gpGlobals->frametime;
+	m_flNextAttack -= slowFrametime; // TS: slow-scaled (the player-level attack gate)
 	if (m_flNextAttack < -0.001)
 		m_flNextAttack = -0.001;
 

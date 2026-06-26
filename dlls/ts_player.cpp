@@ -11,8 +11,11 @@
 #include "ts_utils.h"     // TSHudMessageOne
 
 // Lazily-registered TS powerup user messages (see ts_player.h).
-int gmsgTSPowerUpTime = 0;
-int gmsgTSMotionBlur = 0;
+int gmsgTSPowerUpTime = 0;  // "PwUpTime" 1 — active countdown (UsePowerUp)
+int gmsgTSMotionBlur = 0;   // "TSMBlur"  2 — entindex + 1/2 (UsePowerUp)
+int gmsgTSPowerUp = 0;      // "PwUp"     3 — held type (short) + duration (byte) — the held-powerup HUD (UpdateClientData)
+int gmsgTSSlowAmt = 0;      // "TSSlowMo" 2 — coord(100*applied slow) — drives the client green slow-mo overlay
+// SLICE: gmsgTSBulletTime "TSBTime" (byte 0x175) drives the bullet-time render variant; deferred.
 
 // Lazily-registered TS custom-HUD user messages. Names + fixed sizes are byte-faithful
 // to the original LinkUserMessages (reference/HUD_MESSAGES.md): TSHealth/TSArmor are a
@@ -65,6 +68,42 @@ void CBasePlayer::TSUpdateClientData()
 		m_iClientTSCash = m_iCash;
 		MESSAGE_BEGIN(MSG_ONE, gmsgTSCash, NULL, ENT(pev));
 		WRITE_SHORT(m_iCash);
+		MESSAGE_END();
+	}
+
+	// PwUp — the HELD powerup HUD (the green top-left icon + "seconds available"). The original
+	// sends gmsgTSPowerUp on change from UpdateClientData: WriteShort(held type 0x728) +
+	// WriteByte(duration 0x730). The client shows the icon for the held type and the seconds
+	// available; double-tap +use activates it (then PwUpTime drives the live countdown).
+	if (gmsgTSPowerUp == 0)
+		gmsgTSPowerUp = REG_USER_MSG("PwUp", 3);
+	int heldDur = (int)m_flPowerupTime;
+	if (m_iHeldPowerup != m_iClientHeldType || heldDur != m_iClientHeldDur)
+	{
+		m_iClientHeldType = m_iHeldPowerup;
+		m_iClientHeldDur = heldDur;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, ENT(pev));
+		WRITE_SHORT(m_iHeldPowerup);
+		WRITE_BYTE(heldDur);
+		MESSAGE_END();
+	}
+
+	// TSSlowMo — the PERCEIVED WORLD slow amount (100 = normal). Drives the client sound-pitch + green
+	// overlay. This is NOT the activator's move factor (0.6/0.8 = pev->fuser1, which only governs how
+	// fast THEY move/fire); it's the slowdown of the world they perceive: 0.35 slowmo / 0.225 slowpause
+	// (RE values 35 / 22.5 / 100). For a LOS VICTIM that's their own applied slow (fuser1); for the
+	// ACTIVATOR it's the others-scale they impose (m_flSlowMotionRamp) — so both hear/see the same wash.
+	if (gmsgTSSlowAmt == 0)
+		gmsgTSSlowAmt = REG_USER_MSG("TSSlowMo", 2);
+	float perceived = pev->fuser1; // victim's applied slow (or 1.0 normal)
+	if ((m_iPowerups & (TS_PWUP_SLOWMO | TS_PWUP_SLOWPAUSE)) && m_flSlowMotionRamp > 0.0f && m_flSlowMotionRamp < perceived)
+		perceived = m_flSlowMotionRamp; // the activator perceives the world at the others-scale
+	float slowAmt = perceived * 100.0f;
+	if (slowAmt != m_flClientSlowAmt)
+	{
+		m_flClientSlowAmt = slowAmt;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSSlowAmt, NULL, ENT(pev));
+		WRITE_COORD(slowAmt);
 		MESSAGE_END();
 	}
 }
@@ -132,56 +171,130 @@ int CBasePlayer::InSlow()
 	return (m_flSlowMotionGo != 1.0f || m_flSlowMotionTarget != 1.0f) ? 1 : 0;
 }
 
-// @ DeactivateSlowMotionFlow__11CBasePlayer — restore this player to normal speed.
+// @ DeactivateSlowMotionFlow__11CBasePlayer (@0x86a9c) — slow-motion ended: restore THIS player to
+// normal speed and restore every player it was slowing (unless they're now slowing themselves), then
+// clear the cache.
 void CBasePlayer::DeactivateSlowMotionFlow()
 {
 	GoSlow(1.0f, 0);
 	m_flSlowMotionRamp = 0;
 	m_flSlowMotionScale = 0;
 	m_bSlowBullets = 0;
-	// SLICE: faithful also restores SlowMotionFlow's affected players/projectiles.
+	for (int i = 0; i < 32; i++)
+	{
+		CBaseEntity *e = m_hSlowPlayers[i];
+		if (!e)
+			continue;
+		CBasePlayer *p = (CBasePlayer *)e;
+		if (p->m_flSlowMotionScale == 0.0f) // they're not self-slowing → restore them
+		{
+			p->GoSlow(1.0f, 0);
+			p->m_bSlowBullets = 0;
+		}
+		m_hSlowPlayers[i] = NULL;
+	}
+	// SLICE: the original also restores cached slowed projectiles (grenade/knife/WorldGun, 0x208[]);
+	// we don't slow projectiles yet (needs a CBaseEntity::GoSlow virtual), so there's nothing to restore.
 }
 
-// @ UsePowerUp__11CBasePlayer — `usepowerup` command: activate the held powerup.
+// @ SlowMotionFlow__11CBasePlayer (@0x86bb0) — runs every frame from PreThink; self-gated to fire
+// every 0.5s while this player has an active slow powerup (m_flSlowMotionScale != 0). It slows THIS
+// player to the self-scale (0.6 slowmo / 0.8 slowpause) and every LOS-visible OTHER player to the
+// others-scale (0.35 / 0.225) — so the activator outruns the slowed world. A stronger slow wins ties.
+// The slowed players are cached so DeactivateSlowMotionFlow can restore them.
+// SLICE: the original also slows moving grenade/knife/WorldGun entities in LOS (deferred — needs a
+// CBaseEntity::GoSlow virtual); here only players are slowed (the bullet-time-vs-enemies core).
+void CBasePlayer::SlowMotionFlow()
+{
+	if (m_flSlowMotionScale == 0.0f || m_flNextSlowFlow > gpGlobals->time)
+		return;
+	m_flNextSlowFlow = gpGlobals->time + 0.5f;
+
+	Vector myEye = pev->origin + pev->view_ofs;
+	bool overridden = false;
+
+	// Pass 1: decide which other players I slow (line of sight), honoring slow-tier conflicts.
+	for (int i = 1; i <= gpGlobals->maxClients && !overridden; i++)
+	{
+		CBaseEntity *cached = m_hSlowPlayers[i - 1];
+		if (cached)
+		{
+			if (((CBasePlayer *)cached)->m_flSlowMotionScale == 0.0f)
+				continue;            // still just a victim → keep it cached
+			m_hSlowPlayers[i - 1] = NULL; // they started self-slowing → drop & re-resolve
+		}
+		CBasePlayer *other = (CBasePlayer *)UTIL_PlayerByIndex(i);
+		if (!other || !other->IsPlayer() || other == this)
+			continue;
+		if (other->m_flSlowMotionScale != 0.0f && other->m_flSlowMotionRamp == m_flSlowMotionRamp)
+			continue;                // already slowed at my tier by someone
+		Vector otherEye = other->pev->origin + other->pev->view_ofs;
+		TraceResult tr;
+		UTIL_TraceLine(myEye, otherEye, ignore_monsters, ignore_glass, edict(), &tr);
+		if (tr.flFraction >= 1.0f)   // clear line of sight
+		{
+			if (other->m_flSlowMotionScale == 0.0f)
+				m_hSlowPlayers[i - 1] = other;          // not slowing themselves → I slow them
+			else if (m_flSlowMotionRamp <= other->m_flSlowMotionRamp)
+				m_hSlowPlayers[i - 1] = other;          // my slow is equal/stronger → I slow them
+			else
+				overridden = true;                       // they're slowing harder → abort this tick
+		}
+	}
+	if (overridden)
+		return;
+
+	// Apply: slow self, then the cached others to the others-scale.
+	GoSlow(m_flSlowMotionScale, m_bSlowBullets);
+	for (int i = 0; i < gpGlobals->maxClients && i < 32; i++)
+	{
+		CBaseEntity *e = m_hSlowPlayers[i];
+		if (!e)
+			continue;
+		CBasePlayer *p = (CBasePlayer *)e;
+		if (p->m_flSlowMotionScale == 0.0f || p->m_flSlowMotionRamp != m_flSlowMotionRamp)
+		{
+			p->GoSlow(m_flSlowMotionRamp, 0);
+			p->m_bSlowBullets = m_bSlowBullets;
+		}
+		else
+			m_hSlowPlayers[i] = NULL;
+	}
+}
+
+// @ UsePowerUp__11CBasePlayer (@0x85980) — the `usepowerup` command: ACTIVATE the held powerup.
+// The double-tap +use that issues this command is detected CLIENT-side (cl_dll/input.cpp CreateMove,
+// gated by cl_usepowerup, 0.30s window). Activation just promotes held→active + sets the expire time
+// + notifies the client; the actual slowing happens in UpdatePowerUpState (sets the slow triple) +
+// SlowMotionFlow (propagates to LOS enemies) each frame. Returns true if it took.
 bool CBasePlayer::UsePowerUp()
 {
-	if (!IsAlive()) // SLICE: original also gates on a frozen-state pev flag
+	if (pev->iuser1 != 0 || !IsAlive())   // spectating/frozen, or dead
 		return false;
-
 	if (m_iHeldPowerup == 0 || m_iPowerups != 0)
 		return false; // nothing held, or one is already active
 
-	// SLICE: the original can forbid slow-motion via a game-mode flag (DAT_001781b8);
-	// here slow-motion is always permitted.
-	m_iPowerups = m_iHeldPowerup;
-	m_flPowerupExpireTime = m_flPowerupTime + gpGlobals->time;
+	// SLICE: the objective game modes can forbid activating slow-motion (gamerules[0x18] flag) →
+	// the original refuses with TSHudMessage "You can't use Slow-Motion now!" (color c3,2d,2d). We
+	// don't model that mode flag yet, so slow-motion is always permitted here.
 
+	m_iPowerups = m_iHeldPowerup;
+	m_flPowerupExpireTime = (float)(int)m_flPowerupTime + gpGlobals->time;
+
+	// PwUpTime — the green countdown the client ticks down locally (whole seconds remaining).
 	if (gmsgTSPowerUpTime == 0)
-		gmsgTSPowerUpTime = REG_USER_MSG("PwUpTime", 1); // original "PwUpTime", fixed size 1
+		gmsgTSPowerUpTime = REG_USER_MSG("PwUpTime", 1);
 	MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUpTime, NULL, ENT(pev));
 	WRITE_BYTE((int)(m_flPowerupExpireTime - gpGlobals->time + 0.5f));
 	MESSAGE_END();
 
-	// Slow-motion drops nearby players (line of sight) into slow-motion for the duration —
-	// the SlowMotionFlow propagation, via a CTSSlowMotionPoint at this player (cont.15 GoSlow).
-	if (m_iPowerups & (TS_PWUP_SLOWMO | TS_PWUP_SLOWPAUSE))
-	{
-		extern CBaseEntity *TSCreateSlowMotionPoint(const Vector &, float, float, int, CBaseEntity *);
-		float scale = (m_iPowerups & TS_PWUP_SLOWPAUSE) ? 0.8f : 0.6f;
-		TSCreateSlowMotionPoint(pev->origin, scale, m_flPowerupExpireTime - gpGlobals->time,
-			(m_iPowerups & TS_PWUP_SLOWMO) ? 1 : 0, this);
-	}
-
-	// Slow-motion / slow-pause kick off the motion-blur effect (1 / 2).
-	int blur = 0;
-	if (m_iPowerups & TS_PWUP_SLOWMO)
-		blur = 1;
-	else if (m_iPowerups & TS_PWUP_SLOWPAUSE)
-		blur = 2;
+	// TSMBlur — kick off the client motion-blur (1 = slow-motion, 2 = slow-pause). Only the two
+	// slow powerups send it (double-firerate doesn't). MSG_PVS so nearby players see the wash too.
+	int blur = (m_iHeldPowerup & TS_PWUP_SLOWMO) ? 1 : (m_iHeldPowerup & TS_PWUP_SLOWPAUSE) ? 2 : 0;
 	if (blur)
 	{
 		if (gmsgTSMotionBlur == 0)
-			gmsgTSMotionBlur = REG_USER_MSG("TSMBlur", 2); // original "TSMBlur", fixed size 2 (entindex,blur)
+			gmsgTSMotionBlur = REG_USER_MSG("TSMBlur", 2);
 		MESSAGE_BEGIN(MSG_PVS, gmsgTSMotionBlur, pev->origin);
 		WRITE_BYTE(ENTINDEX(edict()));
 		WRITE_BYTE(blur);
@@ -227,10 +340,16 @@ void CBasePlayer::UpdatePowerUpState()
 		}
 		else
 		{
-			// slow-pause (slower, slows bullets too)
+			// slow-pause: the player experience MATCHES slow-motion (same self-slow → fire/move don't
+			// speed up), and ONLY the bullets go slower (the m_bSlowBullets pause flag → GetBulletVelocityMult
+			// ×10 denominator, so slow-pause bullets crawl/dodgeable). USER-DIRECTED: the RE self-scale here
+			// is 0.8 (less self-slow than slow-mo, "bullet-time" style) which made fire speed UP vs slow-mo;
+			// the user wants slow-pause to NOT fire faster than slow-mo ("slow-pause is all that, except the
+			// bullets are slower"), so the self-slow is slow-mo's 0.6. (Flagged as a deviation from the literal
+			// RE 0.8 — live-trace the original to pin it if exactness is wanted.)
 			m_bSlowBullets = 1;
 			m_flSlowMotionRamp = 0.225f;
-			m_flSlowMotionScale = 0.8f;
+			m_flSlowMotionScale = 0.6f;
 		}
 
 		if (gpGlobals->time <= m_flPowerupExpireTime && IsAlive())

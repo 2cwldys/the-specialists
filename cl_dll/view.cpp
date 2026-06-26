@@ -1826,6 +1826,42 @@ void DLLEXPORT V_CalcRefdef(struct ref_params_s* pparams)
 		V_CalcNormalRefdef(pparams);
 	}
 
+	// TS slow-motion screen tint (RE scratchpad/SLOWMO_PRESENTATION_RE.md §C-redux): the original
+	// reimplements it by hijacking the engine SCREEN-FADE at the tail of V_CalcRefdef — a desaturated
+	// teal RGBA(0,100,125) at alpha (1-slow)*50, alpha-blended over the whole screen (incl. HUD),
+	// gated by cl_slowfade. (Our earlier green FillRGBA was the wrong color AND the wrong mechanism.)
+	// slow = the smoothed client slow factor (1.0 = normal).
+	{
+		extern float g_flClientSlow; // cl_dll/ts_powerup_hud.cpp
+		static bool s_slowFadeOn = false;
+		static cvar_t* cl_slowfade = NULL;
+		if (!cl_slowfade)
+			cl_slowfade = gEngfuncs.pfnGetCvarPointer("cl_slowfade");
+		bool enabled = (!cl_slowfade || cl_slowfade->value != 0.0f);
+		if (enabled && g_flClientSlow < 1.0f)
+		{
+			screenfade_t sf;
+			gEngfuncs.pfnGetScreenFade(&sf);
+			sf.fader = 0;
+			sf.fadeg = 100;
+			sf.fadeb = 125;
+			int a = (int)((1.0f - g_flClientSlow) * 50.0f);
+			sf.fadealpha = (byte)(a > 50 ? 50 : a);
+			sf.fadeFlags = FFADE_OUT | FFADE_STAYOUT; // = 5: straight alpha, stays until changed
+			gEngfuncs.pfnSetScreenFade(&sf);
+			s_slowFadeOn = true;
+		}
+		else if (s_slowFadeOn) // slow-motion ended → clear our tint
+		{
+			screenfade_t sf;
+			gEngfuncs.pfnGetScreenFade(&sf);
+			sf.fadealpha = 0;
+			sf.fadeFlags = 0;
+			gEngfuncs.pfnSetScreenFade(&sf);
+			s_slowFadeOn = false;
+		}
+	}
+
 	/*
 // Example of how to overlay the whole screen with red at 50 % alpha
 #define SF_TEST

@@ -794,6 +794,15 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		HUD_SendWeaponAnim(to->client.weaponanim, pWeapon->pev->body, true);
 	}
 
+	// TS slow-motion fire-rate prediction (RE scratchpad/SLOWMO_PRESENTATION_RE.md §B): scale the
+	// per-frame weapon-timer decrement by the player's current slow factor — the networked
+	// pev->fuser1 (in the playerstate) — so the predicted fire rate matches the server PostThink.
+	// Floor at 0.01; 0/uninit reads as 1.0 (normal). (SLICE: the DoubleFireRate ×1.5 isn't predicted.)
+	float predSlow = from->playerstate.fuser1;
+	if (predSlow <= 0.0f) predSlow = 1.0f;
+	else if (predSlow < 0.01f) predSlow = 0.01f;
+	const double slowMsec = (cmd->msec / 1000.0) * predSlow;
+
 	for (i = 0; i < MAX_WEAPONS; i++)
 	{
 		pCurrent = g_pWpns[i];
@@ -823,10 +832,10 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		// Decrement weapon counters, server does this at same time ( during post think, after doing everything else )
 		pto->m_flNextReload -= cmd->msec / 1000.0;
 		pto->m_fNextAimBonus -= cmd->msec / 1000.0;
-		pto->m_flNextPrimaryAttack -= cmd->msec / 1000.0;
-		pto->m_flNextSecondaryAttack -= cmd->msec / 1000.0;
-		pto->m_flTimeWeaponIdle -= cmd->msec / 1000.0;
-		pto->fuser1 -= cmd->msec / 1000.0;
+		pto->m_flNextPrimaryAttack -= slowMsec;   // TS: slow-scaled (fire rate dilates in slow-motion)
+		pto->m_flNextSecondaryAttack -= slowMsec;
+		pto->m_flTimeWeaponIdle -= slowMsec;
+		pto->fuser1 -= slowMsec;
 
 		to->client.vuser3[2] = pCurrent->m_iSecondaryAmmoType;
 		to->client.vuser4[0] = pCurrent->m_iPrimaryAmmoType;
@@ -876,7 +885,7 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 	}
 
 	// m_flNextAttack is now part of the weapons, but is part of the player instead
-	to->client.m_flNextAttack -= cmd->msec / 1000.0;
+	to->client.m_flNextAttack -= slowMsec; // TS: slow-scaled (matches the server PostThink)
 	if (to->client.m_flNextAttack < -0.001)
 	{
 		to->client.m_flNextAttack = -0.001;

@@ -377,11 +377,17 @@ public:
 	float m_flSpreadAccum = 0;        // 0x778 — TS dynamic-accuracy spread accumulator: grows per shot in
 	                                  // CTSGun::ScaleSpread (capped 0.1), recovers in PreThink. Effective
 	                                  // bullet spread = weapon flSpread + this (so spraying widens the cone).
-	byte m_bSlowBullets = 0;          // 0x175 — slow-motion also slows bullets
-	float m_flSlowMotionGo = 1.0f;    // 0x168 — applied slow factor (1 = normal)
+	byte m_bSlowBullets = 0;          // 0x175 — bullet-time/"pause" flag (0=slowmo, 1=slowpause)
+	float m_flSlowMotionGo = 1.0f;    // 0x168 — applied slow factor (1 = normal) — drives maxspeed
 	float m_flSlowMotionTarget = 1.0f;// 0x170 — target slow factor (1 = normal)
-	float m_flSlowMotionScale = 0;    // 0x17c — powerup-driven slow intensity (0 = none)
-	float m_flSlowMotionRamp = 0;     // 0x180 — slow-motion interpolation ramp
+	float m_flSlowMotionScale = 0;    // 0x17c — SELF slow scale in SlowMotionFlow (0.6 slowmo / 0.8 pause); 0 = inactive (gate)
+	float m_flSlowMotionRamp = 0;     // 0x180 — OTHERS slow scale (0.35 slowmo / 0.225 pause) applied to LOS victims
+	float m_flNextSlowFlow = 0;       // 0x178 — next SlowMotionFlow tick (runs every 0.5s while active)
+	EHANDLE m_hSlowPlayers[32];       // 0x188 — per-player cache of who THIS player is slowing (for restore)
+	int m_iClientHeldType = -1;       // 0x738 — last-sent held powerup type (gmsgTSPowerUp change-detect)
+	int m_iClientHeldDur = -1;        // 0x734 — last-sent held powerup duration
+	float m_flClientSlowAmt = -1;     // 0x16c — last-sent slow amount (gmsgTSSlowAmt change-detect)
+	int m_iClientBulletTime = -1;     // 0x174 — last-sent bullet-time flag (gmsgTSBulletTime)
 	byte m_iKungFu = 0;               // 0x74e — kung-fu state
 	byte m_bLowGravity = 0;           // 0x74f — low-gravity powerup active
 	float m_flNextJumpKick = 0;       // jump-kick cooldown (orig CTSStunt+8): one kick per ~0.7s
@@ -434,6 +440,7 @@ public:
 	// each frame from PreThink; UsePowerUp is the `usepowerup` command handler.
 	bool UsePowerUp();           // activate the held timed powerup
 	void UpdatePowerUpState();   // per-frame: apply slow-motion fields / expire
+	void SlowMotionFlow();       // per-frame: slow self + LOS-visible enemies while active
 	void DeactivateSlowMotionFlow(); // restore normal speed when slow-motion ends
 
 	// TS slow-motion state (GoSlow__11CBasePlayer / InSlow__11CBasePlayer). GoSlow

@@ -170,6 +170,7 @@ private:
 #include "ts_spectate.h"
 #include "ts_buymenu.h"
 #include "ts_message.h"
+#include "ts_powerup_hud.h"
 #include "ts_debris.h"
 
 
@@ -587,6 +588,7 @@ public:
 	CHudSpectate m_Spectate;
 	CHudTSBuyMenu m_TSBuyMenu;
 	CHudTSMessage m_TSMessage;
+	CHudTSPowerUp m_TSPowerUp;
 	CHudTSDebris m_TSDebris;
 
 	void Init();

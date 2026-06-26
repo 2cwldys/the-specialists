@@ -376,6 +376,7 @@ void CHud::Init()
 	m_Spectate.Init();
 	m_TSBuyMenu.Init();
 	m_TSMessage.Init();
+	m_TSPowerUp.Init();
 	m_TSDebris.Init();
 	GetClientVoiceMgr()->Init(&g_VoiceStatusHelper, (vgui::Panel**)&gViewPort);
 
@@ -558,6 +559,7 @@ void CHud::VidInit()
 	m_Spectate.VidInit();
 	m_TSBuyMenu.VidInit();
 	m_TSMessage.VidInit();
+	m_TSPowerUp.VidInit();
 	m_TSDebris.VidInit();
 	GetClientVoiceMgr()->VidInit();
 }

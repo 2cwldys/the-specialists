@@ -19,6 +19,13 @@ bool SlowPause(CBasePlayer *pPlayer);      // @ 0x65fb8 — m_iPowerups & 8
 bool DoubleFireRate(CBasePlayer *pPlayer); // @ 0x65fe4 — m_iPowerups & 0x10
 int  KungFu(CBasePlayer *pPlayer);         // @ 0x65fd8 — m_iKungFu
 
+// Slow-motion "bullets as models" (ts_bulletmgr.cpp / CBulletManager). When the shooter is slowed
+// (slow factor < 0.99) the fire path registers each pellet as a flying bullet; TSUpdateSlowBullets
+// (per frame from gamerules Think) flies + traces + damages them; they vanish when slow-mo ends.
+void TSFireSlowBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage);
+void TSUpdateSlowBullets();
+void TSResetSlowBullets();
+
 // @ ClientCommand `powerup <N>` apply (RE: ts_i386.so ClientCommand 0x9db8a..0x9dd42).
 // Grant a powerup directly (the TS debug cheat). Instant bits apply at once; timed bits are
 // held with a `duration`-second timer (extended if the same type is already held), guarded by

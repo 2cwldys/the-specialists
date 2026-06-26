@@ -62,6 +62,19 @@ static float TSDamageMult()
 	return (m > 0.0f) ? m : 1.0f;
 }
 
+// Melee sound pitch (USER-DIRECTED): unlike the gun WAVs (recorded-slow → pitched UP to ~255 at normal),
+// the close-combat/knife/katana sounds are recorded at normal speed, so they sit at 100 normally and are
+// SLOWED (lower pitch) in slow-motion — never sped up. pitch = 100 * perceivedSlow (the world slow the
+// melee'er perceives): normal 100, slow-mo ~35, slow-pause ~22. Capped at 100 (never above normal).
+static int TSMeleePitch(CBasePlayer *p)
+{
+	float s = p->pev->fuser1;
+	if ((p->m_iPowerups & 9) && p->m_flSlowMotionRamp > 0.0f && p->m_flSlowMotionRamp < s)
+		s = p->m_flSlowMotionRamp; // slowmo 0.35 / slowpause 0.225
+	int pitch = (int)(100.0f * s);
+	return pitch < 1 ? 1 : (pitch > 100 ? 100 : pitch);
+}
+
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
 
 // @ g_iWeaponPriority (filled in compile_weapons_info@0x6fe28) — the auto-select order
@@ -223,24 +236,27 @@ bool CTSGun::AddAmmo(int caliber, int count)
 	return true;
 }
 
-// @ MultiplyClips__6CTSGun — the infinite-clip powerup. Tops the active weapon's caliber
-// reserve toward 2x a full load (capped at the caliber max). Returns true if anything added.
+// @ MultiplyClips__6CTSGun — the ammo (infinite-clip) powerup. USER-DIRECTED: it instantly sets the
+// active weapon's LOADED CLIP to DOUBLE the weapon's max clip (not double the current load), so you can
+// fire 2x before reloading. Returns true if it raised the clip.
 bool CTSGun::MultiplyClips()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	int caliber = wi->iCaliber;
-	if (caliber <= 0 || caliber >= TS_NUM_CALIBERS)
+	const int want = wi->iClip * 2; // double the MAX clip
+	TSItem &it = m_items[m_weaponType];
+	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY) // akimbo: split across the two barrels
+	{
+		if (it.leftClip + it.rightClip >= want)
+			return false;
+		it.leftClip = wi->iClip;
+		it.rightClip = wi->iClip;
+		m_iClip = it.leftClip + it.rightClip;
+		return true;
+	}
+	if (m_iClip >= want)
 		return false;
-	int before = m_ammoReserve[caliber];
-	int want = before * 2;
-	if (want < wi->iClip * 3)
-		want = wi->iClip * 3; // at least bring it back to a full resupply
-	int max = TSAmmoMax(caliber);
-	if (want > max)
-		want = max;
-	if (want <= before)
-		return false;
-	m_ammoReserve[caliber] = want;
+	m_iClip = want;
+	it.clip = want;
 	return true;
 }
 
@@ -624,7 +640,7 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 	TS_TriggerViewShake(wi->flDamage * 0.15f);
 #endif
 	// Swing whoosh (per attack) — server-driven EMIT_SOUND (a client no-op during prediction).
-	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM);
+	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 	const float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.25f;
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
@@ -641,7 +657,7 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 		const char *hitSnd = isKatana
 			? (flesh ? "weapons/katana/hit-body.wav" : "weapons/katana/hit.wav")
 			: (flesh ? "weapons/knife/knife_hitbody.wav" : "weapons/knife/knife_hit.wav");
-		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, hitSnd, VOL_NORM, ATTN_NORM);
+		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, hitSnd, VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
 		// events/knife.sc → EV_TSMelee: blade-on-surface spark + decal (the original FUN_10043c90).
 		// SERVER-AUTHORITATIVE (not predicted): the client-predicted melee world-trace is unreliable
 		// and usually misses, so playing it from prediction (FEV_NOTHOST) gave the local slasher no
@@ -862,7 +878,7 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 
 	if (flesh)
 	{
-		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM);
+		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
 		ClearMultiDamage();
 		pHit->TraceAttack(m_pPlayer->pev, dmg * TSDamageMult(), gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
 		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
@@ -870,7 +886,7 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 	else
 	{
 		// miss OR surface: the swing whoosh.
-		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM);
+		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
 		if (surface)
 		{
 			// + the footstep-style surface thud (the material the fist struck).
@@ -960,7 +976,7 @@ void CTSGun::ColdCock()
 	if (tr.flFraction >= 1.0f)
 		return; // miss (swing is the visual; no sound)
 
-	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM);
+	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
 	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
 	if (pHit)
 	{
@@ -1075,6 +1091,14 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 	// (this is why shooting two glass panes breaks only the first and just decals the one behind it).
 	const float damageAdjust = CVAR_GET_FLOAT("damagemult");
 
+	// RE ShootBulletsPlayer `rbullet` gate: when the shooter is in slow-motion (slow factor < 0.99),
+	// each pellet becomes a flying bullet (CBulletManager) instead of an instant hitscan — it crosses
+	// the map and damages where it actually arrives (dodgeable in slow-pause). See ts_bulletmgr.cpp.
+	float shooterSlow = pPlayer->pev->fuser1;
+	if (shooterSlow < 0.01f)
+		shooterSlow = 0.01f;
+	const bool slowBullets = shooterSlow < 0.99f;
+
 	for (int iShot = 1; iShot <= cShots; iShot++)
 	{
 		// player-synced gaussian spread (same formula as FireBulletsPlayer)
@@ -1083,6 +1107,12 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 		float y = UTIL_SharedRandomFloat(seed + (2 + iShot), -0.5, 0.5) +
 			UTIL_SharedRandomFloat(seed + (3 + iShot), -0.5, 0.5);
 		Vector dir = vecDir + x * vecSpread.x * vecRight + y * vecSpread.y * vecUp;
+
+		if (slowBullets)
+		{
+			TSFireSlowBullet(pPlayer, vecSrc, dir, (float)iDamage); // flies as a tracked bullet
+			continue;
+		}
 
 		Vector start = vecSrc;
 		float dmg = (float)iDamage;
@@ -1236,7 +1266,7 @@ void CTSGun::ThrowKnife()
 	TSThrowKnife(m_pPlayer, m_weaponType, dmg, vecSrc, vecVel); // server-only (client stub no-ops)
 
 	SendWeaponAnim((m_weaponType == TSW_KNIFE) ? 7 : 5); // "throw" seq — client-predicted
-	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM);
+	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSMeleePitch(m_pPlayer));
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
@@ -1258,20 +1288,6 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 {
 	TSItem &it = m_items[m_weaponType];
 
-	// Pick the firing barrel. useitems (SwitchItems) sets it.barrelMask: 2 = left only,
-	// 4 = right only, 0/6 = both -> alternate. Skip an empty barrel (fall to the other).
-	int fireLeft;
-	if ((it.barrelMask & 6) == 2)
-		fireLeft = 1;                 // left only
-	else if ((it.barrelMask & 6) == 4)
-		fireLeft = 0;                 // right only
-	else
-		fireLeft = (m_akimboSide ^ 1) & 1; // both: alternate
-	if (fireLeft && it.leftClip <= 0 && it.rightClip > 0)
-		fireLeft = 0;
-	else if (!fireLeft && it.rightClip <= 0 && it.leftClip > 0)
-		fireLeft = 1;
-
 	if (it.leftClip + it.rightClip <= 0)
 	{
 		m_iClip = 0;
@@ -1280,43 +1296,87 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 		return;
 	}
 
-	if (fireLeft)
-		it.leftClip--;
+	// RE AkimboFire (@0x729c0): `fireBoth = bothButtonsHeld || mode==AUTO`. In AUTO mode (the default
+	// for the full-auto akimbos — uzi_akimbo's fire-mode mask is 0x21, AUTO bit set), BOTH guns fire
+	// every shot (this is why our uzi looked like it "switched hands" — it was stuck alternating).
+	// The SEMI/AKIMBO_ALT modes fire one alternating barrel per pull (pistol akimbos like the gold/
+	// berettas default to that). SLICE: the mode-4/5 L-click-one/R-click-other split is the secondary-
+	// attack work (task #15 part 2).
+	const bool fireBoth = (m_fireMode == TSFM_AUTO || m_fireMode == TSFM_AKIMBO_BOTH)
+		|| ((m_pPlayer->pev->button & (IN_ATTACK | IN_ATTACK2)) == (IN_ATTACK | IN_ATTACK2));
+
+	// Which barrel(s) fire this shot (0 = right, 1 = left).
+	int sides[2], nSides = 0;
+	if (fireBoth)
+	{
+		if (it.rightClip > 0) sides[nSides++] = 0;
+		if (it.leftClip  > 0) sides[nSides++] = 1;
+	}
 	else
-		it.rightClip--;
-	m_akimboSide = fireLeft ? 1 : 0;
-	m_iClip = it.leftClip + it.rightClip; // total clip mirrors the two barrels
+	{
+		int fireLeft;
+		if ((it.barrelMask & 6) == 2)      fireLeft = 1;          // left only
+		else if ((it.barrelMask & 6) == 4) fireLeft = 0;          // right only
+		else                               fireLeft = (m_akimboSide ^ 1) & 1; // alternate
+		if (fireLeft && it.leftClip <= 0 && it.rightClip > 0) fireLeft = 0;
+		else if (!fireLeft && it.rightClip <= 0 && it.leftClip > 0) fireLeft = 1;
+		sides[nSides++] = fireLeft;
+		m_akimboSide = fireLeft;
+	}
 
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
 	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 
-	// Fire the matching barrel's viewmodel animation (right gun = iFireAnim, left =
-	// iFireAnimL; read from the v_*_akimbo.mdl). SLICE: server-driven SendWeaponAnim.
-	int akAnim = m_akimboSide ? wi->iFireAnim : wi->iFireAnimL;
-	if (akAnim >= 0)
-		SendWeaponAnim(akAnim);
-
 	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
-	// Muzzle offset to the firing gun's side (+5u right / -5u left), like the original.
-	const float side = m_akimboSide ? 5.0f : -5.0f;
-	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_right * side;
 	Vector vecAiming = gpGlobals->v_forward;
 	const float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.02f;
 
-	// events/fire.sc → EV_TSFire: fire sound + shell + the muzzle-flash flare at THIS barrel's
-	// attachment (iparam2 = m_akimboSide: 0 = right/attachment 0, 1 = left/attachment 1).
-	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
-		flSpread, flSpread, m_weaponType, m_akimboSide, (m_iClip == 0) ? 1 : 0, 0);
-
+	for (int s = 0; s < nSides; s++)
+	{
+		const int leftSide = sides[s];
+		if (leftSide) it.leftClip--; else it.rightClip--;
+		// Muzzle offset to the firing gun's side (+5u right / -5u left), like the original.
+		Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_right * (leftSide ? -5.0f : 5.0f);
 #ifndef CLIENT_DLL
-	TSFireBulletsPenetrate(m_pPlayer, 1, vecSrc, vecAiming,
-		Vector(flSpread, flSpread, flSpread), 8192,
-		(int)(wi->flDamage * TSDamageMult()), m_pPlayer->random_seed);
+		TSFireBulletsPenetrate(m_pPlayer, 1, vecSrc, vecAiming,
+			Vector(flSpread, flSpread, flSpread), 8192,
+			(int)(wi->flDamage * TSDamageMult()), m_pPlayer->random_seed);
 #else
-	m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
-		Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
-		0, (int)(wi->flDamage * TSDamageMult()), m_pPlayer->pev, m_pPlayer->random_seed);
+		m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
+			Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,
+			0, (int)(wi->flDamage * TSDamageMult()), m_pPlayer->pev, m_pPlayer->random_seed);
 #endif
+	}
+	m_iClip = it.leftClip + it.rightClip; // total clip mirrors the two barrels
+
+	// viewmodel fire anim. For the AUTO-both shot, play the model's "both fire" sequence (BOTH guns
+	// recoil TOGETHER) — recovered from the akimbo viewmodels: uzi_akimbo akimbo_shoot1=12, beretta
+	// linkedshoot=26, gold linkedshoot=7. (Fixes "switches hands"/"only one gun" — the single-gun fire
+	// anims animate one gun at a time. Akimbos without a linked anim fall back to alternating.)
+	int akAnim;
+	if (nSides == 2)
+	{
+		int bothAnim = -1;
+		switch (m_weaponType)
+		{
+		case 16: bothAnim = 12; break; // uzi_akimbo: akimbo_shoot1 (both guns)
+		case 8:  bothAnim = 26; break; // beretta_akimbo: linkedshoot
+		case 21: bothAnim = 7;  break; // gold: linkedshoot
+		}
+		if (bothAnim >= 0)
+			akAnim = bothAnim;
+		else { m_akimboSide ^= 1; akAnim = m_akimboSide ? wi->iFireAnim : wi->iFireAnimL; } // fallback
+	}
+	else
+		akAnim = sides[0] ? wi->iFireAnimL : wi->iFireAnim;
+	if (akAnim >= 0)
+		SendWeaponAnim(akAnim);
+
+	// events/fire.sc → EV_TSFire: sound + shell + muzzle flare(s). iparam2 barrel side: 0=right,
+	// 1=left, 2=BOTH (the client draws both flares for the AUTO-both shot).
+	const int eventSide = (nSides == 2) ? 2 : sides[0];
+	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
+		flSpread, flSpread, m_weaponType, eventSide, (m_iClip == 0) ? 1 : 0, 0);
 
 	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
 	if (DoubleFireRate(m_pPlayer))

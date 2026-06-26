@@ -46,13 +46,13 @@ void V_PunchAxis(int axis, float punch); // view recoil kick (cl_dll/view.cpp)
 static const char* const s_fireSound[] = {
 	/* 0*/ nullptr, /* 1*/ "weapons/glock/glock-fire.wav", /* 2*/ "weapons/beretta/fire.wav",
 	/* 3*/ "weapons/uzi/uzi-fire.wav", /* 4*/ "weapons/m3/m3-fire.wav", /* 5*/ "weapons/m4/m4-fire.wav",
-	/* 6*/ nullptr, /* 7*/ "weapons/mp5k/mp5k-fire.wav", /* 8*/ "weapons/beretta/fire.wav",
+	/* 6*/ "weapons/mp5sd/mp5sd-fire.wav", /* 7*/ "weapons/mp5k/mp5k-fire.wav", /* 8*/ "weapons/beretta/fire.wav",
 	/* 9*/ "weapons/mk23/mk23-fire.wav", /*10*/ "weapons/mk23/mk23-fire.wav", /*11*/ "weapons/usas/usas-fire.wav",
 	/*12*/ "weapons/deagle/fire.wav", /*13*/ "weapons/ak47/fire.wav", /*14*/ "weapons/fnh/fnh-fire.wav",
 	/*15*/ "weapons/aug/aug-fire.wav", /*16*/ "weapons/uzi/uzi-fire.wav", /*17*/ "weapons/tmp/fire.wav",
 	/*18*/ "weapons/barrett/fire.wav", /*19*/ "weapons/pdw/fire.wav", /*20*/ "weapons/spas12/spas12-fire.wav",
 	/*21*/ "weapons/gold/gold-fire.wav", /*22*/ "weapons/glock22/glock22-fire.wav", /*23*/ "weapons/ump/ump-fire.wav",
-	/*24*/ nullptr, /*25*/ nullptr, /*26*/ "weapons/mossberg/mossberg-fire.wav", /*27*/ "weapons/m16/fire.wav",
+	/*24*/ nullptr, /*25*/ nullptr, /*26*/ "weapons/mossberg/fire.wav", /*27*/ "weapons/m16/fire.wav",
 	/*28*/ "weapons/ruger/ruger-fire.wav", /*29*/ nullptr, /*30*/ "weapons/fnh/fnh-fire.wav",
 	/*31*/ "weapons/bull/fire01.wav", /*32*/ "weapons/m60/m60-fire.wav", /*33*/ "weapons/sawedoff/fire.wav",
 	/*34*/ nullptr, /*35*/ nullptr, /*36*/ "weapons/contender/fire.wav", /*37*/ "weapons/tmp/fire.wav",
@@ -217,7 +217,13 @@ void EV_TSFire(event_args_t* args)
 	Vector origin;
 	VectorCopy(args->origin, origin);
 
-	EV_TSMuzzleFlare(idx, weaponType, barrelSide); // the TS muzzle-flash sprite at the barrel
+	if (barrelSide == 2) // akimbo AUTO-both: a muzzle flare at BOTH barrels
+	{
+		EV_TSMuzzleFlare(idx, weaponType, 0);
+		EV_TSMuzzleFlare(idx, weaponType, 1);
+	}
+	else
+		EV_TSMuzzleFlare(idx, weaponType, barrelSide); // the TS muzzle-flash sprite at the barrel
 
 	if (EV_IsLocal(idx))
 	{
@@ -256,5 +262,15 @@ void EV_TSFire(event_args_t* args)
 
 	const char* snd = s_fireSound[weaponType];
 	if (snd)
-		gEngfuncs.pEventAPI->EV_PlaySound(idx, origin, CHAN_WEAPON, snd, VOL_NORM, ATTN_NORM, 0, PITCH_NORM);
+	{
+		// RE (scratchpad/SLOWMO_PRESENTATION_RE.md): the original pitches ALL weapon-fire sounds UP —
+		// pitch = 100 + (int)(300 * slow), where slow is the local client's smoothed slow factor
+		// (1.0 normal → pitch 400, engine-clamped ~255). Slow-motion lowers `slow` → the gunshots
+		// deepen toward 100. (Our old flat PITCH_NORM is why normal fire sounded "already slowed".)
+		extern float g_flClientSlow; // cl_dll/ts_powerup_hud.cpp — current smoothed slow factor
+		int pitch = 100 + (int)(300.0f * g_flClientSlow);
+		if (pitch > 255) pitch = 255;
+		if (pitch < 1) pitch = 1;
+		gEngfuncs.pEventAPI->EV_PlaySound(idx, origin, CHAN_WEAPON, snd, VOL_NORM, ATTN_NORM, 0, pitch);
+	}
 }
