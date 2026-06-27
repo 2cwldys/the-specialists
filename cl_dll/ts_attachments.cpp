@@ -59,13 +59,19 @@ void TS_Attachments_Init()
 }
 
 // Map change (HUD VidInit): the cached SPR_Load handles index the per-map sprite list, so they go
-// STALE after a load — drop them so they re-load fresh on next draw. (The per-player attach state is
-// re-sent by the server's ActItems on respawn; clear it too so it doesn't linger from the old map.)
+// STALE after a load — drop them so they re-load fresh on next draw.
+//
+// Do NOT clear g_playerAttach here. The server broadcasts ActItems only on CHANGE (it caches the
+// last-sent mask in CTSGun::m_iClientAttach), and that cache SURVIVES a changelevel (the gun object
+// persists) — so it never re-broadcasts on the new map. client.so is not reloaded across a map
+// change either, so this static array stays in sync with the server's surviving cache as long as we
+// leave it alone. Clearing it here desynced the two → the laser/flashlight (and the dive-reticle
+// distance) vanished after a map change. The original keeps its array likewise (a static global
+// never cleared on level change), which is why it doesn't have this bug. See [[map-change-state-reset]].
 void TS_Attachments_VidInit()
 {
 	s_laserBeamSpr = 0;
 	s_laserDotSpr = 0;
-	memset(g_playerAttach, 0, sizeof(g_playerAttach));
 }
 
 // Laser colour (RE FUN_100582f0): 1 -> green, 2 -> blue, everything else -> red.

@@ -447,6 +447,10 @@ bool CTSGun::Deploy()
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	if (!wi->pszViewModel)
 		return false;
+	// NB: do NOT reset m_iClientAttach here to force a re-broadcast — it re-fired on every deploy and
+	// broke the fresh-buy laser. The map-change loss was the CLIENT clearing its g_playerAttach array on
+	// VidInit; that clear was removed (cl_dll/ts_attachments.cpp) so the array stays in sync with this
+	// change-detect cache across a level change. See [[map-change-state-reset]].
 	// SLICE: faithful Deploy uses the items array + GetBodyByItems + a weapon-param
 	// message; here we just show the view/player model via DefaultDeploy.
 	// Kung-fu (TSW_MELEE) has NO 3rd-person weapon model — it's bare hands, so the player must

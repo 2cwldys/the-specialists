@@ -449,8 +449,16 @@ void CHudTSBuyMenu::Apply()
 
 	gEngfuncs.pfnClientCmd("rst_cfg\n");
 
-	char cmd[256] = "tkw";
-	bool any = false, kevlar = false;
+	// Emit each weapon and ITS attachments INTERLEAVED, in slot order: `tkw <id>_<n>` immediately
+	// followed by that weapon's `tki <bit>` items. The server appends to its armament queue in
+	// command-arrival order and BuyArmament applies the queue in that order via AddItem → the ACTIVE
+	// weapon, so an attachment must directly follow the weapon it belongs to — otherwise (the old
+	// "all weapons, then all attachments" batching) every attachment lands on the LAST weapon bought
+	// (this is why a SOCOM+laser put the laser on the shotgun). This mirrors the original client's
+	// sort-then-emit pass (FUN_10039400), which sequences each accessory after its weapon. Each
+	// attachment bit is a separate `tki` so CTSGun::AddItem validates it against that weapon's
+	// supported/built-in mask individually. See reference/BUY.md.
+	bool kevlar = false;
 	for (const auto& s : m_slots)
 	{
 		if (!s.used)
@@ -465,38 +473,20 @@ void CHudTSBuyMenu::Apply()
 		// dual-wield (the single it derives from is loaded into both barrels). Non-akimbo emits its own id.
 		const TSWeapon* sw = WeaponInfo(s.weaponId);
 		const int emitId = (s.akimbo && sw && sw->akimbo >= 0) ? sw->akimbo : s.weaponId;
-		char buf[32];
-		sprintf(buf, " %d_%d", emitId, s.count < 1 ? 1 : s.count);
-		strncat(cmd, buf, sizeof(cmd) - strlen(cmd) - 1);
-		any = true;
-	}
-	if (any)
-	{
-		strncat(cmd, "\n", sizeof(cmd) - strlen(cmd) - 1);
-		gEngfuncs.pfnClientCmd(cmd);
-	}
+		char buf[64];
+		sprintf(buf, "tkw %d_%d\n", emitId, s.count < 1 ? 1 : s.count);
+		gEngfuncs.pfnClientCmd(buf);
 
-	// gun attachments (silencer/laser/flashlight/scope = bits 1/2/4/8) — the original's bare item list
-	// `tki <bits> <bits> …` (FUN_10039400 accessory branch, fmt DAT_10091200 = "%i "). Each routes to the
-	// server's CBasePlayer::AddItem → the ACTIVE CTSGun (CTSGun::AddItem). The silencer (bit 1) drives the
-	// fire-sil sound + muzzle suppression. SLICE: the wire carries no per-weapon target, so in a multi-
-	// weapon loadout the attachment lands on whichever weapon is WIELDED when applied (buy the silencer
-	// while holding the gun you want it on); per-weapon spawn-time targeting needs a BuyArmament RE pass.
-	char tki[256] = "tki";
-	bool anyItem = false;
-	for (const auto& s : m_slots)
-	{
-		if (!s.used || s.accessory || s.attachMask == 0)
-			continue;
-		char buf[16];
-		sprintf(buf, " %d", s.attachMask);
-		strncat(tki, buf, sizeof(tki) - strlen(tki) - 1);
-		anyItem = true;
-	}
-	if (anyItem)
-	{
-		strncat(tki, "\n", sizeof(tki) - strlen(tki) - 1);
-		gEngfuncs.pfnClientCmd(tki);
+		// gun attachments (silencer/laser/flashlight/scope = bits 1/2/4/8) for THIS weapon — sent right
+		// after its tkw so BuyArmament's active-weapon AddItem binds them to this weapon.
+		for (int bit = 0; bit < 4; bit++)
+		{
+			const int v = s.attachMask & (1 << bit);
+			if (v == 0)
+				continue;
+			sprintf(buf, "tki %d\n", v);
+			gEngfuncs.pfnClientCmd(buf);
+		}
 	}
 
 	// the auto-bought ammo: one `tka <caliber>_<units>` batch (FUN_10039400's tka loop).

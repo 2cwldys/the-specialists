@@ -5,6 +5,39 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-26 (cont. 71) — lasersight map-change loss FIXED + per-weapon attachment binding FIXED (live-confirmed)
+
+Two laser/attachment bugs the user reported, both RE-grounded + live-playtest-confirmed (UNCOMMITTED, on top of 514a50a).
+
+1. **Lasersight/flashlight lost on MAP CHANGE** — the `ActItems` broadcast is change-detected on
+   `CTSGun::m_iClientAttach`, whose cache SURVIVES a changelevel (the gun persists) so it never re-sends;
+   the client was CLEARING `g_playerAttach` on `TS_Attachments_VidInit` → desync → laser/flashlight +
+   dive-reticle distance gone after a map change. **Fix = the inverse of "force a re-send":** client.so
+   is not reloaded across a map change, so the static `g_playerAttach` stays in sync with the surviving
+   server cache as long as we DON'T clear it. Removed the `memset(g_playerAttach,…)` from
+   `TS_Attachments_VidInit()` (kept the SPR-handle reset — those genuinely go stale). The original keeps
+   its array likewise (a static global never cleared on level change), which is why it lacks this bug.
+   (The prior `m_iClientAttach=-1`-in-Deploy attempt was the wrong fix — re-fired every deploy, broke
+   fresh-buy; no server change is needed.) [[map-change-state-reset]]
+
+2. **Attachment landed on the WRONG weapon** ("SOCOM+laser → the SHOTGUN gets the laser, and no SOCOM").
+   Root cause: the buy menu `Apply()` (cl_dll/ts_buymenu.cpp) sent ALL weapons in one `tkw` then ALL
+   attachments in a separate `tki` afterward. The server appends to `m_armament[]` in command order and
+   `BuyArmament` applies via `CBasePlayer::AddItem` → the ACTIVE `CTSGun` (active = LAST weapon bought),
+   so every attachment bound to the last weapon, and the per-weapon `Slot::attachMask` binding was lost.
+   RE confirmed the original `BuyArmament@0x83f10`/`AddItemToArmament@0x83ea4`/`AddItem@0x8440c` apply the
+   exact same active-weapon way — fidelity hinges on QUEUE ORDER. The original CLIENT (`FUN_10039400`)
+   runs a sort-then-emit pass that sequences each accessory right after its weapon. **Fix:** `Apply()`
+   now emits INTERLEAVED — each weapon's `tkw <id>_<n>` immediately followed by its own `tki <bit>` items
+   (one tki per bit so `CTSGun::AddItem` validates each against that weapon's supported/built-in mask).
+   Per-command emission also fixed the SOCOM going missing: the old single 256-char `tkw` string
+   truncated/overflowed on a full loadout and dropped weapons. reference/BUY.md model unchanged (names/
+   formats faithful); only the emission ORDER corrected. [[match-original-names-for-coverage]]
+
+Verified by adding temporary `[TSATTACH]` server ALERTs (Deploy type/attach + broadcast idx/type/attach),
+reading the trace from the live xash run, confirming the queue order + broadcast, then REMOVING the debug.
+Builds clean (hl.so + client.so, glibc 2.14). HANDOFF open-work #1 (laser map-change) is DONE.
+
 ## 2026-06-26 (cont. 70 cont.2) — DIVE RETICLE reconstructed + numbers.spr font (UNCOMMITTED; laser-distance has a known map-change bug)
 
 New client HUD **cl_dll/ts_reticle.{cpp,h}** (`CHudTSReticle`, wired in hud.h/hud.cpp + cl_dll/CMakeLists.txt).
