@@ -40,6 +40,10 @@ private:
 	int m_iReserve;    // spare rounds for this weapon's caliber
 	int m_iFireMode;   // 0=auto 1=semi 2=burst 3=pump
 	int m_iEquip;      // EQUIPPED attachment mask (WeaponInfo flags byte): silencer 1/laser 2/flash 4/scope 8
-	HSPRITE m_hDot;    // sprites/laserdot.spr — the attachment-list bullet (bright=active, dim=equipped)
-	Rect m_rcDot;
+	// The attachment-list dot, far-right of each row: item_installed.spr when the attachment is ACTIVE,
+	// item_not_installed.spr when equipped-but-off (the original's on/off indicator).
+	HSPRITE m_hInstalled;
+	HSPRITE m_hNotInstalled;
+	Rect m_rcInstalled;
+	Rect m_rcNotInstalled;
 };

@@ -19,4 +19,10 @@ void TS_Attachments_Draw();    // per-frame render (call from HUD_DrawTransparen
 bool TS_LocalHasLaser();        // is the LOCAL player's lasersight ACTIVE? (dive-reticle distance/ticks)
 int  TS_LocalActiveAttach();    // the LOCAL player's ACTIVE attach mask (laser 2 / flash 4), 0 on error
 
+// The LOCAL player's laser dot is NOT a world sprite (only OTHER players get that) — it's a HUD dot
+// projected from where the gun model is actually pointing (the viewmodel muzzle aim), drawn near the
+// reticle by ts_reticle.cpp. Fills sx,sy (pixels) + the laser colour; returns false if no active laser
+// or the aim point is behind the view.
+bool TS_LocalLaserDot(int& sx, int& sy, int& r, int& g, int& b);
+
 #endif // TS_ATTACHMENTS_H

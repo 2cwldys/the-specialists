@@ -831,6 +831,21 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 			                 + pparams->up[i] * swayUp * 0.11f;       // upscale 0.11
 	}
 
+	// TS: the gun MODEL aims HIGHER the faster you move (all weapons) — pitch the viewmodel up with
+	// ground speed. This is the source of the lasersight's rise: the laser reads the viewmodel muzzle
+	// attachments, so its dot rides up with the model. On the ground only (no aim-up while airborne).
+	{
+		float sv[2] = { pparams->simvel[0], pparams->simvel[1] };
+		float speed = sqrt(sv[0] * sv[0] + sv[1] * sv[1]);
+		if (0 != pparams->onground)
+		{
+			float up = speed * 0.015f; // degrees of up-pitch per unit speed — TUNED
+			if (up > 6.0f)
+				up = 6.0f;             // cap
+			view->angles[PITCH] += up; // aim the muzzle UP (viewmodel pitch convention)
+		}
+	}
+
 	if (0 != cl_bobtilt->value)
 	{
 		// throw in a little tilt.

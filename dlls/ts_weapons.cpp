@@ -46,11 +46,10 @@ void PrecacheAllTSWeapons()
 	// PRECACHE_MODEL after spawn (Host_Error, seen on ts_dust2).
 	PRECACHE_MODEL("models/powerup.mdl");
 
-	// TS muzzle-flash "flare" sprites — drawn at the gun muzzle attachment by the fire event
-	// (client EV_TSFire). ts_muzzleflash1h = one-handed (pistols), ts_muzzleflash6 = two-handed.
-	// (RE: client.dll FUN_100474b0 loads these two; akimbo draws one per barrel attachment.)
-	PRECACHE_MODEL("sprites/ts_muzzleflash1h.spr");
-	PRECACHE_MODEL("sprites/ts_muzzleflash6.spr");
+	// TS muzzle-flash sprites — drawn at the gun muzzle attachment by the fire event (client EV_TSFire),
+	// the SAME for all weapons: gun_muzzle.spr when silenced (dimmer), gun_muzzle2.spr otherwise.
+	PRECACHE_MODEL("sprites/gun_muzzle.spr");
+	PRECACHE_MODEL("sprites/gun_muzzle2.spr");
 
 	// Bullet-impact smoke puffs (client EV_TSBulletImpact): gun_smoke for metal/concrete/glass,
 	// wood_smoke for wood/dirt. The texture/flesh impact SOUND + decal + blood are server-side.
@@ -65,7 +64,7 @@ void PrecacheAllTSWeapons()
 
 	// Lasersight sprites (client EV draws the beam+dot from the muzzle for any player with a laser —
 	// cl_dll/ts_attachments.cpp). The flashlight uses a dynamic light (no sprite to precache).
-	PRECACHE_MODEL("sprites/laserbeam.spr");
+	PRECACHE_MODEL("sprites/laserbeamanim.spr"); // 16-frame animated lasersight beam
 	PRECACHE_MODEL("sprites/laserdot.spr");
 
 	// Silenced fire sounds — played by the client fire event (EV_TSFire s_fireSilSound) when a weapon

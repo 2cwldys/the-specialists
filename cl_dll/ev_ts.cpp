@@ -93,29 +93,26 @@ static bool TSWeaponOneHanded(int w)
 // attachment (0 = right/primary barrel, 1 = left barrel for akimbo). RE: client.dll FUN_100474b0
 // spawns a short-lived additive sprite at the muzzle; we use the engine temp-sprite at the model's
 // attachment[side]. For the local player it's the viewmodel; otherwise the player's world model.
-static void EV_TSMuzzleFlare(int idx, int weaponType, int side)
+static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
 {
-	// Resolve the model index each shot — NOT cached in a static. A cached index is stale after a map
-	// change (model indices are reassigned per map), so a cached muzzle-flash index would point at the
-	// wrong/invalid model after a load (sprites broke + zombie temp-entities). EV_FindModelIndex is a
-	// cheap by-name lookup, fine to call per shot.
-	const int s_spr1h = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/ts_muzzleflash1h.spr");
-	const int s_spr6 = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/ts_muzzleflash6.spr");
+	// ALL weapons use the same muzzle flash sprite at the gun's barrel attachment: gun_muzzle.spr when
+	// SILENCED (a dimmer flash) and gun_muzzle2.spr when not (brighter). (Replaces the old per-grip
+	// ts_muzzleflash1h/6 selection.) Resolve the model index each shot — a cached index goes stale after
+	// a map change (model indices are reassigned per map). EV_FindModelIndex is a cheap by-name lookup.
+	const int spr = gEngfuncs.pEventAPI->EV_FindModelIndex(
+		silenced ? "sprites/gun_muzzle.spr" : "sprites/gun_muzzle2.spr");
 
 	cl_entity_t* ent = EV_IsLocal(idx) ? gEngfuncs.GetViewModel() : gEngfuncs.GetEntityByIndex(idx);
 	if (!ent)
 		return;
 	if (side < 0 || side > 3)
 		side = 0;
-
-	const bool oneHand = (weaponType >= 0 && weaponType < TSW_COUNT) && TSWeaponOneHanded(weaponType);
-	const int spr = oneHand ? s_spr1h : s_spr6;
 	if (spr <= 0)
 		return;
 
 	float pos[3];
 	VectorCopy(ent->attachment[side], pos);
-	const float scale = oneHand ? 0.4f : 0.7f;
+	const float scale = 0.5f;
 	// A muzzle flash is a single brief pop — a very short life and NO frame-cycle (FTENT_SPRCYCLE
 	// kept it animating/visible far too long, "slow enough to walk around"). One frame, gone fast.
 	gEngfuncs.pEfxAPI->R_TempSprite(pos, vec3_origin, scale, spr,
@@ -320,18 +317,15 @@ void EV_TSFire(event_args_t* args)
 	Vector origin;
 	VectorCopy(args->origin, origin);
 
-	// Silenced fire shows (almost) no muzzle flash — the original passes the `(attach&1)<<3` flag to the
-	// flash builder and skips the bright flare/dynamic-light. We suppress the flare sprite + dynamic light.
-	if (!silenced)
+	// Muzzle flash sprite at the barrel — ALWAYS shown; silenced fire just uses the dimmer gun_muzzle.spr
+	// (vs gun_muzzle2.spr). The bright dynamic light below is still skipped when silenced.
+	if (barrelSide == 2) // akimbo AUTO-both: a muzzle flare at BOTH barrels
 	{
-		if (barrelSide == 2) // akimbo AUTO-both: a muzzle flare at BOTH barrels
-		{
-			EV_TSMuzzleFlare(idx, weaponType, 0);
-			EV_TSMuzzleFlare(idx, weaponType, 1);
-		}
-		else
-			EV_TSMuzzleFlare(idx, weaponType, barrelSide); // the TS muzzle-flash sprite at the barrel
+		EV_TSMuzzleFlare(idx, weaponType, 0, silenced);
+		EV_TSMuzzleFlare(idx, weaponType, 1, silenced);
 	}
+	else
+		EV_TSMuzzleFlare(idx, weaponType, barrelSide, silenced); // the muzzle-flash sprite at the barrel
 
 	if (EV_IsLocal(idx))
 	{

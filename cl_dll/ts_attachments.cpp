@@ -27,6 +27,8 @@
 #include <string.h>
 #include <math.h>
 
+extern Vector v_origin, v_angles; // view origin/angles (cl_dll/view.cpp) — for the horizontal centering
+
 #define TS_ATT_LASER 2 // attach bit 1 (value 2)
 #define TS_ATT_FLASH 4 // attach bit 2 (value 4)
 
@@ -39,6 +41,7 @@ static unsigned char g_playerAttach[TS_MAXPLAYERS];
 
 static int s_laserBeamSpr = 0; // SPR_Load handles (lazy)
 static int s_laserDotSpr = 0;
+static int s_flashSpr = 0;     // sprites/flash.spr — the flashlight glow on the gun (active flashlight)
 
 // ActItems — the server broadcast of a player's active-weapon attach mask. Client handler FUN_1004fa70:
 // READ_BYTE playerIndex, READ_BYTE attachMask -> per-player array.
@@ -72,6 +75,7 @@ void TS_Attachments_VidInit()
 {
 	s_laserBeamSpr = 0;
 	s_laserDotSpr = 0;
+	s_flashSpr = 0;
 }
 
 // Laser colour (RE FUN_100582f0): 1 -> green, 2 -> blue, everything else -> red.
@@ -154,7 +158,7 @@ static void TraceAim(int idx, const Vector& muzzle, const Vector& forward, Vecto
 // additive, in colour (r,g,b). The width vector is perpendicular to both the beam and the view dir
 // so the thin quad always faces the camera (the classic beam billboard).
 static void DrawBeam(const Vector& start, const Vector& end, int spr, float halfWidth,
-	float r, float g, float b)
+	float r, float g, float b, int frame = 0)
 {
 	model_t* model = (model_t*)gEngfuncs.GetSpritePointer((HSPRITE)spr);
 	if (!model)
@@ -172,17 +176,19 @@ static void DrawBeam(const Vector& start, const Vector& end, int spr, float half
 	side = side * (halfWidth / len);
 
 	triangleapi_t* tri = gEngfuncs.pTriAPI;
-	if (!tri->SpriteTexture(model, 0))
+	if (!tri->SpriteTexture(model, frame))
 		return;
 	tri->RenderMode(kRenderTransAdd);
 	tri->CullFace(TRI_NONE);
 	tri->Begin(TRI_QUADS);
 	tri->Color4f(r, g, b, 1.0f);
 	Vector c0 = start - side, c1 = start + side, c2 = end + side, c3 = end - side;
+	// laserbeamanim.spr is a VERTICAL strip (32x128): run its LONG axis (V) along the beam length and its
+	// width (U) across the beam, else the beam texture is laid out sideways.
 	tri->TexCoord2f(0, 0); tri->Vertex3fv((float*)&c0);
-	tri->TexCoord2f(0, 1); tri->Vertex3fv((float*)&c1);
+	tri->TexCoord2f(1, 0); tri->Vertex3fv((float*)&c1);
 	tri->TexCoord2f(1, 1); tri->Vertex3fv((float*)&c2);
-	tri->TexCoord2f(1, 0); tri->Vertex3fv((float*)&c3);
+	tri->TexCoord2f(0, 1); tri->Vertex3fv((float*)&c3);
 	tri->End();
 	tri->RenderMode(kRenderNormal);
 }
@@ -215,15 +221,42 @@ static void DrawDot(const Vector& pos, int spr, float size, float r, float g, fl
 	tri->RenderMode(kRenderNormal);
 }
 
+// --- LOCAL laser dot/beam endpoint ------------------------------------------------------------------
+// The dot/beam follow the gun MODEL's actual aim (which the engine viewmodel physically raises when
+// moving on the ground — that's where the "aims higher" comes from, not a computed offset). We only
+// strip the gun's static RIGHTWARD offset (it's held to the right) so the dot pins to the crosshair x;
+// the vertical rides the real model aim. The same point feeds the beam end and the HUD dot so the beam
+// runs straight to the dot. Returns false if no active local laser.
+static bool LocalLaserEndpoint(Vector& muzzle, Vector& endpoint)
+{
+	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+	if (!lp || (g_playerAttach[lp->index] & TS_ATT_LASER) == 0)
+		return false;
+	Vector forward, hit, vr, vf, vu;
+	if (!GetMuzzleAim(lp->index, muzzle, forward))
+		return false;
+	TraceAim(lp->index, muzzle, forward, hit);
+	AngleVectors(v_angles, vf, vr, vu);
+	Vector rel = hit - v_origin;
+	const float rc = rel.x * vr.x + rel.y * vr.y + rel.z * vr.z; // rightward component
+	endpoint = hit - vr * rc;
+	return true;
+}
+
 void TS_Attachments_Draw()
 {
 	const int maxClients = gEngfuncs.GetMaxClients();
 	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
 
 	if (s_laserBeamSpr == 0)
-		s_laserBeamSpr = SPR_Load("sprites/laserbeam.spr");
+		s_laserBeamSpr = SPR_Load("sprites/laserbeamanim.spr"); // 16-frame animated beam (the original's)
 	if (s_laserDotSpr == 0)
 		s_laserDotSpr = SPR_Load("sprites/laserdot.spr");
+	if (s_flashSpr == 0)
+		s_flashSpr = SPR_Load("sprites/flash.spr");
+
+	// animate the beam: cycle the 16 frames over time (~30fps)
+	const int beamFrame = ((int)(gEngfuncs.GetClientTime() * 30.0f)) % 16;
 
 	for (int i = 1; i <= maxClients && i < TS_MAXPLAYERS; i++)
 	{
@@ -236,30 +269,54 @@ void TS_Attachments_Draw()
 			continue;
 		TraceAim(i, muzzle, forward, hit);
 
+		const bool isLocal = local && local->index == i;
 		if (attach & TS_ATT_LASER)
 		{
-			// local player's laser colour from cl_lasercolor; others default red (the per-player
-			// colour byte the original networks separately is a SLICE — see ts_attachments.h).
+			// local laser uses cl_lasercolor; others default red (their colour byte is a SLICE).
 			float r, g, b;
-			const bool isLocal = local && local->index == i;
 			GetLaserColor(isLocal ? (int)gEngfuncs.pfnGetCvarFloat("cl_lasercolor") : 0, r, g, b);
-			DrawBeam(muzzle, hit, s_laserBeamSpr, 1.0f, r, g, b);
-			DrawDot(hit, s_laserDotSpr, 3.0f, r, g, b);
+			// The lasersight mounts UNDER the barrel — start the beam below the muzzle (it was emitting
+			// from the barrel top). Offset along the gun's down (perpendicular to the aim).
+			Vector right = CrossProduct(forward, Vector(0, 0, 1));
+			Vector up = CrossProduct(right, forward);
+			const float ul = up.Length();
+			if (ul > 0.001f)
+				up = up * (1.0f / ul);
+			const Vector lmuzzle = muzzle - up * 3.0f;
+			// The local beam ends at the horizontally-CENTRED endpoint (so it lines up with the HUD dot);
+			// others' beams go to the real surface hit. Thicker: RE FUN_1003d600 width 4.0 (FUN_10050080).
+			Vector beamEnd = hit;
+			if (isLocal)
+			{
+				Vector m2, ep;
+				if (LocalLaserEndpoint(m2, ep))
+					beamEnd = ep;
+			}
+			DrawBeam(lmuzzle, beamEnd, s_laserBeamSpr, 1.25f, r, g, b, beamFrame);
+			// The SURFACE dot is OTHERS-only — the local player's dot is the HUD dot (ts_reticle.cpp /
+			// TS_LocalLaserDot), since the original draws no world dot for the local player.
+			if (!isLocal)
+				DrawDot(hit, s_laserDotSpr, 3.0f, r, g, b);
 		}
 
 		if (attach & TS_ATT_FLASH)
 		{
-			// a white dynamic light at the surface the flashlight lands on (RE FUN_1003b750:
-			// CL_AllocDlight at the hit, white, radius by distance) + a faint white beam.
+			// The flashlight is ONLY the white dynamic light at the surface it lands on (RE FUN_1003b750:
+			// CL_AllocDlight at the hit, white, radius by distance). NO muzzle beam/trail — only the LASER
+			// draws a beam. (The old faint grey beam here used the laser sprite, so with both active it
+			// overlapped the laser beam and read as a much wider laser; removed.)
 			dlight_t* dl = gEngfuncs.pEfxAPI->CL_AllocDlight(i); // key on player index -> updated, not stacked
 			if (dl)
 			{
 				VectorCopy((float*)&hit, dl->origin);
-				dl->radius = 80.0f;
+				dl->radius = 120.0f; // 1.5x the prior 80 (user-tuned)
 				dl->color.r = 255; dl->color.g = 255; dl->color.b = 255;
 				dl->die = gEngfuncs.GetClientTime() + 0.1f;
 			}
-			DrawBeam(muzzle, hit, s_laserBeamSpr, 1.5f, 0.6f, 0.6f, 0.6f);
+			// flash.spr glow ON the gun (the flashlight device), shown while the flashlight is active —
+			// at the muzzle attachment for every player (local viewmodel + others' world models).
+			if (s_flashSpr)
+				DrawDot(muzzle, s_flashSpr, 4.0f, 1.0f, 1.0f, 1.0f);
 		}
 	}
 }
@@ -287,4 +344,32 @@ int TS_LocalActiveAttach()
 	int idx = lp->index;
 	if (idx < 1 || idx >= TS_MAXPLAYERS) return 0;
 	return g_playerAttach[idx];
+}
+
+// The LOCAL player's laser dot is a HUD dot, not a world sprite (RE: the 3D laser draw FUN_1003d600
+// skips the local player). It marks where the gun MODEL is actually pointing — trace along the
+// viewmodel's muzzle aim and project the hit to screen, so the dot sits near the reticle and shifts
+// with the gun (which isn't exactly the view centre). Returns false if no active laser / behind view.
+bool TS_LocalLaserDot(int& sx, int& sy, int& r, int& g, int& b)
+{
+	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+	if (!lp || (g_playerAttach[lp->index] & TS_ATT_LASER) == 0)
+		return false;
+
+	// The dot IS the beam's (horizontally-centred) endpoint — they coincide, so the beam runs straight to
+	// the dot. Centred in x (the gun's rightward offset stripped), vertical rides the aim/bob.
+	Vector muzzle, endpoint;
+	if (!LocalLaserEndpoint(muzzle, endpoint))
+		return false;
+
+	float screen[3];
+	if (gEngfuncs.pTriAPI->WorldToScreen((float*)&endpoint, screen)) // returns 1 if behind the view
+		return false;
+	sx = (int)((1.0f + screen[0]) * 0.5f * (float)ScreenWidth);
+	sy = (int)((1.0f - screen[1]) * 0.5f * (float)ScreenHeight);
+
+	float fr, fg, fb;
+	GetLaserColor((int)gEngfuncs.pfnGetCvarFloat("cl_lasercolor"), fr, fg, fb);
+	r = (int)(fr * 255.0f); g = (int)(fg * 255.0f); b = (int)(fb * 255.0f);
+	return true;
 }

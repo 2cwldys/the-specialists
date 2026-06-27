@@ -99,7 +99,8 @@ bool CHudTSAmmo::Init()
 	m_iReserve = 0;
 	m_iFireMode = 1;
 	m_iEquip = 0;
-	m_hDot = 0;
+	m_hInstalled = 0;
+	m_hNotInstalled = 0;
 	m_iMeleeBar = 100;
 
 	HOOK_MESSAGE(WeaponInfo);
@@ -114,14 +115,21 @@ bool CHudTSAmmo::Init()
 
 bool CHudTSAmmo::VidInit()
 {
-	// The attachment-list bullet (the dot the original draws beside each attachment name). Re-resolved
-	// each map (sprite handles go stale on a load — see [[map-change-state-reset]]).
-	m_hDot = SPR_Load("sprites/laserdot.spr");
-	m_rcDot = {0, 0, 0, 0};
-	if (m_hDot)
+	// The attachment-row on/off dot the original draws (far right of each row). Re-resolved each map
+	// (sprite handles go stale on a load — see [[map-change-state-reset]]).
+	m_hInstalled = SPR_Load("sprites/weapons/item_installed.spr");
+	m_hNotInstalled = SPR_Load("sprites/weapons/item_not_installed.spr");
+	m_rcInstalled = {0, 0, 0, 0};
+	m_rcNotInstalled = {0, 0, 0, 0};
+	if (m_hInstalled)
 	{
-		m_rcDot.right = SPR_Width(m_hDot, 0);
-		m_rcDot.bottom = SPR_Height(m_hDot, 0);
+		m_rcInstalled.right = SPR_Width(m_hInstalled, 0);
+		m_rcInstalled.bottom = SPR_Height(m_hInstalled, 0);
+	}
+	if (m_hNotInstalled)
+	{
+		m_rcNotInstalled.right = SPR_Width(m_hNotInstalled, 0);
+		m_rcNotInstalled.bottom = SPR_Height(m_hNotInstalled, 0);
 	}
 	return true;
 }
@@ -191,20 +199,20 @@ bool CHudTSAmmo::Draw(float flTime)
 	// attachments (laser/flash toggled ON via `useitems`) are drawn at full brightness with a bright dot;
 	// inactive ones are dimmed. Silencer/scope are always-on when equipped.
 	enum LineKind { LK_TEXT, LK_AMMO, LK_ATTACH };
-	struct Line { LineKind kind; const char* s; int r, g, b; };
+	struct Line { LineKind kind; const char* s; int r, g, b; bool light; bool active; };
 	Line lines[10];
 	int n = 0;
 
-	lines[n++] = {LK_TEXT, szName, hr, hg, hb}; // name (top, full brightness)
+	lines[n++] = {LK_TEXT, szName, hr, hg, hb, true, false}; // name (top) — lighter background (header)
 
 	if (hasAmmo)
 	{
 		const int cal = s_weaponCaliber[m_iWeaponType];
 		if (cal > 0 && cal < s_numCalibers && s_caliberNames[cal][0])
-			lines[n++] = {LK_TEXT, s_caliberNames[cal], dr, dg, db};
+			lines[n++] = {LK_TEXT, s_caliberNames[cal], dr, dg, db, false, false};
 
 		const int mode = (m_iFireMode >= 0 && m_iFireMode < s_numFireModes) ? m_iFireMode : 1;
-		lines[n++] = {LK_TEXT, s_fireModeNames[mode], dr, dg, db};
+		lines[n++] = {LK_TEXT, s_fireModeNames[mode], dr, dg, db, false, false};
 
 		int ar = hr, ag = hg, ab = hb;
 		if (m_iClip == 0)
@@ -212,11 +220,13 @@ bool CHudTSAmmo::Draw(float flTime)
 			UnpackRGB(ar, ag, ab, RGB_REDISH);
 			ScaleColors(ar, ag, ab, 255);
 		}
-		lines[n++] = {LK_AMMO, nullptr, ar, ag, ab};
+		lines[n++] = {LK_AMMO, nullptr, ar, ag, ab, false, false};
 	}
 
 	// Equipped attachments, in the reference order (top→bottom): Flashlight, Lasersight, Scope, Silencer.
-	// toggleable (laser/flash) read their ON state from the active mask; silencer/scope are always-on.
+	// The ACTIVE ones (laser/flash toggled on; silencer/scope always-on) get a LIGHTER background + the
+	// item_installed dot; inactive ones a normal background + the item_not_installed dot. The TEXT
+	// brightness stays constant — the highlight is the background + the dot, not the text.
 	struct Att { int bit; const char* name; bool toggleable; };
 	static const Att atts[] = {
 		{4, "Flashlight", true}, {2, "Lasersight", true}, {8, "Scope", false}, {1, "Silencer", false}};
@@ -226,14 +236,10 @@ bool CHudTSAmmo::Draw(float flTime)
 		if ((m_iEquip & a.bit) == 0)
 			continue;
 		const bool act = a.toggleable ? ((activeMask & a.bit) != 0) : true;
-		lines[n++] = {LK_ATTACH, a.name, act ? hr : dr, act ? hg : dg, act ? hb : db};
+		lines[n++] = {LK_ATTACH, a.name, hr, hg, hb, act, act};
 		if (n >= (int)(sizeof(lines) / sizeof(lines[0])))
 			break;
 	}
-
-	// laserdot.spr can be large (the world hit dot); use it only if it's bullet-sized, else a small fill dot.
-	const int dotW = (m_hDot && (m_rcDot.right - m_rcDot.left) <= 12) ? (m_rcDot.right - m_rcDot.left) : 0;
-	const int dotH = (m_hDot && (m_rcDot.bottom - m_rcDot.top) <= 12) ? (m_rcDot.bottom - m_rcDot.top) : 0;
 
 	// Only MELEE weapons (kung-fu/knife/katana/seal-knife) carry the block bar; guns have no bar.
 	const bool meleeBar = TSIsMeleeType(m_iWeaponType);
@@ -243,7 +249,8 @@ bool CHudTSAmmo::Draw(float flTime)
 	int y = ScreenHeight - 8 - (n * LINEH + barH);
 	for (int i = 0; i < n; i++)
 	{
-		TSHud_Panel(x, y, BOXW, LINEH - 1);
+		// Background panel — lighter (higher alpha) for the name row + active-attachment rows.
+		FillRGBA(x, y, BOXW, LINEH - 1, hr, hg, hb, lines[i].light ? 0x2a : 0x0f);
 		if (lines[i].kind == LK_AMMO)
 		{
 			TSHud_DrawNumberPair(x + 2, y + (LINEH - 1 - TS_NUMBER_H) / 2, m_iClip, m_iReserve,
@@ -251,19 +258,16 @@ bool CHudTSAmmo::Draw(float flTime)
 		}
 		else if (lines[i].kind == LK_ATTACH)
 		{
-			int tx = x + 4;
-			if (dotW > 0) // the recognised dot sprite, tinted by active state (bright = on)
+			TSHud_DrawString(x + 4, y, x + BOXW, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
+			// on/off dot at the FAR RIGHT (item_installed = active, item_not_installed = off).
+			const HSPRITE dot = lines[i].active ? m_hInstalled : m_hNotInstalled;
+			const Rect* rc = lines[i].active ? &m_rcInstalled : &m_rcNotInstalled;
+			if (dot)
 			{
-				SPR_Set(m_hDot, lines[i].r, lines[i].g, lines[i].b);
-				SPR_DrawAdditive(0, tx, y + (LINEH - 1 - dotH) / 2, &m_rcDot);
-				tx += dotW + 4;
+				const int dw = rc->right - rc->left, dh = rc->bottom - rc->top;
+				SPR_Set(dot, 255, 255, 255);
+				SPR_DrawAdditive(0, x + BOXW - dw - 3, y + (LINEH - 1 - dh) / 2, (Rect*)rc);
 			}
-			else // fallback bullet
-			{
-				FillRGBA(tx, y + (LINEH - 1 - 4) / 2, 4, 4, lines[i].r, lines[i].g, lines[i].b, 255);
-				tx += 8;
-			}
-			TSHud_DrawString(tx, y, x + BOXW, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
 		}
 		else
 		{

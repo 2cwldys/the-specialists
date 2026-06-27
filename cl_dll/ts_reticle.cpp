@@ -139,6 +139,15 @@ bool CHudTSReticle::Draw(float flTime)
 	// the dot is ALWAYS the tick blue ~30% brighter — it does NOT turn red over unavailable tiers.
 	FillRGBA(dotX - 1, dotY - 1, 2, 2, 104, 169, 240, 255);
 
+	// LASERSIGHT HUD dot: a small (red) 2x2 marker at where the gun MODEL is pointing, projected to the
+	// screen near the reticle (the local player's laser is the HUD dot, NOT a world sprite — RE
+	// FUN_1003d600 skips local). It shifts with the gun's aim (parallax vs the view centre).
+	{
+		int lx, ly, lr, lg, lb;
+		if (TS_LocalLaserDot(lx, ly, lr, lg, lb))
+			FillRGBA(lx - 1, ly - 1, 2, 2, lr, lg, lb, 255);
+	}
+
 	// LASERSIGHT distance readout: trace from the eye along aim, show the distance (metres) right of
 	// the reticle in numbers.spr. Only with a lasersight (the laser gives you the ranged readout).
 	if (laser)
