@@ -2024,117 +2024,14 @@ void CBasePlayer::PreThink()
 			m_bSuperJumpAir = 1;
 	}
 
-	// TS double-jump WALL-CLIMB (RE CTSStunt::CheckForWallClimb@0x9ae6c + GoWallClimb@0x9aa1c): when
-	// AIRBORNE and you press JUMP again (a "double jump") while facing a wall right in front of you, you
-	// kick up the wall (anim 0x38 + player/airwheel.wav). Each kick costs fuel; the budget refills on the
-	// ground and is scaled DOWN by how loaded you are (heavier loadout = climb less — the original keys it
-	// on carry weight). This is a base stunt, independent of any powerup.
-	{
-		const bool onGround = (pev->flags & FL_ONGROUND) != 0;
-		bool climbing = false;
-		UTIL_MakeVectors(pev->v_angle);
-		const Vector fwd = gpGlobals->v_forward, right = gpGlobals->v_right;
-
-		// Wall right in front of us?
-		TraceResult wtr;
-		UTIL_TraceLine(pev->origin, pev->origin + fwd * 40.0f, ignore_monsters, dont_ignore_glass, ENT(pev), &wtr);
-		const bool wallAhead = (wtr.flFraction < 1.0f && wtr.pHit && VARS(wtr.pHit)->solid == SOLID_BSP);
-
-		Vector hv = pev->velocity; hv.z = 0;
-		const float spd2d = hv.Length();
-		// weight factor 0 (heavy / maxspeed 210) .. 1 (light / maxspeed 330): pev->maxspeed is the slot-
-		// based speed (GetSpeedBySlots — heavier loadout = lower maxspeed). Caps how high you wall-climb.
-		float wf = (pev->maxspeed - 210.0f) / 120.0f;
-		wf = wf < 0.0f ? 0.0f : (wf > 1.0f ? 1.0f : wf);
-
-		if (onGround)
-		{
-			m_flWallClimbFuel = 1.0f + 2.5f * wf; // refuel the wall-climb KICK budget (heavy ~1, light ~3.5)
-			if (m_bDiveRolling)                   // landed out of a dive/roll
-			{
-				EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, ATTN_NORM, 0, 95 + RANDOM_LONG(0, 0x1f));
-				if (m_iDiveRollDir != 1)          // forward/side land PRONE; backward on feet
-				{
-					m_flProneUntil = gpGlobals->time + 0.6f;
-					m_TSAnim.PlayKungFu(this, "crouch_idle", 0.6f);
-				}
-				m_bDiveRolling = 0;
-			}
-			m_bDivePressed = 0; // dive re-arms once you touch the ground
-		}
-		else // airborne — WALL-CLIMB: paced auto-kicks while JUMP is HELD against a wall (no re-press),
-		{    // capped by the weight-scaled kick budget. Each kick is a discrete up-hop ~0.32s apart.
-			if ((pev->button & IN_JUMP) && wallAhead && m_flWallClimbFuel >= 1.0f && gpGlobals->time >= m_flNextClimbKick)
-			{
-				pev->velocity.z = 230.0f;   // one up-the-wall kick (paced, NOT every frame)
-				pev->velocity.x *= 0.5f;     // hug the wall
-				pev->velocity.y *= 0.5f;
-				m_flWallClimbFuel -= 1.0f;
-				m_flNextClimbKick = gpGlobals->time + 0.32f;
-				climbing = true;
-				m_TSAnim.PlayKungFu(this, "longjump", 0.32f);
-				EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, ATTN_NORM, 0, 95 + RANDOM_LONG(0, 0x1f));
-			}
-			// DOUBLE-JUMP dive-ROLL: a fresh JUMP press in the air while moving, not climbing/at a wall.
-			if (!climbing && (m_afButtonPressed & IN_JUMP) && !wallAhead && !m_bDiveRolling && spd2d >= 80.0f)
-			{
-				Vector v = hv * (1.0f / spd2d);
-				const float df = DotProduct(v, fwd), dr = DotProduct(v, right);
-				int dir;
-				if (fabs(df) >= fabs(dr)) dir = (df >= 0) ? 0 : 1;
-				else                      dir = (dr >= 0) ? 3 : 2;
-				pev->velocity.x = v.x * 320.0f;
-				pev->velocity.y = v.y * 320.0f;
-				pev->velocity.z = 140.0f;
-				m_bDiveRolling = 1;
-				m_iDiveRollDir = (byte)dir;
-				m_TSAnim.PlayKungFu(this, "longjump", 0.6f);
-			}
-		}
-		m_bWasClimbing = climbing ? 1 : 0;
-
-		// +alt1 DIVE (RE GoDive@0x8b1a0) — works on the GROUND or in the AIR: one forward dive per press,
-		// propelled along your aim, landing prone (dive.wav). Re-arms when you next touch the ground.
-		if ((pev->button & IN_ALT1) && !m_bDivePressed && !climbing)
-		{
-			m_bDivePressed = 1;
-			EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/dive.wav", VOL_NORM, ATTN_NORM, 0, 95 + RANDOM_LONG(0, 0x1f));
-			pev->velocity = fwd * 360.0f;
-			pev->velocity.z = 150.0f;            // a hop off the ground into the dive
-			m_bDiveRolling = 1;
-			m_iDiveRollDir = 0;                  // forward -> land prone
-			m_TSAnim.PlayKungFu(this, "longjump", 0.6f);
-		}
-
-		// DIVE / PRONE = the player goes SMALL (RE: the dive changes the bbox): a short ducked hull + a low
-		// eye, so others can land on top of you and your view drops near the floor. Active while diving
-		// (m_bDiveRolling) or in the post-landing prone window; restored when it ends (if there's headroom).
-		const bool proneNow = m_bDiveRolling || (m_flProneUntil > gpGlobals->time);
-		if (proneNow)
-		{
-			pev->flags |= FL_DUCKING;
-			m_afPhysicsFlags |= PFLAG_DUCKING;
-			pev->view_ofs.z = 12.0f;             // ducked/prone eye height (networked -> view drops)
-			if (!m_bProneSize)
-			{
-				UTIL_SetSize(pev, Vector(-16, -16, -18), Vector(16, 16, 18)); // short ducked hull
-				m_bProneSize = 1;
-			}
-		}
-		else if (m_bProneSize)
-		{
-			// stand back up only if there's headroom above (else stay short until there is)
-			TraceResult up;
-			UTIL_TraceHull(pev->origin, pev->origin, ignore_monsters, human_hull, ENT(pev), &up);
-			if (!up.fStartSolid && !up.fAllSolid)
-			{
-				pev->flags &= ~FL_DUCKING;
-				pev->view_ofs.z = 28.0f;
-				UTIL_SetSize(pev, Vector(-16, -16, -36), Vector(16, 16, 36));
-				m_bProneSize = 0;
-			}
-		}
-	}
+	// TS STUNT/ACROBATICS (RECONSTRUCTED CTSStunt — dlls/ts_stunt.cpp, RE reference/STUNT.md).
+	// Replaces the old ad-hoc dive/roll/wall-climb/prone approximations. Play() runs the real
+	// CTSStunt state machine; it writes the networked pev->iuser4 stunt flags, and pm_shared's
+	// TSHandle() (in BOTH the server and the client predictor) reads them to PREDICT the small
+	// dive/prone hull + low view + dive/wall launch velocity — which the DLL alone could never
+	// make stick (the predictor recomputed the hull every frame). +alt1 = dive / bullet-time,
+	// double-jump into a wall = wall-climb / wall-jump.
+	m_TSStunt.Play();
 
 	// TS health-powerup over-heal decay (RE PreThink @0x808cc, player+0x73c = m_flHealthRegen): the
 	// health powerup boosts health past max_health; while m_flHealthRegen is armed it bleeds 1 HP/sec
@@ -3264,6 +3161,7 @@ void CBasePlayer::Spawn()
 		}};
 
 	m_TSAnim.Init(); // TS: reset the 3rd-person gait state for this life
+	m_TSStunt.Init(this); // TS: reset the stunt state machine for this life
 
 	pev->classname = MAKE_STRING("player");
 	pev->health = 100;

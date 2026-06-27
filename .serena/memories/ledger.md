@@ -5,6 +5,64 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-26 (cont. 70 cont.) — CTSStunt FULLY RE'd + reconstructed + live-playtest iterated (COMMITTED)
+
+Committed the prior cont.70 checkpoint as **b8080fb** (gun attachments/powerups/slow-mo/damage sounds),
+then did the user's goal: "faithfully reconstruct via RE the ENTIRE CTSStunt class and how it works".
+
+LIVE-PLAYTEST ITERATIONS (each grounded in RE after the user flagged guessing) — committed together:
+- **gravity/friction were SWAPPED + view_ofs mislabeled as punchangle.** Verified via progdefs.h + the
+  offset map (gravity@0x11c, friction@0x120, view_ofs@0x174, punchangle@0x68 — confirmed against
+  velocity@0x20/v_angle@0x74/button@0x180/flags@0x1a4). Swapped gravity<->friction + punchangle->view_ofs
+  across all stunt methods. This fixed the "random gravity" (GoDive sets gravity=0.75 floaty arc on every
+  dive; friction=0.25 on a low dive) AND revealed the PRONE VIEW source: Go* set pev->view_ofs=(0,0,0)
+  (the g_vecZero->pev+0x174 I'd misread). The -8 in PM_CheckParamters is the DEATH cam (gated on dead).
+- **Play dispatch must run AIRBORNE** (orig gates only ladder/water, not FL_ONGROUND) — my onGround gate
+  killed the dive mid-air. **m_flLastStunt stamped every frame on ground** (PreThink @0x808cc): time since
+  leaving ground < 0.7/timescale = the mid-air dive window (jump->dive + run->dive).
+- **TSHandle damps the CMD, not velocity** (the __DT_REL slots = cmd.forwardmove/sidemove/upmove): SLIDE ->
+  forwardmove=0 + side/up*0.3 (strafe-only + slow; your landing velocity carries you = the slide), STOP ->
+  *0.5. I'd been zeroing velocity (killed the slide). **Landing slide-vs-roll** gated on JUMP/ALT1/DUCK
+  (0x4006), not WASD -> you slide every dive landing.
+- **PM_Jump returns while prone** (iuser4 & PRONE|SLIDE|DIVE|WHEEL|WALLJUMP_A|WALLCLIMB_A) -> jump never
+  hops while prone, only triggers the getup. **CheckForWallClimb** gated on a JUMP-press edge + 0.3s window
+  (NOT FL_ONGROUND — my bug broke wall-scaling); WALLCLIMB_A set -> hold-jump auto-climbs.
+- **GETUP**: STANDUP bit 0x8 is NEVER set in the binary (TSStandUp dead). Reconstructed as a shared timed
+  two-stage (m_flRollTime=0.75 from HandleSlide-end): intermediate eye 16 + getup anim (dive_<dir>_end) +
+  STOP(slow)+free move, then at timer-end clear PRONE -> end eye = (DUCK held ? 12 duck : 28 stand), PM_Duck
+  owns the hull from there. (Exact settled-prone getup trigger not 100% pinned; routed through this path.)
+- **Animations**: wired CTSAnimation::Animate stunt codes to the model's real sequences (dive_<dir>_<grip>,
+  dive_<dir>_end, slide_<dir> = the prone poses, crawl, wheel_*/lowwheel_*, walljump_climb/end, morfy_jump,
+  bullettime). The slide_* set IS the lying-prone set (no separate prone idle).
+- **Full RE map written: reference/STUNT.md.** New files: dlls/ts_stunt.{h,cpp}, reference/STUNT.md.
+
+RE (complete map in **reference/STUNT.md**): decompiled all 25 CTSStunt methods (Init/Play/HandleStunt/
+GoDive/GoRoll/GoWallClimb/GoWallJump/GoBulletTime/GoWheel/HandleDive/HandleSlide/HandleWheel/HandleWallJump/
+HandleWallClimb/Landing/CanDive{High,Med,Low}/NextDive/SlotBonus/CheckForWall{Jump,Dive,Climb}/CheckForBreakables)
++ the pm_shared stunt family (TSHandle@0xe96a0 dispatcher, TSGoDuck, TSStandUp, TSDive, TSWallJump,
+TSWallJumpClimb, PseudoClimb, CanJumpHigh) + PM_PlayerMove/PM_Duck. **THE KEY FINDING that unblocks it:**
+the system is driven by ONE networked field **pev->iuser4** (entvars 0x250 -> pmove->iuser4 @0x208). The
+engine round-trips iuser4 pev<->pmove (server) and networks it (clientdata->TxferLocalOverrides->entity_state
+->prediction pmove, verified cl_dll/entity.cpp:87/210), so **pm_shared TSHandle() (compiled into BOTH hl.so +
+client.so) PREDICTS the dive/prone small hull (usehull=1) + low view (VEC_DUCK_VIEW) + dive/wall launch
+velocity on both sides** — exactly why the old DLL-only FL_DUCKING/UTIL_SetSize/view_ofs forcing never stuck
+(the predictor recomputed the hull every frame). iuser4 bit map in reference/STUNT.md §1.
+
+IMPL: new **dlls/ts_stunt.{h,cpp}** = real CTSStunt class (member CBasePlayer::m_TSStunt, Init in Spawn,
+Play() from PreThink) writing pev->iuser4. New pm_shared hooks in **pm_shared/pm_shared.cpp** (TSHandle +
+TSGoDuck/TSStandUp/TSDive/TSWallJump/TSWallJumpClimb; TSHandle() called from PM_PlayerMove before PM_Duck;
+PM_Duck gated off while any stunt flag set). Removed the ad-hoc m_bDiveRolling/m_flWallClimbFuel/m_bProneSize
+PreThink approximations from player.cpp (members left declared, now unused). Added TSPlayerFreeSlots() to
+ts_gun.cpp (ts_weapons.h) for CanDive weight gating (lighter loadout = higher dives). ts_stunt.cpp in
+dlls/CMakeLists.txt. **Builds clean (hl.so + client.so, glibc 2.14)**; CTSStunt + TSHandle linked both sides;
+synced to the xash mod root. NOT committed — awaiting the user's live playtest (per workflow).
+
+SLICES/notes: 3rd-person stunt POSES (CTSAnimation::Animate 0x28..0x39) still deferred — the TS specialist
+player models aren't in this data extraction (Animate calls are made but no-op). gmsgTSNextStunt (stunt-meter
+HUD byte) NOT sent (no client handler yet). PseudoClimb (ladder-style wall-grab refinement) stubbed/omitted.
+Wall-jump up-speed (270) tuned (orig reads a .rodata const that read 0 at the computed offset). CheckForBreakables
+(dive melee-shove) left to the existing TSCheckRunThrough. [[live-original-ts-debuggable]] [[match-original-names-for-coverage]]
+
 ## 2026-06-26 (cont. 70) — attachments + powerups + slow-mo/damage sounds + stunts (**UNCOMMITTED ON DISK**)
 
 Very long interactive playtest session, NOT committed (21 modified + new `cl_dll/ts_attachments.{cpp,h}` on

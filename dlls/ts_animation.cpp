@@ -229,6 +229,92 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		return;
 	}
 
+	// ---- STUNT poses (RE CTSAnimation::Animate @0x5b470 + the model sequence set) ----
+	// The TS player model carries the full acrobatics set: dive_<dir>_<grip> + dive_<dir>_end,
+	// slide_<dir>_<grip> / slide_b_left|right, crawl, wheel_<dir>/lowwheel_<dir>, walljump_climb/
+	// walljump_end, morfy_jump, bullettime. CTSStunt drives these via the activity codes below.
+	// dir suffix: 0 L / 1 R / 2 F / 3 B  (GetMoveDirection).
+	case 0x28: // dive (airborne)
+	case 2:    // dive-in-progress (HandleDive)
+	{
+		static const char *ds[4] = {"l", "r", "f", "b"};
+		int dir = GetMoveDirection(pPlayer);
+		snprintf(name, sizeof(name), "dive_%s_%s", ds[dir], grip);
+		SetBodySequence(pPlayer, name, false, true);
+		SetGaitSequence(pPlayer, NULL);
+		m_flAimTimer = 0.4f; // hold the dive torso pose
+		m_iLastActivity = activity;
+		return;
+	}
+	case 0x2e: // landing (dive end / get up)
+	case 0x2f: // roll
+	{
+		static const char *ds[4] = {"l", "r", "f", "b"};
+		int dir = GetMoveDirection(pPlayer);
+		snprintf(name, sizeof(name), "dive_%s_end", ds[dir]);
+		SetBodySequence(pPlayer, name, true, true);
+		SetGaitSequence(pPlayer, NULL);
+		m_flAimTimer = 0.5f;
+		m_iLastActivity = activity;
+		return;
+	}
+	case 0x29: // slide
+	case 0x2a: // slide back-left
+	case 0x2b: // slide back-right
+	{
+		int dir = GetMoveDirection(pPlayer);
+		if (activity == 0x2a || (dir == 3))
+			strcpy(name, "slide_b_left");
+		else if (activity == 0x2b)
+			strcpy(name, "slide_b_right");
+		else
+		{
+			static const char *ds[4] = {"l", "r", "f", "b"};
+			snprintf(name, sizeof(name), "slide_%s_%s", ds[dir], grip);
+		}
+		SetBodySequence(pPlayer, name, false, true);
+		SetGaitSequence(pPlayer, NULL);
+		m_flAimTimer = 0.3f;
+		m_iLastActivity = activity;
+		return;
+	}
+	case 0x31: // cartwheel (high)
+	case 0x32: // cartwheel (low)
+	{
+		static const char *ds[4] = {"l", "r", "f", "b"};
+		int dir = GetMoveDirection(pPlayer);
+		snprintf(name, sizeof(name), "%swheel_%s", (activity == 0x32) ? "low" : "", ds[dir]);
+		SetBodySequence(pPlayer, name, true, true);
+		SetGaitSequence(pPlayer, NULL);
+		m_flAimTimer = 0.5f;
+		m_iLastActivity = activity;
+		return;
+	}
+	case 0x37: // wall-jump
+		SetBodySequence(pPlayer, "walljump_end", true, true);
+		SetGaitSequence(pPlayer, NULL);
+		m_flAimTimer = 0.4f;
+		m_iLastActivity = activity;
+		return;
+	case 0x38: // wall-climb
+		SetBodySequence(pPlayer, "walljump_climb", true, true);
+		SetGaitSequence(pPlayer, NULL);
+		m_flAimTimer = 0.4f;
+		m_iLastActivity = activity;
+		return;
+	case 0x36: // bullet-time dodge
+		SetBodySequence(pPlayer, "bullettime", true, true);
+		SetGaitSequence(pPlayer, NULL);
+		m_flAimTimer = 0.55f;
+		m_iLastActivity = activity;
+		return;
+	case 0x39: // morfy jump (wheel finish)
+		SetBodySequence(pPlayer, "morfy_jump", true, true);
+		SetGaitSequence(pPlayer, NULL);
+		m_flAimTimer = 0.4f;
+		m_iLastActivity = activity;
+		return;
+
 	// ---- Move / idle (the per-frame PostThink path) ------------------------
 	case TSA_RUN:
 	case TSA_IDLE:

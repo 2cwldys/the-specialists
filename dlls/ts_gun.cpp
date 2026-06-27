@@ -126,6 +126,17 @@ float TSSlotBaseSpeed(CBasePlayer *pPlayer)
 	return 210.0f + (120.0f / 81.0f) * (float)remaining;
 }
 
+// Remaining inventory-slot capacity (CBasePlayer+0x548, init 81): lighter loadout =
+// more free slots. Used by CTSStunt::CanDive* (ts_stunt.cpp) to gate dive height.
+int TSPlayerFreeSlots(CBasePlayer *pPlayer)
+{
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	int remaining = pGun ? (81 - pGun->SlotsUsed()) : 81;
+	if (remaining < 0) remaining = 0;
+	if (remaining > 81) remaining = 81;
+	return remaining;
+}
+
 // @ Spawn__6CTSGun — classname weapon_tsgun, id 16, fall-init as a pickup.
 void CTSGun::Spawn()
 {

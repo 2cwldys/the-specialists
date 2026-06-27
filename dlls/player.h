@@ -17,6 +17,7 @@
 
 #include "pm_materials.h"
 #include "ts_animation.h" // TS 3rd-person body/gait (CTSAnimation m_TSAnim member)
+#include "ts_stunt.h"     // TS stunt/acrobatics (CTSStunt m_TSStunt member)
 
 // TS join/spectate flow wire constants (cont.65) — shared client/server contract.
 // gmsgSpectator byte 1 (state); the client CHudSpectate draws accordingly.
@@ -412,6 +413,12 @@ public:
 	// (below) routes the PLAYER_ANIM call sites into m_TSAnim.Animate; CTSGun
 	// drives reload/draw/grenade directly. See ts_animation.h.
 	CTSAnimation m_TSAnim;
+
+	// TS stunt/acrobatics system (ts_stunt.cpp). The original embeds a CTSStunt on
+	// the player; Play() runs each PreThink and drives the dive/roll/wall-climb/
+	// wall-jump/bullet-time state machine through the networked pev->iuser4 flags so
+	// pm_shared predicts the small hull + low view + launch velocity. See ts_stunt.h.
+	CTSStunt m_TSStunt;
 
 	// TS custom-HUD networking (ts_player.cpp). The original sends its OWN per-frame
 	// HUD messages (TSHealth/TSArmor/TSCash/...) from CBasePlayer::UpdateClientData
