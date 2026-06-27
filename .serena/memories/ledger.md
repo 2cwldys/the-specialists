@@ -5,6 +5,33 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-27 (cont. 71 cont.2) — long live-playtest pass: laser/HUD/muzzle/weapons + pump (in progress)
+
+Marathon interactive session, user firing every change in graphical xash. Committed `8c27afa`→`0b45726` on main
+(see HANDOFF "⭐⭐⭐⭐⭐ START HERE cont.71 cont." for the per-commit list). Highlights:
+- **Lasersight**: local player's dot is a HUD dot (RE `FUN_1003d600` skips local; others get the world beam+dot);
+  beam = `laserbeamanim.spr`; dot screenspace-anchored on the eye-ray (distance-independent, centred up close).
+  Map-change persistence fixed (don't clear `g_playerAttach` on VidInit). Per-weapon attachment buy-binding fixed
+  (interleaved tkw/tki). `useitems` = ATTACHMENT toggle (RE `FUN_0x71564`), akimbo swap = right-click.
+- **Viewmodel aims UP with ground move speed** (cl_dll/view.cpp `V_CalcRefdef`) — for every weapon; the laser dot
+  follows the model. Halved the figure-8 weapon sway. Flashlight = light-only + `flash.spr` on the gun, radius
+  1.5×. Muzzle flash = `gun_muzzle.spr`(sil)/`gun_muzzle2.spr` for all weapons.
+- **HUD**: numbers.spr digit font (health/powerup/bottom-box ammo/top-bar slots); bottom-box attachment list with
+  item_installed/not_installed dots + lighter-background active highlight; melee BLOCK bar (gmsgKFuPower stamina,
+  melee-only, fades to red).
+- **Weapons**: katana right-click throw + stuck-katana NOT pickup-able + throw caps (knife 5/seal 10/katana 1);
+  all melee block on RELOAD; weapon UNHOLSTER anim on switch (per-weapon draw-seq parsed from viewmodels +
+  viewmodel-change replay force for same draw-index pairs); shotguns trace ALL pellets client-side (8 decals).
+  Spectator top-left inset (pip) forced OFF.
+- **RE-confirmed faithful (no change)**: UMP 2-round burst (`burst=(type!=0x17)+2`); double-fire = 1.5× (`*=1.5`).
+
+🟡 **IN PROGRESS (uncommitted): pump-action shotgun.** Fire is now press-edge (one shot per pull) — WORKS. The
+cosmetic RACK (pump anim+sound between shots) was reworked from a custom timer (failed: custom fields aren't
+decremented in client prediction) to a `bool m_bNeedRack` + the predicted `m_flTimeWeaponIdle`; NOT yet
+playtest-confirmed. ⚠️ Lesson (cost two regressions): NEVER gate the FIRE on non-predicted state (an `m_bPumped`
+chamber state machine desynced → infinite-fire); keep pump cosmetics cosmetic. ALSO: ts_gun.cpp builds into BOTH
+hl.so + client.so — always `build.sh amd64 all`, else the client predicts stale weapon logic. [[useitems-is-attachment-toggle]]
+
 ## 2026-06-26 (cont. 71 cont.) — HUD numbers + attachment toggle + katana + melee block bar (live-playtest pass)
 
 Long interactive playtest pass, all RE-grounded + user-confirmed. Committed as a client/server pair

@@ -47,6 +47,62 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐ START HERE (cont.71 cont., 2026-06-27) — long live-playtest pass: laser/HUD/weapons (MOSTLY COMMITTED) + pump-action (IN PROGRESS)
+
+A very long interactive live-playtest session driven entirely by the user firing each change in the graphical
+xash. The user runs the game himself and reports; **build BOTH libs every time** (`scripts/build.sh amd64 all`)
+— `dlls/ts_gun.cpp` compiles into BOTH `hl.so` AND `client.so` (CTSGun is client-predicted), so a server-only
+build leaves the client predicting stale behaviour (this caused a "pump infinite-fires" red herring). Then
+`scripts/setup-xash-mod.sh` → launch (`+deathmatch 1 +maxplayers 8` REQUIRED). `test.sh` = the user's launcher,
+DO NOT commit. The previous agent (me) keeps the ORIGINAL TS running in hl.exe for live gdb traces (scripts/live.py).
+
+### ✅ COMMITTED this session (commits `8c27afa` → `0b45726` on `main`)
+- **8c27afa** lasersight map-change persistence (client no longer clears `g_playerAttach` on VidInit) + per-weapon
+  attachment binding (buy menu emits `tkw`/`tki` INTERLEAVED so a laser lands on its weapon, not the last one).
+- **45b1120** `useitems` = ATTACHMENT TOGGLE (not akimbo swap; akimbo swap = right-click) — RE `FUN_0x71564` state
+  machine, item +0x10 equipped / +0x14 active; ActItems broadcasts ACTIVE, WeaponInfo flags = EQUIPPED. Katana
+  right-click THROW; stuck katanas NOT pickup-able; throw caps knife 5/seal 10/katana 1. Melee BLOCK BAR =
+  gmsgKFuPower stamina (all melee block on RELOAD; bar shown only for melee, not health). See [[useitems-is-attachment-toggle]].
+- **c5bceef** numbers.spr digit font (health/powerup/bottom-box ammo/top-bar slots) + bottom-box attachment list
+  (item_installed/not_installed dots) + the melee bar fades colour (not threshold switch).
+- **487d592** laser/flashlight/muzzle visual pass: local laser is a HUD dot (others' = world beam+dot; RE
+  `FUN_1003d600` skips local), beam uses `laserbeamanim.spr`; flashlight = light only + `flash.spr` on the gun;
+  muzzle flash = `gun_muzzle.spr`(sil)/`gun_muzzle2.spr`; **viewmodel aims UP with ground move speed** (view.cpp).
+- **5dcdd26** laser dot screenspace-anchored (eye-ray → distance-independent, stays centred up close); halved
+  weapon sway; removed the fabricated weapon-switch sound.
+- **0b45726** weapon UNHOLSTER anim on switch (per-weapon draw-seq table parsed from viewmodels + viewmodel-change
+  replay force for same-index pairs e.g. MP5K/AK47=2); shotgun PELLET DECALS (client traces all 8 pellets);
+  spectator top-left inset (pip/overview) forced OFF (`spec_pip` 0).
+
+### 🟡 IN PROGRESS — UNCOMMITTED ON DISK (pump-action shotgun; builds clean both libs)
+Pump shotguns (Benelli/SPAS/Mossberg, fire-type `TSFT_PUMP`) — `dlls/ts_gun.{cpp,h}` + `ts_weapons.cpp` precaches.
+- **WORKS:** fire is now ONE SHOT PER PULL (moved `TSFM_PUMP` from the `held` to the `pressed` branch in
+  PrimaryAttack — same path as semi, which predicts cleanly). No more full-auto / infinite-fire.
+- **NEEDS PLAYTEST CONFIRM:** the cosmetic RACK (pump anim + sound between shots). First attempt used a custom
+  `m_flPumpRackTime` timer — that FAILED because **client prediction only decrements the STANDARD weapon timers**
+  (`m_flNextPrimaryAttack`/`m_flTimeWeaponIdle`/`m_flNextSecondaryAttack`), not custom fields, so it never tripped
+  client-side. Reworked to a cosmetic `bool m_bNeedRack` + the PREDICTED `m_flTimeWeaponIdle` (StandardFire sets
+  needRack + idle=+0.12; WeaponIdle plays the rack: SendWeaponAnim(pump seq 8/8/2) + rack sound server-only to
+  avoid a host double). **Just built (pid was 808684), the user hasn't confirmed the rack shows yet** — verify it
+  racks between shots; if not, the next lead is that WeaponIdle only runs when the trigger is RELEASED (our
+  ItemPostFrame, the `!(button & ATTACK|ATTACK2)` branch), so a held trigger won't rack — drive it from the fire
+  path or an event if needed. ⚠️ **Hard lesson (twice this session): NEVER gate the FIRE on non-predicted state —
+  the first pump attempt (an `m_bPumped` chamber state machine gating Fire) desynced and infinite-fired. Keep
+  pump cosmetics cosmetic.** The dead `m_bPumped`/`PumpAction` scaffolding was already removed.
+
+### 🔴 OPEN / DEFERRED (user-flagged, not done)
+- **Pump rack** — confirm + polish (above). Decide commit once the rack is verified.
+- **Benelli default fire-mode** is `3` (TSFM_PUMP) though its `iFireModes` mask (0x23) doesn't include bit 3 —
+  TSDefaultFireMode picks an out-of-mask mode. Works now (PUMP=pressed) but the mode-select RE is loose.
+- Earlier deferred: glass double-pane penetration; golden-colts no-fire-sound-until-reload; 3rd-person stunt poses
+  (need the TS specialist player models, not in this data extraction). See the older START HERE sections below.
+
+### Verified-faithful via RE this session (no change needed)
+- UMP is genuinely a **2-round burst** (`PrimaryAttack`: `burst = (type != 0x17) + 2`); everything else = 3.
+- Double-fire powerup = **1.5×** fire speed (`PostThink@0x81610`: `timer *= 1.5`), not 2×.
+
+### Task-tool entries: NONE open (TaskList empty).
+
 ## ⭐⭐⭐⭐ START HERE (cont.71, 2026-06-26) — CTSStunt (COMMITTED) + DIVE RETICLE + numbers.spr (UNCOMMITTED)
 
 Two big things this session. Read the two newest `.serena/memories/ledger.md` entries (cont.70 cont. = CTSStunt;
