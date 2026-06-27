@@ -118,6 +118,21 @@ void CTSKnife::WaitThink()
 // glow, picked up on E. Our nicety — the original leaves a settled knife inert; we make every drop pickable.
 void CTSKnife::BecomePickup()
 {
+	// A KATANA is a single weapon — throwing it LOSES it: a stuck/settled katana stays embedded as
+	// inert decoration and is NOT pickup-removable (per the original; the user confirmed). Only the
+	// stackable throwing knives (knife/seal-knife) become recoverable pickups.
+	if (m_knifeType == TSW_KATANA)
+	{
+		pev->velocity = g_vecZero;
+		pev->avelocity = g_vecZero;
+		pev->movetype = MOVETYPE_NONE;
+		pev->solid = SOLID_NOT;       // embedded blade — no pickup trigger, no collision
+		SetTouch(nullptr);
+		SetThink(&CBaseEntity::SUB_Remove);
+		pev->nextthink = gpGlobals->time + 60.0f; // linger as decoration, then vanish (no edict leak)
+		return;
+	}
+
 	pev->velocity = g_vecZero;
 	pev->avelocity = g_vecZero;
 	pev->movetype = MOVETYPE_NONE;

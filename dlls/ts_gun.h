@@ -29,7 +29,8 @@ struct TSItem
 	int  leftClip = 0;
 	int  rightClip = 0;
 	int  mode = TSFM_SEMI;
-	int  attach = 0;
+	int  attach = 0;       // item+0x10 — EQUIPPED attachment mask (silencer 1 / laser 2 / flash 4 / scope 8)
+	int  active = 0;       // item+0x14 — ACTIVE attachments (laser 2 / flash 4) toggled by `useitems` (SwitchItems)
 	int  barrelMask = 0;
 	bool holdPosition = false; // item+0x2c — alternate viewmodel stance (right-click toggle, see CTSGun::SecondaryAttack)
 };
@@ -87,12 +88,15 @@ public:
 	void ScaleSpread(float &spread, float increment, bool ducking); // @ScaleSpread @0x702a8 — dynamic accuracy
 	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
 	void CloseCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
-	void CloseCombatBlock();                     // @CCombatBlock — kung-fu reload: "hooah" block (stamina)
+	void CloseCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
+	void RegenBlockBar();                        // continuous regen of the melee block bar (m_blockBar toward 100)
 	void GrenadeThrow(const s_weapon_info *wi);  // grenade fire-type
 	void ThrowKnife();                           // @KnifeFire throw branch — right-click hurls the knife
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
 	void SwitchFireMode();                       // cycle the held weapon's fire-mode
-	void SwitchItems();                          // @SwitchItems (useitems) — akimbo dual-wield swap
+	void SwitchItems();                          // @SwitchItems__6CTSGun (useitems) — toggle ACTIVE attachments (laser/flash)
+	int  GetActiveItems() const;                 // @GetActiveItems__6CTSGun — active attach mask (+0x40 if akimbo)
+	void SwitchBarrel();                         // akimbo dual-wield barrel swap (right-click / secondary)
 
 	// arsenal (the items-by-tsweapon_t array). @ TakeWeapon/SelectWeapon/DropWeapon__6CTSGun.
 	bool IsOwned(int type) const { return type >= 0 && type < TSW_COUNT && m_items[type].owned; }
@@ -124,8 +128,10 @@ public:
 	int m_lastMeleeAnim = 0;    // last kung-fu attack id (this+0xa04): drives the no-repeat anim cycling per move
 	int m_slashStep = 0;        // knife slash anim cycle (RE KnifeFire melee: 0x1d + random(0,2) body anims)
 	float m_lastCCTime = 0.0f;  // last close-combat attack time (combo only continues if rapid/held)
-	float m_blockBar = 100.0f;  // kung-fu block stamina (UpdateMeleeBar): each block costs, regens
-	float m_blockBarTime = 0.0f;// last time the block bar was updated (for regen)
+	float m_blockBar = 100.0f;  // melee block stamina (field_0x774 / UpdateMeleeBar): each block drains 33, regens
+	float m_blockBarTime = 0.0f;// last time the block bar was regenerated (for the continuous regen)
+	float m_blockCooldown = 0.0f;// stamina-depleted lockout (RE UpdateMeleeBar field_0x12c): no block until this time
+	int   m_iClientBlockBar = -1;// last value networked via gmsgKFuPower (the melee bar; change-detect)
 	unsigned short m_usFire = 0; // events/fire.sc handle (predicted fire: sound/flash/anim)
 	unsigned short m_usDraw = 0; // events/draw.sc handle (deploy: seed the client param cache)
 	unsigned short m_usMelee = 0; // events/knife.sc handle (predicted melee impact spark/decal)
@@ -136,7 +142,8 @@ public:
 	int m_iClientClip = -1;
 	int m_iClientReserve = -1;
 	int m_iClientFireMode = -1;
-	int m_iClientAttach = -1; // last-broadcast active-weapon attach mask (ActItems change-detect)
+	int m_iClientAttach = -1; // last-broadcast ACTIVE attach mask (ActItems change-detect)
+	int m_iClientEquip = -1;  // last-sent EQUIPPED attach mask (WeaponInfo flags byte change-detect)
 
 	// Cached per-weapon-type WStatus (the weapon-select bar): clip if owned, else -1.
 	// The original sends WStatus per arsenal slot on change; we diff against this.

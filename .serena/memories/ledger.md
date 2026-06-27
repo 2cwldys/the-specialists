@@ -5,6 +5,38 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-26 (cont. 71 cont.) — HUD numbers + attachment toggle + katana + melee block bar (live-playtest pass)
+
+Long interactive playtest pass, all RE-grounded + user-confirmed. Committed as a client/server pair
+(cl_dll HUD presentation; dlls gameplay) on top of 8c27afa.
+
+- **numbers.spr digit font** wired into: health number (ts_status), powerup seconds (ts_powerup_hud),
+  bottom weapon-box ammo "clip / reserve" (ts_ammo, TSHud_DrawNumberPair with a slash), and the top
+  weapon-bar slot numbers 1-5 (ts_weaponbar). Left as text: the top-bar cursor x/y (per user). Helpers
+  TSHud_DrawNumber/NumberWidth/DrawNumberPair in ts_hud (font map sprites/hud.txt number_0..9, 11px).
+- **`useitems` = ATTACHMENT TOGGLE** (NOT akimbo swap — user corrected; akimbo swap is right-click).
+  RE'd FUN_0x71564: item +0x10 = EQUIPPED mask, +0x14 = ACTIVE mask. State machine (both laser+flash
+  equipped): active cycles 6(both)->0(off)->2(laser)->4(flash)->6; one equipped toggles it. Rewrote
+  CTSGun::SwitchItems to this; moved the akimbo barrel-swap to SecondaryAttack (right-click) as
+  SwitchBarrel. AddItem starts new toggleables ACTIVE. Wire: ActItems now carries the ACTIVE mask (gates
+  the laser beam render + dive-reticle distance); WeaponInfo flags byte carries the EQUIPPED mask. Bottom
+  weapon-box restructured top->bottom (name/caliber/firemode/ammo/attachments/bar) listing each equipped
+  attachment with a laserdot.spr dot, active ones bright. [[useitems-is-attachment-toggle]]
+- **Katana right-click throw** (orig SecondaryAttack fire-type 10 -> KatanaThrow): generalized ThrowKnife
+  for katana (katana/miss.wav) + routed it. **Stuck katanas NOT pickup-removable** (the pickup was our
+  added nicety; original leaves a settled blade inert) — gated BecomePickup so a katana stays inert
+  decoration; knives/seal keep the pickup. **Throw caps**: knife 5, seal-knife 10, katana 1 (ts_weapon_info).
+- **Melee block bar** = MELEE BLOCK STAMINA (field_0x774), shown ONLY for melee weapons (kungfu/knife/
+  katana/seal), NOT health, NOT on guns. RE CCombatBlock@0x85ebc + UpdateMeleeBar@0x9650c: ALL melee
+  block on RELOAD (was kungfu-only); each block drains via UpdateMeleeBar; networked via **gmsgKFuPower**
+  (CHAR 0..100); the client (ts_ammo) draws it as the bottom-box bar gated on melee. The bar colour FADES
+  from the HUD colour (full) toward red (empty), not a threshold switch (TSHud_HealthBar). Top weapon-bar
+  shows melee as count "x" only (not "x/max"). Tuning (user-playtested): re-block cadence +0.5s (RE fc_0_5,
+  was 0.8), drain 33 (RE), continuous regen ~25/sec (never pauses, even while blocking).
+
+Files: cl_dll/{ts_hud,ts_status,ts_powerup_hud,ts_weaponbar,ts_ammo,ts_attachments}.{cpp,h};
+dlls/{ts_gun.{cpp,h},ts_knife.cpp,ts_weapon_info.cpp}. Builds clean (glibc 2.14). [[match-original-names-for-coverage]]
+
 ## 2026-06-26 (cont. 71) — lasersight map-change loss FIXED + per-weapon attachment binding FIXED (live-confirmed)
 
 Two laser/attachment bugs the user reported, both RE-grounded + live-playtest-confirmed (UNCOMMITTED, on top of 514a50a).

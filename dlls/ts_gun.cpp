@@ -55,6 +55,7 @@ static int gmsgWeaponInfo = 0;
 // The weapon-select bar message: "WStatus", size 3 = BYTE type, BYTE owned, BYTE clip.
 static int gmsgWStatus = 0;
 static int gmsgActItems = 0; // per-player attach broadcast (laser/flashlight visible to all clients)
+static int gmsgKFuPower = 0; // melee block bar (stamina 0..100, CHAR) — owner-only, gmsgKFuPower @UpdateMeleeBar
 
 // `damagemult` cvar (default 0.0 = off → 1x). A value > 0 scales all TS weapon damage.
 static float TSDamageMult()
@@ -1027,22 +1028,40 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 // (player/block.wav) + the block_low stance, and briefly gates attacks (sets the next-attack times).
 // It costs stamina (the .so's melee bar, UpdateMeleeBar(33) → ~3 blocks); spamming it past empty
 // plays the exhausted breathing (player/breathe2.wav) instead and does not block. The bar regens.
+// Continuous regen of the melee block bar (m_blockBar -> 100). Idempotent: advances by the time since
+// the last call. (RE: the original regens field_0x774 via UpdateMeleeBar with a negative amount.)
+void CTSGun::RegenBlockBar()
+{
+	if (m_blockBarTime == 0.0f)
+		m_blockBarTime = gpGlobals->time;
+	// Regen is ALWAYS on — even while blocking (matches the original). The rate is low enough that 4
+	// rapid blocks (0.5s apart, -25 each) still out-drain it to empty, while paced blocks sustain longer.
+	m_blockBar += (gpGlobals->time - m_blockBarTime) * 25.0f; // ~25/sec continuous -> ~4s full refill (user-tuned)
+	if (m_blockBar > 100.0f)
+		m_blockBar = 100.0f;
+	m_blockBarTime = gpGlobals->time;
+}
+
+// @ CCombatBlock__6CTSGun (@0x85ebc) — RELOAD with ANY melee weapon (kung-fu/knife/katana/seal-knife) =
+// the block taunt. Plays the "hooah" (player/block.wav) + a block stance, opens a brief deflect window,
+// and gates attacks. It costs stamina (the melee bar, UpdateMeleeBar(33) -> ~3 blocks); spamming it past
+// empty plays the exhausted breathing (player/breathe2.wav), does NOT block, and starts a recovery
+// lockout. The bar regens continuously (RegenBlockBar, networked via gmsgKFuPower).
 void CTSGun::CloseCombatBlock()
 {
 	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
 		return; // mid-attack / already blocking
 
-	// Regen the block bar since it was last touched (~25/sec → full in ~4s), then update the stamp.
-	m_blockBar += (gpGlobals->time - m_blockBarTime) * 25.0f;
-	if (m_blockBar > 100.0f)
-		m_blockBar = 100.0f;
-	m_blockBarTime = gpGlobals->time;
+	RegenBlockBar();
 
-	const float kCost = 33.0f; // UpdateMeleeBar(33) — ~3 blocks before empty
-	if (m_blockBar < kCost)
+	const float kCost = 33.0f; // RE UpdateMeleeBar(33); with the ~25/sec regen the net visible step is ~25% and
+	                           // 4 rapid blocks empty it (the regen tops up a little between presses)
+	if (m_blockBar < kCost || gpGlobals->time < m_blockCooldown)
 	{
-		// exhausted — the Valve breathing puff, no block, short lockout.
+		// exhausted — the Valve breathing puff, no block, short lockout (RE: field_0x12c recovery delay).
 		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/breathe2.wav", VOL_NORM, ATTN_NORM);
+		if (m_blockBar < kCost)
+			m_blockCooldown = gpGlobals->time + 1.5f;
 		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 		m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 		return;
@@ -1050,11 +1069,14 @@ void CTSGun::CloseCombatBlock()
 
 	m_blockBar -= kCost;
 	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/block.wav", VOL_NORM, ATTN_NORM); // "hooah"
-	SendWeaponAnim(4); // block_low stance (v_melee.mdl seq 4, 1st person)
-	m_pPlayer->m_TSAnim.PlayKungFu(m_pPlayer, "kungfu_block1", 0.8f); // 3rd-person block pose
-	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.8f;   // the attack-lockout window
+	SendWeaponAnim(4); // block_low stance (seq 4, 1st person; VERIFY per knife/katana viewmodel)
+	if (m_weaponType == TSW_MELEE)
+		m_pPlayer->m_TSAnim.PlayKungFu(m_pPlayer, "kungfu_block1", 0.5f); // 3rd-person block pose
+	// RE CCombatBlock: re-arm next primary/secondary at +0.5 (fc_0_5), idle at +3.0 (fc_3) — you can
+	// re-block ~twice a second (faster than our old 0.8 lockout).
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flNextSecondaryAttack = m_flNextPrimaryAttack;
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 1.0f;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
 	// Open the BLOCK window (RE CCombatBlock@0x85ebc sets player+0x7a8 = 0.5): for the next 0.5s an
 	// incoming close-combat attack is deflected (CloseCombatAttack -> VictimKungfuHold checks this).
 	m_pPlayer->m_flKungFuBlock = gpGlobals->time + 0.5f;
@@ -1388,8 +1410,10 @@ void CTSGun::ThrowKnife()
 	const float dmg = (wi->flDamage > 0 ? wi->flDamage : 40.0f) * TSDamageMult();
 	TSThrowKnife(m_pPlayer, m_weaponType, dmg, vecSrc, vecVel); // server-only (client stub no-ops)
 
-	SendWeaponAnim((m_weaponType == TSW_KNIFE) ? 7 : 5); // "throw" seq — client-predicted
-	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
+	const bool isKatana = (wi->iFireType == TSFT_KATANA);
+	SendWeaponAnim((m_weaponType == TSW_KNIFE) ? 7 : 5); // "throw" seq — client-predicted (VERIFY katana seq)
+	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON,
+		isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
@@ -1535,6 +1559,7 @@ int CTSGun::AddItem(int bits)
 	if ((bits & wi->attachBuiltin) != 0)     return 0; // built-in / can't re-add
 	if ((bits & it.attach) != 0)             return 0; // already attached
 	it.attach |= bits;
+	it.active |= (bits & 6); // newly-added laser/flashlight start ACTIVE (on) — useitems toggles them
 	return 1;
 }
 
@@ -1580,12 +1605,13 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	const int caliber = wi->iCaliber;
 	const int reserve = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
 
-	// ActItems — broadcast this player's active-weapon attach mask to ALL clients (so everyone sees
-	// the laser/flashlight, not just the owner) when it changes. The visible attachments (laser bit 2,
-	// flashlight bit 4) are rendered client-side from the muzzle (cl_dll/ts_attachments.cpp). Wire:
-	// BYTE playerIndex, BYTE attachMask (client handler FUN_1004fa70). Broadcast separately from the
-	// owner-only WeaponInfo below, and BEFORE its early-out, so an attach change always propagates.
-	const int activeAttach = m_items[m_weaponType].attach;
+	// ActItems — broadcast this player's ACTIVE attachment mask to ALL clients (so everyone sees the
+	// laser/flashlight only while it's toggled ON via `useitems`, not just because it's equipped). The
+	// visible attachments (laser bit 2, flashlight bit 4) are rendered client-side from the muzzle
+	// (cl_dll/ts_attachments.cpp), and the owner's dive-reticle distance gates on the active laser.
+	// Wire: BYTE playerIndex, BYTE activeMask (client handler FUN_1004fa70). Broadcast separately from
+	// the owner-only WeaponInfo below, and BEFORE its early-out, so a toggle always propagates.
+	const int activeAttach = m_items[m_weaponType].active;
 	if (activeAttach != m_iClientAttach)
 	{
 		if (gmsgActItems == 0)
@@ -1593,25 +1619,45 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 		m_iClientAttach = activeAttach;
 		MESSAGE_BEGIN(MSG_ALL, gmsgActItems);
 		WRITE_BYTE(ENTINDEX(pPlayer->edict())); // player entity index
-		WRITE_BYTE(activeAttach);               // attach mask (bit1 silencer / 2 laser / 4 flash / 8 scope)
+		WRITE_BYTE(activeAttach);               // ACTIVE attach mask (bit 2 laser / 4 flash)
 		MESSAGE_END();
 	}
 
+	// Melee block bar (gmsgKFuPower): regen the stamina continuously and network it (CHAR, 0..100) to the
+	// owner on change. The client draws it as the bottom weapon-box bar, but ONLY while a melee weapon is
+	// held (guns have no block bar). Sent before the WeaponInfo early-out so the bar always tracks regen.
+	RegenBlockBar();
+	{
+		const int barv = (int)(m_blockBar + 0.5f);
+		if (barv != m_iClientBlockBar)
+		{
+			if (gmsgKFuPower == 0)
+				gmsgKFuPower = REG_USER_MSG("KFuPower", 1);
+			m_iClientBlockBar = barv;
+			MESSAGE_BEGIN(MSG_ONE, gmsgKFuPower, NULL, pPlayer->pev);
+			WRITE_CHAR(barv);
+			MESSAGE_END();
+		}
+	}
+
+	const int equipped = m_items[m_weaponType].attach;
 	if (m_weaponType == m_iClientWeaponType && m_iClip == m_iClientClip &&
-		reserve == m_iClientReserve && m_fireMode == m_iClientFireMode)
+		reserve == m_iClientReserve && m_fireMode == m_iClientFireMode &&
+		equipped == m_iClientEquip)
 		return false; // nothing changed
 
 	m_iClientWeaponType = m_weaponType;
 	m_iClientClip = m_iClip;
 	m_iClientReserve = reserve;
 	m_iClientFireMode = m_fireMode;
+	m_iClientEquip = equipped;
 
 	MESSAGE_BEGIN(MSG_ONE, gmsgWeaponInfo, NULL, pPlayer->pev);
 	WRITE_BYTE(m_weaponType);     // active tsweapon_t
 	WRITE_BYTE(m_iClip);          // rounds currently loaded
 	WRITE_SHORT(reserve);         // spare rounds for this caliber
 	WRITE_BYTE(m_fireMode);       // 0=auto 1=semi 2=burst 3=pump
-	WRITE_BYTE(0);                // SLICE: weapon capability flags
+	WRITE_BYTE(equipped);         // EQUIPPED attachment mask (silencer 1 / laser 2 / flash 4 / scope 8)
 	MESSAGE_END();
 
 	SendWeaponStatus(pPlayer);
@@ -1702,8 +1748,8 @@ void CTSGun::ItemPostFrame()
 		// fire-type KNIFE -> KnifeFire's throw branch). Other weapons: zoom/coldcock are separate.
 		if (m_weaponType == TSW_MELEE)
 			CloseCombatAttack(true);
-		else if (wi->iFireType == TSFT_KNIFE)
-			ThrowKnife();
+		else if (wi->iFireType == TSFT_KNIFE || wi->iFireType == TSFT_KATANA)
+			ThrowKnife(); // right-click hurls the knife/seal-knife/katana (orig SecondaryAttack -> KnifeFire/KatanaThrow)
 		else if ((m_items[m_weaponType].attach & 8) &&
 			wi->iFireType != TSFT_AKIMBO && wi->iFireType != TSFT_AKIMBO_ONLY)
 		{
@@ -1742,6 +1788,13 @@ void CTSGun::ItemPostFrame()
 			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;
 			m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 1.0f;
 		}
+		else if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+		{
+			// Akimbo dual-wield: right-click swaps which barrel(s) fire (both->left->right->both).
+			// (useitems/SwitchItems is the ATTACHMENT toggle, not this — see SwitchBarrel.)
+			SwitchBarrel();
+			m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.3f;
+		}
 		else if (m_pPlayer->m_iKungFu)
 		{
 			// KUNG-FU POWERUP: while held it lets you close-combat WHILE ARMED — right-click throws a
@@ -1761,9 +1814,10 @@ void CTSGun::ItemPostFrame()
 		}
 		PrimaryAttack();
 	}
-	else if ((m_pPlayer->pev->button & IN_RELOAD) && m_weaponType == TSW_MELEE)
+	else if ((m_pPlayer->pev->button & IN_RELOAD) &&
+		(m_weaponType == TSW_MELEE || wi->iFireType == TSFT_KNIFE || wi->iFireType == TSFT_KATANA))
 	{
-		CloseCombatBlock(); // kung-fu has no clip — reload = the "hooah" block taunt
+		CloseCombatBlock(); // ALL melee (kung-fu/knife/seal-knife/katana) block on RELOAD — RE CCombatBlock
 	}
 	else if ((m_pPlayer->pev->button & IN_RELOAD) && !m_fInReload && m_iClip < wi->iClip && hasReserve)
 	{
@@ -2000,11 +2054,63 @@ void TSSwitchFireMode(CBasePlayer *pPlayer)
 		pGun->SwitchFireMode();
 }
 
-// @ SwitchItems__6CTSGun = FUN_00081564 (the `useitems` command — default.cfg binds g): the
-// akimbo dual-wield "fire one barrel / fire both" swap. Cycles the active item's barrel mask
-// (item+0x128, bits 2/4 = left/right): both(0) -> left(2) -> right(4) -> both(6) -> both(0).
-// AkimboFire reads the mask to gate which barrel(s) fire. Plays a swap sound.
+// @ SwitchItems__6CTSGun = FUN_00081564 (the `useitems` command — default.cfg binds g): toggle the
+// ACTIVE gun attachments (laser bit 2 / flashlight bit 4) of the held weapon. The active mask
+// (TSItem::active, item+0x14) is a subset of the EQUIPPED mask (item+0x10); useitems cycles it.
+// Faithful RE state machine (the laser/flashlight only RENDER while active, and AddItem starts them
+// all-on). See [[useitems-is-attachment-toggle]].
+//   both laser+flash equipped: active cycles  6(both) -> 0(off) -> 2(laser) -> 4(flash) -> 6 ...
+//   only one equipped:         that bit toggles on/off
 void CTSGun::SwitchItems()
+{
+	if (m_weaponType < 0 || m_weaponType >= TSW_COUNT)
+		return;
+	TSItem &it = m_items[m_weaponType];
+	const int equipped = it.attach;
+
+	if ((equipped & 6) == 6) // both laser + flashlight equipped
+	{
+		if ((it.active & 6) == 6)        // both on -> off
+			it.active &= ~6;
+		else if (it.active & 2)          // laser -> flashlight
+			it.active = (it.active & ~2) | 4;
+		else if (it.active & 4)          // flashlight -> both
+			it.active |= 2;
+		else                             // off -> laser
+			it.active |= 2;
+	}
+	else if (equipped & 2)               // only laser equipped -> toggle laser
+		it.active ^= 2;
+	else if (equipped & 4)               // only flashlight equipped -> toggle flashlight
+		it.active ^= 4;
+	else
+	{
+		it.active &= ~6; // nothing toggleable equipped — clear, no sound
+		return;
+	}
+
+	if (m_pPlayer)
+		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, "weapons/switch.wav", VOL_NORM, ATTN_NORM);
+}
+
+// @ GetActiveItems__6CTSGun (@0x71228): the active attachment mask of the held weapon (item+0x14),
+// with bit 0x40 OR'd in for an akimbo/akimbo-only weapon (the original tags dual-wield here).
+int CTSGun::GetActiveItems() const
+{
+	if (m_weaponType < 0 || m_weaponType >= TSW_COUNT)
+		return 0;
+	int active = m_items[m_weaponType].active;
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+		active |= 0x40;
+	return active;
+}
+
+// Akimbo dual-wield barrel swap (right-click / SecondaryAttack on an akimbo weapon). Cycles the
+// active item's barrel mask (bits 2/4 = left/right): both(0) -> left(2) -> right(4) -> both(6) ->
+// both(0). AkimboFire reads the mask to gate which barrel(s) fire. (SLICE vs the original, whose
+// SecondaryAttack@0x817a8 routes akimbo right-click to Fire() — fire-the-other-hand; deferred.)
+void CTSGun::SwitchBarrel()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	if (wi->iFireType != TSFT_AKIMBO && wi->iFireType != TSFT_AKIMBO_ONLY)
@@ -2025,7 +2131,7 @@ void CTSGun::SwitchItems()
 		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/switch.wav", VOL_NORM, ATTN_NORM);
 }
 
-// Swap the held akimbo's active item (the `useitems` command -> CTSGun::SwitchItems).
+// Toggle the held weapon's active attachments (the `useitems` command -> CTSGun::SwitchItems).
 void TSSwitchItems(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);

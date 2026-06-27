@@ -127,7 +127,7 @@ static void compile_weapons_info()
   Write(&g_weaponInfo[22], "Glock-20C", "models/v_glock22.mdl", "models/p_glock22.mdl", "models/w_glock22.mdl", "onehanded", "weapons/glock22/glock22-fire.wav", 15, 41.0f, 8, 0.1f, 0.025f, 0.0f); // glock22
   Write(&g_weaponInfo[23], nullptr, "models/v_ump.mdl", "models/p_ump.mdl", "models/w_ump.mdl", "twohanded", "weapons/ump/ump-fire.wav", 25, 30.0f, 9, 0.092f, 0.028f, 0.003f); // mac10
   Write(&g_weaponInfo[24], "M61 Grenade", "models/v_m61.mdl", "models/p_m61.mdl", "models/w_m61.mdl", nullptr, nullptr, 1, 0.0f, 2, 1.0f, 0.1f, 0.0f); // m61 (RE Write_m61 @0x77da0: clip 1, rate 1.0, spread 0.1; dmg/recoil unset — grenade damage is the explosion, not the weapon field)
-  Write(&g_weaponInfo[25], nullptr, "models/v_knife.mdl", "models/p_knife.mdl", "models/w_knife.mdl", nullptr, nullptr, 1, 30.0f, 3, 0.4f, 0.1f, 0.0f); // knife (RE-verified Write_knife @0x7745c: clip 1, dmg 30, rate 0.4, spread 0.1; was wrongly 18/40/0.07 from the heuristic extractor)
+  Write(&g_weaponInfo[25], nullptr, "models/v_knife.mdl", "models/p_knife.mdl", "models/w_knife.mdl", nullptr, nullptr, 5, 30.0f, 3, 0.4f, 0.1f, 0.0f); // knife (dmg/rate/spread RE-verified Write_knife @0x7745c; throw-carry cap 5 per the original — user-confirmed, overrides the Write_ clip=1)
   Write(&g_weaponInfo[26], "Mossberg 500", "models/v_mossberg.mdl", "models/p_mossberg.mdl", "models/w_mossberg.mdl", "twohanded", "weapons/mossberg/fire.wav", 8, 16.0f, 1, 0.25f, 0.06f, 0.0f); // mossberg (pump)
   Write(&g_weaponInfo[27], nullptr, "models/v_m16.mdl", "models/p_m16.mdl", "models/w_m16.mdl", "twohanded", "weapons/m16/fire.wav", 18, 40.0f, 6, 0.07f, 0.003f, 0.0001f); // m16
   Write(&g_weaponInfo[28], "Ruger-MK1", "models/v_ruger.mdl", nullptr, "models/w_ruger.mdl", "onehanded", nullptr, 17, 16.0f, 8, 0.1f, 0.005f, 0.0f); // ruger
@@ -137,7 +137,7 @@ static void compile_weapons_info()
   Write(&g_weaponInfo[32], nullptr, "models/v_m60.mdl", "models/p_m60.mdl", "models/w_m60.mdl", "twohanded", "weapons/m60/m60-fire.wav", 100, 39.0f, 6, 0.109f, 0.02f, 0.009f); // m60
   Write(&g_weaponInfo[33], "Sawed-off", "models/v_sawedoff.mdl", "models/p_sawedoff.mdl", "models/w_sawedoff.mdl", "twohanded", "weapons/sawedoff/fire.wav", 2, 23.0f, 8, 0.1f, 0.13f, 0.0f); // sawedoff (semi, 2 barrels)
   Write(&g_weaponInfo[34], nullptr, "models/v_katana.mdl", "models/p_katana.mdl", "models/w_katana.mdl", nullptr, nullptr, 1, 45.0f, 10, 0.7f, 0.7f, 0.0f); // katana (RE-verified: dmg 45, rate 0.7, spread 0.7)
-  Write(&g_weaponInfo[35], nullptr, "models/v_sealknife.mdl", "models/p_sealknife.mdl", "models/w_sealknife.mdl", nullptr, nullptr, 1, 20.0f, 3, 0.25f, 0.1f, 0.0f); // sealknife
+  Write(&g_weaponInfo[35], nullptr, "models/v_sealknife.mdl", "models/p_sealknife.mdl", "models/w_sealknife.mdl", nullptr, nullptr, 10, 20.0f, 3, 0.25f, 0.1f, 0.0f); // sealknife (throw-carry cap 10 — user-confirmed)
   Write(&g_weaponInfo[36], "Contender G2", "models/v_contender.mdl", "models/p_contender.mdl", "models/w_contender.mdl", "onehanded", "weapons/contender/fire.wav", 1, 95.0f, 8, 0.25f, 0.001f, 0.0f); // contender
   Write(&g_weaponInfo[37], "Akimbo Skorpions", "models/v_skorpion_ak.mdl", "models/p_skorpion_ak.mdl", "models/w_skorpion.mdl", "akimbo", "weapons/tmp/fire.wav", 40, 16.0f, 4, 0.07f, 0.035f, 0.0025f); // skorpion_akimbo
 
