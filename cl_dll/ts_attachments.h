@@ -16,5 +16,7 @@
 void TS_Attachments_Init();    // hook the ActItems message (call from HUD_Init)
 void TS_Attachments_VidInit(); // drop cached sprite handles on a map change (call from HUD VidInit)
 void TS_Attachments_Draw();    // per-frame render (call from HUD_DrawTransparentTriangles)
+bool TS_LocalHasLaser();       // does the LOCAL player have a lasersight? (dive-reticle distance/ticks)
+int TS_LocalAttachMask(); // DEBUG: local raw attach mask
 
 #endif // TS_ATTACHMENTS_H

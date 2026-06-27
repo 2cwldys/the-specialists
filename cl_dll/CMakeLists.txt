@@ -110,6 +110,7 @@ target_sources(client PRIVATE
 	ts_buymenu.cpp
 	ts_message.cpp
 	ts_powerup_hud.cpp
+	ts_reticle.cpp
 	ts_debris.cpp
 	ts_particles.cpp
 	ts_attachments.cpp

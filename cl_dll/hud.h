@@ -171,6 +171,7 @@ private:
 #include "ts_buymenu.h"
 #include "ts_message.h"
 #include "ts_powerup_hud.h"
+#include "ts_reticle.h"
 #include "ts_debris.h"
 
 
@@ -589,6 +590,7 @@ public:
 	CHudTSBuyMenu m_TSBuyMenu;
 	CHudTSMessage m_TSMessage;
 	CHudTSPowerUp m_TSPowerUp;
+	CHudTSReticle m_TSReticle;
 	CHudTSDebris m_TSDebris;
 
 	void Init();

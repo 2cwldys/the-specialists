@@ -1212,7 +1212,7 @@ void CHudSpectator::SetModes(int iNewMainMode, int iNewInsetMode)
 			m_crosshairRect.right = 48;
 			m_crosshairRect.bottom = 24;
 
-			SetCrosshair(m_hCrosshair, m_crosshairRect, 255, 255, 255);
+			SetCrosshair(0, m_crosshairRect, 0, 0, 0); // TS: no valve crosshair in spectate
 		}
 		else
 		{
@@ -1875,7 +1875,7 @@ void CHudSpectator::CheckSettings()
 		m_crosshairRect.right = 48;
 		m_crosshairRect.bottom = 24;
 
-		SetCrosshair(m_hCrosshair, m_crosshairRect, 255, 255, 255);
+		SetCrosshair(0, m_crosshairRect, 0, 0, 0); // TS: no valve crosshair in spectate
 	}
 	else
 	{

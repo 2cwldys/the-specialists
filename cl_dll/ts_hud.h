@@ -39,6 +39,10 @@ void TSHud_Panel(int x, int y, int w, int h);
 // before any glyph that would cross maxX). Returns the ending x.
 int TSHud_DrawString(int x, int y, int maxX, const char* str, int r, int g, int b);
 
+// Draw an unsigned integer with sprites/numbers.spr (the TS digit imagemap). x,y top-left; ~11px
+// per digit; additive, tinted. Returns the x past the last digit. (Health/ammo/powerup/distance.)
+int TSHud_DrawNumber(int x, int y, int value, int r, int g, int b);
+
 // The TS health bar (FUN_1004d5f0): a 0x80(128)-wide bar at (x,y) — faint background
 // (alpha 0x1e) + a fill proportional to health, in the HUD colour (red when low). The
 // original draws it bottom-right, stacked with the weapon/ammo box.

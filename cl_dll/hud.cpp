@@ -379,6 +379,7 @@ void CHud::Init()
 	m_TSBuyMenu.Init();
 	m_TSMessage.Init();
 	m_TSPowerUp.Init();
+	m_TSReticle.Init();
 	m_TSDebris.Init();
 	TS_Attachments_Init(); // hook the ActItems message (per-player laser/flashlight attach state)
 	GetClientVoiceMgr()->Init(&g_VoiceStatusHelper, (vgui::Panel**)&gViewPort);
@@ -563,6 +564,7 @@ void CHud::VidInit()
 	m_TSBuyMenu.VidInit();
 	m_TSMessage.VidInit();
 	m_TSPowerUp.VidInit();
+	m_TSReticle.VidInit();
 	m_TSDebris.VidInit();
 	TSParticles_Reset();     // drop stale per-map sprite handles (impact particle pool)
 	TS_Attachments_VidInit(); // drop stale per-map laser/flashlight sprite handles

@@ -47,6 +47,41 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐ START HERE (cont.71, 2026-06-26) — CTSStunt (COMMITTED) + DIVE RETICLE + numbers.spr (UNCOMMITTED)
+
+Two big things this session. Read the two newest `.serena/memories/ledger.md` entries (cont.70 cont. = CTSStunt;
+cont.70 cont.2 = reticle). Build: `scripts/build.sh amd64 all` (clean, glibc 2.14) → `scripts/setup-xash-mod.sh`
+→ launch (the user playtests; `+deathmatch 1 +maxplayers 8` REQUIRED). `test.sh` = the user's launcher, DO NOT commit.
+
+### ✅ COMMITTED this session
+- **CTSStunt** (dive/prone/roll/wall-climb/wall-jump/bullet-time) FULLY RE'd + reconstructed: `dlls/ts_stunt.{cpp,h}`
+  + pm_shared TS hooks (predicted hull/view/launch via `pev->iuser4`). Commits **b8080fb** (cont.70 checkpoint:
+  attachments/powerups/sounds) + **514a50a** (CTSStunt). Full RE map: `reference/STUNT.md`.
+
+### 🟡 UNCOMMITTED ON DISK (the reticle session — builds clean, on top of 514a50a)
+The TS **dive reticle** (`cl_dll/ts_reticle.{cpp,h}`, wired in hud.h/hud.cpp/CMakeLists) + a **numbers.spr font**
+(`TSHud_DrawNumber` in cl_dll/ts_hud.{cpp,h}). Live-playtest-tuned with the user; RE foothold in
+`scratchpad/RETICLE_RE.md`. Donut crosshair (cross2) + left "(" arc of 3 weight-colored dive-tier thirds + a
+pitch dot + a lasersight distance readout. Decide whether to commit (recommend yes — it's a clean checkpoint;
+the laser-distance map-change bug is pre-existing-style, not a reason to hold the commit).
+
+### 🔴 OPEN WORK-LIST (pick up here)
+1. **Lasersight lost on MAP CHANGE** (the #1 reported bug). Client `g_playerAttach` resets on the new map; the
+   server `ActItems` is change-detected on `CTSGun::m_iClientAttach` (survives the level) → never re-sends. A
+   naive `m_iClientAttach=-1` in `Deploy()` REGRESSED it (laser gone on fresh buy) and was reverted. Fix the
+   re-broadcast without breaking first-deploy (force from the post-changelevel player activate, or client
+   re-request). This is a RECURRING pattern — see the `map-change-state-reset` memory + cont.70 sprite-cache fix.
+2. **Wire numbers.spr into health / ammo-max / powerup (2/3/5)** — the user asked; `TSHud_DrawNumber` is ready.
+3. **Reticle polish**: gate the laser readout on the laser's ACTIVE toggle (useitem; starts on) not just
+   equipped; the distance divisor (`/52`→metres) + the number position next to the reticle are tuned guesses.
+   The reticle draw funcs decompile to garbage, so colors/positions are screenshot-tuned, not byte-RE'd.
+4. **CTSStunt 🔴 carried**: 3rd-person stunt POSES need the TS specialist player models (not in this data
+   extraction — `Animate(0x28..0x39)` wired but the model lacks some); glass double-pane penetration;
+   golden-colts no-fire-sound-until-reload (live-trace it).
+
+### Open task-tool entries (this session)
+See the TaskList. The reticle/numbers/map-change items are tracked there.
+
 ## ⭐⭐⭐ START HERE (cont.70, 2026-06-26) — ATTACHMENTS + POWERUPS + SLOW-MO/DAMAGE SOUNDS + STUNTS — **UNCOMMITTED ON DISK**
 
 A very long interactive playtest session. **NOTHING IS COMMITTED** — all work is on disk on top of `6ecf77b`

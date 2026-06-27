@@ -5,6 +5,41 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-26 (cont. 70 cont.2) — DIVE RETICLE reconstructed + numbers.spr font (UNCOMMITTED; laser-distance has a known map-change bug)
+
+New client HUD **cl_dll/ts_reticle.{cpp,h}** (`CHudTSReticle`, wired in hud.h/hud.cpp + cl_dll/CMakeLists.txt).
+The TS dive reticle: a center DONUT crosshair + a left "(" arc of 3 dive-step thirds colored by loadout
+weight, with a dot tracking aim pitch. RE foothold (live trace on the original, see below):
+- Sprites loaded by client.dll FUN_1004cb50 into a STATIC object @ client.dll+0xd0ca0 (handles read live:
+  cross_e=0x3b/cross2=0x3c/cross_t=0x3d/divestept=0x3e/divestepc=0x3f/divestepb=0x40). Dims: divestep 40x80,
+  cross 64x64. The DRAW funcs (FUN_1003254e @0x3254e, FUN_10033a6b @0x33a6b) decompile to GARBAGE (Ghidra
+  lost the frames — reached via register/tail-call dispatch), so colors/positions were TUNED against the
+  user's screenshots, not byte-RE'd. Full map: reference/STUNT.md? no — scratchpad/RETICLE_RE.md.
+- Crosshair = **cross2** (donut, transparent bg) via SPR_DrawHoles tinted near-black (cross_e is the same
+  art on a BLACK bg → only additive; cross_t is an X). NSEW ticks + are drawn as FillRGBA lines (2x4 / 4x2,
+  the dot's base blue), pulled IN when a lasersight is equipped. NO center dot.
+- 3 dive thirds (divestept/c/b) drawn OVERLAID at one position (each canvas holds its third) — blue if that
+  dive tier is available, red if too heavy (CanDive High/Med/Low = free slots >39/29/19, from maxspeed via
+  GetClientMaxspeed + the cont.69z slot formula). The aimed-at AVAILABLE third brightens; red never does.
+- Pitch DOT rides a CIRCLE (R=33) around center: a 60-deg view cone (+-30 pitch, arc angle = pitch*3) maps
+  to the arc's 180deg (30 up->top, level->left, 30 down->bottom). Dot is always the bright blue (104,169,240).
+- Reticle hidden in spectate (g_iUser1 / IsSpectateOnly); ALSO suppressed the stock valve crosshair in
+  spectate (hud_spectator.cpp SetCrosshair(m_hCrosshair) -> 0 in both OBS_IN_EYE/ROAMING branches).
+- **numbers.spr sprite-font**: TSHud_DrawNumber (cl_dll/ts_hud.{cpp,h}) — digit imagemap rects from
+  sprites/hud.txt (number_0..9, 11px each). Used for the lasersight DISTANCE readout (PM_TraceLine from the
+  eye along v_angles, dist/52 = metres, drawn right of the reticle, gated on TS_LocalHasLaser).
+
+🔴 OPEN / BROKEN:
+- **Lasersight attach is lost on MAP CHANGE** (g_playerAttach reset client-side; server ActItems is
+  change-detected on CTSGun::m_iClientAttach which survives the level → no re-broadcast). A `m_iClientAttach
+  = -1` in Deploy() REGRESSED it (laser gone on fresh buy) → reverted. Needs a re-broadcast that doesn't
+  break first-deploy. See [[map-change-state-reset]].
+- **numbers.spr NOT yet wired into health / ammo-max / powerup (2/3/5)** — user asked; still text/other.
+- Lasersight reticle should gate on the laser's ACTIVE toggle (useitem; starts on) not just equipped —
+  deferred. Distance divisor /52 + the number position are tuned guesses.
+
+[[live-original-ts-debuggable]] [[match-original-names-for-coverage]]
+
 ## 2026-06-26 (cont. 70 cont.) — CTSStunt FULLY RE'd + reconstructed + live-playtest iterated (COMMITTED)
 
 Committed the prior cont.70 checkpoint as **b8080fb** (gun attachments/powerups/slow-mo/damage sounds),

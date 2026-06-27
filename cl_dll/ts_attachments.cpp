@@ -257,3 +257,26 @@ void TS_Attachments_Draw()
 		}
 	}
 }
+
+// Does the LOCAL player have a lasersight equipped? (the dive-reticle uses it for the distance
+// readout + tighter crosshair ticks). Reads the per-player attach mask the server broadcasts.
+bool TS_LocalHasLaser()
+{
+	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+	if (!lp)
+		return false;
+	int idx = lp->index;
+	if (idx < 1 || idx >= TS_MAXPLAYERS)
+		return false;
+	return (g_playerAttach[idx] & TS_ATT_LASER) != 0;
+}
+
+// DEBUG: the LOCAL player's raw attach mask (or negative on error). Temporary diagnostic.
+int TS_LocalAttachMask()
+{
+	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+	if (!lp) return -1;
+	int idx = lp->index;
+	if (idx < 1 || idx >= TS_MAXPLAYERS) return -2;
+	return g_playerAttach[idx];
+}

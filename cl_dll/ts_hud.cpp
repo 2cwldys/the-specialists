@@ -149,3 +149,32 @@ void TSHud_Panel(int x, int y, int w, int h)
 	TSHud_Color(r, g, b);
 	FillRGBA(x, y, w, h, r, g, b, 0x0f);
 }
+
+// Draw an unsigned integer using sprites/numbers.spr — the TS digit imagemap (10 digits, each ~11px
+// wide x 16 tall; rects from sprites/hud.txt number_0..number_9). x,y = top-left of the first digit;
+// returns the x past the last digit. Additive, tinted (r,g,b). Used by the dive-reticle distance,
+// and (TODO) the health / ammo / powerup counters.
+int TSHud_DrawNumber(int x, int y, int value, int r, int g, int b)
+{
+	HSPRITE numbers = SPR_Load("sprites/numbers.spr");
+	if (!numbers)
+		return x;
+	static const int lefts[10] = { 0, 11, 21, 32, 44, 55, 67, 79, 89, 101 };
+	char buf[16];
+	int n = value < 0 ? 0 : value;
+	int len = 0;
+	do { buf[len++] = (char)('0' + n % 10); n /= 10; } while (n && len < 15); // reversed digits
+	SPR_Set(numbers, r, g, b);
+	for (int i = len - 1; i >= 0; --i)
+	{
+		int d = buf[i] - '0';
+		Rect rc;
+		rc.left = lefts[d];
+		rc.right = lefts[d] + 11;
+		rc.top = 0;
+		rc.bottom = 16;
+		SPR_DrawAdditive(0, x, y, &rc);
+		x += 11;
+	}
+	return x;
+}
