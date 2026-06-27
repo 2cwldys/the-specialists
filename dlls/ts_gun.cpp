@@ -443,6 +443,14 @@ void CTSGun::SetWeaponData(const weapon_data_t &data)
 		m_ammoReserve[caliber] = data.iuser2;
 }
 
+// Per-tsweapon_t viewmodel DRAW (unholster) sequence index — recovered by parsing each viewmodel's
+// sequence names (the "draw"/"drawb" sequence). The original looks this up at init into the weapon
+// anim set (item+0x28 +4); we bake the result. Passed to DefaultDeploy so switching to a weapon plays
+// its unholster animation. Index = tsweapon_t.
+static const int s_drawSeq[TSW_COUNT] = {
+	1, 2, 4, 2, 5, 2, 4, 2, 2, 4, 5, 2, 2, 2, 2, 1, 2, 1, 2, 2,
+	5, 2, 2, 1, 1, 2, 7, 2, 3, 2, 1, 3, 1, 1, 1, 1, 1, 1};
+
 bool CTSGun::Deploy()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
@@ -459,7 +467,8 @@ bool CTSGun::Deploy()
 	// the VIEW model here put v_melee on the player's back/hands (a phantom held weapon). For any
 	// real weapon with no p_model we likewise show nothing rather than the viewmodel.
 	const char *pmodel = wi->pszPlayerModel ? wi->pszPlayerModel : "";
-	bool ok = DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, 0,
+	const int drawSeq = (m_weaponType >= 0 && m_weaponType < TSW_COUNT) ? s_drawSeq[m_weaponType] : 0;
+	bool ok = DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, drawSeq,
 		(char *)(wi->pszAnimExt ? wi->pszAnimExt : "onehanded"));
 	m_pPlayer->m_TSAnim.m_bKungFu = (m_weaponType == TSW_MELEE); // kung-fu uses the combat_idle stance
 	if (ok)

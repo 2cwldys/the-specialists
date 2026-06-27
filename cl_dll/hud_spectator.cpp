@@ -188,7 +188,7 @@ bool CHudSpectator::Init()
 	m_drawcone = gEngfuncs.pfnRegisterVariable("spec_drawcone", "1", 0);
 	m_drawstatus = gEngfuncs.pfnRegisterVariable("spec_drawstatus", "1", 0);
 	m_autoDirector = gEngfuncs.pfnRegisterVariable("spec_autodirector", "1", 0);
-	m_pip = gEngfuncs.pfnRegisterVariable("spec_pip", "1", 0);
+	m_pip = gEngfuncs.pfnRegisterVariable("spec_pip", "0", 0); // TS: inset pip OFF by default (no top-left overlay)
 
 	if (!m_drawnames || !m_drawcone || !m_drawstatus || !m_autoDirector || !m_pip)
 	{
@@ -1744,6 +1744,9 @@ void CHudSpectator::DrawOverview()
 	if (m_iDrawCycle == 0 && ((g_iUser1 != OBS_MAP_FREE) && (g_iUser1 != OBS_MAP_CHASE)))
 		return;
 
+	// TS: never draw the inset (top-left) overview MAP overlay during spectate (removed per request).
+	if (m_iDrawCycle == 1)
+		return;
 	if (m_iDrawCycle == 1 && m_pip->value < INSET_MAP_FREE)
 		return;
 
@@ -1891,6 +1894,9 @@ void CHudSpectator::CheckSettings()
 
 	if (((g_iTeamNumber == 1) || (g_iTeamNumber == 2)) && (g_iUser1 == OBS_IN_EYE))
 		m_pip->value = INSET_OFF;
+
+	// TS: never show the spectator inset (top-left picture-in-picture) window — removed per request.
+	m_pip->value = INSET_OFF;
 
 	// draw small border around inset view, adjust upper black bar
 	gViewPort->m_pSpectatorPanel->EnableInsetView(m_pip->value != INSET_OFF);

@@ -785,7 +785,15 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 
 	// Make sure that weapon animation matches what the game .dll is telling us
 	//  over the wire ( fixes some animation glitches )
-	if (g_runfuncs && (HUD_GetWeaponAnim() != to->client.weaponanim))
+	// ALSO force a replay when the VIEWMODEL changed (a weapon switch), even if the new deploy anim
+	// index equals the outgoing weapon's last anim — otherwise two weapons whose draw sequence share an
+	// index (e.g. MP5K & AK-47 are both 2) would not replay the unholster animation on the switch.
+	static int s_lastViewmodel = -1;
+	const int curViewmodel = from->client.viewmodel;
+	const bool vmChanged = (curViewmodel != s_lastViewmodel);
+	if (g_runfuncs)
+		s_lastViewmodel = curViewmodel;
+	if (g_runfuncs && ((HUD_GetWeaponAnim() != to->client.weaponanim) || (vmChanged && curViewmodel != 0)))
 	{
 		//Make sure the 357 has the right body
 		g_Python.pev->body = bIsMultiplayer() ? 1 : 0;

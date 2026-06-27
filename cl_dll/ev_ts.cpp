@@ -360,7 +360,30 @@ void EV_TSFire(event_args_t* args)
 	{
 		Vector vecSrc;
 		EV_GetGunPosition(args, vecSrc, origin);
-		EV_TSBulletImpact(idx, vecSrc, fwd);
+		// A shotgun fires iPellets pellets in one blast — trace EACH with the spread cone so the local
+		// player sees the spread of impacts (the server does the per-pellet damage/decal). A single-
+		// bullet weapon just traces the centre ray.
+		const int cPellets = wi->iPellets > 0 ? wi->iPellets : 1;
+		const float spread = wi->flSpread > 0 ? wi->flSpread : 0.0f;
+		if (cPellets <= 1 || spread <= 0.0f)
+		{
+			EV_TSBulletImpact(idx, vecSrc, fwd);
+		}
+		else
+		{
+			for (int p = 0; p < cPellets; p++)
+			{
+				const float sx = (gEngfuncs.pfnRandomFloat(-0.5f, 0.5f) + gEngfuncs.pfnRandomFloat(-0.5f, 0.5f)) * spread;
+				const float sy = (gEngfuncs.pfnRandomFloat(-0.5f, 0.5f) + gEngfuncs.pfnRandomFloat(-0.5f, 0.5f)) * spread;
+				Vector dir;
+				for (int k = 0; k < 3; k++)
+					dir[k] = fwd[k] + sx * right[k] + sy * up[k];
+				const float len = dir.Length();
+				if (len > 0.001f)
+					dir = dir * (1.0f / len);
+				EV_TSBulletImpact(idx, vecSrc, dir);
+			}
+		}
 		TS_BulletWhizz(idx, vecSrc, fwd); // a near-miss flyby "whizz" if this round grazes the local player
 	}
 
