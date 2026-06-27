@@ -827,8 +827,8 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 		float swayUp = sin(s_swayPhase * 0.0349066f) * s_swayAmp;  // up axis, 2x frequency
 		float swayRight = sin(s_swayPhase * 0.0174533f) * s_swayAmp; // right axis, 1x frequency -> figure-8
 		for (i = 0; i < 3; i++)
-			view->origin[i] += pparams->right[i] * swayRight * 0.3f   // rightscale 0.3
-			                 + pparams->up[i] * swayUp * 0.11f;       // upscale 0.11
+			view->origin[i] += pparams->right[i] * swayRight * 0.15f  // rightscale (halved — sway was too large)
+			                 + pparams->up[i] * swayUp * 0.055f;      // upscale (halved)
 	}
 
 	// TS: the gun MODEL aims HIGHER the faster you move (all weapons) — pitch the viewmodel up with

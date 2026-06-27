@@ -236,10 +236,20 @@ static bool LocalLaserEndpoint(Vector& muzzle, Vector& endpoint)
 	if (!GetMuzzleAim(lp->index, muzzle, forward))
 		return false;
 	TraceAim(lp->index, muzzle, forward, hit);
+	const float d = (hit - muzzle).Length(); // surface distance along the gun aim (beam length)
 	AngleVectors(v_angles, vf, vr, vu);
-	Vector rel = hit - v_origin;
-	const float rc = rel.x * vr.x + rel.y * vr.y + rel.z * vr.z; // rightward component
-	endpoint = hit - vr * rc;
+	// SCREENSPACE -> gamespace: the dot is fixed in SCREEN space — the gun DIRECTION (horizontally
+	// centred), which is distance-INDEPENDENT, so the dot stays put even up close (no near-parallax).
+	// Every point on an EYE ray projects to one screen point, so place the endpoint on the eye ray
+	// along that direction at the surface distance — the dot lands there and the beam from the gun
+	// runs to it. The model's movespeed aim-up is already in `forward`, so the dot still rides up.
+	Vector dir = forward;
+	const float rc = dir.x * vr.x + dir.y * vr.y + dir.z * vr.z; // strip rightward -> pin x to centre
+	dir = dir - vr * rc;
+	const float dl = dir.Length();
+	if (dl > 0.001f)
+		dir = dir * (1.0f / dl);
+	endpoint = v_origin + dir * d;
 	return true;
 }
 

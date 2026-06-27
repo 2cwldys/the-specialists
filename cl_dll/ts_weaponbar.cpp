@@ -249,7 +249,7 @@ void CHudTSWeaponBar::Commit()
 		char cmd[24];
 		sprintf(cmd, "weapon_%d\n", m_selType);
 		ServerCmd(cmd);
-		PlaySound("weapons/switch.wav", 1); // RE'd commit sound (FUN_1004d2cf, s_weapons_switch_wav)
+		// (no weapon-switch sound — the original plays none on commit; this was fabricated)
 	}
 	CloseSelect();
 }
