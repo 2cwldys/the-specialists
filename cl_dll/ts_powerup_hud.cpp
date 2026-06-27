@@ -231,9 +231,7 @@ bool CHudTSPowerUp::Draw(float flTime)
 	// the slot-1 area like the reference). Raw pixel coords (the TS bar isn't resolution-scaled).
 	const int y = 10; // weapon-bar header text row (HDRY + 2)
 	TSHud_DrawString(2, y, ScreenWidth, name, 0, 200, 0);
-	char num[16];
-	snprintf(num, sizeof(num), "%d", secs);
-	num[sizeof(num) - 1] = '\0';
-	TSHud_DrawString(112, y, ScreenWidth, num, 96, 255, 96);
+	// seconds available/remaining in the numbers.spr digit font (centred on the text row).
+	TSHud_DrawNumber(112, y + (gHUD.m_scrinfo.iCharHeight - TS_NUMBER_H) / 2, secs, 96, 255, 96);
 	return true;
 }

@@ -27,10 +27,18 @@
 #include "cl_util.h"
 #include "parsemsg.h"
 #include "ts_hud.h"
+#include "ts_attachments.h" // TS_LocalActiveAttach — which equipped attachments are toggled ON
 
 #include <stdio.h>
 
 DECLARE_MESSAGE(m_TSAmmo, WeaponInfo)
+DECLARE_MESSAGE(m_TSAmmo, KFuPower)
+
+// Melee weapons (kung-fu / knife / katana / seal-knife) — only these show the block bar.
+static bool TSIsMeleeType(int type)
+{
+	return type == 0 || type == 25 || type == 34 || type == 35;
+}
 
 // Display name per tsweapon_t (the table index = the wire weaponType). Index 0 is the
 // unarmed / kung-fu "weapon"; 29 is the CTF flag (no HUD). Names follow the shipped
@@ -90,8 +98,12 @@ bool CHudTSAmmo::Init()
 	m_iClip = 0;
 	m_iReserve = 0;
 	m_iFireMode = 1;
+	m_iEquip = 0;
+	m_hDot = 0;
+	m_iMeleeBar = 100;
 
 	HOOK_MESSAGE(WeaponInfo);
+	HOOK_MESSAGE(KFuPower);
 
 	TSHud_RegisterCvars();
 
@@ -102,6 +114,15 @@ bool CHudTSAmmo::Init()
 
 bool CHudTSAmmo::VidInit()
 {
+	// The attachment-list bullet (the dot the original draws beside each attachment name). Re-resolved
+	// each map (sprite handles go stale on a load — see [[map-change-state-reset]]).
+	m_hDot = SPR_Load("sprites/laserdot.spr");
+	m_rcDot = {0, 0, 0, 0};
+	if (m_hDot)
+	{
+		m_rcDot.right = SPR_Width(m_hDot, 0);
+		m_rcDot.bottom = SPR_Height(m_hDot, 0);
+	}
 	return true;
 }
 
@@ -118,10 +139,22 @@ bool CHudTSAmmo::MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf)
 	m_iClip = READ_BYTE();
 	m_iReserve = READ_SHORT();
 	m_iFireMode = READ_BYTE();
-	READ_BYTE(); // weapon flags (attachments — Lasersight/Silencer; unused so far)
+	m_iEquip = READ_BYTE(); // EQUIPPED attachment mask (silencer 1 / laser 2 / flash 4 / scope 8)
 
 	g_iTSActiveWeapon = m_iWeaponType; // the weapon-select bar highlights this slot
 
+	m_iFlags |= HUD_ACTIVE;
+	return true;
+}
+
+// KFuPower — the melee block bar (stamina 0..100), networked from CTSGun::UpdateClientData. Drawn as the
+// bottom weapon-box bar, but only while a melee weapon is held.
+bool CHudTSAmmo::MsgFunc_KFuPower(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	m_iMeleeBar = READ_CHAR();
+	if (m_iMeleeBar < 0)
+		m_iMeleeBar = 0;
 	m_iFlags |= HUD_ACTIVE;
 	return true;
 }
@@ -153,45 +186,98 @@ bool CHudTSAmmo::Draw(float flTime)
 	TSHud_Color(hr, hg, hb);
 	const int dr = hr / 2, dg = hg / 2, db = hb / 2; // dimmed (label) colour
 
-	// Lines bottom→top as the original stacks them: ammo (bottom), fire-mode, caliber,
-	// name (top). We draw each as a faint panel strip + its text.
-	struct Line { const char* s; int r, g, b; };
-	Line lines[4];
+	// The box, top→bottom (matching the reference image): name, caliber, fire-mode, ammo, then one line
+	// per EQUIPPED attachment (dot bullet + label), then the bar at the very bottom. The active
+	// attachments (laser/flash toggled ON via `useitems`) are drawn at full brightness with a bright dot;
+	// inactive ones are dimmed. Silencer/scope are always-on when equipped.
+	enum LineKind { LK_TEXT, LK_AMMO, LK_ATTACH };
+	struct Line { LineKind kind; const char* s; int r, g, b; };
+	Line lines[10];
 	int n = 0;
 
-	char szAmmo[32];
+	lines[n++] = {LK_TEXT, szName, hr, hg, hb}; // name (top, full brightness)
+
 	if (hasAmmo)
 	{
-		sprintf(szAmmo, "%d / %d", m_iClip, m_iReserve);
+		const int cal = s_weaponCaliber[m_iWeaponType];
+		if (cal > 0 && cal < s_numCalibers && s_caliberNames[cal][0])
+			lines[n++] = {LK_TEXT, s_caliberNames[cal], dr, dg, db};
+
+		const int mode = (m_iFireMode >= 0 && m_iFireMode < s_numFireModes) ? m_iFireMode : 1;
+		lines[n++] = {LK_TEXT, s_fireModeNames[mode], dr, dg, db};
+
 		int ar = hr, ag = hg, ab = hb;
 		if (m_iClip == 0)
 		{
 			UnpackRGB(ar, ag, ab, RGB_REDISH);
 			ScaleColors(ar, ag, ab, 255);
 		}
-		lines[n++] = {szAmmo, ar, ag, ab}; // bottom
-
-		const int mode = (m_iFireMode >= 0 && m_iFireMode < s_numFireModes) ? m_iFireMode : 1;
-		lines[n++] = {s_fireModeNames[mode], dr, dg, db};
-
-		const int cal = s_weaponCaliber[m_iWeaponType];
-		if (cal > 0 && cal < s_numCalibers && s_caliberNames[cal][0])
-			lines[n++] = {s_caliberNames[cal], dr, dg, db};
+		lines[n++] = {LK_AMMO, nullptr, ar, ag, ab};
 	}
-	lines[n++] = {szName, hr, hg, hb}; // top (full brightness)
 
-	int y = ScreenHeight - 8;
+	// Equipped attachments, in the reference order (top→bottom): Flashlight, Lasersight, Scope, Silencer.
+	// toggleable (laser/flash) read their ON state from the active mask; silencer/scope are always-on.
+	struct Att { int bit; const char* name; bool toggleable; };
+	static const Att atts[] = {
+		{4, "Flashlight", true}, {2, "Lasersight", true}, {8, "Scope", false}, {1, "Silencer", false}};
+	const int activeMask = TS_LocalActiveAttach();
+	for (const Att& a : atts)
+	{
+		if ((m_iEquip & a.bit) == 0)
+			continue;
+		const bool act = a.toggleable ? ((activeMask & a.bit) != 0) : true;
+		lines[n++] = {LK_ATTACH, a.name, act ? hr : dr, act ? hg : dg, act ? hb : db};
+		if (n >= (int)(sizeof(lines) / sizeof(lines[0])))
+			break;
+	}
+
+	// laserdot.spr can be large (the world hit dot); use it only if it's bullet-sized, else a small fill dot.
+	const int dotW = (m_hDot && (m_rcDot.right - m_rcDot.left) <= 12) ? (m_rcDot.right - m_rcDot.left) : 0;
+	const int dotH = (m_hDot && (m_rcDot.bottom - m_rcDot.top) <= 12) ? (m_rcDot.bottom - m_rcDot.top) : 0;
+
+	// Only MELEE weapons (kung-fu/knife/katana/seal-knife) carry the block bar; guns have no bar.
+	const bool meleeBar = TSIsMeleeType(m_iWeaponType);
+
+	// Anchor the whole box bottom-right so the bar ends near ScreenHeight - 8 (the original's anchor).
+	const int barH = meleeBar ? LINEH : 0;
+	int y = ScreenHeight - 8 - (n * LINEH + barH);
 	for (int i = 0; i < n; i++)
 	{
-		y -= LINEH;
 		TSHud_Panel(x, y, BOXW, LINEH - 1);
-		TSHud_DrawString(x + 2, y, x + BOXW, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
+		if (lines[i].kind == LK_AMMO)
+		{
+			TSHud_DrawNumberPair(x + 2, y + (LINEH - 1 - TS_NUMBER_H) / 2, m_iClip, m_iReserve,
+				lines[i].r, lines[i].g, lines[i].b);
+		}
+		else if (lines[i].kind == LK_ATTACH)
+		{
+			int tx = x + 4;
+			if (dotW > 0) // the recognised dot sprite, tinted by active state (bright = on)
+			{
+				SPR_Set(m_hDot, lines[i].r, lines[i].g, lines[i].b);
+				SPR_DrawAdditive(0, tx, y + (LINEH - 1 - dotH) / 2, &m_rcDot);
+				tx += dotW + 4;
+			}
+			else // fallback bullet
+			{
+				FillRGBA(tx, y + (LINEH - 1 - 4) / 2, 4, 4, lines[i].r, lines[i].g, lines[i].b, 255);
+				tx += 8;
+			}
+			TSHud_DrawString(tx, y, x + BOXW, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
+		}
+		else
+		{
+			TSHud_DrawString(x + 2, y, x + BOXW, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
+		}
+		y += LINEH;
 	}
 
-	// Health bar stacked above the box — the original draws FUN_1004d5f0 here, after the
-	// weapon/ammo lines, at the running y (reference/HUD_DRAWCHAIN.md).
-	y -= LINEH;
-	TSHud_HealthBar(x, y, g_iTSHealth);
+	// The MELEE BLOCK bar at the bottom of the box (the original's FUN_1004d5f0) — the block stamina the
+	// server networks via gmsgKFuPower. Shown ONLY for melee weapons (kung-fu/knife/katana/seal-knife);
+	// each RELOAD-block drains it, and it regens. NOT health, NOT shown on guns. (TSHud_HealthBar is just
+	// the generic bar primitive — full = rested, low = tired/red.)
+	if (meleeBar)
+		TSHud_HealthBar(x, y, m_iMeleeBar);
 
 	return true;
 }

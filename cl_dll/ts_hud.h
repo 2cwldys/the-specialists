@@ -43,6 +43,16 @@ int TSHud_DrawString(int x, int y, int maxX, const char* str, int r, int g, int 
 // per digit; additive, tinted. Returns the x past the last digit. (Health/ammo/powerup/distance.)
 int TSHud_DrawNumber(int x, int y, int value, int r, int g, int b);
 
+// Pixel width of `value` rendered by TSHud_DrawNumber (digit count * 11). For right-aligning.
+int TSHud_NumberWidth(int value);
+
+// Height of a numbers.spr digit (the imagemap cell height), for vertical centring against text.
+#define TS_NUMBER_H 16
+
+// Draw "clip / reserve" with the numbers.spr digit font + a slash separator. x,y top-left of the
+// first digit; returns the x past the last digit. (The bottom weapon box ammo readout.)
+int TSHud_DrawNumberPair(int x, int y, int a, int b_, int r, int g, int b);
+
 // The TS health bar (FUN_1004d5f0): a 0x80(128)-wide bar at (x,y) — faint background
 // (alpha 0x1e) + a fill proportional to health, in the HUD colour (red when low). The
 // original draws it bottom-right, stacked with the weapon/ammo box.

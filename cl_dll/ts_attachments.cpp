@@ -277,12 +277,14 @@ bool TS_LocalHasLaser()
 	return (g_playerAttach[idx] & TS_ATT_LASER) != 0;
 }
 
-// DEBUG: the LOCAL player's raw attach mask (or negative on error). Temporary diagnostic.
-int TS_LocalAttachMask()
+// The LOCAL player's ACTIVE attachment mask (the ActItems broadcast carries the active state — laser
+// bit 2 / flash bit 4 toggled by `useitems`). Used by the bottom weapon-box to highlight the active
+// attachments. Returns 0 on error.
+int TS_LocalActiveAttach()
 {
 	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
-	if (!lp) return -1;
+	if (!lp) return 0;
 	int idx = lp->index;
-	if (idx < 1 || idx >= TS_MAXPLAYERS) return -2;
+	if (idx < 1 || idx >= TS_MAXPLAYERS) return 0;
 	return g_playerAttach[idx];
 }

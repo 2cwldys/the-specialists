@@ -109,17 +109,16 @@ void TSHud_HealthBar(int x, int y, int health)
 	if (health > 100)
 		health = 100;
 
-	// Fill width is proportional to health across the inset bar (0x80 - 4 px).
+	// Fill width is proportional to the value across the inset bar (0x80 - 4 px).
 	const int fillW = (health * (0x80 - 4)) / 100;
 	if (fillW > 0)
 	{
-		int fr = r, fg = g, fb = b;
-		if (health <= 20) // low-health flash, like the original's red branch
-		{
-			fr = 0xc3;
-			fg = 0x2d;
-			fb = 0x2d;
-		}
+		// Colour FADES from the HUD colour (full) toward red (empty) — redder the closer to 0, not a
+		// hard switch at a threshold (the original lerps the colour across the bar's progress).
+		const float frac = health / 100.0f; // 1 = full, 0 = empty
+		const int fr = (int)(0xc3 + (r - 0xc3) * frac);
+		const int fg = (int)(0x2d + (g - 0x2d) * frac);
+		const int fb = (int)(0x2d + (b - 0x2d) * frac);
 		FillRGBA(x + 2, y + 2, fillW, 0x10, fr, fg, fb, 0xb4);
 	}
 }
@@ -176,5 +175,29 @@ int TSHud_DrawNumber(int x, int y, int value, int r, int g, int b)
 		SPR_DrawAdditive(0, x, y, &rc);
 		x += 11;
 	}
+	return x;
+}
+
+// Pixel width of `value` as drawn by TSHud_DrawNumber (digits * 11px).
+int TSHud_NumberWidth(int value)
+{
+	int n = value < 0 ? 0 : value, digits = 1;
+	while (n >= 10) { n /= 10; digits++; }
+	return digits * 11;
+}
+
+// Draw "a / b" with the numbers.spr digit font and a slash between (the bottom weapon-box ammo
+// readout — e.g. clip / reserve, "30 / 120"). numbers.spr is digits only, so the slash is a text
+// glyph drawn at the digit baseline (the original's separate "divider" sprite isn't in this data
+// extraction). Returns x past the last digit.
+int TSHud_DrawNumberPair(int x, int y, int a, int b_, int r, int g, int b)
+{
+	x = TSHud_DrawNumber(x, y, a, r, g, b);
+	x += 4;
+	// slash, vertically centred on the digit cell (text glyphs are ~iCharHeight tall).
+	const int slashY = y + (TS_NUMBER_H - gHUD.m_scrinfo.iCharHeight) / 2;
+	x = TSHud_DrawString(x, slashY, x + 16, "/", r, g, b);
+	x += 4;
+	x = TSHud_DrawNumber(x, y, b_, r, g, b);
 	return x;
 }

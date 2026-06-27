@@ -31,10 +31,15 @@ public:
 	bool Draw(float flTime) override;
 	void Reset() override;
 	bool MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf);
+	bool MsgFunc_KFuPower(const char* pszName, int iSize, void* pbuf);
 
 private:
 	int m_iWeaponType; // active tsweapon_t
+	int m_iMeleeBar;   // melee block stamina 0..100 (gmsgKFuPower) — the bottom-box bar for melee weapons
 	int m_iClip;       // rounds currently loaded
 	int m_iReserve;    // spare rounds for this weapon's caliber
 	int m_iFireMode;   // 0=auto 1=semi 2=burst 3=pump
+	int m_iEquip;      // EQUIPPED attachment mask (WeaponInfo flags byte): silencer 1/laser 2/flash 4/scope 8
+	HSPRITE m_hDot;    // sprites/laserdot.spr — the attachment-list bullet (bright=active, dim=equipped)
+	Rect m_rcDot;
 };

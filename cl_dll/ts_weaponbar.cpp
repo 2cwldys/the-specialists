@@ -293,10 +293,9 @@ bool CHudTSWeaponBar::Draw(float flTime)
 		if (m_selecting)
 		{
 			gEngfuncs.pfnFillRGBA(x, HDRY, SLOTW, HDRH, hr, hg, hb, (col == selCol) ? 100 : 50);
-			char num[2] = {(char)('0' + col), '\0'};
-			int nw, nh;
-			GetConsoleStringSize(num, &nw, &nh);
-			gHUD.DrawHudString(x + (SLOTW - nw) / 2, HDRY + 2, x + SLOTW, num, hr, hg, hb);
+			// Slot number (1..5) in the numbers.spr digit font, centred in the header panel.
+			const int nw = TSHud_NumberWidth(col);
+			TSHud_DrawNumber(x + (SLOTW - nw) / 2, HDRY + (HDRH - TS_NUMBER_H) / 2, col, hr, hg, hb);
 		}
 
 		// Weapons in this column, stacked below the header.
@@ -343,7 +342,19 @@ bool CHudTSWeaponBar::Draw(float flTime)
 				const char* nm = (t < TSW_COUNT_LOCAL && s_shortName[t][0]) ? s_shortName[t] : "";
 				gHUD.DrawHudString(x + SLOTW + 4, y, ScreenWidth, nm, hr, hg, hb);
 				int maxc = (t < (int)(sizeof(s_weaponMaxClip) / sizeof(s_weaponMaxClip[0]))) ? s_weaponMaxClip[t] : 0;
-				if (m_iClip[t] >= 0 && maxc > 0) // clipless weapons (kung-fu) show no clip line
+				// Melee throwables (knife/seal-knife/katana) show only the COUNT you HAVE — "x", not "x/max"
+				// (you carry a stack of throwables, not a magazine). Kung-fu (no count) shows nothing.
+				const bool isMelee = (t == 0 || t == 25 || t == 34 || t == 35);
+				if (isMelee)
+				{
+					if (t != 0 && m_iClip[t] >= 0)
+					{
+						char ammo[16];
+						sprintf(ammo, "%d", m_iClip[t]);
+						gHUD.DrawHudString(x + SLOTW + 4, y + nh + 2, ScreenWidth, ammo, hr, hg, hb);
+					}
+				}
+				else if (m_iClip[t] >= 0 && maxc > 0)
 				{
 					// "curclip/maxclip" (e.g. 8/8) — current loaded rounds over the clip capacity.
 					char ammo[16];

@@ -193,9 +193,9 @@ bool CHudTSStatus::Draw(float flTime)
 	// Health number + heart, to the right of the figure.
 	const int col = left + (figW > 0 ? figW + pad : 28);
 	const int midY = y + (contentH - lineHeight) / 2;
-	char buf[16];
-	sprintf(buf, "%d", m_iHealth);
-	int nx = TSHud_DrawString(col, midY, ScreenWidth, buf, hr, hg, hb);
+	// Health as the numbers.spr digit font (the original's HUD number), vertically centred on the line.
+	const int numY = midY + (lineHeight - TS_NUMBER_H) / 2;
+	int nx = TSHud_DrawNumber(col, numY, m_iHealth, hr, hg, hb);
 	if (m_hHeart != 0)
 	{
 		const int heartH = m_rcHeart.bottom - m_rcHeart.top;
