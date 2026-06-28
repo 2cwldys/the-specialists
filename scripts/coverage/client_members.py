@@ -57,7 +57,8 @@ def main():
     # 2+3) type `this` from the match + DumpMembers, on a FRESH client.dll import (pristine functions)
     print(">>> ghidra: ApplyClientThis + DumpMembers (fresh import) …")
     sh(f"rm -rf '{PROJ}'; mkdir -p '{PROJ}'")
-    cmd = (f"'{GH}' '{PROJ}' clientdll -import '{DLL}' -preScript DisableNoReturn.java -scriptPath '{SP}' "
+    # -max-cpu 1: single-threaded analysis = deterministic member SET (same reason as the server re.sh).
+    cmd = (f"'{GH}' '{PROJ}' clientdll -import '{DLL}' -preScript DisableNoReturn.java -max-cpu 1 -scriptPath '{SP}' "
            f"-postScript ApplyClientThis.java '{binmap_out}' "
            f"-postScript DumpMembers.java '{COV}' members_auto_client.tsv")
     out = sh(cmd, capture_output=True).stdout
