@@ -277,6 +277,72 @@ The whole client/server RE + live-debug toolchain, at a glance: `re.sh` (server 
 (client/mp/server decompile by addr) · **`scripts/live.py`** (drive the running original — `pid`/`base`/
 `resolve`/`bt`/`read`/`readabs`/`vmethod`/`watch`/`break`; see §4b) · `scripts/coverage/*` (the gap harness).
 
+#### 4a.2b Caller-finding: `refs` (direct) vs `vrefs` (virtual) + the member-name producer (cont.71 cont.3)
+
+- **`re.sh vrefs <Method>`** (`scripts/coverage/vrefs.py`) — the **reverse virtual-call finder**. A virtual call
+  goes through `this->vtbl[slot]` and NEVER references the method's address, so `re.sh refs`/`DecompRefs.java`
+  AND Ghidra's `get_function_callers` all find NOTHING for an overridden method (this is why tracing
+  `CTSGun::PrimaryAttack`'s callers returned empty). `vrefs` inverts `vtables_original.json` (method→slots),
+  scans the objdump disasm for `call *0xSLOT(%reg)` sites, and ranks: **self-dispatch** (the calling fn's own
+  class has the method at that slot — high confidence, e.g. `vrefs PrimaryAttack` → `CBasePlayerWeapon::ItemPostFrame`)
+  vs same-slot-other-class (possible). Use `refs` for non-virtual/direct, `vrefs` for virtual. (Neither is the
+  receiver-exact truth that a live gdb bt gives — see §4b — but `vrefs` is the static first cut.)
+- **`scripts/coverage/curate_members.py`** — the **producer for `members_re.tsv`** (which was an ORPHAN: no
+  script made it, so it stayed empty and every transient member rendered as `this->field_0xNN`). It scrapes our
+  reconstruction headers' offset provenance (`m_weaponType … (gun+0xc8)`, struct-relative `// +0xNN`, `name@0xNN`)
+  and **cross-checks each against the BINARY-derived `members_auto.tsv`** — emitting only corroborated
+  `(class,offset)` rows (type from the binary, name from our source), and reporting the rest as UNVERIFIED rather
+  than inventing a wrong-but-plausible label. Wired into **`re.sh members`** (runs after `DumpMembers`); re-apply
+  with `re.sh setup`. The member loop is now: `members.py`(saved) → `DumpMembers`(unsaved skeleton) →
+  **`curate_members.py`**(names, from our RE) → `ApplyInventory`(merges saved>curated>auto).
+- ✅ **FIXED (cont.71 cont.4):** `members_auto.tsv` used to **miss the biggest transient-only TS classes** —
+  `CTSGameRules`/`CTSStunt`/`CTSAnimation` had ZERO recovered members. Root cause was NOT demangling (all their
+  symbols demangle): `ApplyInventory` only gives a class a real struct (so the decompiler renders `this->field_0xNN`)
+  when it's in `members.tsv`/`hierarchy.tsv`; a class of pure transient state is in neither, so its `this` stays an
+  OPAQUE pointer and accesses read `*(t*)(this + 0xNN)`. **Fix = teach `DumpMembers` to ALSO parse that opaque form**
+  (not make every class a giant struct — that was a dead end: padding all 223 classes to 0x8000 overflowed the
+  decompiler's datatype budget and made it FAIL on stock functions, cratering coverage to 174). With the opaque
+  parse, `members_auto` went 860→1028 rows / 125→**137 classes**, recovering CTSStunt/CTSGameRules/CTSAnimation/
+  CTSSharedEmitter/CBulletManager with **zero regression**, and `curate_members` then named them from our source.
+- **Completeness over speed (cont.71 cont.4):** all Ghidra-script decompile timeouts raised to **900s/fn**
+  (`DumpMembers`/`DecompAt`/`DecompRefs`/`DecompExport`) so a slow function is never silently dropped.
+
+#### 4a.3 The Ghidra **MCP** — interactive front-end ON TOP of our tooling (cont.71 cont.3)
+
+There's a **Ghidra MCP** server (`mcp__ghidra-mcp__*`, 184 tools) that attaches to a **live Ghidra GUI
+instance** over a UDS socket. It is **not a replacement** for `re.sh`/`dc.sh`/`coverage` — it's a faster,
+interactive *front-end* on the SAME projects those scripts build. Use it for **reading + navigating**;
+keep the scripts for **building the typed project + tracking completeness**. Three tools, three jobs:
+
+- **Ghidra MCP** → interactive decompile + **xref/callgraph** navigation. `decompile_function`,
+  `get_xrefs_to`, `get_function_callers/callees`, `get_full_call_graph`, `search_functions`, `list_*`.
+  Returns a decompile in ~1s (no per-call `analyzeHeadless`/JVM spin-up), and it does the thing `re.sh`
+  CAN'T: "who calls this / what xrefs / follow the chain" without dropping to `objdump`+grep. **This is now
+  the first reach for "read/trace this function and who calls it."**
+- **`re.sh` / `dc.sh`** → BUILD the typed `re`/`clientdll`/`mpdll` projects (ApplyInventory) + batch-decompile
+  a whole class + the reproducible/scriptable path. The MCP only has the typed view BECAUSE `re.sh setup`
+  built it; a fresh MCP `import_file` is **untyped** (`*(int*)(param_1+0xcc)`, not `this->m_pActiveItem`).
+- **`scripts/coverage/*`** → the gap harness / inventory / completeness metric. The MCP does NONE of this.
+- **`scripts/live.py` (gdb)** → RUNTIME behaviour. No static tool — MCP included — answers held-vs-click,
+  recoil, or any "what actually happens at run time" question. That's always the live trace (§4b).
+
+**Setup to get the BEST of both:** run **`scripts/ghidra/mcp-up.sh`** first — it checks the project lock, finds
+the live MCP socket, and prints the exact steps. Then in the Ghidra GUI open **`recovered/ghidra/re/re.gpr`** +
+the `ts_i386.so` program; then `list_instances` → `connect_instance("re")` → `open_program("/ts_i386.so")` →
+`unload_tool_group("malware")` (drop the malware/crypto/IOC tools we never use — less noise). Now MCP decompiles
+are typed (`CTSGun::ShotgunFire(CTSGun *this)`, `pev->`, `/* TS_gun.cpp */` plate) AND you get interactive
+xrefs. (A blank instance with no project open → `import_file` fails "No project is currently open"; open/create
+a project first.)
+
+- ⚠️ **`.lock` gotcha (the real one):** a Ghidra project (`*.rep/`) is **single-writer** — it takes a lock
+  when opened. So **you cannot run `re.sh`/`dc.sh` against a project the GUI currently has open, and vice-versa**
+  — the headless `analyzeHeadless` fails on the lock (and `re.sh setup`, which rebuilds `re` FRESH, would
+  clobber what the GUI sees). While the GUI holds `re`, drive it via the **MCP** (reads are fine); to go back
+  to `re.sh <Class>`/`dc.sh server`/`re.sh setup`, **close the program/project in the GUI first**. (`dc.sh
+  client`/`dc.sh mp` use the separate `clientdll`/`mpdll` projects, so they're unaffected unless the GUI also
+  has THOSE open.) Corollary: **only READ via the MCP on the `re` project — don't rename/mutate it**, or it
+  drifts from the `re.sh`-generated state that `re.sh <Class>`/`export` rely on (mutate a scratch project).
+
 ### 4b. When static RE dead-ends: LIVE gdb trace + the Windows `mp.dll` cross-reference (cont.69u)
 
 Static reading dead-ends on **virtual/indirect calls** (you can't follow `entity->vtable[slot](...)` by
@@ -317,6 +383,25 @@ Don't guess; trace it.** Two tools settle it definitively:
   function in `ts_i386.so` (same source, gcc2) and decompile it with the typed flow above. Build it like
   the others: `analyzeHeadless recovered/ghidra/mpdll mpdll -import reference/mp.dll -preScript
   DisableNoReturn.java`, then `DecompAt.java` at `0x10000000+RVA`.
+- **★ `scripts/binmap.py` — resolve a `.so` function NAME to its live `mp.dll` RVA (cont.71 cont.4).** mp.dll
+  exports only ~325 of ~2400 functions, so to `live.py break` a NON-exported one (e.g. `ShotgunFire`) you need
+  its address. `binmap.py <name>` matches the two binaries (same source) two ways: **export-name** (exact, 325)
+  + **string-anchor** (a fn referencing `"events/pump.sc"` in the `.so` references it in mp.dll — 286 confident
+  + 170 flagged `string?` ambiguous, when several siblings share strings). `binmap.py CTSGun::Precache` →
+  `mp.dll 0x54190` → feed to `live.py break mp.dll 0x54190`. ⚠ heed the `string?` AMBIGUOUS flag — verify those
+  with a live trace (or breakpoint a uniquely-string'd caller and step in); a string-poor fn like `ShotgunFire`
+  won't match at all (fall back to a caller). Cache: `binmap.py --build` → `reference/coverage/binmap.tsv`.
+  binmap is **env-parameterizable** (`BINMAP_SO/MP/GOT/MAP/OUT`) so the SAME machinery does the CLIENT pair.
+- **★ `scripts/coverage/client_members.py` — member skeletons for the CLIENT (HUD/prediction) classes (cont.71 cont.4).**
+  `client.dll` has NO symbols, NO RTTI (only `.?AVtype_info@@`), and the HUD classes aren't exported — so the
+  server's symbol-driven member recovery doesn't transfer. Instead it brings the NAMES over from OUR build:
+  (1) binmap-match our `build-i386/cl_dll/client.so` (full symbols) → `client.dll` RVAs (→ `binmap_client.tsv`);
+  (2) `ApplyClientThis.java` marks those functions `__thiscall` + renames them into class namespaces;
+  (3) `DumpMembers.java` (it now reads the class from the NAMESPACE and parses the `(int)this + 0xNN` cast form
+  that MSVC's `void*` auto-`this` produces) → `members_auto_client.tsv`. Yields the CHud* skeletons (CHud/
+  CHudHealth/CHudSpectator/CHudTSWeaponBar/…, ~51 classes). Gotchas hit building it: Ghidra's `__thiscall this`
+  is an AUTO-param (`setDataType` throws "Auto-parameter may not be modified" — use `updateFunction`), and a
+  pointer to a SIZE-0 opaque struct renders `void *this` (pad it, or just read the namespace + `(int)this` form).
 
 **Lesson (the knife→glass break):** I claimed I "couldn't find" it and nearly invented an angle/
 accumulation model — but it was in `ts_i386.so` all along (`WaitThink__8CTSKnife`, a per-frame swept

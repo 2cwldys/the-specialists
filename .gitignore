@@ -19,3 +19,6 @@ scratchpad/
 # python bytecode
 __pycache__/
 *.pyc
+
+# Local MCP server config (machine-specific absolute paths)
+.mcp.json

@@ -93,7 +93,7 @@ CBaseMonster	0x10c	INTEGER	undefined4	field_0x10c	3
 CBaseMonster	0x110	INTEGER	undefined4	field_0x110	1
 CBaseMonster	0x120	INTEGER	undefined4	field_0x120	1
 CBaseMonster	0x124	INTEGER	undefined4	field_0x124	2
-CBaseMonster	0x128	INTEGER	undefined4	field_0x128	1
+CBaseMonster	0x128	INTEGER	uint	field_0x128	1
 CBaseMonster	0x130	INTEGER	undefined4	field_0x130	1
 CBaseMonster	0x140	INTEGER	undefined4	field_0x140	2
 CBasePlayer	0x8	INTEGER	undefined4	field_0x8	9
@@ -149,7 +149,7 @@ CBasePlayer	0x594	INTEGER	int	field_0x594	1
 CBasePlayer	0x598	INTEGER	undefined4	field_0x598	1
 CBasePlayer	0x59c	INTEGER	undefined1	field_0x59c	1
 CBasePlayer	0x714	INTEGER	byte	field_0x714	1
-CBasePlayer	0x718	INTEGER	undefined4	field_0x718	3
+CBasePlayer	0x718	INTEGER	uint	field_0x718	3
 CBasePlayer	0x71c	INTEGER	undefined4	field_0x71c	3
 CBasePlayer	0x720	INTEGER	byte	field_0x720	3
 CBasePlayer	0x740	INTEGER	undefined4	field_0x740	1
@@ -285,7 +285,7 @@ CBreakable	0x110	INTEGER	undefined4	field_0x110	3
 CBreakable	0x114	INTEGER	undefined4	field_0x114	3
 CBubbling	0xc	INTEGER	undefined4	field_0xc	1
 CBubbling	0x10	INTEGER	undefined4	field_0x10	1
-CBubbling	0x6c	INTEGER	uint	field_0x6c	2
+CBubbling	0x6c	INTEGER	short	field_0x6c	2
 CBulletManager	0x8	INTEGER	undefined4	field_0x8	2
 CBulletManager	0x30	INTEGER	undefined4	field_0x30	2
 CBulletManager	0x48	INTEGER	undefined4	field_0x48	2

@@ -258,23 +258,23 @@ _Noisier: mixes methods TS genuinely dropped with accessors our newer SDK added.
 | `CBasePlayer` | Center, ClearWeaponBit, DeathMessage, EquipWeapon, FlashlightIsOn, FlashlightTurnOff, FlashlightTurnOn, HasPlayerItemFromID, HasSuit, InitStatusBar, InternalSendSingleAmmoUpdate, Observer_CheckProperties, Observer_CheckTarget, SendSingleAmmoUpdate, SetHasSuit, SetPrefsFromUserinfo, SetWeaponAnimType, SetWeaponBit, UpdateStatusBar |
 | `CBaseEntity` | BlockedSet, FStrEq, FunctionCheck, MyTogglePointer, ThinkSet, TouchSet, UseSet |
 | `CBaseToggle` | IsAllowedToSpeak, MyTogglePointer, PlayScriptedSentence, PlaySentence, PlaySentenceCore, SentenceStop |
-| `CBasePlayerItem` | CanAddToPlayer, DecrementTimers, GetWeaponData, SetWeaponData |
 | `CBaseButton` | ButtonShot, IsAllowedToSpeak, RotSpawn, SparkSoundCache |
+| `CBasePlayerItem` | CanAddToPlayer, DecrementTimers, GetWeaponData, SetWeaponData |
 | `CRestore` | Empty, PrecacheMode, SetGlobalMode |
-| `CBasePlayerWeapon` | CallDoRetireWeapon, DoRetireWeapon, GetNextAttackDelay |
 | `CSaveRestoreBuffer` | EntityFlags, GetData, IsValidSaveRestoreData |
-| `CGenericCycler` | GenericCyclerSpawn, Vector |
-| `CMomentaryDoor` | DoorMoveDone, StopMoveSound |
+| `CBasePlayerWeapon` | CallDoRetireWeapon, DoRetireWeapon, GetNextAttackDelay |
 | `CPushable` | DamageDecal, StopSound |
 | `CGamePlayerEquip` | Restore, Save |
-| `CChangeLevel` | TriggerChangeLevel |
-| `CGlobalState` | EntityInTable |
-| `CVoiceGameMgr` | PlayerHasBlockedPlayer |
-| `CBreakable` | SparkWhenHit |
-| `CHalfLifeMultiplay` | FAllowFlashlight |
-| `CPathTrack` | Sparkle |
-| `CRuleBrushEntity` | ObjectCaps |
-| `CFuncTrackTrain` | Nearest |
-| `CCycler` | IsAllowedToSpeak |
+| `CGenericCycler` | GenericCyclerSpawn, Vector |
+| `CMomentaryDoor` | DoorMoveDone, StopMoveSound |
 | `CHalfLifeRules` | FAllowFlashlight |
+| `CBreakable` | SparkWhenHit |
+| `CVoiceGameMgr` | PlayerHasBlockedPlayer |
+| `CFuncTrackTrain` | Nearest |
+| `CPathTrack` | Sparkle |
 | `CFuncIllusionary` | SloshTouch |
+| `CRuleBrushEntity` | ObjectCaps |
+| `CGlobalState` | EntityInTable |
+| `CChangeLevel` | TriggerChangeLevel |
+| `CCycler` | IsAllowedToSpeak |
+| `CHalfLifeMultiplay` | FAllowFlashlight |
