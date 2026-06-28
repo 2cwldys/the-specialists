@@ -27,7 +27,7 @@ public class DecompAt extends GhidraScript {
                 if (seen.contains(key)) continue;
                 seen.add(key);
                 println("// ===== FUN @ " + key + " size=" + f.getBody().getNumAddresses() + " =====");
-                DecompileResults r = di.decompileFunction(f, 60, monitor);
+                DecompileResults r = di.decompileFunction(f, 900, monitor);
                 if (r != null && r.decompileCompleted()) println(r.getDecompiledFunction().getC());
                 else println("// decompile failed");
             } catch (Exception e) { println("// err " + a + ": " + e); }

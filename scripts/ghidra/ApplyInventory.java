@@ -441,6 +441,12 @@ public class ApplyInventory extends GhidraScript {
             List<ParameterImpl> params = new ArrayList<>();
             try {
                 if (cls != null && !cls.isEmpty()) {
+                    // Give the receiver its real (padded) class struct when we have member/hierarchy data for it;
+                    // otherwise an OPAQUE named pointer. (Padding EVERY class to 0x8000 — 223 of them — overflowed
+                    // the decompiler's datatype budget and made it FAIL on many functions, gutting the member
+                    // inventory. Classes of pure transient state like CTSStunt still get `this` named + an opaque
+                    // pointer, so their accesses read `*(t*)(this + 0xNN)` — DumpMembers parses that opaque form
+                    // directly, no giant struct needed.)
                     DataType self = members.containsKey(cls) || base.containsKey(cls) ? classStruct(cls) : named(cls);
                     if (self instanceof Structure && ((Structure) self).getNumDefinedComponents() > 0) structs++;
                     params.add(new ParameterImpl("this", dtm.getPointer(self), currentProgram));

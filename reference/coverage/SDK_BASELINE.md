@@ -258,23 +258,23 @@ _Noisier: mixes methods TS genuinely dropped with accessors our newer SDK added.
 | `CBasePlayer` | Center, ClearWeaponBit, DeathMessage, EquipWeapon, FlashlightIsOn, FlashlightTurnOff, FlashlightTurnOn, HasPlayerItemFromID, HasSuit, InitStatusBar, InternalSendSingleAmmoUpdate, Observer_CheckProperties, Observer_CheckTarget, SendSingleAmmoUpdate, SetHasSuit, SetPrefsFromUserinfo, SetWeaponAnimType, SetWeaponBit, UpdateStatusBar |
 | `CBaseEntity` | BlockedSet, FStrEq, FunctionCheck, MyTogglePointer, ThinkSet, TouchSet, UseSet |
 | `CBaseToggle` | IsAllowedToSpeak, MyTogglePointer, PlayScriptedSentence, PlaySentence, PlaySentenceCore, SentenceStop |
-| `CBaseButton` | ButtonShot, IsAllowedToSpeak, RotSpawn, SparkSoundCache |
 | `CBasePlayerItem` | CanAddToPlayer, DecrementTimers, GetWeaponData, SetWeaponData |
+| `CBaseButton` | ButtonShot, IsAllowedToSpeak, RotSpawn, SparkSoundCache |
 | `CBasePlayerWeapon` | CallDoRetireWeapon, DoRetireWeapon, GetNextAttackDelay |
 | `CSaveRestoreBuffer` | EntityFlags, GetData, IsValidSaveRestoreData |
 | `CRestore` | Empty, PrecacheMode, SetGlobalMode |
-| `CGenericCycler` | GenericCyclerSpawn, Vector |
-| `CPushable` | DamageDecal, StopSound |
 | `CMomentaryDoor` | DoorMoveDone, StopMoveSound |
+| `CPushable` | DamageDecal, StopSound |
 | `CGamePlayerEquip` | Restore, Save |
+| `CGenericCycler` | GenericCyclerSpawn, Vector |
 | `CRuleBrushEntity` | ObjectCaps |
-| `CBreakable` | SparkWhenHit |
 | `CGlobalState` | EntityInTable |
-| `CPathTrack` | Sparkle |
-| `CCycler` | IsAllowedToSpeak |
 | `CChangeLevel` | TriggerChangeLevel |
-| `CVoiceGameMgr` | PlayerHasBlockedPlayer |
 | `CHalfLifeMultiplay` | FAllowFlashlight |
-| `CHalfLifeRules` | FAllowFlashlight |
-| `CFuncTrackTrain` | Nearest |
+| `CBreakable` | SparkWhenHit |
 | `CFuncIllusionary` | SloshTouch |
+| `CHalfLifeRules` | FAllowFlashlight |
+| `CCycler` | IsAllowedToSpeak |
+| `CVoiceGameMgr` | PlayerHasBlockedPlayer |
+| `CPathTrack` | Sparkle |
+| `CFuncTrackTrain` | Nearest |

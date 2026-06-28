@@ -7,7 +7,8 @@
 #   scripts/ghidra/re.sh members          # DumpMembers on the applied project -> members_auto.tsv skeleton
 #   scripts/ghidra/re.sh <Class>          # decompile every method of a class (resolves addrs via filemap.py)
 #   scripts/ghidra/re.sh 0x7ea30 0x7decc  # decompile by Ghidra address
-#   scripts/ghidra/re.sh refs <Class|addr># who CALLS/uses it — decompile every referencing function
+#   scripts/ghidra/re.sh refs <Class|addr># who CALLS/uses it (DIRECT xrefs) — decompile every referencing fn
+#   scripts/ghidra/re.sh vrefs <Method>   # who calls it through a VTABLE (virtual dispatch — refs can't see these)
 #   scripts/ghidra/re.sh export <Class>   # write the original class's decompile to recovered/decomp/<Class>.c
 #
 # Why a separate "setup": ApplyInventory renames functions, so it is NOT idempotent — re-applying on an
@@ -55,6 +56,9 @@ members() {
   echo ">>> DumpMembers — recovering transient member offset+type -> reference/coverage/members_auto.tsv"
   "$GH" "$PROJ" re -process ts_i386.so -noanalysis -scriptPath "$SP" \
     -postScript DumpMembers.java "$COV" 2>&1 | _filter DumpMembers.java || true
+  echo ">>> curate_members — naming the skeleton from our source's RE'd offsets (-> members_re.tsv)"
+  python3 "$ROOT/scripts/coverage/curate_members.py" || true
+  echo ">>> now re-apply to pick up the names:  scripts/ghidra/re.sh setup"
 }
 
 need_project() { [ -d "$PROJ/re.rep" ] || { echo "no applied project — run: scripts/ghidra/re.sh setup" >&2; exit 1; }; }
@@ -95,7 +99,8 @@ case "${1:-}" in
   setup|--setup|-s) setup ;;
   members|--members|-m) members ;;
   refs) shift; refs "$@" ;;
+  vrefs) shift; python3 "$ROOT/scripts/coverage/vrefs.py" "$@" ;;  # virtual caller-finder (objdump, no project)
   export) shift; export_class "$@" ;;
-  "" ) echo "usage: re.sh setup | members | <Class> | 0x<addr>... | refs <Class|addr> | export <Class>" ;;
+  "" ) echo "usage: re.sh setup | members | <Class> | 0x<addr>... | refs <Class|addr> | vrefs <Method> | export <Class>" ;;
   * ) decompile "$@" ;;
 esac

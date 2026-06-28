@@ -1,0 +1,782 @@
+so_symbol	demangled	mp_rva	method	confidence
+AddToFullPack__FP14entity_state_siP7edict_sT2iiPUc	AddToFullPack(entity_state_s *, int, edict_s *, edict_s *, int, int, unsigned char *)	0x74b40	string?	1.00
+ButtonSound__Fi	ButtonSound(int)	0xbe30	string	0.95
+Restore__13CActAnimatingR8CRestore	CActAnimating::Restore(CRestore &)	0x7be80	string?	1.00
+KeyValue__15CAmbientGenericP14KeyValueData_s	CAmbientGeneric::KeyValue(KeyValueData_s *)	0x3b550	string	1.00
+RampThink__15CAmbientGeneric	CAmbientGeneric::RampThink()	0x3afb0	export	1.00
+Restore__15CAmbientGenericR8CRestore	CAmbientGeneric::Restore(CRestore &)	0x3ad70	string?	0.50
+Save__15CAmbientGenericR5CSave	CAmbientGeneric::Save(CSave &)	0x3ad70	string?	0.50
+Spawn__15CAmbientGeneric	CAmbientGeneric::Spawn()	0x3ad70	string	0.50
+KeyValue__12CAutoTriggerP14KeyValueData_s	CAutoTrigger::KeyValue(KeyValueData_s *)	0x40510	string	0.67
+DispatchAnimEvents__14CBaseAnimatingf	CBaseAnimating::DispatchAnimEvents(float)	0x84c0	string	1.00
+Restore__14CBaseAnimatingR8CRestore	CBaseAnimating::Restore(CRestore &)	0x8230	string?	1.00
+ButtonBackHome__11CBaseButton	CBaseButton::ButtonBackHome()	0xc5b0	export	1.00
+ButtonReturn__11CBaseButton	CBaseButton::ButtonReturn()	0xc530	export	1.00
+ButtonSpark__11CBaseButton	CBaseButton::ButtonSpark()	0xc140	export	1.00
+ButtonTouch__11CBaseButtonP11CBaseEntity	CBaseButton::ButtonTouch(CBaseEntity *)	0xc280	export	1.00
+Precache__11CBaseButton	CBaseButton::Precache()	0xb440	string	0.58
+TriggerAndWait__11CBaseButton	CBaseButton::TriggerAndWait()	0xc490	export	1.00
+KeyValue__12CBaseDMStartP14KeyValueData_s	CBaseDMStart::KeyValue(KeyValueData_s *)	0x29ee0	string?	1.00
+DelayThink__10CBaseDelay	CBaseDelay::DelayThink()	0x3e830	export	1.00
+KeyValue__10CBaseDelayP14KeyValueData_s	CBaseDelay::KeyValue(KeyValueData_s *)	0x3e3a0	string	1.00
+Restore__10CBaseDelayR8CRestore	CBaseDelay::Restore(CRestore &)	0x3e340	string?	1.00
+SUB_UseTargets__10CBaseDelayP11CBaseEntity8USE_TYPEf	CBaseDelay::SUB_UseTargets(CBaseEntity *, USE_TYPE, float)	0x3e560	string	1.00
+Save__10CBaseDelayR5CSave	CBaseDelay::Save(CSave &)	0x3e340	string?	1.00
+Blocked__9CBaseDoorP11CBaseEntity	CBaseDoor::Blocked(CBaseEntity *)	0x17ad0	string	1.00
+DoorGoDown__9CBaseDoor	CBaseDoor::DoorGoDown()	0x179e0	export	1.00
+DoorGoUp__9CBaseDoor	CBaseDoor::DoorGoUp()	0x175e0	export	1.00
+DoorHitBottom__9CBaseDoor	CBaseDoor::DoorHitBottom()	0x17ad0	export	1.00
+DoorHitTop__9CBaseDoor	CBaseDoor::DoorHitTop()	0x178b0	export	1.00
+DoorTouch__9CBaseDoorP11CBaseEntity	CBaseDoor::DoorTouch(CBaseEntity *)	0x17370	export	1.00
+KeyValue__9CBaseDoorP14KeyValueData_s	CBaseDoor::KeyValue(KeyValueData_s *)	0x15a20	string	1.00
+Precache__9CBaseDoor	CBaseDoor::Precache()	0x160d0	string	0.92
+Restore__9CBaseDoorR8CRestore	CBaseDoor::Restore(CRestore &)	0x15970	string?	1.00
+TraceAttack__9CBaseDoorP9entvars_sfG6VectorP11TraceResulti	CBaseDoor::TraceAttack(entvars_s *, float, Vector, TraceResult *, int)	0x4b9a0	string	0.92
+GetNextTarget__11CBaseEntity	CBaseEntity::GetNextTarget()	0xcf50	string?	1.00
+Restore__11CBaseEntityR8CRestore	CBaseEntity::Restore(CRestore &)	0xe9d0	string?	1.00
+SUB_DoNothing__11CBaseEntity	CBaseEntity::SUB_DoNothing()	0x431f0	export	1.00
+SUB_FadeOut__11CBaseEntity	CBaseEntity::SUB_FadeOut()	0x13890	export	1.00
+SUB_Remove__11CBaseEntity	CBaseEntity::SUB_Remove()	0x3e2f0	export	1.00
+SUB_StartFadeOut__11CBaseEntity	CBaseEntity::SUB_StartFadeOut()	0x13820	export	1.00
+Save__11CBaseEntityR5CSave	CBaseEntity::Save(CSave &)	0xe9d0	string?	1.00
+CallGibMonster__12CBaseMonster	CBaseMonster::CallGibMonster()	0x13620	string	0.67
+CorpseFallThink__12CBaseMonster	CBaseMonster::CorpseFallThink()	0x2b3c0	export	1.00
+GibMonster__12CBaseMonster	CBaseMonster::GibMonster()	0x12d30	string?	0.50
+Look__12CBaseMonsteri	CBaseMonster::Look(int)	0x2b4c0	string	1.00
+KeyValue__14CBasePlatTrainP14KeyValueData_s	CBasePlatTrain::KeyValue(KeyValueData_s *)	0x2de30	string	1.00
+Precache__14CBasePlatTrain	CBasePlatTrain::Precache()	0x2e0a0	string	1.00
+Restore__14CBasePlatTrainR8CRestore	CBasePlatTrain::Restore(CRestore &)	0x2ddd0	string?	1.00
+AddItem__11CBasePlayeri	CBasePlayer::AddItem(int)	0x61f40	string?	1.00
+BuyAmmo__11CBasePlayeri	CBasePlayer::BuyAmmo(int)	0x62100	string?	1.00
+CheatImpulseCommands__11CBasePlayeri	CBasePlayer::CheatImpulseCommands(int)	0x34ea0	string	1.00
+CheckForWires__11CBasePlayer	CBasePlayer::CheckForWires()	0x614d0	string?	1.00
+CheckTimeBasedDamage__11CBasePlayer	CBasePlayer::CheckTimeBasedDamage()	0x33c40	string	1.00
+CutWire__11CBasePlayeri	CBasePlayer::CutWire(int)	0x614d0	string?	1.00
+DropArmor__11CBasePlayer	CBasePlayer::DropArmor()	0x62720	string	0.50
+DropFlag__11CBasePlayerb	CBasePlayer::DropFlag(bool)	0x618f0	string	0.50
+DropWeapon__11CBasePlayer10tsweapon_tf	CBasePlayer::DropWeapon(tsweapon_t, float)	0x62720	string	1.00
+GiveNamedItem__11CBasePlayerPCc	CBasePlayer::GiveNamedItem(const char *)	0x34ab0	string	1.00
+ImpulseCommands__11CBasePlayer	CBasePlayer::ImpulseCommands()	0x34b50	string	1.00
+PickUpWeapon__11CBasePlayer10tsweapon_tPvibT4	CBasePlayer::PickUpWeapon(tsweapon_t, void *, int, bool, T4?)	0x61750	string?	1.00
+PlayerDeathThink__11CBasePlayer	CBasePlayer::PlayerDeathThink()	0x5dd60	export	1.00
+PlayerUse__11CBasePlayer	CBasePlayer::PlayerUse()	0x33690	string	1.00
+Precache__11CBasePlayer	CBasePlayer::Precache()	0x34140	string	0.40
+Restore__11CBasePlayerR8CRestore	CBasePlayer::Restore(CRestore &)	0x34140	string	0.40
+SlowMotionFlow__11CBasePlayer	CBasePlayer::SlowMotionFlow()	0x4e9f0	string?	1.00
+StartDeathCam__11CBasePlayer	CBasePlayer::StartDeathCam()	0x764b0	string	0.50
+TabulateAmmo__11CBasePlayer	CBasePlayer::TabulateAmmo()	0x33160	string	1.00
+TakeArmor__11CBasePlayeri	CBasePlayer::TakeArmor(int)	0x61f40	string?	1.00
+TakeDamage__11CBasePlayerP9entvars_sT1fi	CBasePlayer::TakeDamage(entvars_s *, T1?, float, int)	0x5e5f0	string	0.84
+TakeFlag__11CBasePlayerP13s_flag_status	CBasePlayer::TakeFlag(s_flag_status *)	0x61d80	string	1.00
+TraceAttack__11CBasePlayerP9entvars_sfG6VectorP11TraceResulti	CBasePlayer::TraceAttack(entvars_s *, float, Vector, TraceResult *, int)	0x5efb0	string	0.60
+UpdateClientData__11CBasePlayer	CBasePlayer::UpdateClientData()	0x60710	string	0.67
+UsePowerUp__11CBasePlayer	CBasePlayer::UsePowerUp()	0x63420	string	1.00
+WaterMove__11CBasePlayer	CBasePlayer::WaterMove()	0x33230	string	1.00
+DefaultTouch__15CBasePlayerAmmoP11CBaseEntity	CBasePlayerAmmo::DefaultTouch(CBaseEntity *)	0x7a610	export	1.00
+Materialize__15CBasePlayerAmmo	CBasePlayerAmmo::Materialize()	0x7a5b0	export	1.00
+AttemptToMaterialize__15CBasePlayerItem	CBasePlayerItem::AttemptToMaterialize()	0x79f00	export	1.00
+DefaultTouch__15CBasePlayerItemP11CBaseEntity	CBasePlayerItem::DefaultTouch(CBaseEntity *)	0x7a030	export	1.00
+DestroyItem__15CBasePlayerItem	CBasePlayerItem::DestroyItem()	0x7a110	export	1.00
+FallThink__15CBasePlayerItem	CBasePlayerItem::FallThink()	0x79dd0	export	1.00
+Materialize__15CBasePlayerItem	CBasePlayerItem::Materialize()	0x79e70	export	1.00
+Respawn__15CBasePlayerItem	CBasePlayerItem::Respawn()	0x79f40	string	1.00
+Restore__15CBasePlayerItemR8CRestore	CBasePlayerItem::Restore(CRestore &)	0x79bc0	string?	1.00
+Save__15CBasePlayerItemR5CSave	CBasePlayerItem::Save(CSave &)	0x79bc0	string?	1.00
+AddPrimaryAmmo__17CBasePlayerWeaponiPcii	CBasePlayerWeapon::AddPrimaryAmmo(int, char *, int, int)	0x62100	string?	1.00
+AddSecondaryAmmo__17CBasePlayerWeaponiPci	CBasePlayerWeapon::AddSecondaryAmmo(int, char *, int)	0x62100	string?	1.00
+DefaultDeploy__17CBasePlayerWeaponPcT1iT1ii	CBasePlayerWeapon::DefaultDeploy(char *, T1?, int, T1?, int, int)	0x73c10	string	0.75
+PlayEmptySound__17CBasePlayerWeapon	CBasePlayerWeapon::PlayEmptySound()	0x7a470	string	0.50
+Restore__17CBasePlayerWeaponR8CRestore	CBasePlayerWeapon::Restore(CRestore &)	0x79bf0	string?	0.50
+Save__17CBasePlayerWeaponR5CSave	CBasePlayerWeapon::Save(CSave &)	0x79bf0	string?	0.50
+SpectatorImpulseCommand__14CBaseSpectator	CBaseSpectator::SpectatorImpulseCommand()	0x3dfa0	string	1.00
+AngularMoveDone__11CBaseToggle	CBaseToggle::AngularMoveDone()	0x3ecc0	export	1.00
+KeyValue__11CBaseToggleP14KeyValueData_s	CBaseToggle::KeyValue(KeyValueData_s *)	0x3e8f0	string	1.00
+LinearMoveDone__11CBaseToggle	CBaseToggle::LinearMoveDone()	0x3eb60	export	1.00
+Restore__11CBaseToggleR8CRestore	CBaseToggle::Restore(CRestore &)	0x3e890	string?	1.00
+Save__11CBaseToggleR5CSave	CBaseToggle::Save(CSave &)	0x3e890	string?	1.00
+ActivateMultiTrigger__12CBaseTriggerP11CBaseEntity	CBaseTrigger::ActivateMultiTrigger(CBaseEntity *)	0x419f0	string	1.00
+HurtTouch__12CBaseTriggerP11CBaseEntity	CBaseTrigger::HurtTouch(CBaseEntity *)	0x416f0	export	1.00
+InitTrigger__12CBaseTrigger	CBaseTrigger::InitTrigger()	0x40d40	string?	1.00
+KeyValue__12CBaseTriggerP14KeyValueData_s	CBaseTrigger::KeyValue(KeyValueData_s *)	0x40df0	string	1.00
+MultiTouch__12CBaseTriggerP11CBaseEntity	CBaseTrigger::MultiTouch(CBaseEntity *)	0x41950	export	1.00
+MultiWaitOver__12CBaseTrigger	CBaseTrigger::MultiWaitOver()	0x41be0	export	1.00
+TeleportTouch__12CBaseTriggerP11CBaseEntity	CBaseTrigger::TeleportTouch(CBaseEntity *)	0x42cd0	export	1.00
+BeamCreate__5CBeamPCci	CBeam::BeamCreate(const char *, int)	0x191b0	string	1.00
+TriggerTouch__5CBeamP11CBaseEntity	CBeam::TriggerTouch(CBaseEntity *)	0x194d0	export	1.00
+KeyValue__6CBloodP14KeyValueData_s	CBlood::KeyValue(KeyValueData_s *)	0x1c680	string	1.00
+BreakTouch__10CBreakableP11CBaseEntity	CBreakable::BreakTouch(CBaseEntity *)	0x1ee80	export	1.00
+DamageSound__10CBreakable	CBreakable::DamageSound()	0x1ece0	string	1.00
+Die__10CBreakable	CBreakable::Die()	0x4b9a0	export	1.00
+Precache__10CBreakable	CBreakable::Precache()	0x1eb50	string	0.95
+Restore__10CBreakableR8CRestore	CBreakable::Restore(CRestore &)	0x1e9a0	string?	1.00
+Save__10CBreakableR5CSave	CBreakable::Save(CSave &)	0x1e9a0	string?	1.00
+TraceAttack__10CBreakableP9entvars_sfG6VectorP11TraceResulti	CBreakable::TraceAttack(entvars_s *, float, Vector, TraceResult *, int)	0x1ef90	string	1.00
+FizzThink__9CBubbling	CBubbling::FizzThink()	0x18f50	export	1.00
+KeyValue__9CBubblingP14KeyValueData_s	CBubbling::KeyValue(KeyValueData_s *)	0x18c30	string	0.60
+FireBullet__14CBulletManagerP11CBasePlayerR6VectorT2RfRii	CBulletManager::FireBullet(CBasePlayer *, Vector &, T2?, float &, int &, int)	0x47150	string	1.00
+UpdateBullet__14CBulletManageriP11TraceResult	CBulletManager::UpdateBullet(int, TraceResult *)	0x47280	string	1.00
+ChangeLevelNow__12CChangeLevelP11CBaseEntity	CChangeLevel::ChangeLevelNow(CBaseEntity *)	0x42270	string	1.00
+ChangeList__12CChangeLevelP9LEVELLISTi	CChangeLevel::ChangeList(LEVELLIST *, int)	0x426e0	string	1.00
+ExecuteChangeLevel__12CChangeLevel	CChangeLevel::ExecuteChangeLevel()	0x42180	export	1.00
+FindLandmark__12CChangeLevelPCc	CChangeLevel::FindLandmark(const char *)	0x421c0	string	1.00
+InTransitionVolume__12CChangeLevelP11CBaseEntityPc	CChangeLevel::InTransitionVolume(CBaseEntity *, char *)	0x425e0	string	1.00
+KeyValue__12CChangeLevelP14KeyValueData_s	CChangeLevel::KeyValue(KeyValueData_s *)	0x41e50	string	0.62
+TouchChangeLevel__12CChangeLevelP11CBaseEntity	CChangeLevel::TouchChangeLevel(CBaseEntity *)	0x42440	export	1.00
+GenericCyclerSpawn__7CCyclerPcG6VectorT2	CCycler::GenericCyclerSpawn(char *, Vector, T2?)	0x271c0	string	1.00
+Restore__7CCyclerR8CRestore	CCycler::Restore(CRestore &)	0x27040	string?	1.00
+TakeDamage__7CCyclerP9entvars_sT1fi	CCycler::TakeDamage(entvars_s *, T1?, float, int)	0x27270	string	1.00
+Spawn__12CCyclerProbe	CCyclerProbe::Spawn()	0x27100	string	1.00
+Restore__13CCyclerSpriteR8CRestore	CCyclerSprite::Restore(CRestore &)	0x274c0	string?	0.50
+Save__13CCyclerSpriteR5CSave	CCyclerSprite::Save(CSave &)	0x274c0	string?	0.50
+KeyValue__8CDeadHEVP14KeyValueData_s	CDeadHEV::KeyValue(KeyValueData_s *)	0x35a00	string	1.00
+Spawn__8CDeadHEV	CDeadHEV::Spawn()	0x35ad0	string	1.00
+KeyValue__6CDecalP14KeyValueData_s	CDecal::KeyValue(KeyValueData_s *)	0x7ae90	string	1.00
+StaticDecal__6CDecal	CDecal::StaticDecal()	0x7ae90	export	1.00
+Precache__12CEnvBeverage	CEnvBeverage::Precache()	0x1d2a0	string	1.00
+KeyValue__13CEnvExplosionP14KeyValueData_s	CEnvExplosion::KeyValue(KeyValueData_s *)	0x22600	string?	1.00
+Restore__13CEnvExplosionR8CRestore	CEnvExplosion::Restore(CRestore &)	0x1dc70	string?	0.50
+Save__13CEnvExplosionR5CSave	CEnvExplosion::Save(CSave &)	0x1dc70	string?	0.50
+Smoke__13CEnvExplosion	CEnvExplosion::Smoke()	0x1e3c0	export	1.00
+KeyValue__10CEnvGlobalP14KeyValueData_s	CEnvGlobal::KeyValue(KeyValueData_s *)	0xae80	string	0.75
+Restore__10CEnvGlobalR8CRestore	CEnvGlobal::Restore(CRestore &)	0xadb0	string?	1.00
+KeyValue__9CEnvLightP14KeyValueData_s	CEnvLight::KeyValue(KeyValueData_s *)	0x29b30	string	0.62
+Spawn__9CEnvLight	CEnvLight::Spawn()	0x29b30	string	0.38
+KeyValue__11CEnvShooterP14KeyValueData_s	CEnvShooter::KeyValue(KeyValueData_s *)	0x1c100	string	1.00
+KeyValue__9CEnvSoundP14KeyValueData_s	CEnvSound::KeyValue(KeyValueData_s *)	0x3bdc0	string	0.67
+KeyValue__9CEnvSparkP14KeyValueData_s	CEnvSpark::KeyValue(KeyValueData_s *)	0xb0e0	string	0.60
+Precache__9CEnvSpark	CEnvSpark::Precache()	0xbf20	string?	1.00
+Restore__9CEnvSparkR8CRestore	CEnvSpark::Restore(CRestore &)	0xd0a0	string?	1.00
+Save__9CEnvSparkR5CSave	CEnvSpark::Save(CSave &)	0xd0a0	string?	1.00
+SparkThink__9CEnvSpark	CEnvSpark::SparkThink()	0xd490	export	1.00
+KeyValue__5CFadeP14KeyValueData_s	CFade::KeyValue(KeyValueData_s *)	0x1cce0	string	1.00
+Spawn__11CFireAndDie	CFireAndDie::Spawn()	0x41de0	string	1.00
+ChangeFriction__17CFrictionModifierP11CBaseEntity	CFrictionModifier::ChangeFriction(CBaseEntity *)	0x40460	export	1.00
+KeyValue__17CFrictionModifierP14KeyValueData_s	CFrictionModifier::KeyValue(KeyValueData_s *)	0x40460	string	1.00
+Restore__17CFrictionModifierR8CRestore	CFrictionModifier::Restore(CRestore &)	0x403a0	string?	1.00
+Save__17CFrictionModifierR5CSave	CFrictionModifier::Save(CSave &)	0x403a0	string?	1.00
+KeyValue__16CFuncIllusionaryP14KeyValueData_s	CFuncIllusionary::KeyValue(KeyValueData_s *)	0x9130	string	1.00
+Spawn__16CFuncMonsterClip	CFuncMonsterClip::Spawn()	0x40d40	string?	1.00
+Blocked__9CFuncPlatP11CBaseEntity	CFuncPlat::Blocked(CBaseEntity *)	0x2eb00	string	1.00
+KeyValue__9CFuncPlatP14KeyValueData_s	CFuncPlat::KeyValue(KeyValueData_s *)	0x2e3e0	string	1.00
+Restore__9CFuncPlatR8CRestore	CFuncPlat::Restore(CRestore &)	0x2e380	string?	1.00
+Save__9CFuncPlatR5CSave	CFuncPlat::Save(CSave &)	0x2e380	string?	1.00
+Restore__12CFuncPlatRotR8CRestore	CFuncPlatRot::Restore(CRestore &)	0x2eca0	string?	1.00
+Save__12CFuncPlatRotR5CSave	CFuncPlatRot::Save(CSave &)	0x2eca0	string?	1.00
+HurtTouch__13CFuncRotatingP11CBaseEntity	CFuncRotating::HurtTouch(CBaseEntity *)	0x98c0	export	1.00
+KeyValue__13CFuncRotatingP14KeyValueData_s	CFuncRotating::KeyValue(KeyValueData_s *)	0x92d0	string	0.40
+Precache__13CFuncRotating	CFuncRotating::Precache()	0x92d0	string	0.60
+Restore__13CFuncRotatingR8CRestore	CFuncRotating::Restore(CRestore &)	0x9220	string?	0.50
+Rotate__13CFuncRotating	CFuncRotating::Rotate()	0x9ed0	export	1.00
+Save__13CFuncRotatingR5CSave	CFuncRotating::Save(CSave &)	0x9220	string?	0.50
+SpinDown__13CFuncRotating	CFuncRotating::SpinDown()	0x9cf0	export	1.00
+SpinUp__13CFuncRotating	CFuncRotating::SpinUp()	0x9b30	export	1.00
+KeyValue__9CFuncTankP14KeyValueData_s	CFuncTank::KeyValue(KeyValueData_s *)	0x205a0	string	1.00
+Restore__9CFuncTankR8CRestore	CFuncTank::Restore(CRestore &)	0x201b0	string?	1.00
+StartControl__9CFuncTankP11CBasePlayer	CFuncTank::StartControl(CBasePlayer *)	0x20d00	string	1.00
+StopControl__9CFuncTank	CFuncTank::StopControl()	0x20dd0	string	1.00
+Think__17CFuncTankControls	CFuncTankControls::Think()	0x22760	string	0.75
+GetLaser__14CFuncTankLaser	CFuncTankLaser::GetLaser()	0x222e0	string	1.00
+KeyValue__15CFuncTankMortarP14KeyValueData_s	CFuncTankMortar::KeyValue(KeyValueData_s *)	0x22600	string?	1.00
+Fire__15CFuncTankRocketRC6VectorT1P9entvars_s	CFuncTankRocket::Fire(const Vector &, T1?, entvars_s *)	0x22540	string?	1.00
+Precache__15CFuncTankRocket	CFuncTankRocket::Precache()	0x22540	string?	1.00
+Find__16CFuncTrackChange	CFuncTrackChange::Find()	0x31720	export	1.00
+GoDown__16CFuncTrackChange	CFuncTrackChange::GoDown()	0x31ca0	export	1.00
+GoUp__16CFuncTrackChange	CFuncTrackChange::GoUp()	0x31d50	export	1.00
+KeyValue__16CFuncTrackChangeP14KeyValueData_s	CFuncTrackChange::KeyValue(KeyValueData_s *)	0x31470	string	0.60
+Precache__16CFuncTrackChange	CFuncTrackChange::Precache()	0x31d50	string?	1.00
+Blocked__15CFuncTrackTrainP11CBaseEntity	CFuncTrackTrain::Blocked(CBaseEntity *)	0x2fc70	string	0.50
+DeadEnd__15CFuncTrackTrain	CFuncTrackTrain::DeadEnd()	0x30880	export	1.00
+Find__15CFuncTrackTrain	CFuncTrackTrain::Find()	0x30b90	export	1.00
+Instance__15CFuncTrackTrainP7edict_s	CFuncTrackTrain::Instance(edict_s *)	0x32030	string?	1.00
+KeyValue__15CFuncTrackTrainP14KeyValueData_s	CFuncTrackTrain::KeyValue(KeyValueData_s *)	0x2fa40	string	1.00
+NearestPath__15CFuncTrackTrain	CFuncTrackTrain::NearestPath()	0x30d50	export	1.00
+Next__15CFuncTrackTrain	CFuncTrackTrain::Next()	0x30210	export	1.00
+Precache__15CFuncTrackTrain	CFuncTrackTrain::Precache()	0x30fa0	string	0.73
+StopSound__15CFuncTrackTrain	CFuncTrackTrain::StopSound()	0x30010	string	1.00
+UpdateSound__15CFuncTrackTrain	CFuncTrackTrain::UpdateSound()	0x300b0	string	1.00
+Activate__10CFuncTrain	CFuncTrain::Activate()	0xcf50	string?	1.00
+KeyValue__10CFuncTrainP14KeyValueData_s	CFuncTrain::KeyValue(KeyValueData_s *)	0xc990	string?	0.50
+Next__10CFuncTrain	CFuncTrain::Next()	0x2f3c0	export	1.00
+Restore__10CFuncTrainR8CRestore	CFuncTrain::Restore(CRestore &)	0x2f010	string?	0.50
+Save__10CFuncTrainR5CSave	CFuncTrain::Save(CSave &)	0x2f010	string?	0.50
+Wait__10CFuncTrain	CFuncTrain::Wait()	0x2f1f0	export	1.00
+Find__18CFuncTrainControls	CFuncTrainControls::Find()	0x31300	export	1.00
+TargetTeamName__15CGamePlayerTeamPCc	CGamePlayerTeam::TargetTeamName(const char *)	0x2af10	string	1.00
+KeyValue__15CGamePlayerZoneP14KeyValueData_s	CGamePlayerZone::KeyValue(KeyValueData_s *)	0x2a840	string	0.80
+RefreshSkillData__10CGameRules	CGameRules::RefreshSkillData()	0x26aa0	string	1.00
+KeyValue__10CGameScoreP14KeyValueData_s	CGameScore::KeyValue(KeyValueData_s *)	0x29fe0	string	1.00
+KeyValue__15CGameTeamMasterP14KeyValueData_s	CGameTeamMaster::KeyValue(KeyValueData_s *)	0x2a5c0	string	1.00
+KeyValue__9CGameTextP14KeyValueData_s	CGameText::KeyValue(KeyValueData_s *)	0x2a120	string	0.89
+BounceGibTouch__4CGibP11CBaseEntity	CGib::BounceGibTouch(CBaseEntity *)	0x139a0	export	1.00
+SpawnHeadGib__4CGibP9entvars_s	CGib::SpawnHeadGib(entvars_s *)	0x128f0	string	1.00
+SpawnRandomGibs__4CGibP9entvars_sii	CGib::SpawnRandomGibs(entvars_s *, int, int)	0x128f0	string	0.67
+StickyGibTouch__4CGibP11CBaseEntity	CGib::StickyGibTouch(CBaseEntity *)	0x13b60	export	1.00
+WaitTillLand__4CGib	CGib::WaitTillLand()	0x13900	export	1.00
+CreateGib__11CGibShooter	CGibShooter::CreateGib()	0x1ba90	string	0.43
+KeyValue__11CGibShooterP14KeyValueData_s	CGibShooter::KeyValue(KeyValueData_s *)	0x1ba90	string	0.57
+Precache__11CGibShooter	CGibShooter::Precache()	0x1ba40	string	1.00
+Restore__11CGibShooterR8CRestore	CGibShooter::Restore(CRestore &)	0x1b910	string?	1.00
+Save__11CGibShooterR5CSave	CGibShooter::Save(CSave &)	0x1b910	string?	1.00
+ShootThink__11CGibShooter	CGibShooter::ShootThink()	0x1bd30	export	1.00
+DumpGlobals__12CGlobalState	CGlobalState::DumpGlobals()	0x7b0b0	string	1.00
+Restore__12CGlobalStateR8CRestore	CGlobalState::Restore(CRestore &)	0x7b1f0	string?	1.00
+Save__12CGlobalStateR5CSave	CGlobalState::Save(CSave &)	0x7b1f0	string?	1.00
+Restore__5CGlowR8CRestore	CGlow::Restore(CRestore &)	0x1b2f0	string?	1.00
+Save__5CGlowR5CSave	CGlow::Save(CSave &)	0x1b2f0	string?	1.00
+Next__10CGunTarget	CGunTarget::Next()	0x32440	export	1.00
+Restore__10CGunTargetR8CRestore	CGunTarget::Restore(CRestore &)	0x32230	string?	1.00
+Save__10CGunTargetR5CSave	CGunTarget::Save(CSave &)	0x32230	string?	1.00
+Start__10CGunTarget	CGunTarget::Start()	0x32430	export	1.00
+Wait__10CGunTarget	CGunTarget::Wait()	0x324f0	export	1.00
+ChangeLevel__18CHalfLifeMultiplay	CHalfLifeMultiplay::ChangeLevel()	0x2cbb0	string	1.00
+ClientDisconnected__18CHalfLifeMultiplayP7edict_s	CHalfLifeMultiplay::ClientDisconnected(edict_s *)	0x2bfe0	string	0.44
+ClientUserInfoChanged__18CHalfLifeMultiplayP11CBasePlayerPc	CHalfLifeMultiplay::ClientUserInfoChanged(CBasePlayer *, char *)	0x5b470	string	1.00
+GoToIntermission__18CHalfLifeMultiplay	CHalfLifeMultiplay::GoToIntermission()	0x2bbc0	string?	1.00
+InitHUD__18CHalfLifeMultiplayP11CBasePlayer	CHalfLifeMultiplay::InitHUD(CBasePlayer *)	0x2bfe0	string	0.56
+PlayerKilled__18CHalfLifeMultiplayP11CBasePlayerP9entvars_sT2	CHalfLifeMultiplay::PlayerKilled(CBasePlayer *, entvars_s *, T2?)	0x59d10	string	0.85
+PlayerSpawn__18CHalfLifeMultiplayP11CBasePlayer	CHalfLifeMultiplay::PlayerSpawn(CBasePlayer *)	0x59730	string	1.00
+SendMOTDToClient__18CHalfLifeMultiplayP7edict_s	CHalfLifeMultiplay::SendMOTDToClient(edict_s *)	0x2d030	string	0.40
+Think__18CHalfLifeMultiplay	CHalfLifeMultiplay::Think()	0x2bbc0	string?	1.00
+ChangePlayerTeam__17CHalfLifeTeamplayP11CBasePlayerPCcii	CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer *, const char *, int, int)	0x6b3b0	string	0.40
+ClientUserInfoChanged__17CHalfLifeTeamplayP11CBasePlayerPc	CHalfLifeTeamplay::ClientUserInfoChanged(CBasePlayer *, char *)	0x3ef00	string	0.64
+Precache__10CHealthKit	CHealthKit::Precache()	0x27ed0	string	0.67
+RespawnThink__14CInfoBreakable	CInfoBreakable::RespawnThink()	0x4c150	export	1.00
+Think__17CInfoIntermission	CInfoIntermission::Think()	0xcf50	string?	1.00
+ItemTouch__5CItemP11CBaseEntity	CItem::ItemTouch(CBaseEntity *)	0x29230	export	1.00
+Materialize__5CItem	CItem::Materialize()	0x29340	export	1.00
+Spawn__5CItem	CItem::Spawn()	0x29150	string	1.00
+CanThink__9CItemSoda	CItemSoda::CanThink()	0x1d560	export	1.00
+CanTouch__9CItemSodaP11CBaseEntity	CItemSoda::CanTouch(CBaseEntity *)	0x1d600	export	1.00
+Spawn__9CItemSoda	CItemSoda::Spawn()	0x1d4a0	string	1.00
+Precache__7CLadder	CLadder::Precache()	0x40d40	string?	1.00
+KeyValue__6CLaserP14KeyValueData_s	CLaser::KeyValue(KeyValueData_s *)	0x1ac10	string	0.89
+StrikeThink__6CLaser	CLaser::StrikeThink()	0x1b260	export	1.00
+KeyValue__6CLightP14KeyValueData_s	CLight::KeyValue(KeyValueData_s *)	0x298d0	string	1.00
+Restore__6CLightR8CRestore	CLight::Restore(CRestore &)	0x297c0	string?	0.50
+Save__6CLightR5CSave	CLight::Save(CSave &)	0x297c0	string?	0.50
+BeamUpdateVars__10CLightning	CLightning::BeamUpdateVars()	0xcf50	string?	1.00
+DamageThink__10CLightning	CLightning::DamageThink()	0x1a240	export	1.00
+KeyValue__10CLightningP14KeyValueData_s	CLightning::KeyValue(KeyValueData_s *)	0x195d0	string	0.92
+StrikeThink__10CLightning	CLightning::StrikeThink()	0x19d60	export	1.00
+BounceTouch__11CM61GrenadeP11CBaseEntity	CM61Grenade::BounceTouch(CBaseEntity *)	0x50fb0	export	1.00
+CreateGrenade__11CM61GrenadeP11CBasePlayerfG6VectorT3	CM61Grenade::CreateGrenade(CBasePlayer *, float, Vector, T3?)	0x50de0	string	0.50
+Spawn__11CM61Grenade	CM61Grenade::Spawn()	0x50de0	string	0.50
+WaitThink__11CM61Grenade	CM61Grenade::WaitThink()	0x50fe0	export	1.00
+KeyValue__8CMessageP14KeyValueData_s	CMessage::KeyValue(KeyValueData_s *)	0x1cf80	string	0.75
+Precache__14CMomentaryDoor	CMomentaryDoor::Precache()	0x183e0	string	0.69
+KeyValue__19CMomentaryRotButtonP14KeyValueData_s	CMomentaryRotButton::KeyValue(KeyValueData_s *)	0xc990	string	1.00
+Off__19CMomentaryRotButton	CMomentaryRotButton::Off()	0xcfc0	export	1.00
+Restore__19CMomentaryRotButtonR8CRestore	CMomentaryRotButton::Restore(CRestore &)	0xc700	string?	1.00
+Return__19CMomentaryRotButton	CMomentaryRotButton::Return()	0xd040	export	1.00
+Save__19CMomentaryRotButtonR5CSave	CMomentaryRotButton::Save(CSave &)	0xc700	string?	1.00
+UpdateAllButtons__19CMomentaryRotButtonfi	CMomentaryRotButton::UpdateAllButtons(float, int)	0xcd10	string	1.00
+UpdateTarget__19CMomentaryRotButtonf	CMomentaryRotButton::UpdateTarget(float)	0xcf50	string?	1.00
+KeyValue__13CMultiManagerP14KeyValueData_s	CMultiManager::KeyValue(KeyValueData_s *)	0x40820	string?	0.50
+ManagerThink__13CMultiManager	CMultiManager::ManagerThink()	0x40a70	export	1.00
+Restore__13CMultiManagerR8CRestore	CMultiManager::Restore(CRestore &)	0x40820	string?	0.50
+Save__13CMultiManagerR5CSave	CMultiManager::Save(CSave &)	0x40820	string?	0.50
+KeyValue__12CMultiSourceP14KeyValueData_s	CMultiSource::KeyValue(KeyValueData_s *)	0xb0e0	string	0.78
+Register__12CMultiSource	CMultiSource::Register()	0xb440	export	1.00
+KeyValue__11CPathCornerP14KeyValueData_s	CPathCorner::KeyValue(KeyValueData_s *)	0x40820	string?	0.50
+Instance__10CPathTrackP7edict_s	CPathTrack::Instance(edict_s *)	0x2dcb0	string	1.00
+Link__10CPathTrack	CPathTrack::Link()	0x2d330	string	0.67
+Nearest__10CPathTrackG6Vector	CPathTrack::Nearest(Vector)	0x2dbd0	string	1.00
+KeyValue__9CPendulumP14KeyValueData_s	CPendulum::KeyValue(KeyValueData_s *)	0xa090	string	0.67
+RopeTouch__9CPendulumP11CBaseEntity	CPendulum::RopeTouch(CBaseEntity *)	0xa810	export	1.00
+Stop__9CPendulum	CPendulum::Stop()	0xa480	export	1.00
+Swing__9CPendulum	CPendulum::Swing()	0xa4e0	export	1.00
+Touch__12CPlatTriggerP11CBaseEntity	CPlatTrigger::Touch(CBaseEntity *)	0xc280	string?	1.00
+KeyValue__9CPushableP14KeyValueData_s	CPushable::KeyValue(KeyValueData_s *)	0x1f900	string	0.50
+Restore__9CPushableR8CRestore	CPushable::Restore(CRestore &)	0x1f850	string?	1.00
+Save__9CPushableR5CSave	CPushable::Save(CSave &)	0x1f850	string?	1.00
+Touch__9CPushableP11CBaseEntity	CPushable::Touch(CBaseEntity *)	0x13b60	string?	1.00
+KeyValue__9CRechargeP14KeyValueData_s	CRecharge::KeyValue(KeyValueData_s *)	0x28070	string?	0.67
+Off__9CRecharge	CRecharge::Off()	0x26fb0	export	1.00
+Precache__9CRecharge	CRecharge::Precache()	0x26d00	string	0.75
+Recharge__9CRecharge	CRecharge::Recharge()	0x26f90	export	1.00
+Restore__9CRechargeR8CRestore	CRecharge::Restore(CRestore &)	0x26ae0	string?	0.50
+BufferReadBytes__8CRestorePci	CRestore::BufferReadBytes(char *, int)	0x78e10	string	1.00
+ReadField__8CRestorePvP15TYPEDESCRIPTIONiiiPcT1	CRestore::ReadField(void *, TYPEDESCRIPTION *, int, int, int, char *, TYPEDESCRIPTION *)	0x788e0	string	1.00
+KeyValue__12CRevertSavedP14KeyValueData_s	CRevertSaved::KeyValue(KeyValueData_s *)	0x35c30	string	0.80
+LoadThink__12CRevertSaved	CRevertSaved::LoadThink()	0x35ed0	export	1.00
+MessageThink__12CRevertSaved	CRevertSaved::MessageThink()	0x35e70	export	1.00
+KeyValue__11CRuleEntityP14KeyValueData_s	CRuleEntity::KeyValue(KeyValueData_s *)	0x29ee0	string?	1.00
+Restore__11CRuleEntityR8CRestore	CRuleEntity::Restore(CRestore &)	0x29e50	string?	1.00
+BufferData__5CSavePCci	CSave::BufferData(const char *, int)	0x78870	string	1.00
+BufferHeader__5CSavePCci	CSave::BufferHeader(const char *, int)	0x78820	string	1.00
+WriteFields__5CSavePCcPvP15TYPEDESCRIPTIONi	CSave::WriteFields(const char *, void *, TYPEDESCRIPTION *, int)	0x784f0	string	1.00
+WriteFunction__5CSavePCcPCii	CSave::WriteFunction(const char *, const int *, int)	0x78370	string	1.00
+TokenHash__18CSaveRestoreBufferPCc	CSaveRestoreBuffer::TokenHash(const char *)	0x78070	string	1.00
+KeyValue__6CShakeP14KeyValueData_s	CShake::KeyValue(KeyValueData_s *)	0x1cad0	string	1.00
+Spawn__7CShower	CShower::Spawn()	0x1dc70	string	0.50
+IAllocSound__9CSoundEnt	CSoundEnt::IAllocSound()	0x3dd70	string	1.00
+ISoundsInList__9CSoundEnti	CSoundEnt::ISoundsInList(int)	0x3def0	string	1.00
+Initialize__9CSoundEnt	CSoundEnt::Initialize()	0x3de30	string	1.00
+InsertSound__9CSoundEntiRC6Vectorif	CSoundEnt::InsertSound(int, const Vector &, int, float)	0x3ddb0	string	1.00
+SoundPointerForIndex__9CSoundEnti	CSoundEnt::SoundPointerForIndex(int)	0x3df40	string	1.00
+Think__9CSoundEnt	CSoundEnt::Think()	0x3dc00	string	1.00
+KeyValue__8CSpeakerP14KeyValueData_s	CSpeaker::KeyValue(KeyValueData_s *)	0x3d9c0	string	1.00
+Restore__8CSpeakerR8CRestore	CSpeaker::Restore(CRestore &)	0x3d6a0	string?	0.50
+Save__8CSpeakerR5CSave	CSpeaker::Save(CSave &)	0x3d6a0	string?	0.50
+Spawn__8CSpeaker	CSpeaker::Spawn()	0x3d6a0	string	0.50
+SpeakerThink__8CSpeaker	CSpeaker::SpeakerThink()	0x3d810	export	1.00
+Spawn__9CSprayCanP9entvars_s	CSprayCan::Spawn(entvars_s *)	0x34720	string	1.00
+AnimateThink__7CSprite	CSprite::AnimateThink()	0x1b770	export	1.00
+AnimateUntilDead__7CSprite	CSprite::AnimateUntilDead()	0x1b7c0	export	1.00
+ExpandThink__7CSprite	CSprite::ExpandThink()	0x1b800	export	1.00
+Restore__7CSpriteR8CRestore	CSprite::Restore(CRestore &)	0x1b4e0	string?	1.00
+Save__7CSpriteR5CSave	CSprite::Save(CSave &)	0x1b4e0	string?	1.00
+SpriteCreate__7CSpritePCcRC6Vectori	CSprite::SpriteCreate(const char *, const Vector &, int)	0x1b700	string	1.00
+CreateAmmoPack__11CTSAmmoPackP11CBaseEntityP11s_ammo_infoi	CTSAmmoPack::CreateAmmoPack(CBaseEntity *, s_ammo_info *, int)	0x74c30	string	0.67
+Fall__11CTSAmmoPack	CTSAmmoPack::Fall()	0x74df0	export	1.00
+Spawn__11CTSAmmoPack	CTSAmmoPack::Spawn()	0x75ce0	string?	1.00
+WaitThink__11CTSAmmoPack	CTSAmmoPack::WaitThink()	0x74e50	export	1.00
+WaitTouch__11CTSAmmoPackP11CBaseEntity	CTSAmmoPack::WaitTouch(CBaseEntity *)	0x74f20	export	1.00
+Animate__12CTSAnimationP11CBasePlayeri	CTSAnimation::Animate(CBasePlayer *, int)	0x44b50	string	0.98
+BlendAnimationsForSlide__12CTSAnimationP11CBasePlayer	CTSAnimation::BlendAnimationsForSlide(CBasePlayer *)	0x466f0	string	1.00
+BulletDance__12CTSAnimationP11CBasePlayer	CTSAnimation::BulletDance(CBasePlayer *)	0x46640	string	1.00
+__12CTSAnimation	CTSAnimation::CTSAnimation()	0x445c0	string	1.00
+HandleCloseCombat__12CTSAnimationP11CBasePlayeri	CTSAnimation::HandleCloseCombat(CBasePlayer *, int)	0x469f0	string	1.00
+KeyValue__7CTSBombP14KeyValueData_s	CTSBomb::KeyValue(KeyValueData_s *)	0x5c7b0	string	0.50
+Spawn__7CTSBomb	CTSBomb::Spawn()	0x614d0	string?	1.00
+WaitThink__7CTSBomb	CTSBomb::WaitThink()	0x5c7b0	export	1.00
+CaptureTouch__12CTSBriefcaseP11CBaseEntity	CTSBriefcase::CaptureTouch(CBaseEntity *)	0x5d760	export	1.00
+KeyValue__12CTSBriefcaseP14KeyValueData_s	CTSBriefcase::KeyValue(KeyValueData_s *)	0x5d3c0	string	0.50
+Spawn__12CTSBriefcase	CTSBriefcase::Spawn()	0x4da70	string?	0.50
+KeyValue__15CTSCustomTargetP14KeyValueData_s	CTSCustomTarget::KeyValue(KeyValueData_s *)	0x4af10	string	0.75
+KeyValue__9CTSDMHillP14KeyValueData_s	CTSDMHill::KeyValue(KeyValueData_s *)	0x49a80	string	0.60
+WaitThink__9CTSDMHill	CTSDMHill::WaitThink()	0x4a370	export	1.00
+WaitTouch__9CTSDMHillP11CBaseEntity	CTSDMHill::WaitTouch(CBaseEntity *)	0x49d20	export	1.00
+InitThink__10CTSEmitter	CTSEmitter::InitThink()	0x48ae0	export	1.00
+BounceTouch__7CTSFlagP11CBaseEntity	CTSFlag::BounceTouch(CBaseEntity *)	0x72300	export	1.00
+Fall__7CTSFlag	CTSFlag::Fall()	0x72670	export	1.00
+PlayerTakeFlag__7CTSFlagP11CBaseEntity	CTSFlag::PlayerTakeFlag(CBaseEntity *)	0x72960	string	1.00
+RespawnFlag__7CTSFlag	CTSFlag::RespawnFlag()	0x725f0	string	1.00
+Spawn__7CTSFlag	CTSFlag::Spawn()	0x72000	string	0.67
+WaitThink__7CTSFlag	CTSFlag::WaitThink()	0x72890	export	1.00
+WaitTouch__7CTSFlagP11CBaseEntity	CTSFlag::WaitTouch(CBaseEntity *)	0x72b70	export	1.00
+CheckDeads__12CTSGameRules	CTSGameRules::CheckDeads()	0x4ed10	string	1.00
+CheckVotes__12CTSGameRules	CTSGameRules::CheckVotes()	0x4f540	string	1.00
+GlobalSlowMotion2__12CTSGameRulesfb	CTSGameRules::GlobalSlowMotion2(float, bool)	0x4e9f0	string?	1.00
+InitHUD__12CTSGameRulesP11CBasePlayer	CTSGameRules::InitHUD(CBasePlayer *)	0x4e590	string	1.00
+InitObjectives__12CTSGameRules	CTSGameRules::InitObjectives()	0x4df30	string?	1.00
+InitTeams__12CTSGameRules	CTSGameRules::InitTeams()	0x4dab0	string	0.78
+IsCTB__12CTSGameRules	CTSGameRules::IsCTB()	0x4da70	string	1.00
+PlayerVote__12CTSGameRulesP7edict_sPc	CTSGameRules::PlayerVote(edict_s *, char *)	0x4f1c0	string	1.00
+PutPowerUp__12CTSGameRulesi	CTSGameRules::PutPowerUp(int)	0x66370	string	1.00
+ResetRestartRound__12CTSGameRulesi	CTSGameRules::ResetRestartRound(int)	0x4e070	string	1.00
+RespawnEntities__12CTSGameRulesb	CTSGameRules::RespawnEntities(bool)	0x4d4d0	string	1.00
+RestartRound__12CTSGameRules	CTSGameRules::RestartRound()	0x4d630	string	1.00
+SetPlayerTheOne__12CTSGameRulesP11CBasePlayer	CTSGameRules::SetPlayerTheOne(CBasePlayer *)	0x4fdd0	string	1.00
+SetTeamList__12CTSGameRulesPCc	CTSGameRules::SetTeamList(const char *)	0x4dbe0	string	1.00
+SetTeamModelList__12CTSGameRulesiPCc	CTSGameRules::SetTeamModelList(int, const char *)	0x4de30	string	1.00
+TeamWin__12CTSGameRulesiibT3	CTSGameRules::TeamWin(int, int, bool, T3?)	0x4e180	string	1.00
+TheOneIsDead__12CTSGameRulesP11CBasePlayerT1	CTSGameRules::TheOneIsDead(CBasePlayer *, T1?)	0x4ff70	string	1.00
+BounceTouch__10CTSGrenadeP11CBaseEntity	CTSGrenade::BounceTouch(CBaseEntity *)	0x50450	export	1.00
+Precache__10CTSGrenade	CTSGrenade::Precache()	0x50420	string?	1.00
+Fall__13CTSGroundAmmo	CTSGroundAmmo::Fall()	0x75790	export	1.00
+KeyValue__13CTSGroundAmmoP14KeyValueData_s	CTSGroundAmmo::KeyValue(KeyValueData_s *)	0x75c10	string	1.00
+Spawn__13CTSGroundAmmo	CTSGroundAmmo::Spawn()	0x75ce0	string?	1.00
+WaitThink__13CTSGroundAmmo	CTSGroundAmmo::WaitThink()	0x5d700	export	1.00
+WaitTouch__13CTSGroundAmmoP11CBaseEntity	CTSGroundAmmo::WaitTouch(CBaseEntity *)	0x75e80	export	1.00
+Fall__15CTSGroundWeapon	CTSGroundWeapon::Fall()	0x75790	export	1.00
+GetWeapon__15CTSGroundWeaponP11CBaseEntity	CTSGroundWeapon::GetWeapon(CBaseEntity *)	0x75900	string	1.00
+KeyValue__15CTSGroundWeaponP14KeyValueData_s	CTSGroundWeapon::KeyValue(KeyValueData_s *)	0x75050	string	0.83
+WaitThink__15CTSGroundWeapon	CTSGroundWeapon::WaitThink()	0x5d700	export	1.00
+WaitTouch__15CTSGroundWeaponP11CBaseEntity	CTSGroundWeapon::WaitTouch(CBaseEntity *)	0x75bf0	export	1.00
+ColdCock__6CTSGun	CTSGun::ColdCock()	0x552a0	string	1.00
+KatanaFire__6CTSGun	CTSGun::KatanaFire()	0x56740	string	0.50
+KatanaThrow__6CTSGun	CTSGun::KatanaThrow()	0x56d80	string	1.00
+KnifeFire__6CTSGun	CTSGun::KnifeFire()	0x57210	string	1.00
+Precache__6CTSGun	CTSGun::Precache()	0x54190	string	1.00
+Spawn__6CTSGun	CTSGun::Spawn()	0x54100	string	1.00
+SwitchItems__6CTSGun	CTSGun::SwitchItems()	0x54d80	string	1.00
+Restore__7CTSHackR8CRestore	CTSHack::Restore(CRestore &)	0x5cb10	string?	0.50
+Save__7CTSHackR5CSave	CTSHack::Save(CSave &)	0x5cb10	string?	0.50
+Spawn__7CTSHack	CTSHack::Spawn()	0x5cb10	string	0.50
+WaitThink__7CTSHack	CTSHack::WaitThink()	0x5cd10	export	1.00
+BounceTouch__8CTSKnifeP11CBaseEntity	CTSKnife::BounceTouch(CBaseEntity *)	0x52090	export	1.00
+CreateKnife__8CTSKnifeP11CBasePlayerG6VectorT2i	CTSKnife::CreateKnife(CBasePlayer *, Vector, T2?, int)	0x51c50	string	1.00
+GetDescription__8CTSKnife	CTSKnife::GetDescription()	0x51d50	string	0.50
+Spawn__8CTSKnife	CTSKnife::Spawn()	0x51d50	string	0.50
+WaitThink__8CTSKnife	CTSKnife::WaitThink()	0x52b10	export	1.00
+WaitTouch__8CTSKnifeP11CBaseEntity	CTSKnife::WaitTouch(CBaseEntity *)	0x51ef0	export	1.00
+Restore__13CTSMapGlobalsR8CRestore	CTSMapGlobals::Restore(CRestore &)	0x4a510	string?	1.00
+Save__13CTSMapGlobalsR5CSave	CTSMapGlobals::Save(CSave &)	0x4a510	string?	1.00
+WaitThink__13CTSMapGlobals	CTSMapGlobals::WaitThink()	0x4a680	export	1.00
+Spawn__8CTSModel	CTSModel::Spawn()	0x4a3b0	string	1.00
+KeyValue__12CTSObjectiveP14KeyValueData_s	CTSObjective::KeyValue(KeyValueData_s *)	0x5c340	string?	1.00
+Restore__12CTSObjectiveR8CRestore	CTSObjective::Restore(CRestore &)	0x5c2e0	string?	1.00
+Save__12CTSObjectiveR5CSave	CTSObjective::Save(CSave &)	0x5c2e0	string?	1.00
+KeyValue__19CTSObjectiveManagerP14KeyValueData_s	CTSObjectiveManager::KeyValue(KeyValueData_s *)	0x5b590	string	0.88
+Spawn__19CTSObjectiveManager	CTSObjectiveManager::Spawn()	0x4df30	string?	1.00
+KeyValue__19CTSObjectivePointerP14KeyValueData_s	CTSObjectivePointer::KeyValue(KeyValueData_s *)	0x5bbf0	string	0.71
+WaitThink__15CTSPhysicObject	CTSPhysicObject::WaitThink()	0x503f0	export	1.00
+ClientConnect__15CTSPlayerAmount	CTSPlayerAmount::ClientConnect()	0x4ab00	string?	1.00
+ClientDisconnect__15CTSPlayerAmount	CTSPlayerAmount::ClientDisconnect()	0x4ab00	string?	1.00
+KeyValue__15CTSPlayerAmountP14KeyValueData_s	CTSPlayerAmount::KeyValue(KeyValueData_s *)	0x4a960	string	0.75
+CreatePowerUp__10CTSPowerUpii	CTSPowerUp::CreatePowerUp(int, int)	0x668a0	string	1.00
+Fall__10CTSPowerUp	CTSPowerUp::Fall()	0x66bd0	export	1.00
+KeyValue__10CTSPowerUpP14KeyValueData_s	CTSPowerUp::KeyValue(KeyValueData_s *)	0x66710	string	0.75
+Precache__10CTSPowerUp	CTSPowerUp::Precache()	0x66c70	string	1.00
+Spawn__10CTSPowerUp	CTSPowerUp::Spawn()	0x66a80	string	1.00
+WaitThink__10CTSPowerUp	CTSPowerUp::WaitThink()	0x66d20	export	1.00
+WaitTouch__10CTSPowerUpP11CBaseEntity	CTSPowerUp::WaitTouch(CBaseEntity *)	0x66da0	export	1.00
+Spawn__13CTSScoreGiver	CTSScoreGiver::Spawn()	0x5c1d0	string	1.00
+KeyValue__11CTSSellZoneP14KeyValueData_s	CTSSellZone::KeyValue(KeyValueData_s *)	0x5c340	string?	1.00
+SellTouch__11CTSSellZoneP11CBaseEntity	CTSSellZone::SellTouch(CBaseEntity *)	0x4a7d0	export	1.00
+Spawn__11CTSSellZone	CTSSellZone::Spawn()	0x4a6a0	string	0.50
+EmitterKeyValue__16CTSSharedEmitterP15sharedemitter_sPcT2	CTSSharedEmitter::EmitterKeyValue(sharedemitter_s *, char *, T2?)	0x67180	string	1.00
+ParticleKeyValue__16CTSSharedEmitterP16sharedparticle_sPcT2	CTSSharedEmitter::ParticleKeyValue(sharedparticle_s *, char *, T2?)	0x67390	string	1.00
+BounceTouch__11CTSShrapnelP11CBaseEntity	CTSShrapnel::BounceTouch(CBaseEntity *)	0x50750	export	1.00
+Precache__11CTSShrapnel	CTSShrapnel::Precache()	0x50610	string	1.00
+Spawn__11CTSShrapnel	CTSShrapnel::Spawn()	0x50610	string	0.50
+WaitThink__11CTSShrapnel	CTSShrapnel::WaitThink()	0x50c10	export	1.00
+KeyValue__13CTSSlowMotionP14KeyValueData_s	CTSSlowMotion::KeyValue(KeyValueData_s *)	0x49180	string	0.50
+WaitThink__13CTSSlowMotion	CTSSlowMotion::WaitThink()	0x495b0	export	1.00
+WaitTouch__13CTSSlowMotionP11CBaseEntity	CTSSlowMotion::WaitTouch(CBaseEntity *)	0x49430	export	1.00
+CreateSlowMotionPoint__18CTSSlowMotionPointG6Vectorfffb	CTSSlowMotionPoint::CreateSlowMotionPoint(Vector, float, float, float, bool)	0x49750	string	0.50
+Spawn__18CTSSlowMotionPoint	CTSSlowMotionPoint::Spawn()	0x49750	string	0.50
+WaitThink__18CTSSlowMotionPoint	CTSSlowMotionPoint::WaitThink()	0x498e0	export	1.00
+CheckForBreakables__8CTSStunt	CTSStunt::CheckForBreakables()	0x69f90	string	1.00
+CloseAttack__8CTSStunt	CTSStunt::CloseAttack()	0x6a740	string	1.00
+GoBulletTime__8CTSStunt	CTSStunt::GoBulletTime()	0x689b0	string?	1.00
+GoDive__8CTSStunt	CTSStunt::GoDive()	0x69480	string	1.00
+GoRoll__8CTSStunti	CTSStunt::GoRoll(int)	0x689b0	string?	1.00
+GoWallClimb__8CTSStunt	CTSStunt::GoWallClimb()	0x68440	string?	1.00
+GoWallJump__8CTSStunt	CTSStunt::GoWallJump()	0x68440	string?	1.00
+GoWheel__8CTSStunt	CTSStunt::GoWheel()	0x68440	string?	1.00
+HandleWallClimb__8CTSStunt	CTSStunt::HandleWallClimb()	0x689b0	string?	1.00
+HandleWallJump__8CTSStunt	CTSStunt::HandleWallJump()	0x689b0	string?	1.00
+HandleWheel__8CTSStunt	CTSStunt::HandleWheel()	0x689b0	string?	1.00
+Landing__8CTSStunt	CTSStunt::Landing()	0x689b0	string?	1.00
+Play__8CTSStunt	CTSStunt::Play()	0x68440	string?	1.00
+KeyValue__13CTSTeamEscapeP14KeyValueData_s	CTSTeamEscape::KeyValue(KeyValueData_s *)	0x5d300	string	1.00
+Restore__13CTSTeamEscapeR8CRestore	CTSTeamEscape::Restore(CRestore &)	0x5d010	string?	0.50
+Save__13CTSTeamEscapeR5CSave	CTSTeamEscape::Save(CSave &)	0x5d010	string?	0.50
+Spawn__13CTSTeamEscape	CTSTeamEscape::Spawn()	0x5d010	string	0.50
+WaitThink__13CTSTeamEscape	CTSTeamEscape::WaitThink()	0x5d300	export	1.00
+WaitTouch__13CTSTeamEscapeP11CBaseEntity	CTSTeamEscape::WaitTouch(CBaseEntity *)	0x5d1a0	export	1.00
+KeyValue__8CTSTimerP14KeyValueData_s	CTSTimer::KeyValue(KeyValueData_s *)	0x1cce0	string?	0.50
+Spawn__8CTSTimer	CTSTimer::Spawn()	0x4ad40	string	0.50
+WaitThink__8CTSTimer	CTSTimer::WaitThink()	0x4ae70	export	1.00
+KeyValue__10CTSTriggerP14KeyValueData_s	CTSTrigger::KeyValue(KeyValueData_s *)	0x48d80	string	0.75
+WaitThink__10CTSTrigger	CTSTrigger::WaitThink()	0x49130	export	1.00
+WaitTouch__10CTSTriggerP11CBaseEntity	CTSTrigger::WaitTouch(CBaseEntity *)	0x48fe0	export	1.00
+KeyValue__11CTSWinGiverP14KeyValueData_s	CTSWinGiver::KeyValue(KeyValueData_s *)	0x5bf70	string	0.80
+Restore__11CTSWinGiverR8CRestore	CTSWinGiver::Restore(CRestore &)	0x5bf00	string?	1.00
+Save__11CTSWinGiverR5CSave	CTSWinGiver::Save(CSave &)	0x5bf00	string?	1.00
+KeyValue__7CTSWindP14KeyValueData_s	CTSWind::KeyValue(KeyValueData_s *)	0x48720	string	1.00
+BounceTouch__11CTSWorldGunP11CBaseEntity	CTSWorldGun::BounceTouch(CBaseEntity *)	0x74470	export	1.00
+CreateWeapon__11CTSWorldGunP11CBasePlayer10tsweapon_tP15s_weapon_status	CTSWorldGun::CreateWeapon(CBasePlayer *, tsweapon_t, s_weapon_status *)	0x741c0	string	1.00
+Fall__11CTSWorldGun	CTSWorldGun::Fall()	0x74760	export	1.00
+ShouldCollide__11CTSWorldGunP11CBaseEntity	CTSWorldGun::ShouldCollide(CBaseEntity *)	0x74b40	string?	1.00
+WaitThink__11CTSWorldGun	CTSWorldGun::WaitThink()	0x749c0	export	1.00
+WaitTouch__11CTSWorldGunP11CBaseEntity	CTSWorldGun::WaitTouch(CBaseEntity *)	0x74b40	export	1.00
+KeyValue__14CTargetCDAudioP14KeyValueData_s	CTargetCDAudio::KeyValue(KeyValueData_s *)	0x41180	string	1.00
+Precache__11CTestEffect	CTestEffect::Precache()	0x1c370	string?	1.00
+TestThink__11CTestEffect	CTestEffect::TestThink()	0x1c390	export	1.00
+FollowTarget__14CTriggerCamera	CTriggerCamera::FollowTarget()	0x43790	export	1.00
+KeyValue__14CTriggerCameraP14KeyValueData_s	CTriggerCamera::KeyValue(KeyValueData_s *)	0x43250	string	0.67
+KeyValue__20CTriggerChangeTargetP14KeyValueData_s	CTriggerChangeTarget::KeyValue(KeyValueData_s *)	0x43110	string	0.50
+Restore__20CTriggerChangeTargetR8CRestore	CTriggerChangeTarget::Restore(CRestore &)	0x43110	string?	0.50
+Save__20CTriggerChangeTargetR5CSave	CTriggerChangeTarget::Save(CSave &)	0x43110	string?	0.50
+EndSectionTouch__18CTriggerEndSectionP11CBaseEntity	CTriggerEndSection::EndSectionTouch(CBaseEntity *)	0x42fe0	export	1.00
+KeyValue__18CTriggerEndSectionP14KeyValueData_s	CTriggerEndSection::KeyValue(KeyValueData_s *)	0x42fe0	string	1.00
+GravityTouch__15CTriggerGravityP11CBaseEntity	CTriggerGravity::GravityTouch(CBaseEntity *)	0x430e0	export	1.00
+RadiationThink__12CTriggerHurt	CTriggerHurt::RadiationThink()	0x413a0	export	1.00
+KeyValue__13CTriggerRelayP14KeyValueData_s	CTriggerRelay::KeyValue(KeyValueData_s *)	0x2a5c0	string?	0.50
+Restore__13CTriggerRelayR8CRestore	CTriggerRelay::Restore(CRestore &)	0x406e0	string?	0.50
+Save__13CTriggerRelayR5CSave	CTriggerRelay::Save(CSave &)	0x406e0	string?	0.50
+SaveTouch__12CTriggerSaveP11CBaseEntity	CTriggerSave::SaveTouch(CBaseEntity *)	0x42ee0	export	1.00
+ClientCommand__13CVoiceGameMgrP11CBasePlayerPCc	CVoiceGameMgr::ClientCommand(CBasePlayer *, const char *)	0x79100	string	0.55
+Init__13CVoiceGameMgrP19IVoiceGameMgrHelperi	CVoiceGameMgr::Init(IVoiceGameMgrHelper *, int)	0x78fc0	string	1.00
+KeyValue__11CWallHealthP14KeyValueData_s	CWallHealth::KeyValue(KeyValueData_s *)	0x28070	string?	0.67
+Off__11CWallHealth	CWallHealth::Off()	0x28500	export	1.00
+Recharge__11CWallHealth	CWallHealth::Recharge()	0x284b0	export	1.00
+GiveAmmo__10CWeaponBoxiPciPi	CWeaponBox::GiveAmmo(int, char *, int, int *)	0x7aac0	string	1.00
+Kill__10CWeaponBox	CWeaponBox::Kill()	0x7a8f0	export	1.00
+PackAmmo__10CWeaponBoxii	CWeaponBox::PackAmmo(int, int)	0x7aa60	string	1.00
+Touch__10CWeaponBoxP11CBaseEntity	CWeaponBox::Touch(CBaseEntity *)	0x61750	string?	1.00
+KeyValue__6CWorldP14KeyValueData_s	CWorld::KeyValue(KeyValueData_s *)	0x7b870	string	0.94
+Precache__6CWorld	CWorld::Precache()	0x7b470	string	0.97
+Spawn__10CWorldItem	CWorldItem::Spawn()	0x28ff0	string	0.83
+Restore__9CWreckageR8CRestore	CWreckage::Restore(CRestore &)	0x27710	string?	1.00
+Save__9CWreckageR5CSave	CWreckage::Save(CSave &)	0x27710	string?	1.00
+Precache__8CXenHair	CXenHair::Precache()	0x7c2e0	string?	1.00
+Spawn__8CXenHair	CXenHair::Spawn()	0x7c2e0	string?	1.00
+CreateHull__8CXenHullP11CBaseEntityRC6VectorN22	CXenHull::CreateHull(CBaseEntity *, const Vector &, const Vector &, const Vector &)	0x7ca70	string	1.00
+Precache__10CXenPLight	CXenPLight::Precache()	0x7bf20	string?	0.67
+Spawn__10CXenPLight	CXenPLight::Spawn()	0x7bf20	string?	0.67
+Precache__8CXenTree	CXenTree::Precache()	0x7c500	string	0.50
+TriggerCreate__15CXenTreeTriggerP7edict_sRC6Vector	CXenTreeTrigger::TriggerCreate(edict_s *, const Vector &)	0x7c440	string	1.00
+ClientCommand__FP7edict_s	ClientCommand(edict_s *)	0xf220	string	0.49
+ClientDisconnect__FP7edict_s	ClientDisconnect(edict_s *)	0xef30	string	0.67
+ClientPrecache__Fv	ClientPrecache()	0x10e90	string	0.91
+CloseCombatAttack__11CBasePlayerG6VectorN21ifibN37	CloseCombatAttack__11CBasePlayerG6VectorN21ifibN37	0x4cec0	string?	1.00
+ColdCockAttack__11CBasePlayerG6VectorN21ifibN37	ColdCockAttack__11CBasePlayerG6VectorN21ifibN37	0x4cec0	string?	1.00
+CounterUse__12CBaseTriggerP11CBaseEntityT18USE_TYPEf	CounterUse__12CBaseTriggerP11CBaseEntityT18USE_TYPEf	0x41bf0	string	1.00
+DelayedUse	DelayedUse	0x3e550	export	1.00
+DispatchRestore__FP7edict_sP13saverestore_si	DispatchRestore(edict_s *, saverestore_s *, int)	0xde10	string	0.50
+DispatchSave__FP7edict_sP13saverestore_s	DispatchSave(edict_s *, saverestore_s *)	0xdbf0	string	0.50
+DispatchThink__FP7edict_s	DispatchThink(edict_s *)	0xdbf0	string	0.50
+DoSpark__FP9entvars_sRC6Vector	DoSpark(entvars_s *, const Vector &)	0xbf20	string?	1.00
+EMIT_GROUPID_SUIT__FP7edict_si	EMIT_GROUPID_SUIT(edict_s *, int)	0x3cb90	string?	1.00
+EMIT_GROUPNAME_SUIT__FP7edict_sPCc	EMIT_GROUPNAME_SUIT(edict_s *, const char *)	0x3cb90	string?	1.00
+EMIT_SOUND_DYN__FP7edict_siPCcffiif	EMIT_SOUND_DYN(edict_s *, int, const char *, float, float, int, int, float)	0x3cab0	string	1.00
+EMIT_SOUND_SUIT__FP7edict_sPCc	EMIT_SOUND_SUIT(edict_s *, const char *)	0x3cb90	string?	1.00
+EntSelectSpawnPoint__FP11CBaseEntity	EntSelectSpawnPoint(CBaseEntity *)	0x4c380	string	1.00
+EntvarsKeyvalue__FP9entvars_sP14KeyValueData_s	EntvarsKeyvalue(entvars_s *, KeyValueData_s *)	0x783c0	string	1.00
+ExplosionCreate__FRC6VectorT0P7edict_sii	ExplosionCreate(const Vector &, const Vector &, edict_s *, int, int)	0x1e460	string	1.00
+FindGlobalEntity__Fii	FindGlobalEntity(int, int)	0xde10	string	0.50
+FireTargets__FPCcP11CBaseEntityT18USE_TYPEf	FireTargets__FPCcP11CBaseEntityT18USE_TYPEf	0x3e4a0	string	1.00
+GameDLLInit__Fv	GameDLLInit()	0x25e80	string	0.48
+GetEntityAPI2	GetEntityAPI2	0xd950	export	1.00
+GetGameDescription__10CGameRules	GetGameDescription__10CGameRules	0x3ad10	string	1.00
+GetNewDLLFunctions	GetNewDLLFunctions	0xd990	export	1.00
+InformClientsOnWeaponsParams__FP11CBaseEntity	InformClientsOnWeaponsParams(CBaseEntity *)	0x72c00	string	1.00
+InstallGameRules__Fv	InstallGameRules()	0x26ae0	string	0.50
+IsPointEntity__FP11CBaseEntity	IsPointEntity(CBaseEntity *)	0x19c80	string	1.00
+MyTouch__12CItemBatteryP11CBasePlayer	MyTouch__12CItemBatteryP11CBasePlayer	0x29530	string	0.67
+MyTouch__13CItemAntidoteP11CBasePlayer	MyTouch__13CItemAntidoteP11CBasePlayer	0x29700	string	0.50
+MyTouch__9CItemSuitP11CBasePlayer	MyTouch__9CItemSuitP11CBasePlayer	0x29430	string	0.67
+NextLevel__Fv	NextLevel()	0x426e0	string	0.50
+PM_AddToTouched	PM_AddToTouched	0x37580	string	1.00
+PM_CheckFalling	PM_CheckFalling	0x3a030	string	1.00
+PM_CheckVelocity	PM_CheckVelocity	0x37620	string	1.00
+PM_InitTextureTypes	PM_InitTextureTypes	0x36630	string?	1.00
+PM_Jump	PM_Jump	0x3a1e0	string?	1.00
+PM_PlayStepSound	PM_PlayStepSound	0x36930	string	0.89
+PM_PlayWaterSounds	PM_PlayWaterSounds	0x3a1e0	string?	1.00
+PM_PlayerMove	PM_PlayerMove	0x3a4e0	string	1.00
+PlayCDTrack__Fi	PlayCDTrack(int)	0x410d0	string	1.00
+PlayerAddPowerUp__FP11CBasePlayeriP10CTSPowerUp	PlayerAddPowerUp(CBasePlayer *, int, CTSPowerUp *)	0x61750	string?	1.00
+PlayerIsCheating__FP11CBasePlayerPc	PlayerIsCheating(CBasePlayer *, char *)	0x73aa0	string	1.00
+Precache__12CItemBattery	Precache__12CItemBattery	0x29530	string	0.67
+Precache__13CItemAntidote	Precache__13CItemAntidote	0x29700	string?	0.50
+Precache__13CItemSecurity	Precache__13CItemSecurity	0x297c0	string?	0.50
+ReloadMapCycleFile__FPcP10mapcycle_s	ReloadMapCycleFile(char *, mapcycle_s *)	0x2c8a0	string	1.00
+SENTENCEG_Init__Fv	SENTENCEG_Init()	0x3c6e0	string	1.00
+SENTENCEG_PlayRndSz__FP7edict_sPCcffii	SENTENCEG_PlayRndSz(edict_s *, const char *, float, float, int, int)	0x3c5b0	string	1.00
+SV_StudioSetupBones__FP7model_sfiPCfT3PCUcT5iPC7edict_s	SV_StudioSetupBones(model_s *, float, int, const float *, const float *, const unsigned char *, const unsigned char *, int, const edict_s *)	0x8850	string	1.00
+SendWeaponParams__F10tsweapon_tP11CBaseEntity	SendWeaponParams(tsweapon_t, CBaseEntity *)	0x72c60	string	1.00
+Spawn__13CItemAntidote	Spawn__13CItemAntidote	0x29700	string?	0.50
+Spawn__13CItemSecurity	Spawn__13CItemSecurity	0x297c0	string?	0.50
+TEXTURETYPE_LoadMapMaterials__Fv	TEXTURETYPE_LoadMapMaterials()	0x3cee0	string	1.00
+TEXTURETYPE_LoadStandardMaterials__Fv	TEXTURETYPE_LoadStandardMaterials()	0x36630	string?	1.00
+TEXTURETYPE_PlaySound__FP11TraceResultG6VectorT1i	TEXTURETYPE_PlaySound(TraceResult *, Vector, Vector, int)	0x3d170	string	0.97
+TSAmmoPack	TSAmmoPack	0x74c20	export	1.00
+TSCreateDeadCorpse__FP11CBasePlayerf	TSCreateDeadCorpse(CBasePlayer *, float)	0x483e0	string	1.00
+TSExplosion__FG6VectorP9entvars_sT1fiff	TSExplosion(Vector, entvars_s *, entvars_s *, float, int, float, float)	0x4a7d0	string?	1.00
+TSGetPointsForFrag__FP11CBasePlayerP9entvars_sT1iPbT4	TSGetPointsForFrag(CBasePlayer *, entvars_s *, entvars_s *, int, bool *, bool *)	0x59880	string	1.00
+TSPrecache__Fv	TSPrecache()	0x73340	string	1.00
+TSSelectSpawnSpot__FPCcP11CBaseEntityT0	TSSelectSpawnSpot(const char *, CBaseEntity *, const char *)	0x4c4a0	string	1.00
+UTIL_FindEntityByClassname__FP11CBaseEntityPCc	UTIL_FindEntityByClassname(CBaseEntity *, const char *)	0x764b0	string	1.00
+UTIL_FindEntityByTargetname__FP11CBaseEntityPCc	UTIL_FindEntityByTargetname(CBaseEntity *, const char *)	0xcf50	string?	1.00
+UTIL_IsMasterTriggered__FiP11CBaseEntity	UTIL_IsMasterTriggered(int, CBaseEntity *)	0x77280	string	1.00
+UTIL_PrecacheOther__FPCc	UTIL_PrecacheOther(const char *)	0x77df0	string	1.00
+UTIL_PrecacheOtherWeapon__FPCc	UTIL_PrecacheOtherWeapon(const char *)	0x798d0	string	1.00
+UTIL_ShouldShowBlood__Fi	UTIL_ShouldShowBlood(int)	0x77300	string	1.00
+Use__12CEnvBeverageP11CBaseEntityT18USE_TYPEf	Use__12CEnvBeverageP11CBaseEntityT18USE_TYPEf	0x1d390	string	1.00
+Use__13CCyclerSpriteP11CBaseEntityT18USE_TYPEf	Use__13CCyclerSpriteP11CBaseEntityT18USE_TYPEf	0x274c0	string	0.50
+Use__13CEnvExplosionP11CBaseEntityT18USE_TYPEf	Use__13CEnvExplosionP11CBaseEntityT18USE_TYPEf	0x1dfd0	string	0.50
+Use__14CFuncTrackAutoP11CBaseEntityT18USE_TYPEf	Use__14CFuncTrackAutoP11CBaseEntityT18USE_TYPEf	0x32030	string?	1.00
+Use__14CTriggerCameraP11CBaseEntityT18USE_TYPEf	Use__14CTriggerCameraP11CBaseEntityT18USE_TYPEf	0xcf50	string?	1.00
+Use__15CFuncTrackTrainP11CBaseEntityT18USE_TYPEf	Use__15CFuncTrackTrainP11CBaseEntityT18USE_TYPEf	0x2fc70	string	0.50
+Use__16CFuncTrackChangeP11CBaseEntityT18USE_TYPEf	Use__16CFuncTrackChangeP11CBaseEntityT18USE_TYPEf	0x31d50	string?	1.00
+Use__16CRenderFxManagerP11CBaseEntityT18USE_TYPEf	Use__16CRenderFxManagerP11CBaseEntityT18USE_TYPEf	0xcf50	string?	1.00
+Use__19CTSObjectivePointerP11CBaseEntityT18USE_TYPEf	Use__19CTSObjectivePointerP11CBaseEntityT18USE_TYPEf	0xcf50	string?	1.00
+Use__20CTriggerChangeTargetP11CBaseEntityT18USE_TYPEf	Use__20CTriggerChangeTargetP11CBaseEntityT18USE_TYPEf	0xcf50	string?	1.00
+Use__7CTSHackP11CBaseEntityT18USE_TYPEf	Use__7CTSHackP11CBaseEntityT18USE_TYPEf	0x5cd10	string	0.75
+Use__9CRechargeP11CBaseEntityT18USE_TYPEf	Use__9CRechargeP11CBaseEntityT18USE_TYPEf	0x26d00	string	1.00
+VictimKatanaHold__FP11CBasePlayerP11CBaseEntityf	VictimKatanaHold(CBasePlayer *, CBaseEntity *, float)	0x4cc30	string?	1.00
+VictimKnifeHold__FP11CBasePlayerP11CBaseEntityf	VictimKnifeHold(CBasePlayer *, CBaseEntity *, float)	0x4cc30	string?	1.00
+VictimKungfuHold__FP11CBasePlayerP11CBaseEntityfP11TraceResult	VictimKungfuHold(CBasePlayer *, CBaseEntity *, float, TraceResult *)	0x4cec0	string?	1.00
+W_Precache__Fv	W_Precache()	0x799c0	string	0.97
+adjust_weapon_value__FPc	adjust_weapon_value(char *)	0x72d50	string	1.00
+ammo_9mmAR	ammo_9mmAR	0x286b0	export	1.00
+ammo_ARgrenades	ammo_ARgrenades	0x286e0	export	1.00
+ammo_buckshot	ammo_buckshot	0x28650	export	1.00
+ammo_gaussclip	ammo_gaussclip	0x28670	export	1.00
+ammo_rpgclip	ammo_rpgclip	0x28690	export	1.00
+beam	beam	0x19000	export	1.00
+bodyque	bodyque	0x7b010	export	1.00
+button_target	button_target	0xd530	export	1.00
+compile_ammo_info__Fv	compile_ammo_info()	0x53220	string	1.00
+cycler	cycler	0x270f0	export	1.00
+cycler_prdroid	cycler_prdroid	0x27100	export	1.00
+cycler_sprite	cycler_sprite	0x274c0	export	1.00
+cycler_weapon	cycler_weapon	0x27710	export	1.00
+cycler_wreckage	cycler_wreckage	0x279b0	export	1.00
+env_beam	env_beam	0x195d0	export	1.00
+env_beverage	env_beverage	0x1d390	export	1.00
+env_blood	env_blood	0x1c680	export	1.00
+env_bubbles	env_bubbles	0x18c30	export	1.00
+env_debris	env_debris	0xd1e0	export	1.00
+env_explosion	env_explosion	0x1dfd0	export	1.00
+env_fade	env_fade	0x1cce0	export	1.00
+env_funnel	env_funnel	0x1d2a0	export	1.00
+env_global	env_global	0xae80	export	1.00
+env_glow	env_glow	0x1b2f0	export	1.00
+env_laser	env_laser	0x1ac10	export	1.00
+env_lightning	env_lightning	0x195d0	export	1.00
+env_message	env_message	0x1cf80	export	1.00
+env_render	env_render	0x40c40	export	1.00
+env_shake	env_shake	0x1cad0	export	1.00
+env_shooter	env_shooter	0x1c100	export	1.00
+env_sound	env_sound	0x3bdc0	export	1.00
+env_spark	env_spark	0xd1e0	export	1.00
+env_sprite	env_sprite	0x1b4e0	export	1.00
+fireanddie	fireanddie	0x41de0	export	1.00
+func_breakable	func_breakable	0x1e990	export	1.00
+func_button	func_button	0xbba0	export	1.00
+func_conveyor	func_conveyor	0x8ff0	export	1.00
+func_door	func_door	0x160d0	export	1.00
+func_door_rotating	func_door_rotating	0x17eb0	export	1.00
+func_guntarget	func_guntarget	0x32230	export	1.00
+func_healthcharger	func_healthcharger	0x28070	export	1.00
+func_illusionary	func_illusionary	0x9130	export	1.00
+func_ladder	func_ladder	0x42990	export	1.00
+func_monsterclip	func_monsterclip	0x9220	export	1.00
+func_pendulum	func_pendulum	0xa090	export	1.00
+func_plat	func_plat	0x2e370	export	1.00
+func_platrot	func_platrot	0x2ec90	export	1.00
+func_pushable	func_pushable	0x1f900	export	1.00
+func_recharge	func_recharge	0x26d00	export	1.00
+func_rot_button	func_rot_button	0xc700	export	1.00
+func_rotating	func_rotating	0x92d0	export	1.00
+func_tank	func_tank	0x22070	export	1.00
+func_tankcontrols	func_tankcontrols	0x22760	export	1.00
+func_tanklaser	func_tanklaser	0x221b0	export	1.00
+func_tankmortar	func_tankmortar	0x22600	export	1.00
+func_tankrocket	func_tankrocket	0x22540	export	1.00
+func_trackautochange	func_trackautochange	0x32030	export	1.00
+func_trackchange	func_trackchange	0x31470	export	1.00
+func_tracktrain	func_tracktrain	0x2fa40	export	1.00
+func_train	func_train	0x2f010	export	1.00
+func_traincontrols	func_traincontrols	0x312f0	export	1.00
+func_wall	func_wall	0x8e30	export	1.00
+func_wall_toggle	func_wall_toggle	0x8f00	export	1.00
+func_water	func_water	0x160d0	export	1.00
+game_counter	game_counter	0x2ac30	export	1.00
+game_counter_set	game_counter_set	0x2ad50	export	1.00
+game_end	game_end	0x2a0f0	export	1.00
+game_player_equip	game_player_equip	0x2ada0	export	1.00
+game_player_hurt	game_player_hurt	0x2ab90	export	1.00
+game_player_team	game_player_team	0x2af00	export	1.00
+game_score	game_score	0x29fe0	export	1.00
+game_team_master	game_team_master	0x2a5c0	export	1.00
+game_team_set	game_team_set	0x2a7e0	export	1.00
+game_text	game_text	0x2a120	export	1.00
+game_zone_player	game_zone_player	0x2a840	export	1.00
+gibshooter	gibshooter	0x1ba40	export	1.00
+info_breakable	info_breakable	0x4c140	export	1.00
+info_intermission	info_intermission	0x360a0	export	1.00
+info_landmark	info_landmark	0x18c20	export	1.00
+info_null	info_null	0x3e1a0	export	1.00
+info_player_deathmatch	info_player_deathmatch	0x3e1b0	export	1.00
+info_player_start	info_player_start	0x3e1b0	export	1.00
+info_player_team1	info_player_team1	0x3e1b0	export	1.00
+info_player_team2	info_player_team2	0x3e1b0	export	1.00
+info_player_team3	info_player_team3	0x3e1b0	export	1.00
+info_player_team4	info_player_team4	0x3e1b0	export	1.00
+info_target	info_target	0x18c20	export	1.00
+info_teleport_destination	info_teleport_destination	0x18c20	export	1.00
+infodecal	infodecal	0x7acc0	export	1.00
+item_antidote	item_antidote	0x293c0	export	1.00
+item_battery	item_battery	0x293b0	export	1.00
+item_healthkit	item_healthkit	0x27ed0	export	1.00
+item_longjump	item_longjump	0x28710	export	1.00
+item_security	item_security	0x293d0	export	1.00
+item_sodacan	item_sodacan	0x1d4a0	export	1.00
+item_suit	item_suit	0x293a0	export	1.00
+knife	knife	0x51c40	export	1.00
+light	light	0x29b20	export	1.00
+light_environment	light_environment	0x29b30	export	1.00
+light_spot	light_spot	0x29b20	export	1.00
+m61_grenade	m61_grenade	0x50dd0	export	1.00
+momentary_door	momentary_door	0x183e0	export	1.00
+momentary_rot_button	momentary_rot_button	0xc990	export	1.00
+monster_hevsuit_dead	monster_hevsuit_dead	0x35ad0	export	1.00
+multi_manager	multi_manager	0x40820	export	1.00
+multisource	multisource	0xb0e0	export	1.00
+path_corner	path_corner	0x2d1f0	export	1.00
+path_track	path_track	0x2d330	export	1.00
+player	player	0x32f20	export	1.00
+player_loadsaved	player_loadsaved	0x35c30	export	1.00
+player_weaponstrip	player_weaponstrip	0x35bc0	export	1.00
+respawn__FP9entvars_si	respawn(entvars_s *, int)	0xf110	string?	1.00
+save_weapon_value__FPc	save_weapon_value(char *)	0x730b0	string	1.00
+set_suicide_frame__FP9entvars_s	set_suicide_frame(entvars_s *)	0x35ad0	string	0.50
+shrapnel	shrapnel	0x50610	export	1.00
+soundent	soundent	0x3dbb0	export	1.00
+spark_shower	spark_shower	0x1dc70	export	1.00
+speaker	speaker	0x3d6a0	export	1.00
+target_cdaudio	target_cdaudio	0x41180	export	1.00
+test_effect	test_effect	0x1c370	export	1.00
+trigger	trigger	0x40d30	export	1.00
+trigger_auto	trigger_auto	0x40510	export	1.00
+trigger_autosave	trigger_autosave	0x42e90	export	1.00
+trigger_camera	trigger_camera	0x43250	export	1.00
+trigger_cdaudio	trigger_cdaudio	0x41080	export	1.00
+trigger_changelevel	trigger_changelevel	0x41e50	export	1.00
+trigger_changetarget	trigger_changetarget	0x43110	export	1.00
+trigger_counter	trigger_counter	0x41d30	export	1.00
+trigger_endsection	trigger_endsection	0x42f30	export	1.00
+trigger_gravity	trigger_gravity	0x430b0	export	1.00
+trigger_hurt	trigger_hurt	0x40f10	export	1.00
+trigger_monsterjump	trigger_monsterjump	0x40f20	export	1.00
+trigger_multiple	trigger_multiple	0x418f0	export	1.00
+trigger_once	trigger_once	0x41930	export	1.00
+trigger_push	trigger_push	0x42a60	export	1.00
+trigger_relay	trigger_relay	0x406e0	export	1.00
+trigger_teleport	trigger_teleport	0x42e60	export	1.00
+trigger_transition	trigger_transition	0x41d70	export	1.00
+ts_bomb	ts_bomb	0x5c420	export	1.00
+ts_briefcase	ts_briefcase	0x5d3b0	export	1.00
+ts_customtarget	ts_customtarget	0x4af10	export	1.00
+ts_dmhill	ts_dmhill	0x49a80	export	1.00
+ts_emitter	ts_emitter	0x486f0	export	1.00
+ts_flag	ts_flag	0x71ff0	export	1.00
+ts_fog	ts_fog	0x48720	export	1.00
+ts_groundammo	ts_groundammo	0x75c10	export	1.00
+ts_groundweapon	ts_groundweapon	0x75050	export	1.00
+ts_hack	ts_hack	0x5cb10	export	1.00
+ts_mapglobals	ts_mapglobals	0x4a510	export	1.00
+ts_model	ts_model	0x4a3b0	export	1.00
+ts_objective_manager	ts_objective_manager	0x5b590	export	1.00
+ts_objective_ptr	ts_objective_ptr	0x5bbf0	export	1.00
+ts_particle	ts_particle	0x48700	export	1.00
+ts_playeramount	ts_playeramount	0x4a960	export	1.00
+ts_powerup	ts_powerup	0x66710	export	1.00
+ts_scoregiver	ts_scoregiver	0x5c1d0	export	1.00
+ts_sellzone	ts_sellzone	0x4a6a0	export	1.00
+ts_slowmotion	ts_slowmotion	0x49180	export	1.00
+ts_slowmotionpoint	ts_slowmotionpoint	0x49740	export	1.00
+ts_teamescape	ts_teamescape	0x5d010	export	1.00
+ts_timer	ts_timer	0x4ad40	export	1.00
+ts_trigger	ts_trigger	0x48d80	export	1.00
+ts_wind	ts_wind	0x48710	export	1.00
+ts_wingiver	ts_wingiver	0x5bf00	export	1.00
+weapon_9MMAR	weapon_9MMAR	0x286c0	export	1.00
+weapon_crossbow	weapon_crossbow	0x28640	export	1.00
+weapon_egon	weapon_egon	0x28680	export	1.00
+weapon_gauss	weapon_gauss	0x28680	export	1.00
+weapon_handgrenade	weapon_handgrenade	0x28700	export	1.00
+weapon_hornetgun	weapon_hornetgun	0x286d0	export	1.00
+weapon_rpg	weapon_rpg	0x286a0	export	1.00
+weapon_satchel	weapon_satchel	0x286e0	export	1.00
+weapon_shotgun	weapon_shotgun	0x28660	export	1.00
+weapon_snark	weapon_snark	0x286f0	export	1.00
+weapon_tsgun	weapon_tsgun	0x54100	export	1.00
+weaponbox	weaponbox	0x7a7b0	export	1.00
+world_items	world_items	0x28ff0	export	1.00
+worldspawn	worldspawn	0x7b470	export	1.00
+xen_hair	xen_hair	0x7c2e0	export	1.00
+xen_hull	xen_hull	0x7cba0	export	1.00
+xen_plantlight	xen_plantlight	0x7bf20	export	1.00
+xen_spore_large	xen_spore_large	0x7cb90	export	1.00
+xen_spore_medium	xen_spore_medium	0x7cb80	export	1.00
+xen_spore_small	xen_spore_small	0x7cb70	export	1.00
+xen_tree	xen_tree	0x7c500	export	1.00
+xen_ttrigger	xen_ttrigger	0x7c430	export	1.00

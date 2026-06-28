@@ -22,7 +22,7 @@ public class DecompRefs extends GhidraScript {
             while (it.hasNext()) {
                 Function f = getFunctionContaining(it.next().getFromAddress());
                 if (f == null || !seen.add(f.getEntryPoint())) continue;
-                DecompileResults res = di.decompileFunction(f, 60, monitor);
+                DecompileResults res = di.decompileFunction(f, 900, monitor);
                 if (res != null && res.decompileCompleted()) {
                     println("// ===== " + f.getName() + " @ " + f.getEntryPoint() + " size=" + f.getBody().getNumAddresses() + " =====");
                     println(res.getDecompiledFunction().getC());

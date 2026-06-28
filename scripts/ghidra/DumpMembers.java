@@ -33,6 +33,11 @@ public class DumpMembers extends GhidraScript {
         Map<String, Map<Integer, Map<String, Integer>>> fields = new TreeMap<>();
         Pattern CAST = Pattern.compile("\\*\\(([\\w ]+?) \\*\\)&this->field_0x([0-9a-fA-F]+)");
         Pattern BARE = Pattern.compile("this->field_0x([0-9a-fA-F]+)");
+        // OPAQUE-`this` forms: when the class has no struct (named() pointer), accesses render as
+        // `*(type *)(this + 0xNN)` / `(this + 0xNN)` instead of `this->field_0xNN`. Parsing these lets us
+        // recover members for classes WITHOUT a struct (CTSStunt/CTSGameRules) — no giant padded struct needed.
+        Pattern OCAST = Pattern.compile("\\*\\(([\\w ]+?) \\*\\)\\(this \\+ (0x[0-9a-fA-F]+)\\)");
+        Pattern OBARE = Pattern.compile("\\(this \\+ (0x[0-9a-fA-F]+)\\)");
 
         int methods = 0;
         for (Function f : currentProgram.getFunctionManager().getFunctions(true)) {
@@ -41,15 +46,22 @@ public class DumpMembers extends GhidraScript {
             if (p0 == null || !"this".equals(p0.getName()) || !(p0.getDataType() instanceof Pointer)) continue;
             String cls = ((Pointer) p0.getDataType()).getDataType().getName();
             if (cls.endsWith("_vtbl")) continue;
-            DecompileResults r = dec.decompileFunction(f, 25, monitor);
+            // No time budget — completeness over speed. The padded class structs (0x8000) slow the
+            // decompiler, so a 25s cap silently dropped the bigger methods (CBaseAnimating etc.) and the
+            // member inventory came back partial. 900s/fn means nothing real ever times out.
+            DecompileResults r = dec.decompileFunction(f, 900, monitor);
             if (r == null || !r.decompileCompleted() || r.getDecompiledFunction() == null) continue;
             methods++;
             String c = r.getDecompiledFunction().getC();
             Map<Integer, String> typed = new HashMap<>();
             Matcher m = CAST.matcher(c);
             while (m.find()) typed.put(Integer.parseInt(m.group(2), 16), m.group(1).trim());   // *(float*)&this->field_0xNN
+            m = OCAST.matcher(c);
+            while (m.find()) typed.putIfAbsent(Integer.parseInt(m.group(2).substring(2), 16), m.group(1).trim()); // *(t*)(this + 0xNN)
             m = BARE.matcher(c);
             while (m.find()) { int off = Integer.parseInt(m.group(1), 16); typed.putIfAbsent(off, "undefined4"); }
+            m = OBARE.matcher(c);
+            while (m.find()) typed.putIfAbsent(Integer.parseInt(m.group(1).substring(2), 16), "undefined4"); // (this + 0xNN)
             for (Map.Entry<Integer, String> e : typed.entrySet())
                 fields.computeIfAbsent(cls, k -> new TreeMap<>())
                       .computeIfAbsent(e.getKey(), k -> new HashMap<>())

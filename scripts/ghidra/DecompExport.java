@@ -85,7 +85,7 @@ public class DecompExport extends GhidraScript {
             if (filter != null && !name.contains(filter)) continue;
             matched++;
 
-            DecompileResults res = ifc.decompileFunction(f, 90, monitor);
+            DecompileResults res = ifc.decompileFunction(f, 900, monitor);
             if (res == null || !res.decompileCompleted()) {
                 failed++;
                 println("  decompile failed: " + name);
