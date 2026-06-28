@@ -35131,11 +35131,10 @@
     "CFuncPlat": {
      "ts_specific": true,
      "category": "extended",
-     "base": "CBasePlatTrain",
+     "base": "CBaseAnimating",
      "ancestry": [
       "CFuncPlat",
-      "CBasePlatTrain",
-      "CBaseToggle",
+      "CBaseAnimating",
       "CBaseEntity"
      ],
      "members": [
@@ -35430,11 +35429,10 @@
     "CFuncPlatRot": {
      "ts_specific": false,
      "category": "stock",
-     "base": "CBasePlatTrain",
+     "base": "CBaseAnimating",
      "ancestry": [
       "CFuncPlatRot",
-      "CBasePlatTrain",
-      "CBaseToggle",
+      "CBaseAnimating",
       "CBaseEntity"
      ],
      "members": [
@@ -35655,8 +35653,7 @@
      "ancestry": [
       "CFuncTrackAuto",
       "CFuncPlat",
-      "CBasePlatTrain",
-      "CBaseToggle",
+      "CBaseAnimating",
       "CBaseEntity"
      ],
      "members": [],
@@ -35774,8 +35771,7 @@
      "ancestry": [
       "CFuncTrackChange",
       "CFuncPlat",
-      "CBasePlatTrain",
-      "CBaseToggle",
+      "CBaseAnimating",
       "CBaseEntity"
      ],
      "members": [
@@ -54964,6 +54960,33 @@
    "CountdownTimer"
   ],
   "trimmed_methods": {
+   "CBaseToggle": [
+    "IsAllowedToSpeak",
+    "MyTogglePointer",
+    "PlayScriptedSentence",
+    "PlaySentence",
+    "PlaySentenceCore",
+    "SentenceStop"
+   ],
+   "CPathTrack": [
+    "Sparkle"
+   ],
+   "CVoiceGameMgr": [
+    "PlayerHasBlockedPlayer"
+   ],
+   "CGenericCycler": [
+    "GenericCyclerSpawn",
+    "Vector"
+   ],
+   "CCycler": [
+    "IsAllowedToSpeak"
+   ],
+   "CChangeLevel": [
+    "TriggerChangeLevel"
+   ],
+   "CGlobalState": [
+    "EntityInTable"
+   ],
    "CGraph": [
     "BuildLinkLookups",
     "BuildRegionTables",
@@ -54993,24 +55016,6 @@
     "SourceNode",
     "TestRoutingTables"
    ],
-   "CBaseEntity": [
-    "BlockedSet",
-    "FStrEq",
-    "FunctionCheck",
-    "MyTogglePointer",
-    "ThinkSet",
-    "TouchSet",
-    "UseSet"
-   ],
-   "CRuleBrushEntity": [
-    "ObjectCaps"
-   ],
-   "CFuncIllusionary": [
-    "SloshTouch"
-   ],
-   "CHalfLifeMultiplay": [
-    "FAllowFlashlight"
-   ],
    "CFuncTrackTrain": [
     "Nearest"
    ],
@@ -55020,39 +55025,30 @@
     "RotSpawn",
     "SparkSoundCache"
    ],
-   "CChangeLevel": [
-    "TriggerChangeLevel"
-   ],
-   "CBasePlayerItem": [
-    "CanAddToPlayer",
-    "DecrementTimers",
-    "GetWeaponData",
-    "SetWeaponData"
-   ],
-   "CBreakable": [
-    "SparkWhenHit"
-   ],
-   "CVoiceGameMgr": [
-    "PlayerHasBlockedPlayer"
+   "CBaseEntity": [
+    "BlockedSet",
+    "FStrEq",
+    "FunctionCheck",
+    "MyTogglePointer",
+    "ThinkSet",
+    "TouchSet",
+    "UseSet"
    ],
    "CMomentaryDoor": [
     "DoorMoveDone",
     "StopMoveSound"
    ],
-   "CGenericCycler": [
-    "GenericCyclerSpawn",
-    "Vector"
+   "CPushable": [
+    "DamageDecal",
+    "StopSound"
    ],
-   "CHalfLifeRules": [
-    "FAllowFlashlight"
+   "CRestore": [
+    "Empty",
+    "PrecacheMode",
+    "SetGlobalMode"
    ],
-   "CBaseToggle": [
-    "IsAllowedToSpeak",
-    "MyTogglePointer",
-    "PlayScriptedSentence",
-    "PlaySentence",
-    "PlaySentenceCore",
-    "SentenceStop"
+   "CFuncIllusionary": [
+    "SloshTouch"
    ],
    "CBasePlayer": [
     "Center",
@@ -55075,74 +55071,17 @@
     "SetWeaponBit",
     "UpdateStatusBar"
    ],
-   "CPushable": [
-    "DamageDecal",
-    "StopSound"
+   "CRuleBrushEntity": [
+    "ObjectCaps"
    ],
-   "CGlobalState": [
-    "EntityInTable"
+   "CBasePlayerItem": [
+    "CanAddToPlayer",
+    "DecrementTimers",
+    "GetWeaponData",
+    "SetWeaponData"
    ],
-   "CSaveRestoreBuffer": [
-    "EntityFlags",
-    "GetData",
-    "IsValidSaveRestoreData"
-   ],
-   "CGamePlayerEquip": [
-    "Restore",
-    "Save"
-   ],
-   "CPathTrack": [
-    "Sparkle"
-   ],
-   "CRestore": [
-    "Empty",
-    "PrecacheMode",
-    "SetGlobalMode"
-   ],
-   "CGameRules": [
-    "AmmoShouldRespawn",
-    "CanHaveItem",
-    "ClientConnected",
-    "ClientDisconnected",
-    "DeadPlayerAmmo",
-    "DeadPlayerWeapons",
-    "DeathNotice",
-    "FAllowFlashlight",
-    "FAllowMonsters",
-    "FPlayerCanRespawn",
-    "FShouldSwitchWeapon",
-    "FindNextBestWeapon",
-    "FlAmmoRespawnTime",
-    "FlHealthChargerRechargeTime",
-    "FlItemRespawnTime",
-    "FlPlayerFallDamage",
-    "FlPlayerSpawnTime",
-    "FlWeaponRespawnTime",
-    "FlWeaponTryRespawn",
-    "GetNextBestWeapon",
-    "GetTeamID",
-    "IPointsForKill",
-    "InitHUD",
-    "IsAllowedToSpawn",
-    "IsCoOp",
-    "IsDeathmatch",
-    "IsMultiplayer",
-    "ItemShouldRespawn",
-    "PlayerGotAmmo",
-    "PlayerGotItem",
-    "PlayerGotWeapon",
-    "PlayerKilled",
-    "PlayerRelationship",
-    "PlayerSpawn",
-    "PlayerThink",
-    "Think",
-    "VecAmmoRespawnSpot",
-    "VecItemRespawnSpot",
-    "VecWeaponRespawnSpot",
-    "WeaponShouldRespawn"
-   ],
-   "CCycler": [
-    "IsAllowedToSpeak"
+   "CHalfLifeMultiplay": [
+    "FAllowFlashlight"
    ],
    "CBasePlayerWeapon": [
     "CallDoRetireWeapon",
@@ -55268,6 +55207,63 @@
     "TaskIsRunning",
     "UpdateTarget",
     "VecToYaw"
+   ],
+   "CBreakable": [
+    "SparkWhenHit"
+   ],
+   "CSaveRestoreBuffer": [
+    "EntityFlags",
+    "GetData",
+    "IsValidSaveRestoreData"
+   ],
+   "CHalfLifeRules": [
+    "FAllowFlashlight"
+   ],
+   "CGameRules": [
+    "AmmoShouldRespawn",
+    "CanHaveItem",
+    "ClientConnected",
+    "ClientDisconnected",
+    "DeadPlayerAmmo",
+    "DeadPlayerWeapons",
+    "DeathNotice",
+    "FAllowFlashlight",
+    "FAllowMonsters",
+    "FPlayerCanRespawn",
+    "FShouldSwitchWeapon",
+    "FindNextBestWeapon",
+    "FlAmmoRespawnTime",
+    "FlHealthChargerRechargeTime",
+    "FlItemRespawnTime",
+    "FlPlayerFallDamage",
+    "FlPlayerSpawnTime",
+    "FlWeaponRespawnTime",
+    "FlWeaponTryRespawn",
+    "GetNextBestWeapon",
+    "GetTeamID",
+    "IPointsForKill",
+    "InitHUD",
+    "IsAllowedToSpawn",
+    "IsCoOp",
+    "IsDeathmatch",
+    "IsMultiplayer",
+    "ItemShouldRespawn",
+    "PlayerGotAmmo",
+    "PlayerGotItem",
+    "PlayerGotWeapon",
+    "PlayerKilled",
+    "PlayerRelationship",
+    "PlayerSpawn",
+    "PlayerThink",
+    "Think",
+    "VecAmmoRespawnSpot",
+    "VecItemRespawnSpot",
+    "VecWeaponRespawnSpot",
+    "WeaponShouldRespawn"
+   ],
+   "CGamePlayerEquip": [
+    "Restore",
+    "Save"
    ]
   }
  },

@@ -18,8 +18,8 @@ CDeadHEV	CBaseAnimating
 CEnvExplosion	CBaseAnimating
 CEnvShooter	CBaseEntity
 CFuncIllusionary	CBaseEntity
-CFuncPlat	CBasePlatTrain
-CFuncPlatRot	CBasePlatTrain
+CFuncPlat	CBaseAnimating
+CFuncPlatRot	CBaseAnimating
 CFuncTank	CBaseEntity
 CFuncTankGun	CBaseEntity
 CFuncTankLaser	CBaseEntity

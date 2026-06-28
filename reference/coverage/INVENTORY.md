@@ -689,7 +689,7 @@ members: `int m_Material`(+0x78), `int m_Explosion`(+0x7c), `float m_angle`(+0x8
 
 ## plats.cpp
 
-### `class CFuncPlat : public CBasePlatTrain` — 0/3 fns · 2 members · ours: dlls/plats.cpp
+### `class CFuncPlat : public CBaseAnimating` — 0/3 fns · 2 members · ours: dlls/plats.cpp
 
 - ✗ `? Save(CSave &)`
 - ✗ `? Restore(CRestore &)`

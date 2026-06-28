@@ -90,16 +90,24 @@ public class DumpMembers extends GhidraScript {
                 for (Map.Entry<Integer, Map<String, Integer>> oe : ce.getValue().entrySet()) {
                     int off = oe.getKey();
                     if (saved.contains(cls + "@0x" + Integer.toHexString(off))) continue;   // already named
-                    // pick the most-specific, most-frequent type
-                    String best = "undefined4"; int bc = -1;
-                    for (Map.Entry<String, Integer> te : oe.getValue().entrySet()) {
-                        boolean spec = !te.getKey().startsWith("undefined");
-                        boolean curspec = !best.startsWith("undefined");
-                        if ((spec && !curspec) || (spec == curspec && te.getValue() > bc)) { best = te.getKey(); bc = te.getValue(); }
+                    // DETERMINISTIC canonical type. Ghidra's decompiler infers the integer WIDTH/SIGNEDNESS of
+                    // an unsaved field non-deterministically (short<->undefined4, uint<->undefined4 across runs —
+                    // internal decompiler threading, NOT fixable via -max-cpu). But float/double/pointer detection
+                    // IS stable. So decide by PRESENCE (not the wobbly frequency winner) and collapse every
+                    // integer/char/undefined guess to a canonical `int`: reproducible output, and the only thing
+                    // dropped is the unreliable int-width guess (the real per-member type comes from curation anyway).
+                    boolean anyFloat = false, anyDouble = false, anyPtr = false;
+                    for (String t : oe.getValue().keySet()) {
+                        if (t.startsWith("float")) anyFloat = true;
+                        else if (t.startsWith("double")) anyDouble = true;
+                        else if (t.contains("*")) anyPtr = true;
                     }
+                    String best; String ft;
+                    if (anyFloat)       { best = "float";  ft = "FLOAT"; }
+                    else if (anyDouble) { best = "double"; ft = "DOUBLE"; }
+                    else if (anyPtr)    { best = "void *"; ft = "POINTER"; }
+                    else                { best = "int";    ft = "INTEGER"; }
                     int total = oe.getValue().values().stream().mapToInt(Integer::intValue).sum();
-                    String ft = best.startsWith("float") ? "FLOAT" : best.startsWith("double") ? "DOUBLE"
-                              : best.contains("*") ? "POINTER" : best.startsWith("char") ? "CHARACTER" : "INTEGER";
                     w.printf("%s\t0x%x\t%s\t%s\tfield_0x%x\t%d%n", cls, off, ft, best, off, total);
                     rows++;
                 }
