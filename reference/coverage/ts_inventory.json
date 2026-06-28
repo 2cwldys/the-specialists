@@ -54960,32 +54960,66 @@
    "CountdownTimer"
   ],
   "trimmed_methods": {
-   "CBaseToggle": [
-    "IsAllowedToSpeak",
-    "MyTogglePointer",
-    "PlayScriptedSentence",
-    "PlaySentence",
-    "PlaySentenceCore",
-    "SentenceStop"
+   "CCycler": [
+    "IsAllowedToSpeak"
+   ],
+   "CBasePlayer": [
+    "Center",
+    "ClearWeaponBit",
+    "DeathMessage",
+    "EquipWeapon",
+    "FlashlightIsOn",
+    "FlashlightTurnOff",
+    "FlashlightTurnOn",
+    "HasPlayerItemFromID",
+    "HasSuit",
+    "InitStatusBar",
+    "InternalSendSingleAmmoUpdate",
+    "Observer_CheckProperties",
+    "Observer_CheckTarget",
+    "SendSingleAmmoUpdate",
+    "SetHasSuit",
+    "SetPrefsFromUserinfo",
+    "SetWeaponAnimType",
+    "SetWeaponBit",
+    "UpdateStatusBar"
    ],
    "CPathTrack": [
     "Sparkle"
    ],
-   "CVoiceGameMgr": [
-    "PlayerHasBlockedPlayer"
+   "CGamePlayerEquip": [
+    "Restore",
+    "Save"
    ],
-   "CGenericCycler": [
-    "GenericCyclerSpawn",
-    "Vector"
+   "CSaveRestoreBuffer": [
+    "EntityFlags",
+    "GetData",
+    "IsValidSaveRestoreData"
    ],
-   "CCycler": [
-    "IsAllowedToSpeak"
+   "CRuleBrushEntity": [
+    "ObjectCaps"
    ],
-   "CChangeLevel": [
-    "TriggerChangeLevel"
+   "CBaseButton": [
+    "ButtonShot",
+    "IsAllowedToSpeak",
+    "RotSpawn",
+    "SparkSoundCache"
    ],
-   "CGlobalState": [
-    "EntityInTable"
+   "CBreakable": [
+    "SparkWhenHit"
+   ],
+   "CBaseEntity": [
+    "BlockedSet",
+    "FStrEq",
+    "FunctionCheck",
+    "MyTogglePointer",
+    "ThinkSet",
+    "TouchSet",
+    "UseSet"
+   ],
+   "CPushable": [
+    "DamageDecal",
+    "StopSound"
    ],
    "CGraph": [
     "BuildLinkLookups",
@@ -55016,31 +55050,15 @@
     "SourceNode",
     "TestRoutingTables"
    ],
-   "CFuncTrackTrain": [
-    "Nearest"
-   ],
-   "CBaseButton": [
-    "ButtonShot",
-    "IsAllowedToSpeak",
-    "RotSpawn",
-    "SparkSoundCache"
-   ],
-   "CBaseEntity": [
-    "BlockedSet",
-    "FStrEq",
-    "FunctionCheck",
-    "MyTogglePointer",
-    "ThinkSet",
-    "TouchSet",
-    "UseSet"
+   "CBasePlayerItem": [
+    "CanAddToPlayer",
+    "DecrementTimers",
+    "GetWeaponData",
+    "SetWeaponData"
    ],
    "CMomentaryDoor": [
     "DoorMoveDone",
     "StopMoveSound"
-   ],
-   "CPushable": [
-    "DamageDecal",
-    "StopSound"
    ],
    "CRestore": [
     "Empty",
@@ -55050,35 +55068,9 @@
    "CFuncIllusionary": [
     "SloshTouch"
    ],
-   "CBasePlayer": [
-    "Center",
-    "ClearWeaponBit",
-    "DeathMessage",
-    "EquipWeapon",
-    "FlashlightIsOn",
-    "FlashlightTurnOff",
-    "FlashlightTurnOn",
-    "HasPlayerItemFromID",
-    "HasSuit",
-    "InitStatusBar",
-    "InternalSendSingleAmmoUpdate",
-    "Observer_CheckProperties",
-    "Observer_CheckTarget",
-    "SendSingleAmmoUpdate",
-    "SetHasSuit",
-    "SetPrefsFromUserinfo",
-    "SetWeaponAnimType",
-    "SetWeaponBit",
-    "UpdateStatusBar"
-   ],
-   "CRuleBrushEntity": [
-    "ObjectCaps"
-   ],
-   "CBasePlayerItem": [
-    "CanAddToPlayer",
-    "DecrementTimers",
-    "GetWeaponData",
-    "SetWeaponData"
+   "CGenericCycler": [
+    "GenericCyclerSpawn",
+    "Vector"
    ],
    "CHalfLifeMultiplay": [
     "FAllowFlashlight"
@@ -55087,6 +55079,60 @@
     "CallDoRetireWeapon",
     "DoRetireWeapon",
     "GetNextAttackDelay"
+   ],
+   "CGameRules": [
+    "AmmoShouldRespawn",
+    "CanHaveItem",
+    "ClientConnected",
+    "ClientDisconnected",
+    "DeadPlayerAmmo",
+    "DeadPlayerWeapons",
+    "DeathNotice",
+    "FAllowFlashlight",
+    "FAllowMonsters",
+    "FPlayerCanRespawn",
+    "FShouldSwitchWeapon",
+    "FindNextBestWeapon",
+    "FlAmmoRespawnTime",
+    "FlHealthChargerRechargeTime",
+    "FlItemRespawnTime",
+    "FlPlayerFallDamage",
+    "FlPlayerSpawnTime",
+    "FlWeaponRespawnTime",
+    "FlWeaponTryRespawn",
+    "GetNextBestWeapon",
+    "GetTeamID",
+    "IPointsForKill",
+    "InitHUD",
+    "IsAllowedToSpawn",
+    "IsCoOp",
+    "IsDeathmatch",
+    "IsMultiplayer",
+    "ItemShouldRespawn",
+    "PlayerGotAmmo",
+    "PlayerGotItem",
+    "PlayerGotWeapon",
+    "PlayerKilled",
+    "PlayerRelationship",
+    "PlayerSpawn",
+    "PlayerThink",
+    "Think",
+    "VecAmmoRespawnSpot",
+    "VecItemRespawnSpot",
+    "VecWeaponRespawnSpot",
+    "WeaponShouldRespawn"
+   ],
+   "CGlobalState": [
+    "EntityInTable"
+   ],
+   "CVoiceGameMgr": [
+    "PlayerHasBlockedPlayer"
+   ],
+   "CHalfLifeRules": [
+    "FAllowFlashlight"
+   ],
+   "CFuncTrackTrain": [
+    "Nearest"
    ],
    "CBaseMonster": [
     "AdvanceRoute",
@@ -55208,62 +55254,16 @@
     "UpdateTarget",
     "VecToYaw"
    ],
-   "CBreakable": [
-    "SparkWhenHit"
+   "CBaseToggle": [
+    "IsAllowedToSpeak",
+    "MyTogglePointer",
+    "PlayScriptedSentence",
+    "PlaySentence",
+    "PlaySentenceCore",
+    "SentenceStop"
    ],
-   "CSaveRestoreBuffer": [
-    "EntityFlags",
-    "GetData",
-    "IsValidSaveRestoreData"
-   ],
-   "CHalfLifeRules": [
-    "FAllowFlashlight"
-   ],
-   "CGameRules": [
-    "AmmoShouldRespawn",
-    "CanHaveItem",
-    "ClientConnected",
-    "ClientDisconnected",
-    "DeadPlayerAmmo",
-    "DeadPlayerWeapons",
-    "DeathNotice",
-    "FAllowFlashlight",
-    "FAllowMonsters",
-    "FPlayerCanRespawn",
-    "FShouldSwitchWeapon",
-    "FindNextBestWeapon",
-    "FlAmmoRespawnTime",
-    "FlHealthChargerRechargeTime",
-    "FlItemRespawnTime",
-    "FlPlayerFallDamage",
-    "FlPlayerSpawnTime",
-    "FlWeaponRespawnTime",
-    "FlWeaponTryRespawn",
-    "GetNextBestWeapon",
-    "GetTeamID",
-    "IPointsForKill",
-    "InitHUD",
-    "IsAllowedToSpawn",
-    "IsCoOp",
-    "IsDeathmatch",
-    "IsMultiplayer",
-    "ItemShouldRespawn",
-    "PlayerGotAmmo",
-    "PlayerGotItem",
-    "PlayerGotWeapon",
-    "PlayerKilled",
-    "PlayerRelationship",
-    "PlayerSpawn",
-    "PlayerThink",
-    "Think",
-    "VecAmmoRespawnSpot",
-    "VecItemRespawnSpot",
-    "VecWeaponRespawnSpot",
-    "WeaponShouldRespawn"
-   ],
-   "CGamePlayerEquip": [
-    "Restore",
-    "Save"
+   "CChangeLevel": [
+    "TriggerChangeLevel"
    ]
   }
  },
@@ -56629,7 +56629,7 @@
   }
  ],
  "client": {
-  "note": "client.dll is export-only; the TS-specific internal HUD classes are STRIPPED \u2014 not in its symbols, unrecoverable without decompiling bodies. Recoverable: the extern-C engine interface (we reimplement these) + the VGUI library it links (not TS). Client commands/cvars are in `contract`. The server (ts_i386.so, unstripped) is the full `files` tree.",
+  "note": "client.dll is export-only (its symbols are the VGUI library + the extern-C engine interface; the TS HUD classes are NOT exported and have NO RTTI). The HUD/prediction class MEMBER LAYOUTS are nonetheless recovered (`recovered_members` below) by binmap-matching our built client.so (full symbols) -> client.dll and reading each function's this+offset accesses \u2014 see scripts/coverage/client_members.py. Client commands/cvars are in `contract`; the server (ts_i386.so, unstripped) is the full `files` tree.",
   "interface_exports": [
    "CAM_Think",
    "CL_CameraOffset",
@@ -56726,6 +56726,6707 @@
    "vgui::TextGrid",
    "vgui::TextImage",
    "vgui::TextPanel"
-  ]
+  ],
+  "recovered_member_classes": 51,
+  "recovered_members": 1319,
+  "members": {
+   "App": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2b",
+     "type": "int",
+     "name": "field_0x2b"
+    },
+    {
+     "offset": "0x2e",
+     "type": "int",
+     "name": "field_0x2e"
+    },
+    {
+     "offset": "0x31",
+     "type": "int",
+     "name": "field_0x31"
+    },
+    {
+     "offset": "0x1d0",
+     "type": "int",
+     "name": "field_0x1d0"
+    },
+    {
+     "offset": "0x1d4",
+     "type": "int",
+     "name": "field_0x1d4"
+    },
+    {
+     "offset": "0x1d8",
+     "type": "int",
+     "name": "field_0x1d8"
+    },
+    {
+     "offset": "0x1dc",
+     "type": "int",
+     "name": "field_0x1dc"
+    },
+    {
+     "offset": "0x1e4",
+     "type": "int",
+     "name": "field_0x1e4"
+    },
+    {
+     "offset": "0x220",
+     "type": "int",
+     "name": "field_0x220"
+    },
+    {
+     "offset": "0x224",
+     "type": "int",
+     "name": "field_0x224"
+    },
+    {
+     "offset": "0x228",
+     "type": "int",
+     "name": "field_0x228"
+    }
+   ],
+   "Bitmap": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    }
+   ],
+   "BitmapTGA": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    }
+   ],
+   "Border": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    }
+   ],
+   "BuildGroup": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    }
+   ],
+   "Button": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe4",
+     "type": "int",
+     "name": "field_0xe4"
+    },
+    {
+     "offset": "0xe8",
+     "type": "int",
+     "name": "field_0xe8"
+    },
+    {
+     "offset": "0xec",
+     "type": "int",
+     "name": "field_0xec"
+    }
+   ],
+   "CHud": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x30",
+     "type": "double",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x70",
+     "type": "int",
+     "name": "field_0x70"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x78",
+     "type": "int",
+     "name": "field_0x78"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0x1a4",
+     "type": "int",
+     "name": "field_0x1a4"
+    },
+    {
+     "offset": "0x1bc",
+     "type": "int",
+     "name": "field_0x1bc"
+    },
+    {
+     "offset": "0x1ec",
+     "type": "int",
+     "name": "field_0x1ec"
+    },
+    {
+     "offset": "0x208",
+     "type": "int",
+     "name": "field_0x208"
+    },
+    {
+     "offset": "0x248",
+     "type": "int",
+     "name": "field_0x248"
+    },
+    {
+     "offset": "0x330",
+     "type": "int",
+     "name": "field_0x330"
+    },
+    {
+     "offset": "0x570",
+     "type": "int",
+     "name": "field_0x570"
+    },
+    {
+     "offset": "0x588",
+     "type": "int",
+     "name": "field_0x588"
+    },
+    {
+     "offset": "0x59c",
+     "type": "int",
+     "name": "field_0x59c"
+    },
+    {
+     "offset": "0x5c0",
+     "type": "int",
+     "name": "field_0x5c0"
+    },
+    {
+     "offset": "0x5ec",
+     "type": "int",
+     "name": "field_0x5ec"
+    },
+    {
+     "offset": "0x600",
+     "type": "int",
+     "name": "field_0x600"
+    },
+    {
+     "offset": "0x6d8",
+     "type": "int",
+     "name": "field_0x6d8"
+    },
+    {
+     "offset": "0x1380",
+     "type": "int",
+     "name": "field_0x1380"
+    },
+    {
+     "offset": "0x4aac",
+     "type": "int",
+     "name": "field_0x4aac"
+    },
+    {
+     "offset": "0x5fe4",
+     "type": "int",
+     "name": "field_0x5fe4"
+    },
+    {
+     "offset": "0x6200",
+     "type": "int",
+     "name": "field_0x6200"
+    },
+    {
+     "offset": "0x6204",
+     "type": "int",
+     "name": "field_0x6204"
+    }
+   ],
+   "CHudBattery": [
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    }
+   ],
+   "CHudHealth": [
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0xfc",
+     "type": "int",
+     "name": "field_0xfc"
+    }
+   ],
+   "CHudMenu": [
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    }
+   ],
+   "CHudMessage": [
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    }
+   ],
+   "CHudSayText": [
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    }
+   ],
+   "CHudSpectator": [
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x134",
+     "type": "int",
+     "name": "field_0x134"
+    },
+    {
+     "offset": "0x138",
+     "type": "int",
+     "name": "field_0x138"
+    },
+    {
+     "offset": "0x13c",
+     "type": "int",
+     "name": "field_0x13c"
+    },
+    {
+     "offset": "0x140",
+     "type": "int",
+     "name": "field_0x140"
+    },
+    {
+     "offset": "0x144",
+     "type": "int",
+     "name": "field_0x144"
+    },
+    {
+     "offset": "0x94c",
+     "type": "int",
+     "name": "field_0x94c"
+    },
+    {
+     "offset": "0x950",
+     "type": "float",
+     "name": "field_0x950"
+    },
+    {
+     "offset": "0x954",
+     "type": "int",
+     "name": "field_0x954"
+    },
+    {
+     "offset": "0x958",
+     "type": "int",
+     "name": "field_0x958"
+    }
+   ],
+   "CHudStatusBar": [
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    }
+   ],
+   "CHudStatusIcons": [
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    }
+   ],
+   "CHudTSBuyMenu": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0x2d88",
+     "type": "int",
+     "name": "field_0x2d88"
+    }
+   ],
+   "CHudTSWeaponBar": [
+    {
+     "offset": "0x740",
+     "type": "int",
+     "name": "field_0x740"
+    },
+    {
+     "offset": "0x744",
+     "type": "int",
+     "name": "field_0x744"
+    }
+   ],
+   "CMenuHandler_StringCommandWatch": [
+    {
+     "offset": "0xaa8",
+     "type": "int",
+     "name": "field_0xaa8"
+    }
+   ],
+   "CStudioModelRenderer": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3a",
+     "type": "int",
+     "name": "field_0x3a"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x52",
+     "type": "int",
+     "name": "field_0x52"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x70",
+     "type": "int",
+     "name": "field_0x70"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x78",
+     "type": "int",
+     "name": "field_0x78"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x8c",
+     "type": "int",
+     "name": "field_0x8c"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x94",
+     "type": "int",
+     "name": "field_0x94"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xb8",
+     "type": "int",
+     "name": "field_0xb8"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe4",
+     "type": "int",
+     "name": "field_0xe4"
+    },
+    {
+     "offset": "0xe8",
+     "type": "int",
+     "name": "field_0xe8"
+    },
+    {
+     "offset": "0xec",
+     "type": "int",
+     "name": "field_0xec"
+    },
+    {
+     "offset": "0xf0",
+     "type": "int",
+     "name": "field_0xf0"
+    },
+    {
+     "offset": "0xf4",
+     "type": "int",
+     "name": "field_0xf4"
+    },
+    {
+     "offset": "0xf8",
+     "type": "int",
+     "name": "field_0xf8"
+    },
+    {
+     "offset": "0xfc",
+     "type": "int",
+     "name": "field_0xfc"
+    },
+    {
+     "offset": "0x100",
+     "type": "int",
+     "name": "field_0x100"
+    },
+    {
+     "offset": "0x104",
+     "type": "int",
+     "name": "field_0x104"
+    },
+    {
+     "offset": "0x108",
+     "type": "int",
+     "name": "field_0x108"
+    },
+    {
+     "offset": "0x10c",
+     "type": "int",
+     "name": "field_0x10c"
+    },
+    {
+     "offset": "0x110",
+     "type": "int",
+     "name": "field_0x110"
+    },
+    {
+     "offset": "0x114",
+     "type": "int",
+     "name": "field_0x114"
+    },
+    {
+     "offset": "0x118",
+     "type": "int",
+     "name": "field_0x118"
+    },
+    {
+     "offset": "0x11c",
+     "type": "int",
+     "name": "field_0x11c"
+    },
+    {
+     "offset": "0x120",
+     "type": "int",
+     "name": "field_0x120"
+    },
+    {
+     "offset": "0x124",
+     "type": "int",
+     "name": "field_0x124"
+    },
+    {
+     "offset": "0x128",
+     "type": "int",
+     "name": "field_0x128"
+    },
+    {
+     "offset": "0x130",
+     "type": "int",
+     "name": "field_0x130"
+    },
+    {
+     "offset": "0x134",
+     "type": "int",
+     "name": "field_0x134"
+    },
+    {
+     "offset": "0x138",
+     "type": "int",
+     "name": "field_0x138"
+    },
+    {
+     "offset": "0x13c",
+     "type": "int",
+     "name": "field_0x13c"
+    },
+    {
+     "offset": "0x140",
+     "type": "int",
+     "name": "field_0x140"
+    },
+    {
+     "offset": "0x144",
+     "type": "int",
+     "name": "field_0x144"
+    },
+    {
+     "offset": "0x148",
+     "type": "int",
+     "name": "field_0x148"
+    },
+    {
+     "offset": "0x14c",
+     "type": "int",
+     "name": "field_0x14c"
+    },
+    {
+     "offset": "0x150",
+     "type": "int",
+     "name": "field_0x150"
+    }
+   ],
+   "CTeamMenuPanel": [
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0x114",
+     "type": "int",
+     "name": "field_0x114"
+    },
+    {
+     "offset": "0x120",
+     "type": "int",
+     "name": "field_0x120"
+    }
+   ],
+   "CVoiceStatus": [
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "float",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x17734",
+     "type": "int",
+     "name": "field_0x17734"
+    },
+    {
+     "offset": "0x177f0",
+     "type": "int",
+     "name": "field_0x177f0"
+    },
+    {
+     "offset": "0x177f4",
+     "type": "int",
+     "name": "field_0x177f4"
+    },
+    {
+     "offset": "0x177f5",
+     "type": "int",
+     "name": "field_0x177f5"
+    },
+    {
+     "offset": "0x177f8",
+     "type": "int",
+     "name": "field_0x177f8"
+    },
+    {
+     "offset": "0x18ff8",
+     "type": "int",
+     "name": "field_0x18ff8"
+    },
+    {
+     "offset": "0x19004",
+     "type": "int",
+     "name": "field_0x19004"
+    }
+   ],
+   "Cursor": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    }
+   ],
+   "DataInputStream": [
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    }
+   ],
+   "DesktopIcon": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    }
+   ],
+   "EtchedBorder": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    }
+   ],
+   "Font": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    }
+   ],
+   "Frame": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe4",
+     "type": "int",
+     "name": "field_0xe4"
+    },
+    {
+     "offset": "0xe8",
+     "type": "int",
+     "name": "field_0xe8"
+    },
+    {
+     "offset": "0xec",
+     "type": "int",
+     "name": "field_0xec"
+    },
+    {
+     "offset": "0xf0",
+     "type": "int",
+     "name": "field_0xf0"
+    },
+    {
+     "offset": "0xf4",
+     "type": "int",
+     "name": "field_0xf4"
+    },
+    {
+     "offset": "0xf8",
+     "type": "int",
+     "name": "field_0xf8"
+    },
+    {
+     "offset": "0xfc",
+     "type": "int",
+     "name": "field_0xfc"
+    },
+    {
+     "offset": "0x100",
+     "type": "int",
+     "name": "field_0x100"
+    },
+    {
+     "offset": "0x104",
+     "type": "int",
+     "name": "field_0x104"
+    },
+    {
+     "offset": "0x108",
+     "type": "int",
+     "name": "field_0x108"
+    },
+    {
+     "offset": "0x10c",
+     "type": "int",
+     "name": "field_0x10c"
+    }
+   ],
+   "HeaderPanel": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe4",
+     "type": "int",
+     "name": "field_0xe4"
+    },
+    {
+     "offset": "0xec",
+     "type": "int",
+     "name": "field_0xec"
+    },
+    {
+     "offset": "0xf0",
+     "type": "int",
+     "name": "field_0xf0"
+    },
+    {
+     "offset": "0xf4",
+     "type": "int",
+     "name": "field_0xf4"
+    }
+   ],
+   "HistoryResource": [
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    }
+   ],
+   "Image": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    }
+   ],
+   "ImagePanel": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    }
+   ],
+   "Label": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    }
+   ],
+   "LineBorder": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    }
+   ],
+   "LoweredBorder": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    }
+   ],
+   "MenuSeparator": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    }
+   ],
+   "Panel": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    }
+   ],
+   "ScorePanel": [
+    {
+     "offset": "0x2678c",
+     "type": "int",
+     "name": "field_0x2678c"
+    }
+   ],
+   "ScrollBar": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    }
+   ],
+   "ScrollBar2": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    }
+   ],
+   "ScrollPanel": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    }
+   ],
+   "Slider": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe4",
+     "type": "int",
+     "name": "field_0xe4"
+    },
+    {
+     "offset": "0xe8",
+     "type": "int",
+     "name": "field_0xe8"
+    },
+    {
+     "offset": "0xec",
+     "type": "int",
+     "name": "field_0xec"
+    },
+    {
+     "offset": "0xf0",
+     "type": "int",
+     "name": "field_0xf0"
+    },
+    {
+     "offset": "0xf8",
+     "type": "int",
+     "name": "field_0xf8"
+    }
+   ],
+   "Slider2": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe4",
+     "type": "int",
+     "name": "field_0xe4"
+    },
+    {
+     "offset": "0xe8",
+     "type": "int",
+     "name": "field_0xe8"
+    },
+    {
+     "offset": "0xec",
+     "type": "int",
+     "name": "field_0xec"
+    },
+    {
+     "offset": "0xf0",
+     "type": "int",
+     "name": "field_0xf0"
+    },
+    {
+     "offset": "0xf8",
+     "type": "int",
+     "name": "field_0xf8"
+    }
+   ],
+   "Surface": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    }
+   ],
+   "SurfaceBase": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    }
+   ],
+   "TablePanel": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe4",
+     "type": "int",
+     "name": "field_0xe4"
+    },
+    {
+     "offset": "0xe8",
+     "type": "int",
+     "name": "field_0xe8"
+    },
+    {
+     "offset": "0xec",
+     "type": "int",
+     "name": "field_0xec"
+    },
+    {
+     "offset": "0xf4",
+     "type": "int",
+     "name": "field_0xf4"
+    },
+    {
+     "offset": "0xf8",
+     "type": "int",
+     "name": "field_0xf8"
+    },
+    {
+     "offset": "0xfc",
+     "type": "int",
+     "name": "field_0xfc"
+    }
+   ],
+   "TextEntry": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe4",
+     "type": "int",
+     "name": "field_0xe4"
+    },
+    {
+     "offset": "0xe8",
+     "type": "int",
+     "name": "field_0xe8"
+    },
+    {
+     "offset": "0xec",
+     "type": "int",
+     "name": "field_0xec"
+    },
+    {
+     "offset": "0xf0",
+     "type": "int",
+     "name": "field_0xf0"
+    }
+   ],
+   "TextGrid": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe4",
+     "type": "int",
+     "name": "field_0xe4"
+    }
+   ],
+   "TextImage": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    }
+   ],
+   "TextPanel": [
+    {
+     "offset": "0xc",
+     "type": "int",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "int",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x14",
+     "type": "int",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "int",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "int",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "int",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x24",
+     "type": "int",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x2c",
+     "type": "int",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "int",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x54",
+     "type": "int",
+     "name": "field_0x54"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x5c",
+     "type": "int",
+     "name": "field_0x5c"
+    },
+    {
+     "offset": "0x60",
+     "type": "int",
+     "name": "field_0x60"
+    },
+    {
+     "offset": "0x68",
+     "type": "int",
+     "name": "field_0x68"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x7c",
+     "type": "int",
+     "name": "field_0x7c"
+    },
+    {
+     "offset": "0x80",
+     "type": "int",
+     "name": "field_0x80"
+    },
+    {
+     "offset": "0x84",
+     "type": "int",
+     "name": "field_0x84"
+    },
+    {
+     "offset": "0x88",
+     "type": "int",
+     "name": "field_0x88"
+    },
+    {
+     "offset": "0x90",
+     "type": "int",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x98",
+     "type": "int",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    }
+   ],
+   "vgui": [
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xbd",
+     "type": "int",
+     "name": "field_0xbd"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe4",
+     "type": "int",
+     "name": "field_0xe4"
+    },
+    {
+     "offset": "0xe8",
+     "type": "int",
+     "name": "field_0xe8"
+    },
+    {
+     "offset": "0xec",
+     "type": "int",
+     "name": "field_0xec"
+    },
+    {
+     "offset": "0xf0",
+     "type": "int",
+     "name": "field_0xf0"
+    },
+    {
+     "offset": "0xf4",
+     "type": "int",
+     "name": "field_0xf4"
+    },
+    {
+     "offset": "0xf8",
+     "type": "int",
+     "name": "field_0xf8"
+    }
+   ],
+   "void": [
+    {
+     "offset": "0xc",
+     "type": "float",
+     "name": "field_0xc"
+    },
+    {
+     "offset": "0x10",
+     "type": "float",
+     "name": "field_0x10"
+    },
+    {
+     "offset": "0x11",
+     "type": "int",
+     "name": "field_0x11"
+    },
+    {
+     "offset": "0x14",
+     "type": "float",
+     "name": "field_0x14"
+    },
+    {
+     "offset": "0x18",
+     "type": "float",
+     "name": "field_0x18"
+    },
+    {
+     "offset": "0x1c",
+     "type": "float",
+     "name": "field_0x1c"
+    },
+    {
+     "offset": "0x20",
+     "type": "float",
+     "name": "field_0x20"
+    },
+    {
+     "offset": "0x21",
+     "type": "int",
+     "name": "field_0x21"
+    },
+    {
+     "offset": "0x22",
+     "type": "int",
+     "name": "field_0x22"
+    },
+    {
+     "offset": "0x24",
+     "type": "float",
+     "name": "field_0x24"
+    },
+    {
+     "offset": "0x28",
+     "type": "int",
+     "name": "field_0x28"
+    },
+    {
+     "offset": "0x29",
+     "type": "int",
+     "name": "field_0x29"
+    },
+    {
+     "offset": "0x2a",
+     "type": "int",
+     "name": "field_0x2a"
+    },
+    {
+     "offset": "0x2c",
+     "type": "float",
+     "name": "field_0x2c"
+    },
+    {
+     "offset": "0x30",
+     "type": "int",
+     "name": "field_0x30"
+    },
+    {
+     "offset": "0x34",
+     "type": "float",
+     "name": "field_0x34"
+    },
+    {
+     "offset": "0x38",
+     "type": "int",
+     "name": "field_0x38"
+    },
+    {
+     "offset": "0x3c",
+     "type": "int",
+     "name": "field_0x3c"
+    },
+    {
+     "offset": "0x40",
+     "type": "int",
+     "name": "field_0x40"
+    },
+    {
+     "offset": "0x44",
+     "type": "int",
+     "name": "field_0x44"
+    },
+    {
+     "offset": "0x48",
+     "type": "int",
+     "name": "field_0x48"
+    },
+    {
+     "offset": "0x4c",
+     "type": "int",
+     "name": "field_0x4c"
+    },
+    {
+     "offset": "0x50",
+     "type": "int",
+     "name": "field_0x50"
+    },
+    {
+     "offset": "0x58",
+     "type": "int",
+     "name": "field_0x58"
+    },
+    {
+     "offset": "0x6c",
+     "type": "int",
+     "name": "field_0x6c"
+    },
+    {
+     "offset": "0x70",
+     "type": "int",
+     "name": "field_0x70"
+    },
+    {
+     "offset": "0x74",
+     "type": "int",
+     "name": "field_0x74"
+    },
+    {
+     "offset": "0x8c",
+     "type": "float",
+     "name": "field_0x8c"
+    },
+    {
+     "offset": "0x90",
+     "type": "float",
+     "name": "field_0x90"
+    },
+    {
+     "offset": "0x94",
+     "type": "int",
+     "name": "field_0x94"
+    },
+    {
+     "offset": "0x98",
+     "type": "float",
+     "name": "field_0x98"
+    },
+    {
+     "offset": "0x9c",
+     "type": "int",
+     "name": "field_0x9c"
+    },
+    {
+     "offset": "0xa0",
+     "type": "int",
+     "name": "field_0xa0"
+    },
+    {
+     "offset": "0xa4",
+     "type": "int",
+     "name": "field_0xa4"
+    },
+    {
+     "offset": "0xa8",
+     "type": "int",
+     "name": "field_0xa8"
+    },
+    {
+     "offset": "0xac",
+     "type": "int",
+     "name": "field_0xac"
+    },
+    {
+     "offset": "0xb0",
+     "type": "int",
+     "name": "field_0xb0"
+    },
+    {
+     "offset": "0xb4",
+     "type": "int",
+     "name": "field_0xb4"
+    },
+    {
+     "offset": "0xb8",
+     "type": "int",
+     "name": "field_0xb8"
+    },
+    {
+     "offset": "0xbc",
+     "type": "int",
+     "name": "field_0xbc"
+    },
+    {
+     "offset": "0xc0",
+     "type": "int",
+     "name": "field_0xc0"
+    },
+    {
+     "offset": "0xc4",
+     "type": "int",
+     "name": "field_0xc4"
+    },
+    {
+     "offset": "0xcc",
+     "type": "int",
+     "name": "field_0xcc"
+    },
+    {
+     "offset": "0xd0",
+     "type": "int",
+     "name": "field_0xd0"
+    },
+    {
+     "offset": "0xd4",
+     "type": "int",
+     "name": "field_0xd4"
+    },
+    {
+     "offset": "0xd8",
+     "type": "int",
+     "name": "field_0xd8"
+    },
+    {
+     "offset": "0xdc",
+     "type": "int",
+     "name": "field_0xdc"
+    },
+    {
+     "offset": "0xe0",
+     "type": "int",
+     "name": "field_0xe0"
+    },
+    {
+     "offset": "0xe8",
+     "type": "int",
+     "name": "field_0xe8"
+    },
+    {
+     "offset": "0xf0",
+     "type": "int",
+     "name": "field_0xf0"
+    },
+    {
+     "offset": "0xf4",
+     "type": "int",
+     "name": "field_0xf4"
+    },
+    {
+     "offset": "0xf8",
+     "type": "int",
+     "name": "field_0xf8"
+    },
+    {
+     "offset": "0xfc",
+     "type": "int",
+     "name": "field_0xfc"
+    },
+    {
+     "offset": "0x100",
+     "type": "int",
+     "name": "field_0x100"
+    },
+    {
+     "offset": "0x104",
+     "type": "int",
+     "name": "field_0x104"
+    },
+    {
+     "offset": "0x108",
+     "type": "int",
+     "name": "field_0x108"
+    },
+    {
+     "offset": "0x110",
+     "type": "int",
+     "name": "field_0x110"
+    },
+    {
+     "offset": "0x118",
+     "type": "int",
+     "name": "field_0x118"
+    },
+    {
+     "offset": "0x11c",
+     "type": "int",
+     "name": "field_0x11c"
+    },
+    {
+     "offset": "0x11f",
+     "type": "int",
+     "name": "field_0x11f"
+    },
+    {
+     "offset": "0x120",
+     "type": "int",
+     "name": "field_0x120"
+    },
+    {
+     "offset": "0x128",
+     "type": "int",
+     "name": "field_0x128"
+    },
+    {
+     "offset": "0x134",
+     "type": "int",
+     "name": "field_0x134"
+    },
+    {
+     "offset": "0x148",
+     "type": "int",
+     "name": "field_0x148"
+    },
+    {
+     "offset": "0x14c",
+     "type": "int",
+     "name": "field_0x14c"
+    },
+    {
+     "offset": "0x164",
+     "type": "int",
+     "name": "field_0x164"
+    },
+    {
+     "offset": "0x168",
+     "type": "int",
+     "name": "field_0x168"
+    },
+    {
+     "offset": "0x16c",
+     "type": "int",
+     "name": "field_0x16c"
+    },
+    {
+     "offset": "0x188",
+     "type": "int",
+     "name": "field_0x188"
+    },
+    {
+     "offset": "0x1a8",
+     "type": "int",
+     "name": "field_0x1a8"
+    },
+    {
+     "offset": "0x210",
+     "type": "int",
+     "name": "field_0x210"
+    },
+    {
+     "offset": "0x21c",
+     "type": "int",
+     "name": "field_0x21c"
+    },
+    {
+     "offset": "0x22c",
+     "type": "int",
+     "name": "field_0x22c"
+    },
+    {
+     "offset": "0x234",
+     "type": "int",
+     "name": "field_0x234"
+    },
+    {
+     "offset": "0x23c",
+     "type": "int",
+     "name": "field_0x23c"
+    },
+    {
+     "offset": "0x240",
+     "type": "int",
+     "name": "field_0x240"
+    },
+    {
+     "offset": "0x25c",
+     "type": "int",
+     "name": "field_0x25c"
+    },
+    {
+     "offset": "0x260",
+     "type": "int",
+     "name": "field_0x260"
+    },
+    {
+     "offset": "0x261",
+     "type": "int",
+     "name": "field_0x261"
+    },
+    {
+     "offset": "0x284",
+     "type": "int",
+     "name": "field_0x284"
+    },
+    {
+     "offset": "0x364",
+     "type": "int",
+     "name": "field_0x364"
+    },
+    {
+     "offset": "0x400",
+     "type": "int",
+     "name": "field_0x400"
+    },
+    {
+     "offset": "0x404",
+     "type": "int",
+     "name": "field_0x404"
+    },
+    {
+     "offset": "0x408",
+     "type": "int",
+     "name": "field_0x408"
+    },
+    {
+     "offset": "0x40c",
+     "type": "int",
+     "name": "field_0x40c"
+    },
+    {
+     "offset": "0x410",
+     "type": "int",
+     "name": "field_0x410"
+    },
+    {
+     "offset": "0x414",
+     "type": "int",
+     "name": "field_0x414"
+    },
+    {
+     "offset": "0x418",
+     "type": "int",
+     "name": "field_0x418"
+    },
+    {
+     "offset": "0x41c",
+     "type": "int",
+     "name": "field_0x41c"
+    },
+    {
+     "offset": "0x420",
+     "type": "int",
+     "name": "field_0x420"
+    },
+    {
+     "offset": "0x424",
+     "type": "int",
+     "name": "field_0x424"
+    },
+    {
+     "offset": "0x428",
+     "type": "double",
+     "name": "field_0x428"
+    },
+    {
+     "offset": "0x42c",
+     "type": "int",
+     "name": "field_0x42c"
+    },
+    {
+     "offset": "0x430",
+     "type": "int",
+     "name": "field_0x430"
+    },
+    {
+     "offset": "0x434",
+     "type": "int",
+     "name": "field_0x434"
+    },
+    {
+     "offset": "0x73c",
+     "type": "int",
+     "name": "field_0x73c"
+    },
+    {
+     "offset": "0x740",
+     "type": "int",
+     "name": "field_0x740"
+    },
+    {
+     "offset": "0x744",
+     "type": "int",
+     "name": "field_0x744"
+    },
+    {
+     "offset": "0x78a",
+     "type": "int",
+     "name": "field_0x78a"
+    },
+    {
+     "offset": "0x78c",
+     "type": "int",
+     "name": "field_0x78c"
+    },
+    {
+     "offset": "0x798",
+     "type": "int",
+     "name": "field_0x798"
+    },
+    {
+     "offset": "0x7b8",
+     "type": "int",
+     "name": "field_0x7b8"
+    },
+    {
+     "offset": "0x7c0",
+     "type": "int",
+     "name": "field_0x7c0"
+    },
+    {
+     "offset": "0x7c4",
+     "type": "int",
+     "name": "field_0x7c4"
+    },
+    {
+     "offset": "0x800",
+     "type": "int",
+     "name": "field_0x800"
+    },
+    {
+     "offset": "0x838",
+     "type": "int",
+     "name": "field_0x838"
+    },
+    {
+     "offset": "0x83f",
+     "type": "int",
+     "name": "field_0x83f"
+    },
+    {
+     "offset": "0x840",
+     "type": "int",
+     "name": "field_0x840"
+    },
+    {
+     "offset": "0x850",
+     "type": "int",
+     "name": "field_0x850"
+    },
+    {
+     "offset": "0x85c",
+     "type": "int",
+     "name": "field_0x85c"
+    },
+    {
+     "offset": "0x884",
+     "type": "int",
+     "name": "field_0x884"
+    },
+    {
+     "offset": "0x890",
+     "type": "int",
+     "name": "field_0x890"
+    },
+    {
+     "offset": "0x894",
+     "type": "int",
+     "name": "field_0x894"
+    },
+    {
+     "offset": "0x8a0",
+     "type": "float",
+     "name": "field_0x8a0"
+    },
+    {
+     "offset": "0x8a4",
+     "type": "int",
+     "name": "field_0x8a4"
+    },
+    {
+     "offset": "0x8a8",
+     "type": "int",
+     "name": "field_0x8a8"
+    },
+    {
+     "offset": "0x8ac",
+     "type": "int",
+     "name": "field_0x8ac"
+    },
+    {
+     "offset": "0x8b0",
+     "type": "int",
+     "name": "field_0x8b0"
+    },
+    {
+     "offset": "0x8b4",
+     "type": "int",
+     "name": "field_0x8b4"
+    },
+    {
+     "offset": "0x8b8",
+     "type": "int",
+     "name": "field_0x8b8"
+    },
+    {
+     "offset": "0x8c0",
+     "type": "float",
+     "name": "field_0x8c0"
+    },
+    {
+     "offset": "0x8fc",
+     "type": "int",
+     "name": "field_0x8fc"
+    },
+    {
+     "offset": "0x948",
+     "type": "int",
+     "name": "field_0x948"
+    },
+    {
+     "offset": "0x94c",
+     "type": "float",
+     "name": "field_0x94c"
+    },
+    {
+     "offset": "0x950",
+     "type": "float",
+     "name": "field_0x950"
+    },
+    {
+     "offset": "0x954",
+     "type": "float",
+     "name": "field_0x954"
+    },
+    {
+     "offset": "0x958",
+     "type": "float",
+     "name": "field_0x958"
+    },
+    {
+     "offset": "0x95c",
+     "type": "float",
+     "name": "field_0x95c"
+    },
+    {
+     "offset": "0x9b4",
+     "type": "int",
+     "name": "field_0x9b4"
+    },
+    {
+     "offset": "0x9b8",
+     "type": "int",
+     "name": "field_0x9b8"
+    },
+    {
+     "offset": "0x9bc",
+     "type": "int",
+     "name": "field_0x9bc"
+    },
+    {
+     "offset": "0x9fc",
+     "type": "int",
+     "name": "field_0x9fc"
+    },
+    {
+     "offset": "0xa0c",
+     "type": "int",
+     "name": "field_0xa0c"
+    },
+    {
+     "offset": "0xa1c",
+     "type": "int",
+     "name": "field_0xa1c"
+    },
+    {
+     "offset": "0xa30",
+     "type": "int",
+     "name": "field_0xa30"
+    },
+    {
+     "offset": "0xa3c",
+     "type": "int",
+     "name": "field_0xa3c"
+    },
+    {
+     "offset": "0xa5c",
+     "type": "int",
+     "name": "field_0xa5c"
+    },
+    {
+     "offset": "0xa9b",
+     "type": "int",
+     "name": "field_0xa9b"
+    },
+    {
+     "offset": "0xa9c",
+     "type": "int",
+     "name": "field_0xa9c"
+    },
+    {
+     "offset": "0xaa0",
+     "type": "int",
+     "name": "field_0xaa0"
+    },
+    {
+     "offset": "0xaa4",
+     "type": "int",
+     "name": "field_0xaa4"
+    },
+    {
+     "offset": "0xaa8",
+     "type": "int",
+     "name": "field_0xaa8"
+    },
+    {
+     "offset": "0xaac",
+     "type": "int",
+     "name": "field_0xaac"
+    },
+    {
+     "offset": "0xab0",
+     "type": "int",
+     "name": "field_0xab0"
+    },
+    {
+     "offset": "0xad4",
+     "type": "int",
+     "name": "field_0xad4"
+    },
+    {
+     "offset": "0xc0c",
+     "type": "int",
+     "name": "field_0xc0c"
+    },
+    {
+     "offset": "0xc10",
+     "type": "int",
+     "name": "field_0xc10"
+    },
+    {
+     "offset": "0xc14",
+     "type": "int",
+     "name": "field_0xc14"
+    },
+    {
+     "offset": "0xc18",
+     "type": "int",
+     "name": "field_0xc18"
+    },
+    {
+     "offset": "0xc24",
+     "type": "int",
+     "name": "field_0xc24"
+    },
+    {
+     "offset": "0xc6c",
+     "type": "int",
+     "name": "field_0xc6c"
+    },
+    {
+     "offset": "0xc70",
+     "type": "int",
+     "name": "field_0xc70"
+    },
+    {
+     "offset": "0xc74",
+     "type": "int",
+     "name": "field_0xc74"
+    },
+    {
+     "offset": "0xc8c",
+     "type": "int",
+     "name": "field_0xc8c"
+    },
+    {
+     "offset": "0xc94",
+     "type": "float",
+     "name": "field_0xc94"
+    },
+    {
+     "offset": "0xc98",
+     "type": "int",
+     "name": "field_0xc98"
+    },
+    {
+     "offset": "0xc9c",
+     "type": "int",
+     "name": "field_0xc9c"
+    },
+    {
+     "offset": "0xca0",
+     "type": "int",
+     "name": "field_0xca0"
+    },
+    {
+     "offset": "0xca4",
+     "type": "int",
+     "name": "field_0xca4"
+    },
+    {
+     "offset": "0xd24",
+     "type": "int",
+     "name": "field_0xd24"
+    },
+    {
+     "offset": "0xd6c",
+     "type": "int",
+     "name": "field_0xd6c"
+    },
+    {
+     "offset": "0xd70",
+     "type": "int",
+     "name": "field_0xd70"
+    },
+    {
+     "offset": "0x1430",
+     "type": "int",
+     "name": "field_0x1430"
+    },
+    {
+     "offset": "0x1468",
+     "type": "int",
+     "name": "field_0x1468"
+    },
+    {
+     "offset": "0x2d84",
+     "type": "int",
+     "name": "field_0x2d84"
+    },
+    {
+     "offset": "0x2d88",
+     "type": "int",
+     "name": "field_0x2d88"
+    },
+    {
+     "offset": "0x2d8c",
+     "type": "int",
+     "name": "field_0x2d8c"
+    },
+    {
+     "offset": "0x2d90",
+     "type": "int",
+     "name": "field_0x2d90"
+    },
+    {
+     "offset": "0x2efc",
+     "type": "int",
+     "name": "field_0x2efc"
+    },
+    {
+     "offset": "0x2f00",
+     "type": "int",
+     "name": "field_0x2f00"
+    },
+    {
+     "offset": "0x2f04",
+     "type": "int",
+     "name": "field_0x2f04"
+    },
+    {
+     "offset": "0x2f08",
+     "type": "int",
+     "name": "field_0x2f08"
+    },
+    {
+     "offset": "0x2f18",
+     "type": "int",
+     "name": "field_0x2f18"
+    },
+    {
+     "offset": "0x2f1c",
+     "type": "int",
+     "name": "field_0x2f1c"
+    },
+    {
+     "offset": "0x2f20",
+     "type": "int",
+     "name": "field_0x2f20"
+    },
+    {
+     "offset": "0x36fc",
+     "type": "int",
+     "name": "field_0x36fc"
+    },
+    {
+     "offset": "0x36fd",
+     "type": "int",
+     "name": "field_0x36fd"
+    },
+    {
+     "offset": "0x36fe",
+     "type": "int",
+     "name": "field_0x36fe"
+    },
+    {
+     "offset": "0x3700",
+     "type": "float",
+     "name": "field_0x3700"
+    },
+    {
+     "offset": "0x3704",
+     "type": "int",
+     "name": "field_0x3704"
+    },
+    {
+     "offset": "0x4f0c",
+     "type": "int",
+     "name": "field_0x4f0c"
+    },
+    {
+     "offset": "0x5c00",
+     "type": "int",
+     "name": "field_0x5c00"
+    },
+    {
+     "offset": "0x61f8",
+     "type": "int",
+     "name": "field_0x61f8"
+    },
+    {
+     "offset": "0x6204",
+     "type": "int",
+     "name": "field_0x6204"
+    },
+    {
+     "offset": "0x17734",
+     "type": "int",
+     "name": "field_0x17734"
+    },
+    {
+     "offset": "0x17738",
+     "type": "double",
+     "name": "field_0x17738"
+    },
+    {
+     "offset": "0x17740",
+     "type": "int",
+     "name": "field_0x17740"
+    },
+    {
+     "offset": "0x17744",
+     "type": "int",
+     "name": "field_0x17744"
+    },
+    {
+     "offset": "0x17748",
+     "type": "int",
+     "name": "field_0x17748"
+    },
+    {
+     "offset": "0x1774c",
+     "type": "int",
+     "name": "field_0x1774c"
+    },
+    {
+     "offset": "0x17754",
+     "type": "int",
+     "name": "field_0x17754"
+    },
+    {
+     "offset": "0x177f8",
+     "type": "int",
+     "name": "field_0x177f8"
+    },
+    {
+     "offset": "0x18ffc",
+     "type": "int",
+     "name": "field_0x18ffc"
+    },
+    {
+     "offset": "0x19008",
+     "type": "int",
+     "name": "field_0x19008"
+    },
+    {
+     "offset": "0x1d308",
+     "type": "int",
+     "name": "field_0x1d308"
+    },
+    {
+     "offset": "0x1d30c",
+     "type": "int",
+     "name": "field_0x1d30c"
+    },
+    {
+     "offset": "0x1d310",
+     "type": "int",
+     "name": "field_0x1d310"
+    },
+    {
+     "offset": "0x1d314",
+     "type": "int",
+     "name": "field_0x1d314"
+    },
+    {
+     "offset": "0x1d32c",
+     "type": "int",
+     "name": "field_0x1d32c"
+    },
+    {
+     "offset": "0x1d330",
+     "type": "int",
+     "name": "field_0x1d330"
+    },
+    {
+     "offset": "0x1d334",
+     "type": "int",
+     "name": "field_0x1d334"
+    },
+    {
+     "offset": "0x1d34d",
+     "type": "int",
+     "name": "field_0x1d34d"
+    },
+    {
+     "offset": "0x2678c",
+     "type": "int",
+     "name": "field_0x2678c"
+    },
+    {
+     "offset": "0x2684c",
+     "type": "int",
+     "name": "field_0x2684c"
+    },
+    {
+     "offset": "0x26854",
+     "type": "int",
+     "name": "field_0x26854"
+    },
+    {
+     "offset": "0x26ae8",
+     "type": "int",
+     "name": "field_0x26ae8"
+    },
+    {
+     "offset": "0x26aec",
+     "type": "int",
+     "name": "field_0x26aec"
+    }
+   ]
+  }
  }
 }

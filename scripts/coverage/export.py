@@ -373,16 +373,32 @@ def main():
         doc["contract"] = {"error": str(e)}
     doc["commands"] = commands   # name -> kind/home_function/home_file/handler
 
-    # client.dll surface (export-only PE — see client_surface docstring). The `files` tree above is the
-    # SERVER (ts_i386.so, unstripped). The TS client HUD classes are not symbol-recoverable.
+    # client.dll surface. The `files` tree above is the SERVER (ts_i386.so, unstripped). client.dll is
+    # export-only (symbols = VGUI library + extern-C engine interface; the TS HUD classes aren't exported and
+    # have no RTTI) — BUT their MEMBER LAYOUTS are recovered by binmap-matching our built client.so -> client.dll
+    # (scripts/coverage/client_members.py -> members_auto_client.tsv). Fold those in here.
     interface, libcls = client_surface()
+    client_members = {}
+    cmf = os.path.join(I.ROOT, "reference", "coverage", "members_auto_client.tsv")
+    if os.path.exists(cmf):
+        with open(cmf) as f:
+            next(f, None)
+            for ln in f:
+                p = ln.rstrip("\n").split("\t")
+                if len(p) >= 5:
+                    client_members.setdefault(p[0], []).append({"offset": p[1], "type": p[3], "name": p[4]})
     doc["client"] = {
-        "note": "client.dll is export-only; the TS-specific internal HUD classes are STRIPPED — not in its "
-                "symbols, unrecoverable without decompiling bodies. Recoverable: the extern-C engine "
-                "interface (we reimplement these) + the VGUI library it links (not TS). Client commands/"
-                "cvars are in `contract`. The server (ts_i386.so, unstripped) is the full `files` tree.",
+        "note": "client.dll is export-only (its symbols are the VGUI library + the extern-C engine interface; "
+                "the TS HUD classes are NOT exported and have NO RTTI). The HUD/prediction class MEMBER LAYOUTS "
+                "are nonetheless recovered (`recovered_members` below) by binmap-matching our built client.so "
+                "(full symbols) -> client.dll and reading each function's this+offset accesses — see "
+                "scripts/coverage/client_members.py. Client commands/cvars are in `contract`; the server "
+                "(ts_i386.so, unstripped) is the full `files` tree.",
         "interface_exports": interface,
         "vgui_library_classes": libcls,
+        "recovered_member_classes": len(client_members),
+        "recovered_members": sum(len(v) for v in client_members.values()),
+        "members": client_members,
     }
 
     json.dump(doc, open(OUT, "w"), indent=1)
