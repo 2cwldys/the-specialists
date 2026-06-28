@@ -34,17 +34,27 @@ public class DumpMembers extends GhidraScript {
         Pattern CAST = Pattern.compile("\\*\\(([\\w ]+?) \\*\\)&this->field_0x([0-9a-fA-F]+)");
         Pattern BARE = Pattern.compile("this->field_0x([0-9a-fA-F]+)");
         // OPAQUE-`this` forms: when the class has no struct (named() pointer), accesses render as
-        // `*(type *)(this + 0xNN)` / `(this + 0xNN)` instead of `this->field_0xNN`. Parsing these lets us
-        // recover members for classes WITHOUT a struct (CTSStunt/CTSGameRules) — no giant padded struct needed.
-        Pattern OCAST = Pattern.compile("\\*\\(([\\w ]+?) \\*\\)\\(this \\+ (0x[0-9a-fA-F]+)\\)");
-        Pattern OBARE = Pattern.compile("\\(this \\+ (0x[0-9a-fA-F]+)\\)");
+        // `*(type *)(this + 0xNN)` / `(this + 0xNN)` instead of `this->field_0xNN`. The `(int)this`/`(uint)this`
+        // variant appears when `this` stays `void *` (the MSVC __thiscall auto-`this` on the CLIENT). Parsing
+        // these recovers members for classes WITHOUT a real struct (CTSStunt server-side; the HUD classes client-side).
+        Pattern OCAST = Pattern.compile("\\*\\(([\\w ]+?) \\*\\)\\((?:\\((?:int|uint)\\))?this \\+ (0x[0-9a-fA-F]+)\\)");
+        Pattern OBARE = Pattern.compile("\\((?:\\((?:int|uint)\\))?this \\+ (0x[0-9a-fA-F]+)\\)");
 
         int methods = 0;
         for (Function f : currentProgram.getFunctionManager().getFunctions(true)) {
             if (f.getParameterCount() == 0) continue;
             Parameter p0 = f.getParameter(0);
             if (p0 == null || !"this".equals(p0.getName()) || !(p0.getDataType() instanceof Pointer)) continue;
-            String cls = ((Pointer) p0.getDataType()).getDataType().getName();
+            // class name: prefer the function's CLASS NAMESPACE (set by ApplyInventory server / ApplyClientThis
+            // client) — robust even when `this` stays an untyped void* (client __thiscall auto-`this`). Fall
+            // back to the `this` pointed-type name (server, where `this` is the real class struct).
+            String cls;
+            ghidra.program.model.symbol.Namespace pns = f.getParentNamespace();
+            if (pns != null && !pns.isGlobal() && !(pns instanceof ghidra.program.model.listing.Library)
+                && !pns.getName().isEmpty())
+                cls = pns.getName();
+            else
+                cls = ((Pointer) p0.getDataType()).getDataType().getName();
             if (cls.endsWith("_vtbl")) continue;
             // No time budget — completeness over speed. The padded class structs (0x8000) slow the
             // decompiler, so a 25s cap silently dropped the bigger methods (CBaseAnimating etc.) and the
@@ -69,7 +79,10 @@ public class DumpMembers extends GhidraScript {
         }
 
         int rows = 0;
-        File out = new File(cov, "members_auto.tsv");
+        // optional 2nd arg = output filename (the CLIENT run writes members_auto_client.tsv so it doesn't
+        // clobber the server skeleton).
+        String outName = getScriptArgs().length > 1 ? getScriptArgs()[1].trim() : "members_auto.tsv";
+        File out = new File(cov, outName);
         try (PrintWriter w = new PrintWriter(out)) {
             w.println("Class\toffset\tfieldtype\tcpptype\tname\tcount");
             for (Map.Entry<String, Map<Integer, Map<String, Integer>>> ce : fields.entrySet()) {

@@ -1,0 +1,214 @@
+so_symbol	demangled	mp_rva	method	confidence
+.L1322	.L1322	0x2e330	string	1.00
+.L183	.L183	0x2a3a0	string	0.41
+.L188	.L188	0x2e030	string?	0.60
+_Z12AlertMessage10ALERT_TYPEPKcz	AlertMessage(ALERT_TYPE, char const*, ...)	0x3440	string	1.00
+_Z8CAM_Initv	CAM_Init()	0x25370	string	1.00
+CAM_Think	CAM_Think	0x24c80	export	1.00
+_Z17CAM_ToThirdPersonv	CAM_ToThirdPerson()	0x25320	string?	1.00
+_ZN11CBaseEntity10SUB_RemoveEv	CBaseEntity::SUB_Remove()	0x5a740	export	1.00
+_ZN12CBaseMonster15CorpseFallThinkEv	CBaseMonster::CorpseFallThink()	0x5a740	export	1.00
+_ZN11CBasePlayer16PlayerDeathThinkEv	CBasePlayer::PlayerDeathThink()	0x5a740	export	1.00
+_ZN15CBasePlayerAmmo12DefaultTouchEP11CBaseEntity	CBasePlayerAmmo::DefaultTouch(CBaseEntity*)	0x66cc0	export	1.00
+_ZN15CBasePlayerAmmo11MaterializeEv	CBasePlayerAmmo::Materialize()	0x5a740	export	1.00
+_ZN15CBasePlayerItem20AttemptToMaterializeEv	CBasePlayerItem::AttemptToMaterialize()	0x5a740	export	1.00
+_ZN15CBasePlayerItem12DefaultTouchEP11CBaseEntity	CBasePlayerItem::DefaultTouch(CBaseEntity*)	0x66cc0	export	1.00
+_ZN15CBasePlayerItem11DestroyItemEv	CBasePlayerItem::DestroyItem()	0x5a740	export	1.00
+_ZN15CBasePlayerItem9FallThinkEv	CBasePlayerItem::FallThink()	0x5a740	export	1.00
+_ZN15CBasePlayerItem11MaterializeEv	CBasePlayerItem::Materialize()	0x5a740	export	1.00
+_ZN15CClassMenuPanel10InitializeEv	CClassMenuPanel::Initialize()	0x1aa10	export	1.00
+_ZN8CGrenade11DetonateUseEP11CBaseEntityS1_8USE_TYPEf	CGrenade::DetonateUse(CBaseEntity*, CBaseEntity*, USE_TYPE, float)	0x3150	export	1.00
+_ZN4CHud4InitEv	CHud::Init()	0x20170	string	0.61
+_ZN4CHud15MsgFunc_ConcussEPKciPv	CHud::MsgFunc_Concuss(char const*, int, void*)	0x21a40	string	1.00
+_ZN4CHud14MsgFunc_SetFOVEPKciPv	CHud::MsgFunc_SetFOV(char const*, int, void*)	0x49570	string?	0.50
+_ZN4CHud6RedrawEfb	CHud::Redraw(float, bool)	0x21aa0	string	1.00
+_ZN4CHud5ThinkEv	CHud::Think()	0x49570	string	1.00
+_ZN4CHud7VidInitEv	CHud::VidInit()	0x206c0	string	1.00
+_ZN8CHudAmmo13UserCmd_CloseEv	CHudAmmo::UserCmd_Close()	0x1a4e0	string?	0.50
+_ZN17CHudAmmoSecondary4InitEv	CHudAmmoSecondary::Init()	0x1a520	string	1.00
+_ZN11CHudBattery7VidInitEv	CHudBattery::VidInit()	0x1a7b0	string	0.50
+_ZN15CHudDeathNotice4InitEv	CHudDeathNotice::Init()	0x1af40	string	0.67
+_ZN14CHudFlashlight7VidInitEv	CHudFlashlight::VidInit()	0x1c730	string	1.00
+_ZN10CHudGeiger4InitEv	CHudGeiger::Init()	0x1f3f0	string	1.00
+_ZN10CHudHealth4InitEv	CHudHealth::Init()	0x1fb90	string	0.50
+_ZN10CHudHealth7VidInitEv	CHudHealth::VidInit()	0x1f4a0	string	0.40
+_ZN8CHudMenu14SelectMenuItemEi	CHudMenu::SelectMenuItem(int)	0x28700	string	1.00
+_ZN11CHudMessage4InitEv	CHudMessage::Init()	0x28760	string	0.50
+_ZN11CHudMessage7VidInitEv	CHudMessage::VidInit()	0x28760	string	0.50
+_ZN11CHudSayText4InitEv	CHudSayText::Init()	0x2ea10	string	0.50
+_ZN11CHudSayText12SayTextPrintEPKcii.part.0	CHudSayText::SayTextPrint(char const*, int, int) [clone .part.0]	0x2ed00	string	0.50
+_ZN13CHudSpectator17ParseOverviewFileEv.part.6	CHudSpectator::ParseOverviewFile() [clone .part.6]	0x23720	string	1.00
+_ZN13CHudStatusBar4InitEv	CHudStatusBar::Init()	0x2f330	string	1.00
+_ZN15CHudStatusIcons10EnableIconEPKchhh	CHudStatusIcons::EnableIcon(char const*, unsigned char, unsigned char, unsigned char)	0x2f210	string	1.00
+_ZN15CHudStatusIcons4InitEv	CHudStatusIcons::Init()	0x2ee90	string	1.00
+_ZN13CHudTSBuyMenu16DrawColumnRemoveEv	CHudTSBuyMenu::DrawColumnRemove()	0x10630	string	0.40
+_ZN13CHudTSPowerUp16MsgFunc_TSSlowMoEPKciPv	CHudTSPowerUp::MsgFunc_TSSlowMo(char const*, int, void*)	0x4bef0	string?	1.00
+_ZN15CHudTSWeaponBar4DrawEf	CHudTSWeaponBar::Draw(float)	0x4e030	string	1.00
+_ZN15CHudTextMessage4InitEv	CHudTextMessage::Init()	0x331e0	string	0.50
+_ZN9CHudTrain4DrawEf	CHudTrain::Draw(float)	0x34a60	string	0.50
+_ZN9CHudTrain4InitEv	CHudTrain::Init()	0x34a60	string	0.50
+CL_CameraOffset	CL_CameraOffset	0x25720	export	1.00
+CL_CreateMove	CL_CreateMove	0x26570	export	1.00
+CL_IsThirdPerson	CL_IsThirdPerson	0x4fec0	export	1.00
+_ZN37CMenuHandler_StringCommandClassSelect15actionPerformedEPN4vgui5PanelE	CMenuHandler_StringCommandClassSelect::actionPerformed(vgui::Panel*)	0x5a860	string	1.00
+_ZN31CMenuHandler_StringCommandWatch15actionPerformedEPN4vgui5PanelE	CMenuHandler_StringCommandWatch::actionPerformed(vgui::Panel*)	0x64880	string	1.00
+_ZN20CStudioModelRenderer4InitEv	CStudioModelRenderer::Init()	0x30010	string	1.00
+_ZN20CStudioModelRenderer21StudioCalcAttachmentsEv.part.3	CStudioModelRenderer::StudioCalcAttachments() [clone .part.3]	0x331e0	string	0.50
+_ZN14CTeamMenuPanel10InitializeEv	CTeamMenuPanel::Initialize()	0x1aa10	export	1.00
+_ZN14CTeamMenuPanel6UpdateEv	CTeamMenuPanel::Update()	0x65ff0	string	0.67
+_ZN12CVoiceBanMgr4InitEPKc	CVoiceBanMgr::Init(char const*)	0x171e0	string?	1.00
+_ZN12CVoiceBanMgr9SaveStateEPKc	CVoiceBanMgr::SaveState(char const*)	0x171e0	string?	1.00
+_ZN12CVoiceStatus17HandleReqStateMsgEiPv	CVoiceStatus::HandleReqStateMsg(int, void*)	0x18830	string?	1.00
+_ZN12CVoiceStatus21SetPlayerBlockedStateEib	CVoiceStatus::SetPlayerBlockedState(int, bool)	0x18cf0	string	1.00
+_ZN12CVoiceStatus17UpdateServerStateEb	CVoiceStatus::UpdateServerState(bool)	0x18360	string	0.75
+_ZN12CVoiceStatus19UpdateSpeakerStatusEib	CVoiceStatus::UpdateSpeakerStatus(int, bool)	0x180c0	string	0.80
+_ZN12CVoiceStatus7VidInitEv	CVoiceStatus::VidInit()	0x177e0	string	0.69
+_ZN11ClassButton10IsNotValidEv	ClassButton::IsNotValid()	0x5a450	string	1.00
+_ZN13CommandButton15RecalculateTextEv	CommandButton::RecalculateText()	0x5a1f0	string?	1.00
+_ZN13CommandButton11setBoundKeyEc	CommandButton::setBoundKey(char)	0x5a1f0	string?	1.00
+_ZN13CommandButton7setTextEPKc	CommandButton::setText(char const*)	0x5a1f0	string?	1.00
+CreateInterface	CreateInterface	0x4750	export	1.00
+Demo_ReadBuffer	Demo_ReadBuffer	0x1b8c0	export	1.00
+_Z19EV_HLDM_DamageDecalP9physent_s	EV_HLDM_DamageDecal(physent_s*)	0x1000	string	0.50
+_Z9EV_TSFireP12event_args_s	EV_TSFire(event_args_s*)	0x450c0	string	0.50
+_Z16GetTGANameForResPKc	GetTGANameForRes(char const*)	0x5a010	string	1.00
+_Z12GiveTSWeaponP11CBasePlayer10tsweapon_t	GiveTSWeapon(CBasePlayer*, tsweapon_t)	0x83f0	string?	0.50
+HUD_AddEntity	HUD_AddEntity	0x447f0	export	1.00
+HUD_ConnectionlessPacket	HUD_ConnectionlessPacket	0x1a9c0	export	1.00
+HUD_CreateEntities	HUD_CreateEntities	0x1bce0	export	1.00
+HUD_DrawNormalTriangles	HUD_DrawNormalTriangles	0x34e40	export	1.00
+HUD_DrawTransparentTriangles	HUD_DrawTransparentTriangles	0x34e50	export	1.00
+HUD_Frame	HUD_Frame	0x1aae0	export	1.00
+HUD_GetHullBounds	HUD_GetHullBounds	0x1a9a0	export	1.00
+HUD_GetStudioModelInterface	HUD_GetStudioModelInterface	0x1f3f0	export	1.00
+HUD_GetUserEntity	HUD_GetUserEntity	0x4eeb0	export	1.00
+HUD_Init	HUD_Init	0x1aa70	export	1.00
+HUD_Key_Event	HUD_Key_Event	0x25a80	export	1.00
+HUD_PlayerMove	HUD_PlayerMove	0x1a9f0	export	1.00
+HUD_PlayerMoveInit	HUD_PlayerMoveInit	0x1a9d0	export	1.00
+HUD_PlayerMoveTexture	HUD_PlayerMoveTexture	0x1a9e0	export	1.00
+HUD_PostRunCmd	HUD_PostRunCmd	0x45b0	export	1.00
+HUD_ProcessPlayerState	HUD_ProcessPlayerState	0x1b950	export	1.00
+HUD_Redraw	HUD_Redraw	0x1aa90	export	1.00
+HUD_Reset	HUD_Reset	0x1aad0	export	1.00
+HUD_Shutdown	HUD_Shutdown	0x27250	export	1.00
+HUD_StudioEvent	HUD_StudioEvent	0x44b50	export	1.00
+HUD_TempEntUpdate	HUD_TempEntUpdate	0x1bd00	export	1.00
+HUD_TxferLocalOverrides	HUD_TxferLocalOverrides	0x1b900	export	1.00
+HUD_TxferPredictionData	HUD_TxferPredictionData	0x1bb00	export	1.00
+HUD_UpdateClientData	HUD_UpdateClientData	0x1aab0	export	1.00
+HUD_VidInit	HUD_VidInit	0x1aa50	export	1.00
+HUD_VoiceStatus	HUD_VoiceStatus	0x1ab40	export	1.00
+_ZN15HistoryResource12AddToHistoryEiPKci	HistoryResource::AddToHistory(int, char const*, int)	0x1a710	string	1.00
+IN_Accumulate	IN_Accumulate	0x278b0	export	1.00
+IN_ActivateMouse	IN_ActivateMouse	0x27260	export	1.00
+_Z11IN_Alt1Downv	IN_Alt1Down()	0x259a0	string?	1.00
+_Z14IN_Attack2Downv	IN_Attack2Down()	0x259a0	string?	1.00
+_Z13IN_AttackDownv	IN_AttackDown()	0x259a0	string?	1.00
+_Z11IN_BackDownv	IN_BackDown()	0x259a0	string?	1.00
+_Z12IN_BreakDownv	IN_BreakDown()	0x259a0	string?	1.00
+IN_ClearStates	IN_ClearStates	0x27930	export	1.00
+IN_DeactivateMouse	IN_DeactivateMouse	0x272a0	export	1.00
+_Z11IN_DownDownv	IN_DownDown()	0x259a0	string?	1.00
+_Z11IN_DuckDownv	IN_DuckDown()	0x259a0	string?	1.00
+_Z14IN_ForwardDownv	IN_ForwardDown()	0x259a0	string?	1.00
+_Z12IN_GraphDownv	IN_GraphDown()	0x259a0	string?	1.00
+_Z7IN_Initv	IN_Init()	0x28320	string	0.67
+_Z12IN_JLookDownv	IN_JLookDown()	0x259a0	string?	1.00
+_Z11IN_JumpDownv	IN_JumpDown()	0x259a0	string?	1.00
+_Z12IN_KLookDownv	IN_KLookDown()	0x259a0	string?	1.00
+_Z11IN_LeftDownv	IN_LeftDown()	0x259a0	string?	1.00
+_Z15IN_LookdownDownv	IN_LookdownDown()	0x259a0	string?	1.00
+_Z13IN_LookupDownv	IN_LookupDown()	0x259a0	string?	1.00
+_Z12IN_MLookDownv	IN_MLookDown()	0x259a0	string?	1.00
+IN_MouseEvent	IN_MouseEvent	0x273d0	export	1.00
+_Z15IN_MoveleftDownv	IN_MoveleftDown()	0x259a0	string?	1.00
+_Z16IN_MoverightDownv	IN_MoverightDown()	0x259a0	string?	1.00
+_Z13IN_ReloadDownv	IN_ReloadDown()	0x259a0	string?	1.00
+_Z12IN_RightDownv	IN_RightDown()	0x259a0	string?	1.00
+_Z12IN_ScoreDownv	IN_ScoreDown()	0x259a0	string?	1.00
+_Z12IN_SpeedDownv	IN_SpeedDown()	0x259a0	string?	1.00
+_Z13IN_StrafeDownv	IN_StrafeDown()	0x259a0	string?	1.00
+_Z9IN_UpDownv	IN_UpDown()	0x259a0	string?	1.00
+_Z10IN_UseDownv	IN_UseDown()	0x259a0	string?	1.00
+_Z9InitInputv	InitInput()	0x26b30	string	0.66
+Initialize	Initialize	0x1aa10	export	1.00
+_Z20Joy_AdvancedUpdate_fv	Joy_AdvancedUpdate_f()	0x27b00	string	1.00
+KB_Find	KB_Find	0x25880	export	1.00
+_Z7KB_Initv	KB_Init()	0x25930	string	1.00
+_Z7KeyDownP9kbutton_s	KeyDown(kbutton_s*)	0x259a0	string?	1.00
+_Z13LoadTGAForResPKc	LoadTGAForRes(char const*)	0x5a010	string?	0.50
+_Z21PM_CatagorizePositionv	PM_CatagorizePosition()	0x2aff0	string?	1.00
+_Z15PM_CheckFallingv	PM_CheckFalling()	0x2de80	string	1.00
+_Z10PM_FlyMovev	PM_FlyMove()	0x2aff0	string?	1.00
+_Z19PM_InitTextureTypesv	PM_InitTextureTypes()	0x2a0a0	string	1.00
+_Z7PM_Jumpv	PM_Jump()	0x2e030	string?	0.80
+_Z18PM_PlayWaterSoundsv	PM_PlayWaterSounds()	0x2e030	string?	1.00
+_Z11Scheme_Initv	Scheme_Init()	0x5c2a0	string	1.00
+_ZN10ScorePanel10InitializeEv	ScorePanel::Initialize()	0x1aa10	export	1.00
+_ZN10ScorePanel12mousePressedEN4vgui9MouseCodeEPNS0_5PanelE.part.0	ScorePanel::mousePressed(vgui::MouseCode, vgui::Panel*) [clone .part.0]	0x5e630	string	1.00
+_Z18ShowBannedCallbackv	ShowBannedCallback()	0x17570	string	0.67
+_ZN14SpectatorPanel10InitializeEv	SpectatorPanel::Initialize()	0x1aa10	export	1.00
+_ZN14SpectatorPanel10InitializeEv.cold.8	SpectatorPanel::Initialize() [clone .cold.8]	0x1aa10	export	1.00
+_Z9TSAddAmmoP11CBasePlayerii	TSAddAmmo(CBasePlayer*, int, int)	0x83f0	string?	0.50
+_Z17TSAlternateAttackP11CBasePlayer	TSAlternateAttack(CBasePlayer*)	0x83f0	string?	0.50
+_Z17TSDropAmmoOnDeathP11CBasePlayer	TSDropAmmoOnDeath(CBasePlayer*)	0x83f0	string?	0.50
+_Z20TSDropWeaponsOnDeathP11CBasePlayer	TSDropWeaponsOnDeath(CBasePlayer*)	0x83f0	string?	0.50
+_Z15TSMultiplyClipsP11CBasePlayer	TSMultiplyClips(CBasePlayer*)	0x83f0	string?	0.50
+_ZL15TSP_SparkShowerPKfS0_iff.constprop.4	TSP_SparkShower(float const*, float const*, int, float, float) [clone .constprop.4]	0x492b0	string	1.00
+_Z14TSPickUpWeaponP11CBasePlayerii	TSPickUpWeapon(CBasePlayer*, int, int)	0x83f0	string?	0.50
+_Z17TSPlayerFreeSlotsP11CBasePlayer	TSPlayerFreeSlots(CBasePlayer*)	0x83f0	string?	0.50
+_Z15TSSlotBaseSpeedP11CBasePlayer	TSSlotBaseSpeed(CBasePlayer*)	0x83f0	string?	0.50
+_Z16TSSwitchFireModeP11CBasePlayer	TSSwitchFireMode(CBasePlayer*)	0x83f0	string?	0.50
+_Z14TS_MeleeImpactPKfS0_c	TS_MeleeImpact(float const*, float const*, char)	0x4bd50	string	1.00
+_ZN20TeamFortressViewport10InitializeEv	TeamFortressViewport::Initialize()	0x1aa10	export	1.00
+_Z18V_CalcNormalRefdefP12ref_params_s	V_CalcNormalRefdef(ref_params_s*)	0x67890	string	1.00
+V_CalcRefdef	V_CalcRefdef	0x69b90	export	1.00
+_Z6V_Initv	V_Init()	0x69e40	string	0.79
+_ZN15WeaponsResource17LoadWeaponSpritesEP6WEAPON	WeaponsResource::LoadWeaponSprites(WEAPON*)	0x197c0	string?	0.45
+_ZN15WeaponsResource17LoadWeaponSpritesEP6WEAPON.constprop.23	WeaponsResource::LoadWeaponSprites(WEAPON*) [clone .constprop.23]	0x197c0	string?	0.45
+_Z15__CmdFunc_Closev	__CmdFunc_Close()	0x1a4e0	string?	0.50
+_Z19__MsgFunc_GameTitlePKciPv	__MsgFunc_GameTitle(char const*, int, void*)	0x29610	string	1.00
+_Z18__MsgFunc_ReqStatePKciPv	__MsgFunc_ReqState(char const*, int, void*)	0x18830	string?	1.00
+_Z16__MsgFunc_SetFOVPKciPv	__MsgFunc_SetFOV(char const*, int, void*)	0x49570	string?	0.50
+_Z18__MsgFunc_TSSlowMoPKciPv	__MsgFunc_TSSlowMo(char const*, int, void*)	0x4bef0	string?	1.00
+_ZN4vgui10ScrollBar218addIntChangeSignalEPNS_15IntChangeSignalE	vgui::ScrollBar2::addIntChangeSignal(vgui::IntChangeSignal*)	0x15b20	export	1.00
+_ZN4vgui10ScrollBar218addIntChangeSignalEPNS_15IntChangeSignalE.cold.10	vgui::ScrollBar2::addIntChangeSignal(vgui::IntChangeSignal*) [clone .cold.10]	0x15b20	export	1.00
+_ZN4vgui10ScrollBar215doButtonPressedEi.localalias.7	vgui::ScrollBar2::doButtonPressed(int) [clone .localalias.7]	0x16000	export	1.00
+_ZN4vgui10ScrollBar219fireIntChangeSignalEv	vgui::ScrollBar2::fireIntChangeSignal()	0x15c70	export	1.00
+_ZN4vgui10ScrollBar29getButtonEi	vgui::ScrollBar2::getButton(int)	0x15d80	export	1.00
+_ZN4vgui10ScrollBar29getSliderEv	vgui::ScrollBar2::getSlider()	0x15df0	export	1.00
+_ZN4vgui10ScrollBar28getValueEv	vgui::ScrollBar2::getValue()	0x15b10	export	1.00
+_ZN4vgui10ScrollBar212hasFullRangeEv	vgui::ScrollBar2::hasFullRange()	0x15ce0	export	1.00
+_ZN4vgui10ScrollBar210isVerticalEv	vgui::ScrollBar2::isVertical()	0x15cd0	export	1.00
+_ZN4vgui10ScrollBar213performLayoutEv	vgui::ScrollBar2::performLayout()	0x5a740	export	1.00
+_ZN4vgui10ScrollBar29setButtonEPNS_6ButtonEi	vgui::ScrollBar2::setButton(vgui::Button*, int)	0x15cf0	export	1.00
+_ZN4vgui10ScrollBar227setButtonPressedScrollValueEi	vgui::ScrollBar2::setButtonPressedScrollValue(int)	0x16060	export	1.00
+_ZN4vgui10ScrollBar28setRangeEii	vgui::ScrollBar2::setRange(int, int)	0x15c50	export	1.00
+_ZN4vgui10ScrollBar214setRangeWindowEi	vgui::ScrollBar2::setRangeWindow(int)	0x16070	export	1.00
+_ZN4vgui10ScrollBar221setRangeWindowEnabledEb	vgui::ScrollBar2::setRangeWindowEnabled(bool)	0x16090	export	1.00
+_ZN4vgui10ScrollBar27setSizeEii	vgui::ScrollBar2::setSize(int, int)	0x159e0	export	1.00
+_ZN4vgui10ScrollBar29setSliderEPNS_7Slider2E	vgui::ScrollBar2::setSlider(vgui::Slider2*)	0x15d90	export	1.00
+_ZN4vgui10ScrollBar28setValueEi	vgui::ScrollBar2::setValue(int)	0x15af0	export	1.00
+_ZN4vgui10ScrollBar28validateEv	vgui::ScrollBar2::validate()	0x16330	export	1.00
+_ZN4vgui7Slider218addIntChangeSignalEPNS_15IntChangeSignalE	vgui::Slider2::addIntChangeSignal(vgui::IntChangeSignal*)	0x16bf0	export	1.00
+_ZN4vgui7Slider218addIntChangeSignalEPNS_15IntChangeSignalE.cold.12	vgui::Slider2::addIntChangeSignal(vgui::IntChangeSignal*) [clone .cold.12]	0x16bf0	export	1.00
+_ZN4vgui7Slider219fireIntChangeSignalEv.localalias.5	vgui::Slider2::fireIntChangeSignal() [clone .localalias.5]	0x16ce0	export	1.00
+_ZN4vgui7Slider29getNobPosERiS1_	vgui::Slider2::getNobPos(int&, int&)	0x17160	export	1.00
+_ZN4vgui7Slider28getRangeERiS1_	vgui::Slider2::getRange(int&, int&)	0x16f20	export	1.00
+_ZN4vgui7Slider28getValueEv.localalias.7	vgui::Slider2::getValue() [clone .localalias.7]	0x168c0	export	1.00
+_ZN4vgui7Slider212hasFullRangeEv	vgui::Slider2::hasFullRange()	0x16b30	export	1.00
+_ZN4vgui7Slider210isVerticalEv	vgui::Slider2::isVertical()	0x16860	export	1.00
+_ZN4vgui7Slider215paintBackgroundEv	vgui::Slider2::paintBackground()	0x16d30	export	1.00
+_ZN4vgui7Slider218privateCursorMovedEiiPNS_5PanelE	vgui::Slider2::privateCursorMoved(int, int, vgui::Panel*)	0x16f40	export	1.00
+_ZN4vgui7Slider219privateMousePressedENS_9MouseCodeEPNS_5PanelE	vgui::Slider2::privateMousePressed(vgui::MouseCode, vgui::Panel*)	0x17080	export	1.00
+_ZN4vgui7Slider220privateMouseReleasedENS_9MouseCodeEPNS_5PanelE.localalias.9	vgui::Slider2::privateMouseReleased(vgui::MouseCode, vgui::Panel*) [clone .localalias.9]	0x17140	export	1.00
+_ZN4vgui7Slider224recomputeNobPosFromValueEv	vgui::Slider2::recomputeNobPosFromValue()	0x168d0	export	1.00
+_ZN4vgui7Slider224recomputeValueFromNobPosEv	vgui::Slider2::recomputeValueFromNobPos()	0x16a30	export	1.00
+_ZN4vgui7Slider215setButtonOffsetEi	vgui::Slider2::setButtonOffset(int)	0x5a450	export	1.00
+_ZN4vgui7Slider28setRangeEii	vgui::Slider2::setRange(int, int)	0x16ef0	export	1.00
+_ZN4vgui7Slider214setRangeWindowEi	vgui::Slider2::setRangeWindow(int)	0x17180	export	1.00
+_ZN4vgui7Slider221setRangeWindowEnabledEb	vgui::Slider2::setRangeWindowEnabled(bool)	0x17190	export	1.00
+_ZN4vgui7Slider27setSizeEii	vgui::Slider2::setSize(int, int)	0x16830	export	1.00
+_ZN4vgui7Slider28setValueEi	vgui::Slider2::setValue(int)	0x16870	export	1.00
+weapon_tsgun	weapon_tsgun	0x83e0	export	1.00

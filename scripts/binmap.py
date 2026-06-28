@@ -24,13 +24,15 @@ from collections import defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
-SO = os.path.join(ROOT, "reference", "ts_i386.so")
-MP = os.path.join(ROOT, "reference", "mp.dll")
-MAP = os.path.join(ROOT, "reference", "signatures-gcc2.map")
+# Defaults map ts_i386.so (server gcc2) -> mp.dll (server MSVC). Override via env to reuse the SAME machinery
+# for the CLIENT pair: our build-i386/cl_dll/client.so -> reference/client.dll (see scripts/coverage/client_members.py).
+SO = os.environ.get("BINMAP_SO", os.path.join(ROOT, "reference", "ts_i386.so"))
+MP = os.environ.get("BINMAP_MP", os.path.join(ROOT, "reference", "mp.dll"))
+MAP = os.environ.get("BINMAP_MAP", os.path.join(ROOT, "reference", "signatures-gcc2.map"))
 DEMANGLE = os.path.join(HERE, "gnv2demangle.py")
-OUT = os.path.join(ROOT, "reference", "coverage", "binmap.tsv")
-GOT = 0x165E10          # _GLOBAL_OFFSET_TABLE_ in ts_i386.so
-IMAGEBASE = 0x10000000  # mp.dll PE imagebase
+OUT = os.environ.get("BINMAP_OUT", os.path.join(ROOT, "reference", "coverage", "binmap.tsv"))
+GOT = int(os.environ.get("BINMAP_GOT", "0x165E10"), 16)   # _GLOBAL_OFFSET_TABLE_ of the SO side
+IMAGEBASE = 0x10000000  # PE imagebase (mp.dll / client.dll)
 
 
 def sh(*a):

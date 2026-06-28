@@ -27,6 +27,8 @@ CTSGameRules	0x568	FLOAT	float	m_flGlobalSlowEnd	3
 CTSGameRules	0x56c	FLOAT	float	m_flNextGlobalSlow	3
 CTSGameRules	0x5880	FLOAT	float	m_flCheckDeads	5
 CTSGun	0xc8	INTEGER	int	m_weaponType	23
+CTSGun	0xcc	POINTER	s_weapon_status *	m_pActiveItem	27
+CTSGun	0xd0	POINTER	s_weapon_info *	m_pActiveInfo	26
 CTSGun	0xd4	INTEGER	undefined4	m_ammoReserve	6
 CTSGun	0x9e8	FLOAT	float	m_flLastShotTime	2
 CTSGun	0x9fc	INTEGER	int	m_comboStep	2
@@ -46,5 +48,3 @@ CTSStunt	0x30	FLOAT	float	m_flSlideTime	4
 CTSStunt	0x34	FLOAT	float	m_flBulletTimeEnd	1
 CTSStunt	0x38	FLOAT	float	m_flWallClimbFuel	4
 CTSStunt	0x3c	INTEGER	int	m_iWallClimbCount	2
-CTSGun	0xcc	POINTER	s_weapon_status *	m_pActiveItem	27
-CTSGun	0xd0	POINTER	s_weapon_info *	m_pActiveInfo	26
