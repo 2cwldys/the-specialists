@@ -260,10 +260,37 @@ def client_surface():
     return interface, sorted(libcls)
 
 
+def full_members():
+    """Per-class members merged from ALL three skeletons so the json shows the COMPLETE member layout (not
+    just the save-table subset, which is empty for transient-only classes like CTSGun/CTSStunt):
+      members.tsv (saved, authoritative)  >  members_re.tsv (curated RE names)  >  members_auto.tsv (offset+
+      type skeleton, placeholder names). First source wins per (class, offset).
+    Returns {class: [(offset_str, cpptype, name, count, source), ...]} sorted by offset."""
+    bycls = {}
+    for fname, src in [("members.tsv", "saved"), ("members_re.tsv", "curated"), ("members_auto.tsv", "auto")]:
+        path = os.path.join(COV, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path) as f:
+            next(f, None)
+            for ln in f:
+                p = ln.rstrip("\n").split("\t")
+                if len(p) < 5:
+                    continue
+                try:
+                    off = int(p[1], 16)
+                except ValueError:
+                    continue
+                d = bycls.setdefault(p[0], {})
+                d.setdefault(off, (p[1], p[3], p[4], p[5] if len(p) > 5 else "1", src))  # first source wins
+    return {c: [d[o] for o in sorted(d)] for c, d in bycls.items()}
+
+
 def main():
     allm = all_class_methods()
     work, cf = I.load_worklist(), I.class_file()
-    sigs, base, mem = I.load_sigs(), I.load_base(), I.load_members()
+    sigs, base = I.load_sigs(), I.load_base()
+    mem = full_members()   # saved + curated + auto skeleton (COMPLETE per-class member layout)
     addr = I.func_addr()
     srows = sig_rows()
     statics, frees = load_globals()
@@ -320,8 +347,8 @@ def main():
         node(ofile)["classes"][c] = {
             "ts_specific": ts_specific, "category": category(c),
             "base": base.get(c), "ancestry": ancestry(c, base),
-            "members": [{"name": nm, "offset": off, "cpptype": cpp, "count": cnt}
-                        for off, cpp, nm, cnt in mem.get(c, [])],
+            "members": [{"name": nm, "offset": off, "cpptype": cpp, "count": cnt, "source": src}
+                        for off, cpp, nm, cnt, src in mem.get(c, [])],
             "statics": statics.get(c, []),
             "vtable": vts.get(c),
             "methods": mdict,
