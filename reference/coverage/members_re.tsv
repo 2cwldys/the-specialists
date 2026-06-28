@@ -46,3 +46,5 @@ CTSStunt	0x30	FLOAT	float	m_flSlideTime	4
 CTSStunt	0x34	FLOAT	float	m_flBulletTimeEnd	1
 CTSStunt	0x38	FLOAT	float	m_flWallClimbFuel	4
 CTSStunt	0x3c	INTEGER	int	m_iWallClimbCount	2
+CTSGun	0xcc	POINTER	s_weapon_status *	m_pActiveItem	27
+CTSGun	0xd0	POINTER	s_weapon_info *	m_pActiveInfo	26

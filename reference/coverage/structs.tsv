@@ -1,0 +1,40 @@
+struct	offset	cpptype	name	size
+# Non-class DATA structs heavily used by the weapon code, recovered from scripts/extract_weapons.py +
+# dlls/ts_weapon_info.h (s_weapon_info) and the ShotgunFire/TakeWeapon RE (s_weapon_status = an owned item).
+# ApplyInventory builds these so weapon decompiles read wi->iFireType / item->fireMode instead of
+# *(char*)(info+0x348) / *(char*)(item+2). One row per field; `size` (col 5, on the first row of a struct)
+# pads the struct to its real stride. Curate/members_re type the active pointers (CTSGun m_pActiveInfo/Item).
+s_weapon_info	0x04	int	iClip	0x3dc
+s_weapon_info	0x08	int	iCaliber
+s_weapon_info	0x0c	int	iFireModes
+s_weapon_info	0x18	float	flFireRate
+s_weapon_info	0x1c	int	flDamage
+s_weapon_info	0x24	int	iPellets
+s_weapon_info	0x28	float	flSpread
+s_weapon_info	0x2c	int	bUsesSpread
+s_weapon_info	0x30	float	flViewKick
+s_weapon_info	0x34	float	flRecoil
+s_weapon_info	0x3c	int	zoomFov1
+s_weapon_info	0x40	int	zoomFov2
+s_weapon_info	0x44	char	szName
+s_weapon_info	0xc8	int	iAkimboType
+s_weapon_info	0xcc	int	iSingleType
+s_weapon_info	0xd0	char	slotCost
+s_weapon_info	0xe0	int	attachSupported
+s_weapon_info	0xe4	int	attachBuiltin
+s_weapon_info	0x132	char	szViewModel
+s_weapon_info	0x172	char	szPlayerModel
+s_weapon_info	0x1f2	char	szWorldModel
+s_weapon_info	0x232	char	szAnimExt
+s_weapon_info	0x2c6	char	szFireSound
+s_weapon_info	0x348	char	iFireType
+s_weapon_status	0x00	char	bOwned	0x38
+s_weapon_status	0x02	char	fireMode
+s_weapon_status	0x04	int	iClip
+s_weapon_status	0x08	int	burstOrPhase
+s_weapon_status	0x10	int	attachEquipped
+s_weapon_status	0x14	int	attachActive
+s_weapon_status	0x1c	int	leftClip
+s_weapon_status	0x20	int	rightClip
+s_weapon_status	0x24	char	pumpToggle
+s_weapon_status	0x2c	char	holdPosition

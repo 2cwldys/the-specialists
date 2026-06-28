@@ -260,21 +260,21 @@ _Noisier: mixes methods TS genuinely dropped with accessors our newer SDK added.
 | `CBaseToggle` | IsAllowedToSpeak, MyTogglePointer, PlayScriptedSentence, PlaySentence, PlaySentenceCore, SentenceStop |
 | `CBasePlayerItem` | CanAddToPlayer, DecrementTimers, GetWeaponData, SetWeaponData |
 | `CBaseButton` | ButtonShot, IsAllowedToSpeak, RotSpawn, SparkSoundCache |
+| `CRestore` | Empty, PrecacheMode, SetGlobalMode |
 | `CBasePlayerWeapon` | CallDoRetireWeapon, DoRetireWeapon, GetNextAttackDelay |
 | `CSaveRestoreBuffer` | EntityFlags, GetData, IsValidSaveRestoreData |
-| `CRestore` | Empty, PrecacheMode, SetGlobalMode |
+| `CGenericCycler` | GenericCyclerSpawn, Vector |
 | `CMomentaryDoor` | DoorMoveDone, StopMoveSound |
 | `CPushable` | DamageDecal, StopSound |
 | `CGamePlayerEquip` | Restore, Save |
-| `CGenericCycler` | GenericCyclerSpawn, Vector |
-| `CRuleBrushEntity` | ObjectCaps |
-| `CGlobalState` | EntityInTable |
 | `CChangeLevel` | TriggerChangeLevel |
-| `CHalfLifeMultiplay` | FAllowFlashlight |
-| `CBreakable` | SparkWhenHit |
-| `CFuncIllusionary` | SloshTouch |
-| `CHalfLifeRules` | FAllowFlashlight |
-| `CCycler` | IsAllowedToSpeak |
+| `CGlobalState` | EntityInTable |
 | `CVoiceGameMgr` | PlayerHasBlockedPlayer |
+| `CBreakable` | SparkWhenHit |
+| `CHalfLifeMultiplay` | FAllowFlashlight |
 | `CPathTrack` | Sparkle |
+| `CRuleBrushEntity` | ObjectCaps |
 | `CFuncTrackTrain` | Nearest |
+| `CCycler` | IsAllowedToSpeak |
+| `CHalfLifeRules` | FAllowFlashlight |
+| `CFuncIllusionary` | SloshTouch |

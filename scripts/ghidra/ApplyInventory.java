@@ -377,6 +377,40 @@ public class ApplyInventory extends GhidraScript {
         return ret;
     }
 
+    // Build named DATA structs (not classes) from reference/coverage/structs.tsv: `struct<TAB>offset<TAB>
+    // cpptype<TAB>name<TAB>[size]`. These let weapon decompiles read `wi->iFireType` / `item->fireMode`
+    // once the active pointers (CTSGun m_pActiveInfo/m_pActiveItem) are typed to them (via members_re.tsv).
+    void loadStructs(File cov) throws IOException {
+        File f = new File(cov, "structs.tsv");
+        if (!f.exists()) return;
+        LinkedHashMap<String, List<String[]>> defs = new LinkedHashMap<>();
+        Map<String, Integer> sizes = new HashMap<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            br.readLine();
+            String ln;
+            while ((ln = br.readLine()) != null) {
+                if (ln.startsWith("#") || ln.trim().isEmpty()) continue;
+                String[] p = ln.split("\t", -1);
+                if (p.length < 4) continue;
+                defs.computeIfAbsent(p[0], k -> new ArrayList<>()).add(p);
+                if (p.length >= 5 && !p[4].trim().isEmpty() && !sizes.containsKey(p[0]))
+                    sizes.put(p[0], (int) Long.parseLong(p[4].trim().replace("0x", ""), 16));
+            }
+        }
+        int n = 0;
+        for (Map.Entry<String, List<String[]>> e : defs.entrySet()) {
+            StructureDataType s = new StructureDataType(CP, e.getKey(), sizes.getOrDefault(e.getKey(), 4));
+            for (String[] p : e.getValue()) {
+                int off = (int) Long.parseLong(p[1].trim().replace("0x", ""), 16);
+                DataType dt = resolveType(p[2]);
+                try { s.replaceAtOffset(off, dt, Math.max(1, dt.getLength()), p[3], ""); } catch (Exception ig) {}
+            }
+            dtm.addDataType(s, DataTypeConflictHandler.REPLACE_HANDLER);
+            n++;
+        }
+        println("ApplyInventory: built " + n + " data structs from structs.tsv " + defs.keySet() + ".");
+    }
+
     public void run() throws Exception {
         dtm = currentProgram.getDataTypeManager();
         String covPath = getScriptArgs().length > 0 ? getScriptArgs()[0].trim()
@@ -394,6 +428,8 @@ public class ApplyInventory extends GhidraScript {
         slots += typeGotSlots("gpGlobals", dtm.getPointer(dtm.getPointer(named("globalvars_t"))));
         println("ApplyInventory: typed " + slots + " engine GOT pointer slots.");
         typeFpConstants();   // .rodata float/double constants -> their literal value in the decompile
+        loadStructs(cov);    // named DATA structs (s_weapon_info/s_weapon_status) BEFORE class structs, so a
+                             // member typed `s_weapon_info *` (m_pActiveInfo) resolves to the real layout
 
         loadTsv(new File(cov, "members.tsv"), members, 0);
         // RE-curated transient members (m_flExpire, … — verified by decompile, but NOT in any save table,

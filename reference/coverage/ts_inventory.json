@@ -54964,157 +54964,12 @@
    "CountdownTimer"
   ],
   "trimmed_methods": {
-   "CRuleBrushEntity": [
-    "ObjectCaps"
-   ],
-   "CVoiceGameMgr": [
-    "PlayerHasBlockedPlayer"
-   ],
-   "CCycler": [
-    "IsAllowedToSpeak"
-   ],
-   "CGenericCycler": [
-    "GenericCyclerSpawn",
-    "Vector"
-   ],
-   "CHalfLifeRules": [
-    "FAllowFlashlight"
-   ],
-   "CGameRules": [
-    "AmmoShouldRespawn",
-    "CanHaveItem",
-    "ClientConnected",
-    "ClientDisconnected",
-    "DeadPlayerAmmo",
-    "DeadPlayerWeapons",
-    "DeathNotice",
-    "FAllowFlashlight",
-    "FAllowMonsters",
-    "FPlayerCanRespawn",
-    "FShouldSwitchWeapon",
-    "FindNextBestWeapon",
-    "FlAmmoRespawnTime",
-    "FlHealthChargerRechargeTime",
-    "FlItemRespawnTime",
-    "FlPlayerFallDamage",
-    "FlPlayerSpawnTime",
-    "FlWeaponRespawnTime",
-    "FlWeaponTryRespawn",
-    "GetNextBestWeapon",
-    "GetTeamID",
-    "IPointsForKill",
-    "InitHUD",
-    "IsAllowedToSpawn",
-    "IsCoOp",
-    "IsDeathmatch",
-    "IsMultiplayer",
-    "ItemShouldRespawn",
-    "PlayerGotAmmo",
-    "PlayerGotItem",
-    "PlayerGotWeapon",
-    "PlayerKilled",
-    "PlayerRelationship",
-    "PlayerSpawn",
-    "PlayerThink",
-    "Think",
-    "VecAmmoRespawnSpot",
-    "VecItemRespawnSpot",
-    "VecWeaponRespawnSpot",
-    "WeaponShouldRespawn"
-   ],
-   "CChangeLevel": [
-    "TriggerChangeLevel"
-   ],
-   "CBaseToggle": [
-    "IsAllowedToSpeak",
-    "MyTogglePointer",
-    "PlayScriptedSentence",
-    "PlaySentence",
-    "PlaySentenceCore",
-    "SentenceStop"
-   ],
-   "CBreakable": [
-    "SparkWhenHit"
-   ],
-   "CGraph": [
-    "BuildLinkLookups",
-    "BuildRegionTables",
-    "CapIndex",
-    "CheckNode",
-    "ComputeStaticRoutingTables",
-    "DestNode",
-    "FSaveGraph",
-    "FindShortestPath",
-    "HandleLinkEnt",
-    "HashChoosePrimes",
-    "HashInsert",
-    "HashSearch",
-    "HullIndex",
-    "INodeLink",
-    "Link",
-    "LinkEntForLink",
-    "LinkVisibleNodes",
-    "NextNodeInRoute",
-    "Node",
-    "NodeLink",
-    "NodeType",
-    "PNodeLink",
-    "PathLength",
-    "RejectInlineLinks",
-    "SortNodes",
-    "SourceNode",
-    "TestRoutingTables"
-   ],
-   "CRestore": [
-    "Empty",
-    "PrecacheMode",
-    "SetGlobalMode"
-   ],
-   "CBasePlayerWeapon": [
-    "CallDoRetireWeapon",
-    "DoRetireWeapon",
-    "GetNextAttackDelay"
-   ],
-   "CSaveRestoreBuffer": [
-    "EntityFlags",
-    "GetData",
-    "IsValidSaveRestoreData"
-   ],
-   "CBasePlayerItem": [
-    "CanAddToPlayer",
-    "DecrementTimers",
-    "GetWeaponData",
-    "SetWeaponData"
-   ],
    "CGamePlayerEquip": [
     "Restore",
     "Save"
    ],
-   "CMomentaryDoor": [
-    "DoorMoveDone",
-    "StopMoveSound"
-   ],
-   "CPushable": [
-    "DamageDecal",
-    "StopSound"
-   ],
-   "CHalfLifeMultiplay": [
-    "FAllowFlashlight"
-   ],
-   "CBaseEntity": [
-    "BlockedSet",
-    "FStrEq",
-    "FunctionCheck",
-    "MyTogglePointer",
-    "ThinkSet",
-    "TouchSet",
-    "UseSet"
-   ],
-   "CPathTrack": [
-    "Sparkle"
-   ],
-   "CGlobalState": [
-    "EntityInTable"
+   "CCycler": [
+    "IsAllowedToSpeak"
    ],
    "CBaseMonster": [
     "AdvanceRoute",
@@ -55236,6 +55091,35 @@
     "UpdateTarget",
     "VecToYaw"
    ],
+   "CVoiceGameMgr": [
+    "PlayerHasBlockedPlayer"
+   ],
+   "CBaseButton": [
+    "ButtonShot",
+    "IsAllowedToSpeak",
+    "RotSpawn",
+    "SparkSoundCache"
+   ],
+   "CSaveRestoreBuffer": [
+    "EntityFlags",
+    "GetData",
+    "IsValidSaveRestoreData"
+   ],
+   "CGlobalState": [
+    "EntityInTable"
+   ],
+   "CHalfLifeMultiplay": [
+    "FAllowFlashlight"
+   ],
+   "CBaseEntity": [
+    "BlockedSet",
+    "FStrEq",
+    "FunctionCheck",
+    "MyTogglePointer",
+    "ThinkSet",
+    "TouchSet",
+    "UseSet"
+   ],
    "CBasePlayer": [
     "Center",
     "ClearWeaponBit",
@@ -55257,17 +55141,133 @@
     "SetWeaponBit",
     "UpdateStatusBar"
    ],
+   "CFuncIllusionary": [
+    "SloshTouch"
+   ],
+   "CHalfLifeRules": [
+    "FAllowFlashlight"
+   ],
+   "CPushable": [
+    "DamageDecal",
+    "StopSound"
+   ],
+   "CRuleBrushEntity": [
+    "ObjectCaps"
+   ],
+   "CChangeLevel": [
+    "TriggerChangeLevel"
+   ],
+   "CGameRules": [
+    "AmmoShouldRespawn",
+    "CanHaveItem",
+    "ClientConnected",
+    "ClientDisconnected",
+    "DeadPlayerAmmo",
+    "DeadPlayerWeapons",
+    "DeathNotice",
+    "FAllowFlashlight",
+    "FAllowMonsters",
+    "FPlayerCanRespawn",
+    "FShouldSwitchWeapon",
+    "FindNextBestWeapon",
+    "FlAmmoRespawnTime",
+    "FlHealthChargerRechargeTime",
+    "FlItemRespawnTime",
+    "FlPlayerFallDamage",
+    "FlPlayerSpawnTime",
+    "FlWeaponRespawnTime",
+    "FlWeaponTryRespawn",
+    "GetNextBestWeapon",
+    "GetTeamID",
+    "IPointsForKill",
+    "InitHUD",
+    "IsAllowedToSpawn",
+    "IsCoOp",
+    "IsDeathmatch",
+    "IsMultiplayer",
+    "ItemShouldRespawn",
+    "PlayerGotAmmo",
+    "PlayerGotItem",
+    "PlayerGotWeapon",
+    "PlayerKilled",
+    "PlayerRelationship",
+    "PlayerSpawn",
+    "PlayerThink",
+    "Think",
+    "VecAmmoRespawnSpot",
+    "VecItemRespawnSpot",
+    "VecWeaponRespawnSpot",
+    "WeaponShouldRespawn"
+   ],
+   "CBreakable": [
+    "SparkWhenHit"
+   ],
+   "CBaseToggle": [
+    "IsAllowedToSpeak",
+    "MyTogglePointer",
+    "PlayScriptedSentence",
+    "PlaySentence",
+    "PlaySentenceCore",
+    "SentenceStop"
+   ],
+   "CBasePlayerWeapon": [
+    "CallDoRetireWeapon",
+    "DoRetireWeapon",
+    "GetNextAttackDelay"
+   ],
+   "CMomentaryDoor": [
+    "DoorMoveDone",
+    "StopMoveSound"
+   ],
+   "CGraph": [
+    "BuildLinkLookups",
+    "BuildRegionTables",
+    "CapIndex",
+    "CheckNode",
+    "ComputeStaticRoutingTables",
+    "DestNode",
+    "FSaveGraph",
+    "FindShortestPath",
+    "HandleLinkEnt",
+    "HashChoosePrimes",
+    "HashInsert",
+    "HashSearch",
+    "HullIndex",
+    "INodeLink",
+    "Link",
+    "LinkEntForLink",
+    "LinkVisibleNodes",
+    "NextNodeInRoute",
+    "Node",
+    "NodeLink",
+    "NodeType",
+    "PNodeLink",
+    "PathLength",
+    "RejectInlineLinks",
+    "SortNodes",
+    "SourceNode",
+    "TestRoutingTables"
+   ],
+   "CPathTrack": [
+    "Sparkle"
+   ],
    "CFuncTrackTrain": [
     "Nearest"
    ],
-   "CBaseButton": [
-    "ButtonShot",
-    "IsAllowedToSpeak",
-    "RotSpawn",
-    "SparkSoundCache"
+   "CGenericCycler": [
+    "GenericCyclerSpawn",
+    "Vector"
    ],
-   "CFuncIllusionary": [
-    "SloshTouch"
+   "CRestore": [
+    "Empty",
+    "PrecacheMode",
+    "SetGlobalMode"
+   ],
+   "CBasePlayerItem": [
+    "CanAddToPlayer",
+    "DecrementTimers",
+    "GetWeaponData",
+    "SetWeaponData"
    ]
   }
  },
