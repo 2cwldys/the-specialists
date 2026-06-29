@@ -1384,9 +1384,9 @@ void CTSGun::GrenadeThrow(const s_weapon_info *wi)
 	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_forward * 16;
 	Vector vecVel = gpGlobals->v_forward * 800 + m_pPlayer->pev->velocity;
-	// w_m61 table damage is the per-pickup value; the explosion is area damage.
-	float dmg = ((wi->flDamage > 0) ? wi->flDamage * 4.0f : 120.0f) * TSDamageMult();
-	TSThrowM61(m_pPlayer->pev, vecSrc, vecVel, 4.0f, dmg);
+	// The M61's blast damage/radius are fixed in CM61Grenade::WaitThink (the original carries no
+	// per-throw damage); just launch it with the 4s fuse.
+	TSThrowM61(m_pPlayer->pev, vecSrc, vecVel, 4.0f);
 
 	SendWeaponAnim(3); // 1st-person "throw" (v_m61.mdl seq 3) — client-predicted
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_GRENADE); // 3rd-person "grenade" throw

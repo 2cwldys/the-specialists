@@ -34,11 +34,11 @@ bool DoubleFireRate(CBasePlayer *) { return false; }
 // --- map-time precache (ts_weapons.cpp, server-only). The client precaches via its own paths.
 void PrecacheAllTSWeapons() {}
 
-// --- world-entity spawners (server-only): dropped guns / ammo packs / thrown grenades are
-// created authoritatively by the server. Never reached during prediction.
-CBaseEntity *TSCreateWorldGun(int, int, const Vector &, const Vector &) { return nullptr; }
-CBaseEntity *TSCreateAmmoPack(entvars_s *, const int *, const Vector &, const Vector &) { return nullptr; }
-CBaseEntity *TSThrowM61(entvars_s *, const Vector &, const Vector &, float, float) { return nullptr; }
+// --- world-entity spawners (server-only): thrown grenades / knives are created authoritatively by
+// the server. Never reached during prediction. (Dropped guns/ammo packs are now spawned via the
+// static CTSWorldGun::CreateWeapon / CTSAmmoPack::CreateAmmoPack factories, whose only callers — the
+// drop helpers in ts_gun.cpp — are #ifndef CLIENT_DLL, so they need no client stub.)
+CBaseEntity *TSThrowM61(entvars_s *, const Vector &, const Vector &, float) { return nullptr; }
 CBaseEntity *TSThrowKnife(CBasePlayer *, int, float, const Vector &, const Vector &) { return nullptr; }
 
 // --- engine entity glue (server-only; used only by CTSGun's drop/pickup helpers).

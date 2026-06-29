@@ -91,6 +91,6 @@ bool TSMultiplyClips(CBasePlayer *pPlayer);
 // Toss an M61 grenade (the grenade fire-type / grenade powerup). Defined in ts_grenade.cpp.
 struct entvars_s;
 CBaseEntity *TSThrowM61(struct entvars_s *pevOwner, const Vector &vecStart,
-	const Vector &vecVelocity, float fuse, float damage);
+	const Vector &vecVelocity, float fuse);
 
 #endif // TS_WEAPONS_H
