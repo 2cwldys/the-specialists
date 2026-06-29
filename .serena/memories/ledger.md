@@ -4359,3 +4359,26 @@ noreturn at UTIL_SetSize; real body via objdump (Ghidra adds 0x10000 vs nm).
 
 **Conventions:** NO Co-Authored-By trailer. CLAUDE.md local-only. Auto mode:
 halt & ask on a block.
+
+## CTSAnimation — 3rd-person playtest observations (user, vs the running original) — SPEC for a live-trace pass
+The 4-region Animate rewrite (482a099) was REVERTED (6a8ca20) — it relied on m_fSequenceFinished for the
+Region-B hold guards, but that member is NOT reliably advanced for the SERVER-side player model, so stunts/idle
+froze. Baseline restored = the prior Animate (walk/idle/fire-reset OK; dive-legs read as crouch). The user
+compared our 3rd person against the running original and reported (these are the requirements — VERIFY each via
+a LIVE TRACE of the original's CTSAnimation::Animate, do NOT guess; guessing caused the regressions):
+1. **Dive** reads as a crouch (the original complaint): dive_<dir> body (0x94 clears legs) is stomped by the
+   per-frame PostThink Animate(1=RUN) one frame later. Needs a HOLD that does NOT depend on m_fSequenceFinished
+   (likely the leg-timer the dive sets, m_flLegTimer=3.0, or an iuser4 stunt bit).
+2. **Getup leaves the player DUCKED** — the unduck on dive-end isn't happening (likely TS_pm_shared stunt code,
+   not Animate). Separate from the body sequence.
+3. **Fire animation does NOT play in 3rd person** — PRE-EXISTING ("regardless"). SetAnimation(PLAYER_ATTACK1)
+   DOES route to Animate(TSA_FIRE) which sets shoot_<grip> (0x92 force) + m_flAimTimer=2.0, so trace WHY the
+   3rd-person model doesn't show it (sequence name wrong? server not advancing pev->sequence? overwritten?).
+4. **Knife idle == kung-fu idle** (combat_idle) — so the knife's grip (m_szAnimExtention) should be EMPTY
+   (kungfu path), not idle_<grip>. **Katana has a DEDICATED idle.** Fix is the per-weapon grip/anim-ext.
+5. **Block animations:** kung-fu (fists), knives, AND katana all have BLOCK anims in the original (e.g. reload
+   with kung-fu = block) — kungfu_block / knife_block / katana_block (TSA_CC_BLOCK 0x26 in HandleCloseCombat).
+   The reload-while-melee should play the block, not relo_<grip>.
+NEXT (focused, runtime-driven): live.py + binmap CTSAnimation::Animate on the running original; user reproduces
+dive/fire/idle/block; read the activity arg + resulting pev->sequence/gaitsequence each call; THEN reconcile the
+revert minimally (hold via leg-timer; knife/katana grips; melee block on reload) — verified, not guessed.
