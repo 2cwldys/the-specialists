@@ -93,6 +93,13 @@ its real wiring.
   ⚠ **audit.py our_members() only scans .h files** — classes declared in a .cpp report "0 ours / MISSING named: all"
   FALSELY (CTSPowerUp/CTSFlag/CTSSlowMotionPoint/CTSBriefcase/…); verify member gaps by reading the .cpp, don't trust it.
 
+- **CTSDMHill 7/7** (`179777b`): reshaped to the original's touch-based king-of-the-hill (WaitTouch holder tracking +
+  WaitThink + Save/Restore + member name match). **CTSObjective 7/7** (`b878bb9`): the objectives-cluster BASE
+  (CanInteract×2 / Freeze / IsObjective / EnableObjective / Save/Restore). ⚠ **Objectives-cluster structural finding:**
+  the original's CTSBomb/CTSHack/CTSTeamEscape DERIVE CTSObjective; ours are CBaseEntity-direct with DUPLICATED
+  attacker_team/CanInteract → the cluster reconcile (make them derive CTSObjective + build CTSGameRules' objective
+  methods they call) is the next bottom-up step, interdependent with CTSGameRules 12/39. (Decompiles: scratchpad/obj.c, hill.c.)
+
 ### NEXT — work-list (bottom-up, audit.py-driven)
 1. **⚠ CTF CLUSTER (deferred — do bottom-up, it's NOT a single class).** CTSFlag 4/15's dossier
    (`scratchpad/dossier-CTSFlag.md`) found it derives CTSPhysicObject (same settle machine as CTSWorldGun — reuse that
