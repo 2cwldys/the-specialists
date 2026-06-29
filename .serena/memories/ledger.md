@@ -5,7 +5,61 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
-## 2026-06-29 (cont. 75 cont.) — TRUSTWORTHY audit + the "move existing logic" parity grind
+## 2026-06-29 (cont. 77) — audit trustworthiness push: member/global/invented levels made honest
+
+Continued the source-parity restructure on `restructure-source-parity` (NOT merged; GPG off). Baseline green
+(`build.sh amd64 all`, glibc 2.14). The user opted to "keep grinding safe parity work" while the PLAYTEST
+gate (#2) waits on them; held the playtest-gated melee/CTSGun reshapes. Drove the audit's false-positive
+noise out so the work-list is real. **Headline: missing methods 20→19, invented methods 104→42, missing
+members 19→0, invented globals 8→6, missing globals 19→17** (+46 client + 15 stock now bucketed transparently).
+
+### Source parity (behavior-preserving)
+- **gmsg server-var renames** (`3649f43`): `gmsgActItems`→`gmsgTSActiveItems`, `gmsgWStatus`→`gmsgTSWeaponStatus`
+  (the original's names per inventory). Wire strings ("ActItems"/"WStatus") untouched → drop-in-safe. The vars
+  compile into BOTH hl.so + client.so (CTSGun is client-predicted) — rebuild `all` or the audit sees stale syms.
+  The OTHER ~14 missing gmsg globals map to the MISSING user-message list (server-send + client-hook
+  unimplemented) = genuine protocol RE, overlaps client-parity #7, NOT renames.
+- **CTSGun::GrenadeThrow → GrenadeFire** (`71312c5`): our own comment already said `@GrenadeFire__6CTSGun`;
+  `GrenadeFire` was simultaneously in CTSGun's MISSING list → pure rename resolved BOTH sides (double win).
+
+### Audit trustworthiness (the cont.76 theme, continued)
+- **srcparse pointer-to-member detection + array-index collapse** (`5f36164`): `void (CBaseEntity::*m_pfnThink)();`
+  has the name buried in parens so DECLRE/INLINE_METHODRE both missed it (added PMEMBERRE → CBaseEntity 4
+  false-missing gone). And the original's DEFINE_ARRAY save fields expand to indexed names (`targets[0..7]`),
+  never matching our single array member → collapse `name[i]`→`name` in the diff (CTSObjectiveManager 12 gone).
+- **CTSPhysicObject curator mis-hoist fixed** (`3d8a670`): `m_flExpire`@0x88/`m_pOwner`@0x8c/`m_iType`@0xa0 were
+  `curated` rows sitting PAST the class's binary footprint (auto fields stop at 0x84) — CTSFlag/CTSWorldGun-shaped
+  fields an old curate run hoisted onto the slow-mo base, persisted via `keep`. Removed the 3 rows from
+  `members_re.tsv`; `export.py` regen of ts_inventory.json removes EXACTLY those 3 (semantic diff verified — no
+  other method/global/member changed). **Missing members → 0** (member level fully clean).
+- **CLIENT-NOSYM bucket** (`95c75d4`): CHudTSBuyMenu/CHudTSWeaponBar fold in with an EMPTY original method set
+  (client.dll has no symbols) → the audit was flagging all 46 of our methods as "invented." Moved them to a
+  transparent UNVERIFIABLE bucket (surfaced, not counted). Invented 103→57.
+- **STOCK-SDK whitelist** (`4aab765`): new `scripts/coverage/stock_methods.py` caches exact `(class,method)`
+  DEFINED in `upstream/64bit-demo` → `stock_methods.tsv`; audit splits invented methods that are exact-match
+  stock-inherited (EquipWeapon/InitStatusBar/DoRetireWeapon/FAllowFlashlight/… 15) into a STOCK-SDK bucket.
+  **Exact-match ONLY** — a bare-name match would wrongly whitelist TS virtual overrides (PlayerKilled/IsTeamplay/
+  Classify) whose names also live on other stock classes; those stay VISIBLE for review. Wired into run.py.
+  Invented 57→42.
+
+### Invented-method REVIEW complete (task #5, via dossier subagent → `scratchpad/dossier-invented-methods.md`)
+All 104 classified: **46 CLIENT-NOSYM** (whitelisted) · **27 STOCK-SDK** (15 exact-whitelisted, ~12 are
+TS virtual overrides that stay visible) · **22 LEGIT-HELPER** (original inlined them; keepable split-outs) ·
+**1 NAME-MISMATCH** (GrenadeFire — done) · **2 UNSURE** (CTSGun::MeleeAttack≈KnifeFire+KatanaFire merge;
+ThrowKnife≈KnifeFire throw-branch — confirm via RE, playtest-gated) · **6 DRIFT to reconsider (deferred,
+playtest-gated):** `CTSGun::SwitchBarrel` (invented akimbo barrel-cycle replacing the orig SecondaryAttack
+@0x817a8 fire-the-other-hand); `CTSKnife::{BecomePickup,PickupTouch,StickAt}` (net-new "every drop is
+pickable"); `CTSKnife::{StartSettle,SettleThink}` (think-based settle vs the orig touch-based WaitTouch/
+WaitThink @0x6dce8). These touch combat/throw mechanisms → reconcile ON a green playtest.
+
+### NEXT (unchanged work-list; the audit is now an honest driver)
+The 42 invented are mostly keepable helpers + visible virtual overrides; only the 6 drift are actionable and
+they're playtest-gated. **94 missing free funcs** = the next big bucket (categorization subagent running:
+ALREADY-EXISTS-move vs Write_<weapon>-consolidation vs genuine-RE vs playtest-gated-melee). 22 file mismatches
++ 2 missing files are structural (entity-file consolidation + client.dll HUD track) — high-churn, hold until
+playtest. **PLAYTEST (#2) remains the GATE before merge.**
+
+
 
 After closing the stock-class gaps, the user pushed for an EXHAUSTIVE, trustworthy 1:1 check at every
 level (file→class→method→variable→global→free function), where any discrepancy = a logic-mismatch
