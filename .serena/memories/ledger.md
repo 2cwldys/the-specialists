@@ -37,12 +37,26 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   damage param (orig carries none); blast dmg/radius fixed in WaitThink (VERIFY: recovered literals 300/1024 vs
   old tuned 400). Client stub updated; obsolete TSCreateWorldGun/TSCreateAmmoPack stubs removed.
 
-audit headline: invented methods **131->126**, file mismatches **23->22**, 0 missing/0 invented classes. Both
-build amd64 server+client (glibc 2.14). **⚠ ALL UNPLAYTESTED** — bounce physics, swept impact damage, armor drop,
-grenade slow-mo propagation, the recovered M61 blast literals. NEXT (in progress): **CTSFlag 4/15** (CTF flag —
-same settle state-machine as CTSWorldGun, dossier in flight), then CBreakable 17/22 (breakable-respawn cluster ->
-drops CInfoBreakable keepalive, touches playtest-confirmed glass), CTSGameRules 12/39 + the objectives cluster,
-CTSGun's remaining missing methods, the ~126 invented methods to review.
+- **CBreakable 17/22 -> 22/22** (`d63559d`): the TS breakable-RESPAWN system, all additive in tails so the
+  playtest-confirmed glass/debris (gmsgTSCreateDebris) Die path is untouched. **Killed** override (records attacker
+  global -> Die; TakeDamage now calls Killed ALONE — was Killed+Die, would double-Die). **BreakableRespawn(bool)**
+  (@0x64e84): box-clear retry (UTIL_EntitiesInBox FL_CLIENT|FL_MONSTER) -> clear: restore deadflag/health/effects +
+  Spawn (+fire respawntarget on SF 8); blocked: re-arm helper +5s; disabled: SUB_Remove. Spawn creates+cross-links
+  the **CInfoBreakable** helper when respawntime>=0; Die's tail hides it (EF_NODRAW) + arms helper.RespawnThink at
+  time+respawntime (0=>30s). New members m_flRespawnHealth/m_hRespawner/m_flRespawnTime/m_szRespawnTarget (not saved,
+  matching orig); keyvalues respawntime/respawntarget. **CInfoBreakable: added LINK_ENTITY_TO_CLASS(info_breakable)**
+  (Create now resolves), RespawnThink fixed to just delegate to BreakableRespawn(false) (was wrongly resetting+Spawn+
+  removing itself — the helper PERSISTS). **DROPPED ts_func_break_keep keepalive.** Moved stock Explodable/Explosion
+  Magnitude/ExplosionSetMagnitude out-of-line (orig has real symbols) so audit sees them.
+
+audit headline: invented methods **131->126**, file mismatches **23->22**, 0 missing/0 invented classes; **3
+keepalives dropped/slimmed** (CTSPhysicObject now kept by CTSWorldGun, CTSGrenade by CM61Grenade, CInfoBreakable
+wired+LINK'd). Remaining keepalive: the compiled-but-unlinked pistols (CTSPistolWeapon/Ammo — the ORIGINAL keeps
+them too, legit). All build amd64 server+client (glibc 2.14). **⚠ ALL UNPLAYTESTED** — bounce physics, swept impact
+damage, armor drop, grenade slow-mo + M61 blast literals, breakable respawn. NEXT: the **CTF cluster** (deferred —
+bottom-up: s_flag_status -> CBasePlayer::TakeFlag/DropFlag -> CTSBriefcase -> CTSFlag 4/15; dossier
+`scratchpad/dossier-CTSFlag.md`), CTSGameRules 12/39 + the objectives cluster, CTSGun's remaining missing methods,
+the ~126 invented methods to review.
 
 ## 2026-06-28 (cont. 73) — code-restructure to source parity (audit.py-driven): 7 classes -> 1:1
 

@@ -56,7 +56,7 @@ directive: ANY missing/extra member or global = hidden logic inconsistency → r
 (memory `members-globals-signal-hidden-logic`); drive members to N/N too, and drop each class's keepalive by building
 its real wiring.
 
-### Done this session (2 commits; audit: invented methods 131→126, file mismatches 23→22; both build amd64 glibc 2.14)
+### Done this session (3 commits; audit: invented methods 131→126, file mismatches 23→22; both build amd64 glibc 2.14; 3 keepalives dropped)
 - **CTSWorldGun cluster 4/13+3/7 → 13/13+7/7** (`0df448f`): merged ts_ammopack.cpp INTO ts_worldgun.cpp (+ts_worldgun.h)
   = TS_worldgun.cpp file parity. **CTSWorldGun now derives CTSPhysicObject**; real settle/bounce machine (CreateWeapon
   static factory carrying the full s_weapon_status = our **TSItem**; MOVETYPE_BOUNCE; Fall swept-trace impact damage;
@@ -64,6 +64,13 @@ its real wiring.
   CTSAmmoPack carries ARMOR (TakeArmor). Drop helpers in ts_gun.cpp guarded `#ifndef CLIENT_DLL`.
 - **CM61Grenade 0/6 → 6/6** (`2dffd07`): real chain **CM61Grenade : CTSGrenade : CTSPhysicObject**; CreateGrenade/Spawn/
   WaitThink/BounceTouch/Use/ObjectCaps. **Dropped the ts_grenades_keep_physic keepalive** (CTSGrenade kept via inheritance).
+- **CBreakable 17/22 → 22/22** (`d63559d`): the TS breakable-RESPAWN system, all additive in TAILS so the playtest-
+  confirmed glass/debris (gmsgTSCreateDebris) Die path is untouched. Killed override (attacker global → Die; TakeDamage
+  now calls Killed ALONE, was Killed+Die → double-Die), BreakableRespawn(bool) box-clear retry (@0x64e84), Spawn creates+
+  cross-links the CInfoBreakable helper (respawntime>=0), Die's tail hides+arms it (default 30s, 5s retry if blocked).
+  **CInfoBreakable: added LINK_ENTITY_TO_CLASS(info_breakable), RespawnThink delegates to BreakableRespawn(false), DROPPED
+  the ts_func_break_keep keepalive.** New members respawnhealth/hRespawner/respawntime/respawntarget (not saved); keyvalues
+  respawntime/respawntarget. (3 keepalives now dropped/slimmed; only the legit compiled-but-unlinked pistols remain.)
 - **⚠ KEY RE CORRECTION:** CTSPhysicObject's curated trio (`m_flExpire@0x88`/`m_pOwner@0x8c`/`m_iType@0xa0`) is a
   **curator MIS-HOIST** — they're grenade-subclass members (m_flExpire=fuse limit, 0x8c=fuse-elapsed counter NOT an
   edict, 0xa0 spurious) that COLLIDE with CTSWorldGun's 0x88/0x8c. **Do NOT add them to the CTSPhysicObject base.**
@@ -83,12 +90,10 @@ its real wiring.
    CanUsedTroughWalls; 9 members @0x88–0xac incl. embedded s_flag_status@0x90, m_hBriefcase@0xa4 = handle to the
    CTSBriefcase NOT the carrier). gmsg: **ScoreInfo** on capture (+5 frags). Remove the invented free helpers
    TSCreateFlag/TSDropFlag/TSPlayerHasFlag/TSReturnCarriedFlag (real flow is CBasePlayer::TakeFlag/DropFlag).
-2. **CBreakable 17/22** (BreakableRespawn @0x74e84 + Killed; Explodable/ExplosionMagnitude/ExplosionSetMagnitude likely
-   stock-inline-in-header = audit blind spots, verify) = the breakable-respawn cluster → **drops CInfoBreakable's
-   keepalive** (`ts_func_break_keep`). ⚠ touches playtest-confirmed glass code (`reference/BULLETS.md`).
-3. **CTSGameRules 12/39** + the INTERDEPENDENT objectives cluster (CTSObjective/Manager/Pointer/Hack/WinGiver) — do together.
-4. **CTSGun's remaining missing methods** (worldgun/grenade deps now done) + the **~126 invented methods** to review.
-5. File mismatches 22 (mostly grouped-file divergence, OK). Client-side parity = separate manual track (`dc.sh client`).
+2. **CTSGameRules 12/39** + the INTERDEPENDENT objectives cluster (CTSObjective/Manager/Pointer/Hack/WinGiver) — do together.
+3. **CTSGun's remaining missing methods** (worldgun/grenade deps now done) + the **~126 invented methods** to review.
+4. File mismatches 22 (mostly grouped-file divergence, OK). Client-side parity = separate manual track (`dc.sh client`).
+   (✓ CBreakable 17/22→22/22 DONE `d63559d` — the breakable-respawn cluster; dropped the CInfoBreakable keepalive.)
 
 ### ⚠ EVERYTHING this session is UNPLAYTESTED — flag to the user before merging to `main`
 WorldGun bounce physics + swept impact damage, AmmoPack armor drop, the stock-name remap, CM61Grenade slow-mo
