@@ -129,6 +129,8 @@ target_sources(hl PRIVATE
 	ts_groundammo.cpp
 	ts_groundweapon.cpp
 	hldmcompat.cpp
+	ts_sharedemitter.cpp
+	ts_emitter.cpp
 	ts_gun.cpp
 	ts_ammopack.cpp
 	ts_deadcorpse.cpp

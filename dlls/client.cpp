@@ -40,7 +40,8 @@
 #include "client.h"
 #include "soundent.h"
 #include "gamerules.h"
-#include "ts_playeramount.h" // CTSPlayerAmount connect/disconnect relays
+#include "ts_playeramount.h"
+#include "ts_sharedemitter.h" // CTSPlayerAmount connect/disconnect relays
 #include "ts_gamerules.h" // TSGameRules() (the `motd` re-send passthrough)
 #include "game.h"
 #include "customentity.h"
@@ -886,6 +887,8 @@ void ServerDeactivate()
 	{
 		return;
 	}
+
+	s_Emitter.KillAll(); // TS: clear the particle/emitter manager on map shutdown (orig ServerDeactivate)
 
 	g_serveractive = 0;
 
