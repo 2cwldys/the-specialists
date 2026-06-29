@@ -44,6 +44,39 @@ reconstructed the **whole CTF cluster** to 1:1 parity from a dossier subagent's 
   exact CaptureTouch team-score field (used m_teamScore), s_flag_status @+0x254 base-spawn field.
 - **UNPLAYTESTED** — the whole CTF flow needs a live pass before merge (with the rest of cont.74/75).
 
+### CTSGun tail — SAFE chunk (30/47 -> 35/47), commit `966df00`
+Driven by a fresh dossier subagent (`scratchpad/dossier-CTSGun-tail.md`; the prior name-map was lost with
+the session scratchpad). **Core finding: the original CTSGun does NOT override `ItemPostFrame`** — it uses
+the stock `CBasePlayerWeapon::ItemPostFrame` which dispatches to the real virtual entry points
+(Primary/Secondary/Reload/WeaponIdle/Holster + helpers). Our reconstruction collapsed all that into one
+invented `ItemPostFrame`, so the 17 "missing" methods are mostly **structural extraction**, not new behaviour.
+- **Reset @0x705e0** (genuinely missing): wipe the whole arsenal (items[]/m_ammoReserve) + active pointers +
+  combo/timer/change-detect cache back to bare kung-fu. Wired into Spawn (preserving the placed type across
+  the wipe) + CBasePlayer::StartObserver (the round-restart / death->spectate caller @0x8972b). SAFE, server-only.
+- **4 name-map renames** (coverage matches by NAME; zero behaviour change): AddWeapon->TakeWeapon, DropType->
+  DropWeapon, SelectWeaponType->SelectWeapon, CloseCombatAttack->CCombatAttack. The free `TSSelectWeaponType`
+  is preserved (word-boundary `\b` sed protects the TS-prefixed name).
+- **⚠ The CTSGun TAIL IS PLAYTEST-GATED** (the `predicted-weapon-gotchas` rule — I did NOT push these):
+  SecondaryAttack (right-click dispatch), the 2-stage grenade pull-pin/release model (our instant `GrenadeThrow`
+  is wrong — biggest behaviour change), predicted melee KnifeFire/KatanaFire/KatanaThrow (split MeleeAttack/
+  ThrowKnife), Holster/HolsterWeapon/ReloadWeapon/StopReload/EmptySound/CCombatIdle extraction, and the eventual
+  ItemPostFrame revert-to-stock. The dossier has the per-method SAFE-vs-GATED table + the live test each needs.
+  Group-D KEEP glue: CanDeploy/Get+SetWeaponData/OwnedCount/SlotsUsed/RegenBlockBar/Sync+LoadActiveFromItem/
+  UpdateActivePointers/SendWeaponStatus/SwitchBarrel.
+
+### Header-extraction batch — close the audit `.h`-blind-spot member gaps, commits `0990cfb`/`9e769ba`/`0ce095f`
+`audit.py our_members()` scans only `.h`, so a class declared in a `.cpp` falsely reports ALL members MISSING
+(memory `audit-py-blind-spots`). Extracting to a header is the FAITHFUL fix (the originals have headers; it also
+lets sibling files derive the class — same as cont.74 did for CTSObjective/CTSWorldGun). Extracted +
+member-name-matched: **CTSPowerUp** (ts_powerup.h; +preserved the TS_PWUP_INSTANT/ARMOR defines), **CTSDMHill**,
+**CTSSlowMotion** (renamed m_flDuration->duration, m_flSlowAmount->slow_ammount to the orig FGD/save names —
+kept the orig "ammount" typo), **CTSSlowMotionPoint**, **CTSBomb**, **CTSTeamEscape**. All now `MISSING named: —`.
+⚠ **Remaining .cpp-only classes** (next-session extraction candidates): CTSMapGlobals (genuine member RE needed —
+player_at_a_time_num/player_respawn_num not in our impl, NOT a blind-spot), CTSFog, CTSCustomTarget, and the
+multi-class ts_objectives.cpp (CTSHack/CTSWinGiver/CVipEscape — trickier, multiple classes per file).
+- Metrics across the session: invented methods **117 -> 106**, 0 missing / 0 invented classes; all commits build
+  `scripts/build.sh amd64 [all]` clean (glibc 2.14).
+
 ---
 
 ## 2026-06-28 (cont. 74) — source-parity restructure cont.: drifted classes' MISSING methods (+drop keepalives)
