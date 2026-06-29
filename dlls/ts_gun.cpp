@@ -195,6 +195,7 @@ void CTSGun::LoadActiveFromItem()
 	m_bHoldPosition = it.holdPosition;
 	m_burstCount = 0;
 	m_shotgunPhase = 0; // a weapon switch cancels any in-progress pump reload
+	m_fInSpecialReload = 0; // start on a FIRE-step (the pump fire/rack toggle; see ShotgunFire)
 }
 
 // @ TakeWeapon__6CTSGun (@0x80a04) — add a weapon to the arsenal (fresh world pickup / buy),
@@ -535,7 +536,8 @@ void CTSGun::PrimaryAttack()
 	switch (m_fireMode)
 	{
 	case TSFM_AUTO:
-	case TSFM_PUMP:
+	case TSFM_PUMP:        // pump shotgun: fire while HELD (orig PrimaryAttack mode 3 = `button & 1`) — but
+	                       // ShotgunFire ALTERNATES shot/rack per held frame, so you don't full-auto bullets.
 	case TSFM_AKIMBO_BOTH:
 		fire = held; // full-auto / pump / akimbo-both: fire while held
 		break;
@@ -567,7 +569,12 @@ void CTSGun::Fire()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 
-	if (m_iClip <= 0)
+	// Pump-shotgun RACK step (orig Fire@0x71c78): a pump shotgun in pump mode whose toggle is set is the
+	// non-firing RACK half of the cycle — it must run even on an empty clip (to rack on the last shell).
+	const bool pumpRackStep = (wi->iFireType == TSFT_PUMP && m_fireMode == TSFM_PUMP &&
+		m_fInSpecialReload != 0);
+
+	if (m_iClip <= 0 && !pumpRackStep)
 	{
 		PlayEmptySound();
 		m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + 0.2f);
@@ -577,6 +584,8 @@ void CTSGun::Fire()
 
 	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
 		AkimboFire(wi);
+	else if (wi->iFireType == TSFT_PUMP)
+		ShotgunFire(wi);
 	else
 		StandardFire(wi);
 }
@@ -656,6 +665,61 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	// Short idle during a burst so WeaponIdle drives the remaining rounds; else normal.
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() +
 		((m_fireMode == TSFM_BURST && m_burstCount > 0) ? flRate : 5.0f);
+}
+
+// @ ShotgunFire__6CTSGun (@0x72108) — the pump shotgun's primary attack. Unlike StandardFire (one shot per
+// trigger event), this ALTERNATES per trigger-frame: a FIRE-step (a real pellet shot) then a RACK-step (the
+// pump animation + sound, no bullet), each gated by the fire rate. So holding the trigger gives
+// shot→rack→shot→rack at half the raw rate — and you visibly pump between shots. The original keys the
+// alternation off m_pActiveItem+0x24; we keep it in m_fInSpecialReload (predicted — see ts_gun.h) so the
+// client and server stay in step (a non-predicted toggle desyncs → the host fires every frame = infinite-fire).
+//
+// The fire-step delegates to StandardFire (identical pellet/spread/muzzle/event/recoil/clip/rate logic). The
+// rack-step plays the viewmodel "pump" sequence (parsed from the models: v_m3/v_spas12 "pump"=8,
+// v_mossberg "pump"=2) + the per-weapon rack sound, and re-arms the fire timer at the same rate.
+void CTSGun::ShotgunFire(const s_weapon_info *wi)
+{
+	// A shell-by-shell reload in progress: a fire press interrupts it — close the pump (phase 2), no shot.
+	// (orig: `if (item+8 != 0) { item+8 = 2; return; }`.) ItemPostFrame's ShotgunReload then plays the close.
+	if (m_shotgunPhase != 0)
+	{
+		m_shotgunPhase = 2;
+		return;
+	}
+
+	// RACK half of the cycle: pump mode (3) with the toggle set. No bullet, no shell consumed.
+	if (m_fireMode == TSFM_PUMP && m_fInSpecialReload != 0)
+	{
+		float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
+		if (DoubleFireRate(m_pPlayer))
+			flRate /= 1.5f;
+		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + flRate;
+		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
+
+		int pumpSeq = 8; // v_m3 / v_spas12 "pump"
+		const char *snd = "weapons/m3/m3-pump.wav";
+		if (m_weaponType == TSW_MOSSBERG) { pumpSeq = 2; snd = "weapons/mossberg/scock.wav"; }
+		else if (m_weaponType == TSW_SPAS12) { snd = "weapons/spas12/spas12-pump.wav"; }
+		SendWeaponAnim(pumpSeq); // predicted on the host (runs in the predicted ItemPostFrame)
+#ifndef CLIENT_DLL
+		// Rack sound server-only (the host already predicted the anim; emitting the sound client-side too
+		// would double it). All clients — incl. the host — hear it from the server. On CHAN_ITEM (NOT
+		// CHAN_WEAPON) so the rack does NOT cut off the still-playing gunshot — the fire sound (fire.sc/
+		// EV_TSFire) is on CHAN_WEAPON, so a same-channel rack 0.225s later truncates it. RE: all 3 pump
+		// shotguns DEFAULT to PUMP mode (TakeWeapon: AUTO>PUMP>BURST>SEMI; masks benelli/spas=SEMI+PUMP,
+		// mossberg=PUMP-only) — so held = auto fire/rack alternation, a tap = one step. Faithful.
+		if (m_pPlayer)
+			EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, snd, VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
+#endif
+		m_fInSpecialReload = 0; // next trigger-frame is a FIRE-step
+		return;
+	}
+
+	// FIRE half of the cycle: a normal shotgun shot (pellets/muzzle/event/recoil/clip + the rate gate).
+	StandardFire(wi);
+	// Arm the rack for the next trigger-frame — but only in PUMP mode (in SEMI mode a benelli just fires per
+	// pull, no auto-rack). Matches the original toggling item+0x24 each ShotgunFire.
+	m_fInSpecialReload = (m_fireMode == TSFM_PUMP) ? 1 : 0;
 }
 
 // @ ScaleSpread__6CTSGun (@0x802a8) — TS dynamic accuracy. Folds the per-player spread accumulator

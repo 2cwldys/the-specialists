@@ -83,7 +83,9 @@ public:
 	void AlternateAttack();                      // @AlternateAttack — +alt2: coldcock if a round is loaded
 	void ColdCock();                             // @ColdCock — a quick pistol-whip melee bash
 	void Fire();                                 // dispatch one shot by fire-type
-	void StandardFire(const s_weapon_info *wi);  // bullet/pellet fire (StandardFire/ShotgunFire)
+	void StandardFire(const s_weapon_info *wi);  // bullet/pellet fire (StandardFire)
+	void ShotgunFire(const s_weapon_info *wi);   // @ ShotgunFire__6CTSGun @0x72108 — pump shotgun: ALTERNATES
+	                                             // fire-step / pump(rack)-step per trigger-frame (see .cpp)
 	void VKickback(float magnitude, int firetype); // @VKickback @0x70414 — recoil view-punch (punchangle)
 	void ScaleSpread(float &spread, float increment, bool ducking); // @ScaleSpread @0x702a8 — dynamic accuracy
 	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
@@ -121,6 +123,11 @@ public:
 	int m_fireMode = TSFM_SEMI; // ACTIVE fire-mode (= m_arsenalMode[m_active])
 	bool m_bHoldPosition = false; // ACTIVE weapon's hold-position stance (= m_pActiveItem+0x2c); see SecondaryAttack
 	int m_shotgunPhase = 0;       // pump-shotgun reload phase (= m_pActiveItem+8): 0 open, 1 insert-per-shell, 2 close
+	// Pump-shotgun fire/rack alternation toggle (= m_pActiveItem+0x24 in ShotgunFire). We store it in the
+	// INHERITED CBasePlayerWeapon::m_fInSpecialReload (CTSGun doesn't otherwise use it) because that member is
+	// already mirrored BOTH ways in the client-prediction code (cl_dll/hl/hl_weapons.cpp) — so the toggle is
+	// predicted for free and the host stays in sync with the server (a non-predicted toggle desyncs → the
+	// host fires every step = infinite-fire; the hard lesson, see [[predicted-weapon-gotchas]]).
 	int m_burstCount = 0;       // rounds left in the current burst (m_pActiveItem+8)
 	float m_flLastShotTime = 0; // gun+0x9e8 — last bullet-fire time, for ScaleSpread's per-shot recovery
 	int m_comboStep = 0;        // kung-fu PUNCH combo counter (this+0x9fc in the .so): 3 jabs → uppercut, reset on finisher
