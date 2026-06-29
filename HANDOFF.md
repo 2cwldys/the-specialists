@@ -47,16 +47,76 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.74, 2026-06-28) — drifted classes' MISSING methods (+keepalive drops); CTF cluster mapped
+## ⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.75, 2026-06-29) — pickup for the next orchestrator (cont.74 = me; available for consult)
 
-**You are the orchestrator. Same loop as cont.73** (`audit.py <Class>` → subagent `.md` dossier via `re.sh` →
-reconcile our working logic into the original's exact method/member layout → `build.sh amd64 all` → `audit.py
-<Class>` 0/0 → commit). Branch `restructure-source-parity` (GPG signing OFF; keep it off). The user **sharpened the
-directive: ANY missing/extra member or global = hidden logic inconsistency → re-audit + Ghidra, never paper over**
-(memory `members-globals-signal-hidden-logic`); drive members to N/N too, and drop each class's keepalive by building
-its real wiring.
+**You ARE the orchestrator and the previous agent (cont.74) — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF — `git config --local commit.gpgsign false`, keep it
+off). Read this section + the **`.serena/memories/ledger.md`** cont.74 entries first.
 
-### Done this session (audit: invented methods 131→126, file mismatches 23→22; both build amd64 glibc 2.14; 3 keepalives dropped; 3 classes→1:1 + CTSGun started)
+⚠ **SERENA ONE-LINE-JSON GOTCHA:** read the ledger with the **Read tool on `.serena/memories/ledger.md`**, NOT
+`read_memory("ledger")` — the MCP returns one giant single-line `{"result":"…"}` (~200 KB) that overflows the read
+limit. Same for any large memory (`jq -r '.result'` a saved copy if you must use the MCP).
+
+### THE LOOP (per class) — full detail in the cont.73 section below; the short version:
+`python3 scripts/coverage/audit.py <Class>` → RE it (small class: `scripts/ghidra/re.sh <Class>` yourself; big class/
+cluster: spawn a **dossier subagent**, see the hint below) → reconcile OUR working logic into the original's exact
+method/member layout → `scripts/build.sh amd64 [all if the class is in client.so too]` → `audit.py <Class>` 0/0 → commit.
+
+### THE DIRECTIVE (yours), with the user's sharpened feedback baked in
+- **ONE class at a time, methods + variables 1:1** — nothing missing, nothing added (for pure-TS classes; stock-SDK
+  classes keep their stock surface). Do dependencies FIRST (bottom-up).
+- **VARIABLE/MEMBER NAMES must match the original's FGD/save names** — `audit.py` matches members BY NAME, so a
+  faithfully-functional-but-mis-named member reads as missing+invented. Rename to the original (we did `m_iType`→
+  `poweruptype`, `m_objTargets`→`targets`, `m_winnerTeam`→`winnerteam`, etc. — recover the names from the decompiled
+  `KeyValue`/save-table). (memory `match-original-names-for-coverage`.)
+- **ANY missing/extra member OR global = a hidden-logic inconsistency → re-audit + Ghidra, never paper over.** A
+  mismatch in one place often flags mismatched LOGIC elsewhere (the CTSGroundWeapon `CashBased()` buy-gate that consumed
+  the "unused" attackerteam/buyable members; the worldgun s_weapon_status that turned a "missing member" into the whole
+  drop-the-full-item path). Drive members to N/N, not just methods. Unused member = flag + FIX immediately. (memory
+  `members-globals-signal-hidden-logic`.)
+- Drop each class's keepalive by building its real wiring (caller/hierarchy), not by leaving an anchor.
+- **Keep going until ~90% context.**
+
+### ⚠ audit.py BLIND SPOTS (memory `audit-py-blind-spots`) — don't trust a "gap" without reading the source:
+- `our_members()` only scans **`.h` files** → a class declared in a `.cpp` reports "0 ours / MISSING named: <all>"
+  FALSELY (CTSFlag, and any .cpp-only class). VERIFY member gaps by reading the `.cpp`. (Extracting the class to a header
+  — as we did for CTSObjective/CTSObjectiveManager/CTSWorldGun — fixes the blind spot AND lets sibling .cpp files derive it.)
+- **Inline** methods (defined in the header) read as MISSING; the original usually has them out-of-line, so moving ours
+  out-of-line is MORE faithful (CBreakable's Explodable; CTSObjective's CanInteract/Freeze).
+- **Invented `ObjectCaps` pattern:** many TS classes override ObjectCaps where the original uses the base → confirm via
+  decompile (no ObjectCaps in its method list) and REMOVE ours (the FCAP diff is inert for runtime-created / MP-only ents).
+- **DEFINE_ARRAY** save members read as `name[0..N]` per-element vs our array name — a naming artifact, data saves fine.
+
+### ⭐ THE SUBAGENT-DOSSIER HINT (this is how the whole session scaled — keep using it)
+For a big class or a cluster, spawn a **`general-purpose`** subagent so the raw decompiles stay out of YOUR context.
+Prompt template (adapt per target):
+> "READ-ONLY reverse-engineering for mod-ts (reconstructing The Specialists — binaries the user OWNS — from
+> `reference/ts_i386.so`). Produce a tight markdown DOSSIER; do NOT edit source. DECOMPILE `<methods/classes>` via the
+> typed Ghidra `re` project (already built — **do NOT `re.sh setup`**; it's **single-writer**, run ONE `re.sh`/`dc.sh` at
+> a time). Resolve a non-resolving method by `nm reference/ts_i386.so | grep '<name>__12<Class>'` then
+> `scripts/ghidra/dc.sh server 0x<nm-addr>` (it adds 0x10000). Capture each decompile to a scratchpad file
+> (`…/<session>/scratchpad/<x>.c`) and grep/read it yourself — do NOT paste raw decompile. For EACH method: signature,
+> step-by-step behavior, the OTHER methods it calls, member accesses (offset+meaning), gmsg user-messages (name + exact
+> WriteByte/Short/String wire format + REG size), string/const literals. ENUMERATE every member (offset/type/real-name-
+> if-recoverable/which method uses it). Note file-scope globals. WRITE the dossier to `…/scratchpad/dossier-<x>.md` with
+> per-method + MEMBERS + GLOBALS + a DIFF-vs-our-source + a reconstruction PLAN. Reply with only a ~10-line summary."
+⚠ **Single-writer lock:** only ONE thing touches the `re` project at a time. A dossier subagent that uses Ghidra cannot
+overlap your own `re.sh`; a non-Ghidra subagent can. If you open the project in the Ghidra GUI/MCP, `re.sh`/`dc.sh` fail
+on the lock (close it first). `dc.sh client`/`dc.sh mp` use separate projects (clientdll/mpdll).
+
+### Done this session (cont.74) — FULL per-class detail + commit hashes are in the ledger; scoreboard:
+**CTSGameRules 12/39 → 39/39 METHOD-COMPLETE** (5 subsystems: objective `AddObjectiveInList`/`SendObjectiveToHud`/
+`ShowObjectiveOnHud`/`InitObjectives`/`SetObjective` + `Objective`/`ShowObj` gmsgs; round-restart `Init`/`RestartRound`/
+`ResetRestartRound`/`RespawnEntities`/`CountPlayers`; team-cash/list `GetTeamsNum`/`SetTeamList`/`SetTeamModelList`/
+`GetTeamCash`/`InitTeamScore`/`UpdateTeamScores`; "TheOne" `IsCTB`/`SelectRandomTheOne`/`SetPlayerTheOne`/`TheOneIsDead`;
+voting `PlayerVote`/`CheckVotes`). **Whole OBJECTIVES CLUSTER end-to-end** (CTSObjective base → Bomb/TeamEscape/Hack/
+Manager/Pointer/WinGiver all derive it w/ Save/Restore; the HUD wiring through the gamerules subsystem). **CBaseEntity
+70→72/85** (added the original's `IsObjective`/`EnableObjective` virtuals). Plus **3 classes→1:1 + 3 keepalives dropped**
+(CTSWorldGun cluster, CM61Grenade, CBreakable), a small-class batch (CTSPowerUp/SlowMotionPoint/Briefcase/DMHill), and
+**CTSGun 28→30/47 (STARTED)**. Metrics: invented methods **131→117**, file mismatches **23→22**, **0 missing / 0 invented
+classes**. ~37 commits; every one builds `scripts/build.sh amd64 all`, glibc 2.14. (memory `audit-py-blind-spots`,
+`members-globals-signal-hidden-logic` saved.) The bullets below are the EARLY-session detail; the objectives cluster +
+CTSGameRules are in the ledger (cont.74 entries).
 - **CTSWorldGun cluster 4/13+3/7 → 13/13+7/7** (`0df448f`): merged ts_ammopack.cpp INTO ts_worldgun.cpp (+ts_worldgun.h)
   = TS_worldgun.cpp file parity. **CTSWorldGun now derives CTSPhysicObject**; real settle/bounce machine (CreateWeapon
   static factory carrying the full s_weapon_status = our **TSItem**; MOVETYPE_BOUNCE; Fall swept-trace impact damage;
@@ -100,28 +160,57 @@ its real wiring.
   attacker_team/CanInteract → the cluster reconcile (make them derive CTSObjective + build CTSGameRules' objective
   methods they call) is the next bottom-up step, interdependent with CTSGameRules 12/39. (Decompiles: scratchpad/obj.c, hill.c.)
 
-### NEXT — work-list (bottom-up, audit.py-driven)
-1. **⚠ CTF CLUSTER (deferred — do bottom-up, it's NOT a single class).** CTSFlag 4/15's dossier
-   (`scratchpad/dossier-CTSFlag.md`) found it derives CTSPhysicObject (same settle machine as CTSWorldGun — reuse that
-   pattern) BUT **the carry model differs fundamentally**: pickup copies an `s_flag_status` onto the player
-   (`CBasePlayer::TakeFlag`@0x93830) and **Destroys** the flag; a drop respawns a fresh `ts_flag` via `CreateFlag`. Our
-   "flag follows the carrier" `CarryThink` has NO original equivalent. It couples to a SEPARATE **CTSBriefcase** (the base
-   objective, `ts_briefcase` FGD entity) which owns `FlagFall` + the flag registry (`s_nextFlagID`). **Build order:**
-   (1) `s_flag_status` struct + a CBasePlayer member; (2) `CBasePlayer::TakeFlag`/`DropFlag(bool)`@0x8334c; (3)
-   **CTSBriefcase** (FlagFall/CaptureTouch/WaitThink/CanInteract/registry); (4) **CTSFlag** (15 methods: CreateFlag/Spawn/
-   Precache/BounceTouch/Destroy/RespawnFlag/Fall/WaitThink/OnGround/CanInteract/PlayerTakeFlag/Use/WaitTouch/ObjectCaps/
-   CanUsedTroughWalls; 9 members @0x88–0xac incl. embedded s_flag_status@0x90, m_hBriefcase@0xa4 = handle to the
-   CTSBriefcase NOT the carrier). gmsg: **ScoreInfo** on capture (+5 frags). Remove the invented free helpers
-   TSCreateFlag/TSDropFlag/TSPlayerHasFlag/TSReturnCarriedFlag (real flow is CBasePlayer::TakeFlag/DropFlag).
-2. **CTSGameRules 12/39** + the INTERDEPENDENT objectives cluster (CTSObjective/Manager/Pointer/Hack/WinGiver) — do together.
-3. **CTSGun (IN PROGRESS, 30/47)** — continue the name-map dossier's chunks 3b→6 in order (above). + the **~126 invented methods** to review.
-4. File mismatches 22 (mostly grouped-file divergence, OK). Client-side parity = separate manual track (`dc.sh client`).
-   (✓ CBreakable 17/22→22/22 DONE `d63559d` — the breakable-respawn cluster; dropped the CInfoBreakable keepalive.)
+### NEXT — work-list (bottom-up, audit.py-driven). `reference/coverage/AUDIT.md` headline: 0 missing / 0 invented classes.
+1. **CTSGun tail (IN PROGRESS, 30/47)** — resume the name-map dossier `scratchpad/dossier-CTSGun-namemap.md` (the OUR→REAL
+   map + A/B/C/D groups + chunk order; captured decompiles `scratchpad/g1.c`/`g2.c`/`g3.c`). Chunks 1–3a are DONE
+   (CloseCombatBlock→CCombatBlock, the 2 named members m_pActiveItem/m_pActiveInfo, ShouldWeaponIdle). ⚠ **The remaining
+   chunks were BLOCKED — re-check now:** `Reset`@0x805e0 needed a CTSGameRules reset path (✓ NOW available — `RestartRound`/
+   `Init` exist; wire `Reset` into them); `CCombatIdle`@0x85e54 plays `get_weapon_info(0)->[wi+0x252]` (the active-anim-
+   block idle index — needs the weapon-table data extraction, else a VERIFY guess); `EmptySound`@0x71be4 plays a predicted
+   client event (needs the event registered); `HolsterWeapon`@0x85698 + the chunk-4 `DropType→DropWeapon`/`SelectWeaponType
+   →SelectWeapon` reshapes move `Deploy` out to every caller of the playtested weapon-switch flow (wants a playtest). The
+   melee split (`KnifeFire`/`KatanaFire`/`KatanaThrow` from MeleeAttack+ThrowKnife) + the `SecondaryAttack` keystone is the
+   deepest reshape, do last. Group D = KEEP (legit, not drift): CanDeploy/Get+SetWeaponData, OwnedCount/SlotsUsed/Sync+
+   LoadActiveFromItem/RegenBlockBar/SwitchBarrel/SendWeaponStatus/UpdateActivePointers.
+2. **⚠ CTF CLUSTER — bottom-up, NOT one class.** Dossier `scratchpad/dossier-CTSFlag.md`. CTSFlag derives CTSPhysicObject
+   (reuse the CTSWorldGun settle machine) BUT the carry model differs: pickup copies an `s_flag_status` onto the player
+   (`CBasePlayer::TakeFlag`@0x93830) + **Destroys** the flag; a drop respawns a fresh `ts_flag` via `CreateFlag`. Our
+   "flag follows the carrier" `CarryThink` has NO original equivalent. Couples to a SEPARATE **CTSBriefcase** (`ts_briefcase`
+   FGD entity — owns `FlagFall` + the flag registry). **Build order:** (1) `s_flag_status` struct + a CBasePlayer member;
+   (2) `CBasePlayer::TakeFlag`/`DropFlag(bool)`@0x8334c; (3) **CTSBriefcase** (FlagFall/CaptureTouch/WaitThink/CanInteract/
+   registry); (4) **CTSFlag** (15 methods incl. embedded s_flag_status@0x90, m_hBriefcase@0xa4 = handle to the CTSBriefcase
+   NOT the carrier; gmsg ScoreInfo on capture +5 frags). Remove invented free helpers TSCreateFlag/TSDropFlag/
+   TSPlayerHasFlag/TSReturnCarriedFlag. NB our existing CTSBriefcase (ts_briefcase.cpp, 6/6) is the SLICE version — the
+   real one owns the registry the flag uses.
+3. **The ~117 "invented methods"** in `AUDIT.md` — REVIEW each (most are legit SDK virtual overrides like ItemPostFrame/
+   GetWeaponData, or our TS team-helper names like AssignToTeam/IsTeamMode/GetIndexedTeamName that the original has
+   inlined/under other names; some may be drift to rename/remove — confirm vs the RE before touching). This + the member-
+   name matching is where the user's "mismatch flags other mismatched logic" rule pays off.
+4. **CTSGameRules SLICEs to firm up** (all VERIFY-flagged in the cont.74 commits): RestartRound's loadout cash-refund +
+   force-class-select-observer (we respawn directly); ResetRestartRound's per-team cash + TeamScore broadcast; the voting
+   ff/teamplay console commands + applying the voted next-map; the_one's exact powerup value (8) + SetPlayerSpeed; IsCTB's
+   game-mode-byte gate. The class is METHOD-complete (39/39) but these internal behaviors are slices.
+5. **Client-side structural parity = a SEPARATE MANUAL track** (`audit.py` is SERVER-ONLY). Use `dc.sh client` + the
+   `clientdll` Ghidra project. NEW this session: the objective subsystem added the **`Objective`/`ShowObj`** user-messages
+   (+ the bomb's `Wires`) that need a cl_dll HUD handler (world marker + label per idx; toggle visibility). Also the
+   per-fire-type client handlers (EVENTS.md). **CTSGun is client-predicted** — when you reshape its fire/melee methods,
+   build `all` and update `cl_dll/ts_gun_stubs.cpp` if you change a server-only signature.
+6. File mismatches 22 (mostly the original's coarser TS_*.cpp grouping vs our per-class files — OK; single-class renames
+   are free wins).
 
-### ⚠ EVERYTHING this session is UNPLAYTESTED — flag to the user before merging to `main`
-WorldGun bounce physics + swept impact damage, AmmoPack armor drop, the stock-name remap, CM61Grenade slow-mo
-propagation + the recovered M61 blast literals (damage 300 / radius 1024 vs the old tuned 400), ShouldCollide
-pass-through. The user fires changes live in graphical xash (see `test.sh`).
+### ⚠ EVERYTHING this session is UNPLAYTESTED — flag to the user BEFORE merging to `main`
+The entire CTSGameRules round/objective/team/TheOne/voting flow, the whole objectives cluster, the dropped-weapon bounce
+physics + swept impact damage, AmmoPack armor, CM61Grenade slow-mo + the recovered M61 blast literals (damage 300 / radius
+1024), the breakable respawn, and the CTSGun chunks all need a live pass. The user fires changes live in graphical xash
+(see `test.sh`); the original TS runs in `hl.exe` (Proton/Wine) for live gdb traces (`scripts/live.py`, memory
+`live-original-ts-debuggable`) when a runtime/"what actually happens" question comes up.
+
+### Task-list entries to recreate (the cont.74 tracker — recreate via TaskCreate):
+- `[in_progress]` **"Per-class 1:1 parity loop (audit→RE→reconcile→build→audit→commit)"** — THE recurring driver task; keep it open.
+- `[pending]` **"CTSGun tail toward 1:1 (30/47 — name-map chunks 3b→6; re-check the now-unblocked Reset)"**.
+- `[pending]` **"CTF cluster (s_flag_status → CBasePlayer::TakeFlag/DropFlag → CTSBriefcase → CTSFlag) — bottom-up"**.
+- `[pending]` **"Review the ~117 invented methods (confirm legit-helper vs drift vs name-mismatch)"**.
+- `[pending]` **"Client-side parity: HUD handlers for Objective/ShowObj/Wires + the per-fire-type events (dc.sh client)"**.
 
 ---
 
