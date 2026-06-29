@@ -78,6 +78,22 @@ void CBasePlayer::Observer_FindNextPlayer(bool bReverse)
 	}
 }
 
+// @0x89ca4 Observer_Idle — every 0.5s, if following a target that has died (or gone), auto-advance
+// to the next live player. (Chase-lock mode iuser1==3 doesn't auto-advance.)
+void CBasePlayer::Observer_Idle()
+{
+	if (m_flNextObserverInput > gpGlobals->time)
+		return;
+	m_flNextObserverInput = gpGlobals->time + 0.5f;
+
+	if (pev->iuser1 == 3)
+		return;
+	if (!m_hObserverTarget)
+		return;
+	if (!m_hObserverTarget->IsAlive()) // VERIFY: orig also advances on a target+0x244 dormant flag
+		Observer_FindNextPlayer(false);
+}
+
 // Handle buttons in observer mode
 void CBasePlayer::Observer_HandleButtons()
 {

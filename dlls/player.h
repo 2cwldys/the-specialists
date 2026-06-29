@@ -113,6 +113,7 @@ class CBasePlayer : public CBaseMonster
 public:
 	// Spectator camera
 	void Observer_FindNextPlayer(bool bReverse);
+	void Observer_Idle();                                 // @0x89ca4 — auto-advance off a dead/gone target
 	void Observer_HandleButtons();
 	void Observer_SetMode(int iMode);
 	void Observer_CheckTarget();
