@@ -27,6 +27,10 @@ void PrecacheAllTSWeapons()
 	// the grenade's shrapnel fragments (CM61Grenade detonation) + the death-dropped ammo pack
 	// + the CTF flag (CTSFlag, runtime-created) — precached here so a mid-game spawn
 	// (detonation / death / flag create) doesn't precache after spawn.
+	PRECACHE_MODEL("models/shell.mdl");        // brass shell casing ejected on fire (cl_dll/ev_ts.cpp EV_TSFire
+	                                           // EV_FindModelIndex). Stock weapons precached it; TS uses
+	                                           // weapon_tsgun, so without this the casing model index is 0 = no shell.
+	PRECACHE_MODEL("models/shotgunshell.mdl"); // shotgun shell casing
 	PRECACHE_MODEL("models/shrapnel.mdl");
 	PRECACHE_MODEL("models/ammopack.mdl");
 	PRECACHE_MODEL("models/briefcase.mdl");
