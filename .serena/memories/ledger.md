@@ -147,7 +147,17 @@ velocity formula is CONFIRMED); slow-motion ✓; no unknown-command spam ✓; di
    0+0, EMPTY-returned, never played the FEV_NOTHOST fire event; a client reload repopulated the barrels (the
    'after reload' tell). Reconstruct leftClip/rightClip on the client in SetWeaponData from the synced combined
    m_iClip (server keeps m_iClip=left+right). [[predicted-weapon-gotchas]]
-6. **Dive 3rd-person looks like crouch** (1st-person spot-on) — `CTSAnimation::Animate` (gait/anim) NOT ported
+6. ✅ **REWRITTEN (`482a099`, NEEDS PLAYTEST): dive 3rd-person looked like crouch** — CTSAnimation::Animate
+   was a simplified A/C-only shape; RE'd the full original 4-region function (dossier
+   `scratchpad/dossier-ctsanimation.md`). Two faults: Region-C cases RETURNED instead of breaking into the
+   Region-D LEG-gait tail (pev->gaitsequence stayed 0 = crouch pose under the dive body), and Region B (the
+   per-m_iLastActivity HOLD guards) was absent so the per-frame PostThink Animate(1/6) stomped every stunt one
+   frame in. Rewrote to faithful A/B/C/D + P2 name fixes (PRONE->slide_<dir>_end, ROLL->roll_<dir>,
+   DIVE_END->roll_l/r/f_high/b, lowwheel no _b). PLAYTEST: dive + all stunts + normal walk/run/crouch/fire gait
+   (a core-dispatcher rewrite — watch for any animation regression). P3 deferred: player+0x478 second
+   anim-string (HandleCloseCombat block pick + standing-gait), slide_bl/br dot test, BulletDance inverted gate,
+   signed leg-timer, the shoot_*2 slide-fire variant. CTSAnimation members/SetAnim flags confirmed 1:1.
+6b. **(old) Dive 3rd-person looks like crouch** (1st-person spot-on) — `CTSAnimation::Animate` (gait/anim) NOT ported
    (known, VERIFICATION.md). Cosmetic.
 
 ### NEXT (the audit is now an honest driver — remaining work is genuine-RE or playtest-gated)
