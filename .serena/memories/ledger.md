@@ -81,11 +81,26 @@ Per the refined goal (do dependencies first, ALL missing-class closures). Commit
 - **Unlinked pistol keepalive** (`86bfb6a`): CTSPistolWeapon/CTSPistolAmmo are compiled-but-unlinked in the original;
   our --gc-sections DCE'd them -> an exported `hldmcompat_keep_unlinked()` anchor keeps them. 3/3 + 1/1.
 
-**NEXT** (8 missing classes left, bottom-up): **CTSPhysicObject FIRST** (base for CTSWorldGun + CTSGrenade) -> then
-CTSGrenade + CTSWorldGun 4/13. The emitter cluster (CTSEmitter/CTSParticle/CTSSharedEmitter interrelated) + standalone
-CBulletManager/CInfoBreakable/CTSWind. Then the big drifted classes (CTSGameRules 12/39, CTSGun 28/47, CM61Grenade,
-CTSFlag), 131 invented methods to review, and client-side structural parity (separate manual track — audit.py is server-only).
-⚠ The worldgun/hldmcompat behaviour (stock-name remap, the pickup physics) is UNPLAYTESTED — needs a pass.
+### cont.73 cont.2 — more missing-class closures (bottom-up): missing classes 8 -> 5
+
+- **CTSPhysicObject 5/5 + CTSGrenade 2/2** (`a5294db`, ts_physicobject.h): slow-motion physics base (velocity/
+  avelocity/gravity scaled by fuser1 when slowed; save/restore; WaitThink toggles on fuser1<1 as the InSlow proxy)
+  + the thin grenade subclass (grenbounce sounds + damp/settle). Kept via ts_grenades_keep_physic() until the
+  grenade/worldgun hierarchy is rewired to derive them (CTSWorldGun:CTSPhysicObject + thrown grenades) — follow-up.
+- **CBulletManager 6/6** (`3f77c1a`): our slow-bullet FREE functions (TSFireSlowBullet/Update/Reset) wrapped into the
+  CBulletManager class (FireBullet/Reset/Think/UpdateBullet/UpdateBulletTimeSlice/DestroyBullet); 256-slot ring =
+  m_bullets member; global g_BulletManager (orig embeds it in CTSGameRules+0x1864). Callers (ts_gun/ts_gamerules) updated.
+
+**KEEPALIVE pattern** for compiled-but-unreferenced classes (the original keeps them; our --gc-sections drops them):
+an exported, never-called function referencing static instances (`hldmcompat_keep_unlinked`, `ts_grenades_keep_physic`).
+Honest stopgap until the real hierarchy/wiring is built; flagged in each.
+
+**NEXT** (5 missing left): the emitter cluster — **CTSSharedEmitter (10-method particle manager) FIRST**, then
+CTSEmitter/CTSParticle/CTSWind entities (TS_emitter.cpp; dossier-emitter.md). CInfoBreakable (1 method, created by
+CBreakable::BreakableRespawn — do with the breakable-respawn drift). Then the big drifted classes (CTSGameRules 12/39,
+CTSGun 28/47, CM61Grenade, CTSFlag, CTSWorldGun 4/13 -> rederive CTSPhysicObject), 131 invented methods to review, and
+client-side structural parity (separate manual track). ⚠ The whole worldgun/hldmcompat/bullet/physics behaviour is
+UNPLAYTESTED — needs a pass (stock-name weapon remap, pickup physics, slow-bullet, grenade bounce).
 
 ## 2026-06-28 (cont. 72) — RE-tooling pass: audit toolchain + deterministic inventory (committed); pump WIP
 
