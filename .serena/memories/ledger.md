@@ -96,6 +96,32 @@ CTriggerPush/CMultiManager keep their stock surface) and the big CBasePlayer met
 - Metrics across the session: invented methods **117 -> 105**, 0 missing / 0 invented classes; many member-name
   gaps closed; all commits build `scripts/build.sh amd64 [all]` clean (glibc 2.14). 11 commits this session.
 
+### STOCK-SDK class gaps — closed + match-verified (user: "let's get it there" + "confirm match vs rewritten")
+A dossier subagent (`scratchpad/dossier-stock-gaps.md`) classified the 24 stock-class gaps the audit reports
+(FALSE-INLINE/INHERITED vs REAL-TS-ADD) + spot-checked our existing impls for principle-match. Then I closed
+the real ones:
+- **CBaseEntity 72->80** (`50a6963`): the slow/collide/respawn methods are **base CBaseEntity virtuals** in the
+  original (nm shows W defaults + T overrides) — we only had scattered derived overrides. Added the base virtuals
+  (GiveSlowMul/GoSlow/InSlow/CanUsedTroughWalls/ShouldCollide/BreakableRespawn/OnFreeEntPrivateData/eoffset; base
+  slow store = pev->fuser1), same pattern as cont.74's IsObjective/EnableObjective. Wired the per-entity
+  OnFreeEntPrivateData hook. Client vtable stubs (GoSlow/InSlow/eoffset). Remaining 5 = inline accessors (false).
+- **CBasePlayerWeapon 30->32** (`6b722f3`): base virtuals AddWeapon(){ExtractAmmo;return true;} + empty
+  AlternateAttack() (CTSGun overrides). **CFuncPlat 12->15**: targettop/targetbot (FGD-confirmed) + KeyValue +
+  Save/Restore; HitTop/HitBottom fire them (verified @0xc2d50/@0xc2bc0). **CHalfLifeMultiplay::IsValidTeam**
+  (@0x7b140): blacklist the reserved HL model names.
+- **Breakable doors CBaseDoor 15->17 + CRotDoor 2->3** (`c3960d8`): the biggest real-TS-add. TraceAttack (@0xb57ac)
+  accumulate->shatter (glass=gmsgTSCreateDebris shower, else TE_BREAKMODEL, reusing CBreakable helpers) + kill +
+  respawn; BreakableRespawn (@0xb5604) box-clear restore, CRotDoor override restores angles only. KeyValues
+  maxdamage/doormaterial/respawntime. SLICE: respawn via the door's own RespawnThink (the 1 invented method) vs the
+  orig's EHANDLE helper. **UNPLAYTESTED — doors break/respawn across every map; needs a live pass.**
+- **DIVERGENCE RESOLVED — GetGameDescription** (`7374852`): verified (@0xc0c68) the original is on
+  **CHalfLifeMultiplay** (theOne->LMS->DM, **NO teamplay branch**), CTSGameRules inherits (no override). Ours was a
+  rewrite (teamplay-FIRST, on CTSGameRules). Relocated to CHalfLifeMultiplay + dropped the teamplay branch. Behavior
+  change: team maps no longer show "(Teamplay)" (now faithful). CHalfLifeMultiplay 52->54; CTSGameRules invented 106->105.
+- **Confirmed FALSE (no action, match-verified):** CMultiManager IsClone/ShouldClone (match), CLadder/CTriggerPush
+  KeyValue (inherited base), CHalfLifeMultiplay::GetNextBestWeapon (inherited CGameRules, matches in principle),
+  CBaseEntity edict/entindex/Instance/GetMonsterPointer/IsLockedByMaster (inline). 17 commits this session.
+
 ---
 
 ## 2026-06-28 (cont. 74) — source-parity restructure cont.: drifted classes' MISSING methods (+drop keepalives)
