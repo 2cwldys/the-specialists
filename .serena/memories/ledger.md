@@ -5,6 +5,56 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-28 (cont. 73) — code-restructure to source parity (audit.py-driven): 5 classes -> 1:1
+
+Branch `restructure-source-parity`. Per the user's directive — ONE CLASS AT A TIME, make methods + variables
+match the original 1:1 (nothing missing, nothing added), using subagents that write `.md` dossiers to scratchpad
+(keep raw decompiles out of context). Loop: `re.sh <Class>` decompile -> dossier -> reconcile our WORKING logic into
+the original's exact method/member layout -> build amd64 -> `audit.py <Class>` -> commit. Driver = `scripts/coverage/audit.py`.
+GPG signing off for the session (`git config --local commit.gpgsign false`).
+
+5 commits `69c21ab`..`8f73a46`. audit headline: invented methods **145->132**, file mismatches **25->22**,
+0 invented classes (unchanged). Each builds amd64 (glibc 2.14); the BEHAVIOUR-sensitive ones need a playtest pass.
+
+- **CTSAnimation 13/13** (`69c21ab`): split our monolithic `Animate()` + 4 collapsed helpers into the original's 13
+  methods (Init/UpdateTimers/Animate 4-phase / Enable/Disable/BulletDance / BlendAnimationsForSlide/ByDir/Jump /
+  SetAnim / HandleCloseCombat / IsInCloseCombat / GaitCloseCombat). `SetBodySequence`+`SetGaitSequence` -> the flag-driven
+  `SetAnim` (orig flags 0x92/0x94/0x14/0x194/0x12). `GetMoveDirection` -> the free `GetDirection` (orig
+  `GetDirection__FG6VectorT0ff`). `PlayKungFu` -> `HandleCloseCombat(player,code)`; ts_gun's 3 PlayKungFu(name) sites ->
+  `Animate(player,closeCombatCode)`. `m_bKungFu` bool REMOVED — kung-fu keys off the EMPTY grip (melee Deploy now passes
+  ""; also fixes the phantom `draw_onehanded` pistol-draw on fists). Added bullet-dance state + GiveSlowMul timer scaling.
+- **CTSStunt 25/25** (`000f2a3`): the 5 INVENTED helpers leave the class surface — `GetDirection` = the shared free fn;
+  `TimeScale`/`SendNextStunt`/`MotionBlur`/`ResetStuntState` -> file-local statics (the original inlines them; like the
+  existing TSWallTrace). `SlotBonus`/`NextDive` out-of-line. `CloseAttack` (the JUMP-KICK <- CBasePlayer::Jump)
+  reconstructed AS a CTSStunt method — relocated from the free fn `TSTryJumpKick` (removed; invented-global cleared;
+  `m_flNextJumpKick` member removed, uses `m_flStunCooldown`=CTSStunt+8). `CheckForBreakables` (<- PreThink) added: the
+  non-melee run/dive-into sweep shatters world breakables (players excluded; the close-combat Victim*Hold path needs unbuilt
+  state -> DEFERRED+VERIFY). `TimeScale` fixed to `max(fuser1,0.01)`. A caller-finder subagent (`re.sh refs`/`vrefs`)
+  confirmed: CheckForBreakables<-PreThink, CloseAttack<-Jump; the +0xb4 damage-virtual + GetDirection's networked +0x2a0
+  store are VERIFY-flagged.
+- **CTSDeadCorpse 5/5 + file rename** (`683c123`): FadeThink->WaitThink; add empty Precache + no-op TraceAttack;
+  ObjectCaps -> FCAP_DONT_SAVE (0x80000000). `ts_corpse.cpp` -> **`ts_deadcorpse.cpp`** (LINK name `ts_corpse` unchanged).
+- **CTSShrapnel 6/6 + file rename** (`feb4e02`): FadeThink->WaitThink. `ts_grenade.cpp` -> **`ts_grenades.cpp`** (also
+  clears CM61Grenade's file-mismatch — shares the file; CM61Grenade methods still drift, separate pass).
+- **CTSPlayerAmount 4/4** (`8f73a46`): event-driven `ClientConnect`/`ClientDisconnect` (per-entity counter, fire on
+  ==clients) replace the invented `CountThink` poll + `CountConnectedPlayers`; derive CBaseDelay; wired from the engine
+  ClientConnect/Disconnect hooks in client.cpp (new ts_playeramount.h). (File still ts_playeramount.cpp vs the original's
+  grouped TS_entities.cpp — grouping divergence, per HANDOFF.)
+
+**File-name parity note** (user asked): `audit.py`'s `norm_file` strips the `ts_`/`TS_` prefix + drops `"manager"`, so
+e.g. `ts_animation`≡`TS_animation`, `ts_stunt`≡`TS_stuntmanager` already report ✓. The 22 remaining FILE mismatches are
+mostly the original GROUPING many classes into one `TS_*.cpp` (TS_entities/TS_objectives/TS_worldgun) vs our per-class
+files — single-class renames are taken inline (corpse/grenades); the grouped merges are deferred per HANDOFF.
+
+**Dossiers saved** (scratchpad, reusable): `dossier-hldmcompat.md` (the 18 missing weapon/ammo spawner classes — entity
+name map + Random<X> sets; UNLINKED: CTSPistolWeapon/Ammo; do the CTSGroundWeapon/Ammo base FIRST). `dossier-CTSAnimation.md`,
+`dossier-CTSStunt.md`, `dossier-CTSStunt-callers.md`.
+
+**NEXT** (audit.py work-list): 24 missing classes (the hldmcompat spawner family is dossiered + ready once the
+CTSGroundWeapon/Ammo base is brought to 1:1), 132 invented methods to review, the big drifted classes (CTSGameRules 12/39,
+CTSGun 28/47, CM61Grenade, CTSFlag, the CBasePlayer/CBaseEntity TS surface). Client-side structural parity (the per-fire-type
+handlers) is a separate manual track (audit.py is server-only).
+
 ## 2026-06-28 (cont. 72) — RE-tooling pass: audit toolchain + deterministic inventory (committed); pump WIP
 
 Built the machine-checkable RE inventory + bidirectional audit, made it deterministic, set up the Ghidra MCP.
