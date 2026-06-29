@@ -46,7 +46,9 @@ public:
 		return s[RANDOM_LONG(0, 6)];
 	}
 };
-// (UNLINKED in the original — no LINK_ENTITY_TO_CLASS for weapon_9mmhandgun/weapon_357)
+// (UNLINKED in the original — no LINK_ENTITY_TO_CLASS for weapon_9mmhandgun/weapon_357.
+//  CTSPistolWeapon/CTSPistolAmmo are still COMPILED INTO the original binary though; a static
+//  instance of each (below) keeps our linker from DCE'ing them so they're present as in the original.)
 
 class CTSBigPistolWeapon : public CTSGroundWeapon
 {
@@ -225,3 +227,13 @@ public:
 	}
 };
 LINK_ENTITY_TO_CLASS(ammo_crossbow, CTSSniperAmmo);
+
+// Keep the two UNLINKED pistol classes in the binary (compiled-but-unlinked in the original;
+// weapon_9mmhandgun/357 + ammo_9mmclip/357 are string-table-only there). This exported anchor
+// references both so --gc-sections can't drop their vtables/methods. Never called.
+CBaseEntity *hldmcompat_keep_unlinked()
+{
+	static CTSPistolWeapon w;
+	static CTSPistolAmmo a;
+	return RANDOM_LONG(0, 1) ? (CBaseEntity *)&w : (CBaseEntity *)&a;
+}
