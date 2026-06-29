@@ -99,7 +99,14 @@ velocity formula is CONFIRMED); slow-motion ✓; no unknown-command spam ✓; di
    client-hooked fine (cl_dll/roundtime.cpp). User sees round SUMMARIES (CheckDeads resolves rounds w/o a
    timer). ACTION: determine which TS mode the test is in + RE whether the original arms the round timer there
    (theOne/DM round modes) — likely the cont.76 IsTeamMode gating is too narrow.
-2. **Thrown weapon never settles + despawns ~2s** — `CTSWorldGun::Spawn` uses a ZERO-size bbox
+2. ✅ **PARTIAL FIX (`1fcd627`, re-test): thrown weapon despawn** — registered the original's `weaponstay`
+   cvar (default 15, recovered from .so cvar_t @0x108f4c; distinct from stock mp_weaponstay=0). Dropped guns
+   now persist 15s not the 5s floor. The infinite-SLIDE is SEPARATE and our code is FAITHFUL — verified the
+   original CTSWorldGun::Spawn@0x90954 uses a ZERO-size bbox and Fall@0x90d84 settles on
+   `(FL_ONGROUND && vel<3)->OnGround`, IDENTICAL to ours. The xash test engine likely doesn't set FL_ONGROUND
+   on a zero-size MOVETYPE_BOUNCE (no friction → slides); GoldSrc/ReHLDS (deploy target) settles. Decide: leave
+   faithful, or add an xash-compat tiny bbox. [orig diag:]
+   **Thrown weapon never settled + despawned ~2s** — `CTSWorldGun::Spawn` uses a ZERO-size bbox
    (`UTIL_SetSize g_vecZero`) so the engine never sets FL_ONGROUND → `Fall()`'s settle gate
    (`FL_ONGROUND && vel<3`) never fires → slides until `m_flExpire` removes it. AND the lifetime reads
    `CVAR_GET_FLOAT("weaponstay")` but we only register `mp_weaponstay` (stock name) → returns 0 → clamped 5s.
