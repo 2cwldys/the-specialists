@@ -21,6 +21,8 @@
 #include "gamerules.h"
 #include "ts_gamerules.h" // TSGameRules()->TeamWin
 #include "ts_objectives.h" // CTSObjective (the cluster base, shared with ts_bomb/ts_escape)
+#include "ts_hack.h"       // CTSHack
+#include "ts_wingiver.h"   // CTSWinGiver / CTSScoreGiver
 
 #define SF_TS_REMOVE_ON_FIRE 1
 
@@ -273,27 +275,7 @@ bool CTSObjectivePointer::KeyValue(KeyValueData *pkvd)
 // SLICE: the faithful "is a player hacking" decision is gamerules-driven; here a touch
 // from a valid player drives the countdown.
 //============================================================================
-class CTSHack : public CTSObjective
-{
-public:
-	void Spawn() override;
-	void Precache() override;
-	bool KeyValue(KeyValueData *pkvd) override;
-	bool Save(CSave &save) override;
-	bool Restore(CRestore &restore) override;
-	int  ObjectCaps() override { return FCAP_CONTINUOUS_USE; } // @0x8e788 -> 0x10
-	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override; // @0x8cf14
-	void EnableObjective(bool enable) override; // @0x8cd6? arm/disarm + seed the objective deadline
-	void EXPORT WaitThink();                    // @0x8ceb0 — objective deadline countdown -> Freeze
-
-	static TYPEDESCRIPTION m_SaveData[];
-
-	int   hacksec = 10;         // +0x7c — keyvalue "hackingtime": seconds of HELD USE to complete
-	float m_flObjTimer = 0;     // +0x6c — objective deadline countdown (round seconds left)
-	float m_flHackProgress = 0; // +0x70 — hack progress remaining (held USE counts it down; <0 = done)
-	float m_flLastUse = 0;      // +0x74 — last USE time (held-USE continuity)
-	float m_flNextSound = 0;    // +0x78 — next "hacking" sound time
-};
+// CTSHack is declared in ts_hack.h (extracted so the audit sees its FGD member `hacksec`).
 
 LINK_ENTITY_TO_CLASS(ts_hack, CTSHack);
 
@@ -429,26 +411,8 @@ void CTSHack::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useTyp
 // FAITHFUL: Use -> CTSGameRules::TeamWin(team, cash, …) + HUD. // SLICE (team subsystem
 // not built): announce the win + fire the message-as-target; no cash/round restart.
 //============================================================================
-class CTSWinGiver : public CTSObjective
-{
-public:
-	void Spawn() override;
-	bool KeyValue(KeyValueData *pkvd) override;
-	bool Save(CSave &save) override;
-	bool Restore(CRestore &restore) override;
-	bool IsObjective() override { return true; }  // @0x7e64c — returns 1 (explicit override)
-	void EnableObjective(bool enable) override;   // @0x7e6e4-ish — reset (clears active + call state)
-	void EXPORT Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
-
-	static TYPEDESCRIPTION m_SaveData[];
-
-	int winnerteam = 0;         // keyvalue "winnerteam" (0 Team1, 1 Team2, 2 draw, …)
-	int cash_for_winner = 2000; // keyvalue "victorycash"
-	int cash_for_loser = -1000; // keyvalue "defeatcash"
-	int numberofcall = 1;       // keyvalue "callsnumber": Use calls needed to fire
-	int m_calls = 0;            // calls so far (transient)
-	bool m_bDone = false;       // already fired (transient)
-};
+// CTSWinGiver is declared in ts_wingiver.h (extracted so the audit sees its FGD members
+// winnerteam/victorycash/defeatcash/callsnumber).
 
 LINK_ENTITY_TO_CLASS(ts_wingiver, CTSWinGiver);
 
@@ -514,13 +478,7 @@ void CTSWinGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE us
 //============================================================================
 #define SF_SCOREGIVER_RESPAWN 1
 
-class CTSScoreGiver : public CTSWinGiver
-{
-public:
-	void Spawn() override;                                  // @0x8c0b8
-	bool KeyValue(KeyValueData *pkvd) override;             // @0x8c090 — delegates to CTSWinGiver
-	void EXPORT Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
-};
+// CTSScoreGiver is declared in ts_wingiver.h (derives CTSWinGiver).
 
 LINK_ENTITY_TO_CLASS(ts_scoregiver, CTSScoreGiver);
 
