@@ -14,7 +14,7 @@ import os, re, sys
 from collections import defaultdict
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-SRC_DIRS = [os.path.join(ROOT, "dlls"), os.path.join(ROOT, "cl_dll")]
+SRC_DIRS = [os.path.join(ROOT, "dlls"), os.path.join(ROOT, "cl_dll"), os.path.join(ROOT, "pm_shared")]
 
 CLASSRE = re.compile(r"\b(?:class|struct)\s+([A-Za-z_]\w*)\s*(?::\s*(?:public|private|protected|virtual|\s)+([A-Za-z_]\w*))?")
 # a member declaration line at class scope: <type...> name [array] (= | ; | {)
@@ -26,6 +26,15 @@ PMEMBERRE = re.compile(r"\(\s*(?:[A-Za-z_]\w*\s*::\s*)?\*\s*(m_[A-Za-z0-9_]+|[a-
 INLINE_METHODRE = re.compile(r"^\s*(?:virtual\s+|static\s+|inline\s+|explicit\s+)*[A-Za-z_][\w:<>,\s\*&]*?\b(~?[A-Za-z_]\w*)\s*\(")
 # a free function definition at file scope:  <type> name( ... ) {  (definition, not a call)
 FREEDEFRE = re.compile(r"^[A-Za-z_][\w:<>,\s\*&]*?\b([A-Za-z_]\w*)\s*\([^;]*\)\s*(?:const)?\s*\{")
+# a free function SIGNATURE line with the brace on the NEXT line (Allman style, common in the SDK):
+#   static int CalcMiniminVotants(int votants)   <- this line; '{' follows. Confirm via lookahead (next
+# non-blank line opens a brace) so a LINK_ENTITY_TO_CLASS(...) macro (no following '{') is not captured.
+FREESIGRE = re.compile(r"^[A-Za-z_][\w:<>,\s\*&]*?\b([A-Za-z_]\w*)\s*\([^;{]*\)\s*(?:const)?\s*$")
+# the K&R/SDK util split form — return type+quals on one line, then the NAME(params) on its own line:
+#   static void           <- TYPEONLYRE
+#   CheckPowerups(entvars_t* pev)   <- FREENAMERE ; '{' on the line after.
+FREENAMERE = re.compile(r"^([A-Za-z_]\w*)\s*\([^;{]*\)\s*(?:const)?\s*$")
+TYPEONLYRE = re.compile(r"^(?:static\s+|inline\s+|extern\s+|\"C\"\s+)*[A-Za-z_][\w:<>,\s\*&]*[\w\*&>]\s*$")
 TYPEWORD = {"int","bool","char","float","double","void","short","long","unsigned","string_t",
             "vec_t","byte","entvars_t","return","else","case","public","private","protected",
             "virtual","static","const","struct","class","enum","typedef","using","friend","Vector"}
@@ -92,7 +101,8 @@ def parse():
             depth = 0
             stack = []         # (class, depth_at_open)
             pending = None      # (class, base) seen, awaiting its opening brace
-            for code in txt.splitlines():
+            lines = txt.splitlines()
+            for li, code in enumerate(lines):
                 code = code.split("//")[0]
                 start_depth = depth
                 # capture at the immediate body scope of the innermost class
@@ -114,6 +124,25 @@ def parse():
                     fm = FREEDEFRE.match(code)
                     if fm and fm.group(1) not in TYPEWORD:
                         free_funcs[rel].add(fm.group(1))
+                elif not stack and start_depth == 0 and "(" in code and "{" not in code and ";" not in code:
+                    sm = FREESIGRE.match(code)
+                    nm_only = None
+                    if not (sm and sm.group(1) not in TYPEWORD):
+                        nm = FREENAMERE.match(code)                  # bare NAME(params) — K&R split form
+                        if nm and nm.group(1) not in TYPEWORD:
+                            k = li - 1                               # prior non-blank line a type-only line?
+                            while k >= 0 and lines[k].split("//")[0].strip() == "":
+                                k -= 1
+                            prev = lines[k].split("//")[0].strip() if k >= 0 else ""
+                            if TYPEONLYRE.match(prev) and prev not in ("else",):
+                                nm_only = nm.group(1)
+                    name = (sm.group(1) if (sm and sm.group(1) not in TYPEWORD) else nm_only)
+                    if name:
+                        j = li + 1                          # Allman: is the next non-blank line a '{' body?
+                        while j < len(lines) and lines[j].split("//")[0].strip() == "":
+                            j += 1
+                        if j < len(lines) and lines[j].split("//")[0].lstrip().startswith("{"):
+                            free_funcs[rel].add(name)
                 # note a class/struct declaration (the latest one wins until its '{' or ';')
                 cm = CLASSRE.search(code)
                 if cm:

@@ -260,8 +260,13 @@ def analyze():
     invented_globals = sorted(n for n in (ourg - set(orig_glob)) if tsg.match(n))   # TS-pattern, not in original
 
     # FREE-FUNCTION level: per TS file (a file holding a ts_specific class), the original's free functions
-    # not present anywhere in our build symbols. A genuinely-missing free function = a logic gap to RE.
+    # not present anywhere in OUR CODE. Credit both binary symbols AND source-level definitions (srcparse):
+    # the compiler inlines static single-caller free fns (TSDive/CheckPowerups/...) so they have no nm symbol,
+    # but they ARE present + faithful in source — same source-aware fix as the member level. A genuinely-missing
+    # free function (absent from both binary and source) = a real logic gap to RE.
     ourff = our_free_funcs()
+    for _names in SRC["free_funcs"].values():
+        ourff |= _names
     missing_freefuncs = {}
     for fn, fe in d.get("files", {}).items():
         # Pure-TS source files only (TS_*.cpp). Stock files (cbase/doors/plats/...) hold a TS-modified
