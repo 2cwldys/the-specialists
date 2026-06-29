@@ -101,9 +101,17 @@ velocity formula is CONFIRMED); slow-motion ✓; no unknown-command spam ✓; di
    `CVAR_GET_FLOAT("weaponstay")` but we only register `mp_weaponstay` (stock name) → returns 0 → clamped 5s.
    The original registers `weaponstay` (it's in coverage's MISSING server cvars). ACTION: RE the original
    worldgun bbox + settle + lifetime (dc.sh server 0xa0954 Spawn / 0xa0d84 Fall — first cut captured but messy).
-3. **Spectate auto-jumps to a spawn after ~5s (force-respawn) w/o pressing fire; timer resets to 2s** — the
-   spawn-gate flow (m_flSpawnGateTime / TSSpectateThink / TSEnterSpectate); auto-spawns w/o IN_ATTACK. Needs
-   live-trace of the original spectate flow. (TSSpectateThink only spawns on IN_ATTACK, so the auto-spawn is elsewhere.)
+3. **~5s teleport (alive AND in spectate) + unholster/redeploy — it's a ROUND RESTART, not an auto-spawn**
+   (user clarified). ROOT CAUSE: `CTSGameRules::Init()` (in the ctor) arms `m_flRoundRestart = time + 5.0f`
+   UNCONDITIONALLY (`ts_gamerules.cpp:355`); Think (`:724`) then fires `RestartRound()` 5s into EVERY map, and
+   RestartRound `respawn()`s ALL players (`:433`) → teleport-to-spawn + redeploy. On non-team ts_kissmeyerbasic
+   `IsTeamMode()` is false (keys off a `ts_objective_manager` entity) so it's a ONE-TIME +5s event, not a cycle;
+   in team mode it recurs. The whole round-restart subsystem landed THIS restructure (commit `0a7832c`) = a
+   cont.74-77 regression. The +5s Init restart's PURPOSE is deferred InitObjectives/SetObjective (map entities
+   exist by then) — but it shouldn't force-respawn players in plain DM (no rounds). FIX (needs RE of the
+   original Init@0x67d6c / RestartRound@0x67920): gate the first-restart player-respawn to round-based modes,
+   OR run the deferred objective-init without the all-player respawn in DM. Tightly coupled to bug #1 (the round
+   clock): on tm_avana RestartRound DOES send gmsgTSRoundTime (`:411`) yet no clock shows — same subsystem.
 4. **Stock bottom HUD shows** — user wants the STOCK HL health/ammo HUD removed entirely (TS has its own).
    Client-side gate (cl_dll). Tractable.
 5. **Loadout intermittent at first-join** (works most times) — buy-menu/loadout send race (the TSSendBuyMenu
