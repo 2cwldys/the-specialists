@@ -24,6 +24,7 @@
 #include "ts_gamerules.h"
 #include "ts_utils.h"   // TSHudMessageAll
 #include "explode.h"    // ExplosionCreate
+#include "ts_objectives.h" // CTSObjective (the base CTSBomb derives)
 
 #define BOMB_TEAM_ANY (-1)
 #define BOMB_COUNTDOWN 45.0f   // VERIFY: the .so reads a bomb-time global (DAT_001781a8)
@@ -31,28 +32,28 @@
 // wire states (the .so's +0x7c..0x7e): 1 defuse, 2 boobytrap, 3 neutral, 0 already cut
 enum tsbomb_wire_t { WIRE_CUT = 0, WIRE_DEFUSE = 1, WIRE_BOOBYTRAP = 2, WIRE_NEUTRAL = 3 };
 
-class CTSBomb : public CBaseEntity
+class CTSBomb : public CTSObjective
 {
 public:
 	bool KeyValue(KeyValueData *pkvd) override;
+	bool Save(CSave &save) override;
+	bool Restore(CRestore &restore) override;
 	void Spawn() override;
 	void Precache() override;
 	int  ObjectCaps() override { return FCAP_CONTINUOUS_USE; } // @ObjectCaps __7CTSBomb == 0x10
 	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
 
 	void EXPORT WaitThink();          // the bomb tick: countdown + beep, or explode at zero
-	void EnableObjective(bool enable);
+	void EnableObjective(bool enable) override; // arm/disarm (the bomb's own override of the base)
 	void SetRandomWires();
 	void CutWire(int wire, CBasePlayer *pPlayer);
-	void Explode();
 
-	bool CanInteract(int team) const { return m_attackerTeam == BOMB_TEAM_ANY || m_attackerTeam == team; }
+	static TYPEDESCRIPTION m_SaveData[];
 
-	bool   m_bEnabled = false;     // +0x64 — the bomb is armed + ticking
+	// m_bActive (armed/ticking, +0x64) + attacker_team (+0x68) are inherited from CTSObjective.
 	float  m_flTimer = 0;          // +0x6c — countdown remaining (seconds)
-	float  m_flDefuseTime = 10;    // +0x80 — USE-hold seconds to defuse (FGD defusetime)
-	int    m_bCutWires = 1;        // FGD cutwires
-	int    m_attackerTeam = BOMB_TEAM_ANY; // tsobjective attackerteam (-1 = any)
+	int    defusesec = 10;    // +0x80 — keyvalue "defusetime": USE-hold seconds to defuse
+	int    cancutwire = 1;        // keyvalue "cutwires": wire-cut defuse enabled
 
 	int    m_wires[3] = {};        // +0x7c..0x7e
 	bool   m_bFast = false;        // +0x7f — boobytrap sped the countdown up
@@ -63,18 +64,23 @@ public:
 
 LINK_ENTITY_TO_CLASS(ts_bomb, CTSBomb)
 
+TYPEDESCRIPTION CTSBomb::m_SaveData[] = {
+	DEFINE_FIELD(CTSBomb, defusesec, FIELD_INTEGER),
+	DEFINE_FIELD(CTSBomb, cancutwire, FIELD_INTEGER),
+};
+IMPLEMENT_SAVERESTORE(CTSBomb, CTSObjective);
+
 void CTSBomb::Precache()
 {
 	PRECACHE_SOUND("misc/beep2.wav");
 }
 
-// @ KeyValue — defusetime / cutwires / target / message (+ attackerteam from tsobjective).
+// @ KeyValue — defusetime / cutwires (+ attackerteam from the CTSObjective base).
 bool CTSBomb::KeyValue(KeyValueData *pkvd)
 {
-	if (FStrEq(pkvd->szKeyName, "defusetime")) { m_flDefuseTime = atof(pkvd->szValue); return true; }
-	if (FStrEq(pkvd->szKeyName, "cutwires"))   { m_bCutWires = atoi(pkvd->szValue); return true; }
-	if (FStrEq(pkvd->szKeyName, "attackerteam")) { m_attackerTeam = atoi(pkvd->szValue); return true; }
-	return CBaseEntity::KeyValue(pkvd);
+	if (FStrEq(pkvd->szKeyName, "defusetime")) { defusesec = atoi(pkvd->szValue); return true; }
+	if (FStrEq(pkvd->szKeyName, "cutwires"))   { cancutwire = atoi(pkvd->szValue); return true; }
+	return CTSObjective::KeyValue(pkvd); // handles "attackerteam"
 }
 
 // @ Spawn — set up the brush and arm the bomb. (Faithful enable is gamerules-driven; a
@@ -103,7 +109,7 @@ void CTSBomb::SetRandomWires()
 // @ EnableObjective — arm (true) or safe (false) the bomb.
 void CTSBomb::EnableObjective(bool enable)
 {
-	m_bEnabled = enable;
+	m_bActive = enable;
 	m_bFast = false;
 
 	if (!enable)
@@ -130,7 +136,7 @@ void CTSBomb::EnableObjective(bool enable)
 // @ CutWire — cut wire `wire` (0..2): defuse / boobytrap (fast) / neutral (instant detonate).
 void CTSBomb::CutWire(int wire, CBasePlayer *pPlayer)
 {
-	if (!m_bEnabled || !m_bCutWires || m_flTimer <= 0.0f || wire < 0 || wire > 2)
+	if (!m_bActive || !cancutwire || m_flTimer <= 0.0f || wire < 0 || wire > 2)
 		return;
 	if (m_wires[wire] == WIRE_CUT || pPlayer == nullptr)
 		return;
@@ -164,7 +170,7 @@ void CTSBomb::CutWire(int wire, CBasePlayer *pPlayer)
 // (FCAP_CONTINUOUS_USE).
 void CTSBomb::Use(CBaseEntity *pActivator, CBaseEntity *, USE_TYPE, float)
 {
-	if (!m_bEnabled || !pActivator || !pActivator->IsPlayer() || !pActivator->IsAlive())
+	if (!m_bActive || !pActivator || !pActivator->IsPlayer() || !pActivator->IsAlive())
 		return;
 	CBasePlayer *pPlayer = (CBasePlayer *)pActivator;
 	if (!CanInteract(pPlayer->pev->team))
@@ -172,7 +178,7 @@ void CTSBomb::Use(CBaseEntity *pActivator, CBaseEntity *, USE_TYPE, float)
 
 	// continuity: if USE lapsed >0.5s the hold restarts
 	if (m_flLastUse == 0.0f || gpGlobals->time - m_flLastUse >= 0.5f)
-		m_flUseProgress = m_flDefuseTime;
+		m_flUseProgress = defusesec;
 	else
 		m_flUseProgress -= (gpGlobals->time - m_flLastUse);
 	m_flLastUse = gpGlobals->time;
@@ -197,13 +203,15 @@ void CTSBomb::WaitThink()
 	float interval = m_bFast ? 0.1f : 1.0f;
 	pev->nextthink = gpGlobals->time + interval;
 
-	if (!m_bEnabled)
+	if (!m_bActive)
 		return;
 
 	m_flTimer -= 1.0f;
 	if (m_flTimer <= 0.0f)
 	{
-		Explode();
+		// detonate inline (the original has no separate Explode method): a big radius blast, then spent.
+		ExplosionCreate(Center(), pev->angles, edict(), 300, true);
+		EnableObjective(false);
 		return;
 	}
 
@@ -212,14 +220,6 @@ void CTSBomb::WaitThink()
 		m_flNextBeep = gpGlobals->time + interval;
 		EMIT_SOUND_DYN(edict(), CHAN_VOICE, "misc/beep2.wav", 1.0, ATTN_NORM, 0, 98 + RANDOM_LONG(0, 3));
 	}
-}
-
-// @ detonation — a big radius blast (the .so's TSExplosion), then the bomb is spent.
-void CTSBomb::Explode()
-{
-	// ExplosionCreate spawns the env_explosion sprite/sound + does the radius blast damage.
-	ExplosionCreate(Center(), pev->angles, edict(), 300, true);
-	EnableObjective(false);
 }
 
 // Free helper for the wire-cut console command (the cl_dll wire UI isn't built).
