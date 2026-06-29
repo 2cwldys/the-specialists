@@ -26,7 +26,7 @@
 #define VECTOR_CONE_DM_SHOTGUN Vector(0.08716, 0.04362, 0.00)		// 10 degrees by 5 degrees
 #define VECTOR_CONE_DM_DOUBLESHOTGUN Vector(0.17365, 0.04362, 0.00) // 20 degrees by 5 degrees
 
-LINK_ENTITY_TO_CLASS(weapon_shotgun, CShotgun);
+//LINK_ENTITY_TO_CLASS(weapon_shotgun, CShotgun); // [TS] entity name remapped to the hldmcompat TS weapon spawner (hldmcompat.cpp)
 
 void CShotgun::Spawn()
 {

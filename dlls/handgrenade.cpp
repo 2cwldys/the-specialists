@@ -22,7 +22,7 @@
 
 #define HANDGRENADE_PRIMARY_VOLUME 450
 
-LINK_ENTITY_TO_CLASS(weapon_handgrenade, CHandGrenade);
+//LINK_ENTITY_TO_CLASS(weapon_handgrenade, CHandGrenade); // [TS] entity name remapped to the hldmcompat TS weapon spawner (hldmcompat.cpp)
 
 
 void CHandGrenade::Spawn()

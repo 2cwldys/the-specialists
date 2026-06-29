@@ -24,7 +24,7 @@
 #include "UserMessages.h"
 
 LINK_ENTITY_TO_CLASS(weapon_mp5, CMP5);
-LINK_ENTITY_TO_CLASS(weapon_9mmAR, CMP5);
+//LINK_ENTITY_TO_CLASS(weapon_9mmAR, CMP5); // [TS] entity name remapped to the hldmcompat TS weapon spawner (hldmcompat.cpp)
 
 
 //=========================================================
@@ -333,4 +333,4 @@ class CMP5AmmoGrenade : public CBasePlayerAmmo
 	}
 };
 LINK_ENTITY_TO_CLASS(ammo_mp5grenades, CMP5AmmoGrenade);
-LINK_ENTITY_TO_CLASS(ammo_ARgrenades, CMP5AmmoGrenade);
+//LINK_ENTITY_TO_CLASS(ammo_ARgrenades, CMP5AmmoGrenade); // [TS] entity name remapped to the hldmcompat TS weapon spawner (hldmcompat.cpp)

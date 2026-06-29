@@ -221,7 +221,7 @@ void CCrossbowBolt::ExplodeThink()
 }
 #endif
 
-LINK_ENTITY_TO_CLASS(weapon_crossbow, CCrossbow);
+//LINK_ENTITY_TO_CLASS(weapon_crossbow, CCrossbow); // [TS] entity name remapped to the hldmcompat TS weapon spawner (hldmcompat.cpp)
 
 void CCrossbow::Spawn()
 {

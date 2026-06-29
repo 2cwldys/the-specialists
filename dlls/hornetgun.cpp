@@ -39,7 +39,7 @@ enum firemode_e
 };
 
 
-LINK_ENTITY_TO_CLASS(weapon_hornetgun, CHgun);
+//LINK_ENTITY_TO_CLASS(weapon_hornetgun, CHgun); // [TS] entity name remapped to the hldmcompat TS weapon spawner (hldmcompat.cpp)
 
 bool CHgun::IsUseable()
 {

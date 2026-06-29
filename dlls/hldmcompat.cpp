@@ -1,0 +1,150 @@
+/***
+*  hldmcompat.cpp — RECONSTRUCTED Half-Life-DM-compatibility weapon spawners (TS_ original
+*  hldmcompat.cpp). These remap STOCK HL deathmatch weapon entity names onto TS weapons so a
+*  stock valve DM map is playable in TS. Each derives CTSGroundWeapon and either picks a RANDOM
+*  weapon of its category (RandomX) or a FIXED one, then runs the base pickup physics.
+*
+*  Entity-name -> class map (the swap contract, RE'd from the .so factory exports):
+*    weapon_shotgun -> CTSShotgunWeapon       ammo_buckshot -> CTSShotgunAmmo
+*    weapon_gauss + weapon_egon -> CTSRifleWeapon
+*    weapon_rpg -> CTSSMGWeapon               weapon_9MMAR -> CTSBigPistolWeapon
+*    ammo_ARgrenades + weapon_satchel -> CTSKnifeWeapon
+*    weapon_crossbow -> CTSSniperWeapon       weapon_hornetgun -> CTSMGWeapon
+*    weapon_snark -> CTSKatanaWeapon          weapon_handgrenade -> CTSGrenadeWeapon
+*  CTSPistolWeapon is COMPILED but UNLINKED in the original (no LINK_ENTITY_TO_CLASS) — same here.
+***/
+#include "extdll.h"
+#include "util.h"
+#include "cbase.h"
+#include "player.h"
+#include "ts_weapons.h"
+#include "ts_groundweapon.h"
+
+// On respawn the base GetWeapon hides the pickup (EF_NODRAW) before re-arming; a random spawner
+// re-rolls its weapon + model each time so the respawned pickup is a fresh random gun.
+static void RerollModel(CTSGroundWeapon *gw, int id)
+{
+	gw->tsweaponid = id;
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)id);
+	const char *world = (wi && wi->pszWorldModel) ? wi->pszWorldModel : "models/w_weaponbox.mdl";
+	PRECACHE_MODEL((char *)world);
+	SET_MODEL(ENT(gw->pev), world);
+}
+
+// ---- random-category weapon spawners (Spawn + GetWeapon + RandomX) --------------
+
+class CTSPistolWeapon : public CTSGroundWeapon
+{
+public:
+	void Spawn() override { tsweaponid = RandomPistol(); CTSGroundWeapon::Spawn(); }
+	void GetWeapon(CBaseEntity *pOther) override
+	{ CTSGroundWeapon::GetWeapon(pOther); if (pev->effects & EF_NODRAW) RerollModel(this, RandomPistol()); }
+	int RandomPistol()
+	{
+		static const int s[7] = { TSW_GLOCK18, TSW_BERETTA_AKIMBO, TSW_MK23, TSW_FNH, TSW_GOLD, TSW_GLOCK22, TSW_RUGER };
+		return s[RANDOM_LONG(0, 6)];
+	}
+};
+// (UNLINKED in the original — no LINK_ENTITY_TO_CLASS for weapon_9mmhandgun/weapon_357)
+
+class CTSBigPistolWeapon : public CTSGroundWeapon
+{
+public:
+	void Spawn() override { tsweaponid = RandomBigPistol(); CTSGroundWeapon::Spawn(); }
+	void GetWeapon(CBaseEntity *pOther) override
+	{ CTSGroundWeapon::GetWeapon(pOther); if (pev->effects & EF_NODRAW) RerollModel(this, RandomBigPistol()); }
+	int RandomBigPistol()
+	{
+		static const int s[3] = { TSW_DESERT, TSW_BULL, TSW_CONTENDER };
+		return s[RANDOM_LONG(0, 2)];
+	}
+};
+LINK_ENTITY_TO_CLASS(weapon_9mmAR, CTSBigPistolWeapon);
+
+class CTSShotgunWeapon : public CTSGroundWeapon
+{
+public:
+	void Spawn() override { tsweaponid = RandomShotgun(); CTSGroundWeapon::Spawn(); }
+	void GetWeapon(CBaseEntity *pOther) override
+	{ CTSGroundWeapon::GetWeapon(pOther); if (pev->effects & EF_NODRAW) RerollModel(this, RandomShotgun()); }
+	int RandomShotgun()
+	{
+		static const int s[5] = { TSW_BENELLIM3, TSW_MOSSBERG, TSW_SAWEDOFF, TSW_SPAS12, TSW_USAS12 };
+		return s[RANDOM_LONG(0, 4)];
+	}
+};
+LINK_ENTITY_TO_CLASS(weapon_shotgun, CTSShotgunWeapon);
+
+class CTSRifleWeapon : public CTSGroundWeapon
+{
+public:
+	void Spawn() override { tsweaponid = RandomRifle(); CTSGroundWeapon::Spawn(); }
+	void GetWeapon(CBaseEntity *pOther) override
+	{ CTSGroundWeapon::GetWeapon(pOther); if (pev->effects & EF_NODRAW) RerollModel(this, RandomRifle()); }
+	int RandomRifle()
+	{
+		static const int s[4] = { TSW_AK47, TSW_M4, TSW_M16, TSW_AUG };
+		return s[RANDOM_LONG(0, 3)];
+	}
+};
+LINK_ENTITY_TO_CLASS(weapon_gauss, CTSRifleWeapon);
+LINK_ENTITY_TO_CLASS(weapon_egon, CTSRifleWeapon);
+
+class CTSSMGWeapon : public CTSGroundWeapon
+{
+public:
+	void Spawn() override { tsweaponid = RandomSMG(); CTSGroundWeapon::Spawn(); }
+	void GetWeapon(CBaseEntity *pOther) override
+	{ CTSGroundWeapon::GetWeapon(pOther); if (pev->effects & EF_NODRAW) RerollModel(this, RandomSMG()); }
+	int RandomSMG()
+	{
+		static const int s[6] = { TSW_MAC10, TSW_MP5K, TSW_MP5SD, TSW_PDW, TSW_SKORPION, TSW_UZI };
+		return s[RANDOM_LONG(0, 5)];
+	}
+};
+LINK_ENTITY_TO_CLASS(weapon_rpg, CTSSMGWeapon);
+
+class CTSKnifeWeapon : public CTSGroundWeapon
+{
+public:
+	void Spawn() override { tsweaponid = RandomKnife(); CTSGroundWeapon::Spawn(); }
+	void GetWeapon(CBaseEntity *pOther) override
+	{ CTSGroundWeapon::GetWeapon(pOther); if (pev->effects & EF_NODRAW) RerollModel(this, RandomKnife()); }
+	int RandomKnife()
+	{
+		static const int s[2] = { TSW_KNIFE, TSW_SEALKNIFE };
+		return s[RANDOM_LONG(0, 1)];
+	}
+};
+LINK_ENTITY_TO_CLASS(ammo_ARgrenades, CTSKnifeWeapon);
+LINK_ENTITY_TO_CLASS(weapon_satchel, CTSKnifeWeapon);
+
+// ---- fixed-weapon spawners (Spawn only; inherit the base GetWeapon) -------------
+
+class CTSSniperWeapon : public CTSGroundWeapon
+{
+public:
+	void Spawn() override { tsweaponid = TSW_BARRETT; CTSGroundWeapon::Spawn(); }
+};
+LINK_ENTITY_TO_CLASS(weapon_crossbow, CTSSniperWeapon);
+
+class CTSMGWeapon : public CTSGroundWeapon
+{
+public:
+	void Spawn() override { tsweaponid = TSW_M60; extraclip = 100; CTSGroundWeapon::Spawn(); }
+};
+LINK_ENTITY_TO_CLASS(weapon_hornetgun, CTSMGWeapon);
+
+class CTSKatanaWeapon : public CTSGroundWeapon
+{
+public:
+	void Spawn() override { tsweaponid = TSW_KATANA; CTSGroundWeapon::Spawn(); }
+};
+LINK_ENTITY_TO_CLASS(weapon_snark, CTSKatanaWeapon);
+
+class CTSGrenadeWeapon : public CTSGroundWeapon
+{
+public:
+	void Spawn() override { tsweaponid = TSW_M61; CTSGroundWeapon::Spawn(); }
+};
+LINK_ENTITY_TO_CLASS(weapon_handgrenade, CTSGrenadeWeapon);

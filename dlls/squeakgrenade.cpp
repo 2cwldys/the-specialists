@@ -399,7 +399,7 @@ void CSqueakGrenade::SuperBounceTouch(CBaseEntity* pOther)
 
 #endif
 
-LINK_ENTITY_TO_CLASS(weapon_snark, CSqueak);
+//LINK_ENTITY_TO_CLASS(weapon_snark, CSqueak); // [TS] entity name remapped to the hldmcompat TS weapon spawner (hldmcompat.cpp)
 
 
 void CSqueak::Spawn()

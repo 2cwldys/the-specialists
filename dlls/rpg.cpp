@@ -22,7 +22,7 @@
 #include "gamerules.h"
 #include "UserMessages.h"
 
-LINK_ENTITY_TO_CLASS(weapon_rpg, CRpg);
+//LINK_ENTITY_TO_CLASS(weapon_rpg, CRpg); // [TS] entity name remapped to the hldmcompat TS weapon spawner (hldmcompat.cpp)
 
 #ifndef CLIENT_DLL
 

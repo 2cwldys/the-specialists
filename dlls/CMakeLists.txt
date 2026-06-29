@@ -128,6 +128,7 @@ target_sources(hl PRIVATE
 	ts_grenades.cpp
 	ts_groundammo.cpp
 	ts_groundweapon.cpp
+	hldmcompat.cpp
 	ts_gun.cpp
 	ts_ammopack.cpp
 	ts_deadcorpse.cpp

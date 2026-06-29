@@ -159,7 +159,7 @@ void CSatchelCharge::BounceSound()
 }
 
 
-LINK_ENTITY_TO_CLASS(weapon_satchel, CSatchel);
+//LINK_ENTITY_TO_CLASS(weapon_satchel, CSatchel); // [TS] entity name remapped to the hldmcompat TS weapon spawner (hldmcompat.cpp)
 
 
 //=========================================================
