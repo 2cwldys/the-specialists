@@ -98,12 +98,12 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   dissolved invented AttackerTeamSize inline; completion uses Freeze(true). **PATTERN for the cluster:** derive
   CTSObjective, drop the duplicated attacker_team/CanInteract, map the class's "enabled" flag to the inherited
   m_bActive(+0x64), add Save/Restore via IMPLEMENT_SAVERESTORE(<Class>, CTSObjective), rename members to the
-  FGD/save names, dissolve invented helpers the original inlines. **REMAINING cluster member: CTSHack 4/9** — already
+  FGD/save names, dissolve invented helpers the original inlines. **CTSHack 4/9->9/9 DONE (448d27d): Use-driven held-USE hack (m_flHackProgress from hacksec) + WaitThink objective deadline (m_flObjTimer seeded from m_flRoundEnd) + EnableObjective/ObjectCaps/Save/Restore; dissolved invented HackTouch. ALL 4 core cluster classes (CTSObjective/CTSBomb/CTSTeamEscape/CTSHack) DONE.
   derives CTSObjective; needs +Save/Restore(hacksec)+EnableObjective+ObjectCaps(0x10) and to dissolve our invented
   HackTouch into the original's **Use** (a 688-byte hack-interaction method) + the WaitThink countdown-to-Freeze model
   (EnableObjective seeds field_0x6c timer; WaitThink decrements each sec -> Freeze(true) at 0). Decompile: scratchpad/hack.c.
 
-audit headline: invented methods **131->118**, file mismatches **23->22**, 0 missing/0 invented classes; **3
+audit headline: invented methods **131->117**, file mismatches **23->22**, 0 missing/0 invented classes; **3
 keepalives dropped/slimmed** (CTSPhysicObject now kept by CTSWorldGun, CTSGrenade by CM61Grenade, CInfoBreakable
 wired+LINK'd). Remaining keepalive: the compiled-but-unlinked pistols (CTSPistolWeapon/Ammo — the ORIGINAL keeps
 them too, legit). All build amd64 server+client (glibc 2.14). **⚠ ALL UNPLAYTESTED** — bounce physics, swept impact
