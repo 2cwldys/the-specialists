@@ -162,6 +162,7 @@ void CTSGun::Spawn()
 	SET_MODEL(ENT(pev), world);
 
 	m_iDefaultAmmo = wi->iClip; // SLICE: stock ammo; TS runs its own ammo system
+	UpdateActivePointers();
 	FallInit();
 }
 
@@ -198,6 +199,16 @@ void CTSGun::LoadActiveFromItem()
 	m_burstCount = 0;
 	m_shotgunPhase = 0; // a weapon switch cancels any in-progress pump reload
 	m_fInSpecialReload = 0; // start on a FIRE-step (the pump fire/rack toggle; see ShotgunFire)
+}
+
+// Refresh the cached active-weapon pointers (the original's gun+0xcc/0xd0) from m_weaponType. Call
+// after any m_weaponType change. m_pActiveItem is NULL for kung-fu (TSW_MELEE) — matching the
+// original's `m_pActiveItem != NULL` "a real weapon is wielded" guard.
+void CTSGun::UpdateActivePointers()
+{
+	m_pActiveInfo = get_weapon_info((tsweapon_t)m_weaponType);
+	m_pActiveItem = (m_weaponType >= 0 && m_weaponType < TSW_COUNT && m_weaponType != TSW_MELEE)
+		? &m_items[m_weaponType] : nullptr;
 }
 
 // @ TakeWeapon__6CTSGun (@0x80a04) — add a weapon to the arsenal (fresh world pickup / buy),
@@ -356,6 +367,7 @@ void CTSGun::SelectWeaponType(int type)
 	m_lastType = m_weaponType;         // remember the outgoing type (for `lastinv`)
 
 	m_weaponType = type;
+	UpdateActivePointers();
 	LoadActiveFromItem();
 
 	// --- Deploy (@0x81030): re-deploy the new active weapon (draw anim + deploy delay). ---
@@ -438,6 +450,7 @@ void CTSGun::GetWeaponData(weapon_data_t &data)
 void CTSGun::SetWeaponData(const weapon_data_t &data)
 {
 	m_weaponType = data.iuser1;
+	UpdateActivePointers();
 	m_fireMode = data.iuser3;
 	m_bHoldPosition = (data.iuser4 != 0);
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
@@ -1066,7 +1079,7 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 	if (flesh)
 	{
 		// Kung-fu BLOCK (RE VictimKungfuHold@0x66f50): a player victim holding a block (their block window,
-		// opened by CloseCombatBlock = IN_RELOAD while unarmed/melee) DEFLECTS this close-combat hit — the
+		// opened by CCombatBlock = IN_RELOAD while unarmed/melee) DEFLECTS this close-combat hit — the
 		// "kungfuhit.wav" clack plays but NO damage lands, and the ATTACKER is stunned 0.5s while the blocker
 		// recovers in 0.25s. So a kung-fu reload-block beats an incoming kick.
 		CBasePlayer *pVictim = pHit->IsPlayer() ? (CBasePlayer *)pHit : nullptr;
@@ -1135,7 +1148,7 @@ void CTSGun::RegenBlockBar()
 // and gates attacks. It costs stamina (the melee bar, UpdateMeleeBar(33) -> ~3 blocks); spamming it past
 // empty plays the exhausted breathing (player/breathe2.wav), does NOT block, and starts a recovery
 // lockout. The bar regens continuously (RegenBlockBar, networked via gmsgKFuPower).
-void CTSGun::CloseCombatBlock()
+void CTSGun::CCombatBlock()
 {
 	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
 		return; // mid-attack / already blocking
@@ -1834,7 +1847,7 @@ void CTSGun::ItemPostFrame()
 	else if ((m_pPlayer->pev->button & IN_RELOAD) &&
 		(m_weaponType == TSW_MELEE || wi->iFireType == TSFT_KNIFE || wi->iFireType == TSFT_KATANA))
 	{
-		CloseCombatBlock(); // ALL melee (kung-fu/knife/seal-knife/katana) block on RELOAD — RE CCombatBlock
+		CCombatBlock(); // ALL melee (kung-fu/knife/seal-knife/katana) block on RELOAD — RE CCombatBlock
 	}
 	else if ((m_pPlayer->pev->button & IN_RELOAD) && !m_fInReload && m_iClip < wi->iClip && hasReserve)
 	{
@@ -2012,6 +2025,7 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
 
 	CTSGun *pGun = (CTSGun *)CBaseEntity::Instance(pent);
 	pGun->m_weaponType = type;
+	pGun->UpdateActivePointers();
 	pGun->pev->origin = pPlayer->pev->origin;
 	pGun->pev->spawnflags |= SF_NORESPAWN;
 	DispatchSpawn(pent);

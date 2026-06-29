@@ -90,7 +90,7 @@ public:
 	void ScaleSpread(float &spread, float increment, bool ducking); // @ScaleSpread @0x702a8 — dynamic accuracy
 	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
 	void CloseCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
-	void CloseCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
+	void CCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
 	void RegenBlockBar();                        // continuous regen of the melee block bar (m_blockBar toward 100)
 	void GrenadeThrow(const s_weapon_info *wi);  // grenade fire-type
 	void ThrowKnife();                           // @KnifeFire throw branch — right-click hurls the knife
@@ -112,11 +112,18 @@ public:
 	bool AddAmmo(int caliber, int count); // @AddAmmo__6CTSGun — add reserve rounds (capped)
 	void SyncActiveToItem();          // park the live active clip/mode back into its item
 	void LoadActiveFromItem();        // load the active item's clip/mode into the live state
+	void UpdateActivePointers();      // refresh m_pActiveItem/m_pActiveInfo from m_weaponType
 
 	int m_weaponType = TSW_MELEE; // ACTIVE tsweapon_t (gun+0xc8). Default = kung-fu: a bare
 	                              // weapon_tsgun (GiveNamedItem) is just fists; the loadout
 	                              // (BuyArmament) adds the real guns. Placed/given weapons set it.
 	TSItem m_items[TSW_COUNT] = {};            // the arsenal, indexed by tsweapon_t
+	// Cached active-weapon pointers (the original's gun+0xcc/0xd0). m_pActiveItem = &m_items[m_weaponType]
+	// or NULL for kung-fu (TSW_MELEE) — the original's `m_pActiveItem != NULL` guard == our
+	// `m_weaponType != TSW_MELEE`. m_pActiveInfo = get_weapon_info(m_weaponType). Transient (recomputed
+	// by UpdateActivePointers, not saved). Keep them in sync wherever m_weaponType is assigned.
+	TSItem *m_pActiveItem = nullptr;             // +0xcc — the active arsenal slot (NULL = kung-fu)
+	const s_weapon_info *m_pActiveInfo = nullptr; // +0xd0 — the active weapon's static template
 	int m_ammoReserve[TS_NUM_CALIBERS] = {};   // spare rounds PER CALIBER (gun+0xd4 in the .so)
 	int m_lastType = TSW_MELEE; // previously-wielded type (for the `lastinv` toggle, player+0xa1c)
 	int m_akimboSide = 0; // which barrel fired last (alternates muzzle L/R for akimbo)
