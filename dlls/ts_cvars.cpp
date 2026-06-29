@@ -19,6 +19,10 @@ static cvar_t ts_cashforwin = {"cashforwin", "10000", FCVAR_SERVER};
 static cvar_t ts_cashforlose = {"cashforlose", "1200", FCVAR_SERVER};
 static cvar_t ts_roundtime = {"roundtime", "150", FCVAR_SERVER};
 static cvar_t ts_respawntime = {"respawntime", "3", FCVAR_SERVER};
+// Dropped-weapon lifetime in seconds (CTSWorldGun::Spawn reads it, clamps [5,60]). The original registers
+// "weaponstay" default 15 — distinct from stock "mp_weaponstay" (0). Ours read the unregistered name -> 0 ->
+// the 5s floor, so dropped guns vanished early; default 15 restores the original 15s persistence.
+static cvar_t ts_weaponstay = {"weaponstay", "15", FCVAR_SERVER};
 static cvar_t ts_damagemult = {"damagemult", "0.0", FCVAR_SERVER};
 static cvar_t ts_slowmatch = {"slowmatch", "1.0", FCVAR_SERVER};
 static cvar_t ts_nopowerup = {"nopowerup", "0.0", FCVAR_SERVER};
@@ -47,6 +51,7 @@ void TSRegisterCvars()
 	CVAR_REGISTER(&ts_cashforlose);
 	CVAR_REGISTER(&ts_roundtime);
 	CVAR_REGISTER(&ts_respawntime);
+	CVAR_REGISTER(&ts_weaponstay);
 	CVAR_REGISTER(&ts_damagemult);
 	CVAR_REGISTER(&ts_slowmatch);
 	CVAR_REGISTER(&ts_nopowerup);
