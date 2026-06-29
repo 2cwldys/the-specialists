@@ -143,9 +143,14 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   Fall/RespawnFlag since those classes are .cpp-local); **ResetRestartRound(int)** (round-end arm-1s-restart, team/lms-gated,
   +"Restarting Round", depth>1 wipes scores — TeamWin now calls it instead of an inline +3s); **CountPlayers()**. Made
   ts_groundweapon.h self-contained. SLICEs: RestartRound's loadout cash-refund + force-class-select-observer (we respawn
-  directly); ResetRestartRound's per-team cash reset + TeamScore broadcast. Remaining CTSGameRules gap (14):
-  voting(CheckVotes/PlayerVote), team-cash/list(GetTeamCash/GetTeamsNum/InitTeamScore/SetTeamList/SetTeamModelList/
-  UpdateTeamScores), TheOne(IsCTB/SelectRandomTheOne/SetPlayerTheOne/TheOneIsDead), GetPlayerModel, TogglePlayerFromSlow.
+  directly); ResetRestartRound's per-team cash reset + TeamScore broadcast.
+- **CTSGameRules team-cash/list subsystem DONE (6c9cbe2): 25/39 -> 31/39.** Added GetTeamsNum (active-team count),
+  SetTeamList (parse ';'-list -> roster + RecountTeams), SetTeamModelList (parse '|'-list + the per-slot (int,model)
+  overload), GetTeamCash (player's team-pool cash; the cash economy is hard-OFF so returns 0), and InitTeamScore/
+  UpdateTeamScores (**NO-OP stubs in the original**). Added m_teamCash[]. InitTeams now drives SetTeamList/SetTeamModelList;
+  the rest wired to faithful callers (GetTeamsNum->InitHUD, GetTeamCash->PlayerSpawn[inert@0], InitTeamScore->Init,
+  UpdateTeamScores->ResetRestartRound) so --gc-sections keeps them. **Remaining CTSGameRules gap (8):** voting
+  (CheckVotes/PlayerVote), TheOne (IsCTB/SelectRandomTheOne/SetPlayerTheOne/TheOneIsDead), GetPlayerModel, TogglePlayerFromSlow.
   derives CTSObjective; needs +Save/Restore(hacksec)+EnableObjective+ObjectCaps(0x10) and to dissolve our invented
   HackTouch into the original's **Use** (a 688-byte hack-interaction method) + the WaitThink countdown-to-Freeze model
   (EnableObjective seeds field_0x6c timer; WaitThink decrements each sec -> Freeze(true) at 0). Decompile: scratchpad/hack.c.
