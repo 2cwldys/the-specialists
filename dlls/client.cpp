@@ -145,6 +145,7 @@ void ClientDisconnect(edict_t* pEntity)
 
 	if (pPlayer)
 	{
+		pPlayer->DropFlag(false); // CTF: a disconnecting carrier drops the flag (TSPlayerDisconnect)
 		if (pPlayer->m_pTank != NULL)
 		{
 			pPlayer->m_pTank->Use(pPlayer, pPlayer, USE_OFF, 0);
@@ -677,12 +678,6 @@ void ClientCommand(edict_t* pEntity)
 	{
 		if (CMD_ARGC() > 1)
 			player->TSMenuSelect(atoi(CMD_ARGV(1)));
-	}
-	else if (FStrEq(pcmd, "tsspawnflag")) // TS CTF: seed a team flag at the player. `tsspawnflag <team>`
-	{
-		extern CBaseEntity *TSCreateFlag(int team, const Vector &vecBase);
-		int team = CMD_ARGC() > 1 ? atoi(CMD_ARGV(1)) : -1;
-		TSCreateFlag(team, player->pev->origin);
 	}
 	else if (!strncmp(pcmd, "cutwire_", 8) && pcmd[8] >= '0' && pcmd[8] <= '9')
 	{

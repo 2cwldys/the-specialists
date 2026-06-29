@@ -94,6 +94,20 @@ enum sbar_data
 
 #define CHAT_INTERVAL 1.0f
 
+// @ s_flag_status (0x1c) — the TS CTF carried-flag state. Copied byte-for-byte between the
+// owning CTSBriefcase (its template), the loose CTSFlag entity (@+0x90), and the carrier
+// (CBasePlayer m_flagStatus @+0x7d0) at every hop. The EHANDLE rides inside the struct, so a
+// flag always "knows" which briefcase to respawn at (CTSFlag::RespawnFlag / CaptureTouch).
+struct s_flag_status
+{
+	int      active = 0;       // +0x00 — 1 = carried/active (HaveFlag() returns this byte)
+	string_t contents = 0;     // +0x04 — description text ("the documents")
+	int      flagID = 0;       // +0x08 — flag/briefcase id 1..15 (CTSBriefcase::s_nextFlagID)
+	int      team = -1;        // +0x0c — owning team, 0-based (-1 = neutral/unset)
+	int      lastCarrier = 0;  // +0x10 — last carrier entindex (anti-respam pickup HUD)
+	EHANDLE  hBriefcase;       // +0x14 — handle to the owning CTSBriefcase (NOT the carrier)
+};
+
 class CBasePlayer : public CBaseMonster
 {
 public:
@@ -443,7 +457,10 @@ public:
 	s_armament_item m_armament[32];   // 0x594 — pending weapon/item loadout (stride 0xc ×32)
 	bool m_bHasKevlar = false;        // 0x718 bit 0x10 — has bought kevlar (binary)
 
-	EHANDLE m_hCarriedFlag;           // the CTSFlag this player is carrying (CTF), if any
+	s_flag_status m_flagStatus;       // 0x7d0 — the carried CTF flag state (active byte gates HaveFlag)
+
+	bool TakeFlag(s_flag_status *src);                    // @0x83830 — pick up a flag onto m_flagStatus
+	void DropFlag(bool bSilent);                          // @0x8334c — drop it (false=spawn loose flag)
 
 	int  GiveCash(int amount);                            // add cash (clamped 0..30000)
 	void ResetArmament();                                 // clear the pending loadout

@@ -1268,6 +1268,8 @@ void CBasePlayer::StartDeathCam()
 
 void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 {
+	DropFlag(false); // CTF: entering spectate drops a carried flag (spawns a loose flag)
+
 	// clear any clientside entities attached to this player
 	MESSAGE_BEGIN(MSG_PAS, SVC_TEMPENTITY, pev->origin);
 	WRITE_BYTE(TE_KILLPLAYERATTACHMENTS);

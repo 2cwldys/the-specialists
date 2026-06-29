@@ -8,7 +8,11 @@
 #include "player.h"
 #include "ts_gamerules.h" // TS_PWUP_* bit constants
 #include "ts_player.h"
-#include "ts_utils.h"     // TSHudMessageOne
+#include "ts_utils.h"     // TSHudMessageOne/All
+#include "ts_flag.h"      // CTSFlag::CreateFlag (CTF drop)
+#include "ts_weapons.h"   // TSPlayerFreeSlots (slot-weight gate)
+
+extern int gmsgTSHaveFlag; // "TSHaveFlag" (4) — defined in ts_flag.cpp
 
 // Lazily-registered TS powerup user messages (see ts_player.h).
 int gmsgTSPowerUpTime = 0;  // "PwUpTime" 1 — active countdown (UsePowerUp)
@@ -360,4 +364,96 @@ void CBasePlayer::UpdatePowerUpState()
 	m_flPowerupTime = 0;
 	m_iPowerups = 0;
 	m_iHeldPowerup = 0;
+}
+
+// ---------------------------------------------------------------------------
+// CTF flag carry (CBasePlayer::TakeFlag / DropFlag). The carry state is the 28-byte
+// s_flag_status copied inline onto the player (m_flagStatus); the loose flag entity is
+// CTSFlag (ts_flag.cpp). Carrying costs 20 slot-weight (heavier → slower, via the slot
+// speed helper) and a flag can only be carried one at a time.
+// ---------------------------------------------------------------------------
+
+// @0x83830 TakeFlag — copy a flag's status onto this player (the pickup). Refuses if the player is
+// over the slot-weight budget or is already carrying a flag. Returns true if taken.
+bool CBasePlayer::TakeFlag(s_flag_status *src)
+{
+	if (TSPlayerFreeSlots(this) < 20 || m_flagStatus.active)
+		return false; // not enough free slots, or already carrying
+
+	m_flagStatus = *src;     // copy the full 28-byte status (incl. the source lastCarrier)
+	m_flagStatus.active = 1; // now carried (slot-weight debit is folded into TSSlotBaseSpeed)
+	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
+
+	if (gmsgTSHaveFlag == 0)
+		gmsgTSHaveFlag = REG_USER_MSG("TSHaveFlag", 4);
+	MESSAGE_BEGIN(MSG_ALL, gmsgTSHaveFlag);
+	WRITE_BYTE(1); // type 1 = pickup
+	WRITE_BYTE(m_flagStatus.flagID);
+	WRITE_BYTE(m_flagStatus.team + 1);
+	WRITE_BYTE(ENTINDEX(edict()));
+	MESSAGE_END();
+
+	// Announce a NEW carrier only (anti-respam: skip if this player already last carried it).
+	int idx = ENTINDEX(edict());
+	if (m_flagStatus.lastCarrier != idx)
+	{
+		const char *contents = !FStringNull(m_flagStatus.contents) ? STRING(m_flagStatus.contents) : "a flag";
+		const char *name = pev->netname ? STRING(pev->netname) : "Someone";
+		TSHudMessageAll(0, 0xff, 0, 4, 20,
+			UTIL_VarArgs("%s picked up a briefcase containing %s!", name, contents));
+		m_flagStatus.lastCarrier = idx;
+		UTIL_LogPrintf("\"%s<%i>\" triggered \"aquired_briefcase\" (contents \"%s\")\n",
+			name, GETPLAYERUSERID(edict()), contents);
+	}
+	return true;
+}
+
+// @0x8334c DropFlag — give up the carried flag. bSilent (capture) just clears the carrier; a normal
+// drop (death/disconnect/spectate/DropWeapon) spawns a fresh loose CTSFlag tossed from the player.
+void CBasePlayer::DropFlag(bool bSilent)
+{
+	if (!m_flagStatus.active)
+		return;
+
+	if (!bSilent)
+	{
+		CTSFlag *pFlag = CTSFlag::CreateFlag(this, &m_flagStatus);
+		if (pFlag)
+		{
+			Vector forward, dir;
+			float dirSpeed;
+			if (!IsAlive())
+			{
+				// dead → fling in a random direction
+				Vector ang(0, RANDOM_FLOAT(0, 360), 0);
+				UTIL_MakeVectors(ang);
+				forward = gpGlobals->v_forward;
+				dirSpeed = RANDOM_FLOAT(60, 160);
+			}
+			else
+			{
+				UTIL_MakeVectors(pev->v_angle);
+				forward = gpGlobals->v_forward;
+				dirSpeed = 200.0f; // VERIFY: alive-drop toss speed (dead uses 60..160)
+			}
+			UTIL_SetOrigin(pFlag->pev, pev->origin + pev->view_ofs + forward * 16.0f);
+			pFlag->pev->velocity = pev->velocity * 0.9f + forward * dirSpeed;
+			pFlag->pev->avelocity = Vector(RANDOM_FLOAT(-300, 300), RANDOM_FLOAT(-300, 300),
+				RANDOM_FLOAT(-300, 300));
+		}
+
+		if (gmsgTSHaveFlag == 0)
+			gmsgTSHaveFlag = REG_USER_MSG("TSHaveFlag", 4);
+		MESSAGE_BEGIN(MSG_ALL, gmsgTSHaveFlag);
+		WRITE_BYTE(2); // type 2 = drop
+		WRITE_BYTE(m_flagStatus.flagID);
+		WRITE_BYTE(m_flagStatus.team + 1);
+		WRITE_BYTE(ENTINDEX(edict()));
+		MESSAGE_END();
+
+		const char *name = pev->netname ? STRING(pev->netname) : "Someone";
+		UTIL_LogPrintf("\"%s<%i>\" triggered \"dropped_briefcase\"\n", name, GETPLAYERUSERID(edict()));
+	}
+
+	m_flagStatus = s_flag_status(); // clear the carried state (active = 0)
 }

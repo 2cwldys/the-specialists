@@ -124,6 +124,8 @@ float TSSlotBaseSpeed(CBasePlayer *pPlayer)
 	if (!pGun)
 		return 320.0f; // no TS arsenal yet → engine default
 	int remaining = 81 - pGun->SlotsUsed();
+	if (pPlayer->m_flagStatus.active)
+		remaining -= 20; // carrying the CTF flag costs 20 slot-weight (CBasePlayer::TakeFlag -0x14)
 	if (remaining < 0) remaining = 0;
 	if (remaining > 81) remaining = 81;
 	return 210.0f + (120.0f / 81.0f) * (float)remaining;
@@ -135,6 +137,8 @@ int TSPlayerFreeSlots(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	int remaining = pGun ? (81 - pGun->SlotsUsed()) : 81;
+	if (pPlayer->m_flagStatus.active)
+		remaining -= 20; // carrying the CTF flag costs 20 slot-weight (CBasePlayer::TakeFlag -0x14)
 	if (remaining < 0) remaining = 0;
 	if (remaining > 81) remaining = 81;
 	return remaining;
@@ -2214,6 +2218,8 @@ static void TSThrowWorldGun(CBasePlayer *pPlayer, CTSGun *pGun, int type, int cl
 // Returns true if anything was dropped.
 bool TSDropWeapon(CBasePlayer *pPlayer)
 {
+	pPlayer->DropFlag(false); // CTF: the drop key also drops a carried flag (CBasePlayer::DropWeapon @0x84900)
+
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun)
 		return false;

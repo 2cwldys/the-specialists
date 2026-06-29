@@ -14,6 +14,7 @@
 #include "ts_objectives.h" // CTSObjective / CTSObjectiveManager (the objective subsystem)
 #include "ts_func_break.h" // CInfoBreakable::RespawnThink (RespawnEntities)
 #include "ts_groundweapon.h" // CTSGroundWeapon::Fall (RespawnEntities)
+#include "ts_flag.h"       // CTSFlag::RespawnFlag, HaveFlag (CTF)
 
 // DAT_0017da25 in the original: a cached flag that, when nonzero, removes the
 // low-gravity (0x100) powerup from the random pool. Zero-init in the binary, so
@@ -47,10 +48,15 @@ int CTSGameRules::GetRandomPowerup(int mask)
 
 // Defined in ts_powerup.cpp — create a temporary powerup of `type` at `vecOrigin`.
 CBaseEntity *TSCreatePowerUpAt(int type, const Vector &vecOrigin);
-// Defined in ts_flag.cpp — drop a carried CTF flag on death.
-void TSDropFlag(CBasePlayer *pPlayer);
 // Defined in ts_objectives.cpp — fire the objective manager's targetontimeleft on round timeout.
 void TSFireTimeLeftTarget();
+
+// @0x67148 HaveFlag — is this player carrying a CTF flag? (free fn; TS_gamerules.cpp). The carry
+// state is the inline s_flag_status on the player; the active byte is the answer.
+bool HaveFlag(CBasePlayer *pPlayer)
+{
+	return pPlayer && pPlayer->m_flagStatus.active != 0;
+}
 
 // Round-time HUD message (remaining seconds); registered lazily on first send.
 int gmsgTSRoundTime = 0;
@@ -236,7 +242,7 @@ void TSDropAmmoOnDeath(CBasePlayer *pPlayer);
 void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor)
 {
 	CHalfLifeMultiplay::PlayerKilled(pVictim, pKiller, pInflictor);
-	TSDropFlag(pVictim); // CTF: a killed carrier drops the flag where they fell
+	pVictim->DropFlag(false); // CTF: a killed carrier drops the flag where they fell (spawns a loose flag)
 	TSDropWeaponsOnDeath(pVictim);
 	TSDropAmmoOnDeath(pVictim);
 	TSCreateDeadCorpse(pVictim, 15.0f);
@@ -384,7 +390,7 @@ void CTSGameRules::RespawnEntities(bool bFirst)
 			e->Spawn(); // VERIFY: the original calls CTSPowerUp::Fall() (ts_powerup.cpp-local)
 
 	for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "ts_flag")) != nullptr;)
-		e->Spawn(); // VERIFY: the original calls CTSFlag::RespawnFlag() (ts_flag.cpp-local)
+		((CTSFlag *)e)->RespawnFlag(); // loose flags go home (the briefcase re-seeds via FlagFall)
 }
 
 // @0x67920 RestartRound — the actual round reset: re-arm the round timer, reset the objectives,
@@ -422,7 +428,10 @@ void CTSGameRules::RestartRound()
 	{
 		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
 		if (p)
+		{
+			p->DropFlag(true); // clear any carried flag (the briefcases re-seed fresh ones below)
 			respawn(p->pev, false);
+		}
 	}
 
 	// (f) recount teams, (g) respawn the map entities.
