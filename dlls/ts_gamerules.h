@@ -68,6 +68,8 @@ public:
 	void  SetTeamModelList(const char *pList);             // @0x68258 — parse the "|"-model list into the slots
 	void  SetTeamModelList(int team, const char *pModel);  // @  per-slot model setter (overload)
 	int   GetTeamCash(CBasePlayer *pPlayer);               // @0x69aac — the player's team cash (0 outside team mode)
+	const char *GetPlayerModel(CBasePlayer *pPlayer);      // @0x69a08 — a (random) team model for the player
+	void  TogglePlayerFromSlow(CBasePlayer *pPlayer);      // @0x696c8 — remove a player from the slow registry
 	void  InitTeamScore(int *pScores);                     // @0x69130 — (no-op in the original)
 	void  UpdateTeamScores(int a, int b);                  // @0x67908 — (no-op in the original)
 

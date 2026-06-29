@@ -240,6 +240,7 @@ void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvar
 	TSDropWeaponsOnDeath(pVictim);
 	TSDropAmmoOnDeath(pVictim);
 	TSCreateDeadCorpse(pVictim, 15.0f);
+	TogglePlayerFromSlow(pVictim); // a dead player drops out of slow-motion
 
 	// "The One" mode: if the dead player was The One, clear/hand off the role (the killer inherits it).
 	if (pVictim->m_bTheOne)

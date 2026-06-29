@@ -120,6 +120,27 @@ int CTSGameRules::GetTeamCash(CBasePlayer *pPlayer)
 void CTSGameRules::InitTeamScore(int *pScores) {}
 void CTSGameRules::UpdateTeamScores(int a, int b) {}
 
+// @0x69a08 GetPlayerModel — a model for the player's team. The original picks at random among the
+// team's (up to 3) models; our roster carries one model per team, so we return that.
+const char *CTSGameRules::GetPlayerModel(CBasePlayer *pPlayer)
+{
+	if (!pPlayer)
+		return "";
+	int team = GetTeamIndex(pPlayer->TeamID());
+	if (team < 0 || team >= TS_MAX_TEAMS || m_teamModels[team][0] == '\0')
+		return "";
+	return m_teamModels[team];
+}
+
+// @0x696c8 TogglePlayerFromSlow — take a player out of slow-motion. The original removes them from
+// the gamerules' slowed-player registry; our GlobalSlowMotion2 re-applies each frame (no persistent
+// array), so we just restore the player to normal speed.
+void CTSGameRules::TogglePlayerFromSlow(CBasePlayer *pPlayer)
+{
+	if (pPlayer)
+		pPlayer->GoSlow(1.0f, 0);
+}
+
 // @ RecountTeams — re-tokenize m_szTeamList (";"-separated) into m_teamNames/m_numTeams.
 // Mirrors CHalfLifeTeamplay::RecountTeams' parse half (strtok is destructive → copy first).
 void CTSGameRules::RecountTeams()
@@ -212,7 +233,8 @@ void CTSGameRules::AssignToTeam(CBasePlayer *pPlayer, const char *pTeamName)
 
 	int clientIndex = pPlayer->entindex();
 	char *pInfo = g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict());
-	g_engfuncs.pfnSetClientKeyValue(clientIndex, pInfo, "model", m_teamModels[team][0] ? m_teamModels[team] : pTeamName);
+	const char *pModel = GetPlayerModel(pPlayer);
+	g_engfuncs.pfnSetClientKeyValue(clientIndex, pInfo, "model", (pModel && pModel[0]) ? pModel : pTeamName);
 	g_engfuncs.pfnSetClientKeyValue(clientIndex, pInfo, "team", pPlayer->m_szTeamName);
 
 	// notify everyone's HUD of the team membership + score row
