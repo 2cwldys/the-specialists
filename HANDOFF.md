@@ -47,7 +47,97 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐⭐⭐⭐⭐⭐ START HERE (cont.72, 2026-06-28) — RE-TOOLING PASS (committed) + NEXT: refactor our code to the original layout
+## ⭐⭐⭐⭐⭐⭐ START HERE (cont.73, 2026-06-28) — SOURCE-PARITY RESTRUCTURE: ALL 24 missing classes CLOSED (24→0)
+
+**You are the orchestrator. Continue exactly as I (the previous cont.73 agent) was working.** This session executed the
+code-restructure to source parity that cont.72 set up. Branch **`restructure-source-parity`** (NOT merged to `main` yet —
+21 commits `69c21ab`→the ledger commit; every commit builds `scripts/build.sh amd64 all`, glibc 2.14). GPG signing is OFF
+for this work (`git config --local commit.gpgsign false`) — keep it off so commits don't prompt.
+
+### The mission + method (this is your job too)
+**Driver = `scripts/coverage/audit.py`.** Goal: make OUR code match the original's structure 1:1 — every method + variable
+the original has, none it doesn't (for pure-TS classes; stock SDK classes keep their stock surface). The user's exact
+directive, which is YOUR directive:
+> "our code has a lot of working logic — it was structured based on the RE, but the layout is wrong a lot of places…
+> Start with ONE CLASS AT A TIME, fully make it match 1:1 for methods, variables. Nothing missing, nothing added. This
+> includes all missing-class closures. If there are dependent classes/methods, implement those FIRST (bottom-up: build
+> ones without dependencies, then ones with resolved dependencies)."
+Extra rules the user gave: **unused member variables = missing/mismatched logic → flag + FIX immediately** (don't leave
+dead members — see the CTSGroundWeapon `CashBased()` buy-gate fix). **Keep going until ~90% context.**
+
+### ⭐ THE LOOP (per class) — repeat this
+1. `python3 scripts/coverage/audit.py <Class>` → its MISSING (orig has, we don't) + INVENTED (we have, orig doesn't)
+   methods/members + whether our file matches.
+2. **RE it.** For a SMALL class (≤~5 methods): `scripts/ghidra/re.sh <Class> > scratchpad/<Class>.decomp.c` and read it
+   yourself. For a BIG class or a CLUSTER: **spawn a subagent that decompiles via `re.sh` and writes a `.md` DOSSIER to
+   scratchpad** (`/tmp/claude-1000/-home-stevenlafl-Projects-goldsrc-net-mod-ts/<session>/scratchpad/`), then YOU read the
+   dossier — this keeps raw decompiles out of your context. **⚠ Ghidra `re` project is single-writer — run only ONE
+   `re.sh`/dossier-subagent at a time** (serialize; a dossier subagent that uses no Ghidra can overlap an impl pass).
+3. Reconcile OUR working logic into the original's exact method/member layout. Build `scripts/build.sh amd64 [all if the
+   class is in client.so too — CTSGun/CTSAnimation are]`. `audit.py <Class>` to confirm 0/0. Commit (per class or tight group).
+
+### ⭐ THE SUBAGENT-DOSSIER PATTERN (use this — it's how the whole session scaled)
+For each cluster I spawned a `general-purpose` subagent with a prompt like: "READ-ONLY RE. Decompile <classes> via
+`scripts/ghidra/re.sh <Class>` (the typed `re` project is already built — do NOT `re.sh setup`; run ONE at a time).
+Capture to scratchpad files + grep — don't paste raw decompile in your reply. WRITE a tight markdown dossier to
+`scratchpad/dossier-<x>.md` with, per class: confirmed BASE, LINK_ENTITY_TO_CLASS name, each method's behavior (members
+w/ offsets, strings/consts, control flow, gmsg wire format), and a diff vs our source. Reply with a ~6-line summary."
+Dossiers I produced (REUSE them): `dossier-hldmcompat.md`, `dossier-worldgun.md`, `dossier-emitter.md`,
+`dossier-CTSAnimation.md`, `dossier-CTSStunt.md`/`-callers.md` (scratchpad — may be gone next session; re-spawn if so).
+**A live RE/live-debug consult is available — see the user's message; ping the previous agent with questions.**
+
+### ⚠ GOTCHAS to carry forward
+- **Serena one-line-JSON gotcha:** do NOT read the ledger via `read_memory("ledger")` (MCP) — it returns one giant
+  single-line `{"result":"…"}` (~150 KB+) that overflows the read limit. Read **`.serena/memories/ledger.md` directly**
+  with the Read tool (or `jq -r '.result'` on a saved file). Same for any large memory.
+- **audit.py member detector (FIXED this session):** `our_members()` now also detects non-`m_`-prefixed members (the
+  original's FGD/save names are unprefixed, e.g. `tsweaponid`/`respawntime`). If a faithfully-named member shows
+  false-"missing", that's the area.
+- **KEEPALIVE pattern:** a class the original COMPILES but our `--gc-sections` drops (unlinked + unreferenced) needs an
+  EXPORTED never-called anchor referencing it (`hldmcompat_keep_unlinked`, `ts_grenades_keep_physic`, `ts_func_break_keep`).
+  Honest stopgap; the REAL fix is to build its hierarchy/caller so the anchor can be deleted (see "follow-ups").
+- **LINK conflicts:** the stock SDK weapon/ammo files LINK the same entity names the hldmcompat TS spawners need — I
+  commented out those stock `LINK_ENTITY_TO_CLASS` lines (10 files) so the TS spawners own the names (the original has no
+  stock HL weapons). Watch for the same with future stock-name remaps.
+- **⚠⚠ EVERYTHING this session is UNPLAYTESTED.** The worldgun pickup physics, stock-name weapon/ammo remap, slow-bullet
+  refactor, grenade bounce, particle/wind system, and the CTSAnimation/CTSStunt restructures all need a playtest pass
+  (the user fires changes live in graphical xash — see `test.sh`). Flag this to the user before merging to `main`.
+
+### What's DONE (24→0 missing classes; 7 drifted → 1:1)
+- Drifted→1:1: **CTSAnimation** 13/13, **CTSStunt** 25/25, **CTSDeadCorpse** 5/5 (+file rename), **CTSShrapnel** 6/6
+  (+ts_grenade→ts_grenades), **CTSPlayerAmount** 4/4, **CTSTrigger** 5/5, **CTSScoreGiver** 3/3.
+- Missing→built (bottom-up): **CTSGroundWeapon** 14/14 (+Save table +the `CashBased()` buy gate), **CTSGroundAmmo** 11/11,
+  the **16 hldmcompat** weapon+ammo spawners, **CTSPhysicObject** + **CTSGrenade**, **CBulletManager** (wrapped from free
+  fns), the **emitter system** (CTSSharedEmitter/CTSEmitter/CTSParticle/CTSWind + gmsgTSParticleSystem), **CInfoBreakable**.
+- Tooling: the `audit.py` member-detector fix.
+Full per-class detail + commit hashes are in the **Serena ledger** (`.serena/memories/ledger.md`, entries `cont.73`,
+`cont.73 cont.`, `cont.73 cont.2`, `cont.73 cont.3`). Read it first.
+
+### What's NEXT (your work-list, audit.py-driven) — `reference/coverage/AUDIT.md` headline: 0 missing / 0 invented classes
+1. **Drifted classes' MISSING methods** (the big remaining gap; one at a time, bottom-up): **CTSGameRules 12/39**,
+   **CTSGun 28/47**, **CM61Grenade** (rename M61WaitThink→WaitThink etc.), **CTSFlag**, **CTSWorldGun 4/13** (rederive
+   **CTSPhysicObject** — that also lets you DROP its keepalive), **CBreakable 17/22** = the **breakable-respawn cluster**
+   (`BreakableRespawn` @0x74e84 + `Die` creating/arming `CInfoBreakable` + the respawn-time members → drops CInfoBreakable's
+   keepalive; ⚠ touches playtest-confirmed glass/breakable code). The objectives cluster (CTSObjective/Manager/Pointer/Hack/
+   WinGiver) is INTERDEPENDENT with CTSGameRules' objective methods — do those together.
+2. **~131 "invented methods"** in `AUDIT.md` — REVIEW each (most are legit SDK helpers like GetWeaponData/ItemPostFrame;
+   some may be drift to remove/rename — confirm vs the RE before deleting).
+3. **DROP the keepalives** by building the real wiring (CTSWorldGun:CTSPhysicObject, grenades:CTSGrenade,
+   Die→CInfoBreakable, a CTSPistolWeapon referencer if ever linked).
+4. **23 file mismatches** in `AUDIT.md` — single-class renames are free wins (took corpse/grenades this session); the
+   grouped `TS_entities/objectives/worldgun.cpp` merges are OK to defer per the original's coarser file grouping.
+5. **Client-side structural parity** is a SEPARATE MANUAL track — `audit.py` is SERVER-ONLY (`ts_i386.so`). The per-fire-type
+   client handlers (EVENTS.md) etc. need `dc.sh client` + the `clientdll` Ghidra project (see cont.72 §4b).
+6. When the branch is solid + playtested: merge `restructure-source-parity` → `main`.
+
+### Task-tool entries to recreate (the session's tracker):
+- `[done]` hldmcompat spawner family · CTSAnimation · CTSStunt · emitter/CInfoBreakable.
+- `[ongoing]` **"Per-class 1:1 parity loop (dossier .md → reconcile → build → audit → commit)"** — this is THE recurring
+  task; keep it open and keep feeding it the drifted classes above.
+
+---
+
+## START HERE (cont.72, 2026-06-28) — RE-TOOLING PASS (committed) + NEXT: refactor our code to the original layout
 
 This session built out the **machine-checkable RE inventory + audit toolchain** and made it deterministic. Almost
 everything is committed (10 commits `77cb586`→`1f839c8` on `main`). **NEXT SESSION'S JOB: use the audit tools to
