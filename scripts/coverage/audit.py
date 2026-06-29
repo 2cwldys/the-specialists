@@ -44,17 +44,22 @@ def load_original():
     classes, file_classes = {}, defaultdict(set)
     for fn, fe in d.get("files", {}).items():
         for c, ci in fe.get("classes", {}).items():
+            mem = ci.get("members", [])
             classes[c] = {
                 "file": fn,
                 "ts_specific": ci.get("ts_specific", False),
                 "methods": set(ci.get("methods", {}).keys()),
-                "members": {m["offset"] for m in ci.get("members", [])},
+                "member_count": len(mem),
+                # REAL names only (saved/curated) — the `auto` skeleton is field_0xNN placeholders, not name-matchable
+                "named_members": {m["name"] for m in mem
+                                  if m.get("source") in ("saved", "curated") and not m["name"].startswith("field_0x")},
             }
             if ci.get("ts_specific"):
                 file_classes[fn].add(c)
-    for c in d.get("client", {}).get("members", {}):       # HUD/prediction classes recovered client-side
+    for c, cm in d.get("client", {}).get("members", {}).items():   # HUD/prediction classes recovered client-side
         classes.setdefault(c, {"file": "client.dll", "ts_specific": c.startswith(("CHudTS", "CTS")),
-                               "methods": set(), "members": set()})
+                               "methods": set(), "member_count": len(cm),
+                               "named_members": {m["name"] for m in cm if not m["name"].startswith("field_0x")}})
     return classes, file_classes
 
 
@@ -110,9 +115,33 @@ def our_globals():
     return names
 
 
+def our_members():
+    """{class: set(member_name)} from our dlls/ + cl_dll/ headers (m_* / lowercase member declarations)."""
+    cls = defaultdict(set)
+    classre = re.compile(r"^\s*(?:class|struct)\s+([A-Za-z_]\w*)")
+    declre = re.compile(r"^\s*(?:const\s+)?[A-Za-z_][\w:<>,\s\*&]*?\b(m_[A-Za-z0-9_]+)\s*(?:\[[^\]]*\])?\s*(?:=|;|\{)")
+    for d in SRC_DIRS:
+        if not os.path.isdir(d):
+            continue
+        for fn in sorted(os.listdir(d)):
+            if not fn.endswith(".h"):
+                continue
+            cur = None
+            for ln in open(os.path.join(d, fn), errors="replace"):
+                cm = classre.match(ln)
+                if cm:
+                    cur = cm.group(1)
+                if cur and "(" not in ln.split("//")[0]:        # skip method decls
+                    dm = declre.match(ln)
+                    if dm:
+                        cls[cur].add(dm.group(1))
+    return cls
+
+
 def analyze():
     orig, orig_file_classes = load_original()
     ours, ourcf = our_methods(), our_class_files()
+    ourmem = our_members()
     ts_orig = {c for c, i in orig.items() if i["ts_specific"]}
     orig_all = set(orig)
 
@@ -130,8 +159,14 @@ def analyze():
         ofile = orig[c]["file"]
         our_files = ourcf.get(c, [])
         file_ok = any(norm_file(of) == norm_file(ofile) for of in our_files) if our_files else False
+        # MEMBER diff: original REAL-named members (saved/curated) not present in our source headers, by name.
+        # (Only the named ones — the auto skeleton is field_0xNN placeholders; and our modern layout uses
+        # different OFFSETS by design, so we match on NAME, not offset.)
+        missing_members = sorted(orig[c]["named_members"] - ourmem.get(c, set()))
         per_class[c] = {"missing": missing, "invented": invented, "orig_file": ofile,
-                        "our_files": our_files, "file_ok": file_ok, "impl": len(o & u), "total": len(o)}
+                        "our_files": our_files, "file_ok": file_ok, "impl": len(o & u), "total": len(o),
+                        "missing_members": missing_members, "orig_member_count": orig[c]["member_count"],
+                        "our_member_count": len(ourmem.get(c, set()))}
 
     # FILE level (derived from classes): original TS files w/ no class built, our files holding invented classes
     orig_ts_files = sorted({orig[c]["file"] for c in ts_orig})
@@ -172,6 +207,8 @@ def main():
             print(f"  methods       : {pc['impl']}/{pc['total']} impl")
             print(f"    MISSING  (orig, not ours): {', '.join(pc['missing']) or '—'}")
             print(f"    INVENTED (ours, not orig): {', '.join(pc['invented']) or '—'}")
+            print(f"  members       : {pc['our_member_count']} ours / {pc['orig_member_count']} orig")
+            print(f"    MISSING named (orig real-named field we lack): {', '.join(pc['missing_members']) or '—'}")
         else:
             print("  not implemented in our build (MISSING class)")
         return
@@ -192,8 +229,10 @@ def main():
          "MISSING = original has it, we don't (work-list). INVENTED = WE have it, the original doesn't "
          "(review: a helper, a misplacement, or drift from the RE).", "",
          f"**{len(a['missing_classes'])} missing classes · {len(a['invented_classes'])} invented classes · "
-         f"{n_inv_meth} invented methods · {len(file_mismatch)} file mismatches · "
-         f"{len(a['missing_globals'])} missing globals · {len(a['invented_globals'])} invented globals.**", ""]
+         f"{n_inv_meth} invented methods · {sum(len(p['missing']) for p in a['per_class'].values())} missing "
+         f"methods · {sum(len(p['missing_members']) for p in a['per_class'].values())} missing named members · "
+         f"{len(file_mismatch)} file mismatches · {len(a['missing_globals'])} missing globals · "
+         f"{len(a['invented_globals'])} invented globals.**", ""]
 
     L += ["## INVENTED classes (we define; the original has nowhere)", ""]
     L += ([", ".join(f"`{c}`" for c in a["invented_classes"])] if a["invented_classes"] else ["_none_"])
@@ -205,6 +244,25 @@ def main():
     for c in sorted(inv_meth):
         L.append(f"| `{c}` | `{a['per_class'][c]['orig_file']}` | {', '.join(inv_meth[c])} |")
     if not inv_meth:
+        L.append("| _none_ | | |")
+
+    miss_meth = {c: p for c, p in a["per_class"].items() if p["missing"]}
+    L += ["", "## MISSING methods (original has, we don't — per class)", "",
+          "| class | impl/total | missing |", "|---|--:|---|"]
+    for c in sorted(miss_meth):
+        p = miss_meth[c]
+        L.append(f"| `{c}` | {p['impl']}/{p['total']} | {', '.join(p['missing'])} |")
+    if not miss_meth:
+        L.append("| _none_ | | |")
+
+    miss_mem = {c: p for c, p in a["per_class"].items() if p["missing_members"]}
+    L += ["", "## MISSING members (original REAL-named field we don't have — per class; matched by NAME, our "
+          "modern layout uses different offsets by design)", "",
+          "| class | members ours/orig | missing named |", "|---|--:|---|"]
+    for c in sorted(miss_mem):
+        p = miss_mem[c]
+        L.append(f"| `{c}` | {p['our_member_count']}/{p['orig_member_count']} | {', '.join(p['missing_members'])} |")
+    if not miss_mem:
         L.append("| _none_ | | |")
 
     L += ["", "## FILE mismatches (our class lives in a file that doesn't match the original's)", "",
