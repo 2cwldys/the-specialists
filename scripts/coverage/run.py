@@ -28,6 +28,7 @@ STEPS = [
     "inventory.py",         # → INVENTORY.md        (capstone — composes all of the above)
     "coverage.py",          # → REPORT.md + original.json/ours.json (external contract: cmds/cvars/msgs)
     "export.py",            # → ts_inventory.json   (omni: the unified machine-readable mapping)
+    "audit.py",             # → AUDIT.md            (ours-vs-original: missing/invented classes/methods/files/globals)
 ]
 
 
