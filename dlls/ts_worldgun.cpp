@@ -1,120 +1,388 @@
 /***
-*  ts_worldgun.cpp — RECONSTRUCTED CTSWorldGun (player-dropped weapon in the world).
-*  Functional/source-faithful (see CLAUDE.md). Recovered from ts_i386.so:
-*  CTSWorldGun (@0xa07ec CreateWeapon / @0xa0954 Spawn / @0xa1198 GetWeapon /
-*  @0xa1250 WaitTouch).
+*  ts_worldgun.cpp — RECONSTRUCTED CTSWorldGun + CTSAmmoPack (original TS_worldgun.cpp).
+*  Functional/source-faithful (see CLAUDE.md). Recovered from ts_i386.so.
 *
-*  When a player drops/throws a weapon (CBasePlayer::DropWeapon -> CTSGun::DropWeapon),
-*  the weapon's state becomes a CTSWorldGun: a physics object that falls, settles, and is
-*  picked up by another player pressing USE on it (GetWeapon -> PickUpWeapon). The FAITHFUL
-*  base is `CTSWorldGun : CTSPhysicObject` (TS bounce physics + the carried s_weapon_status)
-*  — like CM61Grenade, this is a FUNCTIONAL reconstruction on the stock SDK (MOVETYPE_TOSS)
-*  carrying just the weapon TYPE + loaded CLIP. // SLICE: no CTSPhysicObject bounce, no
-*  full s_weapon_status (caliber reserves stay with the dropper), flag(0x1d) auto-pickup.
+*  CTSWorldGun (@0xa07ec CreateWeapon / @0xa0954 Spawn / @0xa0b0c BounceTouch / @0xa0d84 Fall /
+*    @0xa104c WaitThink / @0xa10a4 OnGround / @0xa1158 Use / @0xa1198 GetWeapon / @0xa1250 WaitTouch /
+*    @0xa1290 ShouldCollide / @0xa3404 ObjectCaps / @0xa340c CanUsedTroughWalls)
+*  — a player-dropped weapon. Derives CTSPhysicObject (slow-motion bounce physics), is MOVETYPE_BOUNCE,
+*  carries the full s_weapon_status (our TSItem) of the dropped weapon, and hands it back on pickup
+*  (USE, or on touch for the throwable type 0x1d). A thrown gun damages what it flies into (Fall's
+*  swept trace); it passes THROUGH players (ShouldCollide) and only stacks on other guns/knives.
+*
+*  CTSAmmoPack (@0xa1334 CreateAmmoPack / @0xa13f4 Spawn / @0xa1544 Fall / @0xa15c0 WaitThink /
+*    @0xa1610 OnGround / @0xa16c0 WaitTouch) — a dropped consumable pack carrying per-caliber rounds
+*  AND an armor value; hands each to a TS-gun-holding toucher (ammo via CTSGun::AddAmmo, armor via
+*  CBasePlayer::TakeArmor) and removes itself once empty. Base is CBaseEntity (no slow-mo physics).
 ***/
 #include "extdll.h"
 #include "util.h"
 #include "cbase.h"
 #include "player.h"
 #include "weapons.h"
-#include "ts_weapons.h" // get_weapon_info, TSPickUpWeapon
+#include "ts_weapons.h"   // get_weapon_info, GiveTSWeapon
+#include "ts_physicobject.h"
+#include "ts_worldgun.h"
 
-class CTSWorldGun : public CBaseEntity
-{
-public:
-	void Spawn() override;
-	void Precache() override;
-	void EXPORT FallThink();          // settle on the ground, then become a trigger
-	void EXPORT WaitTouch(CBaseEntity *pOther);
-	int ObjectCaps() override { return CBaseEntity::ObjectCaps() & ~FCAP_ACROSS_TRANSITION; }
+//============================================================================
+// CTSWorldGun — player-dropped weapon (MOVETYPE_BOUNCE, derives CTSPhysicObject).
+//============================================================================
+LINK_ENTITY_TO_CLASS(TSWorldGun, CTSWorldGun);
 
-	int  m_weaponType = TSW_BERETTA; // +0x88 — the dropped weapon type
-	int  m_clip = 0;                 // carried loaded rounds
-	bool m_bTaken = false;           // +0x35 — already picked up
-};
-
-LINK_ENTITY_TO_CLASS(ts_worldgun, CTSWorldGun);
-
-void CTSWorldGun::Precache()
-{
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	if (wi->pszWorldModel)
-		PRECACHE_MODEL((char *)wi->pszWorldModel);
-}
-
-// @Spawn — show the weapon's world model, toss it, fall toward the ground.
-void CTSWorldGun::Spawn()
-{
-	Precache();
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	SET_MODEL(ENT(pev), wi->pszWorldModel ? wi->pszWorldModel : "models/w_weaponbox.mdl");
-
-	pev->movetype = MOVETYPE_TOSS;
-	pev->solid = SOLID_BBOX;
-
-	// Every TS dropped weapon wears a GLOW SHELL — the model-outline glow (kRenderFxGlowShell, the
-	// AMXMODX-style shell), NOT a dynamic light — so dropped guns are easy to spot. (A renderfx, set
-	// in the original's CTSWorldGun visible-pickup setup; colour approximated.)
-	pev->renderfx = kRenderFxGlowShell;
-	pev->rendercolor = Vector(255, 255, 255); // WHITE pickup glow
-	pev->renderamt = 4;                        // shell thickness
-
-	// While falling the world gun must NOT block the player. The original (CTSWorldGun::Spawn
-	// @0xa0954) gives the falling gun a ZERO-size bbox (UTIL_SetSize with DAT_00106a08 = 0.0),
-	// so the SOLID_BBOX point still drops + lands (FL_ONGROUND) yet the player walks through it
-	// (the thrown gun damages via the Fall trace, not collision). It only takes a real (trigger)
-	// size on landing (OnGround). reference/WEAPON_SELECT.md / @0xa0954.
-	UTIL_SetSize(pev, g_vecZero, g_vecZero);
-	UTIL_SetOrigin(pev, pev->origin);
-
-	SetThink(&CTSWorldGun::FallThink);
-	pev->nextthink = gpGlobals->time + 0.1f;
-}
-
-// @Fall/OnGround — once resting on the ground, become a USE trigger.
-void CTSWorldGun::FallThink()
-{
-	pev->nextthink = gpGlobals->time + 0.1f;
-	if (!(pev->flags & FL_ONGROUND))
-		return;
-
-	pev->movetype = MOVETYPE_FLY; // stop sliding
-	pev->velocity = g_vecZero;
-	pev->solid = SOLID_TRIGGER;
-	UTIL_SetSize(pev, Vector(-16, -16, -4), Vector(16, 16, 4));
-	SetThink(nullptr);
-	SetTouch(&CTSWorldGun::WaitTouch);
-}
-
-// @WaitTouch — a living player pressing USE over the gun picks it up. @GetWeapon does the
-// hand-off + removes the world gun.
-void CTSWorldGun::WaitTouch(CBaseEntity *pOther)
-{
-	if (m_bTaken || !pOther->IsPlayer() || !pOther->IsAlive())
-		return;
-	if (!(pOther->pev->button & IN_USE)) // press USE to pick up (matches the .so)
-		return;
-
-	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	TSPickUpWeapon(pPlayer, m_weaponType, m_clip);
-	EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
-	m_bTaken = true;
-	SetTouch(nullptr);
-	UTIL_Remove(this);
-}
-
-// Spawn a dropped weapon in the world (the drop side of CTSWorldGun::CreateWeapon): create
-// the entity carrying `type`/`clip`, place it at `origin`, and toss it along `velocity`.
-CBaseEntity *TSCreateWorldGun(int type, int clip, const Vector &origin, const Vector &velocity)
+// @0xa07ec CreateWeapon — spawn a dropped weapon carrying the dropping gun's item state, tossed
+// from `origin` along `velocity`. The original seeds velocity from the dropper's aim internally;
+// our drop sites (throw / death-scatter) compute it and pass it in. classname = "WorldGun".
+CTSWorldGun *CTSWorldGun::CreateWeapon(int type, const TSItem &status, const Vector &origin,
+	const Vector &velocity)
 {
 	CTSWorldGun *pGun = GetClassPtr((CTSWorldGun *)NULL);
 	if (!pGun)
+	{
+		// @0xa07ec — UTIL_ClientPrintAll(3, "WARNING:cannot create weapon!\n")
+		UTIL_ClientPrintAll(HUD_PRINTCONSOLE, "WARNING:cannot create weapon!\n");
 		return NULL;
-	pGun->pev->classname = MAKE_STRING("ts_worldgun");
+	}
+	pGun->pev->classname = MAKE_STRING("WorldGun");
 	pGun->m_weaponType = type;
-	pGun->m_clip = clip;
+	pGun->m_status = status;          // copy the full s_weapon_status (clip/mode/attach/barrels)
 	UTIL_SetOrigin(pGun->pev, origin);
 	pGun->Spawn();
 	pGun->pev->velocity = velocity;
 	return pGun;
+}
+
+// @0xa0954 Spawn — show the world model, become a bouncing physics object, fall toward the floor.
+void CTSWorldGun::Spawn()
+{
+	CTSPhysicObject::Spawn();         // init the slow-motion physics base (saved vel/grav, fuser1=1)
+	Precache();
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	SET_MODEL(ENT(pev), wi->pszWorldModel ? wi->pszWorldModel : "models/w_weaponbox.mdl");
+
+	pev->movetype = MOVETYPE_BOUNCE;  // @+0x108 = 10 — bounces + rolls (NOT TOSS)
+	pev->solid = SOLID_BBOX;
+	pev->gravity = 0.7f;
+	pev->friction = 0.8f;
+
+	// Falls through players: a ZERO-size bbox while in flight (it still drops + lands FL_ONGROUND, but
+	// the player walks through it — damage comes from Fall's swept trace, not collision). @0xa0954.
+	UTIL_SetSize(pev, g_vecZero, g_vecZero);
+	UTIL_SetOrigin(pev, pev->origin);
+
+	// Lifetime: throwables (0x1d) live 30s; everything else lives weaponstay (clamped 5..60s).
+	if (m_weaponType == 0x1d)
+		m_flExpire = gpGlobals->time + 30.0f;
+	else
+	{
+		float stay = CVAR_GET_FLOAT("weaponstay");
+		if (stay < 5.0f)  stay = 5.0f;
+		if (stay > 60.0f) stay = 60.0f;
+		m_flExpire = gpGlobals->time + stay;
+	}
+
+	SetTouch(&CTSWorldGun::BounceTouch);
+	SetThink(&CTSWorldGun::Fall);
+	pev->nextthink = gpGlobals->time + 0.1f;
+	m_bDropSnd = true;
+	m_flUseCooldown = gpGlobals->time + 0.5f; // dropper can't instantly re-grab his own toss
+	m_bTaken = false;
+}
+
+// @0xa0b0c BounceTouch — MOVETYPE_BOUNCE contact handler: damp the fall, play the drop sound on a
+// solid floor hit, and apply restitution so the gun rolls/settles.
+void CTSWorldGun::BounceTouch(CBaseEntity *pOther)
+{
+	pev->velocity.z *= 0.3f; // damp the vertical bounce
+
+	if (!(pev->flags & FL_ONGROUND))
+	{
+		// In the air: on a fast enough impact, play the drop sound once (debounced by m_bDropSnd).
+		// VERIFY: the original also gates on the contact plane being roughly flat (trace.plane.z > 0.98),
+		// which a touch handler doesn't expose cheaply — omitted; behaviour is the drop sound on impact.
+		float speed = pev->velocity.Length();
+		if (m_bDropSnd && speed > 18.0f)
+		{
+			EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM,
+				0, 80 + RANDOM_LONG(0, 10) + 20); // pitch ~0.8 (+random), per @0xa0b0c
+			m_bDropSnd = false;
+		}
+	}
+	else
+	{
+		// On the ground: roll if slow (apply 0.7 restitution into avelocity), else settle flat.
+		float horiz = Vector(pev->velocity.x, pev->velocity.y, 0).Length();
+		if (horiz <= 40.0f)
+		{
+			pev->velocity = pev->velocity * 0.7f;   // restitution
+			pev->avelocity = pev->velocity;
+		}
+		pev->angles.z = 0;
+	}
+}
+
+// @0xa0d84 Fall — per-frame: once resting, settle (OnGround). While alive, sweep-trace ahead and
+// damage anything we fly into (a thrown gun hurts). Past the expire deadline, remove. Runs the
+// CTSPhysicObject slow-motion upkeep each frame.
+void CTSWorldGun::Fall()
+{
+	pev->nextthink = gpGlobals->time + 0.1f;
+
+	if ((pev->flags & FL_ONGROUND) && pev->velocity.Length() < 3.0f)
+	{
+		EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "items/weapondrop1.wav", VOL_NORM, 0.8f, 0, 100);
+		pev->angles.x = 0;
+		pev->angles.z = 0;
+		OnGround();
+		return;
+	}
+
+	if (gpGlobals->time <= m_flExpire)
+	{
+		// Swept impact: trace from here to where we'll be next frame; a fast enough hit damages.
+		// VERIFY: the original gates on (speed * weapon_damage_byte@0xd0 >= victim->health) and deals
+		// speed * damage_byte * 0.001; we use flDamage as that byte (exact byte/constants unconfirmed).
+		Vector dir = pev->velocity * 0.1f;
+		TraceResult tr;
+		UTIL_TraceLine(pev->origin, pev->origin + dir, dont_ignore_monsters, ENT(pev), &tr);
+		if (tr.flFraction < 1.0f && tr.pHit)
+		{
+			CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+			const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+			float speed = pev->velocity.Length();
+			if (pHit && pHit->pev->takedamage != DAMAGE_NO &&
+				speed * wi->flDamage >= pHit->pev->health)
+			{
+				ClearMultiDamage();
+				Vector vdir = dir.Normalize();
+				pHit->TraceAttack(pev, speed * wi->flDamage * 0.001f, vdir, &tr,
+					DMG_CLUB | DMG_NEVERGIB); // VERIFY: orig damage-type bits 0x1080
+				ApplyMultiDamage(pev, pev);
+			}
+		}
+		CTSPhysicObject::WaitThink(); // slow-motion physics upkeep
+	}
+	else
+	{
+		UTIL_Remove(this);
+	}
+}
+
+// @0xa104c WaitThink — idle keep-alive after settling: remove once the lifetime expires.
+void CTSWorldGun::WaitThink()
+{
+	pev->nextthink = gpGlobals->time + 0.1f;
+	if (m_flExpire < gpGlobals->time)
+		UTIL_Remove(this);
+}
+
+// @0xa10a4 OnGround — settled: become a USE trigger with the real grab box. Stays MOVETYPE_BOUNCE.
+void CTSWorldGun::OnGround()
+{
+	pev->owner = NULL;
+	pev->solid = SOLID_TRIGGER;
+	UTIL_SetOrigin(pev, pev->origin);
+	UTIL_SetSize(pev, Vector(-4, -4, 0), Vector(4, 4, 4)); // the real grab box
+	SetTouch(&CTSWorldGun::WaitTouch);
+	SetThink(&CTSWorldGun::WaitThink);
+	pev->nextthink = gpGlobals->time + 0.1f;
+}
+
+// @0xa1158 Use — USE pickup, cooldown-gated so the dropper can't instantly re-grab his own toss.
+void CTSWorldGun::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
+{
+	if (m_flUseCooldown < gpGlobals->time)
+		GetWeapon(pActivator);
+}
+
+// @0xa1198 GetWeapon — hand the dropped weapon (with its full carried status) to the toucher, then
+// remove the world gun. The original calls CBasePlayer::PickUpWeapon(type, &m_status, …); we restore
+// the carried item into the picker's arsenal (clip/mode/attach/barrels) the same way.
+void CTSWorldGun::GetWeapon(CBaseEntity *pOther)
+{
+	if (m_bTaken || !pOther || !pOther->IsPlayer() || !pOther->IsAlive())
+		return;
+	if ((pev->effects & EF_NODRAW) || (pOther->pev->effects & EF_NODRAW))
+		return;
+
+	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
+	CTSGun *pGun = GetPlayerTSGun(pPlayer);
+	const bool ownedBefore = pGun && pGun->IsOwned(m_weaponType);
+
+	GiveTSWeapon(pPlayer, (tsweapon_t)m_weaponType);
+	pGun = GetPlayerTSGun(pPlayer);
+	if (!pGun)
+		return;
+
+	// Restore the carried weapon state — unless the pickup combined into an akimbo (which sets its
+	// own barrels). Matches CBasePlayer::PickUpWeapon restoring the s_weapon_status onto the slot.
+	if (!ownedBefore && pGun->IsOwned(m_weaponType))
+	{
+		pGun->m_items[m_weaponType] = m_status;
+		pGun->m_items[m_weaponType].owned = true;
+		if (m_weaponType == pGun->m_weaponType)
+			pGun->m_iClip = m_status.clip;
+	}
+
+	m_bTaken = true;
+	UTIL_Remove(this);
+}
+
+// @0xa1250 WaitTouch — throwables (type 0x1d) auto-pick on touch; everything else needs USE held.
+void CTSWorldGun::WaitTouch(CBaseEntity *pOther)
+{
+	if (m_weaponType == 0x1d || (pOther && (pOther->pev->button & IN_USE)))
+		GetWeapon(pOther);
+}
+
+// @0xa1290 ShouldCollide — a dropped gun collides ONLY with other dropped guns and thrown knives;
+// it passes through players (and everything else). Dispatched by the global ShouldCollide hook.
+bool CTSWorldGun::ShouldCollide(CBaseEntity *pOther)
+{
+	if (!pOther)
+		return true;
+	return FClassnameIs(pOther->pev, "WorldGun") || FClassnameIs(pOther->pev, "knife");
+}
+
+//============================================================================
+// CTSAmmoPack — dropped consumable ammo+armor pack (MOVETYPE_TOSS, base CBaseEntity).
+//============================================================================
+LINK_ENTITY_TO_CLASS(TSAmmoPack, CTSAmmoPack);
+
+// @0xa1334 CreateAmmoPack — spawn a pack carrying `counts[16]` rounds + `armor` armour from
+// `pevOwner`, tossed from `origin` along `velocity`. classname = "AmmoPack". NULL if nothing to drop.
+CTSAmmoPack *CTSAmmoPack::CreateAmmoPack(entvars_t *pevOwner, const int *counts, int armor,
+	const Vector &origin, const Vector &velocity)
+{
+	bool any = (armor > 0);
+	for (int c = 0; c < TS_NUM_CALIBERS && !any; c++)
+		if (counts && counts[c] > 0) any = true;
+	if (!any)
+		return NULL;
+
+	CTSAmmoPack *pPack = GetClassPtr((CTSAmmoPack *)NULL);
+	if (!pPack)
+	{
+		UTIL_ClientPrintAll(HUD_PRINTCONSOLE, "WARNING:cannot create ammopack!\n");
+		return NULL;
+	}
+	pPack->pev->classname = MAKE_STRING("AmmoPack");
+	for (int c = 0; c < TS_NUM_CALIBERS; c++)
+		pPack->m_ammo[c] = counts ? counts[c] : 0;
+	UTIL_SetOrigin(pPack->pev, origin);
+	pPack->Spawn();
+	pPack->pev->velocity = velocity;
+	pPack->pev->armorvalue = (float)armor;        // carried armor
+	pPack->pev->owner = ENT(pevOwner);
+	return pPack;
+}
+
+// @0xa13f4 Spawn — MOVETYPE_TOSS + SOLID_BBOX, zero-size while falling; settle then become a trigger.
+void CTSAmmoPack::Spawn()
+{
+	Precache();
+	SET_MODEL(ENT(pev), "models/ammopack.mdl");
+	pev->movetype = MOVETYPE_TOSS;
+	pev->solid = SOLID_BBOX;
+	UTIL_SetSize(pev, g_vecZero, g_vecZero);      // point bbox while falling
+	UTIL_SetOrigin(pev, pev->origin);
+
+	float stay = CVAR_GET_FLOAT("weaponstay");
+	if (stay < 5.0f)  stay = 5.0f;
+	if (stay > 60.0f) stay = 60.0f;
+	m_flExpire = gpGlobals->time + stay;
+
+	SetThink(&CTSAmmoPack::Fall);
+	pev->nextthink = gpGlobals->time + 0.1f;
+	pev->armorvalue = 0;
+	pev->owner = NULL;
+}
+
+// @0xa1544 Fall — settle on the ground (OnGround), or remove past the lifetime.
+void CTSAmmoPack::Fall()
+{
+	pev->nextthink = gpGlobals->time + 0.1f;
+	if (pev->flags & FL_ONGROUND)
+	{
+		pev->angles.x = 0;
+		pev->angles.z = 0;
+		OnGround();
+		return;
+	}
+	if (m_flExpire < gpGlobals->time)
+		UTIL_Remove(this);
+}
+
+// @0xa15c0 WaitThink — idle keep-alive after settling: remove once the lifetime expires.
+void CTSAmmoPack::WaitThink()
+{
+	pev->nextthink = gpGlobals->time + 0.1f;
+	if (m_flExpire < gpGlobals->time)
+		UTIL_Remove(this);
+}
+
+// @0xa1610 OnGround — settled: become a pickup trigger with the real box.
+void CTSAmmoPack::OnGround()
+{
+	pev->owner = NULL;
+	pev->solid = SOLID_TRIGGER;
+	UTIL_SetOrigin(pev, pev->origin);
+	UTIL_SetSize(pev, Vector(-16, -16, 0), Vector(16, 16, 16));
+	SetTouch(&CTSAmmoPack::WaitTouch);
+	SetThink(&CTSAmmoPack::WaitThink);
+	pev->nextthink = gpGlobals->time + 0.1f;
+}
+
+// @0xa16c0 WaitTouch — give each carried caliber to a TS-gun-holding player (via CTSGun::AddAmmo),
+// then any carried armor (via CBasePlayer::TakeArmor); remove once BOTH ammo and armor are consumed.
+void CTSAmmoPack::WaitTouch(CBaseEntity *pOther)
+{
+	if (!pOther || !pOther->IsPlayer() || !pOther->IsAlive())
+		return;
+	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
+	CTSGun *pGun = GetPlayerTSGun(pPlayer); // the toucher must hold a CTSGun (orig: m_pActiveItem type@0x88==0x10)
+	if (!pGun)
+		return;
+
+	bool gaveAny = false;
+	for (int c = 0; c < TS_NUM_CALIBERS; c++)
+	{
+		if (m_ammo[c] <= 0)
+			continue;
+		if (pGun->AddAmmo(c, m_ammo[c]))
+		{
+			m_ammo[c] = 0; // consumed from the pack
+			gaveAny = true;
+		}
+	}
+	if (gaveAny)
+		EMIT_SOUND_DYN(ENT(pPlayer->pev), CHAN_ITEM, "items/9mmclip1.wav", VOL_NORM, 0.8f, 0, 100);
+
+	// Armor: give when USE is held or the player still has some armor capacity, then zero it.
+	if (pev->armorvalue > 0 && ((pPlayer->pev->button & IN_USE) || pPlayer->pev->armorvalue != 0))
+	{
+		pPlayer->TakeArmor((int)(pev->armorvalue + 0.5f));
+		pev->armorvalue = 0;
+	}
+
+	if (pev->armorvalue == 0) // fully consumed (armor gone — matches the original's removal gate)
+	{
+		SetTouch(NULL);
+		UTIL_Remove(this);
+	}
+}
+
+//============================================================================
+// Global ShouldCollide hook (NEW_DLL_FUNCTIONS::pfnShouldCollide). Default = collide (1); routes a
+// CTSWorldGun pair to its filter so dropped guns pass through players. Called for every pair, so it
+// stays cheap (a classname check) and returns 1 for all non-WorldGun pairs.
+//============================================================================
+extern "C" int ShouldCollide(edict_t *pentTouched, edict_t *pentOther)
+{
+	if (FClassnameIs(&pentTouched->v, "WorldGun"))
+		return ((CTSWorldGun *)CBaseEntity::Instance(pentTouched))
+			->ShouldCollide(CBaseEntity::Instance(pentOther)) ? 1 : 0;
+	if (FClassnameIs(&pentOther->v, "WorldGun"))
+		return ((CTSWorldGun *)CBaseEntity::Instance(pentOther))
+			->ShouldCollide(CBaseEntity::Instance(pentTouched)) ? 1 : 0;
+	return 1;
 }

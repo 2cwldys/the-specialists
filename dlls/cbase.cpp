@@ -93,10 +93,14 @@ static DLL_FUNCTIONS gFunctionTable =
 		AllowLagCompensation,	  //pfnAllowLagCompensation
 };
 
+// CTSWorldGun's collision filter (ts_worldgun.cpp) — dropped guns pass through players.
+extern "C" int ShouldCollide(edict_t *pentTouched, edict_t *pentOther);
+
 NEW_DLL_FUNCTIONS gNewDLLFunctions =
 	{
 		OnFreeEntPrivateData, //pfnOnFreeEntPrivateData
 		GameDLLShutdown,
+		ShouldCollide,        //pfnShouldCollide
 };
 
 static void SetObjectCollisionBox(entvars_t* pev);

@@ -116,8 +116,9 @@ void CTSGrenade::BounceTouch(CBaseEntity *pOther)
 	}
 }
 
-// Keep CTSPhysicObject + CTSGrenade in the binary until the grenade/worldgun hierarchy is rewired
-// to derive them (the original's CTSWorldGun:CTSPhysicObject + thrown grenades). Never called.
+// Keep CTSGrenade in the binary until the grenade-throw hierarchy is rewired to construct it (the
+// original's thrown grenades). CTSPhysicObject is now kept by CTSWorldGun:CTSPhysicObject (ts_worldgun.cpp);
+// this anchor remains only for CTSGrenade, which nothing constructs yet. Never called.
 CBaseEntity *ts_grenades_keep_physic()
 {
 	static CTSGrenade g;

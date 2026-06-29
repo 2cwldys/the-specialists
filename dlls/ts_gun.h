@@ -158,4 +158,7 @@ public:
 	bool m_bWStatusInit = false;
 };
 
+// Find the player's CTSGun item (the single arsenal weapon), or NULL. Defined in ts_gun.cpp.
+CTSGun *GetPlayerTSGun(CBasePlayer *pPlayer);
+
 #endif // TS_GUN_H

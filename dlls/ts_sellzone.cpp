@@ -56,11 +56,11 @@ void CTSSellZone::Spawn()
 	SetTouch(&CTSSellZone::SellTouch);
 }
 
-// @ SellTouch — a dropped weapon (ts_worldgun) entered the zone: sell it. Credit the nearest
+// @ SellTouch — a dropped weapon (classname "WorldGun") entered the zone: sell it. Credit the nearest
 // living player (on the zone's team, if set) its value, then consume the gun.
 void CTSSellZone::SellTouch(CBaseEntity *pOther)
 {
-	if (!pOther || !FClassnameIs(pOther->pev, "ts_worldgun"))
+	if (!pOther || !FClassnameIs(pOther->pev, "WorldGun"))
 		return;
 
 	// find the nearest living player to the sold gun (the seller stand-in)

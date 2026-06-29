@@ -133,7 +133,6 @@ target_sources(hl PRIVATE
 	ts_emitter.cpp
 	ts_func_break.cpp
 	ts_gun.cpp
-	ts_ammopack.cpp
 	ts_deadcorpse.cpp
 	ts_dmhill.cpp
 	ts_objectives.cpp

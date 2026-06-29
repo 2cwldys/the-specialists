@@ -22,6 +22,7 @@
 #include "ts_weapons.h"
 #include "ts_bulletmgr.h"
 #include "ts_player.h" // DoubleFireRate (powerup accessor)
+#include "ts_worldgun.h" // CTSWorldGun::CreateWeapon / CTSAmmoPack::CreateAmmoPack (drop side)
 
 // WEAPON TIMING: the build defines CLIENT_WEAPONS (both targets), so UTIL_WeaponTimeBase() == 0 — a
 // 0-based RELATIVE clock that gets DECREMENTED each frame by gpGlobals->frametime, on the CLIENT by
@@ -103,7 +104,7 @@ static const int g_iWeaponPriority[TSW_COUNT] = {
 };
 
 // The one weapon_tsgun in a player's inventory (the whole TS arsenal), or NULL.
-static CTSGun *GetPlayerTSGun(CBasePlayer *pPlayer)
+CTSGun *GetPlayerTSGun(CBasePlayer *pPlayer)
 {
 	for (int i = 0; i < MAX_ITEM_TYPES; i++)
 		for (CBasePlayerItem *p = pPlayer->m_rgpPlayerItems[i]; p; p = p->m_pNext)
@@ -2175,13 +2176,18 @@ void CTSGun::DropType(int type, bool fThrow)
 	}
 }
 
-// Spawn a thrown world gun in front of the player (the ThrowWeapon side of DropWeapon).
-static void TSThrowWorldGun(CBasePlayer *pPlayer, int type, int clip, float side)
+#ifndef CLIENT_DLL // the drop-into-world helpers spawn server-only CTSWorldGun/CTSAmmoPack entities
+// Spawn a thrown world gun in front of the player (the ThrowWeapon side of DropWeapon). The dropped
+// gun carries the full weapon status (the item slot) with the given clip override (akimbo splits).
+static void TSThrowWorldGun(CBasePlayer *pPlayer, CTSGun *pGun, int type, int clip, float side)
 {
 	UTIL_MakeVectors(pPlayer->pev->v_angle);
 	Vector vecSrc = pPlayer->GetGunPosition() + gpGlobals->v_forward * 16 + gpGlobals->v_right * side;
 	Vector vecVel = gpGlobals->v_forward * 250 + pPlayer->pev->velocity;
-	TSCreateWorldGun(type, clip, vecSrc, vecVel);
+	TSItem status = pGun->m_items[type]; // carry the dropped weapon's full state (mode/attach/barrels)
+	status.owned = true;
+	status.clip = clip;
+	CTSWorldGun::CreateWeapon(type, status, vecSrc, vecVel);
 }
 
 // @ CBasePlayer::DropWeapon (@0x84900) — drop the player's ACTIVE TS weapon into the world.
@@ -2211,8 +2217,8 @@ bool TSDropWeapon(CBasePlayer *pPlayer)
 		const int single = wi->iSingleType;
 		const int total = pGun->m_iClip; // live total (= leftClip+rightClip)
 		const int half = total / 2;
-		TSThrowWorldGun(pPlayer, single, half, 4.0f);
-		TSThrowWorldGun(pPlayer, single, total - half, -4.0f);
+		TSThrowWorldGun(pPlayer, pGun, single, half, 4.0f);
+		TSThrowWorldGun(pPlayer, pGun, single, total - half, -4.0f);
 		pGun->DropType(type, true);   // remove the akimbo (auto-selects next)
 		pGun->DropType(single, true); // and the single base, if it was also owned
 		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
@@ -2225,7 +2231,7 @@ bool TSDropWeapon(CBasePlayer *pPlayer)
 		const int akimbo = wi->iAkimboType;
 		const int thrownClip = pGun->m_iClip;                 // the dropped gun keeps the live clip
 		const int keptClip = pGun->m_items[akimbo].rightClip; // the kept single takes the other barrel
-		TSThrowWorldGun(pPlayer, type, thrownClip, 0.0f);
+		TSThrowWorldGun(pPlayer, pGun, type, thrownClip, 0.0f);
 		pGun->m_items[type].clip = keptClip;
 		pGun->DropType(akimbo, false);     // remove the akimbo item (type stays owned + active)
 		pGun->m_iClip = keptClip;          // refresh the live clip of the kept single
@@ -2234,7 +2240,7 @@ bool TSDropWeapon(CBasePlayer *pPlayer)
 	}
 
 	// 3) plain weapon -> throw one, remove it.
-	TSThrowWorldGun(pPlayer, type, pGun->m_iClip, 0.0f);
+	TSThrowWorldGun(pPlayer, pGun, type, pGun->m_iClip, 0.0f);
 	pGun->DropType(type, true);
 	EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
 	return true;
@@ -2256,7 +2262,9 @@ void TSDropWeaponsOnDeath(CBasePlayer *pPlayer)
 			continue;
 		int clip = (type == pGun->m_weaponType) ? pGun->m_iClip : pGun->m_items[type].clip;
 		Vector vecVel(RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(80, 140));
-		TSCreateWorldGun(type, clip, pPlayer->pev->origin + Vector(0, 0, 20), vecVel);
+		TSItem status = pGun->m_items[type];
+		status.clip = clip;
+		CTSWorldGun::CreateWeapon(type, status, pPlayer->pev->origin + Vector(0, 0, 20), vecVel);
 	}
 }
 
@@ -2267,8 +2275,12 @@ void TSDropAmmoOnDeath(CBasePlayer *pPlayer)
 	if (!pGun)
 		return;
 	Vector vecVel(RANDOM_FLOAT(-40, 40), RANDOM_FLOAT(-40, 40), RANDOM_FLOAT(80, 120));
-	TSCreateAmmoPack(pPlayer->pev, pGun->m_ammoReserve, pPlayer->pev->origin + Vector(0, 0, 20), vecVel);
+	// Drop the per-caliber reserve AND the player's armor (VERIFY: orig carries pev->armorvalue).
+	int armor = (int)pPlayer->pev->armorvalue;
+	CTSAmmoPack::CreateAmmoPack(pPlayer->pev, pGun->m_ammoReserve, armor,
+		pPlayer->pev->origin + Vector(0, 0, 20), vecVel);
 }
+#endif // !CLIENT_DLL (drop-into-world helpers)
 
 // Pick up a dropped weapon of `type` carrying `clip` loaded rounds (CTSWorldGun pickup):
 // add it to the arsenal (combining if it triggers an akimbo upgrade), then restore the

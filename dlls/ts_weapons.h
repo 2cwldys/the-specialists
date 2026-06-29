@@ -82,13 +82,8 @@ bool TSDropWeapon(CBasePlayer *pPlayer);
 void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip);
 void TSDropWeaponsOnDeath(CBasePlayer *pPlayer); // scatter the arsenal on death
 void TSDropAmmoOnDeath(CBasePlayer *pPlayer);    // drop the per-caliber reserve as a pack
-
-// Spawn a dropped ammo pack carrying per-caliber `counts[16]`. Defined in ts_ammopack.cpp.
-CBaseEntity *TSCreateAmmoPack(struct entvars_s *pevOwner, const int *counts, const Vector &origin,
-	const Vector &velocity);
-
-// Spawn a dropped weapon entity (CTSWorldGun) carrying `type`/`clip`. Defined in ts_worldgun.cpp.
-CBaseEntity *TSCreateWorldGun(int type, int clip, const Vector &origin, const Vector &velocity);
+// The drop-into-world factories are the static methods CTSWorldGun::CreateWeapon /
+// CTSAmmoPack::CreateAmmoPack (dlls/ts_worldgun.h), matching the original's TS_worldgun.cpp.
 
 // Infinite-clip powerup: multiply the held weapon's reserve. Returns true if applied.
 bool TSMultiplyClips(CBasePlayer *pPlayer);
