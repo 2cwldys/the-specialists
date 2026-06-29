@@ -2248,17 +2248,55 @@ void CTSGun::DropWeapon(int type, bool fThrow)
 }
 
 #ifndef CLIENT_DLL // the drop-into-world helpers spawn server-only CTSWorldGun/CTSAmmoPack entities
-// Spawn a thrown world gun in front of the player (the ThrowWeapon side of DropWeapon). The dropped
-// gun carries the full weapon status (the item slot) with the given clip override (akimbo splits).
+// @0x8529c CBasePlayer::ThrowWeapon — the throw primitive (the sole caller is DropWeapon). Build the
+// throw angles (alive = view + offset; dead = random), create the dropped gun via the 3-arg factory,
+// then position it (eye + 16*forward + lateral), give it a random tumble, and toss it.
+CTSWorldGun *CBasePlayer::ThrowWeapon(int type, const TSItem &status, const Vector *angleOffset,
+	const Vector *velOffset)
+{
+	Vector ang;
+	if (IsAlive())
+	{
+		ang = pev->v_angle;
+		if (angleOffset)
+			ang = ang + *angleOffset;
+	}
+	else
+	{
+		ang = Vector(RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(-180, 180), 0);
+	}
+	UTIL_MakeVectors(ang);
+
+	CTSWorldGun *pGun = CTSWorldGun::CreateWeapon(this, type, status);
+	if (!pGun)
+		return NULL;
+
+	// origin = eye + 16*forward (+ velOffset: forward on x, lateral on right via y, vertical via z).
+	Vector off(16, 0, 0);
+	if (velOffset)
+		off = Vector(16 + velOffset->x, velOffset->y, velOffset->z);
+	Vector origin = (pev->origin + pev->view_ofs) + gpGlobals->v_forward * off.x + gpGlobals->v_right * off.y;
+	origin.z += off.z;
+	UTIL_SetOrigin(pGun->pev, origin);
+
+	pGun->pev->angles = g_vecZero;
+	pGun->pev->avelocity.y = RANDOM_FLOAT(-300, 300); // random tumble/spin (@0x8529c)
+	pGun->pev->avelocity.z = RANDOM_FLOAT(-300, 300);
+	// VERIFY: the exact throw-velocity formula is NOT statically recovered (asm hints 0.9/0.33 scalars
+	// + player velocity); needs a live trace. This forward*250 + player-velocity is a placeholder.
+	pGun->pev->velocity = gpGlobals->v_forward * 250.0f + pev->velocity;
+	return pGun;
+}
+
+// Thin glue for DropWeapon's branches: build the dropped item's status (clip override), then route
+// through the real CBasePlayer::ThrowWeapon (velOffset.y carries the akimbo's ±lateral split).
 static void TSThrowWorldGun(CBasePlayer *pPlayer, CTSGun *pGun, int type, int clip, float side)
 {
-	UTIL_MakeVectors(pPlayer->pev->v_angle);
-	Vector vecSrc = pPlayer->GetGunPosition() + gpGlobals->v_forward * 16 + gpGlobals->v_right * side;
-	Vector vecVel = gpGlobals->v_forward * 250 + pPlayer->pev->velocity;
 	TSItem status = pGun->m_items[type]; // carry the dropped weapon's full state (mode/attach/barrels)
 	status.owned = true;
 	status.clip = clip;
-	CTSWorldGun::CreateWeapon(type, status, vecSrc, vecVel);
+	Vector lateral(0, side, 0);
+	pPlayer->ThrowWeapon(type, status, NULL, &lateral);
 }
 
 // @ CBasePlayer::DropWeapon (@0x84900) — drop the player's ACTIVE TS weapon into the world.
@@ -2296,7 +2334,7 @@ bool CBasePlayer::DropWeapon()
 		TSThrowWorldGun(pPlayer, pGun, single, total - half, -4.0f);
 		pGun->DropWeapon(type, true);   // remove the akimbo (auto-selects next)
 		pGun->DropWeapon(single, true); // and the single base, if it was also owned
-		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
+		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
 		return true;
 	}
 
@@ -2310,14 +2348,14 @@ bool CBasePlayer::DropWeapon()
 		pGun->m_items[type].clip = keptClip;
 		pGun->DropWeapon(akimbo, false);     // remove the akimbo item (type stays owned + active)
 		pGun->m_iClip = keptClip;          // refresh the live clip of the kept single
-		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
+		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
 		return true;
 	}
 
 	// 3) plain weapon -> throw one, remove it.
 	TSThrowWorldGun(pPlayer, pGun, type, pGun->m_iClip, 0.0f);
 	pGun->DropWeapon(type, true);
-	EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
+	EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
 	return true;
 }
 
@@ -2336,10 +2374,9 @@ void TSDropWeaponsOnDeath(CBasePlayer *pPlayer)
 		if (!wi->pszWorldModel) // skip melee/things without a droppable world model
 			continue;
 		int clip = (type == pGun->m_weaponType) ? pGun->m_iClip : pGun->m_items[type].clip;
-		Vector vecVel(RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(80, 140));
-		TSItem status = pGun->m_items[type];
-		status.clip = clip;
-		CTSWorldGun::CreateWeapon(type, status, pPlayer->pev->origin + Vector(0, 0, 20), vecVel);
+		// Route through the same throw path as a live drop. The player is dead here, so ThrowWeapon
+		// takes its dead branch (random angles). VERIFY: scatter direction/feel vs the original.
+		TSThrowWorldGun(pPlayer, pGun, type, clip, 0.0f);
 	}
 }
 

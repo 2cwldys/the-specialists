@@ -94,6 +94,9 @@ enum sbar_data
 
 #define CHAT_INTERVAL 1.0f
 
+struct TSItem;       // the TS arsenal slot (== the original's s_weapon_status); defined in ts_gun.h
+class CTSWorldGun;   // the dropped-weapon entity (ts_worldgun.h) — ThrowWeapon returns one
+
 // @ s_flag_status (0x1c) — the TS CTF carried-flag state. Copied byte-for-byte between the
 // owning CTSBriefcase (its template), the loose CTSFlag entity (@+0x90), and the carrier
 // (CBasePlayer m_flagStatus @+0x7d0) at every hop. The EHANDLE rides inside the struct, so a
@@ -463,6 +466,7 @@ public:
 	bool TakeFlag(s_flag_status *src);                    // @0x83830 — pick up a flag onto m_flagStatus
 	void DropFlag(bool bSilent);                          // @0x8334c — drop it (false=spawn loose flag)
 	bool DropWeapon();                                    // @0x84900 — drop the active TS weapon (the drop key)
+	CTSWorldGun *ThrowWeapon(int type, const TSItem &status, const Vector *angleOffset, const Vector *velOffset); // @0x8529c
 	void CutWire(int wire);                               // cut a bomb wire (the cutwire_<n> command)
 	void SetPlayerSpeed(float speed);                     // @0x83068 — clamp [0,330] + SetClientMaxspeed
 	void SetPlayerGravity(float setval, float gravity);   // @0x85b70 — set pev->gravity (gated on >= 1.0)

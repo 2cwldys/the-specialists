@@ -32,6 +32,7 @@ void PrecacheAllTSWeapons()
 	PRECACHE_MODEL("models/briefcase.mdl");
 	PRECACHE_SOUND("items/gunpickup2.wav");
 	PRECACHE_SOUND("items/weapondrop1.wav");
+	PRECACHE_SOUND("weapons/weapondrop.wav"); // CBasePlayer::DropWeapon throw sound
 	PRECACHE_SOUND("misc/beep2.wav"); // CTSBomb countdown beep (runtime-armed bomb)
 	PRECACHE_SOUND("weapons/insert-shell.wav"); // per-shell shotgun racking (ts_gun.cpp ShotgunReload)
 	PRECACHE_SOUND("debris/ric1.wav"); // bullet impact ricochet (ts_gun.cpp / ts_bulletmgr.cpp)

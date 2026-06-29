@@ -32,22 +32,37 @@ LINK_ENTITY_TO_CLASS(TSWorldGun, CTSWorldGun);
 // @0xa07ec CreateWeapon — spawn a dropped weapon carrying the dropping gun's item state, tossed
 // from `origin` along `velocity`. The original seeds velocity from the dropper's aim internally;
 // our drop sites (throw / death-scatter) compute it and pass it in. classname = "WorldGun".
-CTSWorldGun *CTSWorldGun::CreateWeapon(int type, const TSItem &status, const Vector &origin,
-	const Vector &velocity)
+CTSWorldGun *CTSWorldGun::CreateWeapon(CBasePlayer *owner, int type, const TSItem &status)
 {
 	CTSWorldGun *pGun = GetClassPtr((CTSWorldGun *)NULL);
 	if (!pGun)
 	{
-		// @0xa07ec — UTIL_ClientPrintAll(3, "WARNING:cannot create weapon!\n")
+		// @0x907ec — UTIL_ClientPrintAll(3, "WARNING:cannot create weapon!\n")
 		UTIL_ClientPrintAll(HUD_PRINTCONSOLE, "WARNING:cannot create weapon!\n");
 		return NULL;
 	}
 	pGun->pev->classname = MAKE_STRING("WorldGun");
 	pGun->m_weaponType = type;
 	pGun->m_status = status;          // copy the full s_weapon_status (clip/mode/attach/barrels)
-	UTIL_SetOrigin(pGun->pev, origin);
-	pGun->Spawn();
-	pGun->pev->velocity = velocity;
+	pGun->Spawn();                    // sets NO origin/velocity — that's the caller's (ThrowWeapon) job
+
+	if (!owner)
+	{
+		pGun->pev->owner = NULL;
+		pGun->pev->fuser1 = 1.0f;     // gun+0x254 default (not slowed)
+	}
+	else
+	{
+		pGun->pev->owner = owner->edict();
+		pGun->pev->skin = owner->pev->skin; // dropped model matches the dropper's gun skin
+	}
+
+	if (type == 0x1d) // throwable -> a glowing shell so it reads
+	{
+		pGun->pev->renderamt = 5;
+		pGun->pev->renderfx = kRenderFxGlowShell;
+		pGun->pev->rendercolor = Vector(200, 200, 200);
+	}
 	return pGun;
 }
 
