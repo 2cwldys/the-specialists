@@ -79,8 +79,18 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   (CTSPowerUp/CTSFlag/CTSSlowMotionPoint/CTSBriefcase/…) it reports "0 ours / MISSING named: <all>" REGARDLESS of our
   member names. Those member "gaps" are FALSE — verify by reading the .cpp. (Fix would be teaching our_members to
   brace-track + scan .cpp, but that risks misparsing .cpp locals — left as a tooling follow-up.)
+- **CTSDMHill 3/7->7/7** (`179777b`): reshaped our think-poll (invented HillThink+Award) to the original's
+  TOUCH-driven king-of-the-hill — WaitTouch (holder tracking: first toucher claims; same-team keeps; enemy resets;
+  payout past the award time, team mode awards every teammate) + WaitThink (reschedule) + Save/Restore + members
+  renamed nextcheck/fragseverycheck(kv fragamt)/fragseverycheckteam(kv fragamtteam). ObjectCaps->0.
+- **CTSObjective 1/7->7/7** (`b878bb9`): the objectives-cluster BASE. CanInteract(CBasePlayer*)/(int) + Freeze
+  (out-of-line) + IsObjective()->true + EnableObjective(bool) + Save/Restore (1-field=attacker_team). Freeze's
+  CTSGameRules::ShowObjectiveOnHud stays SLICE (unbuilt). **⚠ STRUCTURAL finding:** the original objectives cluster
+  (CTSBomb/CTSHack/CTSTeamEscape) DERIVES CTSObjective; OURS has each CBaseEntity-direct with DUPLICATED attacker_team/
+  CanInteract. Cluster reconcile = make them derive CTSObjective + build CTSGameRules' objective methods they call —
+  a multi-class job interdependent with CTSGameRules 12/39. Decompiles captured: scratchpad/obj.c, hill.c.
 
-audit headline: invented methods **131->122**, file mismatches **23->22**, 0 missing/0 invented classes; **3
+audit headline: invented methods **131->120**, file mismatches **23->22**, 0 missing/0 invented classes; **3
 keepalives dropped/slimmed** (CTSPhysicObject now kept by CTSWorldGun, CTSGrenade by CM61Grenade, CInfoBreakable
 wired+LINK'd). Remaining keepalive: the compiled-but-unlinked pistols (CTSPistolWeapon/Ammo — the ORIGINAL keeps
 them too, legit). All build amd64 server+client (glibc 2.14). **⚠ ALL UNPLAYTESTED** — bounce physics, swept impact
