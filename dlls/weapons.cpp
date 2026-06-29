@@ -267,69 +267,38 @@ void W_Precache()
 	memset(CBasePlayerItem::AmmoInfoArray, 0, sizeof(CBasePlayerItem::AmmoInfoArray));
 	giAmmoIndex = 0;
 
-	// custom items...
+	// RECONSTRUCTED from TS W_Precache (ts_i386.so @0xe12e8, TS_weapons.cpp). The original does NOT
+	// precache the stock HL weapons: in TS the stock weapon_* names are REMAPPED onto CTSGroundWeapon
+	// subclasses (see hldmcompat.cpp), which derive from CBaseEntity and have NO GetItemInfo vtable
+	// slot — so UTIL_PrecacheOtherWeapon (which casts to CBasePlayerItem* and calls GetItemInfo) would
+	// crash on them. TS precaches the TS entities with the plain UTIL_PrecacheOther (Precache() only),
+	// and uses UTIL_PrecacheOtherWeapon for exactly ONE real weapon: weapon_tsgun (a CBasePlayerWeapon).
 
-	// common world objects
 	UTIL_PrecacheOther("item_suit");
-	UTIL_PrecacheOther("item_battery");
-	UTIL_PrecacheOther("item_antidote");
-	UTIL_PrecacheOther("item_security");
-	UTIL_PrecacheOther("item_longjump");
 
-	// shotgun
-	UTIL_PrecacheOtherWeapon("weapon_shotgun");
-	UTIL_PrecacheOther("ammo_buckshot");
+	// TS control/objective/world entities (UTIL_PrecacheOther = Precache() only, no item cast)
+	UTIL_PrecacheOther("ts_mapglobals");
+	UTIL_PrecacheOther("ts_objective_manager");
+	UTIL_PrecacheOther("ts_objective_ptr");
+	UTIL_PrecacheOther("ts_wingiver");
+	UTIL_PrecacheOther("ts_trigger");
+	UTIL_PrecacheOther("ts_slowmotion");
+	UTIL_PrecacheOther("ts_slowmotionpoint");
+	UTIL_PrecacheOther("ts_dmhill");
+	UTIL_PrecacheOther("ts_hack");
+	UTIL_PrecacheOther("ts_bomb");
+	UTIL_PrecacheOther("ts_teamescape");
+	UTIL_PrecacheOther("ts_model");
 
-	// crowbar
-	UTIL_PrecacheOtherWeapon("weapon_crowbar");
+	// @orig: compile_weapons_info() here — we build the table lazily on first get_weapon_info().
 
-	// glock
-	UTIL_PrecacheOtherWeapon("weapon_9mmhandgun");
-	UTIL_PrecacheOther("ammo_9mmclip");
+	UTIL_PrecacheOtherWeapon("weapon_tsgun"); // the single real TS weapon (CTSGun : CBasePlayerWeapon)
 
-	// mp5
-	UTIL_PrecacheOtherWeapon("weapon_9mmAR");
-	UTIL_PrecacheOther("ammo_9mmAR");
-	UTIL_PrecacheOther("ammo_ARgrenades");
+	UTIL_PrecacheOther("ts_powerup");
+	UTIL_PrecacheOther("ts_groundweapon");
+	UTIL_PrecacheOther("deadcorpse"); // CTSDeadCorpse (ts_deadcorpse.cpp); classname now matches the LINK so the corpse precaches
 
-	// python
-	UTIL_PrecacheOtherWeapon("weapon_357");
-	UTIL_PrecacheOther("ammo_357");
-
-	// gauss
-	UTIL_PrecacheOtherWeapon("weapon_gauss");
-	UTIL_PrecacheOther("ammo_gaussclip");
-
-	// rpg
-	UTIL_PrecacheOtherWeapon("weapon_rpg");
-	UTIL_PrecacheOther("ammo_rpgclip");
-
-	// crossbow
-	UTIL_PrecacheOtherWeapon("weapon_crossbow");
-	UTIL_PrecacheOther("ammo_crossbow");
-
-	// egon
-	UTIL_PrecacheOtherWeapon("weapon_egon");
-
-	// tripmine
-	UTIL_PrecacheOtherWeapon("weapon_tripmine");
-
-	// satchel charge
-	UTIL_PrecacheOtherWeapon("weapon_satchel");
-
-	// hand grenade
-	UTIL_PrecacheOtherWeapon("weapon_handgrenade");
-
-	// squeak grenade
-	UTIL_PrecacheOtherWeapon("weapon_snark");
-
-	// hornetgun
-	UTIL_PrecacheOtherWeapon("weapon_hornetgun");
-
-	if (g_pGameRules->IsDeathmatch())
-	{
-		UTIL_PrecacheOther("weaponbox"); // container for dropped deathmatch weapons
-	}
+	g_pGameRules->IsDeathmatch(); // @orig: vestigial — the stock `if (IsDeathmatch()) Precache("weaponbox")`; TS has no weaponbox
 
 	g_sModelIndexFireball = PRECACHE_MODEL("sprites/zerogxplode.spr");	// fireball
 	g_sModelIndexWExplosion = PRECACHE_MODEL("sprites/WXplo1.spr");		// underwater fireball

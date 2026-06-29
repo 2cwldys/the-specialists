@@ -139,7 +139,7 @@ public:
 	int m_iBounces = 0;
 };
 
-LINK_ENTITY_TO_CLASS(ts_shrapnel, CTSShrapnel);
+LINK_ENTITY_TO_CLASS(shrapnel, CTSShrapnel); // orig classname "shrapnel"
 
 void CTSShrapnel::Precache()
 {
@@ -194,7 +194,7 @@ void CTSShrapnel::WaitThink()
 CTSShrapnel *CTSShrapnel::Create(entvars_t *pevOwner, const Vector &vecOrigin, const Vector &vecVelocity)
 {
 	CTSShrapnel *pShrap = GetClassPtr((CTSShrapnel *)NULL);
-	pShrap->pev->classname = MAKE_STRING("ts_shrapnel");
+	pShrap->pev->classname = MAKE_STRING("shrapnel");
 	UTIL_SetOrigin(pShrap->pev, vecOrigin);
 	pShrap->Spawn();
 	pShrap->pev->velocity = vecVelocity;

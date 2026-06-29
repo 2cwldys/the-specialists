@@ -56,7 +56,7 @@ public:
 	const char *BodySound() const { return (m_knifeType == TSW_KATANA) ? "weapons/katana/hit-body.wav" : "weapons/knife/knife_hitbody.wav"; }
 };
 
-LINK_ENTITY_TO_CLASS(ts_knife, CTSKnife);
+LINK_ENTITY_TO_CLASS(knife, CTSKnife); // orig classname "knife" (CTSWorldGun::ShouldCollide checks "knife")
 
 void CTSKnife::Spawn()
 {
@@ -236,8 +236,8 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 	// ANY OTHER non-player solid (breakable the sweep couldn't kill, func_wall, door…) → BOUNCE off.
 	// RE: the original NEVER sticks here — it bounces (-0.25·vel) and settles flat on the FLOOR (so it never
 	// ends up stuck in a glass pane); we then make the rested knife a glowing pickup like every other drop.
-	if (FClassnameIs(pOther->pev, "ts_knife"))
-		return; // RE BounceTouch else-branch: ignore other thrown knives (orig classname "knife", ours "ts_knife")
+	if (FClassnameIs(pOther->pev, "knife"))
+		return; // RE BounceTouch else-branch: ignore other thrown knives (orig classname "knife")
 	if (UTIL_PointContents(pev->origin) != CONTENTS_SKY)
 		UTIL_Sparks(pev->origin);
 	EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM, 0, KnifeHitPitch(this));
@@ -291,7 +291,7 @@ void CTSKnife::PickupTouch(CBaseEntity *pOther)
 CTSKnife *CTSKnife::CreateKnife(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel)
 {
 	CTSKnife *p = GetClassPtr((CTSKnife *)NULL);
-	p->pev->classname = MAKE_STRING("ts_knife");
+	p->pev->classname = MAKE_STRING("knife");
 	p->m_knifeType = type;
 	p->m_flDamage = damage;
 	UTIL_SetOrigin(p->pev, vecStart);

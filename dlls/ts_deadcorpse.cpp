@@ -28,7 +28,7 @@ public:
 	float m_flLifetime = 0;   // total lifetime, drives the fade rate (@+0x68)
 };
 
-LINK_ENTITY_TO_CLASS(ts_corpse, CTSDeadCorpse);
+LINK_ENTITY_TO_CLASS(deadcorpse, CTSDeadCorpse); // orig classname "deadcorpse" (matches weapons.cpp precache)
 
 // @Spawn__13CTSDeadCorpse — MOVETYPE_TOSS so the body settles; poll to fade it out.
 void CTSDeadCorpse::Spawn()
@@ -66,7 +66,7 @@ void CTSDeadCorpse::WaitThink()
 // (model/origin/angles/sequence/frame/body/skin), fading over `lifetime` seconds.
 CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime)
 {
-	CBaseEntity *pCorpse = CBaseEntity::Create("ts_corpse", pPlayer->pev->origin, pPlayer->pev->angles, NULL);
+	CBaseEntity *pCorpse = CBaseEntity::Create("deadcorpse", pPlayer->pev->origin, pPlayer->pev->angles, NULL);
 	if (!pCorpse)
 		return NULL;
 
