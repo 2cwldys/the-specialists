@@ -70,7 +70,11 @@ original class+method names, closing the gaps `audit.py` reports, to get as clos
 - **⚠️ SCOPE: `audit.py` is SERVER-ONLY** (`ts_i386.so`'s file→class→method tree). `client.dll` has no
   symbols/RTTI/file-map, so **client-side STRUCTURAL divergences are invisible to it** — only client member
   *layouts* are recovered (`client_members.py`/`members_auto_client.tsv`). Client source-parity is a SEPARATE,
-  MANUAL track (RE the client via `dc.sh client` + the `clientdll` Ghidra project). **Concrete example found
+  MANUAL track (RE the client via `dc.sh client` + the `clientdll` Ghidra project). **There is NO TS Linux
+  `client.so`** (it would've shipped unstripped like the server `.so` — don't go hunting for one). The Windows
+  `reference/client.dll` (MSVC release: only ~505 exports named, NO RTTI, NO STT_FILE map — symbol-poor by
+  format/build, not by our copy) is the ONLY client reference. So `binmap`-matching OUR built `client.so` →
+  `client.dll` (`client_members.py`) is THE definitive client method, not a fallback. **Concrete example found
   this session:** the original splits the CLIENT fire path into PER-FIRE-TYPE handlers (dispatcher `FUN_1003de40`
   → pump `FUN_10040c20` / akimbo `FUN_1003f090` / standard `FUN_1003dfa0`), each computing its OWN recoil; WE
   collapsed all fire into ONE `EV_TSFire` (only `fire.sc` is wired — `EVENTS.md` cont.69s) and pass the recoil
