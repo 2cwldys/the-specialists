@@ -37,6 +37,12 @@ usually means MOVE it to the faithful shape, not rewrite.
   (the original's shape; body unchanged via a `pPlayer = this` alias; callers + dead decl updated).
 - **CBasePlayer SetPlayerSpeed + SetPlayerGravity** (`03adb27`): RE'd @0x83068/@0x85b70 (clamp [0,330] +
   pfnSetClientMaxspeed; conditional gravity set). Wired the One's full-speed site.
+- **CBasePlayer method grind cont.** (`44fc97e`,`5236d40`,`945a343`,`0832bda`): more RE'd from TS_player.cpp/
+  TS_spectator.cpp — PunchScreen (@0x85f70, empty in shipped game), GetMeleeMultiplier (@0x865d0,
+  (max(blockbar,0)*0.5+50)*0.01), DropArmor (@0x83a3c) + DropAmmo (@0x846f0) (drop armor/ammo-reserve as a
+  CTSAmmoPack, reuse CreateAmmoPack), UpdatePlayerState (@0x82a08, pose state; CAUGHT a bug: orig's 0x4000 is
+  FL_DUCKING not FL_FROZEN — wired into PreThink), Observer_Idle (@0x89ca4, spectator auto-advance, maps to
+  our Observer_FindNextPlayer/m_hObserverTarget). **CBasePlayer 33 -> 23 missing methods** over the grind.
 
 ### Where it stands (honest) — NOT complete; the audit is now a trustworthy work-list
 Remaining genuine gaps (false positives now filtered out): **29 missing methods** (CBasePlayer is ~18 —
