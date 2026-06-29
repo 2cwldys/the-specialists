@@ -2282,9 +2282,14 @@ CTSWorldGun *CBasePlayer::ThrowWeapon(int type, const TSItem &status, const Vect
 	pGun->pev->angles = g_vecZero;
 	pGun->pev->avelocity.y = RANDOM_FLOAT(-300, 300); // random tumble/spin (@0x8529c)
 	pGun->pev->avelocity.z = RANDOM_FLOAT(-300, 300);
-	// VERIFY: the exact throw-velocity formula is NOT statically recovered (asm hints 0.9/0.33 scalars
-	// + player velocity); needs a live trace. This forward*250 + player-velocity is a placeholder.
-	pGun->pev->velocity = gpGlobals->v_forward * 250.0f + pev->velocity;
+
+	// Throw speed S (RE'd from the @0x85359 / @0x853c1 x87 asm + the .rodata 0.9/0.33/90 constants):
+	//   alive: S = (90 - look-pitch) * 2  (look level -> 180; look up -> harder; look down -> drops)
+	//   dead : S = random 60..160
+	// velocity = 0.9*playerVelocity (inherited momentum) + S*forward (toss) + 0.33*S upward (lob).
+	float S = IsAlive() ? (90.0f - pev->v_angle.x) * 2.0f : RANDOM_FLOAT(60, 160);
+	pGun->pev->velocity = pev->velocity * 0.9f + gpGlobals->v_forward * S;
+	pGun->pev->velocity.z += S * 0.33f;
 	return pGun;
 }
 
