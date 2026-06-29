@@ -173,6 +173,20 @@ public:
 	// them). CTSObjective-derived entities override IsObjective()->true + EnableObjective() to arm/disarm.
 	virtual bool IsObjective() { return false; }     // @IsObjective__11CBaseEntity (weak, default false)
 	virtual void EnableObjective(bool bEnable) {}     // @EnableObjective__11CBaseEntityb (default no-op)
+
+	// TS slow-motion + collision interface — the original declares these as CBaseEntity virtuals (weak
+	// defaults) so ANY entity can be slowed / collision-filtered / respawned; derived TS classes override
+	// (CBasePlayer slow, CTSWorldGun/CTSKnife collide, CBreakable/CBaseDoor respawn). Same pattern as the
+	// IsObjective/EnableObjective virtuals above. The base slow store is pev->fuser1.
+	virtual float GiveSlowMul() { float f = pev->fuser1; return f < 0.01f ? 0.01f : f; } // @0x9c5b4 FixedSlowAmt(fuser1)
+	virtual void  GoSlow(float scale, int slowBullets) { pev->fuser1 = scale; }          // @0x9c5e0 base store
+	virtual int   InSlow() { return pev->fuser1 != 1.0f; }                               // @0x9c5f4
+	virtual int   CanUsedTroughWalls() { return 1; }                                     // @0x9c5b0 default true
+	virtual bool  ShouldCollide(CBaseEntity* pOther) { return true; }                    // @0x9c654 default collide
+	virtual void  BreakableRespawn(bool forceRespawn) {}                                 // @0x9c5ac default no-op
+	virtual void  OnFreeEntPrivateData() {}                                              // @0x9c650 default no-op
+	virtual int   eoffset();                                                             // @0x9cae0 OFFSET(pev)
+
 	virtual void Activate() {}
 
 	// Setup the object->object collision box (pev->mins / pev->maxs is the object->world collision box)

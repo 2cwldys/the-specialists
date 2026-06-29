@@ -300,11 +300,19 @@ void OnFreeEntPrivateData(edict_s* pEdict)
 	{
 		auto entity = reinterpret_cast<CBaseEntity*>(pEdict->pvPrivateData);
 
+		entity->OnFreeEntPrivateData(); // the original's per-entity hook (default no-op) before teardown
+
 		delete entity;
 
 		//Zero this out so the engine doesn't try to free it again.
 		pEdict->pvPrivateData = nullptr;
 	}
+}
+
+// @0x9cae0 — this entity's edict offset (the original's CBaseEntity::eoffset base virtual).
+int CBaseEntity::eoffset()
+{
+	return OFFSET(pev);
 }
 
 // Find the matching global entity.  Spit out an error if the designer made entities of

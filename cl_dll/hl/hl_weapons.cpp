@@ -307,6 +307,10 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	g_irunninggausspred = false;
 }
 
+// Client stubs for the TS slow-motion virtuals (server runs the real logic; prediction doesn't).
+void CBasePlayer::GoSlow(float scale, int slowBullets) {}
+int CBasePlayer::InSlow() { return 0; }
+
 /*
 =====================
 CBasePlayer::Spawn
