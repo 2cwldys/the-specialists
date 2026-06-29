@@ -22,6 +22,8 @@ scan of dlls/ + cl_dll/ (class->our file). Methods matched by NAME (overloads co
 """
 import json, os, re, subprocess, sys
 from collections import defaultdict
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import srcparse  # brace-aware scan of our sources (members from .cpp too, hierarchy, inline methods, free funcs)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 JSON = os.path.join(ROOT, "reference", "coverage", "ts_inventory.json")
@@ -49,6 +51,7 @@ def load_original():
                 "file": fn,
                 "ts_specific": ci.get("ts_specific", False),
                 "methods": set(ci.get("methods", {}).keys()),
+                "ancestry": ci.get("ancestry", []),
                 "member_count": len(mem),
                 # REAL names only (saved/curated) — the `auto` skeleton is field_0xNN placeholders, not name-matchable
                 "named_members": {m["name"] for m in mem
@@ -115,6 +118,27 @@ def our_globals():
     return names
 
 
+def our_free_funcs():
+    """free-function / C-export names from our build symbols (T/t/W, no '::'). Demangled free funcs read
+    as `name(args)`; C exports (LINK_ENTITY_TO_CLASS factories, extern "C") read as a bare `name`."""
+    names = set()
+    for so in (HLSO, CLSO):
+        if not os.path.exists(so):
+            continue
+        nm = subprocess.run(f"nm '{so}' | c++filt", shell=True, capture_output=True, text=True).stdout
+        for ln in nm.splitlines():
+            p = ln.split()
+            # format: <addr> <type> <demangled symbol...>  — the demangled symbol can contain spaces
+            # (args), so the NAME is everything from p[2] up to the first '('. Do NOT use p[-1].
+            if len(p) >= 3 and p[1] in ("T", "t", "W", "w"):
+                sym = " ".join(p[2:])
+                name = sym.split("(")[0]
+                if "::" in name or "<" in name or " " in name:
+                    continue
+                names.add(name)
+    return names
+
+
 def our_members():
     """{class: set(member_name)} from our dlls/ + cl_dll/ headers (m_* / lowercase member declarations)."""
     cls = defaultdict(set)
@@ -145,7 +169,26 @@ def our_members():
 def analyze():
     orig, orig_file_classes = load_original()
     ours, ourcf = our_methods(), our_class_files()
-    ourmem = our_members()
+    SRC = srcparse.parse()
+    ourmem = SRC["members"]                       # members from BOTH .cpp and .h (brace-aware)
+    inln = SRC["inline_methods"]                  # methods declared in the class body (no out-of-line symbol)
+    our_hier = SRC["hierarchy"]                    # our class -> base (for inheritance resolution)
+    # combined per-class method set = out-of-line nm symbols + in-body declarations.
+    allm = defaultdict(set)
+    for c in set(ours) | set(inln):
+        allm[c] = set(ours.get(c, set())) | set(inln.get(c, set()))
+
+    def implements(cls, meth, _seen=None):
+        """does `cls` (or any ancestor in OUR source) implement/inherit `meth`?"""
+        _seen = _seen or set()
+        if cls in _seen:
+            return False
+        _seen.add(cls)
+        if meth in allm.get(cls, set()):
+            return True
+        base = our_hier.get(cls)
+        return implements(base, meth, _seen) if base else False
+
     ts_orig = {c for c, i in orig.items() if i["ts_specific"]}
     orig_all = set(orig)
 
@@ -154,12 +197,18 @@ def analyze():
     invented_classes = sorted(c for c in ourcf                                            # ours, NOT in original
                               if c not in orig_all and TS_SERVER.match(c))
 
-    # METHOD level (per class present in BOTH)
+    # METHOD level (per class present in BOTH). u = our combined methods (nm + in-body decls); a method the
+    # original has is "missing" only if NEITHER this class NOR any ancestor in our source implements it.
     per_class = {}
-    for c in sorted(ts_orig & set(ours)):
-        o, u = orig[c]["methods"], ours[c]
-        missing = sorted(o - u)
-        invented = sorted(m for m in (u - o) if m != c and not m.startswith("~"))
+    for c in sorted(ts_orig & (set(allm) | set(inln))):
+        o = orig[c]["methods"]
+        # MISSING uses the full picture (inline + inheritance) — a method is missing only if NEITHER this
+        # class NOR an ancestor implements it, inline or out-of-line.
+        missing = sorted(m for m in o if not implements(c, m))
+        # INVENTED uses OUT-OF-LINE symbols only: the original's inventory can't see the original's own
+        # inline methods (no symbols), so comparing our inline set against it would false-flag our inline
+        # helpers. Out-of-line vs out-of-line is the apples-to-apples comparison.
+        invented = sorted(m for m in (ours.get(c, set()) - o) if m != c and not m.startswith("~"))
         ofile = orig[c]["file"]
         our_files = ourcf.get(c, [])
         file_ok = any(norm_file(of) == norm_file(ofile) for of in our_files) if our_files else False
@@ -168,7 +217,7 @@ def analyze():
         # different OFFSETS by design, so we match on NAME, not offset.)
         missing_members = sorted(orig[c]["named_members"] - ourmem.get(c, set()))
         per_class[c] = {"missing": missing, "invented": invented, "orig_file": ofile,
-                        "our_files": our_files, "file_ok": file_ok, "impl": len(o & u), "total": len(o),
+                        "our_files": our_files, "file_ok": file_ok, "impl": len(o) - len(missing), "total": len(o),
                         "missing_members": missing_members, "orig_member_count": orig[c]["member_count"],
                         "our_member_count": len(ourmem.get(c, set()))}
 
@@ -185,10 +234,24 @@ def analyze():
     tsg = re.compile(r"^(gmsg|g_ts|g_TS|TS[A-Z]|g_pTS)")
     invented_globals = sorted(n for n in (ourg - set(orig_glob)) if tsg.match(n))   # TS-pattern, not in original
 
+    # FREE-FUNCTION level: per TS file (a file holding a ts_specific class), the original's free functions
+    # not present anywhere in our build symbols. A genuinely-missing free function = a logic gap to RE.
+    ourff = our_free_funcs()
+    missing_freefuncs = {}
+    for fn, fe in d.get("files", {}).items():
+        # Pure-TS source files only (TS_*.cpp). Stock files (cbase/doors/plats/...) hold a TS-modified
+        # class but their free functions are SDK-version noise, like their stock methods.
+        if not fn.startswith("TS_"):
+            continue
+        ff = set(fe.get("free_functions", {}).keys())
+        miss = sorted(n for n in ff if n not in ourff and not n.startswith("__"))
+        if miss:
+            missing_freefuncs[fn] = miss
+
     return {"missing_classes": missing_classes, "invented_classes": invented_classes,
             "per_class": per_class, "missing_files": missing_files, "orig_ts_files": orig_ts_files,
             "missing_globals": missing_globals, "invented_globals": invented_globals, "orig_glob": orig_glob,
-            "ourcf": ourcf, "orig": orig}
+            "missing_freefuncs": missing_freefuncs, "ourcf": ourcf, "orig": orig}
 
 
 def main():
@@ -235,8 +298,13 @@ def main():
          f"**{len(a['missing_classes'])} missing classes · {len(a['invented_classes'])} invented classes · "
          f"{n_inv_meth} invented methods · {sum(len(p['missing']) for p in a['per_class'].values())} missing "
          f"methods · {sum(len(p['missing_members']) for p in a['per_class'].values())} missing named members · "
+         f"{sum(len(v) for v in a['missing_freefuncs'].values())} missing free functions · "
          f"{len(file_mismatch)} file mismatches · {len(a['missing_globals'])} missing globals · "
-         f"{len(a['invented_globals'])} invented globals.**", ""]
+         f"{len(a['invented_globals'])} invented globals.**",
+         "",
+         "_Members scanned from BOTH .cpp and .h (brace-aware); methods resolve through inheritance + inline "
+         "decls; free functions diffed per TS file. So MISSING/INVENTED here are real, not tooling blind spots._",
+         ""]
 
     L += ["## INVENTED classes (we define; the original has nowhere)", ""]
     L += ([", ".join(f"`{c}`" for c in a["invented_classes"])] if a["invented_classes"] else ["_none_"])
@@ -279,6 +347,16 @@ def main():
     L += ["", "## MISSING files (original TS file whose classes we haven't built)", "",
           (", ".join(f"`{f}`" for f in a["missing_files"]) or "_none_")]
 
+    mff = a["missing_freefuncs"]
+    n_mff = sum(len(v) for v in mff.values())
+    L += ["", "## MISSING free functions (original free/static function in a TS_*.cpp we don't define — by file; "
+          "a genuine gap = a logic signal to RE)", "",
+          "| original file | missing free functions |", "|---|---|"]
+    for fn in sorted(mff):
+        L.append(f"| `{fn}` | {', '.join(mff[fn])} |")
+    if not mff:
+        L.append("| _none_ | |")
+
     L += ["", "## GLOBALS — MISSING (original global/static we don't define)", "",
           "| global | original file |", "|---|---|"]
     for n in a["missing_globals"]:
@@ -290,7 +368,9 @@ def main():
 
     open(OUT, "w").write("\n".join(L) + "\n")
     print(f"wrote {OUT}: {len(a['missing_classes'])} missing / {len(a['invented_classes'])} invented classes, "
-          f"{n_inv_meth} invented methods, {len(file_mismatch)} file mismatches, {len(a['missing_files'])} missing files")
+          f"{sum(len(p['missing']) for p in a['per_class'].values())} missing methods, {n_inv_meth} invented methods, "
+          f"{sum(len(p['missing_members']) for p in a['per_class'].values())} missing members, {n_mff} missing free funcs, "
+          f"{len(file_mismatch)} file mismatches, {len(a['missing_files'])} missing files")
 
 
 if __name__ == "__main__":
