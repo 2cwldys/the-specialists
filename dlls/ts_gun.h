@@ -51,6 +51,7 @@ public:
 	bool UpdateClientData(CBasePlayer *pPlayer) override; // sends the TS WeaponInfo HUD message
 	void SendWeaponStatus(CBasePlayer *pPlayer);          // sends the WStatus weapon-bar messages
 	void ItemPostFrame() override;
+	bool ShouldWeaponIdle() override { return true; } // @0x87274 — always allow idle (the original returns 1)
 	void PrimaryAttack() override;
 	void Reload() override;
 	void ShotgunReload(); // @ ShotgunReload__6CTSGun @0x84aac — pump shell-by-shell 3-phase machine
