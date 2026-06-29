@@ -95,7 +95,26 @@ Per the refined goal (do dependencies first, ALL missing-class closures). Commit
 an exported, never-called function referencing static instances (`hldmcompat_keep_unlinked`, `ts_grenades_keep_physic`).
 Honest stopgap until the real hierarchy/wiring is built; flagged in each.
 
-**NEXT** (5 missing left): the emitter cluster — **CTSSharedEmitter (10-method particle manager) FIRST**, then
+### cont.73 cont.3 — ALL missing classes closed: 24 -> 0 ✅
+
+- **Emitter cluster** (`6317297`): CTSSharedEmitter 10/10 (ts_sharedemitter.h, global s_Emitter + 2x512 arrays +
+  the keyvalue parsers; most of the pipeline DEAD as shipped — reproduced inert) + CTSEmitter 4/4 (self-removes in
+  Spawn) + CTSParticle 3/3 (registers + persists) + CTSWind 3/3 (BlowThink broadcasts gmsgTSParticleSystem subtype 3).
+  gmsgTSParticleSystem (TSPSys,-1) registered; KillAll wired into ServerDeactivate. Client TSPSys decode = separate track.
+- **CInfoBreakable** (`6eff724`): the breakable respawn retry-helper (1/1, ts_func_break.cpp). FOLLOW-UP (not wired —
+  playtest-sensitive): CBreakable::BreakableRespawn (@0x74e84 box-clear retry) + Die creating/arming the helper +
+  the respawn-time members. Kept via ts_func_break_keep() until then.
+
+**🎯 ALL 24 originally-missing TS classes are CLOSED (24 -> 0).** audit.py headline: 0 missing / 0 invented classes.
+
+**Remaining audit work** (drifted, not missing): ~131 "invented methods" to review (mostly legit SDK helpers on
+CBasePlayer/CBaseEntity); the big drifted classes' MISSING methods (CTSGameRules 12/39, CTSGun 28/47, CM61Grenade,
+CTSFlag, CTSWorldGun 4/13 -> rederive CTSPhysicObject, CBreakable 17/22 -> the breakable-respawn cluster above);
+23 file mismatches (grouping divergence, mostly OK). KEEPALIVE'd classes (pistols, CTSPhysicObject/CTSGrenade,
+CInfoBreakable) want their real hierarchy/wiring built to drop the anchors. **⚠ EVERYTHING this session is
+UNPLAYTESTED** — the whole worldgun/hldmcompat/bullet/physics/emitter behaviour needs a playtest pass.
+
+**(old NEXT, now done):** the emitter cluster — **CTSSharedEmitter (10-method particle manager) FIRST**, then
 CTSEmitter/CTSParticle/CTSWind entities (TS_emitter.cpp; dossier-emitter.md). CInfoBreakable (1 method, created by
 CBreakable::BreakableRespawn — do with the breakable-respawn drift). Then the big drifted classes (CTSGameRules 12/39,
 CTSGun 28/47, CM61Grenade, CTSFlag, CTSWorldGun 4/13 -> rederive CTSPhysicObject), 131 invented methods to review, and
