@@ -268,20 +268,28 @@ def analyze():
     for _names in SRC["free_funcs"].values():
         ourff |= _names
     missing_freefuncs = {}
+    consolidated_freefuncs = {}   # the per-weapon Write_<weapon> data-init the original splits one-per-file —
+                                  # we represent them as the g_weaponInfo table + Sparta() (a deliberate
+                                  # consolidation; the weapon stats ARE set). Bucketed transparently, not a gap.
     for fn, fe in d.get("files", {}).items():
         # Pure-TS source files only (TS_*.cpp). Stock files (cbase/doors/plats/...) hold a TS-modified
         # class but their free functions are SDK-version noise, like their stock methods.
         if not fn.startswith("TS_"):
             continue
         ff = set(fe.get("free_functions", {}).keys())
-        miss = sorted(n for n in ff if n not in ourff and not n.startswith("__"))
+        absent = [n for n in sorted(ff) if n not in ourff and not n.startswith("__")]
+        cons = [n for n in absent if n.startswith("Write_")]
+        miss = [n for n in absent if not n.startswith("Write_")]
+        if cons:
+            consolidated_freefuncs[fn] = cons
         if miss:
             missing_freefuncs[fn] = miss
 
     return {"missing_classes": missing_classes, "invented_classes": invented_classes,
             "per_class": per_class, "missing_files": missing_files, "orig_ts_files": orig_ts_files,
             "missing_globals": missing_globals, "invented_globals": invented_globals, "orig_glob": orig_glob,
-            "missing_freefuncs": missing_freefuncs, "ourcf": ourcf, "orig": orig}
+            "missing_freefuncs": missing_freefuncs, "consolidated_freefuncs": consolidated_freefuncs,
+            "ourcf": ourcf, "orig": orig}
 
 
 def main():
@@ -332,7 +340,8 @@ def main():
          f"**{len(a['missing_classes'])} missing classes · {len(a['invented_classes'])} invented classes · "
          f"{n_inv_meth} invented methods · {sum(len(p['missing']) for p in a['per_class'].values())} missing "
          f"methods · {sum(len(p['missing_members']) for p in a['per_class'].values())} missing named members · "
-         f"{sum(len(v) for v in a['missing_freefuncs'].values())} missing free functions · "
+         f"{sum(len(v) for v in a['missing_freefuncs'].values())} missing free functions "
+         f"(+{sum(len(v) for v in a['consolidated_freefuncs'].values())} Write_<weapon> consolidated) · "
          f"{len(file_mismatch)} file mismatches · {len(a['missing_globals'])} missing globals · "
          f"{len(a['invented_globals'])} invented globals · {n_unver} unverifiable (client.dll) methods · "
          f"{n_stock} stock-SDK (inherited) methods.**",
@@ -406,6 +415,17 @@ def main():
     for fn in sorted(mff):
         L.append(f"| `{fn}` | {', '.join(mff[fn])} |")
     if not mff:
+        L.append("| _none_ | |")
+
+    cff = a["consolidated_freefuncs"]
+    n_cff = sum(len(v) for v in cff.values())
+    L += ["", f"## CONSOLIDATED free functions ({n_cff}) — the per-weapon `Write_<weapon>` data-init the original "
+          "splits one-per-file; we set the same stats via the `g_weaponInfo` table + `Sparta()`. Deliberate "
+          "consolidation, NOT a gap (not counted as missing).", "",
+          "| original file | consolidated into the weapon table |", "|---|---|"]
+    for fn in sorted(cff):
+        L.append(f"| `{fn}` | {', '.join(cff[fn])} |")
+    if not cff:
         L.append("| _none_ | |")
 
     L += ["", "## GLOBALS — MISSING (original global/static we don't define)", "",
