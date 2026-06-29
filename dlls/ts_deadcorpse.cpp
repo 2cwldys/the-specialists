@@ -1,5 +1,5 @@
 /***
-*  ts_corpse.cpp — RECONSTRUCTED CTSDeadCorpse (the fading death body).
+*  ts_deadcorpse.cpp — RECONSTRUCTED CTSDeadCorpse (the fading death body).
 *  Functional/source-faithful (see CLAUDE.md). Recovered from ts_i386.so:
 *  CTSDeadCorpse (@0x7040c Spawn / @0x70460 WaitThink) + TSCreateDeadCorpse (@0x60234).
 *
@@ -18,8 +18,11 @@ class CTSDeadCorpse : public CBaseAnimating
 {
 public:
 	void Spawn() override;
-	void EXPORT FadeThink(); // @WaitThink — fade the body out, then remove
-	int ObjectCaps() override { return CBaseEntity::ObjectCaps() & ~FCAP_ACROSS_TRANSITION; }
+	void Precache() override {}            // @0x704fc — empty in the original
+	void EXPORT WaitThink();               // @0x70460 — fade the body out, then remove
+	// Corpse takes no damage: TraceAttack is a no-op (@0x70500).
+	void TraceAttack(entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType) override {}
+	int ObjectCaps() override { return FCAP_DONT_SAVE; } // @0x705d0 — 0x80000000
 
 	float m_flRemoveTime = 0; // absolute time the body is fully gone (@+0x64)
 	float m_flLifetime = 0;   // total lifetime, drives the fade rate (@+0x68)
@@ -30,18 +33,19 @@ LINK_ENTITY_TO_CLASS(ts_corpse, CTSDeadCorpse);
 // @Spawn__13CTSDeadCorpse — MOVETYPE_TOSS so the body settles; poll to fade it out.
 void CTSDeadCorpse::Spawn()
 {
+	Precache();
 	pev->movetype = MOVETYPE_TOSS;
 	pev->solid = SOLID_NOT;
 	pev->takedamage = DAMAGE_NO;
 	pev->rendermode = kRenderTransTexture; // so renderamt actually fades it
 	pev->renderamt = 255;
-	SetThink(&CTSDeadCorpse::FadeThink);
+	SetThink(&CTSDeadCorpse::WaitThink);
 	pev->nextthink = gpGlobals->time + 0.5f;
 }
 
 // @WaitThink__13CTSDeadCorpse — every 0.5s: ramp renderamt toward 0 over ~2/3 the lifetime,
 // then remove the body once the remove time passes.
-void CTSDeadCorpse::FadeThink()
+void CTSDeadCorpse::WaitThink()
 {
 	pev->nextthink = gpGlobals->time + 0.5f;
 	if (gpGlobals->time > m_flRemoveTime)
