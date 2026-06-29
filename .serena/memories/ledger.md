@@ -70,12 +70,31 @@ invented `ItemPostFrame`, so the 17 "missing" methods are mostly **structural ex
 lets sibling files derive the class — same as cont.74 did for CTSObjective/CTSWorldGun). Extracted +
 member-name-matched: **CTSPowerUp** (ts_powerup.h; +preserved the TS_PWUP_INSTANT/ARMOR defines), **CTSDMHill**,
 **CTSSlowMotion** (renamed m_flDuration->duration, m_flSlowAmount->slow_ammount to the orig FGD/save names —
-kept the orig "ammount" typo), **CTSSlowMotionPoint**, **CTSBomb**, **CTSTeamEscape**. All now `MISSING named: —`.
-⚠ **Remaining .cpp-only classes** (next-session extraction candidates): CTSMapGlobals (genuine member RE needed —
-player_at_a_time_num/player_respawn_num not in our impl, NOT a blind-spot), CTSFog, CTSCustomTarget, and the
-multi-class ts_objectives.cpp (CTSHack/CTSWinGiver/CVipEscape — trickier, multiple classes per file).
-- Metrics across the session: invented methods **117 -> 106**, 0 missing / 0 invented classes; all commits build
-  `scripts/build.sh amd64 [all]` clean (glibc 2.14).
+kept the orig "ammount" typo), **CTSSlowMotionPoint**, **CTSBomb**, **CTSTeamEscape**, and the ts_objectives.cpp
+trio **CTSHack** (ts_hack.h; hacksec) + **CTSWinGiver/CTSScoreGiver** (ts_wingiver.h; winnerteam/cash_for_winner/
+cash_for_loser/numberofcall). All now `MISSING named: —`.
+
+### Genuine missing-method/member RE (re.sh, not just extraction), commit `97058af` + `1332b9c`
+With the `re` Ghidra lock free (dossiers done), decompiled + closed real gaps myself:
+- **CVipEscape 1/3 -> 3/3** (`97058af`): added KeyValue (@0x8d22c — handles no keys, does NOT chain to base) +
+  Precache (empty) + reconciled Spawn to the RE (EF_NODRAW/flags=0/classname/Precache/unconditional SET_MODEL);
+  moved methods out-of-line so the audit attributes the file.
+- **CTSMapGlobals 5/7 -> 7/7** (`97058af`): extracted to ts_mapglobals.h + added the 2 saved members
+  player_at_a_time_num(@0xc)/player_respawn_num(@0x10) + Save/Restore (WriteFields 2) + m_SaveData; Spawn zeroes
+  them + schedules WaitThink. ⚠ The spawnflags->CTSGameRules weapon-restriction/round-timer/superjump wiring is a
+  documented SLICE (needs unbuilt CTSGameRules members @+0x586c/0x5870/0x10) — `members-globals` flag for later.
+- **CTSKnife 3/9 -> 8/9** (`1332b9c`): ADDITIVE only (the thrown-knife flight/settle is playtest-confirmed,
+  cont.69 knife->glass). Added GetDescription (@0x6db04, name by type)/ObjectCaps(0x10)/ShouldCollide(true, TS
+  virtual)/Use (@0x6dda4, +use pickup mirroring our PickupTouch TSPickUpWeapon) + renamed the static factory
+  Throw->CreateKnife (@0x6d9e4). ⚠ REMAINING PLAYTEST-GATED: WaitTouch (settle velocity-damp) + dissolving the
+  invented settle helpers (BecomePickup/SettleThink/StartSettle/StickAt/PickupTouch/Classify) into the orig
+  WaitTouch/Use structure.
+
+⚠ **Remaining .cpp-only no-named-gap extractions** (low value — count only): CTSFog (0/0), CTSCustomTarget (0/10
+but MISSING named: —). Genuine remaining gaps are stock-SDK classes (out of policy: CBaseDoor/CFuncPlat/CLadder/
+CTriggerPush/CMultiManager keep their stock surface) and the big CBasePlayer method set (many playtest-gated).
+- Metrics across the session: invented methods **117 -> 105**, 0 missing / 0 invented classes; many member-name
+  gaps closed; all commits build `scripts/build.sh amd64 [all]` clean (glibc 2.14). 11 commits this session.
 
 ---
 
