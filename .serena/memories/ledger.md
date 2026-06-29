@@ -5,7 +5,7 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
-## 2026-06-28 (cont. 73) — code-restructure to source parity (audit.py-driven): 5 classes -> 1:1
+## 2026-06-28 (cont. 73) — code-restructure to source parity (audit.py-driven): 7 classes -> 1:1
 
 Branch `restructure-source-parity`. Per the user's directive — ONE CLASS AT A TIME, make methods + variables
 match the original 1:1 (nothing missing, nothing added), using subagents that write `.md` dossiers to scratchpad
@@ -40,6 +40,11 @@ GPG signing off for the session (`git config --local commit.gpgsign false`).
   ==clients) replace the invented `CountThink` poll + `CountConnectedPlayers`; derive CBaseDelay; wired from the engine
   ClientConnect/Disconnect hooks in client.cpp (new ts_playeramount.h). (File still ts_playeramount.cpp vs the original's
   grouped TS_entities.cpp — grouping divergence, per HANDOFF.)
+- **CTSTrigger 5/5 + CTSScoreGiver 3/3** (`887c58f`): CTSTrigger += ObjectCaps()=0 + WaitThink (reschedule, wired in
+  Spawn). CTSScoreGiver += explicit KeyValue (delegates to CTSWinGiver) + Spawn (hidden relay). NB the objectives cluster
+  (CTSObjective/CTSObjectiveManager/CTSObjectivePointer/CTSHack/CTSWinGiver + CTSGameRules' AddObjectiveInList/
+  SendObjectiveToHud/TeamWin) is INTERDEPENDENT — CTSObjectivePointer::Use etc. are blocked on the missing CTSGameRules
+  objective methods, so that cluster wants doing together (CTSGameRules first).
 
 **File-name parity note** (user asked): `audit.py`'s `norm_file` strips the `ts_`/`TS_` prefix + drops `"manager"`, so
 e.g. `ts_animation`≡`TS_animation`, `ts_stunt`≡`TS_stuntmanager` already report ✓. The 22 remaining FILE mismatches are
