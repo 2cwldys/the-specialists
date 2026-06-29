@@ -400,41 +400,52 @@ void CTSGameRules::RestartRound()
 	if (CountPlayers() == 0) // nothing to restart on an empty server
 		return;
 
-	// (a) re-arm the round timer inline + disarm the pending restart.
-	float t = CVAR_GET_FLOAT("roundtime");
-	if (t < 30.0f) t = 30.0f;
-	if (t > 180.0f) t = 180.0f;
-	m_flRoundEnd = gpGlobals->time + t;
-	m_flRoundRestart = 0;
+	m_flRoundRestart = 0; // disarm the pending restart (always)
 
-	// (b) tell clients the new round clock.
-	if (m_bRoundTimerEnabled && gmsgTSRoundTime != 0)
-	{
-		MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
-		WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time));
-		WRITE_BYTE(0);
-		MESSAGE_END();
-	}
+	// Round mechanics (clock + player respawn) apply ONLY to round-based modes (team / last-man). The
+	// deferred "first round" is armed UNCONDITIONALLY in Init() — before any map entity exists, so the mode
+	// can't be detected there (IsTeamMode keys off a ts_objective_manager entity). By the time this runs the
+	// entities exist, so gate here: in plain deathmatch there are no rounds, and respawning/teleporting every
+	// player 5s into the map (the old unconditional behaviour) was the "~5s teleport + redeploy" bug.
+	const bool roundBased = IsTeamMode() || CVAR_GET_FLOAT("lms") != 0.0f;
 
-	// (c) reset the objectives, (d) the team-mode banner.
+	// (c) reset the objective subsystem — a no-op on a map with no objective entities (e.g. plain DM).
 	InitObjectives();
 	SetObjective();
-	if (IsTeamMode())
-		TSHudMessageAll(0, 0xff, 0, 8, 30, "Defeat the opposite team");
 
-	// (e) respawn the players. SLICE: the original instead refunds the loadout's cash + forces each
-	// player back into the class-select observer state; we respawn directly (no cash economy / class menu).
-	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	if (roundBased)
 	{
-		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
-		if (p)
+		// (a) re-arm the round timer inline. (b) tell clients the new clock. (d) team banner.
+		float t = CVAR_GET_FLOAT("roundtime");
+		if (t < 30.0f) t = 30.0f;
+		if (t > 180.0f) t = 180.0f;
+		m_flRoundEnd = gpGlobals->time + t;
+
+		if (m_bRoundTimerEnabled && gmsgTSRoundTime != 0)
 		{
-			p->DropFlag(true); // clear any carried flag (the briefcases re-seed fresh ones below)
-			respawn(p->pev, false);
+			MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
+			WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time));
+			WRITE_BYTE(0);
+			MESSAGE_END();
+		}
+
+		if (IsTeamMode())
+			TSHudMessageAll(0, 0xff, 0, 8, 30, "Defeat the opposite team");
+
+		// (e) respawn the players into the fresh round. SLICE: the original instead refunds the loadout's
+		// cash + forces each player back into the class-select observer state; we respawn directly.
+		for (int i = 1; i <= gpGlobals->maxClients; i++)
+		{
+			CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
+			if (p)
+			{
+				p->DropFlag(true); // clear any carried flag (the briefcases re-seed fresh ones below)
+				respawn(p->pev, false);
+			}
 		}
 	}
 
-	// (f) recount teams, (g) respawn the map entities.
+	// (f) recount teams, (g) respawn the map's resettable entities.
 	RecountTeams();
 	RespawnEntities(true);
 }
