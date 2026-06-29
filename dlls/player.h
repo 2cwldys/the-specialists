@@ -463,6 +463,10 @@ public:
 	void DropFlag(bool bSilent);                          // @0x8334c — drop it (false=spawn loose flag)
 	bool DropWeapon();                                    // @0x84900 — drop the active TS weapon (the drop key)
 	void CutWire(int wire);                               // cut a bomb wire (the cutwire_<n> command)
+	void SetPlayerSpeed(float speed);                     // @0x83068 — clamp [0,330] + SetClientMaxspeed
+	void SetPlayerGravity(float setval, float gravity);   // @0x85b70 — set pev->gravity (gated on >= 1.0)
+	float m_flSetMaxSpeed = 0;                            // 0x550 — the last SetPlayerSpeed value (clamped)
+	float m_flGravityValue = 0;                           // 0x4ec — the SetPlayerGravity stored value
 
 	int  GiveCash(int amount);                            // add cash (clamped 0..30000)
 	void ResetArmament();                                 // clear the pending loadout

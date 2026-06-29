@@ -516,7 +516,7 @@ void CTSGameRules::SetPlayerTheOne(CBasePlayer *pPlayer)
 	pPlayer->m_flHealthRegen = gpGlobals->time + 1.0f;
 	pPlayer->m_iKungFu = 1;
 	pPlayer->m_bLowGravity = 1;
-	pPlayer->pev->maxspeed = 330.0f; // SLICE: original CBasePlayer::SetPlayerSpeed(330)
+	pPlayer->SetPlayerSpeed(330.0f); // @0x83068 — the One moves at full speed
 	if (pPlayer->m_iPowerups == 0 && pPlayer->m_iHeldPowerup == 0)
 	{
 		pPlayer->m_iHeldPowerup = 8; // VERIFY: the recovered held-powerup value

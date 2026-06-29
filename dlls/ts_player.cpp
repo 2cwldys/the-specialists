@@ -457,3 +457,26 @@ void CBasePlayer::DropFlag(bool bSilent)
 
 	m_flagStatus = s_flag_status(); // clear the carried state (active = 0)
 }
+
+// @0x83068 SetPlayerSpeed — clamp the requested base speed to [0, 330] and push it to the engine
+// (client prediction) via pfnSetClientMaxspeed. Stores the clamped value.
+void CBasePlayer::SetPlayerSpeed(float speed)
+{
+	if (speed > 330.0f)
+		speed = 330.0f;
+	if (speed < 0.0f)
+		speed = 0.0f;
+	m_flSetMaxSpeed = speed;
+	g_engfuncs.pfnSetClientMaxspeed(edict(), (float)(int)(m_flSetMaxSpeed + 0.5f));
+}
+
+// @0x85b70 SetPlayerGravity — set the player's gravity, but only when they're at normal gravity
+// (>= 1.0) so an already-applied low-gravity effect isn't stomped. Stores the set value.
+void CBasePlayer::SetPlayerGravity(float setval, float gravity)
+{
+	if (pev->gravity >= 1.0f)
+	{
+		pev->gravity = gravity;
+		m_flGravityValue = setval;
+	}
+}
