@@ -55,11 +55,16 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   rename CloseCombatBlock->CCombatBlock. Chunk 2: added the 2 missing NAMED members m_pActiveItem(+0xcc)/
   m_pActiveInfo(+0xd0) (kept in sync by UpdateActivePointers() at every m_weaponType assignment; the orig's
   `m_pActiveItem!=NULL` guard == our `m_weaponType!=TSW_MELEE`). Chunk 3a: ShouldWeaponIdle override (return true).
-  **NEXT chunks (dossier-mapped, do in order):** 3b add CCombatIdle/EmptySound/Reset/Holster->HolsterWeapon
-  (need g2.c/g3.c decompiles); 4 DropType->DropWeapon (return bool, else->HolsterWeapon) + SelectWeaponType->
-  SelectWeapon (extract Deploy, add bool); 5 CloseCombatAttack->CCombatAttack (drop param) + GrenadeThrow->
-  GrenadeFire + new GrenadeIdle; 6 (biggest) the melee split MeleeAttack+ThrowKnife -> KnifeFire/KatanaFire/
-  KatanaThrow + the SecondaryAttack keystone + StopReload/ReloadWeapon, then dissolve the invented ItemPostFrame.
+  **⚠ NEXT chunks are BLOCKED (assessed via the captured decompiles g1/g2/g3.c — NOT safe-additive):**
+  Reset@0x805e0 needs a call site in CTSGameRules round/spawn-reset (UNBUILT) else it DCE's = dead/still-missing;
+  CCombatIdle@0x85e54 plays `get_weapon_info(0)->[wi+0x252]` (the active-anim-block idle index) which our modern
+  s_weapon_info doesn't carry — needs the weapon-table data extraction to avoid GUESSING the seq; EmptySound@0x71be4
+  plays a predicted client event (field_0x968) — needs the event registered + client handler; HolsterWeapon@0x85698
+  + chunk-4 DropType->DropWeapon/SelectWeaponType->SelectWeapon move Deploy out to EVERY caller of the playtested
+  weapon-switch flow — a reshape that wants a playtest to verify. So CTSGun's tail needs groundwork first:
+  (a) the weapon-table anim-block extraction, (b) CTSGameRules' reset path, and/or (c) a playtest budget — do those
+  BEFORE resuming, rather than guess/dead-method. Chunk 6 (melee split KnifeFire/KatanaFire/KatanaThrow + the
+  SecondaryAttack keystone + StopReload/ReloadWeapon, then dissolve invented ItemPostFrame) is the deepest, last.
   Group D KEEP (legit, not drift): CanDeploy/GetWeaponData/SetWeaponData (stock virtuals), OwnedCount/SlotsUsed/
   Sync+LoadActiveFromItem/RegenBlockBar/SwitchBarrel/SendWeaponStatus/UpdateActivePointers (model glue).
 
