@@ -119,6 +119,20 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   *(CTSObjective**)(found+0x7c) — UNCERTAIN field. To finish Pointer::Use/Manager/WinGiver: either add IsObjective() to
   CBaseEntity (faithful — orig has it at vtbl 0x1c; verify audit doesn't flag invented) or classname-gate, AND RE the +0x7c
   ref (live trace/decompile). Remaining CTSGameRules gap (19): voting/team-cash/round-restart/TheOne subsystems.
+- **OBJECTIVES CLUSTER COMPLETE (5609490, 88d29fa).** Added IsObjective()/EnableObjective() as CBaseEntity virtuals
+  (the original has them — IsObjective__11CBaseEntity/EnableObjective__11CBaseEntityb, audit listed both MISSING on
+  CBaseEntity; default false/no-op, CTSObjective-derived override) -> CBaseEntity 70->72/85. Solved Pointer::Use's
+  *(CTSObjective**)(found+0x7c) = the found edict's pvPrivateData = CBaseEntity::Instance (the found ent IS the
+  objective). CTSObjectivePointer 2/3->3/3 (Use: per targeted IsObjective() ent -> EnableObjective(true) +
+  AddObjectiveInList(obj, the pointer's 4 per-team labels) + SendObjectiveToHud to all). InitObjectives now does the
+  faithful all-entity IsObjective() sweep. **CTSObjectiveManager 5/5** (+Save/Restore 13-field=8 targets+4 messages+
+  end_round_target; members renamed m_objTargets->targets/m_messages->messages/m_targetTimeLeft->end_round_target).
+  **CTSWinGiver 7/7** (+Save/Restore 4-field=winnerteam/cash_for_winner/cash_for_loser/numberofcall + IsObjective()->1
+  + EnableObjective override [orig ignores arg, just resets]; members renamed). Whole cluster (CTSObjective base +
+  Bomb/TeamEscape/Hack/Trigger/WinGiver/ScoreGiver derive it w/ Save/Restore; Manager/Pointer wire the HUD; CTSGameRules
+  8 methods + Objective/ShowObj gmsgs) reconstructed end-to-end. ⚠ CLIENT HUD handler for Objective/ShowObj = cl_dll track.
+  Still OPEN (not blocking): InitObjectives/SetObjective into round-start; the array-element audit-naming artifact on
+  Manager targets[]/messages[] (DEFINE_ARRAY vs per-element — data saves fine).
   derives CTSObjective; needs +Save/Restore(hacksec)+EnableObjective+ObjectCaps(0x10) and to dissolve our invented
   HackTouch into the original's **Use** (a 688-byte hack-interaction method) + the WaitThink countdown-to-Freeze model
   (EnableObjective seeds field_0x6c timer; WaitThink decrements each sec -> Freeze(true) at 0). Decompile: scratchpad/hack.c.
