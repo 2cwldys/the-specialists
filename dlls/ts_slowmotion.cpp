@@ -3,13 +3,13 @@
 *  Functional/source-faithful goal (see CLAUDE.md). recovered/server/CTSSlowMotion.c.
 *
 *  @SolidClass base(Targetname, Target) = ts_slowmotion : "TS SlowMotion"
-*    duration (string) "Duration(sec)" def 5   -> m_flDuration   (this+0xf8)
-*    slowamt  (string) "SlowMotion ammount"def 0.5 -> m_flSlowAmount (this+0xfc)
+*    duration (string) "Duration(sec)" def 5   -> duration   (this+0xf8)
+*    slowamt  (string) "SlowMotion ammount"def 0.5 -> slow_ammount (this+0xfc)
 *    message  (string) -> pev->message (shown to all on Use)
 *    spawnflags: 1 Start ON, 2 All map (-> m_iAllMap, global slow), 4 Slow bullets
 *
 *  A brush slow-motion zone (11 placements across the stock maps). When active, a
-*  player touching it is GoSlow()'d to m_flSlowAmount; CheckPlayersDistance drops
+*  player touching it is GoSlow()'d to slow_ammount; CheckPlayersDistance drops
 *  players who leave; the "All map" variant drives CTSGameRules::GlobalSlowMotion2
 *  for every player. duration>0 = timed; duration<=0 = Use-toggled.
 *
@@ -28,40 +28,13 @@
 #define SF_SLOMO_ALL_MAP 2
 #define SF_SLOMO_SLOW_BULLETS 4
 
-#define TS_SLOMO_MAX_PLAYERS 33 // 0x21 — gpGlobals->maxClients + 1, indexed by ENTINDEX
-
-class CTSSlowMotion : public CBaseEntity
-{
-public:
-	void Spawn() override;
-	bool KeyValue(KeyValueData *pkvd) override;
-	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
-	int ObjectCaps() override { return 0; } // @ ObjectCaps__13CTSSlowMotion returns 0
-	bool Save(CSave &save) override;
-	bool Restore(CRestore &restore) override;
-	static TYPEDESCRIPTION m_SaveData[];
-
-	void EXPORT WaitThink();
-	void EXPORT WaitTouch(CBaseEntity *pOther);
-	void ActivateSlow();
-	void DeactivateSlow();
-	void CheckPlayersDistance();
-
-	int m_iToggledOn = 0;     // 0x64 — toggle state (duration<=0 mode)
-	float m_flStopTime = 0;   // 0x68 — time the zone shuts off (0 = inactive)
-	EHANDLE m_hPlayers[TS_SLOMO_MAX_PLAYERS]; // 0x70 — players currently slowed
-	float m_flRadius = 0;     // 0xf4 — drop-range for CheckPlayersDistance
-	float m_flDuration = 5;   // 0xf8 — "duration"
-	float m_flSlowAmount = 0.5f; // 0xfc — "slowamt" (GoSlow scale)
-	int m_iAllMap = 0;        // 0x100 — SF_ALL_MAP: global slow-motion
-	int m_bSlowBullets = 0;   // 0x104 — SF_SLOW_BULLETS
-};
+#include "ts_slowmotion.h"
 
 LINK_ENTITY_TO_CLASS(ts_slowmotion, CTSSlowMotion);
 
 TYPEDESCRIPTION CTSSlowMotion::m_SaveData[] = {
-	DEFINE_FIELD(CTSSlowMotion, m_flDuration, FIELD_FLOAT),
-	DEFINE_FIELD(CTSSlowMotion, m_flSlowAmount, FIELD_FLOAT),
+	DEFINE_FIELD(CTSSlowMotion, duration, FIELD_FLOAT),
+	DEFINE_FIELD(CTSSlowMotion, slow_ammount, FIELD_FLOAT),
 };
 IMPLEMENT_SAVERESTORE(CTSSlowMotion, CBaseEntity);
 
@@ -69,12 +42,12 @@ bool CTSSlowMotion::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "duration"))
 	{
-		m_flDuration = atof(pkvd->szValue);
+		duration = atof(pkvd->szValue);
 		return true;
 	}
 	if (FStrEq(pkvd->szKeyName, "slowamt"))
 	{
-		m_flSlowAmount = atof(pkvd->szValue);
+		slow_ammount = atof(pkvd->szValue);
 		return true;
 	}
 	return CBaseEntity::KeyValue(pkvd);
@@ -106,9 +79,9 @@ void CTSSlowMotion::Spawn()
 // @ ActivateSlow__13CTSSlowMotion — arm the zone (timed or toggle), set the touch.
 void CTSSlowMotion::ActivateSlow()
 {
-	if (m_flDuration > 0.0f)
+	if (duration > 0.0f)
 	{
-		m_flStopTime = gpGlobals->time + m_flDuration;
+		m_flStopTime = gpGlobals->time + duration;
 	}
 	else
 	{
@@ -158,7 +131,7 @@ void CTSSlowMotion::WaitTouch(CBaseEntity *pOther)
 	if (pPlayer->InSlow())
 		return; // already slowed (by this or another source)
 
-	pPlayer->GoSlow(m_flSlowAmount, 0);
+	pPlayer->GoSlow(slow_ammount, 0);
 	pPlayer->m_bSlowBullets = m_bSlowBullets != 0;
 
 	int idx = ENTINDEX(pOther->edict());
@@ -176,7 +149,7 @@ void CTSSlowMotion::WaitThink()
 		if (!m_iAllMap)
 			CheckPlayersDistance();
 		else
-			TSGameRules()->GlobalSlowMotion2(m_flSlowAmount, m_bSlowBullets);
+			TSGameRules()->GlobalSlowMotion2(slow_ammount, m_bSlowBullets);
 	}
 
 	if (m_flStopTime != 0.0f)
@@ -192,7 +165,7 @@ void CTSSlowMotion::WaitThink()
 		}
 		else
 		{
-			TSGameRules()->GlobalSlowMotion2(m_flSlowAmount, m_bSlowBullets);
+			TSGameRules()->GlobalSlowMotion2(slow_ammount, m_bSlowBullets);
 		}
 	}
 }
