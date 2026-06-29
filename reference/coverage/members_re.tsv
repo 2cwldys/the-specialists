@@ -34,9 +34,6 @@ CTSGun	0x9e8	FLOAT	float	m_flLastShotTime	2
 CTSGun	0x9fc	INTEGER	int	m_comboStep	2
 CTSGun	0xa00	INTEGER	undefined4	m_kickCombo	2
 CTSGun	0xa04	INTEGER	vec_t	m_lastMeleeAnim	3
-CTSPhysicObject	0x88	TIME	float	m_flExpire	1
-CTSPhysicObject	0x8c	EHANDLE	edict_t*	m_pOwner	1
-CTSPhysicObject	0xa0	INTEGER	int	m_iType	1
 CTSStunt	0x4	FLOAT	float	m_flRollTime	4
 CTSStunt	0x8	FLOAT	float	m_flStunCooldown	5
 CTSStunt	0xc	INTEGER	undefined4	m_flRollNextTime	2
