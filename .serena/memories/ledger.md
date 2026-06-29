@@ -131,8 +131,21 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   + EnableObjective override [orig ignores arg, just resets]; members renamed). Whole cluster (CTSObjective base +
   Bomb/TeamEscape/Hack/Trigger/WinGiver/ScoreGiver derive it w/ Save/Restore; Manager/Pointer wire the HUD; CTSGameRules
   8 methods + Objective/ShowObj gmsgs) reconstructed end-to-end. ⚠ CLIENT HUD handler for Objective/ShowObj = cl_dll track.
-  Still OPEN (not blocking): InitObjectives/SetObjective into round-start; the array-element audit-naming artifact on
-  Manager targets[]/messages[] (DEFINE_ARRAY vs per-element — data saves fine).
+  Still OPEN (not blocking): the array-element audit-naming artifact on Manager targets[]/messages[] (DEFINE_ARRAY vs
+  per-element — data saves fine).
+- **CTSGameRules round-restart subsystem DONE (0a7832c): 20/39 -> 25/39** (dossier scratchpad/dossier-roundrestart.md).
+  Reshaped our static TSRestartRound into the original's methods + WIRED InitObjectives/SetObjective into the round
+  lifecycle (retiring the cluster's Spawn-self-arm SLICE intent): **Init()** (+a CTSGameRules ctor calling it: InitTeams +
+  InitObjectives->SetObjective + m_flRoundRestart=time+5 + round-timer-enabled); **RestartRound()** (re-arm timer inline
+  [roundtime clamp 30..180] + disarm restart + RoundTime msg + InitObjectives->SetObjective + team banner + respawn players
+  + RecountTeams + RespawnEntities(true); now the member called from Think); **RespawnEntities(bool)** (info_breakable->
+  RespawnThink + ts_flag always; ts_groundweapon->Fall team/lms; ts_powerup lms — VERIFY: powerup/flag use Spawn() vs orig
+  Fall/RespawnFlag since those classes are .cpp-local); **ResetRestartRound(int)** (round-end arm-1s-restart, team/lms-gated,
+  +"Restarting Round", depth>1 wipes scores — TeamWin now calls it instead of an inline +3s); **CountPlayers()**. Made
+  ts_groundweapon.h self-contained. SLICEs: RestartRound's loadout cash-refund + force-class-select-observer (we respawn
+  directly); ResetRestartRound's per-team cash reset + TeamScore broadcast. Remaining CTSGameRules gap (14):
+  voting(CheckVotes/PlayerVote), team-cash/list(GetTeamCash/GetTeamsNum/InitTeamScore/SetTeamList/SetTeamModelList/
+  UpdateTeamScores), TheOne(IsCTB/SelectRandomTheOne/SetPlayerTheOne/TheOneIsDead), GetPlayerModel, TogglePlayerFromSlow.
   derives CTSObjective; needs +Save/Restore(hacksec)+EnableObjective+ObjectCaps(0x10) and to dissolve our invented
   HackTouch into the original's **Use** (a 688-byte hack-interaction method) + the WaitThink countdown-to-Freeze model
   (EnableObjective seeds field_0x6c timer; WaitThink decrements each sec -> Freeze(true) at 0). Decompile: scratchpad/hack.c.
