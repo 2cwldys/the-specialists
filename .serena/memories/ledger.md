@@ -89,7 +89,11 @@ helpers (CanJumpHigh/FixVelocity/PseudoClimb — adjacent addrs, need Ghidra), m
 **VALIDATED (working):** breakables shatter ✓; weapon throw arc/spin/drop-sound ✓ (the cont.76 ThrowWeapon
 velocity formula is CONFIRMED); slow-motion ✓; no unknown-command spam ✓; dive FIRST-person ✓.
 **BUGS found (root causes diagnosed, fixes NOT yet made — need RE/live-trace, don't guess):**
-1. **Round clock (top) gone** — `m_flRoundEnd` (the round timer) is armed ONLY for team/lms modes
+1. ✅ **FIXED (`f721c00`, needs re-test on tm_avana): Round clock never showed** — gmsgTSRoundTime is
+   registered ONLY in StartRoundTimer, but RestartRound armed m_flRoundEnd inline first → Think's
+   `if(m_flRoundEnd==0) StartRoundTimer()` never fired → message unregistered → clock-send skipped. Fixed by
+   routing RestartRound's timer-arm through StartRoundTimer. [original diag below]
+   **m_flRoundEnd** (the round timer) is armed ONLY for team/lms modes
    (`ts_gamerules.cpp:384` DecideGamePlay `if (IsTeamMode() || lms)`, and `:731` StartRoundTimer gated
    `IsTeamMode()`). User's current mode arms neither → no RoundTime msg → no clock. RoundTime is registered +
    client-hooked fine (cl_dll/roundtime.cpp). User sees round SUMMARIES (CheckDeads resolves rounds w/o a
@@ -112,8 +116,10 @@ velocity formula is CONFIRMED); slow-motion ✓; no unknown-command spam ✓; di
    original Init@0x67d6c / RestartRound@0x67920): gate the first-restart player-respawn to round-based modes,
    OR run the deferred objective-init without the all-player respawn in DM. Tightly coupled to bug #1 (the round
    clock): on tm_avana RestartRound DOES send gmsgTSRoundTime (`:411`) yet no clock shows — same subsystem.
-4. **Stock bottom HUD shows** — user wants the STOCK HL health/ammo HUD removed entirely (TS has its own).
-   Client-side gate (cl_dll). Tractable.
+4. **Stock bottom HUD shows** — user wants the STOCK HL health/ammo HUD removed (TS has its own: TSHealth +
+   cl_dll/ts_ammo.cpp). NOT a one-line gate: cl_dll/ammo.cpp (CHudAmmo) ALSO drives WEAPON-SELECT, so can't
+   just early-return its Draw. Needs per-element gating of stock CHudHealth/CHudBattery + the stock ammo-NUMBER
+   draw only (leave weapon-select). NEXT.
 5. **Loadout intermittent at first-join** (works most times) — buy-menu/loadout send race (the TSSendBuyMenu
    re-send-each-tick code already hints at known timing fragility).
 6. **Dive 3rd-person looks like crouch** (1st-person spot-on) — `CTSAnimation::Animate` (gait/anim) NOT ported
