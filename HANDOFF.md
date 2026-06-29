@@ -47,6 +47,56 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.74, 2026-06-28) — drifted classes' MISSING methods (+keepalive drops); CTF cluster mapped
+
+**You are the orchestrator. Same loop as cont.73** (`audit.py <Class>` → subagent `.md` dossier via `re.sh` →
+reconcile our working logic into the original's exact method/member layout → `build.sh amd64 all` → `audit.py
+<Class>` 0/0 → commit). Branch `restructure-source-parity` (GPG signing OFF; keep it off). The user **sharpened the
+directive: ANY missing/extra member or global = hidden logic inconsistency → re-audit + Ghidra, never paper over**
+(memory `members-globals-signal-hidden-logic`); drive members to N/N too, and drop each class's keepalive by building
+its real wiring.
+
+### Done this session (2 commits; audit: invented methods 131→126, file mismatches 23→22; both build amd64 glibc 2.14)
+- **CTSWorldGun cluster 4/13+3/7 → 13/13+7/7** (`0df448f`): merged ts_ammopack.cpp INTO ts_worldgun.cpp (+ts_worldgun.h)
+  = TS_worldgun.cpp file parity. **CTSWorldGun now derives CTSPhysicObject**; real settle/bounce machine (CreateWeapon
+  static factory carrying the full s_weapon_status = our **TSItem**; MOVETYPE_BOUNCE; Fall swept-trace impact damage;
+  ShouldCollide pass-through-players wired via a new **gNewDLLFunctions pfnShouldCollide** hook); classname "WorldGun".
+  CTSAmmoPack carries ARMOR (TakeArmor). Drop helpers in ts_gun.cpp guarded `#ifndef CLIENT_DLL`.
+- **CM61Grenade 0/6 → 6/6** (`2dffd07`): real chain **CM61Grenade : CTSGrenade : CTSPhysicObject**; CreateGrenade/Spawn/
+  WaitThink/BounceTouch/Use/ObjectCaps. **Dropped the ts_grenades_keep_physic keepalive** (CTSGrenade kept via inheritance).
+- **⚠ KEY RE CORRECTION:** CTSPhysicObject's curated trio (`m_flExpire@0x88`/`m_pOwner@0x8c`/`m_iType@0xa0`) is a
+  **curator MIS-HOIST** — they're grenade-subclass members (m_flExpire=fuse limit, 0x8c=fuse-elapsed counter NOT an
+  edict, 0xa0 spurious) that COLLIDE with CTSWorldGun's 0x88/0x8c. **Do NOT add them to the CTSPhysicObject base.**
+  (Verified via decompile, not the label — the `members-globals` rule in action. Consider fixing `curate_members`/the
+  inventory so audit stops reporting CTSPhysicObject 5/10 + CTSGrenade/CM61Grenade member gaps from this artifact.)
+
+### NEXT — work-list (bottom-up, audit.py-driven)
+1. **⚠ CTF CLUSTER (deferred — do bottom-up, it's NOT a single class).** CTSFlag 4/15's dossier
+   (`scratchpad/dossier-CTSFlag.md`) found it derives CTSPhysicObject (same settle machine as CTSWorldGun — reuse that
+   pattern) BUT **the carry model differs fundamentally**: pickup copies an `s_flag_status` onto the player
+   (`CBasePlayer::TakeFlag`@0x93830) and **Destroys** the flag; a drop respawns a fresh `ts_flag` via `CreateFlag`. Our
+   "flag follows the carrier" `CarryThink` has NO original equivalent. It couples to a SEPARATE **CTSBriefcase** (the base
+   objective, `ts_briefcase` FGD entity) which owns `FlagFall` + the flag registry (`s_nextFlagID`). **Build order:**
+   (1) `s_flag_status` struct + a CBasePlayer member; (2) `CBasePlayer::TakeFlag`/`DropFlag(bool)`@0x8334c; (3)
+   **CTSBriefcase** (FlagFall/CaptureTouch/WaitThink/CanInteract/registry); (4) **CTSFlag** (15 methods: CreateFlag/Spawn/
+   Precache/BounceTouch/Destroy/RespawnFlag/Fall/WaitThink/OnGround/CanInteract/PlayerTakeFlag/Use/WaitTouch/ObjectCaps/
+   CanUsedTroughWalls; 9 members @0x88–0xac incl. embedded s_flag_status@0x90, m_hBriefcase@0xa4 = handle to the
+   CTSBriefcase NOT the carrier). gmsg: **ScoreInfo** on capture (+5 frags). Remove the invented free helpers
+   TSCreateFlag/TSDropFlag/TSPlayerHasFlag/TSReturnCarriedFlag (real flow is CBasePlayer::TakeFlag/DropFlag).
+2. **CBreakable 17/22** (BreakableRespawn @0x74e84 + Killed; Explodable/ExplosionMagnitude/ExplosionSetMagnitude likely
+   stock-inline-in-header = audit blind spots, verify) = the breakable-respawn cluster → **drops CInfoBreakable's
+   keepalive** (`ts_func_break_keep`). ⚠ touches playtest-confirmed glass code (`reference/BULLETS.md`).
+3. **CTSGameRules 12/39** + the INTERDEPENDENT objectives cluster (CTSObjective/Manager/Pointer/Hack/WinGiver) — do together.
+4. **CTSGun's remaining missing methods** (worldgun/grenade deps now done) + the **~126 invented methods** to review.
+5. File mismatches 22 (mostly grouped-file divergence, OK). Client-side parity = separate manual track (`dc.sh client`).
+
+### ⚠ EVERYTHING this session is UNPLAYTESTED — flag to the user before merging to `main`
+WorldGun bounce physics + swept impact damage, AmmoPack armor drop, the stock-name remap, CM61Grenade slow-mo
+propagation + the recovered M61 blast literals (damage 300 / radius 1024 vs the old tuned 400), ShouldCollide
+pass-through. The user fires changes live in graphical xash (see `test.sh`).
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐ START HERE (cont.73, 2026-06-28) — SOURCE-PARITY RESTRUCTURE: ALL 24 missing classes CLOSED (24→0)
 
 **You are the orchestrator. Continue exactly as I (the previous cont.73 agent) was working.** This session executed the

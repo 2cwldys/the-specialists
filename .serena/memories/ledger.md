@@ -5,6 +5,45 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-28 (cont. 74) — source-parity restructure cont.: drifted classes' MISSING methods (+drop keepalives)
+
+Branch `restructure-source-parity` (continues cont.73; GPG signing OFF). Same loop: `audit.py <Class>` ->
+subagent dossier (`re.sh`, single-writer) -> reconcile our working logic into the original's exact method/
+member layout -> `build.sh amd64 all` -> `audit.py <Class>` (0/0) -> commit. **User sharpened the directive:
+ANY missing/extra member or global = hidden logic inconsistency -> re-audit + Ghidra, never paper over** (saved
+as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive by building real wiring.
+
+- **CTSWorldGun cluster 4/13+3/7 -> 13/13+7/7** (`0df448f`): merged ts_ammopack.cpp INTO ts_worldgun.cpp
+  (+new ts_worldgun.h) = TS_worldgun.cpp file parity (mismatch -1). **CTSWorldGun now derives CTSPhysicObject**
+  (dossier confirmed; hierarchy.tsv MISSES it). Replaced invented FallThink with the real method split:
+  CreateWeapon (static factory carrying the full s_weapon_status = our **TSItem**, the 0x38-byte slot) / Spawn
+  (MOVETYPE_BOUNCE, gravity 0.7/friction 0.8) / BounceTouch (drop sound + 0.7 restitution) / Fall (settle +
+  swept-trace impact damage — a thrown gun hurts what it flies into) / WaitThink / OnGround / Use (cooldown-gated)
+  / GetWeapon (restores the full item to the arsenal) / WaitTouch / ShouldCollide (collide only vs WorldGun/knife,
+  pass through players) / ObjectCaps / CanUsedTroughWalls. classname **"WorldGun"** (NOT ts_worldgun — fixed
+  ts_sellzone match). Global **ShouldCollide hook wired into gNewDLLFunctions (pfnShouldCollide)**. CTSAmmoPack:
+  carries **ARMOR** (pev->armorvalue via CBasePlayer::TakeArmor, removal keyed on armor==0); ammo via CTSGun::
+  AddAmmo; classname "AmmoPack". Drop helpers in ts_gun.cpp guarded `#ifndef CLIENT_DLL`; carry the full TSItem.
+  CTSPhysicObject now kept by CTSWorldGun (grenade keepalive slimmed). **CTSPhysicObject's curated trio
+  (m_flExpire@0x88/m_pOwner@0x8c/m_iType@0xa0) is a curator MIS-HOIST** — they're grenade-subclass members that
+  COLLIDE with CTSWorldGun's 0x88/0x8c; do NOT add to the base (verified via decompile, not the label).
+- **CM61Grenade 0/6 -> 6/6** (`2dffd07`): was structurally off (derived stock CGrenade w/ invented Throw()+
+  M61WaitThink()); real chain is **CM61Grenade : CTSGrenade : CTSPhysicObject**. Real 6 methods: CreateGrenade
+  (static; propagates the thrower's slow-mo via fuser1=m_flSlowMotionGo) / Spawn / WaitThink (fuse += GiveSlowMul
+  ()*0.1 = our existing max(fuser1,0.01)*0.1; 64u swept break-through; CTSPhysicObject::WaitThink upkeep; detonate)
+  / BounceTouch (owner-skip -> CTSGrenade::BounceTouch) / Use (+USE re-throw at 625 u/s) / ObjectCaps (0x10).
+  Removed invented avelocity tumble; added the missing CTSPhysicObject::WaitThink call. **DROPPED the
+  ts_grenades_keep_physic keepalive** (CTSGrenade now kept via CM61Grenade inheritance). TSThrowM61 lost its
+  damage param (orig carries none); blast dmg/radius fixed in WaitThink (VERIFY: recovered literals 300/1024 vs
+  old tuned 400). Client stub updated; obsolete TSCreateWorldGun/TSCreateAmmoPack stubs removed.
+
+audit headline: invented methods **131->126**, file mismatches **23->22**, 0 missing/0 invented classes. Both
+build amd64 server+client (glibc 2.14). **⚠ ALL UNPLAYTESTED** — bounce physics, swept impact damage, armor drop,
+grenade slow-mo propagation, the recovered M61 blast literals. NEXT (in progress): **CTSFlag 4/15** (CTF flag —
+same settle state-machine as CTSWorldGun, dossier in flight), then CBreakable 17/22 (breakable-respawn cluster ->
+drops CInfoBreakable keepalive, touches playtest-confirmed glass), CTSGameRules 12/39 + the objectives cluster,
+CTSGun's remaining missing methods, the ~126 invented methods to review.
+
 ## 2026-06-28 (cont. 73) — code-restructure to source parity (audit.py-driven): 7 classes -> 1:1
 
 Branch `restructure-source-parity`. Per the user's directive — ONE CLASS AT A TIME, make methods + variables
