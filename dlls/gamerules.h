@@ -273,6 +273,10 @@ public:
 	// @0x7b140 — TS rejects the reserved HL model names as team names (blacklist).
 	bool IsValidTeam(const char* pTeamName) override;
 
+	// @0xc0c68 — the browser game description per mode: theOne -> LMS -> DM (NO teamplay branch;
+	// teams are an orthogonal axis). CTSGameRules inherits this (the original has no override).
+	const char* GetGameDescription() override;
+
 	// Functions to verify the single/multiplayer status of a game
 	bool IsMultiplayer() override;
 	bool IsDeathmatch() override;
