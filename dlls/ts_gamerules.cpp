@@ -415,20 +415,15 @@ void CTSGameRules::RestartRound()
 
 	if (roundBased)
 	{
-		// (a) re-arm the round timer inline. (b) tell clients the new clock. (d) team banner.
-		float t = CVAR_GET_FLOAT("roundtime");
-		if (t < 30.0f) t = 30.0f;
-		if (t > 180.0f) t = 180.0f;
-		m_flRoundEnd = gpGlobals->time + t;
+		// (a)+(b) arm the round timer + tell clients the new clock. MUST go through StartRoundTimer:
+		// it's the ONLY site that REG_USER_MSG("RoundTime") registers the message. Arming m_flRoundEnd
+		// inline here (the old code) left gmsgTSRoundTime==0 — so the inline clock-send was skipped AND
+		// Think's `if (m_flRoundEnd==0) StartRoundTimer()` never fired (m_flRoundEnd was already set) —
+		// the message stayed unregistered and the round clock never appeared. (playtest bug #1.)
+		if (m_bRoundTimerEnabled)
+			StartRoundTimer();
 
-		if (m_bRoundTimerEnabled && gmsgTSRoundTime != 0)
-		{
-			MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
-			WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time));
-			WRITE_BYTE(0);
-			MESSAGE_END();
-		}
-
+		// (d) team banner.
 		if (IsTeamMode())
 			TSHudMessageAll(0, 0xff, 0, 8, 30, "Defeat the opposite team");
 
