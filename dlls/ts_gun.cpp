@@ -55,8 +55,8 @@
 // are byte-faithful to LinkUserMessages (reference/HUD_MESSAGES.md): "WeaponInfo", 6.
 static int gmsgWeaponInfo = 0;
 // The weapon-select bar message: "WStatus", size 3 = BYTE type, BYTE owned, BYTE clip.
-static int gmsgWStatus = 0;
-static int gmsgActItems = 0; // per-player attach broadcast (laser/flashlight visible to all clients)
+static int gmsgTSWeaponStatus = 0;
+static int gmsgTSActiveItems = 0; // per-player attach broadcast (laser/flashlight visible to all clients)
 static int gmsgKFuPower = 0; // melee block bar (stamina 0..100, CHAR) — owner-only, gmsgKFuPower @UpdateMeleeBar
 
 // `damagemult` cvar (default 0.0 = off → 1x). A value > 0 scales all TS weapon damage.
@@ -1701,10 +1701,10 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	const int activeAttach = m_items[m_weaponType].active;
 	if (activeAttach != m_iClientAttach)
 	{
-		if (gmsgActItems == 0)
-			gmsgActItems = REG_USER_MSG("ActItems", 2);
+		if (gmsgTSActiveItems == 0)
+			gmsgTSActiveItems = REG_USER_MSG("ActItems", 2);
 		m_iClientAttach = activeAttach;
-		MESSAGE_BEGIN(MSG_ALL, gmsgActItems);
+		MESSAGE_BEGIN(MSG_ALL, gmsgTSActiveItems);
 		WRITE_BYTE(ENTINDEX(pPlayer->edict())); // player entity index
 		WRITE_BYTE(activeAttach);               // ACTIVE attach mask (bit 2 laser / 4 flash)
 		MESSAGE_END();
@@ -1757,8 +1757,8 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 // to the original handler): BYTE type, BYTE owned(0/1), BYTE clip.
 void CTSGun::SendWeaponStatus(CBasePlayer *pPlayer)
 {
-	if (gmsgWStatus == 0)
-		gmsgWStatus = REG_USER_MSG("WStatus", 3);
+	if (gmsgTSWeaponStatus == 0)
+		gmsgTSWeaponStatus = REG_USER_MSG("WStatus", 3);
 
 	if (!m_bWStatusInit)
 	{
@@ -1776,7 +1776,7 @@ void CTSGun::SendWeaponStatus(CBasePlayer *pPlayer)
 		if (state == m_iClientWStatus[t])
 			continue;
 		m_iClientWStatus[t] = state;
-		MESSAGE_BEGIN(MSG_ONE, gmsgWStatus, NULL, pPlayer->pev);
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSWeaponStatus, NULL, pPlayer->pev);
 		WRITE_BYTE(t);     // tsweapon_t
 		WRITE_BYTE(owned); // 1 = in the arsenal
 		WRITE_BYTE(clip);  // loaded rounds
