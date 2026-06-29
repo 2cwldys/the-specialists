@@ -67,6 +67,16 @@ original class+method names, closing the gaps `audit.py` reports, to get as clos
   - Workflow per class: `audit.py <Class>` → read the original via `re.sh <Class>` (typed decompile) or the MCP →
     move/rename to match → rebuild → `audit.py <Class>` again to confirm the gap closed. The original groups classes
     by `TS_*.cpp` file; our files are finer-grained (per-class) — match the NAMES, file-grouping divergence is OK.
+- **⚠️ SCOPE: `audit.py` is SERVER-ONLY** (`ts_i386.so`'s file→class→method tree). `client.dll` has no
+  symbols/RTTI/file-map, so **client-side STRUCTURAL divergences are invisible to it** — only client member
+  *layouts* are recovered (`client_members.py`/`members_auto_client.tsv`). Client source-parity is a SEPARATE,
+  MANUAL track (RE the client via `dc.sh client` + the `clientdll` Ghidra project). **Concrete example found
+  this session:** the original splits the CLIENT fire path into PER-FIRE-TYPE handlers (dispatcher `FUN_1003de40`
+  → pump `FUN_10040c20` / akimbo `FUN_1003f090` / standard `FUN_1003dfa0`), each computing its OWN recoil; WE
+  collapsed all fire into ONE `EV_TSFire` (only `fire.sc` is wired — `EVENTS.md` cont.69s) and pass the recoil
+  magnitude predicted-side via the event `fparam2`. Faithful behaviour, divergent structure — `audit.py` won't
+  flag it. The 11 `.sc` events (EVENTS.md) splitting into faithful per-type client handlers is the client-side
+  parity work-list.
 - **The inventory it audits against** (all deterministic + complete now): `ts_inventory.json` = file→class→
   {methods (sig/addr/assets/cvars/cmds), members (saved+curated+auto, with `source`), vtable, hierarchy} + globals
   + the `client` HUD member skeleton + the external `contract`. `coverage.py` audits the external contract

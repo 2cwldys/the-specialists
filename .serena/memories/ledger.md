@@ -28,9 +28,15 @@ Built the machine-checkable RE inventory + bidirectional audit, made it determin
   Verified 0-diff. Diagnosed by measurement after 3 wrong hypotheses.
 - **Ghidra MCP** front-end on the typed `re` project (CLAUDE.md §4a.3 + .lock gotcha; `[[ghidra-mcp-vs-own-tooling]]`;
   `scripts/ghidra/mcp-up.sh`).
-- **Pump shotgun (UNCOMMITTED, gameplay)**: RE-confirmed HELD/auto-alternate (all 3 default to PUMP; ShotgunFire
-  alternates fire/rack via item+0x24 = predicted m_fInSpecialReload; tap=one step). Rack sound CHAN_ITEM. OPEN
-  fidelity fix: orig reduces pump VKickback to 0.35× — ours is ~3× too strong (StandardFire gives full flViewKick).
+- **Pump shotgun (COMMITTED `2b23000`+`9c3ec0c`, pushed)**: RE-confirmed HELD/auto-alternate (all 3 default to
+  PUMP; ShotgunFire alternates fire/rack via item+0x24 = predicted m_fInSpecialReload; tap=one step). Rack sound
+  CHAN_ITEM. Pump VKickback 0.35× (benelli/spas pump mode; mossberg full) — applied to the CLIENT aim-recoil
+  (TS_AddViewRecoil), NOT server VKickback (RE @0x70414: punchangle is bots-only); the magnitude rides to the
+  client via the fire-event fparam2. Playtest-confirmed.
+- **Client-side architecture divergence noted (restructure)**: original splits the CLIENT fire path into
+  per-fire-type handlers (FUN_10040c20 pump / FUN_1003f090 akimbo / FUN_1003dfa0 standard); we use ONE EV_TSFire.
+  audit.py is SERVER-ONLY → won't catch client structural divergence; client parity is a separate manual track
+  (dc.sh client + clientdll project). See HANDOFF cont.72.
 
 ## 2026-06-27 (cont. 71 cont.2) — long live-playtest pass: laser/HUD/muzzle/weapons + pump (in progress)
 
