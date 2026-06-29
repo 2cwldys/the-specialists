@@ -167,6 +167,10 @@ void CHudHealth::GetPainColor(int& r, int& g, int& b)
 
 bool CHudHealth::Draw(float flTime)
 {
+	// TS draws health on its own status panel (CHudTSStatus / gmsgTSHealth) — suppress the stock health HUD
+	// (matches CHudBattery, already suppressed; the original TS client.dll has no stock health/ammo readout).
+	return true;
+
 	int r, g, b;
 	int a = 0, x, y;
 	int HealthWidth;

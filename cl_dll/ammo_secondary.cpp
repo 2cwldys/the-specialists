@@ -55,6 +55,8 @@ bool CHudAmmoSecondary::VidInit()
 
 bool CHudAmmoSecondary::Draw(float flTime)
 {
+	return true; // TS shows ammo on its own box (CHudTSAmmo) — suppress the stock secondary-ammo HUD.
+
 	if ((gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL)) != 0)
 		return true;
 

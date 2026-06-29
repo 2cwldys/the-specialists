@@ -826,6 +826,11 @@ void CHudAmmo::UserCmd_PrevWeapon_stock()
 
 bool CHudAmmo::Draw(float flTime)
 {
+	// TS draws ammo (CHudTSAmmo) + the weapon bar (CHudTSWeaponBar). Weapon-SELECT logic lives in Think /
+	// m_TSWeaponBar.SelectColumn (NOT here), so suppressing this render-only Draw is safe — it removes the
+	// stock weapon-menu + bottom-right ammo number that duplicated the TS HUD.
+	return true;
+
 	int a, x, y, r, g, b;
 	int AmmoWidth;
 
