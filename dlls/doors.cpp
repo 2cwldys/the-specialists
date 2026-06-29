@@ -22,6 +22,9 @@
 #include "util.h"
 #include "cbase.h"
 #include "doors.h"
+#include "func_break.h" // TS breakable-door reuse: Materials + MaterialSound{Precache,Random}
+
+extern int gmsgTSCreateDebris; // func_break.cpp — the TS glass-shatter sprite shower
 
 
 extern void SetMovedir(entvars_t* ev);
@@ -74,6 +77,20 @@ public:
 	byte m_bLockedSentence;
 	byte m_bUnlockedSound;
 	byte m_bUnlockedSentence;
+
+	// TS breakable-door system (@0xb57ac TraceAttack / @0xb5604 BreakableRespawn). A door with a
+	// "maxdamage" keyvalue takes damage and shatters like a func_breakable, then respawns.
+	void TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vecDir, TraceResult* ptr, int bitsDamageType) override;
+	virtual void BreakableRespawn(bool forceRespawn);  // @0xb5604 — box-clear retry + restore
+	void EXPORT RespawnThink();                        // drives the post-shatter respawn
+
+	float m_flBreakHealth = 0;   // +0x118 — "maxdamage": damage to shatter (<=0 = unbreakable)
+	int   m_iAccumDamage = 0;    // +0x110 — accumulated damage toward the threshold
+	int   m_DoorMaterial = 1;    // +0x11c — "doormaterial" (Materials; default 1 = matWood-ish)
+	float m_flRespawnTime = -1;  // +0x10c — "respawntime": respawn delay (<0 = never)
+	Vector m_vecSpawnOrigin;     // +0x124 — saved origin (restored on respawn)
+	Vector m_vecSpawnAngles;     // +0x130 — saved angles
+	float m_flDoorNextAttack = 0; // +0x114 — per-door damage cooldown
 };
 
 
@@ -240,6 +257,21 @@ bool CBaseDoor::KeyValue(KeyValueData* pkvd)
 		pev->scale = atof(pkvd->szValue) * (1.0 / 8.0);
 		return true;
 	}
+	else if (FStrEq(pkvd->szKeyName, "maxdamage")) // TS breakable door: damage to shatter
+	{
+		m_flBreakHealth = atof(pkvd->szValue);
+		return true;
+	}
+	else if (FStrEq(pkvd->szKeyName, "doormaterial")) // TS breakable door: material (debris/sound)
+	{
+		m_DoorMaterial = atoi(pkvd->szValue);
+		return true;
+	}
+	else if (FStrEq(pkvd->szKeyName, "respawntime")) // TS breakable door: respawn delay (<0 = never)
+	{
+		m_flRespawnTime = atof(pkvd->szValue);
+		return true;
+	}
 
 	return CBaseToggle::KeyValue(pkvd);
 }
@@ -321,6 +353,119 @@ void CBaseDoor::Spawn()
 	}
 	else // touchable button
 		SetTouch(&CBaseDoor::DoorTouch);
+
+	// TS breakable-door init (@0xa60cc): save the spawn pose for respawn, reset the damage tally,
+	// and make the door damageable only if it carries a "maxdamage" threshold.
+	m_vecSpawnOrigin = pev->origin;
+	m_vecSpawnAngles = pev->angles;
+	m_iAccumDamage = 0;
+	m_flDoorNextAttack = 0;
+	pev->takedamage = (m_flBreakHealth > 0) ? DAMAGE_YES : DAMAGE_NO;
+}
+
+// @0xb57ac TraceAttack — a breakable door accumulates damage and shatters (debris + material sound)
+// when it passes its maxdamage threshold, then schedules a respawn. // UNPLAYTESTED.
+void CBaseDoor::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vecDir, TraceResult* ptr, int bitsDamageType)
+{
+	if (gpGlobals->time < m_flDoorNextAttack)
+		return;
+	if (pev->takedamage == DAMAGE_NO)
+		return;
+	if ((bitsDamageType & 0x6000040) == 0) // only bullet/blast/TS-club types break a door
+		return;
+	if (FClassnameIs(pev, "func_water"))
+		return;
+
+	float dmg = flDamage;
+	if (bitsDamageType & DMG_BULLET) // 0x40 — bullets do double
+		dmg *= 2;
+	m_iAccumDamage += (int)dmg;
+	if ((float)m_iAccumDamage < m_flBreakHealth)
+		return; // not enough yet
+
+	// shatter — emit debris flying in the shot (bullet-travel) direction.
+	Vector vecShatterDir = vecDir.Normalize();
+	Vector vecSpot = pev->origin + (pev->mins + pev->maxs) * 0.5f;
+	float vol = RANDOM_FLOAT(0.85f, 1.0f);
+	CBreakable::MaterialSoundRandom(ENT(pev), (Materials)m_DoorMaterial, vol);
+
+	if (m_DoorMaterial == matGlass && gmsgTSCreateDebris != 0)
+	{
+		Vector vecShatter = vecShatterDir; // bullet travel dir (away from the shooter)
+		MESSAGE_BEGIN(MSG_PVS, gmsgTSCreateDebris, vecSpot);
+		WRITE_COORD(vecSpot.x); WRITE_COORD(vecSpot.y); WRITE_COORD(vecSpot.z);
+		WRITE_COORD(pev->size.x); WRITE_COORD(pev->size.y); WRITE_COORD(pev->size.z);
+		WRITE_BYTE(0); // material 0 = glass
+		WRITE_COORD(vecShatter.x); WRITE_COORD(vecShatter.y); WRITE_COORD(vecShatter.z);
+		WRITE_COORD(vecSpot.x); WRITE_COORD(vecSpot.y); WRITE_COORD(vecSpot.z);
+		WRITE_SHORT(MODEL_INDEX("sprites/glassfrag.spr"));
+		WRITE_COORD(150.0f); // VERIFY: per-fragment velocity (cf. CBreakable::Die)
+		MESSAGE_END();
+	}
+	else
+	{
+		MESSAGE_BEGIN(MSG_PVS, SVC_TEMPENTITY, vecSpot);
+		WRITE_BYTE(TE_BREAKMODEL);
+		WRITE_COORD(vecSpot.x); WRITE_COORD(vecSpot.y); WRITE_COORD(vecSpot.z);
+		WRITE_COORD(pev->size.x); WRITE_COORD(pev->size.y); WRITE_COORD(pev->size.z);
+		WRITE_COORD(0); WRITE_COORD(0); WRITE_COORD(25); // velocity
+		WRITE_BYTE(10);                                  // randomization
+		WRITE_SHORT(MODEL_INDEX((char*)STRING(pev->model))); // gib the door's own model
+		WRITE_BYTE(0);  // shard count (client decides)
+		WRITE_BYTE(25); // duration (2.5s)
+		WRITE_BYTE(0x19); // flags
+		MESSAGE_END();
+	}
+
+	// kill the door (it disappears), fire its targets, then schedule a respawn.
+	pev->solid = SOLID_NOT;
+	pev->effects |= EF_NODRAW;
+	pev->takedamage = DAMAGE_NO;
+	pev->deadflag = DEAD_DEAD;
+	SetTouch(NULL);
+	SetThink(NULL);
+	SUB_UseTargets(NULL, USE_TOGGLE, 0);
+
+	if (m_flRespawnTime >= 0)
+	{
+		SetThink(&CBaseDoor::RespawnThink);
+		pev->nextthink = gpGlobals->time + (m_flRespawnTime > 0 ? m_flRespawnTime : 30.0f);
+	}
+}
+
+// Drive the post-shatter respawn (the door persists NODRAW + thinking until its box is clear).
+void CBaseDoor::RespawnThink()
+{
+	BreakableRespawn(false);
+}
+
+// @0xb5604 BreakableRespawn — if the door's box is clear, restore it to the spawn pose and re-Spawn;
+// else retry in 5s. // UNPLAYTESTED.
+void CBaseDoor::BreakableRespawn(bool forceRespawn)
+{
+	if (pev->deadflag != DEAD_DEAD && (pev->effects & EF_NODRAW) == 0 && !forceRespawn)
+		return;
+
+	CBaseEntity* pList[8];
+	int count = UTIL_EntitiesInBox(pList, 8, pev->absmin, pev->absmax, FL_CLIENT | FL_MONSTER);
+	if (count == 0)
+	{
+		pev->deadflag = DEAD_NO;
+		pev->effects &= ~EF_NODRAW;
+		pev->origin = m_vecSpawnOrigin;
+		UTIL_SetOrigin(pev, pev->origin);
+		pev->angles = m_vecSpawnAngles;
+		pev->avelocity = g_vecZero;
+		pev->velocity = g_vecZero;
+		SetTouch(NULL);
+		SetThink(NULL);
+		Spawn();
+	}
+	else
+	{
+		SetThink(&CBaseDoor::RespawnThink);
+		pev->nextthink = gpGlobals->time + 5.0f; // blocked — retry
+	}
 }
 
 
@@ -514,6 +659,16 @@ void CBaseDoor::Precache()
 	default:
 		m_ls.sUnlockedSentence = 0;
 		break;
+	}
+
+	// TS breakable-door debris assets (only when the door carries a maxdamage threshold).
+	if (m_flBreakHealth > 0)
+	{
+		CBreakable::MaterialSoundPrecache((Materials)m_DoorMaterial);
+		if (m_DoorMaterial == matGlass)
+			PRECACHE_MODEL("sprites/glassfrag.spr");
+		else
+			PRECACHE_MODEL((char*)STRING(pev->model)); // gib the door's own model
 	}
 }
 
@@ -855,7 +1010,34 @@ class CRotDoor : public CBaseDoor
 public:
 	void Spawn() override;
 	void SetToggleState(int state) override;
+	void BreakableRespawn(bool forceRespawn) override; // @0xb7838 — restore angles only (keeps position)
 };
+
+// @0xb7838 — like CBaseDoor's, but a rotating door keeps its position (restore angles, not origin).
+void CRotDoor::BreakableRespawn(bool forceRespawn)
+{
+	if (pev->deadflag != DEAD_DEAD && (pev->effects & EF_NODRAW) == 0 && !forceRespawn)
+		return;
+
+	CBaseEntity* pList[8];
+	int count = UTIL_EntitiesInBox(pList, 8, pev->absmin, pev->absmax, FL_CLIENT | FL_MONSTER);
+	if (count == 0)
+	{
+		pev->deadflag = DEAD_NO;
+		pev->effects &= ~EF_NODRAW;
+		pev->angles = m_vecSpawnAngles;
+		pev->avelocity = g_vecZero;
+		pev->velocity = g_vecZero;
+		SetTouch(NULL);
+		SetThink(NULL);
+		Spawn();
+	}
+	else
+	{
+		SetThink(&CBaseDoor::RespawnThink);
+		pev->nextthink = gpGlobals->time + 5.0f;
+	}
+}
 
 LINK_ENTITY_TO_CLASS(func_door_rotating, CRotDoor);
 
