@@ -4436,9 +4436,22 @@ Decompiled the big `Animate` (.so 0x5b470→0x5d7e4, ~0x2374 bytes; raw in scrat
 **player+0x478 is the key missing piece:** a per-frame anim-OVERRIDE string. Non-empty → Animate plays it as the
 body. It's also HandleCloseCombat's block-type selector (kat/kni). This is what drives the user's knife-idle=kungfu
 (knife sets grip EMPTY + 0x478="knife"), katana dedicated idle, and the melee BLOCK on reload. We DON'T model it.
-Done this turn (`<pending hash>`): aligned our case-1/6 aim_ to `(fov!=0)` (the m_flAimTimer branch is held above)
+Done (`d32261c`): aligned our case-1/6 aim_ to `(fov!=0)` (the m_flAimTimer branch is held above)
 + documented 0x478. NEXT: add `m_szAnimOverride` (player+0x478), find its SETTER in the .so (what writes it on
 melee-deploy / block — decompile CTSGun deploy + the melee path), wire Animate case-1/6 to play it, and set it
 empty-grip+override for knife/katana. THAT (not removing routing) is the faithful rebuild. The "fire anim doesn't
 play" is likely a separate grip/sequence-name/server-exec detail — compare OUR pev->sequence on fire vs the
 original (watchpoint, scripts saved) before more changes.
+
+## CTSAnimation — player+0x478 anim-override IMPLEMENTED (`a9871ff`) — knife/katana dedicated idles
+Found the SETTER: `CBasePlayerWeapon::DefaultDeploy@0x90178` writes player+0x478 for weapon id 16
+(weapon_tsgun), switching on m_weaponType (gun+0xc8) — VERIFIED 1:1 vs our enum: KNIFE(25,0x19)/
+SEALKNIFE(35,0x23)->"knife_idle", KATANA(34,0x22)->"katana_idle", FLAG(29,0x1d)->"briefcase_idle", else
+cleared. Also written by `HolsterWeapon@0x75698`. Implemented: `m_szAnimOverride[16]` on CBasePlayer; set in
+CTSGun::Deploy (the switch above); read FIRST in Animate's torso (non-empty -> SetAnim(override,0x12), the
+dedicated idle). This is the "set the pose per-frame from state" half the goal asked for (the field_0x478
+override is state the deploy sets, Animate reads each frame). NOTE: the goal's "remove the external routing"
+premise was WRONG — the decompile shows fire legitimately uses an external Animate(0) (case 0 sets shoot_+
+m_flAimTimer); kept it. STILL OPEN: fire-anim-3rd-person (#3, likely a grip/seq-name detail — needs OUR-build
+pev->sequence watch vs original), the dive-hold (#1, leg-timer-gated, not m_fSequenceFinished), melee BLOCK on
+reload (#5b — HandleCloseCombat uses player+0x478 for kat/kni block pick; now that we set 0x478 it's wireable).
