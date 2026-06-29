@@ -8,9 +8,9 @@
 *    spawnflags = the set of powerup types this spawner may give (the random mask):
 *      1 Slow Motion, 2 Infinite Clip, 4 Kung Fu, 8 Slow Pause, 16 Double Firerate,
 *      32 Grenade, 64 Health, 256 Low Gravity  (== TS_PWUP_* bits)
-*    pwuptype (int)     -> m_iType        : force an exact powerup (else random from flags)
-*    pwupduration (int) -> m_iRespawnTime : respawn delay  (FGD "Respawn time", def 60)
-*    pwupmult (string)  -> m_flMult       : duration multiplier (def 1)
+*    pwuptype (int)     -> poweruptype        : force an exact powerup (else random from flags)
+*    pwupduration (int) -> pwupduration : respawn delay  (FGD "Respawn time", def 60)
+*    pwupmult (string)  -> pwupmult       : duration multiplier (def 1)
 *    message            -> pev->message   : HUD text shown to the picker (base Target)
 *
 *  The single most common pickup after ts_model — 328 placements across the stock
@@ -69,7 +69,8 @@ public:
 	bool KeyValue(KeyValueData *pkvd) override;
 	bool Save(CSave &save) override;
 	bool Restore(CRestore &restore) override;
-	int ObjectCaps() override { return CBaseEntity::ObjectCaps() & ~FCAP_ACROSS_TRANSITION; }
+	// (no ObjectCaps override — the original CTSPowerUp uses the base CBaseAnimating::ObjectCaps,
+	// keeping FCAP_ACROSS_TRANSITION; deathmatch maps don't level-transition so this is inert.)
 
 	static TYPEDESCRIPTION m_SaveData[];
 
@@ -84,10 +85,10 @@ public:
 	// powerup entity of the given type.
 	static CTSPowerUp *CreatePowerUp(int type, int duration);
 
-	int m_iType = 0;          // 0x84 — powerup type bits (pwuptype, or random)
+	int poweruptype = 0;          // 0x84 — powerup type bits (pwuptype, or random)
 	int m_iDuration = 0;      // 0x90 — effect duration handed to the player (s)
-	int m_iRespawnTime = 0;   // 0x94 — pwupduration: respawn delay
-	float m_flMult = 1.0f;    // 0x98 — pwupmult: duration multiplier
+	int pwupduration = 0;   // 0x94 — pwupduration: respawn delay
+	float pwupmult = 1.0f;    // 0x98 — pwupmult: duration multiplier
 	float m_flTimeout = 0;    // 0x88 — temp-powerup lifetime expiry
 	float m_flArmor = 100.0f; // 0x8c — armor amount given by the armor powerup
 	bool m_bRespawns = false; // 0x80 — map-placed (respawns) vs temp (UTIL_Remove)
@@ -99,8 +100,8 @@ LINK_ENTITY_TO_CLASS(ts_powerup, CTSPowerUp);
 // Save only what the original did: the type and the respawn delay (MP has no level
 // transitions, so this is provenance-faithful rather than load-bearing).
 TYPEDESCRIPTION CTSPowerUp::m_SaveData[] = {
-	DEFINE_FIELD(CTSPowerUp, m_iType, FIELD_INTEGER),
-	DEFINE_FIELD(CTSPowerUp, m_iRespawnTime, FIELD_INTEGER),
+	DEFINE_FIELD(CTSPowerUp, poweruptype, FIELD_INTEGER),
+	DEFINE_FIELD(CTSPowerUp, pwupduration, FIELD_INTEGER),
 };
 IMPLEMENT_SAVERESTORE(CTSPowerUp, CBaseAnimating);
 
@@ -108,17 +109,17 @@ bool CTSPowerUp::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "pwuptype"))
 	{
-		m_iType = atoi(pkvd->szValue);
+		poweruptype = atoi(pkvd->szValue);
 		return true;
 	}
 	if (FStrEq(pkvd->szKeyName, "pwupduration"))
 	{
-		m_iRespawnTime = atoi(pkvd->szValue);
+		pwupduration = atoi(pkvd->szValue);
 		return true;
 	}
 	if (FStrEq(pkvd->szKeyName, "pwupmult"))
 	{
-		m_flMult = atof(pkvd->szValue);
+		pwupmult = atof(pkvd->szValue);
 		return true;
 	}
 	return CBaseEntity::KeyValue(pkvd);
@@ -156,7 +157,7 @@ void CTSPowerUp::Spawn()
 
 	// type 0 here -> SetupPowerUp rolls a random type from spawnflags; permanent
 	// (map-placed) powerup, falls immediately.
-	SetupPowerUp(m_iType, -1, 0.0f, true);
+	SetupPowerUp(poweruptype, -1, 0.0f, true);
 }
 
 // @ SetupPowerUp — resolve the powerup type (explicit/random), pick the icon body
@@ -169,9 +170,9 @@ void CTSPowerUp::SetupPowerUp(int type, int duration, float fallDelay, bool resp
 	{
 		// No explicit type: roll a random one out of the permitted set (spawnflags),
 		// falling back to "any" if the flags select nothing.
-		m_iType = TSGameRules()->GetRandomPowerup(pev->spawnflags);
-		if (m_iType == 0)
-			m_iType = TSGameRules()->GetRandomPowerup(TS_PWUP_ALL);
+		poweruptype = TSGameRules()->GetRandomPowerup(pev->spawnflags);
+		if (poweruptype == 0)
+			poweruptype = TSGameRules()->GetRandomPowerup(TS_PWUP_ALL);
 		m_bRandom = true;
 	}
 	else
@@ -179,25 +180,25 @@ void CTSPowerUp::SetupPowerUp(int type, int duration, float fallDelay, bool resp
 		// Explicit type — but never honour low-gravity (gated unused) / the 0x80
 		// slot as a forced type; re-roll those.
 		if (((char)type >= 0) && !(type & TS_PWUP_LOWGRAV))
-			m_iType = type;
+			poweruptype = type;
 		else
-			m_iType = TSGameRules()->GetRandomPowerup(TS_PWUP_ALL);
+			poweruptype = TSGameRules()->GetRandomPowerup(TS_PWUP_ALL);
 		m_bRandom = false;
 	}
 
 	// Icon + default duration by type (lowest set bit wins — slow-motion highest).
-	if (m_iType & TS_PWUP_SLOWMO)        { pev->body = PUBODY_SLOWMO;    m_iDuration = 3; }
-	else if (m_iType & TS_PWUP_INFCLIP)  { pev->body = PUBODY_INFCLIP;   m_iDuration = 3; }
-	else if (m_iType & TS_PWUP_KUNGFU)   { pev->body = PUBODY_KUNGFU;                    }
-	else if (m_iType & TS_PWUP_SLOWPAUSE){ pev->body = PUBODY_SLOWPAUSE; m_iDuration = 2; }
-	else if (m_iType & TS_PWUP_DBLFIRE)  { pev->body = PUBODY_DBLFIRE;   m_iDuration = 3; }
-	else if (m_iType & TS_PWUP_GRENADE)  { pev->body = PUBODY_GRENADE;                   }
-	else if (m_iType & TS_PWUP_HEALTH)   { pev->body = PUBODY_HEALTH;                    }
-	else if ((char)m_iType < 0)          { pev->body = PUBODY_ARMOR;                     } // 0x80
-	else if (m_iType & TS_PWUP_LOWGRAV)  { pev->body = PUBODY_LOWGRAV;                   }
+	if (poweruptype & TS_PWUP_SLOWMO)        { pev->body = PUBODY_SLOWMO;    m_iDuration = 3; }
+	else if (poweruptype & TS_PWUP_INFCLIP)  { pev->body = PUBODY_INFCLIP;   m_iDuration = 3; }
+	else if (poweruptype & TS_PWUP_KUNGFU)   { pev->body = PUBODY_KUNGFU;                    }
+	else if (poweruptype & TS_PWUP_SLOWPAUSE){ pev->body = PUBODY_SLOWPAUSE; m_iDuration = 2; }
+	else if (poweruptype & TS_PWUP_DBLFIRE)  { pev->body = PUBODY_DBLFIRE;   m_iDuration = 3; }
+	else if (poweruptype & TS_PWUP_GRENADE)  { pev->body = PUBODY_GRENADE;                   }
+	else if (poweruptype & TS_PWUP_HEALTH)   { pev->body = PUBODY_HEALTH;                    }
+	else if ((char)poweruptype < 0)          { pev->body = PUBODY_ARMOR;                     } // 0x80
+	else if (poweruptype & TS_PWUP_LOWGRAV)  { pev->body = PUBODY_LOWGRAV;                   }
 
 	if (duration < 1)
-		m_iDuration = (int)(m_iDuration * m_flMult + 0.5f);
+		m_iDuration = (int)(m_iDuration * pwupmult + 0.5f);
 	else
 		m_iDuration = duration;
 
@@ -277,22 +278,22 @@ void CTSPowerUp::WaitTouch(CBaseEntity *pOther)
 	// (special case: a near-spent slow-motion may be re-taken). Pressing USE lets
 	// the player swap. Instant powerups bypass the held-slot gate entirely.
 	bool canTakeTimed = (pPlayer->m_iHeldPowerup == 0) ||
-		(pPlayer->m_iHeldPowerup == TS_PWUP_SLOWMO && m_iType == TS_PWUP_SLOWMO && pPlayer->m_flPowerupTime < 3);
+		(pPlayer->m_iHeldPowerup == TS_PWUP_SLOWMO && poweruptype == TS_PWUP_SLOWMO && pPlayer->m_flPowerupTime < 3);
 	bool pressingUse = (pPlayer->pev->button & IN_USE) != 0;
 	bool slotFree = (canTakeTimed || pressingUse) && (pPlayer->m_iPowerups == 0);
-	bool apply = slotFree || (m_iType & TS_PWUP_INSTANT);
+	bool apply = slotFree || (poweruptype & TS_PWUP_INSTANT);
 	if (!apply)
 		return;
 
 	// If swapping in a timed powerup while USE-holding a held one, re-drop the old.
 	int swapType = 0;
-	if (pressingUse && pPlayer->m_iHeldPowerup != 0 && !(m_iType & TS_PWUP_INSTANT))
+	if (pressingUse && pPlayer->m_iHeldPowerup != 0 && !(poweruptype & TS_PWUP_INSTANT))
 	{
 		if (pPlayer->m_iHeldPowerup != TS_PWUP_SLOWMO || pPlayer->m_flPowerupTime > 2)
 			swapType = pPlayer->m_iHeldPowerup;
 	}
 
-	if (!PlayerAddPowerUp(pPlayer, m_iType, this))
+	if (!PlayerAddPowerUp(pPlayer, poweruptype, this))
 		return;
 
 	if (swapType != 0)
@@ -317,12 +318,12 @@ void CTSPowerUp::WaitTouch(CBaseEntity *pOther)
 	SetThink(&CTSPowerUp::Fall);
 
 	float delay;
-	if (m_iRespawnTime < 1)
+	if (pwupduration < 1)
 		delay = 60.0f;
-	else if (m_iRespawnTime < 11)
+	else if (pwupduration < 11)
 		delay = 10.0f;
 	else
-		delay = (float)(m_iRespawnTime > 180 ? 180 : m_iRespawnTime);
+		delay = (float)(pwupduration > 180 ? 180 : pwupduration);
 	pev->nextthink = gpGlobals->time + delay;
 
 	if (!FStringNull(pev->message))
@@ -497,7 +498,7 @@ bool TSGrantPowerup(CBasePlayer *pPlayer, int type, int duration)
 
 //============================================================================
 // CTSSuperJump — a map-placed powerup pre-set to the low-gravity / super-jump type.
-// The .so's CTSSuperJump::Spawn (@0xc9f44) sets m_iType = 0x100 (TS_PWUP_LOWGRAV) then
+// The .so's CTSSuperJump::Spawn (@0xc9f44) sets poweruptype = 0x100 (TS_PWUP_LOWGRAV) then
 // chains CTSPowerUp::Spawn, so it always gives the super-jump (low-gravity) effect.
 //============================================================================
 class CTSSuperJump : public CTSPowerUp
@@ -505,7 +506,7 @@ class CTSSuperJump : public CTSPowerUp
 public:
 	void Spawn() override
 	{
-		m_iType = TS_PWUP_LOWGRAV; // force the super-jump (low-gravity) powerup
+		poweruptype = TS_PWUP_LOWGRAV; // force the super-jump (low-gravity) powerup
 		CTSPowerUp::Spawn();
 	}
 };
