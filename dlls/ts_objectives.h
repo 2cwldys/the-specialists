@@ -21,8 +21,8 @@ public:
 	virtual bool CanInteract(CBasePlayer *pPlayer); // @0x8c344 — resolve the player's team, then gate
 	virtual bool CanInteract(int team);             // @0x8c38c — attacker_team gate (-1 = any)
 	virtual void Freeze(bool bFreeze);              // @0x8c310 — active = !freeze (+ ShowObjectiveOnHud)
-	virtual bool IsObjective() { return true; }     // @0x8e6e0 — return 1 (this IS a TS objective)
-	virtual void EnableObjective(bool bEnable) { m_bActive = bEnable; } // @0x8e6e4 — set the active flag
+	bool IsObjective() override { return true; }     // @0x8e6e0 — return 1 (this IS a TS objective)
+	void EnableObjective(bool bEnable) override { m_bActive = bEnable; } // @0x8e6e4 — set the active flag
 
 	static TYPEDESCRIPTION m_SaveData[];
 

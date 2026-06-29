@@ -175,19 +175,15 @@ void CTSGameRules::InitObjectives()
 		return;
 
 	// Disable every objective entity up front (a manager's Reset, via SetObjective, enables the chosen
-	// subset). The original sweeps ALL entities via the CBaseEntity::IsObjective() virtual; our SDK has
-	// IsObjective only on CTSObjective, so we enumerate the objective classnames (all CTSObjective-derived).
-	static const char *const kObjClasses[] = {
-		"ts_hack", "ts_bomb", "ts_teamescape", "ts_wingiver", "ts_scoregiver", "ts_trigger" };
-	for (const char *cls : kObjClasses)
+	// subset). Sweep all entities via the CBaseEntity::IsObjective() virtual (true only on objectives).
+	for (int i = 1; i < gpGlobals->maxEntities; i++)
 	{
-		CBaseEntity *e = nullptr;
-		while ((e = UTIL_FindEntityByClassname(e, cls)) != nullptr)
-		{
-			CTSObjective *obj = (CTSObjective *)e; // these classnames are all CTSObjective-derived
-			if (obj->IsObjective())
-				obj->EnableObjective(false);
-		}
+		edict_t *pe = INDEXENT(i);
+		if (!pe || pe->free || !pe->pvPrivateData)
+			continue;
+		CBaseEntity *e = CBaseEntity::Instance(pe);
+		if (e && e->IsObjective())
+			e->EnableObjective(false);
 	}
 }
 

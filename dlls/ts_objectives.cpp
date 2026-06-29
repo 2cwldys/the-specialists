@@ -210,6 +210,7 @@ class CTSObjectivePointer : public CBaseEntity
 public:
 	void Spawn() override;
 	bool KeyValue(KeyValueData *pkvd) override;
+	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override; // @0x8bbd8
 
 	string_t m_objMsg[5] = {}; // objmsgspec/merc/team3/team4/all (per-team pointer label)
 };
@@ -221,6 +222,33 @@ void CTSObjectivePointer::Spawn()
 	pev->movetype = MOVETYPE_NONE;
 	pev->solid = SOLID_NOT;
 	pev->effects |= EF_NODRAW;
+}
+
+// @Use__19CTSObjectivePointer — activate the objective(s) this pointer targets: enable each, add it
+// to the HUD objective list carrying this pointer's per-team labels, and send it to every client.
+void CTSObjectivePointer::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
+{
+	if (FStringNull(pev->target) || !TSGameRules())
+		return;
+	CBaseEntity *pEnt = nullptr;
+	while ((pEnt = UTIL_FindEntityByTargetname(pEnt, STRING(pev->target))) != nullptr)
+	{
+		if (!pEnt->IsObjective())
+			continue;
+		CTSObjective *pObj = (CTSObjective *)pEnt;
+		pObj->EnableObjective(true);
+		// the 4 per-team labels (spec/merc/team3/team4) — the 5th (objmsgall) isn't part of the list entry.
+		int labels[4] = { (int)m_objMsg[0], (int)m_objMsg[1], (int)m_objMsg[2], (int)m_objMsg[3] };
+		int idx = TSGameRules()->AddObjectiveInList(pObj, labels);
+		if (idx == -1)
+			continue;
+		for (int i = 1; i <= gpGlobals->maxClients; i++)
+		{
+			CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
+			if (p)
+				TSGameRules()->SendObjectiveToHud(idx, p);
+		}
+	}
 }
 
 bool CTSObjectivePointer::KeyValue(KeyValueData *pkvd)

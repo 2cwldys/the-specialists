@@ -169,6 +169,10 @@ public:
 	virtual bool Save(CSave& save);
 	virtual bool Restore(CRestore& restore);
 	virtual int ObjectCaps() { return FCAP_ACROSS_TRANSITION; }
+	// TS objective interface (the original adds these as CBaseEntity virtuals so any entity answers
+	// them). CTSObjective-derived entities override IsObjective()->true + EnableObjective() to arm/disarm.
+	virtual bool IsObjective() { return false; }     // @IsObjective__11CBaseEntity (weak, default false)
+	virtual void EnableObjective(bool bEnable) {}     // @EnableObjective__11CBaseEntityb (default no-op)
 	virtual void Activate() {}
 
 	// Setup the object->object collision box (pev->mins / pev->maxs is the object->world collision box)
