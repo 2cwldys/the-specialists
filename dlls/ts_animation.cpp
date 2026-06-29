@@ -275,104 +275,46 @@ void CTSAnimation::BlendJumpAnimations(CBasePlayer *pPlayer)
 	}
 }
 
-// ---- Animate (@0x5b470) — the 4-region gait/animation dispatcher ----------------
-// Region A: continue an in-flight directional blend. Region B: HOLD guards — PostThink fires
-// Animate(1=run/6=idle) EVERY frame, so without these the next frame stomps an in-progress
-// dive/stunt (this was the dominant cause of "dive looks like a crouch"). Region C: set the NEW
-// body sequence; cases BREAK (not return) into Region D. Region D: set the LEG gait
-// (pev->gaitsequence) from velocity for all but the excluded activities — skipping that tail
-// left the legs at sequence-0 (a crouch) under the dive body (the other half of the dive bug).
+// ---- Animate (@0x5b470) — the 4-phase dispatcher --------------------------------
 void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 {
 	entvars_t *pev = pPlayer->pev;
 	if (activity < 0)
 		return;
 
-	// Grip suffix (m_szAnimExtention) — EMPTY for bare-hands kung-fu (combat_idle + close-combat),
-	// else onehanded/twohanded/akimbo. Stunt sequences use "akimbo" as the grip when bare-handed.
+	// Grip suffix (m_szAnimExtention) — EMPTY for bare-hands kung-fu (selects combat_idle
+	// + the close-combat attack set), else onehanded/twohanded/akimbo for a held weapon.
 	const char *grip = pPlayer->m_szAnimExtention;
 	if (!grip)
 		grip = "";
 	const bool kungfu = (grip[0] == 0);
-	const char *const sgrip = kungfu ? "akimbo" : grip;
 
 	const bool ducking = (pev->flags & FL_DUCKING) != 0;
 	const bool onground = (pev->flags & FL_ONGROUND) != 0;
-	const bool onladder = (pev->movetype == MOVETYPE_FLY);
-	const bool alive = pPlayer->IsAlive();
-	const bool frozen = (pev->flags & FL_FROZEN) != 0;
-	const bool seqPlaying = (pPlayer->m_fSequenceFinished == 0);
 	const float speed = pev->velocity.Length2D();
 
 	char name[64];
 
-	// ---- Region A: continue an in-flight directional blend -------------------
-	if (alive && !frozen)
+	// ---- Phase A: continue an in-flight directional blend --------------------
+	if (pPlayer->IsAlive() && !(pev->flags & FL_FROZEN))
 	{
 		if (m_iLastActivity == TSA_JUMP && speed > 96.0f && !IsInCloseCombat(m_iLastActivity))
 			BlendJumpAnimations(pPlayer);
 		else if (activity == TSA_BLENDDIR)
 		{
 			static const char *const diveTable[4] = { "dive_l_", "dive_r_", "dive_f_", "dive_b_" };
-			BlendAnimationsByDir(pPlayer, pev->velocity, pev->v_angle, diveTable, sgrip);
+			BlendAnimationsByDir(pPlayer, pev->velocity, pev->v_angle, diveTable, grip[0] ? grip : "akimbo");
 		}
 	}
 
-	// ---- Region B: HOLD guards — keep an in-progress stunt/fire playing -------
-	// (the original's switch(m_iLastActivity); each case returns early while its sequence is still
-	// playing and the new activity isn't an interrupt). Without these the per-frame Animate(1/6)
-	// overwrites every stunt one frame after it starts.
-	if (alive && !frozen && !IsInCloseCombat(activity))
+	// ---- Phase B: keep the current (locked) pose if it is still playing -------
+	if (m_iLastActivity == TSA_SLIDE)
 	{
-		switch (m_iLastActivity)
-		{
-		case TSA_SLIDE:
-			if (activity != TSA_JUMP && activity != TSA_MORFY && activity != TSA_SLIDE_BL &&
-				activity != TSA_SLIDE_BR && activity != TSA_PRONE && activity != TSA_FIRE &&
-				activity != TSA_FIRE_SLIDEL && activity != TSA_FIRE_SLIDER && !onladder)
-			{
-				BlendAnimationsForSlide(pPlayer);
-				return;
-			}
-			break;
-		case TSA_JUMP:
-			if (seqPlaying && activity != TSA_JUMP && activity != TSA_DIVE && activity != TSA_ROLL &&
-				activity != TSA_DIVE_END && activity != TSA_WHEEL && activity != TSA_LOWWHEEL &&
-				activity != TSA_WALLJUMP && activity != TSA_WALLCLIMB && activity != TSA_BULLETTIME)
-				return;
-			break;
-		case TSA_DIE:
-			return; // death holds unconditionally
-		case TSA_DIVE:
-			if (seqPlaying && activity != TSA_PRONE && activity != TSA_GETUP && activity != TSA_SLIDE)
-				return; // hold the dive (directly protects it from the per-frame Animate(1))
-			break;
-		case TSA_PRONE:
-		case TSA_GETUP:
-		case TSA_ROLL:
-			if (seqPlaying && (pev->iuser4 & 4))
-				return;
-			break;
-		case TSA_SLIDE_BL:
-		case TSA_SLIDE_BR:
-			// still moving along the slide side -> hold. VERIFY: original uses a velocity·v_right sign test.
-			if (seqPlaying && speed > 1.0f)
-				return;
-			break;
-		case TSA_DIVE_END:
-		case TSA_BULLETTIME:
-		case TSA_WHEEL:
-		case TSA_LOWWHEEL:
-		case TSA_WALLJUMP:
-		case TSA_WALLCLIMB:
-		case TSA_MORFY:
-			if (seqPlaying)
-				return; // hold the stunt while its sequence plays
-			break;
-		}
+		BlendAnimationsForSlide(pPlayer);
+		// slide keeps blending; fall through to record only
 	}
 
-	// ---- Region C: pick & set the NEW body sequence (cases BREAK into Region D) --
+	// ---- Phase C: pick & set the NEW body sequence ---------------------------
 	bool ccHandled = false;
 	if (IsInCloseCombat(activity))
 	{
@@ -385,53 +327,29 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	case TSA_FIRE:
 	case TSA_FIRE_SLIDEL:
 	case TSA_FIRE_SLIDER:
+	{
 		if (ducking)
 		{
 			strcpy(name, "crouch_shoot_");
 			strcat(name, grip);
 		}
-		else if (strncmp(grip, "akimbo", 6) == 0)
-			strcpy(name, "shoot_akimbo_left"); // akimbo alternates barrels; default left
 		else
 		{
 			strcpy(name, "shoot_");
-			strcat(name, grip);
+			if (strncmp(grip, "akimbo", 6) == 0)
+				strcpy(name, "shoot_akimbo_left"); // akimbo alternates barrels; default left
+			else
+				strcat(name, grip);
 		}
-		if (activity == TSA_FIRE_SLIDEL) strcat(name, "slide_b_left");
-		else if (activity == TSA_FIRE_SLIDER) strcat(name, "slide_b_right");
 		SetAnim(pPlayer, name, 0x92, 0); // force+interp, keep legs
 		m_flAimTimer = 2.0f;
-		break;
+		m_iLastActivity = activity;
+		return;
+	}
 
-	// ---- Move / idle TORSO (legs are Region D) -----------------------------
-	case TSA_RUN:
-	case TSA_IDLE:
-		if (!onground && !onladder)
-			return; // airborne non-jump: keep whatever's playing
-		// Keep an in-progress fire/draw/reload upper body playing instead of stomping it with idle.
-		if ((m_iLastActivity == TSA_FIRE || m_iLastActivity == TSA_FIRE_SLIDEL ||
-			 m_iLastActivity == TSA_FIRE_SLIDER || m_iLastActivity == TSA_DRAW ||
-			 m_iLastActivity == TSA_RELOAD) && seqPlaying)
-			break; // legs still update in Region D; torso left alone
-		if (kungfu)
-			SetAnim(pPlayer, ducking ? "combat_idle_low" : "combat_idle", 0x12, 0);
-		else
-		{
-			const bool aim = (m_flAimTimer >= 0.01f) || (pev->fov != 0);
-			if (ducking)
-				strcpy(name, aim ? "crouch_aim_" : "duck_idle_");
-			else
-				strcpy(name, aim ? "aim_" : "idle_");
-			strcat(name, grip);
-			SetAnim(pPlayer, name, 0x12, 0);
-		}
-		break;
-
-	case TSA_SLIDE:
-		break; // slide body handled by the Region-B blend; legs in Region D
-
-	// ---- Jump (full body; EXCLUDED from gait) ------------------------------
+	// ---- Jump (full body) --------------------------------------------------
 	case TSA_JUMP:
+	{
 		if (speed > 16.0f)
 		{
 			int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
@@ -442,28 +360,41 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 			SetAnim(pPlayer, name, 0x94, 0);
 		}
 		else
+		{
 			SetAnim(pPlayer, "standard_jump", 0x94, 0);
-		break;
+		}
+		m_iLastActivity = activity;
+		return;
+	}
 
-	// ---- Duck transition (EXCLUDED from gait) ------------------------------
+	// ---- Duck transition ---------------------------------------------------
 	case TSA_DUCK:
+	{
 		if (m_iDuckLatch == 0)
 		{
 			SetAnim(pPlayer, "goduck", 0x94, 0);
 			m_iDuckLatch = 1;
 		}
-		break;
+		m_iLastActivity = activity;
+		return;
+	}
 
-	// ---- Death (full body; EXCLUDED from gait) -----------------------------
+	// ---- Death (full body) -------------------------------------------------
 	case TSA_DIE:
+	{
 		if (m_bBulletDance)
 		{
 			static const char *const dies[3] = { "normal_die1", "normal_die2", "normal_die3" };
 			SetAnim(pPlayer, dies[RANDOM_LONG(0, 2)], 0x14, 0);
 		}
 		else
-			SetAnim(pPlayer, "die_spin", 0x14, 0); // directional death deferred — spin death
-		break;
+		{
+			// Directional death needs the attack direction (deferred) — use the spin death.
+			SetAnim(pPlayer, "die_spin", 0x14, 0);
+		}
+		m_iLastActivity = activity;
+		return;
+	}
 
 	// ---- Grenade throw (upper body, keep legs) -----------------------------
 	case TSA_GRENADE:
@@ -472,7 +403,8 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		SetAnim(pPlayer, "grenade", 0x92, 0);
 		m_flAimTimer = 2.0f;
 		m_flGrenadeFlag = 1.0f;
-		break;
+		m_iLastActivity = activity;
+		return;
 
 	// ---- Reload / draw (upper body, keep legs) -----------------------------
 	case TSA_RELOAD:
@@ -483,147 +415,140 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		strcat(name, grip);
 		SetAnim(pPlayer, name, 0x92, 0);
 		m_flAimTimer = 2.0f;
-		break;
+		m_iLastActivity = activity;
+		return;
 
-	// ---- DIVE (full body; gait RUNS so the legs read as a dive, not a crouch) --
+	// ---- STUNT poses (CTSStunt drives these) -------------------------------
 	case TSA_DIVE:
 	{
+		static const char *const ds[4] = { "l", "r", "f", "b" };
 		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
-		m_iDirection = dir;
-		static const char *const ds[4] = { "l", "r", "f", "b" };
-		snprintf(name, sizeof(name), "dive_%s_%s", ds[dir & 3], sgrip);
-		SetAnim(pPlayer, name, 0x94, 0);
-		break;
-	}
-
-	// ---- PRONE (slide_<dir>_end; EXCLUDED) — P2 fix: was slide_b_left/right -----
-	case TSA_PRONE:
-	{
-		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = (m_iDirection >= 0 && m_iDirection < 4) ? m_iDirection
-			: GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
-		snprintf(name, sizeof(name), "slide_%s_end", ds[dir & 3]);
+		snprintf(name, sizeof(name), "dive_%s_%s", ds[dir & 3], grip);
 		SetAnim(pPlayer, name, 0x94, 0);
 		m_flLegTimer = 3.0f;
-		break;
+		m_iLastActivity = activity;
+		return;
 	}
-
-	// ---- SLIDE_BL / SLIDE_BR (gait RUNS) -----------------------------------
-	case TSA_SLIDE_BL:
-		SetAnim(pPlayer, "slide_b_left", 0x14, 0);
-		break;
-	case TSA_SLIDE_BR:
-		SetAnim(pPlayer, "slide_b_right", 0x14, 0);
-		break;
-
-	// ---- GETUP (dive_<dir>_end; EXCLUDED) ----------------------------------
 	case TSA_GETUP:
+	case TSA_ROLL:
 	{
 		static const char *const ds[4] = { "l", "r", "f", "b" };
 		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
 		snprintf(name, sizeof(name), "dive_%s_end", ds[dir & 3]);
 		SetAnim(pPlayer, name, 0x94, 0);
-		break;
-	}
-
-	// ---- ROLL (roll_<dir>; EXCLUDED) — P2 fix: was dive_<dir>_end ----------
-	case TSA_ROLL:
-	{
-		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
-		snprintf(name, sizeof(name), "roll_%s", ds[dir & 3]);
-		SetAnim(pPlayer, name, 0x94, 0);
 		m_flLegTimer = 3.0f;
-		break;
+		m_iLastActivity = activity;
+		return;
 	}
-
-	// ---- DIVE_END (roll_l/roll_r/roll_f_high/roll_b; EXCLUDED) — P2 fix -----
+	case TSA_PRONE:
+	case TSA_SLIDE_BL:
+	case TSA_SLIDE_BR:
+	{
+		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		if (activity == TSA_SLIDE_BL || dir == 3)
+			strcpy(name, "slide_b_left");
+		else if (activity == TSA_SLIDE_BR)
+			strcpy(name, "slide_b_right");
+		else
+		{
+			static const char *const ds[4] = { "l", "r", "f", "b" };
+			snprintf(name, sizeof(name), "slide_%s_%s", ds[dir & 3], grip);
+		}
+		SetAnim(pPlayer, name, 0x14, 0);
+		m_flLegTimer = 3.0f;
+		m_iLastActivity = activity;
+		return;
+	}
 	case TSA_DIVE_END:
 	{
-		static const char *const ds[4] = { "roll_l", "roll_r", "roll_f_high", "roll_b" };
+		static const char *const ds[4] = { "l", "r", "f", "b" };
 		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
-		SetAnim(pPlayer, ds[dir & 3], 0x94, 0);
-		break;
+		snprintf(name, sizeof(name), "dive_%s_end", ds[dir & 3]);
+		SetAnim(pPlayer, name, 0x94, 0);
+		m_iLastActivity = activity;
+		return;
 	}
-
-	// ---- WHEEL / LOWWHEEL (gait RUNS) — P2: lowwheel has no _b --------------
 	case TSA_WHEEL:
+	case TSA_LOWWHEEL:
 	{
 		static const char *const ds[4] = { "l", "r", "f", "b" };
 		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
-		snprintf(name, sizeof(name), "wheel_%s", ds[dir & 3]);
+		snprintf(name, sizeof(name), "%swheel_%s", (activity == TSA_LOWWHEEL) ? "low" : "", ds[dir & 3]);
 		SetAnim(pPlayer, name, 0x94, 0);
 		m_flLegTimer = 3.0f;
-		break;
+		m_iLastActivity = activity;
+		return;
 	}
-	case TSA_LOWWHEEL:
-	{
-		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
-		const char *lw = (dir == 0) ? "lowwheel_l" : (dir == 1) ? "lowwheel_r" : "lowwheel_f";
-		SetAnim(pPlayer, lw, 0x94, 0);
-		m_flLegTimer = 3.0f;
-		break;
-	}
-
-	// ---- WALLJUMP / WALLCLIMB (gait RUNS) ----------------------------------
 	case TSA_WALLJUMP:
 		SetAnim(pPlayer, "walljump_end", 0x94, 0);
 		m_flLegTimer = 3.0f;
-		break;
+		m_iLastActivity = activity;
+		return;
 	case TSA_WALLCLIMB:
 		SetAnim(pPlayer, "walljump_climb", 0x94, 0);
-		break;
-
-	// ---- BULLETTIME / MORFY (EXCLUDED) -------------------------------------
+		m_flLegTimer = 3.0f;
+		m_iLastActivity = activity;
+		return;
 	case TSA_BULLETTIME:
 		SetAnim(pPlayer, "bullettime", 0x94, 0);
-		break;
+		m_iLastActivity = activity;
+		return;
 	case TSA_MORFY:
-		SetAnim(pPlayer, kungfu ? "morfy_jump" : "morfy_jump_guns", 0x94, 0);
-		break;
+		SetAnim(pPlayer, grip[0] ? "morfy_jump_guns" : "morfy_jump", 0x94, 0);
+		m_iLastActivity = activity;
+		return;
 
+	// ---- Move / idle (handled by Phase D) ----------------------------------
+	case TSA_RUN:
+	case TSA_IDLE:
+	case TSA_SLIDE:
 	default:
 		break;
 	}
 
-	// ---- Region D: record the activity, then set the LEG gait --------------
+	// ---- Phase D: record + legs/gait + idle/aim torso ------------------------
 	if (!ccHandled)
 		m_iLastActivity = activity;
 
-	// Activities that own the whole body (jump/duck/death/prone/getup/roll/dive_end/bullettime/
-	// morfy) DON'T run the leg gait; nor does a close-combat move that isn't a gait-move. The stunt
-	// state bits (iuser4) also freeze the legs mid-stunt.
-	switch (activity)
+	if (!onground)
+		return; // airborne non-jump: keep whatever's playing
+
+	m_iDuckLatch = 0; // reset goduck latch once grounded
+
+	// Legs: crawl when ducking+moving, run2/walk2 by speed, none when still.
+	if (speed > 1.0f)
 	{
-	case TSA_JUMP: case TSA_MORFY: case TSA_DUCK: case TSA_DIE:
-	case TSA_PRONE: case TSA_GETUP: case TSA_ROLL: case TSA_DIVE_END: case TSA_BULLETTIME:
-		return; // excluded from the gait tail
+		m_iDirection = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		if (ducking)
+			SetAnim(pPlayer, "crawl", TSSA_LEGS, 0);
+		else
+			SetAnim(pPlayer, (speed > TSA_RUN_SPEED) ? "run2" : "walk2", TSSA_LEGS, 0);
 	}
-	if (ccHandled && !GaitCloseCombat(activity, pPlayer))
-		return;
-	if (pev->iuser4 & 0x30c30)
-		return; // mid-stunt: legs frozen by the movement code
-
-	m_iDuckLatch = 0; // reset goduck latch once running the normal gait
-
-	// LEGS: gaitsequence set DIRECTLY from velocity (run2/walk2/crawl/crouch_idle/idle_/combat_idle).
-	if (ducking)
-		SetAnim(pPlayer, (speed == 0.0f) ? "crouch_idle" : "crawl", TSSA_LEGS, 0);
-	else if (speed > TSA_RUN_SPEED)
-		SetAnim(pPlayer, "run2", TSSA_LEGS, 0);
-	else if (speed > 0.0f)
-		SetAnim(pPlayer, "walk2", TSSA_LEGS, 0);
 	else
 	{
-		// standing still: VERIFY — the original also consults a second player anim-string
-		// (player+0x478) we don't model yet; with it empty this is the common path.
-		if (kungfu)
-			SetAnim(pPlayer, (m_flAimTimer >= 0.01f) ? "combat_idle" : "combat_idle_low", TSSA_LEGS, 0);
-		else
-		{
-			strcpy(name, "idle_");
-			strcat(name, grip);
-			SetAnim(pPlayer, name, TSSA_LEGS, 0);
-		}
+		SetAnim(pPlayer, "", TSSA_LEGS, 0); // clear legs
 	}
+
+	// Torso: close-combat already set its pose; otherwise don't stomp an in-progress
+	// fire/reload pose (aim timer running), then select the idle/aim/combat stance.
+	if (ccHandled)
+		return;
+
+	if (m_flAimTimer >= 0.01f)
+		return; // weapon raised recently — leave the shoot/relo/aim torso playing
+
+	if (kungfu)
+	{
+		// Bare-hands fighting stance (not an aim_<grip> invisible-pistol pose).
+		SetAnim(pPlayer, ducking ? "combat_idle_low" : "combat_idle", 0x12, 0);
+		return;
+	}
+
+	const bool aiming = (pev->button & IN_ATTACK) != 0;
+	if (ducking)
+		strcpy(name, aiming ? "crouch_aim_" : "duck_idle_");
+	else
+		strcpy(name, aiming ? "aim_" : "idle_");
+	strcat(name, grip);
+	SetAnim(pPlayer, name, 0x12, 0);
 }
