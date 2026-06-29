@@ -86,6 +86,13 @@ its real wiring.
   virtuals, NOT drift): CanDeploy/Get+SetWeaponData, OwnedCount/SlotsUsed/Sync+LoadActiveFromItem/RegenBlockBar/
   SwitchBarrel/SendWeaponStatus/UpdateActivePointers.
 
+- **Small-class batch** (`3f81e4a`,`5e56977`): **CTSPowerUp 11/11**, **CTSSlowMotionPoint 5/5**, **CTSBriefcase 6/6**, all
+  0-invented. **Reusable pattern — invented ObjectCaps:** many TS classes override ObjectCaps where the original has
+  none (decompile shows no ObjectCaps in the method set) → REMOVE ours (the FCAP diff is inert for runtime-created /
+  MP-only entities). Also name matches (Create→CreateSlowMotionPoint; powerup members → poweruptype/pwupduration/pwupmult).
+  ⚠ **audit.py our_members() only scans .h files** — classes declared in a .cpp report "0 ours / MISSING named: all"
+  FALSELY (CTSPowerUp/CTSFlag/CTSSlowMotionPoint/CTSBriefcase/…); verify member gaps by reading the .cpp, don't trust it.
+
 ### NEXT — work-list (bottom-up, audit.py-driven)
 1. **⚠ CTF CLUSTER (deferred — do bottom-up, it's NOT a single class).** CTSFlag 4/15's dossier
    (`scratchpad/dossier-CTSFlag.md`) found it derives CTSPhysicObject (same settle machine as CTSWorldGun — reuse that

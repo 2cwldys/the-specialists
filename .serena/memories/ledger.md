@@ -68,7 +68,19 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   Group D KEEP (legit, not drift): CanDeploy/GetWeaponData/SetWeaponData (stock virtuals), OwnedCount/SlotsUsed/
   Sync+LoadActiveFromItem/RegenBlockBar/SwitchBarrel/SendWeaponStatus/UpdateActivePointers (model glue).
 
-audit headline: invented methods **131->126**, file mismatches **23->22**, 0 missing/0 invented classes; **3
+- **CTSPowerUp 11/11 0-invented** (`3f81e4a`) + **CTSSlowMotionPoint 4/5->5/5** + **CTSBriefcase 6/6 0-invented**
+  (`5e56977`): a batch of clean small-class reconciles. **Reusable pattern found — INVENTED `ObjectCaps`:** several
+  TS classes override ObjectCaps where the ORIGINAL has none (uses base) — confirm via decompile (the method count
+  excludes ObjectCaps), then REMOVE ours (the FCAP_ACROSS_TRANSITION/DONT_SAVE difference is inert for runtime-created
+  or MP-only entities). Did CTSPowerUp (return ~ACROSS_TRANSITION), CTSSlowMotionPoint, CTSBriefcase (return
+  FCAP_DONT_SAVE). Also: CTSSlowMotionPoint Create->CreateSlowMotionPoint (name match); CTSPowerUp members
+  m_iType/m_iRespawnTime/m_flMult -> poweruptype/pwupduration/pwupmult (the orig FGD/save names, offsets already matched).
+  ⚠ **TOOLING BLIND SPOT found:** `audit.py our_members()` only scans **.h files** — so for classes declared in a .cpp
+  (CTSPowerUp/CTSFlag/CTSSlowMotionPoint/CTSBriefcase/…) it reports "0 ours / MISSING named: <all>" REGARDLESS of our
+  member names. Those member "gaps" are FALSE — verify by reading the .cpp. (Fix would be teaching our_members to
+  brace-track + scan .cpp, but that risks misparsing .cpp locals — left as a tooling follow-up.)
+
+audit headline: invented methods **131->122**, file mismatches **23->22**, 0 missing/0 invented classes; **3
 keepalives dropped/slimmed** (CTSPhysicObject now kept by CTSWorldGun, CTSGrenade by CM61Grenade, CInfoBreakable
 wired+LINK'd). Remaining keepalive: the compiled-but-unlinked pistols (CTSPistolWeapon/Ammo — the ORIGINAL keeps
 them too, legit). All build amd64 server+client (glibc 2.14). **⚠ ALL UNPLAYTESTED** — bounce physics, swept impact
