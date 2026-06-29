@@ -63,13 +63,62 @@ const char* CTSGameRules::GetGameDescription()
 // reconstruction actually consumes.
 void CTSGameRules::InitTeams()
 {
-	strncpy(m_szTeamList, "Specialists;Mercenaries", sizeof(m_szTeamList) - 1);
-	RecountTeams();
-
-	// Per-team player models (the .so's SetTeamModelList(0,"spec")/(1,"merc")).
-	strncpy(m_teamModels[0], "spec", TS_TEAMNAME_LEN - 1);
-	strncpy(m_teamModels[1], "merc", TS_TEAMNAME_LEN - 1);
+	SetTeamList("Specialists;Mercenaries");        // -> the team-name slots + RecountTeams
+	SetTeamModelList("spec|merc");                 // -> the per-team player models
 }
+
+// @0x680dc SetTeamList — parse a ";"-separated team list into the roster (then RecountTeams).
+void CTSGameRules::SetTeamList(const char *pList)
+{
+	strncpy(m_szTeamList, pList ? pList : "", sizeof(m_szTeamList) - 1);
+	m_szTeamList[sizeof(m_szTeamList) - 1] = '\0';
+	RecountTeams();
+}
+
+// @0x68258 SetTeamModelList — parse a "|"-separated model list into the per-team model slots
+// (the original splits up to 4, then calls the per-slot SetTeamModelList(i, model)).
+void CTSGameRules::SetTeamModelList(const char *pList)
+{
+	char buf[2048];
+	strncpy(buf, pList ? pList : "", sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = '\0';
+	for (int i = 0; i < TS_MAX_TEAMS; i++)
+		m_teamModels[i][0] = '\0';
+	int i = 0;
+	for (char *p = strtok(buf, "|"); p && i < TS_MAX_TEAMS; p = strtok(nullptr, "|"), i++)
+		SetTeamModelList(i, p);
+}
+
+// per-slot model setter (the original's SetTeamModelList(int, char*)).
+void CTSGameRules::SetTeamModelList(int team, const char *pModel)
+{
+	if (team < 0 || team >= TS_MAX_TEAMS || !pModel)
+		return;
+	strncpy(m_teamModels[team], pModel, TS_TEAMNAME_LEN - 1);
+	m_teamModels[team][TS_TEAMNAME_LEN - 1] = '\0';
+}
+
+// @0x685a8 GetTeamsNum — number of active (named) teams.
+int CTSGameRules::GetTeamsNum()
+{
+	return m_numTeams;
+}
+
+// @0x69aac GetTeamCash — the player's team cash pool (0 outside team mode / no team). The cash
+// economy is hard-OFF in the shipped game, so this returns 0 in practice.
+int CTSGameRules::GetTeamCash(CBasePlayer *pPlayer)
+{
+	if (!IsTeamMode() || !pPlayer)
+		return 0;
+	int team = GetTeamIndex(pPlayer->TeamID());
+	if (team < 0 || team >= TS_MAX_TEAMS)
+		return 0;
+	return m_teamCash[team];
+}
+
+// @0x69130 InitTeamScore / @0x67908 UpdateTeamScores — no-ops in the original (kept for parity).
+void CTSGameRules::InitTeamScore(int *pScores) {}
+void CTSGameRules::UpdateTeamScores(int a, int b) {}
 
 // @ RecountTeams — re-tokenize m_szTeamList (";"-separated) into m_teamNames/m_numTeams.
 // Mirrors CHalfLifeTeamplay::RecountTeams' parse half (strtok is destructive → copy first).
@@ -192,6 +241,11 @@ void CTSGameRules::PlayerSpawn(CBasePlayer *pPlayer)
 	// and apply the player's armament (cont.36 BuyArmament). NO stock HL weapons.
 	pPlayer->SetHasSuit(true); // VERIFY: the .so does an early virtual here; our stock-derived HUD needs the suit bit
 
+	// In team modes the player's starting wallet seeds from the team pool (0 in the shipped game,
+	// where the cash economy is compiled out — so this is inert; GetTeamCash returns 0).
+	if (int teamCash = GetTeamCash(pPlayer))
+		pPlayer->m_iCash = teamCash;
+
 	bool addDefault = true;
 	CBaseEntity *pEquip = NULL;
 	while ((pEquip = UTIL_FindEntityByClassname(pEquip, "game_player_equip")) != NULL)
@@ -239,9 +293,10 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	if (!IsTeamMode())
 		return;
 
+	const int nTeams = GetTeamsNum();
 	MESSAGE_BEGIN(MSG_ONE, gmsgTeamNames, NULL, pPlayer->edict());
-	WRITE_BYTE(m_numTeams);
-	for (int i = 0; i < m_numTeams; i++)
+	WRITE_BYTE(nTeams);
+	for (int i = 0; i < nTeams; i++)
 		WRITE_STRING(m_teamNames[i]);
 	MESSAGE_END();
 

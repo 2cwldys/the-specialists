@@ -335,6 +335,7 @@ CTSGameRules::CTSGameRules()
 void CTSGameRules::Init()
 {
 	InitTeams();
+	InitTeamScore(m_teamScore); // (no-op in the original)
 	m_flRoundEnd = 0;
 	m_flRoundRestart = gpGlobals->time + 5.0f; // first round fires 5s into the map
 	m_bRoundTimerEnabled = true;
@@ -438,7 +439,11 @@ void CTSGameRules::ResetRestartRound(int depth)
 	}
 	if (depth > 1)
 		for (int i = 0; i < TS_MAX_TEAMS; i++)
-			m_teamScore[i] = 0; // SLICE: the original also resets per-team cash + broadcasts TeamScore
+		{
+			m_teamScore[i] = 0;
+			m_teamCash[i] = (int)CVAR_GET_FLOAT("initial_cash"); // SLICE: original also broadcasts TeamScore
+			UpdateTeamScores(i, m_teamScore[i]); // (no-op in the original)
+		}
 	TSHudMessageAll(0, 0xff, 0, 8, 30, "Restarting Round");
 }
 

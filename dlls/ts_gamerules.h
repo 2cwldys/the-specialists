@@ -63,6 +63,13 @@ public:
 	const char *GetIndexedTeamName(int teamIndex) override; // "" if out of range
 	const char *GetTeamID(CBaseEntity *pEntity) override;   // the entity's team name string
 	const char *TeamWithFewestPlayers();                    // auto-balance pick
+	int   GetTeamsNum();                                     // @0x685a8 — number of active teams
+	void  SetTeamList(const char *pList);                   // @0x680dc — parse the ";"-team list into the slots
+	void  SetTeamModelList(const char *pList);             // @0x68258 — parse the "|"-model list into the slots
+	void  SetTeamModelList(int team, const char *pModel);  // @  per-slot model setter (overload)
+	int   GetTeamCash(CBasePlayer *pPlayer);               // @0x69aac — the player's team cash (0 outside team mode)
+	void  InitTeamScore(int *pScores);                     // @0x69130 — (no-op in the original)
+	void  UpdateTeamScores(int a, int b);                  // @0x67908 — (no-op in the original)
 
 	// Put `pPlayer` on `pTeamName`: pev->team (0-based) + m_szTeamName + model/team
 	// infokeys, and broadcast the HUD team/score info. The server-side stand-in for the
@@ -76,6 +83,7 @@ public:
 	char  m_szTeamList[256] = {};
 	char  m_teamNames[TS_MAX_TEAMS][TS_TEAMNAME_LEN] = {};
 	char  m_teamModels[TS_MAX_TEAMS][TS_TEAMNAME_LEN] = {};
+	int   m_teamCash[TS_MAX_TEAMS] = {}; // per-team cash pool (GetTeamCash; the cash economy is dead in the shipped game)
 	int   m_numTeams = 0;
 	int   m_iTeamMode = -1;              // tri-state cache: -1 unknown, 0 DM, 1 team
 
