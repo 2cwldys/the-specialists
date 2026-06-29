@@ -16,6 +16,113 @@
 #include "monsters.h"
 #include "weapons.h"
 #include "ts_weapons.h"
+#include "ts_physicobject.h"
+
+//============================================================================
+// CTSPhysicObject (@0x7ba54) — slow-motion-aware physics base for CTSGrenade + CTSWorldGun.
+// In slow-motion (pev->fuser1 < 1) the velocity/avelocity/gravity are scaled down (originals
+// saved); RestorePhysics undoes it. WaitThink toggles each frame. (Original InSlow() is a
+// CBaseEntity virtual we don't have; fuser1<1 is the equivalent slow check for a physics object.)
+//============================================================================
+void CTSPhysicObject::Spawn()
+{
+	pev->fuser1 = 1.0f;
+	m_lastSlow = 1.0f;
+	m_savedVelocity = g_vecZero;
+	m_savedAVelocity = g_vecZero;
+	m_savedGravity = 0;
+	m_field80 = 0;
+}
+
+void CTSPhysicObject::SavePhysics()
+{
+	const float slow = pev->fuser1;
+	if (m_savedVelocity == g_vecZero)
+	{
+		// first entry into slow: capture the real physics, then scale down
+		m_savedVelocity = pev->velocity;
+		m_savedAVelocity = pev->avelocity;
+		m_savedGravity = pev->gravity;
+	}
+	else if (m_lastSlow == slow)
+	{
+		return; // already scaled for this slow factor
+	}
+	pev->velocity = m_savedVelocity * slow;
+	pev->avelocity = m_savedVelocity * slow; // (orig scales avel from the saved VELOCITY)
+	pev->gravity = m_savedGravity * slow * slow;
+	m_lastSlow = slow;
+}
+
+void CTSPhysicObject::RestorePhysycs()
+{
+	if (m_savedVelocity == g_vecZero)
+		return; // nothing saved
+	pev->velocity = m_savedVelocity;
+	pev->avelocity = m_savedAVelocity;
+	pev->gravity = m_savedGravity;
+	m_savedVelocity = g_vecZero;
+	m_savedAVelocity = g_vecZero;
+	m_savedGravity = 0;
+	m_lastSlow = 0;
+}
+
+void CTSPhysicObject::WaitThink()
+{
+	if (pev->fuser1 < 1.0f) // InSlow()
+		SavePhysics();
+	else
+		RestorePhysycs();
+}
+
+//============================================================================
+// CTSGrenade (@0x7bdd8) — a thrown physics grenade (base CTSPhysicObject): bounce sounds + settle.
+//============================================================================
+class CTSGrenade : public CTSPhysicObject
+{
+public:
+	void Precache() override;
+	void EXPORT BounceTouch(CBaseEntity *pOther);
+};
+
+void CTSGrenade::Precache()
+{
+	PRECACHE_SOUND("weapons/grenbounce1.wav");
+	PRECACHE_SOUND("weapons/grenbounce2.wav");
+	PRECACHE_SOUND("weapons/grenbounce3.wav");
+	PRECACHE_SOUND("weapons/grenbounce4.wav");
+}
+
+void CTSGrenade::BounceTouch(CBaseEntity *pOther)
+{
+	if (!(pev->flags & FL_ONGROUND))
+	{
+		// airborne bounce (hit a wall) -> a random clatter
+		static const char *const snd[4] = {
+			"weapons/grenbounce1.wav", "weapons/grenbounce2.wav",
+			"weapons/grenbounce3.wav", "weapons/grenbounce4.wav" };
+		EMIT_SOUND_DYN(ENT(pev), CHAN_VOICE, snd[RANDOM_LONG(0, 3)], 0.25f, 0.8f, 0, 100);
+	}
+	else
+	{
+		// on the ground: damp the velocity; once slow enough, come to rest
+		pev->velocity = pev->velocity * 0.8f;
+		if (pev->velocity.Length() < 32.0f)
+		{
+			pev->angles.x = 0;
+			pev->angles.z = 0;
+			pev->velocity = g_vecZero;
+		}
+	}
+}
+
+// Keep CTSPhysicObject + CTSGrenade in the binary until the grenade/worldgun hierarchy is rewired
+// to derive them (the original's CTSWorldGun:CTSPhysicObject + thrown grenades). Never called.
+CBaseEntity *ts_grenades_keep_physic()
+{
+	static CTSGrenade g;
+	return (CBaseEntity *)&g;
+}
 
 //============================================================================
 // CTSShrapnel — a bouncing fragment thrown out by an exploding grenade. @0x7bf9c Create /
