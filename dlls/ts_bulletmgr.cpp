@@ -25,21 +25,13 @@
 #include "ts_player.h"
 #include "ts_weapons.h" // TSSlowPitch (slow-world sound pitch)
 #include "ts_bulletmgr.h"
+#include "ts_shared.h"   // GetBulletVelocityMult (the slow-motion bullet math, original TS_shared.cpp)
 
 CBulletManager g_BulletManager; // the original embeds this in CTSGameRules (+0x1864); one instance.
 
-// @ GetBulletVelocityMult__Ffc (@0x89160, TS_shared.cpp): a slow-mo bullet's speed as a fraction of
-// full bullet speed, from the shooter's slow factor + the slow-PAUSE flag. Slow-mo (pause=0) → ~slow
-// (a fast tracer); slow-pause (pause=1, the ×10) → much slower (dodgeable). Not slowed (≥0.99) → 1.0.
-static float GetBulletVelocityMult(float slow, int pause)
-{
-	if (slow >= 0.99f)
-		return 1.0f;
-	float denom = (1.0f - slow * slow) * (pause ? 10.0f : 1.0f);
-	if (denom < 1.0f)
-		denom = 1.0f;
-	return slow / denom;
-}
+// GetBulletVelocityMult (@0x89160) now lives in its original home, ts_shared.cpp (the TS slow-motion
+// math). A slow-mo bullet's speed as a fraction of full speed, from the shooter's slow factor + the
+// slow-PAUSE flag. Slow-mo (pause=0) → ~slow (a fast tracer); slow-pause (×10) → dodgeable; ≥0.99 → 1.
 
 // TSSlowBullet + CBulletManager are declared in ts_bulletmgr.h; the 256-slot ring is m_bullets.
 

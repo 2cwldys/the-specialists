@@ -45,6 +45,7 @@
 #include "ts_gamerules.h" // TSGameRules() — armor_absorb (kevlar damage reduction)
 #include "ts_weapons.h" // TS weapon helpers
 #include "ts_gun.h" // CTSGun::Reset (StartObserver arsenal wipe), GetPlayerTSGun
+#include "ts_shared.h" // InterpolateSlowMotion (the fuser1 slow-motion ease)
 
 // #define DUCKFIX
 
@@ -2075,17 +2076,8 @@ void CBasePlayer::PreThink()
 	// RE scratchpad/SLOWMO_PRESENTATION_RE.md §B: ease = InterpolateSlowMotion, anim = max(fuser1,0.01).
 	if (pev->fuser1 == 0.0f)
 		pev->fuser1 = 1.0f; // entvars defaults to 0; the slow factor's neutral is 1.0
-	{
-		float d = m_flSlowMotionGo - pev->fuser1; // ease CURRENT → TARGET
-		float ad = d < 0.0f ? -d : d;
-		if (ad > 0.05f)
-		{
-			float s = gpGlobals->frametime * 7.0f;
-			if (s > 1.0f) s = 1.0f;
-			d *= s;
-		}
-		pev->fuser1 += d;
-	}
+	// ease CURRENT (fuser1) → TARGET (m_flSlowMotionGo) — the original's TS_shared.cpp helper.
+	InterpolateSlowMotion(gpGlobals->frametime, &pev->fuser1, m_flSlowMotionGo);
 	// Base move speed comes from the inventory-slot encumbrance (GetSpeedBySlots: more/heavier weapons →
 	// slower); slow-motion (fuser1) scales it on top. So maxspeed = slotBase * fuser1, every frame.
 	const float slotBase = TSSlotBaseSpeed(this);

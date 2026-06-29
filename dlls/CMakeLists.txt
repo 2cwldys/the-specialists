@@ -137,6 +137,7 @@ target_sources(hl PRIVATE
 	ts_dmhill.cpp
 	ts_objectives.cpp
 	ts_powerup.cpp
+	ts_shared.cpp
 	ts_bulletmgr.cpp
 	ts_worldgun.cpp
 	ts_knife.cpp
