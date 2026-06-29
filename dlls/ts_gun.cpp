@@ -2269,9 +2269,11 @@ static void TSThrowWorldGun(CBasePlayer *pPlayer, CTSGun *pGun, int type, int cl
 //    owned (its clip becomes the akimbo's right barrel) and removes the akimbo item;
 //  - any other weapon throws one and is removed.
 // Returns true if anything was dropped.
-bool TSDropWeapon(CBasePlayer *pPlayer)
+// @0x84900 CBasePlayer::DropWeapon — drop the player's ACTIVE TS weapon into the world.
+bool CBasePlayer::DropWeapon()
 {
-	pPlayer->DropFlag(false); // CTF: the drop key also drops a carried flag (CBasePlayer::DropWeapon @0x84900)
+	CBasePlayer *pPlayer = this;
+	pPlayer->DropFlag(false); // CTF: the drop key also drops a carried flag
 
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun)

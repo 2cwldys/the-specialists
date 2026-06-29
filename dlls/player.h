@@ -461,6 +461,8 @@ public:
 
 	bool TakeFlag(s_flag_status *src);                    // @0x83830 — pick up a flag onto m_flagStatus
 	void DropFlag(bool bSilent);                          // @0x8334c — drop it (false=spawn loose flag)
+	bool DropWeapon();                                    // @0x84900 — drop the active TS weapon (the drop key)
+	void CutWire(int wire);                               // cut a bomb wire (the cutwire_<n> command)
 
 	int  GiveCash(int amount);                            // add cash (clamped 0..30000)
 	void ResetArmament();                                 // clear the pending loadout

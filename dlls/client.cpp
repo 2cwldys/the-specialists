@@ -625,7 +625,7 @@ void ClientCommand(edict_t* pEntity)
 	{
 		// CBasePlayer::DropWeapon does the throws + the faithful akimbo bookkeeping (akimbo ->
 		// two singles; a single dropped while its akimbo is owned leaves the other barrel).
-		TSDropWeapon(player);
+		player->DropWeapon();
 	}
 	else if (FStrEq(pcmd, "tsbuy")) // TS: buy a weapon (free; restriction-gated). SLICE: cl_dll menu
 	{
@@ -683,8 +683,7 @@ void ClientCommand(edict_t* pEntity)
 	{
 		// TS bomb: cut a wire — the original is the prefix command `cutwire_<n>` (ClientCommand
 		// strstr "cutwire_" + sscanf "%i"), not a stand-in. cl_dll wire UI still a SLICE.
-		extern void TSCutWire(CBasePlayer *pPlayer, int wire);
-		TSCutWire(player, atoi(pcmd + 8));
+		player->CutWire(atoi(pcmd + 8));
 	}
 	else if (FStrEq(pcmd, "fullupdate"))
 	{

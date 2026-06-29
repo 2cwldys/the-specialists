@@ -195,10 +195,10 @@ void CTSBomb::WaitThink()
 }
 
 // Free helper for the wire-cut console command (the cl_dll wire UI isn't built).
-void TSCutWire(CBasePlayer *pPlayer, int wire)
+void CBasePlayer::CutWire(int wire)
 {
 	CBaseEntity *pEnt = nullptr;
 	while ((pEnt = UTIL_FindEntityByClassname(pEnt, "ts_bomb")) != nullptr)
-		((CTSBomb *)pEnt)->CutWire(wire, pPlayer);
+		((CTSBomb *)pEnt)->CutWire(wire, this);
 }
 

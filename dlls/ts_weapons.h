@@ -78,7 +78,7 @@ bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count);
 // spawns the CTSWorldGun(s) + does the items[] bookkeeping (akimbo splits into two singles; a
 // single dropped while its akimbo is owned leaves the other). Returns false if it can't drop
 // (melee/no world model). Pick up a dropped weapon of `type`/`clip` (CTSWorldGun pickup).
-bool TSDropWeapon(CBasePlayer *pPlayer);
+// (TSDropWeapon is now the method CBasePlayer::DropWeapon — see player.h / ts_gun.cpp.)
 void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip);
 void TSDropWeaponsOnDeath(CBasePlayer *pPlayer); // scatter the arsenal on death
 void TSDropAmmoOnDeath(CBasePlayer *pPlayer);    // drop the per-caliber reserve as a pack
