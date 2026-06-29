@@ -562,6 +562,13 @@ bool CTSGun::Deploy()
 	// (no invented m_bKungFu bool). Real weapons carry onehanded/twohanded/akimbo.
 	const char *animExt = (m_weaponType == TSW_MELEE) ? "" : (wi->pszAnimExt ? wi->pszAnimExt : "onehanded");
 	bool ok = DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, drawSeq, (char *)animExt);
+	// player+0x478 3rd-person body-anim OVERRIDE (RE DefaultDeploy@0x90178, weapon_tsgun switch on m_weaponType):
+	// the dedicated melee idles. CTSAnimation::Animate plays this directly when non-empty (else idle_/aim_<grip>).
+	const char *ov = (m_weaponType == TSW_KNIFE || m_weaponType == TSW_SEALKNIFE) ? "knife_idle"
+		: (m_weaponType == TSW_KATANA) ? "katana_idle"
+		: (m_weaponType == TSW_FLAG) ? "briefcase_idle" : "";
+	strncpy(m_pPlayer->m_szAnimOverride, ov, sizeof(m_pPlayer->m_szAnimOverride) - 1);
+	m_pPlayer->m_szAnimOverride[sizeof(m_pPlayer->m_szAnimOverride) - 1] = 0;
 	if (ok)
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_DRAW); // 3rd-person draw_<grip>
 

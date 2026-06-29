@@ -296,6 +296,11 @@ public:
 	void SetAnimation(PLAYER_ANIM playerAnim);
 	void SetWeaponAnimType(const char* szExtention);
 	char m_szAnimExtention[32];
+	// player+0x478: the per-frame 3rd-person body-anim OVERRIDE string (RE Animate@0x5b470 case 1/6 +
+	// DefaultDeploy@0x90178). When non-empty, CTSAnimation::Animate plays it directly as the body idle
+	// (instead of idle_/aim_<grip>) — the dedicated melee idles: knife/sealknife -> "knife_idle",
+	// katana -> "katana_idle", flag -> "briefcase_idle". Set on weapon deploy, cleared on holster.
+	char m_szAnimOverride[16] = {};
 
 	// custom player functions
 	virtual void ImpulseCommands();

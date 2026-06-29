@@ -534,6 +534,15 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	if (ccHandled)
 		return;
 
+	// player+0x478 anim-OVERRIDE (RE Animate@0x5b470 case 1/6, checked FIRST): a dedicated melee idle
+	// (knife_idle/katana_idle/briefcase_idle) the weapon set on deploy. Non-empty -> play it directly as
+	// the body (instead of idle_/aim_<grip>), flags 0x12. This is the knife/katana dedicated 3rd-person idle.
+	if (pPlayer->m_szAnimOverride[0] != 0)
+	{
+		SetAnim(pPlayer, pPlayer->m_szAnimOverride, 0x12, 0);
+		return;
+	}
+
 	if (m_flAimTimer >= 0.01f)
 		return; // weapon raised recently — leave the shoot/relo/aim torso playing
 
