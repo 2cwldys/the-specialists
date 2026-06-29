@@ -54,12 +54,56 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 
 // SetSpartaWeapon (ts_i386.so @0x6fa34): the combat-param override applied after the Write_<weapon> stage.
 // Overwrites the four fields the game actually uses for fire feel — flSpread/flViewKick/flRecoil/flDamage.
-static void SetSparta(int idx, float spread, float viewKick, float recoil, float dmg)
+static void SetSpartaWeapon(int idx, float spread, float viewKick, float recoil, float dmg)
 {
 	g_weaponInfo[idx].flSpread = spread;   // +0x28
 	g_weaponInfo[idx].flViewKick = viewKick; // +0x30
 	g_weaponInfo[idx].flRecoil = recoil;   // +0x34
 	g_weaponInfo[idx].flDamage = dmg;      // +0x1c
+}
+
+// === Sparta() — the authoritative combat-param OVERRIDE. RE: ts_i386.so Sparta() @0x6fa78 ->
+// SetSpartaWeapon(idx, spread, viewKick, recoil, dmg) @0x6fa34, BYTE-IDENTICAL to client.dll
+// FUN_10007a80 -> FUN_10007a50. It runs after every Write_<weapon> and OVERWRITES the four combat fields:
+// flSpread(+0x28), flViewKick(+0x30), flRecoil(+0x34), flDamage(+0x1c). The Write_<weapon> values are an
+// earlier init stage — THESE are what the game actually uses (server damage/spread sim AND client recoil/
+// prediction both run Sparta). Only the 32 firearms are listed; the 6 melee/grenade/flag indices keep
+// their Write_ values. ~22 differed from Write (skorpion vk 0.25->0.5 [live-verified], bull 18->13,
+// mossberg 14->8.5, benelli 10->13, beretta dmg/vk, barrett dmg 185, ...). Calls in the original order.
+static void Sparta()
+{
+  SetSpartaWeapon(1, 0.01f, 2.2f, 0.0065f, 24.0f);      // glock18
+  SetSpartaWeapon(9, 0.01f, 4.0f, 0.0f, 33.0f);             // mk23
+  SetSpartaWeapon(10, 0.02f, 4.0f, 0.0f, 33.0f);            // mk23_akimbo
+  SetSpartaWeapon(12, 0.005f, 7.5f, 0.0125f, 49.0f);    // desert
+  SetSpartaWeapon(14, 0.0025f, 1.5f, 0.01f, 23.0f);     // fnh
+  SetSpartaWeapon(30, 0.005f, 1.5f, 0.01f, 23.0f);      // fnh_akimbo
+  SetSpartaWeapon(2, 0.01f, 2.5f, 0.0f, 27.0f);           // beretta
+  SetSpartaWeapon(8, 0.02f, 2.5f, 0.0f, 27.0f);           // beretta_akimbo
+  SetSpartaWeapon(21, 0.0075f, 5.5f, 0.0f, 40.0f);        // gold
+  SetSpartaWeapon(22, 0.01f, 5.0f, 0.0125f, 39.0f);       // glock22
+  SetSpartaWeapon(28, 0.005f, 0.35f, 0.008f, 15.0f);    // ruger
+  SetSpartaWeapon(31, 0.0025f, 13.0f, 0.0f, 95.0f);         // bull
+  SetSpartaWeapon(36, 0.001f, 7.5f, 0.0f, 100.0f);        // contender
+  SetSpartaWeapon(3, 0.02f, 1.75f, 0.0065f, 20.0f);     // uzi
+  SetSpartaWeapon(16, 0.04f, 1.75f, 0.0065f, 20.0f);    // uzi_akimbo
+  SetSpartaWeapon(6, 0.005f, 1.25f, 0.005f, 19.0f);     // mp5sd
+  SetSpartaWeapon(7, 0.02f, 2.25f, 0.003f, 23.0f);      // mp5k
+  SetSpartaWeapon(17, 0.025f, 0.5f, 0.0015f, 16.0f);    // skorpion
+  SetSpartaWeapon(37, 0.05f, 0.5f, 0.003f, 16.0f);      // skorpion_akimbo
+  SetSpartaWeapon(19, 0.005f, 1.0f, 0.0065f, 16.0f);      // pdw
+  SetSpartaWeapon(23, 0.015f, 3.0f, 0.0f, 31.0f);           // mac10
+  SetSpartaWeapon(5, 0.005f, 3.75f, 0.004f, 33.0f);     // m4
+  SetSpartaWeapon(18, 0.001f, 10.0f, 0.1f, 185.0f);       // barrett
+  SetSpartaWeapon(13, 0.0025f, 5.5f, 0.0001f, 39.0f);   // ak47
+  SetSpartaWeapon(15, 0.005f, 2.0f, 0.01f, 29.0f);        // aug
+  SetSpartaWeapon(27, 0.0015f, 4.0f, 0.005f, 40.0f);      // m16
+  SetSpartaWeapon(4, 0.035f, 13.0f, 0.0f, 12.0f);           // benellim3
+  SetSpartaWeapon(20, 0.05f, 10.0f, 0.0f, 12.0f);           // spas12
+  SetSpartaWeapon(33, 0.07f, 10.0f, 0.0f, 21.0f);           // sawedoff
+  SetSpartaWeapon(26, 0.045f, 8.5f, 0.0f, 16.0f);         // mossberg
+  SetSpartaWeapon(11, 0.065f, 4.0f, 0.0f, 7.0f);            // usas12
+  SetSpartaWeapon(32, 0.015f, 1.5f, 0.005f, 33.0f);     // m60
 }
 
 // Max per-caliber reserve (rounds), s_ammo_info+0x20 from compile_ammo_info (@0x6f51c).
@@ -265,46 +309,7 @@ static void compile_weapons_info()
     g_weaponInfo[i].attachBuiltin = kAttachBuiltin[i];
   }
 
-  // === Sparta() — the authoritative combat-param OVERRIDE. RE: ts_i386.so Sparta() @0x6fa78 ->
-  // SetSpartaWeapon(idx, spread, viewKick, recoil, dmg) @0x6fa34, BYTE-IDENTICAL to client.dll
-  // FUN_10007a80 -> FUN_10007a50. It runs after every Write_<weapon> and OVERWRITES the four combat fields:
-  // flSpread(+0x28), flViewKick(+0x30), flRecoil(+0x34), flDamage(+0x1c). The Write_<weapon> values are an
-  // earlier init stage — THESE are what the game actually uses (server damage/spread sim AND client recoil/
-  // prediction both run Sparta). Only the 32 firearms are listed; the 6 melee/grenade/flag indices keep
-  // their Write_ values. ~22 differed from Write (skorpion vk 0.25->0.5 [live-verified], bull 18->13,
-  // mossberg 14->8.5, benelli 10->13, beretta dmg/vk, barrett dmg 185, ...). Calls in the original order.
-  SetSparta(1, 0.01f, 2.2f, 0.0065f, 24.0f);      // glock18
-  SetSparta(9, 0.01f, 4.0f, 0.0f, 33.0f);             // mk23
-  SetSparta(10, 0.02f, 4.0f, 0.0f, 33.0f);            // mk23_akimbo
-  SetSparta(12, 0.005f, 7.5f, 0.0125f, 49.0f);    // desert
-  SetSparta(14, 0.0025f, 1.5f, 0.01f, 23.0f);     // fnh
-  SetSparta(30, 0.005f, 1.5f, 0.01f, 23.0f);      // fnh_akimbo
-  SetSparta(2, 0.01f, 2.5f, 0.0f, 27.0f);           // beretta
-  SetSparta(8, 0.02f, 2.5f, 0.0f, 27.0f);           // beretta_akimbo
-  SetSparta(21, 0.0075f, 5.5f, 0.0f, 40.0f);        // gold
-  SetSparta(22, 0.01f, 5.0f, 0.0125f, 39.0f);       // glock22
-  SetSparta(28, 0.005f, 0.35f, 0.008f, 15.0f);    // ruger
-  SetSparta(31, 0.0025f, 13.0f, 0.0f, 95.0f);         // bull
-  SetSparta(36, 0.001f, 7.5f, 0.0f, 100.0f);        // contender
-  SetSparta(3, 0.02f, 1.75f, 0.0065f, 20.0f);     // uzi
-  SetSparta(16, 0.04f, 1.75f, 0.0065f, 20.0f);    // uzi_akimbo
-  SetSparta(6, 0.005f, 1.25f, 0.005f, 19.0f);     // mp5sd
-  SetSparta(7, 0.02f, 2.25f, 0.003f, 23.0f);      // mp5k
-  SetSparta(17, 0.025f, 0.5f, 0.0015f, 16.0f);    // skorpion
-  SetSparta(37, 0.05f, 0.5f, 0.003f, 16.0f);      // skorpion_akimbo
-  SetSparta(19, 0.005f, 1.0f, 0.0065f, 16.0f);      // pdw
-  SetSparta(23, 0.015f, 3.0f, 0.0f, 31.0f);           // mac10
-  SetSparta(5, 0.005f, 3.75f, 0.004f, 33.0f);     // m4
-  SetSparta(18, 0.001f, 10.0f, 0.1f, 185.0f);       // barrett
-  SetSparta(13, 0.0025f, 5.5f, 0.0001f, 39.0f);   // ak47
-  SetSparta(15, 0.005f, 2.0f, 0.01f, 29.0f);        // aug
-  SetSparta(27, 0.0015f, 4.0f, 0.005f, 40.0f);      // m16
-  SetSparta(4, 0.035f, 13.0f, 0.0f, 12.0f);           // benellim3
-  SetSparta(20, 0.05f, 10.0f, 0.0f, 12.0f);           // spas12
-  SetSparta(33, 0.07f, 10.0f, 0.0f, 21.0f);           // sawedoff
-  SetSparta(26, 0.045f, 8.5f, 0.0f, 16.0f);         // mossberg
-  SetSparta(11, 0.065f, 4.0f, 0.0f, 7.0f);            // usas12
-  SetSparta(32, 0.015f, 1.5f, 0.005f, 33.0f);     // m60
+  Sparta(); // the authoritative combat-param override (32 firearms; see Sparta() above) — runs after Write_<weapon>
 
   // Viewmodel fire-animation sequence per weapon — the "shoot*" sequence index read
   // directly from each v_*.mdl. -1 for melee / grenade / akimbo (their own fire paths
