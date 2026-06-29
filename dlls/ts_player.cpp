@@ -488,6 +488,20 @@ void CBasePlayer::PunchScreen(float magnitude, Vector dir)
 {
 }
 
+// @0x856e0 TSUse — the server-side double-tap +use detector: a second +use within 0.3s activates the
+// held powerup (UsePowerUp), then re-arms the window. NB: our build detects the double-tap CLIENT-side
+// (cl_usepowerup -> the `usepowerup` command), so this is NOT wired into PreThink to avoid a
+// double-activation; kept for source parity / as the server-side alternative.
+void CBasePlayer::TSUse()
+{
+	if (pev->iuser1 == 0 && (m_afButtonPressed & IN_USE))
+	{
+		if (gpGlobals->time <= m_flUseDoubleTap)
+			UsePowerUp();
+		m_flUseDoubleTap = gpGlobals->time + 0.3f;
+	}
+}
+
 // @0x82a08 UpdatePlayerState — derive the pose state: 2 = stunt/locked (an iuser4 lock bit set),
 // 1 = ducking (FL_DUCKING = 0x4000), 0 = normal.
 void CBasePlayer::UpdatePlayerState()

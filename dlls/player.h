@@ -472,6 +472,8 @@ public:
 	void DropAmmo();                                      // @0x846f0 — drop the gun's reserve as a CTSAmmoPack
 	void UpdatePlayerState();                             // @0x82a08 — derive m_iPlayerState (locked/frozen/normal)
 	int m_iPlayerState = 0;                               // 0x498 — pose: 0 normal, 1 ducking, 2 stunt/locked
+	void TSUse();                                         // @0x856e0 — server-side double-tap +use -> UsePowerUp
+	float m_flUseDoubleTap = 0;                           // 0x164 — the double-tap +use window deadline
 	float m_flSetMaxSpeed = 0;                            // 0x550 — the last SetPlayerSpeed value (clamped)
 	float m_flGravityValue = 0;                           // 0x4ec — the SetPlayerGravity stored value
 
