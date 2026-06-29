@@ -119,7 +119,11 @@ def our_members():
     """{class: set(member_name)} from our dlls/ + cl_dll/ headers (m_* / lowercase member declarations)."""
     cls = defaultdict(set)
     classre = re.compile(r"^\s*(?:class|struct)\s+([A-Za-z_]\w*)")
-    declre = re.compile(r"^\s*(?:const\s+)?[A-Za-z_][\w:<>,\s\*&]*?\b(m_[A-Za-z0-9_]+)\s*(?:\[[^\]]*\])?\s*(?:=|;|\{)")
+    # member declarations: a type then the member name then =/;/{. Capture m_-prefixed OR a
+    # lowercase-leading name (the original's FGD/save members are non-prefixed, e.g. tsweaponid).
+    declre = re.compile(r"^\s*(?:const\s+)?[A-Za-z_][\w:<>,\s\*&]*?\b(m_[A-Za-z0-9_]+|[a-z][a-z0-9_]+)\s*(?:\[[^\]]*\])?\s*(?:=|;|\{)")
+    # type keywords that can be the LAST token before ; (forward decls / bare types) — not members
+    typeword = {"int","bool","char","float","double","void","short","long","unsigned","string_t","vec_t","byte","entvars_t"}
     for d in SRC_DIRS:
         if not os.path.isdir(d):
             continue
@@ -133,7 +137,7 @@ def our_members():
                     cur = cm.group(1)
                 if cur and "(" not in ln.split("//")[0]:        # skip method decls
                     dm = declre.match(ln)
-                    if dm:
+                    if dm and dm.group(1) not in typeword:
                         cls[cur].add(dm.group(1))
     return cls
 
