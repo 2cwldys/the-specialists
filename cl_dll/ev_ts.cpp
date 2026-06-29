@@ -340,7 +340,10 @@ void EV_TSFire(event_args_t* args)
 		// bots; the real recoil moves the aim client-side). bullet-time: VERIFY (no client slow-mo flag
 		// wired yet -> false).
 		const s_weapon_info* wiLocal = get_weapon_info((tsweapon_t)weaponType);
-		TS_AddViewRecoil(wiLocal->flViewKick, wiLocal->iFireType, args->ducking != 0, false);
+		// fparam2 = the recoil magnitude computed predicted-side in CTSGun::StandardFire/AkimboFire (= flViewKick,
+		// with the pump-shotgun 0.35x reduction already folded in when in pump mode). NOT wiLocal->flViewKick,
+		// which would be the unreduced value (the pump reduction is mode-dependent and only known on the fire side).
+		TS_AddViewRecoil(args->fparam2, wiLocal->iFireType, args->ducking != 0, false);
 	}
 
 	// Eject a brass shell from the viewmodel/player.

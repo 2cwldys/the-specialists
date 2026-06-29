@@ -622,8 +622,18 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	//   bparam1 = (clip == 0).  The silencer bit drives the client's fire-sil sound + muzzle
 	//   suppression (EV_TSFire). Barrel side is always 0 here (non-akimbo); we carry it in bparam2
 	//   for the merged akimbo path (see AkimboFire) — our extension, not read by the original client.
+	// Recoil magnitude — computed HERE (predicted-side, where the fire-mode is known) and carried to the
+	// client aim-recoil via the event's fparam2 (EV_TSFire calls TS_AddViewRecoil with it). The REAL player's
+	// recoil is the client-side aim kick, NOT the server VKickback (which the original gates to bots) — so the
+	// pump-shotgun 0.35x reduction has to ride along to the client. Pump shotguns kick LESS: the original
+	// ShotgunFire@0x82108 scales view-kick to 0.35x when the weapon has an auto/semi mode bit (iFireModes & 3)
+	// AND it's not in semi mode — so the dual-mode benelli/spas (mask 0xa) get 0.35x IN PUMP MODE (full in
+	// semi), while the pump-ONLY mossberg (mask 0x8, no &3 bit) keeps the full kick.
+	float flViewKick = wi->flViewKick;
+	if (wi->iFireType == TSFT_PUMP && (wi->iFireModes & 3) != 0 && m_fireMode != TSFM_SEMI)
+		flViewKick *= 0.35f;
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
-		flSpread, flSpread, m_weaponType, m_items[m_weaponType].attach, (m_iClip == 0) ? 1 : 0, 0);
+		flSpread, flViewKick, m_weaponType, m_items[m_weaponType].attach, (m_iClip == 0) ? 1 : 0, 0);
 
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;
@@ -640,9 +650,10 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 		0, (int)(wi->flDamage * TSDamageMult()), m_pPlayer->pev, m_pPlayer->random_seed);
 #endif
 
-	// Recoil view-punch (RE StandardFire: VKickback when weaponinfo+0x38 != 0 — all firearms; melee/grenade
-	// have it 0 and don't reach StandardFire anyway). Kicks the aim up + sideways like a mouse nudge.
-	VKickback(wi->flViewKick, wi->iFireType);
+	// Server-side view-punch (RE StandardFire: VKickback when weaponinfo+0x38 != 0 — all firearms). Uses the
+	// same flViewKick computed above (pump 0.35x folded in). NB: VKickback's punchangle only affects BOTS; real
+	// players get the client aim-recoil via the event fparam2 above.
+	VKickback(flViewKick, wi->iFireType);
 
 	float flRate;
 	if (m_fireMode == TSFM_BURST)
@@ -1598,8 +1609,10 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	// akimbo into a separate handler/event (firelinked.sc), a SLICE pending #15; bparam2 is our merged-path
 	// extension and is unread by the original client for non-akimbo.
 	const int eventSide = (nSides == 2) ? 2 : sides[0];
+	// fparam2 = the recoil magnitude (EV_TSFire's TS_AddViewRecoil reads it). Akimbo isn't a pump shotgun, so
+	// no 0.35x reduction — just the weapon's flViewKick.
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
-		flSpread, flSpread, m_weaponType, it.attach, (m_iClip == 0) ? 1 : 0, eventSide);
+		flSpread, wi->flViewKick, m_weaponType, it.attach, (m_iClip == 0) ? 1 : 0, eventSide);
 
 	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
 	if (DoubleFireRate(m_pPlayer))
