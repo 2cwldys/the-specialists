@@ -93,7 +93,7 @@ public:
 	void CCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
 	void CCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
 	void RegenBlockBar();                        // continuous regen of the melee block bar (m_blockBar toward 100)
-	void GrenadeThrow(const s_weapon_info *wi);  // grenade fire-type
+	void GrenadeFire(const s_weapon_info *wi);  // grenade fire-type
 	void ThrowKnife();                           // @KnifeFire throw branch — right-click hurls the knife
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
 	void SwitchFireMode();                       // cycle the held weapon's fire-mode

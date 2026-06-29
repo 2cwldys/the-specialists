@@ -566,7 +566,7 @@ bool CTSGun::Deploy()
 // rate/spread (StandardFire reads s_weapon_info+0x18 rate / +0x28 spread / +0x348
 // fire-type). SLICE: the faithful path dispatches on the dual-wield items-array
 // (m_pActiveItem/m_pActiveInfo) — here we dispatch on the single held m_weaponType.
-// Melee/grenade/akimbo split out to MeleeAttack/GrenadeThrow/AkimboFire.
+// Melee/grenade/akimbo split out to MeleeAttack/GrenadeFire/AkimboFire.
 void CTSGun::PrimaryAttack()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
@@ -589,7 +589,7 @@ void CTSGun::PrimaryAttack()
 	}
 	if (wi->iFireType == TSFT_GRENADE)
 	{
-		GrenadeThrow(wi);
+		GrenadeFire(wi);
 		return;
 	}
 
@@ -1438,7 +1438,7 @@ void TSCheckRunThrough(CBasePlayer *pPlayer)
 // Reload the active weapon from its own per-slot reserve (the original draws from
 // the per-caliber armament; here each arsenal slot carries its own spare rounds).
 // @ GrenadeFire__6CTSGun — toss an M61 grenade (one per trigger pull).
-void CTSGun::GrenadeThrow(const s_weapon_info *wi)
+void CTSGun::GrenadeFire(const s_weapon_info *wi)
 {
 	if (!(m_pPlayer->m_afButtonPressed & IN_ATTACK))
 		return; // one throw per press
