@@ -258,80 +258,148 @@ public:
 	void Spawn() override;
 	void Precache() override;
 	bool KeyValue(KeyValueData *pkvd) override;
-	void EXPORT HackTouch(CBaseEntity *pOther);
-	void EXPORT WaitThink();
+	bool Save(CSave &save) override;
+	bool Restore(CRestore &restore) override;
+	int  ObjectCaps() override { return FCAP_CONTINUOUS_USE; } // @0x8e788 -> 0x10
+	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override; // @0x8cf14
+	void EnableObjective(bool enable) override; // @0x8cd6? arm/disarm + seed the objective deadline
+	void EXPORT WaitThink();                    // @0x8ceb0 — objective deadline countdown -> Freeze
 
-	float m_hackTime = 10.0f;   // hackingtime (seconds to complete)
-	float m_hackTimer = 10.0f;  // remaining
-	float m_flLastTouch = 0.0f; // last frame a valid hacker was inside
-	bool  m_bDone = false;
+	static TYPEDESCRIPTION m_SaveData[];
+
+	int   hacksec = 10;         // +0x7c — keyvalue "hackingtime": seconds of HELD USE to complete
+	float m_flObjTimer = 0;     // +0x6c — objective deadline countdown (round seconds left)
+	float m_flHackProgress = 0; // +0x70 — hack progress remaining (held USE counts it down; <0 = done)
+	float m_flLastUse = 0;      // +0x74 — last USE time (held-USE continuity)
+	float m_flNextSound = 0;    // +0x78 — next "hacking" sound time
 };
 
 LINK_ENTITY_TO_CLASS(ts_hack, CTSHack);
 
+TYPEDESCRIPTION CTSHack::m_SaveData[] = {
+	DEFINE_FIELD(CTSHack, hacksec, FIELD_INTEGER),
+};
+IMPLEMENT_SAVERESTORE(CTSHack, CTSObjective);
+
+// The original Precache is empty (the hack sounds are precached globally); we precache them here for
+// runtime safety (the model is precached by SET_MODEL).
 void CTSHack::Precache()
 {
-	if (!FStringNull(pev->model))
-		PRECACHE_MODEL((char *)STRING(pev->model));
+	PRECACHE_SOUND("misc/hacking.wav");
+	PRECACHE_SOUND("misc/hacked.wav");
 }
 
-// @Spawn__7CTSHack — a brush trigger; SET_MODEL + SetOrigin, then poll for hackers.
+// @Spawn__7CTSHack — the original spawns it INACTIVE (NODRAW, non-solid) + just thinks; the gamerules
+// InitObjectives arms it via EnableObjective. That isn't built, so we arm it here (SLICE) to keep the
+// hack functional.
 void CTSHack::Spawn()
 {
 	Precache();
+	pev->classname = MAKE_STRING("ts_hack");
 	if (!FStringNull(pev->model))
 		SET_MODEL(ENT(pev), STRING(pev->model));
-	pev->movetype = MOVETYPE_NONE;
-	pev->solid = SOLID_TRIGGER;
 	UTIL_SetOrigin(pev, pev->origin);
-
-	m_hackTimer = m_hackTime;
-	m_bActive = true;
-	SetTouch(&CTSHack::HackTouch);
 	SetThink(&CTSHack::WaitThink);
-	pev->nextthink = gpGlobals->time + 1.0f;
+	pev->nextthink = pev->ltime + 1.0f;
+	EnableObjective(true); // SLICE: the original defers arming to CTSGameRules::InitObjectives
 }
 
 bool CTSHack::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "hackingtime"))
 	{
-		m_hackTime = atof(pkvd->szValue);
-		m_hackTimer = m_hackTime;
+		hacksec = atoi(pkvd->szValue);
 		return true;
 	}
 	return CTSObjective::KeyValue(pkvd);
 }
 
-// A valid living player of the attacker team in the volume keeps the hack progressing.
-void CTSHack::HackTouch(CBaseEntity *pOther)
+// @EnableObjective — arm/disarm. Arming makes it a USE-able brush + seeds the objective deadline from
+// the round timer; the hack progress (m_flHackProgress) only starts on the first USE.
+void CTSHack::EnableObjective(bool enable)
 {
-	if (m_bDone || !m_bActive || !pOther->IsPlayer() || !pOther->IsAlive())
-		return;
-	if (!CanInteract(pOther->pev->team))
-		return;
-	m_flLastTouch = gpGlobals->time;
+	m_bActive = enable;
+	if (enable)
+	{
+		pev->effects &= ~EF_NODRAW;
+		pev->solid = SOLID_BBOX;       // RE solid=4; a USE-able solid
+		pev->movetype = MOVETYPE_PUSH; // RE movetype=7
+		pev->flags |= FL_WORLDBRUSH;   // RE flags |= 0x2000000
+		if (!FStringNull(pev->model))
+			SET_MODEL(ENT(pev), STRING(pev->model));
+		CTSGameRules *gr = TSGameRules();
+		m_flObjTimer = (gr && gr->m_flRoundEnd > 0) ? (gr->m_flRoundEnd - gpGlobals->time) : 0; // round seconds left
+		m_flHackProgress = 0;
+		m_flLastUse = 0;
+		m_flNextSound = 0;
+	}
+	else
+	{
+		pev->effects = EF_NODRAW;
+		pev->solid = SOLID_NOT;
+		pev->flags = 0;
+		pev->movetype = MOVETYPE_NONE;
+		m_flObjTimer = 0;
+		m_flHackProgress = 0;
+		m_flLastUse = 0;
+	}
 }
 
-// @WaitThink__7CTSHack — count the timer down while a hacker is present; complete at 0.
+// @WaitThink__7CTSHack — the OBJECTIVE deadline: while armed, count the round-relative timer down and
+// freeze when it runs out (the attackers failed to finish the hack in time).
 void CTSHack::WaitThink()
 {
-	pev->nextthink = gpGlobals->time + 1.0f;
-	if (m_bDone || !m_bActive)
+	pev->nextthink = pev->ltime + 1.0f;
+	if (m_bActive)
+	{
+		m_flObjTimer -= 1.0f;
+		if (m_flObjTimer <= 0.0f)
+			Freeze(true);
+	}
+}
+
+// @Use__7CTSHack — a player HOLDS USE on the panel: progress the hack (from `hacksec`), beeping each
+// second; when the progress runs out the objective completes (fire target + HUD + "hacked" sound + freeze).
+void CTSHack::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
+{
+	if (!m_bActive || !pCaller || !pCaller->IsPlayer())
+		return;
+	CBasePlayer *pPlayer = (CBasePlayer *)pCaller;
+	if (!CanInteract(pPlayer))
 		return;
 
-	if (gpGlobals->time - m_flLastTouch < 1.5f) // a hacker was inside this tick
+	if (m_flLastUse == 0.0f)
+		m_flLastUse = gpGlobals->time;
+
+	// held continuously (gap < 0.5s)? progress the hack.
+	if (gpGlobals->time - m_flLastUse < 0.5f)
 	{
-		m_hackTimer -= 1.0f;
-		if (m_hackTimer <= 0.0f)
-		{
-			m_bDone = true;
-			if (!FStringNull(pev->message))
-				TSHudMessageAll(0, 0xff, 0, 8, 30, STRING(pev->message));
-			if (!FStringNull(pev->target))
-				FireTargets((char *)STRING(pev->target), this, this, USE_TOGGLE, 0);
-			Freeze(true); // objective done -> inactive
-		}
+		if (m_flHackProgress == 0.0f) // init the progress timer (RE: hacksec, capped 30, floored 1)
+			m_flHackProgress = (hacksec < 30) ? (float)(hacksec < 1 ? 1 : hacksec) : 30.0f;
+		else
+			m_flHackProgress -= (gpGlobals->time - m_flLastUse); // count down by the elapsed time
+	}
+
+	if (m_flNextSound < gpGlobals->time) // the "hacking" sound, once a second
+	{
+		m_flNextSound = gpGlobals->time + 1.0f;
+		EMIT_SOUND_DYN(edict(), CHAN_BODY, "misc/hacking.wav", RANDOM_FLOAT(0.92f, 1.0f), ATTN_NORM, 0,
+			98 + RANDOM_LONG(0, 3)); // VERIFY exact channel/attn
+	}
+
+	ClientPrint(pPlayer->pev, HUD_PRINTCENTER, UTIL_VarArgs("%i seconds left", (int)m_flHackProgress));
+	m_flLastUse = gpGlobals->time;
+
+	if (m_flHackProgress < 0.0f) // hack complete
+	{
+		if (!FStringNull(pev->target))
+			FireTargets(STRING(pev->target), this, this, USE_TOGGLE, 0);
+		if (!FStringNull(pev->message))
+			TSHudMessageAll(0, 0xff, 0, 8, 30, STRING(pev->message));
+		m_flObjTimer = 0;
+		Freeze(true);
+		EMIT_SOUND_DYN(edict(), CHAN_BODY, "misc/hacked.wav", RANDOM_FLOAT(0.92f, 1.0f), ATTN_NORM, 0,
+			98 + RANDOM_LONG(0, 3));
 	}
 }
 
