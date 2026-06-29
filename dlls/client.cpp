@@ -40,6 +40,7 @@
 #include "client.h"
 #include "soundent.h"
 #include "gamerules.h"
+#include "ts_playeramount.h" // CTSPlayerAmount connect/disconnect relays
 #include "ts_gamerules.h" // TSGameRules() (the `motd` re-send passthrough)
 #include "game.h"
 #include "customentity.h"
@@ -83,6 +84,11 @@ called when a player connects to a server
 */
 qboolean ClientConnect(edict_t* pEntity, const char* pszName, const char* pszAddress, char szRejectReason[128])
 {
+	// TS: drive the ts_playeramount relays (per-event counter -> connecttarget on == clients).
+	CBaseEntity* pRelay = nullptr;
+	while ((pRelay = UTIL_FindEntityByClassname(pRelay, "ts_playeramount")) != nullptr)
+		static_cast<CTSPlayerAmount*>(pRelay)->ClientConnect();
+
 	return static_cast<qboolean>(g_pGameRules->ClientConnected(pEntity, pszName, pszAddress, szRejectReason));
 
 	// a client connecting during an intermission can cause problems
@@ -102,6 +108,11 @@ GLOBALS ASSUMED SET:  g_fGameOver
 */
 void ClientDisconnect(edict_t* pEntity)
 {
+	// TS: drive the ts_playeramount relays (per-event counter -> disconnecttarget on == clients).
+	CBaseEntity* pRelay = nullptr;
+	while ((pRelay = UTIL_FindEntityByClassname(pRelay, "ts_playeramount")) != nullptr)
+		static_cast<CTSPlayerAmount*>(pRelay)->ClientDisconnect();
+
 	if (g_fGameOver)
 		return;
 
