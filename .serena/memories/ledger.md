@@ -99,6 +99,13 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   CTSObjective, drop the duplicated attacker_team/CanInteract, map the class's "enabled" flag to the inherited
   m_bActive(+0x64), add Save/Restore via IMPLEMENT_SAVERESTORE(<Class>, CTSObjective), rename members to the
   FGD/save names, dissolve invented helpers the original inlines. **CTSHack 4/9->9/9 DONE (448d27d): Use-driven held-USE hack (m_flHackProgress from hacksec) + WaitThink objective deadline (m_flObjTimer seeded from m_flRoundEnd) + EnableObjective/ObjectCaps/Save/Restore; dissolved invented HackTouch. ALL 4 core cluster classes (CTSObjective/CTSBomb/CTSTeamEscape/CTSHack) DONE.
+  **CLUSTER BOUNDARY:** the WIRING classes are BLOCKED on CTSGameRules' unbuilt objective methods — CTSObjectivePointer::Use
+  (only-missing) finds the targeted objective, EnableObjective(true)s it, then needs CTSGameRules::AddObjectiveInList +
+  SendObjectiveToHud(idx,player) per client (both unbuilt). CTSObjectiveManager (Save/Restore + targets[8]/messages[4]/
+  end_round_target) + CTSWinGiver (EnableObjective/IsObjective/Save/Restore + cash_for_winner/loser/numberofcall/winnerteam)
+  remain; their HUD/list flow also needs the CTSGameRules objective subsystem (AddObjectiveInList/SendObjectiveToHud/
+  SendObjectiveList/ShowObjectiveOnHud/SetObjective/InitObjectives + TeamWin). DO THAT SUBSYSTEM NEXT (part of CTSGameRules
+  12/39), then Pointer::Use/Manager/WinGiver wire up. Decompile: scratchpad/ptruse.c.
   derives CTSObjective; needs +Save/Restore(hacksec)+EnableObjective+ObjectCaps(0x10) and to dissolve our invented
   HackTouch into the original's **Use** (a 688-byte hack-interaction method) + the WaitThink countdown-to-Freeze model
   (EnableObjective seeds field_0x6c timer; WaitThink decrements each sec -> Freeze(true) at 0). Decompile: scratchpad/hack.c.
