@@ -24,6 +24,9 @@
 #include "effects.h" // CBeam — the extending bullet-trail
 #include "ts_player.h"
 #include "ts_weapons.h" // TSSlowPitch (slow-world sound pitch)
+#include "ts_bulletmgr.h"
+
+CBulletManager g_BulletManager; // the original embeds this in CTSGameRules (+0x1864); one instance.
 
 // @ GetBulletVelocityMult__Ffc (@0x89160, TS_shared.cpp): a slow-mo bullet's speed as a fraction of
 // full bullet speed, from the shooter's slow factor + the slow-PAUSE flag. Slow-mo (pause=0) → ~slow
@@ -38,17 +41,7 @@ static float GetBulletVelocityMult(float slow, int pause)
 	return slow / denom;
 }
 
-struct TSSlowBullet
-{
-	int active;
-	EHANDLE owner;
-	EHANDLE beam;    // a SHORT trail dash (5..25u, speed-scaled) that follows the bullet head
-	EHANDLE flash;   // a flash sprite riding the bullet head, so a flying bullet reads at a glance
-	Vector pos, start, dir;
-	float damage;
-	float fullSpeed; // per-caliber base flight speed (40 * ammo_info[+0x24]), fixed at fire time
-};
-static TSSlowBullet g_slowBullets[256];
+// TSSlowBullet + CBulletManager are declared in ts_bulletmgr.h; the 256-slot ring is m_bullets.
 
 // Per-caliber bullet flight speed unit, RE'd from compile_ammo_info (ammo_info[+0x24]). Full speed is
 // the literal original 40 * this (≈13k–40k u/s) — the muzzle→bullet growing trail keeps the path
@@ -65,8 +58,10 @@ static float BulletFullSpeed(int caliber)
 	return 40.0f * (float)unit; // RE-faithful 40 * ammo_info[+0x24]
 }
 
-static void KillBeam(TSSlowBullet &b)
+// @ DestroyBullet — free one slot's trail/head sprites (called when a bullet ends).
+void CBulletManager::DestroyBullet(int slot)
 {
+	TSSlowBullet &b = m_bullets[slot];
 	CBaseEntity *e = b.beam;
 	if (e)
 		UTIL_Remove(e);
@@ -79,13 +74,13 @@ static void KillBeam(TSSlowBullet &b)
 
 // @ FireBullet__14CBulletManager — register a shot as a flying bullet (called from the fire path when
 // the shooter is slowed). Spawns the trail beam anchored at the muzzle; UpdateBullet extends its end.
-void TSFireSlowBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage, int caliber)
+void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage, int caliber)
 {
 	for (int i = 0; i < 256; i++)
 	{
-		if (!g_slowBullets[i].active)
+		if (!m_bullets[i].active)
 		{
-			TSSlowBullet &b = g_slowBullets[i];
+			TSSlowBullet &b = m_bullets[i];
 			b.active = 1;
 			b.owner = owner;
 			b.pos = src;
@@ -125,93 +120,100 @@ void TSFireSlowBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, 
 }
 
 // @ Reset__14CBulletManager — drop every in-flight bullet (round restart).
-void TSResetSlowBullets()
+void CBulletManager::Reset()
 {
 	for (int i = 0; i < 256; i++)
 	{
-		KillBeam(g_slowBullets[i]);
-		g_slowBullets[i].active = 0;
+		DestroyBullet(i);
+		m_bullets[i].active = 0;
 	}
 }
 
-// @ Think__14CBulletManager — per frame (from CTSGameRules::Think): fly every active bullet, trace,
-// damage on hit, draw its tracer. Bullets vanish the instant their shooter's slow-motion ends.
-void TSUpdateSlowBullets()
+// @ Think__14CBulletManager — per frame (from CTSGameRules::Think): step every active bullet.
+void CBulletManager::Think()
 {
 	for (int i = 0; i < 256; i++)
+		if (m_bullets[i].active)
+			UpdateBullet(i);
+}
+
+// @ UpdateBullet__14CBulletManager — validate one bullet's owner/slow-state; bullets vanish the
+// instant their shooter's slow-motion ends. Otherwise advance it one time slice.
+void CBulletManager::UpdateBullet(int slot)
+{
+	TSSlowBullet &b = m_bullets[slot];
+	if (!b.active)
+		return;
+	CBasePlayer *owner = (CBasePlayer *)(CBaseEntity *)b.owner;
+	if (!owner || !owner->IsPlayer())
 	{
-		TSSlowBullet &b = g_slowBullets[i];
-		if (!b.active)
-			continue;
-		CBasePlayer *owner = (CBasePlayer *)(CBaseEntity *)b.owner;
-		if (!owner || !owner->IsPlayer())
-		{
-			KillBeam(b);
-			b.active = 0;
-			continue;
-		}
-		// RE-faithful slow: the bullet flies at GiveSlowMul = FixedSlowAmt(owner->fuser1) — max(fuser1,0.01).
-		float slow = owner->pev->fuser1;
-		if (slow < 0.01f)
-			slow = 0.01f;
-		if (slow >= 0.99f) // slow-motion ended → the in-flight bullets (and their trails) disappear
-		{
-			KillBeam(b);
-			b.active = 0;
-			continue;
-		}
+		DestroyBullet(slot);
+		b.active = 0;
+		return;
+	}
+	// RE-faithful slow: the bullet flies at GiveSlowMul = FixedSlowAmt(owner->fuser1) — max(fuser1,0.01).
+	float slow = owner->pev->fuser1;
+	if (slow >= 0.99f) // slow-motion ended → the in-flight bullets (and their trails) disappear
+	{
+		DestroyBullet(slot);
+		b.active = 0;
+		return;
+	}
+	UpdateBulletTimeSlice(slot);
+}
 
-		const float velMult = GetBulletVelocityMult(slow, owner->m_bSlowBullets);
-		float speed = b.fullSpeed * velMult;
-		Vector newpos = b.pos + b.dir * (speed * gpGlobals->frametime);
+// @ UpdateBulletTimeSlice — fly one bullet across this frame's slice: trace, draw the trail, and
+// damage on hit (SLICE: a single step per frame; no pierce re-seed).
+void CBulletManager::UpdateBulletTimeSlice(int slot)
+{
+	TSSlowBullet &b = m_bullets[slot];
+	CBasePlayer *owner = (CBasePlayer *)(CBaseEntity *)b.owner;
+	float slow = owner->pev->fuser1;
+	if (slow < 0.01f)
+		slow = 0.01f;
 
-		TraceResult tr;
-		// dont_ignore_glass: slow-motion bullets HIT glass (so you see them break/embed it) — unlike the
-		// instant penetration path which passes through. (User: slow-mo bullets were ignoring glass.)
-		UTIL_TraceLine(b.pos, newpos, dont_ignore_monsters, dont_ignore_glass, owner->edict(), &tr);
+	const float velMult = GetBulletVelocityMult(slow, owner->m_bSlowBullets);
+	float speed = b.fullSpeed * velMult;
+	Vector newpos = b.pos + b.dir * (speed * gpGlobals->frametime);
 
-		if (tr.flFraction >= 1.0f)
-		{
-			b.pos = newpos; // flew on — extend the trail to the bullet's new position + move the head sprite.
-			// The trail beams from the muzzle (b.start, fixed) UP TO the bullet's current position, so it
-			// always trails behind the bullet and grows as it flies (only the end moves — SetEndPos).
-			CBaseEntity *beam = b.beam;
-			if (beam)
-				((CBeam *)beam)->SetEndPos(b.pos);
-			CBaseEntity *flash = b.flash;
-			if (flash)
-				UTIL_SetOrigin(flash->pev, b.pos);
-			if (UTIL_PointContents(b.pos) == CONTENTS_SOLID || (b.pos - b.start).Length() > 8192.0f)
-			{
-				KillBeam(b);
-				b.active = 0; // left the world / out of range
-			}
-			continue;
-		}
+	TraceResult tr;
+	// dont_ignore_glass: slow-motion bullets HIT glass (so you see them break/embed it).
+	UTIL_TraceLine(b.pos, newpos, dont_ignore_monsters, dont_ignore_glass, owner->edict(), &tr);
 
-		// Hit something — extend the trail to the impact, apply the pellet's damage at the real impact
-		// point, leave the bullet hole, then stop (SLICE: no pierce re-seed).
-		b.pos = tr.vecEndPos;
+	if (tr.flFraction >= 1.0f)
+	{
+		b.pos = newpos; // flew on — drag the trail end + head sprite to the new position.
 		CBaseEntity *beam = b.beam;
 		if (beam)
 			((CBeam *)beam)->SetEndPos(b.pos);
-
-		CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
-		if (pHit)
+		CBaseEntity *flash = b.flash;
+		if (flash)
+			UTIL_SetOrigin(flash->pev, b.pos);
+		if (UTIL_PointContents(b.pos) == CONTENTS_SOLID || (b.pos - b.start).Length() > 8192.0f)
 		{
-			ClearMultiDamage();
-			pHit->TraceAttack(owner->pev, b.damage, b.dir, &tr, DMG_BULLET | DMG_NEVERGIB);
-			ApplyMultiDamage(owner->pev, owner->pev);
+			DestroyBullet(slot);
+			b.active = 0; // left the world / out of range
 		}
-		// Bullet impact ricochet (TS uses debris/ric, not material texture sounds — PlayTextureSounds is
-		// off in MP). Pitched DOWN by the shooter's slow factor so slow-mo deepens the impact. Emitted on
-		// the OWNER (the shooter watching their slow-mo bullet), NOT EMIT_AMBIENT_SOUND on the world — the
-		// latter spawns a PERSISTENT static sound at the point (heard "as you walk up to old impacts").
-		char ric[20];
-		sprintf(ric, "debris/ric%d.wav", RANDOM_LONG(1, 5));
-		EMIT_SOUND_DYN(ENT(owner->pev), CHAN_AUTO, ric, VOL_NORM, ATTN_NORM, 0, TSRecordedSlowPitch(owner));
-		DecalGunshot(&tr, BULLET_PLAYER_9MM); // the bullet hole (this was missing)
-		KillBeam(b);
-		b.active = 0;
+		return;
 	}
+
+	// Hit something — extend the trail to the impact, apply the pellet's damage, decal, then stop.
+	b.pos = tr.vecEndPos;
+	CBaseEntity *beam = b.beam;
+	if (beam)
+		((CBeam *)beam)->SetEndPos(b.pos);
+
+	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+	if (pHit)
+	{
+		ClearMultiDamage();
+		pHit->TraceAttack(owner->pev, b.damage, b.dir, &tr, DMG_BULLET | DMG_NEVERGIB);
+		ApplyMultiDamage(owner->pev, owner->pev);
+	}
+	char ric[20];
+	sprintf(ric, "debris/ric%d.wav", RANDOM_LONG(1, 5));
+	EMIT_SOUND_DYN(ENT(owner->pev), CHAN_AUTO, ric, VOL_NORM, ATTN_NORM, 0, TSRecordedSlowPitch(owner));
+	DecalGunshot(&tr, BULLET_PLAYER_9MM);
+	DestroyBullet(slot);
+	b.active = 0;
 }

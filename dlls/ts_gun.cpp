@@ -20,6 +20,7 @@
 #include "player.h"
 #include "weapons.h"
 #include "ts_weapons.h"
+#include "ts_bulletmgr.h"
 #include "ts_player.h" // DoubleFireRate (powerup accessor)
 
 // WEAPON TIMING: the build defines CLIENT_WEAPONS (both targets), so UTIL_WeaponTimeBase() == 0 — a
@@ -1261,7 +1262,7 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 
 		if (slowBullets)
 		{
-			TSFireSlowBullet(pPlayer, vecSrc, dir, (float)iDamage, caliber); // flies as a tracked bullet
+			g_BulletManager.FireBullet(pPlayer, vecSrc, dir, (float)iDamage, caliber); // flies as a tracked bullet
 			continue;
 		}
 

@@ -9,6 +9,7 @@
 #include "gamerules.h"
 #include "client.h"     // respawn()
 #include "ts_gamerules.h"
+#include "ts_bulletmgr.h"
 #include "ts_utils.h"   // TSHudMessageAll
 
 // DAT_0017da25 in the original: a cached flag that, when nonzero, removes the
@@ -237,13 +238,12 @@ bool CTSGameRules::PutPowerUp(int type)
 // @ CTSGameRules::Think — run the inherited MP think, then (in non-team deathmatch) drive
 // the dynamic powerup spawner: roll a random powerup every ~20s and PutPowerUp it (retry in
 // 1s if no spawn point was free). Mirrors the .so's Think powerup block.
-void TSUpdateSlowBullets(); // ts_bulletmgr.cpp
 
 void CTSGameRules::Think()
 {
 	CHalfLifeMultiplay::Think();
 
-	TSUpdateSlowBullets(); // TS: fly the slow-motion bullets-as-models each frame (ts_bulletmgr.cpp)
+	g_BulletManager.Think(); // TS: fly the slow-motion bullets-as-models each frame (ts_bulletmgr.cpp)
 
 	// `slowmatch` cvar (default 1.0): a value in (0,1) runs the entire match in global
 	// slow-motion at that scale (the .so's "SlowMatch" mode). GlobalSlowMotion2 is self-
