@@ -5,6 +5,33 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-28 (cont. 72) — RE-tooling pass: audit toolchain + deterministic inventory (committed); pump WIP
+
+Built the machine-checkable RE inventory + bidirectional audit, made it deterministic, set up the Ghidra MCP.
+10 commits `77cb586`→`1f839c8` on main. **NEXT: use audit.py to restructure our code to the original layout
+(source parity).**
+
+- **audit.py** — bidirectional ours-vs-original structure check against ts_inventory.json (file/class/method/
+  member/global, MISSING + INVENTED). `audit.py <Class>` per-class; `--strict` CI gate; wired into run.py →
+  AUDIT.md. Current: 24 missing classes, 0 invented classes, 145 invented methods (review), 211 missing methods,
+  54 missing named members, 25 file mismatches, 24 missing globals. coverage.py still does the external contract.
+- **vrefs.py** (`re.sh vrefs`) reverse virtual-call finder; **curate_members.py** producer for members_re.tsv
+  (the orphan); **client_members.py** (binmap-match our client.so→client.dll + ApplyClientThis.java + DumpMembers)
+  → members_auto_client.tsv (51 classes/1319 members incl. CHud*); **binmap.py** .so↔mp.dll/client matcher.
+- **member-inventory completeness**: DumpMembers parses the opaque `*(t*)(this+0xNN)` form → recovers
+  CTSGameRules/CTSStunt/CTSAnimation (860→1030/137). **s_weapon_info/s_weapon_status structs** applied (weapon
+  code reads this->m_pActiveInfo->iFireType). **ts_inventory.json** now carries full per-class members (1402) +
+  client skeleton.
+- **DETERMINISM** (was wobbling run-to-run): cached single-threaded `re-base` (`re.sh analyze`, COPIED per setup,
+  also faster) + `-max-cpu 1` (member SET) + CANONICAL type column in DumpMembers (Ghidra's decompiler integer-type
+  inference is non-deterministic, unreachable by -max-cpu; float/double/ptr stable → presence-keyed, integers→int).
+  Verified 0-diff. Diagnosed by measurement after 3 wrong hypotheses.
+- **Ghidra MCP** front-end on the typed `re` project (CLAUDE.md §4a.3 + .lock gotcha; `[[ghidra-mcp-vs-own-tooling]]`;
+  `scripts/ghidra/mcp-up.sh`).
+- **Pump shotgun (UNCOMMITTED, gameplay)**: RE-confirmed HELD/auto-alternate (all 3 default to PUMP; ShotgunFire
+  alternates fire/rack via item+0x24 = predicted m_fInSpecialReload; tap=one step). Rack sound CHAN_ITEM. OPEN
+  fidelity fix: orig reduces pump VKickback to 0.35× — ours is ~3× too strong (StandardFire gives full flViewKick).
+
 ## 2026-06-27 (cont. 71 cont.2) — long live-playtest pass: laser/HUD/muzzle/weapons + pump (in progress)
 
 Marathon interactive session, user firing every change in graphical xash. Committed `8c27afa`→`0b45726` on main

@@ -47,6 +47,67 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐ START HERE (cont.72, 2026-06-28) — RE-TOOLING PASS (committed) + NEXT: refactor our code to the original layout
+
+This session built out the **machine-checkable RE inventory + audit toolchain** and made it deterministic. Almost
+everything is committed (10 commits `77cb586`→`1f839c8` on `main`). **NEXT SESSION'S JOB: use the audit tools to
+RESTRUCTURE our code around the original's layout — move/rename classes/methods/files to match `TS_*.cpp`/the
+original class+method names, closing the gaps `audit.py` reports, to get as close to source parity as possible.**
+
+### 🎯 The next-session task: code restructure to source parity (driven by `audit.py`)
+- **`scripts/coverage/audit.py`** is the driver. It diffs OUR build vs the original structure (`ts_inventory.json`),
+  BOTH directions, at file/class/method/member/global level → `reference/coverage/AUDIT.md`.
+  - `audit.py` → the full report. `audit.py <Class>` → one class's MISSING (orig has, we don't) + INVENTED (we
+    have, orig doesn't) methods+members + whether our file matches the original's. `audit.py --strict` → CI gate.
+  - Current state to chip away at: **24 missing classes** (`CBulletManager`, `CTSGrenade`, per-weapon subclasses
+    `CTSPistolWeapon`/`CTSShotgunWeapon`/…), **211 missing methods**, **54 missing named members**, **25 file
+    mismatches**, **24 missing globals**. **0 invented classes** (good — we fabricated none). **145 invented
+    methods** = REVIEW (most are legit SDK-required helpers like `GetWeaponData`/`ItemPostFrame`; some may be
+    misplacements/drift — confirm each against the RE before keeping).
+  - Workflow per class: `audit.py <Class>` → read the original via `re.sh <Class>` (typed decompile) or the MCP →
+    move/rename to match → rebuild → `audit.py <Class>` again to confirm the gap closed. The original groups classes
+    by `TS_*.cpp` file; our files are finer-grained (per-class) — match the NAMES, file-grouping divergence is OK.
+- **The inventory it audits against** (all deterministic + complete now): `ts_inventory.json` = file→class→
+  {methods (sig/addr/assets/cvars/cmds), members (saved+curated+auto, with `source`), vtable, hierarchy} + globals
+  + the `client` HUD member skeleton + the external `contract`. `coverage.py` audits the external contract
+  (cmds/cvars/msgs/events) separately; `audit.py` + `coverage.py` together make the WHOLE json checkable vs our code.
+
+### ✅ COMMITTED this session (`77cb586`→`1f839c8`) — the RE toolchain
+- **`re.sh vrefs <Method>`** (`vrefs.py`): reverse VIRTUAL-call finder (vtable dispatch defeats `refs`/`get_function_callers`).
+- **`curate_members.py`**: producer for `members_re.tsv` (was an orphan) — scrapes our source's RE'd offsets,
+  cross-checked vs the binary skeleton. Wired into `re.sh members`.
+- **member-inventory completeness**: `DumpMembers` now parses the opaque `*(t*)(this+0xNN)` form → recovers the big
+  transient-only classes (CTSGameRules/CTSStunt/CTSAnimation) that were invisible. 860→1030 rows / 137 classes.
+- **`s_weapon_info`/`s_weapon_status` structs** applied → weapon code reads `this->m_pActiveInfo->iFireType` as source.
+- **client member skeletons** (`client_members.py`): binmap-match our `client.so`→`client.dll` → type `this` →
+  DumpMembers → `members_auto_client.tsv` (51 classes / 1319 members incl. 11 `CHud*`). `ApplyClientThis.java`.
+- **`binmap.py`**: `.so`↔`mp.dll` (and client) function matcher (export + string-anchor) → resolve a name to a live
+  RVA for `live.py break`. Env-parameterized (`BINMAP_SO/MP/GOT/MAP/OUT`).
+- **DETERMINISM**: the member pipeline is now 0-diff across runs. Cached single-threaded `re-base` (`re.sh analyze`,
+  built once, COPIED per `setup` — also faster), `-max-cpu 1` on setup/members (member SET), and a CANONICAL type
+  column in `DumpMembers` (the integer width/signedness guess wobbles in Ghidra's decompiler, unreachable by
+  `-max-cpu`; float/double/ptr are stable → key off presence, collapse integers to `int`).
+- **`ts_inventory.json` complete**: per-class members folded in (saved+curated+auto, 1402; was 327 saved-only) + the
+  client skeleton + corrected the stale "HUD unrecoverable" note. **`audit.py`** (the driver above).
+- **Ghidra MCP** is set up as an interactive front-end on the typed `re` project — see CLAUDE.md §4a.3 (+ the `.lock`
+  gotcha) and the `ghidra-mcp-vs-own-tooling` memory. `scripts/ghidra/mcp-up.sh` = the connect preflight.
+
+### 🟡 UNCOMMITTED / IN PROGRESS — pump-action shotgun (gameplay; `dlls/ts_gun.{cpp,h}`, `ts_weapons.cpp`)
+Held for the user's playtest (NOT committed). Current disk state = the **RE-confirmed faithful model**:
+- **HELD / auto-alternate** (NOT press-edge). RE (`ShotgunFire`@0x82108 + `PrimaryAttack`@0x81a20 + `TakeWeapon`
+  default-mode = AUTO>PUMP>BURST>SEMI): all 3 pump shotguns DEFAULT to PUMP mode; `ShotgunFire` ALTERNATES a
+  fire-step / rack-step via the toggle (`item+0x24`, stored in the predicted `m_fInSpecialReload`). So holding =
+  shot→rack→shot→rack; a TAP = one step (= "click to pump"). Same code, both behaviours.
+- Rack sound on **CHAN_ITEM** (so it doesn't cut the CHAN_WEAPON gunshot). Pump anim seq 8 (m3/spas12) / 2 (mossberg).
+- ⚠️ **OPEN FIDELITY FIX (flagged, NOT done):** the original **reduces pump-shotgun VKickback to 0.35×**
+  (`ShotgunFire`: `fVar12 = ((iFireModes&3) && fireMode!=1) ? 0.35 : 1.0; VKickback(fVar12*flViewKick,…)`). Ours
+  routes through `StandardFire` → FULL `flViewKick`, so **our pump recoil is ~3× too strong.** Easy fix; the user
+  will feel it. Also minor: semi-mode rate (orig 0.15 vs our flFireRate) and the DoubleFireRate /1.5 double-apply.
+- **Always `scripts/build.sh amd64 all`** (CTSGun is in BOTH hl.so + client.so) and never gate FIRE on non-predicted
+  state. See `[[predicted-weapon-gotchas]]`.
+
+### Task-tool entries: NONE (this session ran without TaskCreate; the open work is the two bullets above).
+
 ## ⭐⭐⭐⭐⭐ START HERE (cont.71 cont., 2026-06-27) — long live-playtest pass: laser/HUD/weapons (MOSTLY COMMITTED) + pump-action (IN PROGRESS)
 
 A very long interactive live-playtest session driven entirely by the user firing each change in the graphical

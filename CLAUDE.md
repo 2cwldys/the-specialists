@@ -214,6 +214,20 @@ confirm the gap closed.
   MISSING = implement/RE; EXTRA = invented/HL-leftover. Cvars/sizes come from the BINARY, not config.cfg.
   Pure objdump/nm/readelf — no Ghidra dep. Also `reconstruction.py` (per-class method %) + `extract_vtables.py`
   (all 226 vtables → slot→method) + `vtcall.py` (resolve/annotate vtable-dispatch offsets).
+- **`scripts/coverage/audit.py`** (cont.72) → `reference/coverage/AUDIT.md`: the INTERNAL-structure audit —
+  diffs OUR build vs the original (`ts_inventory.json`) BOTH directions at file/class/method/member/global level.
+  **MISSING** (orig has, we don't = work-list) + **INVENTED** (we have, orig doesn't = review for drift) + FILE
+  mismatches. `audit.py <Class>` = one class's full bidirectional view; `audit.py --strict` = CI gate (exit 1 on
+  any invention). TS-scoped (stock-SDK diffs are `divergence.py`'s job). This is the DRIVER for the code-restructure
+  to source parity. `coverage.py` audits the EXTERNAL contract; the two together make the whole json checkable.
+- **`scripts/coverage/client_members.py`** (cont.72): member skeletons for the CLIENT HUD/prediction classes
+  (client.dll has no symbols/RTTI) — binmap-matches our built `client.so` → `client.dll`, types `this`
+  (`ApplyClientThis.java`), runs `DumpMembers` → `members_auto_client.tsv`. See §4b.
+- **DETERMINISM (cont.72):** the member pipeline is now 0-diff across runs. `re.sh analyze` builds a cached
+  single-threaded `re-base`; each `re.sh setup` COPIES it (pins the analysis = reproducible AND faster, no
+  re-analyze). `-max-cpu 1` on setup/members pins the member SET; `DumpMembers` canonicalizes the type column
+  (Ghidra's decompiler integer-type inference wobbles, unreachable by -max-cpu; float/double/ptr stable). Re-run
+  `re.sh analyze` only on a binary/analysis change.
 - **`scripts/coverage/setup-ghidra.sh`** builds persistent projects under `recovered/ghidra/{server,client}`
   (gitignored, reboot-safe) with the noreturn truncation disabled + the gcc2 signatures/entvars_t/MSVC
   return types applied (`scripts/ghidra/{DisableNoReturn,FixNoReturn,ApplyTypes,DecompAt,DecompRefs}.java`),
