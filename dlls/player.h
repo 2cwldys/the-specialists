@@ -508,7 +508,7 @@ public:
 	float m_flSpawnGateTime = 0;    // gpGlobals->time at which fire-to-play is allowed
 	int m_iClientSpecSecs = -1;     // last Spectator countdown byte sent (resend on change)
 	void TSEnterSpectate();         // enter free-look spectate-wait (called at end of Spawn)
-	void TSLeaveSpectate();         // press-fire: leave spectate -> respawn into play
+	void StopObserver();         // press-fire: leave spectate -> respawn into play
 	void TSSpectateThink();         // per-frame while waiting: countdown msg + fire check
 	void TSTryRespawn();            // `respawn` cmd: leave spectate if the gate elapsed, else "wait" msg
 	void TSSendScoreInfo();         // broadcast this player's scoreboard row (class=WAITING while spectating)

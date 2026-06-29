@@ -1520,7 +1520,7 @@ void CBasePlayer::TSSpectateThink()
 		}
 		else if (state == TSSPEC_READY)
 		{
-			TSLeaveSpectate();
+			StopObserver();
 			return;
 		}
 	}
@@ -1546,7 +1546,7 @@ void CBasePlayer::TSSpectateThink()
 }
 
 // Press-fire: leave free-look and enter play with the chosen loadout.
-void CBasePlayer::TSLeaveSpectate()
+void CBasePlayer::StopObserver()
 {
 	m_fInSpectateWait = false;
 	m_iClientSpecSecs = -1;
@@ -1578,7 +1578,7 @@ void CBasePlayer::TSLeaveSpectate()
 void CBasePlayer::TSTryRespawn()
 {
 	if (m_fInSpectateWait && gpGlobals->time >= m_flSpawnGateTime)
-		TSLeaveSpectate();
+		StopObserver();
 	else
 		TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
 }
@@ -3269,7 +3269,7 @@ void CBasePlayer::Spawn()
 
 	// TS (cont.65): hold a joining/respawning player in free-look spectate until they
 	// pick a loadout and press fire. The flag is set before Spawn (ClientPutInServer /
-	// the death path); TSLeaveSpectate clears it before re-spawning into play.
+	// the death path); StopObserver clears it before re-spawning into play.
 	if (m_fInSpectateWait)
 		TSEnterSpectate();
 }
