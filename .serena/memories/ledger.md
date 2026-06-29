@@ -101,7 +101,7 @@ velocity formula is CONFIRMED); slow-motion ✓; no unknown-command spam ✓; di
    `CVAR_GET_FLOAT("weaponstay")` but we only register `mp_weaponstay` (stock name) → returns 0 → clamped 5s.
    The original registers `weaponstay` (it's in coverage's MISSING server cvars). ACTION: RE the original
    worldgun bbox + settle + lifetime (dc.sh server 0xa0954 Spawn / 0xa0d84 Fall — first cut captured but messy).
-3. **~5s teleport (alive AND in spectate) + unholster/redeploy — it's a ROUND RESTART, not an auto-spawn**
+3. ✅ **FIXED + playtest-validated (`dff06ec`): ~5s teleport in plain DM** was the ROUND RESTART (not auto-spawn).
    (user clarified). ROOT CAUSE: `CTSGameRules::Init()` (in the ctor) arms `m_flRoundRestart = time + 5.0f`
    UNCONDITIONALLY (`ts_gamerules.cpp:355`); Think (`:724`) then fires `RestartRound()` 5s into EVERY map, and
    RestartRound `respawn()`s ALL players (`:433`) → teleport-to-spawn + redeploy. On non-team ts_kissmeyerbasic
