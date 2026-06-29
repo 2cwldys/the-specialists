@@ -24,29 +24,11 @@
 #include "cbase.h"
 #include "player.h"
 #include "weapons.h"
-#include "ts_weapons.h" // TSAddAmmo (per-caliber refill)
+#include "ts_weapons.h" // TSAddAmmo / TSRoundsPerMag (per-caliber refill)
+#include "ts_groundammo.h"
 
 #define AMMOPACK_MODEL "models/ammopack.mdl"
 #define SF_AMMO_ON_WALL 16
-
-class CTSGroundAmmo : public CBaseEntity
-{
-public:
-	void Spawn() override;
-	void Precache() override;
-	bool KeyValue(KeyValueData *pkvd) override;
-	int ObjectCaps() override { return CBaseEntity::ObjectCaps() & ~FCAP_ACROSS_TRANSITION; }
-
-	void EXPORT Fall();      // think: settle to the floor
-	void OnGround();         // arm as a touch-pickup once landed
-	void EXPORT WaitThink(); // idle think
-	void EXPORT WaitTouch(CBaseEntity *pOther);
-	void PutOnWall();        // SF_ON_WALL: settle in place against a surface
-
-	int m_respawnTime = 60; // wduration
-	int m_mags[11] = {0};   // mags1..mags11
-	bool m_bPlaced = false; // 0x64 — settled flag
-};
 
 LINK_ENTITY_TO_CLASS(ts_groundammo, CTSGroundAmmo);
 
@@ -54,16 +36,16 @@ bool CTSGroundAmmo::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "wduration"))
 	{
-		m_respawnTime = atoi(pkvd->szValue);
+		respawntime = atoi(pkvd->szValue);
 		return true;
 	}
-	// mags1..mags11 -> m_mags[0..10]
+	// magsN -> m_ammo[N] (caliber N), stored as ROUNDS = magcount * roundsPerMag(N) (orig @0x68 array).
 	if (strncmp(pkvd->szKeyName, "mags", 4) == 0 && pkvd->szKeyName[4] != '\0')
 	{
-		int idx = atoi(pkvd->szKeyName + 4) - 1;
-		if (idx >= 0 && idx < 11)
+		int cal = atoi(pkvd->szKeyName + 4);
+		if (cal >= 0 && cal < TS_AMMO_CALIBERS)
 		{
-			m_mags[idx] = atoi(pkvd->szValue);
+			m_ammo[cal] = atoi(pkvd->szValue) * TSRoundsPerMag(cal);
 			return true;
 		}
 	}
@@ -160,18 +142,12 @@ void CTSGroundAmmo::WaitTouch(CBaseEntity *pOther)
 	if (!pPlayer->HasNamedPlayerItem("weapon_tsgun"))
 		return; // must be holding a TS weapon (faithful: m_pActiveItem id == 16)
 
-	// Faithful (@WaitTouch 0x000a2f40): add each caliber's mags to the TS gun's per-caliber
-	// reserve via CTSGun::AddAmmo, capped at the caliber max. m_mags[0..10] = the FGD
-	// mags1..mags11 keyvalues -> calibers 1..11. The station persists (tops players up on
-	// every touch). A sound plays if any caliber actually took ammo.
-	// Faithful: a magsN keyvalue gives magcount * roundsPerMag(caliber N) ROUNDS — the original
-	// stores that product (m_mags[N] = magcount * get_ammo_info(N)[+0x10]); we keep m_mags as the
-	// raw FGD mag count and multiply by the per-caliber rounds-per-mag here (same result).
+	// Faithful (@WaitTouch): add each caliber's ROUNDS (m_ammo[caliber], the @0x68 array) to the
+	// TS gun's per-caliber reserve via TSAddAmmo. Persistent station: tops players up on every touch.
 	bool added = false;
-	for (int i = 0; i < 11; i++)
+	for (int cal = 0; cal < TS_AMMO_CALIBERS; cal++)
 	{
-		int rounds = m_mags[i] * TSRoundsPerMag(i + 1); // caliber = i + 1
-		if (rounds > 0 && TSAddAmmo(pPlayer, i + 1, rounds))
+		if (m_ammo[cal] > 0 && TSAddAmmo(pPlayer, cal, m_ammo[cal]))
 			added = true;
 	}
 

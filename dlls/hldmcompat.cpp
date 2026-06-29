@@ -19,6 +19,7 @@
 #include "player.h"
 #include "ts_weapons.h"
 #include "ts_groundweapon.h"
+#include "ts_groundammo.h"
 
 // On respawn the base GetWeapon hides the pickup (EF_NODRAW) before re-arming; a random spawner
 // re-rolls its weapon + model each time so the respawned pickup is a fresh random gun.
@@ -148,3 +149,79 @@ public:
 	void Spawn() override { tsweaponid = TSW_M61; CTSGroundWeapon::Spawn(); }
 };
 LINK_ENTITY_TO_CLASS(weapon_handgrenade, CTSGrenadeWeapon);
+
+// ---- ammo spawners (derive CTSGroundAmmo; Spawn seeds the per-caliber array) ----
+// Each seeds a starting amount in its category's caliber(s) then runs the base ammo-station
+// spawn. orig: m_ammo[cal] = get_ammo_info(cal)->default/2; we use TSRoundsPerMag (a magazine) as
+// the proxy — VERIFY the exact half-default (the +0xc ammo-info field isn't in our table yet).
+
+class CTSPistolAmmo : public CTSGroundAmmo
+{
+public:
+	void Spawn() override
+	{
+		CTSGroundAmmo::Spawn();
+		int c[5] = { 1, 2, 7, 9, 10 };
+		for (int i = 0; i < 5; i++) m_ammo[c[i]] = TSRoundsPerMag(c[i]);
+	}
+};
+// (UNLINKED in the original — ammo_9mmclip/ammo_357 are string-table only)
+
+class CTSBigPistolAmmo : public CTSGroundAmmo
+{
+public:
+	void Spawn() override
+	{
+		CTSGroundAmmo::Spawn();
+		m_ammo[5] = TSRoundsPerMag(5);
+		m_ammo[11] = TSRoundsPerMag(11);
+	}
+};
+LINK_ENTITY_TO_CLASS(ammo_9mmAR, CTSBigPistolAmmo);
+
+class CTSRifleAmmo : public CTSGroundAmmo
+{
+public:
+	void Spawn() override
+	{
+		CTSGroundAmmo::Spawn();
+		m_ammo[4] = TSRoundsPerMag(4);
+		m_ammo[6] = TSRoundsPerMag(6);
+	}
+};
+LINK_ENTITY_TO_CLASS(ammo_gaussclip, CTSRifleAmmo);
+
+class CTSSMGAmmo : public CTSGroundAmmo
+{
+public:
+	void Spawn() override
+	{
+		CTSGroundAmmo::Spawn();
+		int c[4] = { 1, 2, 7, 12 };
+		for (int i = 0; i < 4; i++) m_ammo[c[i]] = TSRoundsPerMag(c[i]);
+	}
+};
+LINK_ENTITY_TO_CLASS(ammo_rpgclip, CTSSMGAmmo);
+
+class CTSShotgunAmmo : public CTSGroundAmmo
+{
+public:
+	void Spawn() override
+	{
+		CTSGroundAmmo::Spawn();
+		m_ammo[3] = TSRoundsPerMag(3);
+	}
+};
+LINK_ENTITY_TO_CLASS(ammo_buckshot, CTSShotgunAmmo);
+
+class CTSSniperAmmo : public CTSGroundAmmo
+{
+public:
+	void Spawn() override
+	{
+		CTSGroundAmmo::Spawn();
+		m_ammo[8] = TSRoundsPerMag(8);
+		m_ammo[13] = TSRoundsPerMag(13);
+	}
+};
+LINK_ENTITY_TO_CLASS(ammo_crossbow, CTSSniperAmmo);

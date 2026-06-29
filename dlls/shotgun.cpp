@@ -383,4 +383,4 @@ class CShotgunAmmo : public CBasePlayerAmmo
 		return false;
 	}
 };
-LINK_ENTITY_TO_CLASS(ammo_buckshot, CShotgunAmmo);
+//LINK_ENTITY_TO_CLASS(ammo_buckshot, CShotgunAmmo); // [TS] entity name remapped to the hldmcompat TS ammo spawner (hldmcompat.cpp)

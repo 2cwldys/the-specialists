@@ -513,4 +513,4 @@ class CCrossbowAmmo : public CBasePlayerAmmo
 		return false;
 	}
 };
-LINK_ENTITY_TO_CLASS(ammo_crossbow, CCrossbowAmmo);
+//LINK_ENTITY_TO_CLASS(ammo_crossbow, CCrossbowAmmo); // [TS] entity name remapped to the hldmcompat TS ammo spawner (hldmcompat.cpp)

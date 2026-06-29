@@ -629,4 +629,4 @@ class CRpgAmmo : public CBasePlayerAmmo
 		return false;
 	}
 };
-LINK_ENTITY_TO_CLASS(ammo_rpgclip, CRpgAmmo);
+//LINK_ENTITY_TO_CLASS(ammo_rpgclip, CRpgAmmo); // [TS] entity name remapped to the hldmcompat TS ammo spawner (hldmcompat.cpp)
