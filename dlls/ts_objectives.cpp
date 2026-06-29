@@ -75,6 +75,8 @@ public:
 	void Spawn() override;
 	bool KeyValue(KeyValueData *pkvd) override;
 	void EXPORT WaitTouch(CBaseEntity *pOther);
+	void EXPORT WaitThink();                  // @0x70c68 — keep the trigger alive (reschedule)
+	int ObjectCaps() override { return 0; }   // @0x73ad0 — no caps (not save/use-able as an objective)
 
 	float m_flNextCheck = 0;   // nextcheck (recheck delay)
 	float m_flNextAllowed = 0; // earliest time it can fire again
@@ -90,6 +92,18 @@ void CTSTrigger::Spawn()
 	pev->solid = SOLID_TRIGGER;
 	UTIL_SetOrigin(pev, pev->origin);
 	SetTouch(&CTSTrigger::WaitTouch);
+	// keep the trigger alive (the original arms a recheck nextthink + the first-allowed time)
+	float wait = (m_flNextCheck < 0.5f) ? 0.5f : m_flNextCheck;
+	SetThink(&CTSTrigger::WaitThink);
+	pev->nextthink = gpGlobals->time + wait;
+	m_flNextAllowed = gpGlobals->time + wait;
+}
+
+// @WaitThink__10CTSTrigger — reschedule so the trigger keeps ticking (recheck delay >= 0.5s).
+void CTSTrigger::WaitThink()
+{
+	float wait = (m_flNextCheck < 0.5f) ? 0.5f : m_flNextCheck;
+	pev->nextthink = gpGlobals->time + wait;
 }
 
 bool CTSTrigger::KeyValue(KeyValueData *pkvd)
@@ -382,10 +396,28 @@ void CTSWinGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE us
 class CTSScoreGiver : public CTSWinGiver
 {
 public:
+	void Spawn() override;                                  // @0x8c0b8
+	bool KeyValue(KeyValueData *pkvd) override;             // @0x8c090 — delegates to CTSWinGiver
 	void EXPORT Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
 };
 
 LINK_ENTITY_TO_CLASS(ts_scoregiver, CTSScoreGiver);
+
+// @KeyValue__13CTSScoreGiver — same keys as the win giver (winnerteam/callsnumber/...).
+bool CTSScoreGiver::KeyValue(KeyValueData *pkvd)
+{
+	return CTSWinGiver::KeyValue(pkvd);
+}
+
+// @Spawn__13CTSScoreGiver — a hidden point relay; polls (nextthink) and registers as an objective.
+void CTSScoreGiver::Spawn()
+{
+	pev->classname = MAKE_STRING("ts_scoregiver");
+	pev->effects |= EF_NODRAW;
+	pev->solid = SOLID_NOT;
+	pev->movetype = MOVETYPE_NONE;
+	pev->nextthink = gpGlobals->time + 10.0f;
+}
 
 // @Use__13CTSScoreGiver — count the calls; on the last, score the team and re-arm (repeatable).
 void CTSScoreGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
