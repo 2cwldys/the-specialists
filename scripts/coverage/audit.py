@@ -210,6 +210,12 @@ def analyze():
         # helpers. Out-of-line vs out-of-line is the apples-to-apples comparison.
         invented = sorted(m for m in (ours.get(c, set()) - o) if m != c and not m.startswith("~"))
         ofile = orig[c]["file"]
+        # client.dll classes (CHudTS*) are folded in with an EMPTY original method set — client.dll has no
+        # method symbols/RTTI, so we literally cannot name-match. Flagging every method we wrote as "invented"
+        # is a false signal; surface them as UNVERIFIABLE (transparent) instead of inventing drift.
+        unverifiable = []
+        if ofile == "client.dll" and not o:
+            unverifiable, invented = invented, []
         our_files = ourcf.get(c, [])
         file_ok = any(norm_file(of) == norm_file(ofile) for of in our_files) if our_files else False
         # MEMBER diff: original REAL-named members (saved/curated) not present in our source headers, by name.
@@ -221,7 +227,7 @@ def analyze():
         ourm_bases = ourm | {re.sub(r"\[\d+\]$", "", x) for x in ourm}
         missing_members = sorted(m for m in orig[c]["named_members"]
                                  if m not in ourm and re.sub(r"\[\d+\]$", "", m) not in ourm_bases)
-        per_class[c] = {"missing": missing, "invented": invented, "orig_file": ofile,
+        per_class[c] = {"missing": missing, "invented": invented, "unverifiable": unverifiable, "orig_file": ofile,
                         "our_files": our_files, "file_ok": file_ok, "impl": len(o) - len(missing), "total": len(o),
                         "missing_members": missing_members, "orig_member_count": orig[c]["member_count"],
                         "our_member_count": len(ourmem.get(c, set()))}
@@ -286,8 +292,10 @@ def main():
         return
 
     inv_meth = {c: p["invented"] for c, p in a["per_class"].items() if p["invented"]}
+    unver_meth = {c: p["unverifiable"] for c, p in a["per_class"].items() if p.get("unverifiable")}
     file_mismatch = {c: p for c, p in a["per_class"].items() if p["our_files"] and not p["file_ok"]}
     n_inv_meth = sum(len(v) for v in inv_meth.values())
+    n_unver = sum(len(v) for v in unver_meth.values())
 
     if "--strict" in sys.argv:
         bad = len(a["invented_classes"]) + n_inv_meth + len(a["invented_globals"])
@@ -305,7 +313,7 @@ def main():
          f"methods · {sum(len(p['missing_members']) for p in a['per_class'].values())} missing named members · "
          f"{sum(len(v) for v in a['missing_freefuncs'].values())} missing free functions · "
          f"{len(file_mismatch)} file mismatches · {len(a['missing_globals'])} missing globals · "
-         f"{len(a['invented_globals'])} invented globals.**",
+         f"{len(a['invented_globals'])} invented globals · {n_unver} unverifiable (client.dll) methods.**",
          "",
          "_Members scanned from BOTH .cpp and .h (brace-aware); methods resolve through inheritance + inline "
          "decls; free functions diffed per TS file. So MISSING/INVENTED here are real, not tooling blind spots._",
@@ -322,6 +330,14 @@ def main():
         L.append(f"| `{c}` | `{a['per_class'][c]['orig_file']}` | {', '.join(inv_meth[c])} |")
     if not inv_meth:
         L.append("| _none_ | | |")
+
+    L += ["", "## UNVERIFIABLE methods (client.dll classes — no original symbols to name-match; NOT counted as "
+          "invented)", "",
+          "| class | our methods (cannot confirm vs original) |", "|---|---|"]
+    for c in sorted(unver_meth):
+        L.append(f"| `{c}` | {', '.join(unver_meth[c])} |")
+    if not unver_meth:
+        L.append("| _none_ | |")
 
     miss_meth = {c: p for c, p in a["per_class"].items() if p["missing"]}
     L += ["", "## MISSING methods (original has, we don't — per class)", "",
