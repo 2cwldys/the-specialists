@@ -24,6 +24,7 @@ CBaseEntity *TSThrowKnife(CBasePlayer *pOwner, int type, float damage, const Vec
 class CBaseEntity;
 class CBasePlayer;
 CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type);
+bool CashBased(); // ts_buy.cpp — the cash economy is compiled OUT in the shipped game (returns false)
 
 // Weapon-select (the faithful protocol — see reference/WEAPON_SELECT.md). The client's
 // invnext/invprev select cursor emits the `weapon_<N>` command (numeric tsweapon_t);

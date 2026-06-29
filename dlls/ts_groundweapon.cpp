@@ -18,6 +18,7 @@
 #include "cbase.h"
 #include "player.h"
 #include "ts_weapons.h"
+#include "ts_gamerules.h"
 #include "ts_groundweapon.h"
 
 #define SF_GW_ON_WALL 16 // "Lie on wall"
@@ -178,8 +179,36 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 		extraclip = 0;
 
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	// SLICE: faithful is CBasePlayer::PickUpWeapon(tsweaponid, clip, spawnflags, type!=0x1d, …) + the
-	// cash/buy-menu price+team gate (deferred — needs the cash subsystem). We give via the arsenal.
+
+	// Buy gate (the original's, gated on CashBased()). CashBased() is hard-OFF in the shipped game so
+	// this is DEAD — but present for 1:1 fidelity, and it's what consumes `buyable`/`attackerteam`/
+	// `extraclip`. In a round/team mode only `attackerteam` may buy; then the weapon costs cash
+	// (base price + per-attachment surcharge + extra clips), deducted from the player's wallet.
+	if (CashBased() && buyable)
+	{
+		CTSGameRules *gr = TSGameRules();
+		if (gr && gr->IsTeamMode() && attackerteam != -1 &&
+			attackerteam != gr->GetTeamIndex(pPlayer->TeamID()))
+		{
+			ClientPrint(pPlayer->pev, HUD_PRINTCENTER, "Your team cannot buy this weapon.");
+			return;
+		}
+		int price = 0; // base = get_weapon_info(tsweaponid)->price (the cl_dll buy table mirror)
+		if (pev->spawnflags & 1) price += 900;  // silencer
+		if (pev->spawnflags & 2) price += 800;  // lasersight
+		if (pev->spawnflags & 4) price += 500;  // flashlight
+		if (pev->spawnflags & 8) price += 1800; // scope
+		price += extraclip * 100;               // extra clips (per-caliber clip cost)
+		if (pPlayer->m_iCash < price)
+		{
+			ClientPrint(pPlayer->pev, HUD_PRINTCENTER, "You don't have enough money for that weapon.");
+			return;
+		}
+		pPlayer->GiveCash(-price);
+	}
+
+	// SLICE: faithful is CBasePlayer::PickUpWeapon(tsweaponid, clip, spawnflags, type!=0x1d, …)
+	// (not yet reconstructed). We give via the dual-wield arsenal.
 	if (!GiveTSWeapon(pPlayer, (tsweapon_t)tsweaponid))
 		return; // won't fit -> leave it on the floor
 	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);

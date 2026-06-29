@@ -107,7 +107,7 @@ _none_
 | `CTSFog` | `TS_emitter.cpp` | dlls/ts_fog.cpp |
 | `CTSGameRules` | `TS_gamerulesclass.cpp` | dlls/ts_gamerules.cpp, dlls/ts_objectives.cpp, dlls/ts_powerup.cpp, dlls/ts_teams.cpp |
 | `CTSGroundAmmo` | `TS_worldgun.cpp` | dlls/ts_groundammo.cpp |
-| `CTSGroundWeapon` | `TS_worldgun.cpp` | dlls/ts_groundweapon.cpp |
+| `CTSGroundWeapon` | `TS_worldgun.cpp` | dlls/hldmcompat.cpp, dlls/ts_groundweapon.cpp |
 | `CTSKnife` | `TS_grenades.cpp` | dlls/ts_knife.cpp |
 | `CTSMapGlobals` | `TS_entities.cpp` | dlls/ts_mapglobals.cpp |
 | `CTSModel` | `TS_entities.cpp` | dlls/ts_model.cpp |
