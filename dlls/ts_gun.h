@@ -90,7 +90,7 @@ public:
 	void VKickback(float magnitude, int firetype); // @VKickback @0x70414 — recoil view-punch (punchangle)
 	void ScaleSpread(float &spread, float increment, bool ducking); // @ScaleSpread @0x702a8 — dynamic accuracy
 	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
-	void CloseCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
+	void CCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
 	void CCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
 	void RegenBlockBar();                        // continuous regen of the melee block bar (m_blockBar toward 100)
 	void GrenadeThrow(const s_weapon_info *wi);  // grenade fire-type
@@ -101,14 +101,16 @@ public:
 	int  GetActiveItems() const;                 // @GetActiveItems__6CTSGun — active attach mask (+0x40 if akimbo)
 	void SwitchBarrel();                         // akimbo dual-wield barrel swap (right-click / secondary)
 
+	void Reset();                     // @0x705e0 — wipe the whole arsenal + active state to bare kung-fu
+
 	// arsenal (the items-by-tsweapon_t array). @ TakeWeapon/SelectWeapon/DropWeapon__6CTSGun.
 	bool IsOwned(int type) const { return type >= 0 && type < TSW_COUNT && m_items[type].owned; }
 	int  OwnedCount() const;          // number of owned weapon types
-	bool AddWeapon(tsweapon_t type);  // @TakeWeapon — add/combine into the arsenal + wield it (false = won't fit)
+	bool TakeWeapon(tsweapon_t type);  // @TakeWeapon — add/combine into the arsenal + wield it (false = won't fit)
 	int  SlotsUsed() const;           // sum of slotCost over owned items (CBasePlayer+0x548 = 81 - this)
-	void SelectWeaponType(int type);  // @SelectWeapon — wield an owned type (holster->deploy)
+	void SelectWeapon(int type);  // @SelectWeapon — wield an owned type (holster->deploy)
 	void GetBetterWeapon(int exclude);// @GetBetterWeapon — auto-select next owned by priority
-	void DropType(int type, bool fThrow); // @DropWeapon__6CTSGun — drop an owned item from the arsenal
+	void DropWeapon(int type, bool fThrow); // @DropWeapon__6CTSGun — drop an owned item from the arsenal
 	bool MultiplyClips();             // infinite-clip powerup: multiply the held reserve
 	bool AddAmmo(int caliber, int count); // @AddAmmo__6CTSGun — add reserve rounds (capped)
 	void SyncActiveToItem();          // park the live active clip/mode back into its item

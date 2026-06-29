@@ -44,6 +44,7 @@
 #include "ts_utils.h" // TSHudMessageOne (the `respawn`-gate "wait" message)
 #include "ts_gamerules.h" // TSGameRules() — armor_absorb (kevlar damage reduction)
 #include "ts_weapons.h" // TS weapon helpers
+#include "ts_gun.h" // CTSGun::Reset (StartObserver arsenal wipe), GetPlayerTSGun
 
 // #define DUCKFIX
 
@@ -1269,6 +1270,11 @@ void CBasePlayer::StartDeathCam()
 void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 {
 	DropFlag(false); // CTF: entering spectate drops a carried flag (spawns a loose flag)
+
+	// @0x8972b — wipe the TS arsenal to bare kung-fu (round restart / death→spectate). The next
+	// life's loadout is re-given fresh.
+	if (CTSGun *pGun = GetPlayerTSGun(this))
+		pGun->Reset();
 
 	// clear any clientside entities attached to this player
 	MESSAGE_BEGIN(MSG_PAS, SVC_TEMPENTITY, pev->origin);

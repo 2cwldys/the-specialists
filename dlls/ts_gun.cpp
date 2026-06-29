@@ -144,12 +144,65 @@ int TSPlayerFreeSlots(CBasePlayer *pPlayer)
 	return remaining;
 }
 
+// @0x705e0 Reset — wipe the WHOLE TS arsenal + active state back to bare kung-fu. The original is a
+// bulk zero of items[]/m_ammoReserve + the active pointers + the combo/timer/change-detect block.
+// Callers: Spawn (clean init) and CBasePlayer::StartObserver (round-restart / death→spectate wipe).
+void CTSGun::Reset()
+{
+	for (int t = 0; t < TSW_COUNT; t++)
+		m_items[t] = TSItem();
+	for (int c = 0; c < TS_NUM_CALIBERS; c++)
+		m_ammoReserve[c] = 0;
+
+	m_weaponType = TSW_MELEE;
+	m_lastType = TSW_MELEE;
+	m_pActiveItem = nullptr;
+	m_pActiveInfo = nullptr;
+	m_iClip = 0;
+	m_fireMode = TSFM_SEMI;
+	m_bHoldPosition = false;
+
+	// combo / melee state
+	m_comboStep = 0;
+	m_kickCombo = 0;
+	m_lastMeleeAnim = 0;
+	m_slashStep = 0;
+	m_lastCCTime = 0.0f;
+	m_blockBar = 100.0f;
+	m_blockBarTime = 0.0f;
+	m_blockCooldown = 0.0f;
+
+	// per-fire transient timers
+	m_burstCount = 0;
+	m_shotgunPhase = 0;
+	m_akimboSide = 0;
+	m_flLastShotTime = 0.0f;
+
+	// change-detect cache → force a fresh HUD resend next frame
+	m_iClientWeaponType = -1;
+	m_iClientClip = -1;
+	m_iClientReserve = -1;
+	m_iClientFireMode = -1;
+	m_iClientAttach = -1;
+	m_iClientEquip = -1;
+	m_iClientBlockBar = -1;
+	m_bWStatusInit = false;
+
+	UpdateActivePointers();
+}
+
 // @ Spawn__6CTSGun — classname weapon_tsgun, id 16, fall-init as a pickup.
 void CTSGun::Spawn()
 {
 	pev->classname = MAKE_STRING("weapon_tsgun");
 	Precache();
 	m_iId = TSGUN_WEAPON_ID;
+
+	// @0x70555 — the original Spawn wipes the arsenal clean (Reset). Preserve the placed/initial
+	// weapon type across the wipe (our SLICE seeds it loaded below; the original leaves bare kung-fu).
+	const int initialType = m_weaponType;
+	Reset();
+	m_weaponType = initialType;
 
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 
@@ -233,7 +286,7 @@ int CTSGun::SlotsUsed() const
 	return used;
 }
 
-bool CTSGun::AddWeapon(tsweapon_t type)
+bool CTSGun::TakeWeapon(tsweapon_t type)
 {
 	if (type < 0 || type >= TSW_COUNT)
 		return false;
@@ -305,7 +358,7 @@ bool CTSGun::AddWeapon(tsweapon_t type)
 		AddAmmo(fwi->iCaliber, fwi->iClip * 3); // give/refill the caliber's shared reserve
 	}
 
-	SelectWeaponType(fill);
+	SelectWeapon(fill);
 	return true;
 }
 
@@ -353,7 +406,7 @@ bool CTSGun::MultiplyClips()
 // (the original's SelectWeapon calls HolsterWeapon then the caller Deploy()s if it changed);
 // switching therefore cancels a reload and re-plays the draw animation/delay. Type 0 (kung-fu)
 // is always selectable; any other type must be owned (the .so gates on items[type].owned).
-void CTSGun::SelectWeaponType(int type)
+void CTSGun::SelectWeapon(int type)
 {
 	if (type < 0 || type >= TSW_COUNT || type == m_weaponType)
 		return;
@@ -387,7 +440,7 @@ void CTSGun::SelectWeaponType(int type)
 
 // @ GetBetterWeapon__6CTSGun (@0x80f40) — after a drop, auto-select the highest-priority
 // OWNED weapon (g_iWeaponPriority order), skipping `exclude` (the just-dropped type). Kung-fu
-// (priority-last, always owned) is the fallback. Holster->deploy via SelectWeaponType.
+// (priority-last, always owned) is the fallback. Holster->deploy via SelectWeapon.
 void CTSGun::GetBetterWeapon(int exclude)
 {
 	for (int i = 0; i < TSW_COUNT; i++)
@@ -395,7 +448,7 @@ void CTSGun::GetBetterWeapon(int exclude)
 		int t = g_iWeaponPriority[i];
 		if (t == exclude || !IsOwned(t))
 			continue;
-		SelectWeaponType(t);
+		SelectWeapon(t);
 		return;
 	}
 }
@@ -523,7 +576,7 @@ void CTSGun::PrimaryAttack()
 	// movement buttons + flags. Knife/katana are real weapon items (their own fire-types below).
 	if (m_weaponType == TSW_MELEE)
 	{
-		CloseCombatAttack(false);
+		CCombatAttack(false);
 		return;
 	}
 
@@ -905,7 +958,7 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 // (0x50c30 → forced light attack) and the player+0x814/0x815 state bits (special-punch 0x17 / forced kick
 // finisher) default to "clear" — the common path. v_melee anims: 2 punch_left, 3 punch_right, 4 block_low,
 // 5 kick, 6 sidekick, 7 uppercut, 8 spinkick, 9 backkick, 10 punch_right2.
-void CTSGun::CloseCombatAttack(bool fSecondary)
+void CTSGun::CCombatAttack(bool fSecondary)
 {
 	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
 		return;
@@ -1183,7 +1236,7 @@ void CTSGun::CCombatBlock()
 	m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
 	// Open the BLOCK window (RE CCombatBlock@0x85ebc sets player+0x7a8 = 0.5): for the next 0.5s an
-	// incoming close-combat attack is deflected (CloseCombatAttack -> VictimKungfuHold checks this).
+	// incoming close-combat attack is deflected (CCombatAttack -> VictimKungfuHold checks this).
 	m_pPlayer->m_flKungFuBlock = gpGlobals->time + 0.5f;
 }
 
@@ -1781,7 +1834,7 @@ void CTSGun::ItemPostFrame()
 		// reads IN_ATTACK2 too. Knives THROW on right-click (CTSGun::SecondaryAttack@0x817a8 routes
 		// fire-type KNIFE -> KnifeFire's throw branch). Other weapons: zoom/coldcock are separate.
 		if (m_weaponType == TSW_MELEE)
-			CloseCombatAttack(true);
+			CCombatAttack(true);
 		else if (wi->iFireType == TSFT_KNIFE || wi->iFireType == TSFT_KATANA)
 			ThrowKnife(); // right-click hurls the knife/seal-knife/katana (orig SecondaryAttack -> KnifeFire/KatanaThrow)
 		else if ((m_items[m_weaponType].attach & 8) &&
@@ -1835,7 +1888,7 @@ void CTSGun::ItemPostFrame()
 			// kung-fu KICK (a leg attack; the weapon stays in hand). This is the fallback AFTER the
 			// weapon's own secondary (scope/hold-stance), so guns without one gain the kick. (Exact
 			// in-game trigger is RE-approximate — flagged for refinement once live-confirmed.)
-			CloseCombatAttack(true);
+			CCombatAttack(true);
 		}
 	}
 	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
@@ -2018,7 +2071,7 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
 	CTSGun *pHeld = GetPlayerTSGun(pPlayer);
 	if (pHeld)
 	{
-		if (!pHeld->AddWeapon(type))
+		if (!pHeld->TakeWeapon(type))
 			return NULL; // won't fit the slot capacity (or invalid) — caller leaves it on the floor
 		return pHeld;
 	}
@@ -2060,18 +2113,18 @@ void TSSelectWeaponType(CBasePlayer *pPlayer, int type)
 	if (!pGun || type < 0 || type >= TSW_COUNT)
 		return;
 	if (type == TSW_MELEE || pGun->IsOwned(type))
-		pGun->SelectWeaponType(type);
+		pGun->SelectWeapon(type);
 }
 
 // @ the ClientCommand `lastinv` block (@0xae433, the SelectWeapon+Deploy path): toggle back
-// to the previously-wielded type (player+0xa1c). SelectWeaponType itself records m_lastType.
+// to the previously-wielded type (player+0xa1c). SelectWeapon itself records m_lastType.
 void TSLastInv(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun || pGun->OwnedCount() <= 1)
 		return;
 	if (pGun->IsOwned(pGun->m_lastType) || pGun->m_lastType == TSW_MELEE)
-		pGun->SelectWeaponType(pGun->m_lastType);
+		pGun->SelectWeapon(pGun->m_lastType);
 }
 
 // Infinite-clip powerup hook (PlayerAddPowerUp) — multiply the held weapon's reserve.
@@ -2178,7 +2231,7 @@ void TSSwitchItems(CBasePlayer *pPlayer)
 // active weapon, auto-select the next-best owned weapon (fThrow → GetBetterWeapon) or just
 // holster it. Does NOT spawn the world gun (CBasePlayer::DropWeapon does the throws); this is
 // only the items[] bookkeeping side.
-void CTSGun::DropType(int type, bool fThrow)
+void CTSGun::DropWeapon(int type, bool fThrow)
 {
 	if (type < 1 || type >= TSW_COUNT || !m_items[type].owned)
 		return;
@@ -2239,8 +2292,8 @@ bool TSDropWeapon(CBasePlayer *pPlayer)
 		const int half = total / 2;
 		TSThrowWorldGun(pPlayer, pGun, single, half, 4.0f);
 		TSThrowWorldGun(pPlayer, pGun, single, total - half, -4.0f);
-		pGun->DropType(type, true);   // remove the akimbo (auto-selects next)
-		pGun->DropType(single, true); // and the single base, if it was also owned
+		pGun->DropWeapon(type, true);   // remove the akimbo (auto-selects next)
+		pGun->DropWeapon(single, true); // and the single base, if it was also owned
 		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
 		return true;
 	}
@@ -2253,7 +2306,7 @@ bool TSDropWeapon(CBasePlayer *pPlayer)
 		const int keptClip = pGun->m_items[akimbo].rightClip; // the kept single takes the other barrel
 		TSThrowWorldGun(pPlayer, pGun, type, thrownClip, 0.0f);
 		pGun->m_items[type].clip = keptClip;
-		pGun->DropType(akimbo, false);     // remove the akimbo item (type stays owned + active)
+		pGun->DropWeapon(akimbo, false);     // remove the akimbo item (type stays owned + active)
 		pGun->m_iClip = keptClip;          // refresh the live clip of the kept single
 		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
 		return true;
@@ -2261,7 +2314,7 @@ bool TSDropWeapon(CBasePlayer *pPlayer)
 
 	// 3) plain weapon -> throw one, remove it.
 	TSThrowWorldGun(pPlayer, pGun, type, pGun->m_iClip, 0.0f);
-	pGun->DropType(type, true);
+	pGun->DropWeapon(type, true);
 	EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
 	return true;
 }
