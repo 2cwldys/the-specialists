@@ -9,6 +9,8 @@
 #ifndef TS_GROUNDWEAPON_H
 #define TS_GROUNDWEAPON_H
 
+#include "ts_weapon_info.h" // tsweapon_t / TSW_* (the default member type below)
+
 class CTSGroundWeapon : public CBaseEntity
 {
 public:

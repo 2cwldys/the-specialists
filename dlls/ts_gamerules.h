@@ -109,6 +109,15 @@ public:
 	void  SendRoundTime(CBasePlayer *pPlayer); // catch a joining client up on the round clock
 	void  RoundTimeLeft();
 	float m_flRoundEnd = 0;       // >0 = the round ends at this time (the .so's +0x8); 0 = not armed
+	bool  m_bRoundTimerEnabled = true; // the .so's field_0x10 — gates the RoundTime HUD message
+
+	// --- Round lifecycle (the .so's Init / RestartRound / ResetRestartRound / RespawnEntities). ---
+	CTSGameRules();                    // @0x67d6c Init-equivalent: one-time setup (calls Init())
+	void Init();                       // @0x67d6c — map setup: InitTeams + InitObjectives/SetObjective + arm 1st round
+	void RestartRound();               // @0x67920 — the round reset (re-arm timer, objectives, respawn, RespawnEntities)
+	void RespawnEntities(bool bFirst); // @0x67764 — respawn the map's breakables/weapons/powerups/flags
+	void ResetRestartRound(int depth); // @0x68750 — arm a 1s restart at round end (depth>1 wipes team scores)
+	int  CountPlayers();               // @0x6a154 — number of connected players
 
 	// --- Objective subsystem (the HUD objective list + the round's objective managers). The cluster
 	// entities (ts_objective_ptr/hack/wingiver/bomb) drive the HUD through these. ---

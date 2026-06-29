@@ -12,6 +12,8 @@
 #include "ts_bulletmgr.h"
 #include "ts_utils.h"   // TSHudMessageAll
 #include "ts_objectives.h" // CTSObjective / CTSObjectiveManager (the objective subsystem)
+#include "ts_func_break.h" // CInfoBreakable::RespawnThink (RespawnEntities)
+#include "ts_groundweapon.h" // CTSGroundWeapon::Fall (RespawnEntities)
 
 // DAT_0017da25 in the original: a cached flag that, when nonzero, removes the
 // low-gravity (0x100) powerup from the random pool. Zero-init in the binary, so
@@ -262,7 +264,7 @@ void CTSGameRules::TeamWin(int team)
 		TSHudMessageAll(0, 0xff, 0, 8, 50,
 			UTIL_VarArgs("%s win the round!  (%d - %d)", who, m_teamScore[0], m_teamScore[1]));
 
-	m_flRoundRestart = gpGlobals->time + 3.0f;
+	ResetRestartRound(1); // arm the 1s restart (depth 1 = restart only; the score was bumped above)
 }
 
 // @ CallCheckDeads — schedule a deads-check ~1s out (unless a round restart is already
@@ -323,23 +325,121 @@ void CTSGameRules::CheckDeads()
 }
 
 // Re-spawn everyone + re-arm the objective entities for a fresh round.
-static void TSRestartRound()
+// @0x67d6c Init — one-time map setup. Arms the FIRST round 5s out (which, via RestartRound, runs
+// InitObjectives/SetObjective when the map entities exist) and seeds the objective subsystem.
+CTSGameRules::CTSGameRules()
 {
+	Init();
+}
+
+void CTSGameRules::Init()
+{
+	InitTeams();
+	m_flRoundEnd = 0;
+	m_flRoundRestart = gpGlobals->time + 5.0f; // first round fires 5s into the map
+	m_bRoundTimerEnabled = true;
+	InitObjectives(); // (finds nothing at construction-time; the +5s RestartRound re-runs it)
+	SetObjective();
+}
+
+// @0x6a154 CountPlayers — number of connected players (no team/alive filter).
+int CTSGameRules::CountPlayers()
+{
+	int n = 0;
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBaseEntity *p = UTIL_PlayerByIndex(i);
+		if (p && p->IsPlayer())
+			n++;
+	}
+	return n;
+}
+
+// @0x67764 RespawnEntities — re-spawn the map's resettable entities by classname: breakables + flags
+// always; ground weapons in team/last-man mode; powerups in last-man mode.
+void CTSGameRules::RespawnEntities(bool bFirst)
+{
+	const bool lms = CVAR_GET_FLOAT("lms") != 0.0f;
+	CBaseEntity *e;
+
+	for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "info_breakable")) != nullptr;)
+		((CInfoBreakable *)e)->RespawnThink();
+
+	if (IsTeamMode() || lms)
+		for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "ts_groundweapon")) != nullptr;)
+			((CTSGroundWeapon *)e)->Fall();
+
+	if (lms)
+		for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "ts_powerup")) != nullptr;)
+			e->Spawn(); // VERIFY: the original calls CTSPowerUp::Fall() (ts_powerup.cpp-local)
+
+	for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "ts_flag")) != nullptr;)
+		e->Spawn(); // VERIFY: the original calls CTSFlag::RespawnFlag() (ts_flag.cpp-local)
+}
+
+// @0x67920 RestartRound — the actual round reset: re-arm the round timer, reset the objectives,
+// respawn the players, recount teams, then respawn the map entities.
+void CTSGameRules::RestartRound()
+{
+	if (CountPlayers() == 0) // nothing to restart on an empty server
+		return;
+
+	// (a) re-arm the round timer inline + disarm the pending restart.
+	float t = CVAR_GET_FLOAT("roundtime");
+	if (t < 30.0f) t = 30.0f;
+	if (t > 180.0f) t = 180.0f;
+	m_flRoundEnd = gpGlobals->time + t;
+	m_flRoundRestart = 0;
+
+	// (b) tell clients the new round clock.
+	if (m_bRoundTimerEnabled && gmsgTSRoundTime != 0)
+	{
+		MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
+		WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time));
+		WRITE_BYTE(0);
+		MESSAGE_END();
+	}
+
+	// (c) reset the objectives, (d) the team-mode banner.
+	InitObjectives();
+	SetObjective();
+	if (IsTeamMode())
+		TSHudMessageAll(0, 0xff, 0, 8, 30, "Defeat the opposite team");
+
+	// (e) respawn the players. SLICE: the original instead refunds the loadout's cash + forces each
+	// player back into the class-select observer state; we respawn directly (no cash economy / class menu).
 	for (int i = 1; i <= gpGlobals->maxClients; i++)
 	{
 		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
 		if (p)
 			respawn(p->pev, false);
 	}
-	CBaseEntity *e = nullptr;
-	while ((e = UTIL_FindEntityByClassname(e, "ts_wingiver")) != nullptr)
-		e->Spawn();
-	e = nullptr;
-	while ((e = UTIL_FindEntityByClassname(e, "ts_hack")) != nullptr)
-		e->Spawn();
-	TSHudMessageAll(0, 0xff, 0, 8, 30, "Round restart!");
-	if (TSGameRules())
-		TSGameRules()->m_flRoundEnd = 0; // re-arm the round timer for the new round (next Think)
+
+	// (f) recount teams, (g) respawn the map entities.
+	RecountTeams();
+	RespawnEntities(true);
+}
+
+// @0x68750 ResetRestartRound — at round end (team/last-man only) arm a 1s restart + announce. With
+// depth > 1 it also wipes the per-team round scores/cash. Replaces the ad-hoc restart scheduling.
+void CTSGameRules::ResetRestartRound(int depth)
+{
+	if (!IsTeamMode() && CVAR_GET_FLOAT("lms") == 0.0f)
+		return;
+	m_flRoundRestart = gpGlobals->time + 1.0f;
+	m_flRoundEnd = 0;
+
+	if (m_bRoundTimerEnabled && gmsgTSRoundTime != 0)
+	{
+		MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
+		WRITE_BYTE(1);
+		WRITE_BYTE(0);
+		MESSAGE_END();
+	}
+	if (depth > 1)
+		for (int i = 0; i < TS_MAX_TEAMS; i++)
+			m_teamScore[i] = 0; // SLICE: the original also resets per-team cash + broadcasts TeamScore
+	TSHudMessageAll(0, 0xff, 0, 8, 30, "Restarting Round");
 }
 
 // @ PutPowerUp__12CTSGameRulesi — spawn a powerup at a random info_player_deathmatch
@@ -407,8 +507,7 @@ void CTSGameRules::Think()
 	// A scheduled round restart (from TeamWin) fires once its delay elapses.
 	if (m_flRoundRestart != 0 && gpGlobals->time >= m_flRoundRestart)
 	{
-		m_flRoundRestart = 0;
-		TSRestartRound();
+		RestartRound(); // sets m_flRoundRestart = 0 itself
 	}
 
 	// Team-round timer: arm it on the first team-mode frame (and after each restart), and end the
