@@ -524,14 +524,35 @@ void CTSScoreGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE 
 class CVipEscape : public CBaseEntity
 {
 public:
-	void Spawn() override
-	{
-		pev->movetype = MOVETYPE_NONE;
-		pev->solid = SOLID_NOT; // passive marker (the .so SET_MODELs the brush, non-solid)
-		if (!FStringNull(pev->model))
-			SET_MODEL(edict(), STRING(pev->model));
-	}
+	void Spawn() override;                          // @0x8d23c
+	void Precache() override;                       // @0x8d238 — empty
+	bool KeyValue(KeyValueData *pkvd) override;     // @0x8d22c — handles no keys
 };
 
 LINK_ENTITY_TO_CLASS(func_vip_safetyzone, CVipEscape);
+
+// @0x8d22c — CVipEscape ignores all keyvalues (the original just clears fHandled and returns;
+// it does NOT chain to CBaseEntity::KeyValue).
+bool CVipEscape::KeyValue(KeyValueData *pkvd)
+{
+	pkvd->fHandled = false;
+	return false;
+}
+
+// @0x8d238 — empty.
+void CVipEscape::Precache()
+{
+}
+
+// @0x8d23c — passive non-solid brush marker (EF_NODRAW, SOLID_NOT, MOVETYPE_NONE).
+void CVipEscape::Spawn()
+{
+	pev->effects = EF_NODRAW;
+	pev->solid = SOLID_NOT;
+	pev->flags = 0;
+	pev->movetype = MOVETYPE_NONE;
+	pev->classname = MAKE_STRING("func_vip_safetyzone");
+	Precache();
+	SET_MODEL(ENT(pev), STRING(pev->model));
+}
 
