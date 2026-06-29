@@ -89,8 +89,21 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   (CTSBomb/CTSHack/CTSTeamEscape) DERIVES CTSObjective; OURS has each CBaseEntity-direct with DUPLICATED attacker_team/
   CanInteract. Cluster reconcile = make them derive CTSObjective + build CTSGameRules' objective methods they call —
   a multi-class job interdependent with CTSGameRules 12/39. Decompiles captured: scratchpad/obj.c, hill.c.
+- **Objectives-cluster restructure STARTED** (`c5fe12d`,`419422b`): **extracted CTSObjective into dlls/ts_objectives.h**
+  so the per-objective classes in their own .cpp can DERIVE it (also makes CTSObjective's members header-visible →
+  audit no longer false-flags them). **CTSBomb 9/11->11/11**: derives CTSObjective (drops dup m_attackerTeam/CanInteract;
+  m_bEnabled->inherited m_bActive); +Save/Restore (2-field=defusesec/cancutwire); members renamed
+  defusetime->defusesec/cutwires->cancutwire; dissolved invented Explode inline into WaitThink. **CTSTeamEscape
+  5/9->9/9**: derives CTSObjective; +Save/Restore (1-field=escape_percentage)+Precache(empty)+ObjectCaps(0x10);
+  dissolved invented AttackerTeamSize inline; completion uses Freeze(true). **PATTERN for the cluster:** derive
+  CTSObjective, drop the duplicated attacker_team/CanInteract, map the class's "enabled" flag to the inherited
+  m_bActive(+0x64), add Save/Restore via IMPLEMENT_SAVERESTORE(<Class>, CTSObjective), rename members to the
+  FGD/save names, dissolve invented helpers the original inlines. **REMAINING cluster member: CTSHack 4/9** — already
+  derives CTSObjective; needs +Save/Restore(hacksec)+EnableObjective+ObjectCaps(0x10) and to dissolve our invented
+  HackTouch into the original's **Use** (a 688-byte hack-interaction method) + the WaitThink countdown-to-Freeze model
+  (EnableObjective seeds field_0x6c timer; WaitThink decrements each sec -> Freeze(true) at 0). Decompile: scratchpad/hack.c.
 
-audit headline: invented methods **131->120**, file mismatches **23->22**, 0 missing/0 invented classes; **3
+audit headline: invented methods **131->118**, file mismatches **23->22**, 0 missing/0 invented classes; **3
 keepalives dropped/slimmed** (CTSPhysicObject now kept by CTSWorldGun, CTSGrenade by CM61Grenade, CInfoBreakable
 wired+LINK'd). Remaining keepalive: the compiled-but-unlinked pistols (CTSPistolWeapon/Ammo — the ORIGINAL keeps
 them too, legit). All build amd64 server+client (glibc 2.14). **⚠ ALL UNPLAYTESTED** — bounce physics, swept impact
