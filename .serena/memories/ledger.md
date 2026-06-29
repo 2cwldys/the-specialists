@@ -5,6 +5,55 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-29 (cont. 75 cont.) — TRUSTWORTHY audit + the "move existing logic" parity grind
+
+After closing the stock-class gaps, the user pushed for an EXHAUSTIVE, trustworthy 1:1 check at every
+level (file→class→method→variable→global→free function), where any discrepancy = a logic-mismatch
+signal to re-RE. Two phases:
+
+### Phase 1 — made `audit.py` trustworthy (the foundational win), commit `a77ff52`
+The old audit had blind spots that polluted MISSING/INVENTED. Built **`scripts/coverage/srcparse.py`** —
+a single-pass tokenizer (handles line/block comments + string/char literals so braces never desync) that
+brace-scans BOTH .cpp and .h, yielding per-class members, the class→base hierarchy, in-body (inline)
+methods, and file-scope free functions. (A naive regex was leaking quotes from `//` comments across
+newlines and SILENTLY DROPPING whole classes, e.g. CMultiManager — class discovery 240→505.) Wired into
+audit.py: members now from .cpp too; methods resolve through inheritance + inline; a NEW **free-function
+level** diffs each TS_*.cpp's free/static funcs vs our build symbols. Fixed a c++filt-spacing bug that
+made every arg-taking free function read as missing. **Result (now ACCURATE, not blind-spot noise):**
+0 missing/0 invented classes, 33→29 missing methods, 105 invented methods, **19** missing members (was
+54 false), **~94 missing free functions (a whole level that never existed)**. KEY LESSON (user's): the
+logic is OFTEN already implemented — just `static`/inlined/renamed/as-a-method — so a "missing" symbol
+usually means MOVE it to the faithful shape, not rewrite.
+
+### Phase 2 — closing gaps by MOVING existing logic (commits `70172f1`,`b79559e`,`0c89442`,`03adb27`)
+- **TS_shared.cpp slow-motion math** (`70172f1`): FixedSlowAmt/FixedSlowMul/InterpolateSlowMotion/
+  GetBulletVelocityMult — all already present but SCATTERED (static in ts_bulletmgr, inlined in
+  PreThink's fuser1 ramp, inlined in GiveSlowMul). Consolidated into ts_shared.cpp/.h as the original's
+  free functions; call sites route through them. Verified each vs @0x890bc/0x890e4/0x8910c/0x89160.
+  Zero behaviour change.
+- **GetSpeedBySlots** (`b79559e`): our `TSSlotBaseSpeed` WAS this (@0x66bd4) — renamed. **InitWeaponRestriction**:
+  extracted from the inlined bare `0x1f` in get_weapon_restriction.
+- **CBasePlayer DropWeapon + CutWire** (`0c89442`): free functions TSDropWeapon/TSCutWire → methods
+  (the original's shape; body unchanged via a `pPlayer = this` alias; callers + dead decl updated).
+- **CBasePlayer SetPlayerSpeed + SetPlayerGravity** (`03adb27`): RE'd @0x83068/@0x85b70 (clamp [0,330] +
+  pfnSetClientMaxspeed; conditional gravity set). Wired the One's full-speed site.
+
+### Where it stands (honest) — NOT complete; the audit is now a trustworthy work-list
+Remaining genuine gaps (false positives now filtered out): **29 missing methods** (CBasePlayer is ~18 —
+ShootBulletsPlayer/UpdateMeleeBar/BlockPlayer inlined in the PLAYTESTED melee/bullet path = extract
+carefully; PickUpWeapon = TSPickUpWeapon but signature differs from the orig's status-based one; genuinely
+missing DropAmmo/DropArmor/ThrowWeapon/PunchScreen/TSInit/TSUse/UpdatePlayerState/Observer_Idle/StopObserver/
+GetMeleeMultiplier/CheckHull/CheckForWires). **~94 missing free funcs** (~38 = the deliberate Write_<weapon>
+data-table consolidation, NOT gaps; the rest = move-existing or genuine: TS_gun.cpp Sparta/compile_*/
+CalcSpread, TS_pm_shared.c movement/stunt, TS_util.cpp helpers, Victim{Kungfu,Knife,Katana}Hold inlined in
+melee). **19 missing members** (mostly the CTSObjectiveManager messages[]/targets[] DEFINE_ARRAY artifact +
+CTSPhysicObject curator mis-hoist = known-false, each needs a 1-line confirm). **22 file mismatches, 2 missing
+files** (CBulletManager/the HUD client.dll classes). **The drop-in METHOD: audit.py <Class> is now reliable;
+"missing" = MOVE existing logic or RE.** ~9 commits this sub-session; all build amd64 server+client (glibc 2.14).
+**ALL UNPLAYTESTED — flag before merge.**
+
+---
+
 ## 2026-06-29 (cont. 75) — source-parity restructure cont.: the CTF cluster, bottom-up (1:1)
 
 Branch `restructure-source-parity` (continues cont.74; GPG signing OFF). Same loop. This session
