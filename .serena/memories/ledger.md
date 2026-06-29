@@ -116,12 +116,16 @@ velocity formula is CONFIRMED); slow-motion ✓; no unknown-command spam ✓; di
    original Init@0x67d6c / RestartRound@0x67920): gate the first-restart player-respawn to round-based modes,
    OR run the deferred objective-init without the all-player respawn in DM. Tightly coupled to bug #1 (the round
    clock): on tm_avana RestartRound DOES send gmsgTSRoundTime (`:411`) yet no clock shows — same subsystem.
-4. **Stock bottom HUD shows** — user wants the STOCK HL health/ammo HUD removed (TS has its own: TSHealth +
-   cl_dll/ts_ammo.cpp). NOT a one-line gate: cl_dll/ammo.cpp (CHudAmmo) ALSO drives WEAPON-SELECT, so can't
-   just early-return its Draw. Needs per-element gating of stock CHudHealth/CHudBattery + the stock ammo-NUMBER
-   draw only (leave weapon-select). NEXT.
+4. ✅ **FIXED (`b543be6`, re-test): Stock bottom HUD** — CHudBattery was already suppressed; CHudHealth/
+   CHudAmmo/CHudAmmoSecondary still drew (duplicating TSStatus/TSAmmo/TSWeaponBar). Early-returned those Draws.
+   SAFE because weapon-SELECT logic is in CHudAmmo::Think / m_TSWeaponBar.SelectColumn (slot keys route there),
+   NOT in Draw — verified. Render-only suppression.
 5. **Loadout intermittent at first-join** (works most times) — buy-menu/loadout send race (the TSSendBuyMenu
    re-send-each-tick code already hints at known timing fragility).
+7. ✅ **FIXED (`3b3708c`, re-test): brass casings stopped on fire** — cl_dll/ev_ts.cpp EV_TSFire ejects via
+   EV_FindModelIndex("models/shell.mdl"), but TS never precached it (only stock weapons did; TS uses
+   weapon_tsgun) → model index 0 → no casing. Added PRECACHE_MODEL(shell.mdl + shotgunshell.mdl) to
+   PrecacheAllTSWeapons.
 6. **Dive 3rd-person looks like crouch** (1st-person spot-on) — `CTSAnimation::Animate` (gait/anim) NOT ported
    (known, VERIFICATION.md). Cosmetic.
 
