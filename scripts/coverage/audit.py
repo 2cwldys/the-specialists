@@ -215,7 +215,12 @@ def analyze():
         # MEMBER diff: original REAL-named members (saved/curated) not present in our source headers, by name.
         # (Only the named ones — the auto skeleton is field_0xNN placeholders; and our modern layout uses
         # different OFFSETS by design, so we match on NAME, not offset.)
-        missing_members = sorted(orig[c]["named_members"] - ourmem.get(c, set()))
+        # The original's DEFINE_ARRAY save fields expand to indexed names (targets[0]..targets[7]); we declare
+        # them as a single array member (`targets`), so collapse `name[i]` -> `name` for the membership test.
+        ourm = ourmem.get(c, set())
+        ourm_bases = ourm | {re.sub(r"\[\d+\]$", "", x) for x in ourm}
+        missing_members = sorted(m for m in orig[c]["named_members"]
+                                 if m not in ourm and re.sub(r"\[\d+\]$", "", m) not in ourm_bases)
         per_class[c] = {"missing": missing, "invented": invented, "orig_file": ofile,
                         "our_files": our_files, "file_ok": file_ok, "impl": len(o) - len(missing), "total": len(o),
                         "missing_members": missing_members, "orig_member_count": orig[c]["member_count"],

@@ -19,6 +19,9 @@ SRC_DIRS = [os.path.join(ROOT, "dlls"), os.path.join(ROOT, "cl_dll")]
 CLASSRE = re.compile(r"\b(?:class|struct)\s+([A-Za-z_]\w*)\s*(?::\s*(?:public|private|protected|virtual|\s)+([A-Za-z_]\w*))?")
 # a member declaration line at class scope: <type...> name [array] (= | ; | {)
 DECLRE = re.compile(r"^\s*(?:static\s+|const\s+|mutable\s+|volatile\s+)*[A-Za-z_][\w:<>,\s\*&]*?\b(m_[A-Za-z0-9_]+|[a-z][a-z0-9_]+)\s*(?:\[[^\]]*\])?\s*(?:=|;|\{)")
+# a pointer-to-member data member:  <ret> (Class::*name)(...)  or  <ret> (*name)(...)  — the name is
+# buried in parens so DECLRE/INLINE_METHODRE both miss it (function-pointer save fields like m_pfnThink).
+PMEMBERRE = re.compile(r"\(\s*(?:[A-Za-z_]\w*\s*::\s*)?\*\s*(m_[A-Za-z0-9_]+|[a-z][a-z0-9_]+)\s*\)\s*\(")
 # an inline method declared/defined in the class body:  <stuff> name( ... ) ... ; or {
 INLINE_METHODRE = re.compile(r"^\s*(?:virtual\s+|static\s+|inline\s+|explicit\s+)*[A-Za-z_][\w:<>,\s\*&]*?\b(~?[A-Za-z_]\w*)\s*\(")
 # a free function definition at file scope:  <type> name( ... ) {  (definition, not a call)
@@ -100,9 +103,13 @@ def parse():
                         if dm and dm.group(1) not in TYPEWORD:
                             members[cls].add(dm.group(1))
                     else:
-                        im = INLINE_METHODRE.match(code)
-                        if im and im.group(1) not in TYPEWORD:
-                            inline_methods[cls].add(im.group(1))
+                        pm = PMEMBERRE.search(code)
+                        if pm and pm.group(1) not in TYPEWORD:
+                            members[cls].add(pm.group(1))
+                        else:
+                            im = INLINE_METHODRE.match(code)
+                            if im and im.group(1) not in TYPEWORD:
+                                inline_methods[cls].add(im.group(1))
                 elif not stack and start_depth == 0 and "(" in code and "{" in code:
                     fm = FREEDEFRE.match(code)
                     if fm and fm.group(1) not in TYPEWORD:
