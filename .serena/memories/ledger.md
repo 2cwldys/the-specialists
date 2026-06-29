@@ -49,6 +49,20 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   removing itself — the helper PERSISTS). **DROPPED ts_func_break_keep keepalive.** Moved stock Explodable/Explosion
   Magnitude/ExplosionSetMagnitude out-of-line (orig has real symbols) so audit sees them.
 
+- **CTSGun 28/47 -> 30/47** (`a6a2669`,`<chunk3a>`): started the big name-map restructure of the central
+  (client-predicted, heavily-playtested) weapon class in SAFE chunks, driven by the name-map dossier
+  (`scratchpad/dossier-CTSGun-namemap.md` — the OUR->REAL map + groups A/B/C/D + chunk order). Chunk 1: pure
+  rename CloseCombatBlock->CCombatBlock. Chunk 2: added the 2 missing NAMED members m_pActiveItem(+0xcc)/
+  m_pActiveInfo(+0xd0) (kept in sync by UpdateActivePointers() at every m_weaponType assignment; the orig's
+  `m_pActiveItem!=NULL` guard == our `m_weaponType!=TSW_MELEE`). Chunk 3a: ShouldWeaponIdle override (return true).
+  **NEXT chunks (dossier-mapped, do in order):** 3b add CCombatIdle/EmptySound/Reset/Holster->HolsterWeapon
+  (need g2.c/g3.c decompiles); 4 DropType->DropWeapon (return bool, else->HolsterWeapon) + SelectWeaponType->
+  SelectWeapon (extract Deploy, add bool); 5 CloseCombatAttack->CCombatAttack (drop param) + GrenadeThrow->
+  GrenadeFire + new GrenadeIdle; 6 (biggest) the melee split MeleeAttack+ThrowKnife -> KnifeFire/KatanaFire/
+  KatanaThrow + the SecondaryAttack keystone + StopReload/ReloadWeapon, then dissolve the invented ItemPostFrame.
+  Group D KEEP (legit, not drift): CanDeploy/GetWeaponData/SetWeaponData (stock virtuals), OwnedCount/SlotsUsed/
+  Sync+LoadActiveFromItem/RegenBlockBar/SwitchBarrel/SendWeaponStatus/UpdateActivePointers (model glue).
+
 audit headline: invented methods **131->126**, file mismatches **23->22**, 0 missing/0 invented classes; **3
 keepalives dropped/slimmed** (CTSPhysicObject now kept by CTSWorldGun, CTSGrenade by CM61Grenade, CInfoBreakable
 wired+LINK'd). Remaining keepalive: the compiled-but-unlinked pistols (CTSPistolWeapon/Ammo — the ORIGINAL keeps

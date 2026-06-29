@@ -56,7 +56,7 @@ directive: ANY missing/extra member or global = hidden logic inconsistency → r
 (memory `members-globals-signal-hidden-logic`); drive members to N/N too, and drop each class's keepalive by building
 its real wiring.
 
-### Done this session (3 commits; audit: invented methods 131→126, file mismatches 23→22; both build amd64 glibc 2.14; 3 keepalives dropped)
+### Done this session (audit: invented methods 131→126, file mismatches 23→22; both build amd64 glibc 2.14; 3 keepalives dropped; 3 classes→1:1 + CTSGun started)
 - **CTSWorldGun cluster 4/13+3/7 → 13/13+7/7** (`0df448f`): merged ts_ammopack.cpp INTO ts_worldgun.cpp (+ts_worldgun.h)
   = TS_worldgun.cpp file parity. **CTSWorldGun now derives CTSPhysicObject**; real settle/bounce machine (CreateWeapon
   static factory carrying the full s_weapon_status = our **TSItem**; MOVETYPE_BOUNCE; Fall swept-trace impact damage;
@@ -77,6 +77,15 @@ its real wiring.
   (Verified via decompile, not the label — the `members-globals` rule in action. Consider fixing `curate_members`/the
   inventory so audit stops reporting CTSPhysicObject 5/10 + CTSGrenade/CM61Grenade member gaps from this artifact.)
 
+- **CTSGun 28/47 → 30/47** (`a6a2669` + chunk3a): STARTED the central weapon class's name-map restructure in SAFE
+  chunks (it's client-predicted + heavily playtested). Driver = `scratchpad/dossier-CTSGun-namemap.md` (the OUR→REAL
+  map + A/B/C/D groups + chunk order). Done: CloseCombatBlock→CCombatBlock (rename), the 2 missing NAMED members
+  m_pActiveItem/m_pActiveInfo (synced by UpdateActivePointers), ShouldWeaponIdle override. **Continue the dossier's
+  chunks 3b→6 IN ORDER** (next: CCombatIdle/EmptySound/Reset/HolsterWeapon need the g2.c/g3.c decompiles; then the
+  DropWeapon/SelectWeapon reshapes; then the melee split + SecondaryAttack keystone). Group D = KEEP (legit glue/stock
+  virtuals, NOT drift): CanDeploy/Get+SetWeaponData, OwnedCount/SlotsUsed/Sync+LoadActiveFromItem/RegenBlockBar/
+  SwitchBarrel/SendWeaponStatus/UpdateActivePointers.
+
 ### NEXT — work-list (bottom-up, audit.py-driven)
 1. **⚠ CTF CLUSTER (deferred — do bottom-up, it's NOT a single class).** CTSFlag 4/15's dossier
    (`scratchpad/dossier-CTSFlag.md`) found it derives CTSPhysicObject (same settle machine as CTSWorldGun — reuse that
@@ -91,7 +100,7 @@ its real wiring.
    CTSBriefcase NOT the carrier). gmsg: **ScoreInfo** on capture (+5 frags). Remove the invented free helpers
    TSCreateFlag/TSDropFlag/TSPlayerHasFlag/TSReturnCarriedFlag (real flow is CBasePlayer::TakeFlag/DropFlag).
 2. **CTSGameRules 12/39** + the INTERDEPENDENT objectives cluster (CTSObjective/Manager/Pointer/Hack/WinGiver) — do together.
-3. **CTSGun's remaining missing methods** (worldgun/grenade deps now done) + the **~126 invented methods** to review.
+3. **CTSGun (IN PROGRESS, 30/47)** — continue the name-map dossier's chunks 3b→6 in order (above). + the **~126 invented methods** to review.
 4. File mismatches 22 (mostly grouped-file divergence, OK). Client-side parity = separate manual track (`dc.sh client`).
    (✓ CBreakable 17/22→22/22 DONE `d63559d` — the breakable-respawn cluster; dropped the CInfoBreakable keepalive.)
 
