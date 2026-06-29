@@ -23,7 +23,7 @@
 // 0=left 1=right 2=forward 3=back, from velocity relative to a yaw facing. The original
 // takes (normalized dir, view-angles, fwdBias, sideBias); we reproduce the behaviour
 // from the horizontal velocity vs the facing forward/right basis.
-int CTSAnim_GetDirection(const Vector &dir, const Vector &angles, float fwdBias, float sideBias)
+int GetDirection(const Vector &dir, const Vector &angles, float fwdBias, float sideBias)
 {
 	Vector v = dir;
 	v.z = 0;
@@ -230,7 +230,7 @@ void CTSAnimation::BlendAnimationsByDir(CBasePlayer *pPlayer, const Vector &dir,
 {
 	if (!grip || !grip[0])
 		return;
-	int d = CTSAnim_GetDirection(dir, angles, 0.6f, 0.3f);
+	int d = GetDirection(dir, angles, 0.6f, 0.3f);
 	if (d != m_iDirection && d >= 0 && d < 4)
 	{
 		char name[64];
@@ -246,7 +246,7 @@ void CTSAnimation::BlendAnimationsForSlide(CBasePlayer *pPlayer)
 {
 	static const char *const slideTable[4] = { "slide_l_", "slide_r_", "slide_f_", "slide_b_" };
 	const char *grip = pPlayer->m_szAnimExtention;
-	int d = CTSAnim_GetDirection(pPlayer->pev->velocity, pPlayer->pev->v_angle, 0.6f, 0.3f);
+	int d = GetDirection(pPlayer->pev->velocity, pPlayer->pev->v_angle, 0.6f, 0.3f);
 	if (d != m_iDirection && d != 2 && d >= 0 && d < 4)
 	{
 		char name[64];
@@ -263,7 +263,7 @@ void CTSAnimation::BlendJumpAnimations(CBasePlayer *pPlayer)
 	const char *grip = pPlayer->m_szAnimExtention;
 	if (!grip || !grip[0])
 		return;
-	int d = CTSAnim_GetDirection(pPlayer->pev->velocity, pPlayer->pev->v_angle, 0.6f, 0.3f);
+	int d = GetDirection(pPlayer->pev->velocity, pPlayer->pev->v_angle, 0.6f, 0.3f);
 	if (d != m_iDirection)
 	{
 		const char *jd = (d == 0) ? "jump_left_" : (d == 1) ? "jump_right_" : "jump_forward_";
@@ -352,7 +352,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	{
 		if (speed > 16.0f)
 		{
-			int dir = CTSAnim_GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+			int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
 			m_iDirection = dir;
 			const char *jd = (dir == 0) ? "jump_left_" : (dir == 1) ? "jump_right_" : "jump_forward_";
 			strcpy(name, jd);
@@ -422,7 +422,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	case TSA_DIVE:
 	{
 		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = CTSAnim_GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
 		snprintf(name, sizeof(name), "dive_%s_%s", ds[dir & 3], grip);
 		SetAnim(pPlayer, name, 0x94, 0);
 		m_flLegTimer = 3.0f;
@@ -433,7 +433,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	case TSA_ROLL:
 	{
 		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = CTSAnim_GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
 		snprintf(name, sizeof(name), "dive_%s_end", ds[dir & 3]);
 		SetAnim(pPlayer, name, 0x94, 0);
 		m_flLegTimer = 3.0f;
@@ -444,7 +444,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	case TSA_SLIDE_BL:
 	case TSA_SLIDE_BR:
 	{
-		int dir = CTSAnim_GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
 		if (activity == TSA_SLIDE_BL || dir == 3)
 			strcpy(name, "slide_b_left");
 		else if (activity == TSA_SLIDE_BR)
@@ -462,7 +462,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	case TSA_DIVE_END:
 	{
 		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = CTSAnim_GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
 		snprintf(name, sizeof(name), "dive_%s_end", ds[dir & 3]);
 		SetAnim(pPlayer, name, 0x94, 0);
 		m_iLastActivity = activity;
@@ -472,7 +472,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	case TSA_LOWWHEEL:
 	{
 		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = CTSAnim_GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
 		snprintf(name, sizeof(name), "%swheel_%s", (activity == TSA_LOWWHEEL) ? "low" : "", ds[dir & 3]);
 		SetAnim(pPlayer, name, 0x94, 0);
 		m_flLegTimer = 3.0f;
@@ -518,7 +518,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	// Legs: crawl when ducking+moving, run2/walk2 by speed, none when still.
 	if (speed > 1.0f)
 	{
-		m_iDirection = CTSAnim_GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		m_iDirection = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
 		if (ducking)
 			SetAnim(pPlayer, "crawl", TSSA_LEGS, 0);
 		else

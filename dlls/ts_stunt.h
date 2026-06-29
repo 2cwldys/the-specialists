@@ -66,12 +66,15 @@ public:
 	bool CanDiveHigh();                        // @0x8a494
 	bool CanDiveMedium();                      // @0x8a4ec
 	bool CanDiveLow();                         // @0x8a544
-	int  SlotBonus() { return 0; }             // @0x8a480 (returns 0 in the shipped binary)
-	float NextDive() { return 0.0f; }          // @0x8a59c (returns 0)
+	int  SlotBonus();                          // @0x8a480 (returns 0 in the shipped binary)
+	float NextDive();                          // @0x8a59c (returns 0)
 
 	bool CheckForWallJump();                   // @0x8ac14
 	bool CheckForWallDive();                   // @0x8ad44
 	bool CheckForWallClimb();                  // @0x8ae6c
+
+	void CheckForBreakables();                 // @0x8bd9c — run/dive-into-body melee sweep
+	int  CloseAttack();                        // @0x8c630 — kung-fu close-combat strike (jump-kick)
 
 private:
 	CBasePlayer *m_pPlayer = nullptr;          // +0x40
@@ -90,14 +93,11 @@ private:
 	int   m_iWallClimbCount = 0;    // +0x3c climbs this airtime
 	float m_flLastStunt = 0;        // player+0xb88 — time of last stunt (HandleStunt window)
 	float m_flGetupTime = 0;        // getup transition end (0 = not getting up); two-stage view raise
+	float m_flNextBreakCheck = 0;   // +0x18 — CheckForBreakables throttle (next-check time)
+	CBaseEntity *m_pLastBreakVictim = nullptr; // CheckForBreakables dedupe (orig player+0x798)
 
-	// helper: 0 left / 1 right / 2 forward / 3 back, from move vs facing.
-	int  GetDirection();
-	// time-dilation factor (pev->fuser1; 1 = normal).
-	float TimeScale();
-	void  SendNextStunt();          // gmsgTSNextStunt = byte ROUND(10*m_flStuntTime)
-	void  MotionBlur(int chance);   // gmsgTSMotionBlur on a random roll (slow-mo blur)
-	void  ResetStuntState();        // clear stunt bits + restore gravity/friction/view
+	// NB: the original's TimeScale/SendNextStunt/MotionBlur/ResetStuntState are INLINED (not
+	// methods) and GetDirection is a FREE function — see the file-local statics in ts_stunt.cpp.
 };
 
 #endif // TS_STUNT_H

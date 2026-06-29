@@ -403,7 +403,6 @@ public:
 	byte m_bDivePressed = 0;          // +alt1 dive consumed (one dive per press)
 	byte m_bProneSize = 0;            // dive/prone has shrunk the hull (so we restore it on exit)
 	float m_flNextClimbKick = 0;      // wall-climb: next auto-kick time (paces the kicks while held)
-	float m_flNextJumpKick = 0;       // jump-kick cooldown (orig CTSStunt+8): one kick per ~0.7s
 	EHANDLE m_hRunThroughLast;        // last entity barged through (orig player+0x798): don't re-hit it
 	bool m_bSlowMoveApplied = false;  // slow-motion has lowered pev->maxspeed (restore on exit)
 

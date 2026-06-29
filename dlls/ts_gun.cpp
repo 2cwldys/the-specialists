@@ -1218,80 +1218,7 @@ void TSAlternateAttack(CBasePlayer *pPlayer)
 		pGun->AlternateAttack();
 }
 
-// @ CTSStunt::CloseAttack (@0x9c630) — the JUMP-KICK. CBasePlayer::Jump tries this every think
-// while IN_JUMP is held (before the wall-flip acrobatics); jumping into a breakable/person with a
-// real weapon kicks it. With KUNG-FU equipped it does NOT kick — the original returns 0 when the
-// active item is the tsgun (id 0x10) in bare-hands mode (item+0xcc==0), because kung-fu is its own
-// manual attack. All constants RE'd from the .so (file offset = Ghidra addr − 0x10000; the speed
-// scale/thresholds are doubles): reach 48u, damage clamp(|velocity|/15, 10, 20) [scale 1/15,
-// lo 10, hi 20], ×2 under the kung-fu power, knockback only when damage > 30 (so only with that
-// doubling), cooldown 0.7s, closecombat-timer bump 0.35, melee-bar 1.5×. Returns true on a hit.
-// Server-only (called from CBasePlayer::Jump): ts_gun.cpp also compiles into client.so for
-// prediction, but this never runs there — guarded out so it doesn't pull in the server-only
-// KungFu()/UTIL_TraceHull symbols.
 #ifndef CLIENT_DLL
-bool TSTryJumpKick(CBasePlayer *pPlayer)
-{
-	// cooldown (orig CTSStunt+8) + frozen guard (orig pev->flags & FL_FROZEN)
-	if (pPlayer->m_flNextJumpKick > gpGlobals->time)
-		return false;
-	if ((pPlayer->pev->flags & FL_FROZEN) != 0)
-		return false;
-
-	// no kick when KUNG-FU (bare hands) is the active weapon — kung-fu is manual when equipped.
-	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	if (pGun && pGun->m_weaponType == TSW_MELEE)
-		return false;
-
-	// speed-scaled melee damage: clamp(|velocity| / 15, 10, 20)
-	float spd = pPlayer->pev->velocity.Length() * (1.0f / 15.0f);
-	float dmg = (spd < 10.0f) ? 10.0f : (spd <= 20.0f) ? spd : 20.0f;
-	if (KungFu(pPlayer)) // kung-fu powerup doubles it
-		dmg *= 2.0f;
-
-	// forward reach 48u from the eye; TraceLine, head-hull fallback (the original CheckHull @0x95e28
-	// does a thin ray then a hull trace — the hull is what makes the kick "auto-connect" when you're
-	// roughly facing the target).
-	UTIL_MakeVectors(pPlayer->pev->v_angle);
-	Vector vecSrc = pPlayer->GetGunPosition();
-	Vector vecEnd = vecSrc + gpGlobals->v_forward * 48.0f;
-
-	TraceResult tr;
-	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(pPlayer->pev), &tr);
-	if (tr.flFraction >= 1.0f)
-		UTIL_TraceHull(vecSrc, vecEnd, dont_ignore_monsters, head_hull, ENT(pPlayer->pev), &tr);
-	if (tr.flFraction >= 1.0f)
-		return false; // nothing in front
-
-	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
-	if (!pHit || pHit == pPlayer || pHit->pev->takedamage == DAMAGE_NO)
-		return false;
-
-	// damage the target (a breakable OR a person) — DMG_CLUB melee.
-	ClearMultiDamage();
-	pHit->TraceAttack(pPlayer->pev, dmg, gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
-	ApplyMultiDamage(pPlayer->pev, pPlayer->pev);
-
-	// knockback a living victim on a hard kick (orig knockback gate: damage > 30): shove away at the
-	// kicker's speed + pop them up (orig sets victim velocity.z = 235).
-	if (dmg > 30.0f && pHit->IsAlive() && (pHit->IsPlayer() || pHit->MyMonsterPointer() != NULL))
-	{
-		Vector dir = pHit->Center() - pPlayer->Center();
-		dir.z = 0;
-		dir = dir.Normalize();
-		pHit->pev->velocity = pHit->pev->velocity + dir * pPlayer->pev->velocity.Length();
-		pHit->pev->velocity.z = 235.0f;
-	}
-
-	// 3rd-person body kick: random circfront / latback / circback (orig CloseAttack ids 10/14/13 →
-	// HandleCloseCombat @0x6d8d0 maps them to these sequence names).
-	static const int kickActs[3] = { TSA_CC_CIRCFRONT, TSA_CC_LATBACK, TSA_CC_CIRCBACK };
-	pPlayer->m_TSAnim.Animate(pPlayer, kickActs[RANDOM_LONG(0, 2)]);
-
-	EMIT_SOUND(ENT(pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM);
-	pPlayer->m_flNextJumpKick = gpGlobals->time + 0.7f;
-	return true;
-}
 
 // @ ShootBulletsPlayer (@0x6f69c) — the TS bullet path's PENETRATION (the original's pierce
 // recursion). Fires cShots pellets (player-synced spread, mirroring FireBulletsPlayer), and on each
@@ -1301,7 +1228,7 @@ bool TSTryJumpKick(CBasePlayer *pPlayer)
 // BOTH the entry face and the exit (back) face, and re-tracing onward. So firing at glass breaks it
 // AND the round hits the wall beyond, with bullet-holes punched in each surface it crossed. Server
 // only: the client's prediction FireBulletsPlayer (hl_weapons.cpp) just does the spread/recoil.
-// (still inside the #ifndef CLIENT_DLL opened above for TSTryJumpKick)
+// (still inside the #ifndef CLIENT_DLL opened above — these are server-only)
 void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vector vecDir,
 	Vector vecSpread, float flDist, int iDamage, int seed, int caliber)
 {

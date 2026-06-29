@@ -14,58 +14,54 @@
 #include "util.h"
 #include "cbase.h"
 #include "player.h"
+#include "weapons.h"     // Clear/ApplyMultiDamage, DMG_CLUB
 #include "ts_stunt.h"
 #include "ts_weapons.h" // TSPlayerFreeSlots
+#include "ts_player.h"  // KungFu()
 
 int gmsgTSNextStunt = 0; // "TSNextStunt" 1 — stunt-meter byte (HUD; client handler deferred)
 extern int gmsgTSMotionBlur;
 
 // ---- helpers --------------------------------------------------------------
+// The original inlines these at their call sites (and GetDirection is a FREE function,
+// GetDirection__FG6VectorT0ff — shared with CTSAnimation). We keep them as file-local
+// statics so CTSStunt's METHOD surface matches the original 1:1 (like TSWallTrace below).
 
-float CTSStunt::TimeScale()
+// time-dilation factor — original calls the player virtual GiveSlowMul() == FixedSlowAmt(fuser1)
+// == max(fuser1, 0.01f) (vtable+0x10). 1 = normal time, lower = slow-motion.
+static float TS_TimeScale(CBasePlayer *pl)
 {
-	float ts = m_pPlayer->pev->fuser1;
-	return (ts == 0.0f) ? 1.0f : ts;
+	float ts = pl->pev->fuser1;
+	return (ts < 0.01f) ? 0.01f : ts;
 }
 
 // 81-slot remaining capacity (CBasePlayer+0x548): lighter loadout = higher dives.
 bool CTSStunt::CanDiveHigh()   { return TSPlayerFreeSlots(m_pPlayer) > 39; } // 0x51-cap < 0x2a
 bool CTSStunt::CanDiveMedium() { return TSPlayerFreeSlots(m_pPlayer) > 29; } // < 0x34
 bool CTSStunt::CanDiveLow()    { return TSPlayerFreeSlots(m_pPlayer) > 19; } // < 0x3e
+int  CTSStunt::SlotBonus() { return 0; }     // @0x8a480 — returns 0 in the shipped binary
+float CTSStunt::NextDive()  { return 0.0f; } // @0x8a59c — returns 0 (dive stunt-meter time)
 
-// 0 left / 1 right / 2 forward / 3 back, from horizontal velocity vs facing.
-int CTSStunt::GetDirection()
+// gmsgTSNextStunt drives the client stunt-meter HUD (byte = ROUND(10*time)). The original
+// inlines this MessageBegin at each launch; no client handler yet, so it stays a no-op send.
+static void TS_SendNextStunt(CBasePlayer *pl, float stuntTime)
 {
-	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
-	Vector v = m_pPlayer->pev->velocity;
-	v.z = 0;
-	if (v.Length() < 1.0f)
-		return 2;
-	v = v.Normalize();
-	float f = DotProduct(v, gpGlobals->v_forward);
-	float r = DotProduct(v, gpGlobals->v_right);
-	if (fabs(f) >= fabs(r))
-		return (f >= 0.0f) ? 2 : 3;
-	return (r >= 0.0f) ? 1 : 0;
+	// SLICE: gmsgTSNextStunt has no client handler yet — deferred so we don't emit an unhooked msg.
+	(void)pl; (void)stuntTime;
 }
 
-void CTSStunt::SendNextStunt()
-{
-	// gmsgTSNextStunt drives the client stunt-meter HUD (byte = ROUND(10*time)).
-	// SLICE: no client handler yet — deferred so we don't emit an unhooked msg.
-}
-
-// gmsgTSMotionBlur (TSMBlur) — slow-motion blur wash; sent on a random roll the way
-// the original does ( RandomLong(0,10) + 10*timescale > chance ). Reuses the existing
+// gmsgTSMotionBlur (TSMBlur) — slow-motion blur wash; sent on a random roll the way the
+// original does ( RandomLong(0,10) + 10*timescale > chance ). Reuses the existing
 // (already-registered + client-hooked) powerup message. type 2 = the stunt blur.
-void CTSStunt::MotionBlur(int chance)
+static void TS_MotionBlur(CBasePlayer *pl, int chance)
 {
-	if (RANDOM_LONG(0, 10) + 10.0f * TimeScale() <= (float)chance)
+	extern int gmsgTSMotionBlur;
+	if (RANDOM_LONG(0, 10) + 10.0f * TS_TimeScale(pl) <= (float)chance)
 		return;
 	if (gmsgTSMotionBlur == 0)
 		gmsgTSMotionBlur = REG_USER_MSG("TSMBlur", 2);
-	MESSAGE_BEGIN(MSG_PVS, gmsgTSMotionBlur, m_pPlayer->pev->origin);
-	WRITE_BYTE(ENTINDEX(m_pPlayer->edict()));
+	MESSAGE_BEGIN(MSG_PVS, gmsgTSMotionBlur, pl->pev->origin);
+	WRITE_BYTE(ENTINDEX(pl->edict()));
 	WRITE_BYTE(2);
 	MESSAGE_END();
 }
@@ -88,12 +84,15 @@ void CTSStunt::Init(CBasePlayer *pPlayer)
 	m_flWallClimbFuel = 0;
 	m_iWallClimbCount = 0;
 	m_flLastStunt = 0;
+	m_flNextBreakCheck = 0;
+	m_pLastBreakVictim = nullptr;
 }
 
-// Clear all stunt flags + restore gravity/friction/view (Play's ladder/water reset).
-void CTSStunt::ResetStuntState()
+// Clear all stunt flags + restore gravity/friction/view (Play's ladder/water reset; inlined
+// in the original). The caller also zeroes m_flRollTime (a CTSStunt member).
+static void TS_ResetStuntState(CBasePlayer *pl)
 {
-	entvars_t *pev = m_pPlayer->pev;
+	entvars_t *pev = pl->pev;
 	pev->iuser4 &= ~(TSSTUNT_STOP | TSSTUNT_PRONE | TSSTUNT_STANDUP | TSSTUNT_DIVE |
 					 TSSTUNT_SLIDE | TSSTUNT_DIVE_HEIGHT | TSSTUNT_WHEEL_HI | TSSTUNT_WHEEL_LO |
 					 TSSTUNT_WALLJUMP | TSSTUNT_WALLCLIMB | TSSTUNT_WALLJUMP_A | TSSTUNT_WALLCLIMB_A |
@@ -101,14 +100,13 @@ void CTSStunt::ResetStuntState()
 	pev->friction = 1.0f;
 	pev->gravity = 1.0f;
 	pev->view_ofs.z = 28.0f;
-	m_flRollTime = 0;
 	pev->iuser4 |= TSSTUNT_STANDUP; // ask pm_shared to leave the prone hull
 }
 
 void CTSStunt::Play()
 {
 	entvars_t *pev = m_pPlayer->pev;
-	const float dt = TimeScale() * gpGlobals->frametime;
+	const float dt = TS_TimeScale(m_pPlayer) * gpGlobals->frametime;
 
 	// decrement the timers (floored)
 	if (m_flRollTime != 0.0f)  { m_flRollTime  -= dt; if (m_flRollTime  < 0.001f) m_flRollTime  = 0.001f; }
@@ -200,7 +198,7 @@ void CTSStunt::Play()
 		pev->iuser4 &= ~TSSTUNT_DIVE;
 		if (pev->iuser4 & 0x70c31)
 		{
-			ResetStuntState();
+			TS_ResetStuntState(m_pPlayer); m_flRollTime = 0;
 			m_pPlayer->m_TSAnim.Animate(m_pPlayer, 1);
 		}
 	}
@@ -235,7 +233,7 @@ void CTSStunt::HandleStunt()
 	// ground dive / bullet-time: +alt1, no wall move active, on ground OR recently airborne
 	const bool onGround = (pev->flags & FL_ONGROUND) != 0;
 	const bool recent = (pev->velocity.z >= -680.0f) &&
-						(gpGlobals->time - m_flLastStunt <= 0.7f / TimeScale());
+						(gpGlobals->time - m_flLastStunt <= 0.7f / TS_TimeScale(m_pPlayer));
 	if (altPressed && (pev->iuser4 & 0x130000) == 0 && (onGround || recent))
 	{
 		Vector h = pev->velocity; h.z = 0;
@@ -284,8 +282,8 @@ void CTSStunt::GoDive()
 
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x28);
 	m_flStuntTime = NextDive();
-	SendNextStunt();
-	MotionBlur(8);
+	TS_SendNextStunt(m_pPlayer, m_flStuntTime);
+	TS_MotionBlur(m_pPlayer, 8);
 
 	// dive direction: forward (wall-dive) or normalized velocity
 	if (pev->iuser4 & TSSTUNT_WALLDIVE)
@@ -326,7 +324,7 @@ int CTSStunt::GoRoll(int dir)
 
 	float len = pev->velocity.Length();
 	m_vecStuntDir = (len == 0.0f) ? Vector(0, 0, 1) : pev->velocity * (1.0f / len);
-	GetDirection();
+	m_bDirForward = (GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f) != 2); // VERIFY: also networks pev dir idx
 
 	pev->friction = 0.3f;
 	pev->iuser4 |= TSSTUNT_ROLL | TSSTUNT_PRONE | TSSTUNT_STOP;
@@ -336,7 +334,7 @@ int CTSStunt::GoRoll(int dir)
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x2f);
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 	m_flRollNextTime = 0;
-	MotionBlur(9);
+	TS_MotionBlur(m_pPlayer, 9);
 	return 1;
 }
 
@@ -358,7 +356,7 @@ void CTSStunt::GoWallClimb()
 	m_flWallClimbFuel += add;
 	m_flStuntTime = (m_flWallClimbFuel < 0.5f) ? 0.5f : m_flWallClimbFuel;
 
-	SendNextStunt();
+	TS_SendNextStunt(m_pPlayer, m_flStuntTime);
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 	m_iWallClimbCount++;
 }
@@ -380,15 +378,15 @@ void CTSStunt::GoWallJump()
 	m_flWallClimbFuel += 0.35f;
 	m_flStuntTime = (m_flWallClimbFuel < 0.5f) ? 0.5f : m_flWallClimbFuel;
 
-	SendNextStunt();
+	TS_SendNextStunt(m_pPlayer, m_flStuntTime);
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
-	MotionBlur(5);
+	TS_MotionBlur(m_pPlayer, 5);
 }
 
 void CTSStunt::GoBulletTime()
 {
 	entvars_t *pev = m_pPlayer->pev;
-	if (TimeScale() > 0.99f)
+	if (TS_TimeScale(m_pPlayer) > 0.99f)
 		return; // only the standing matrix-dodge while time is already slowed
 
 	UTIL_MakeVectors(pev->v_angle);
@@ -397,7 +395,7 @@ void CTSStunt::GoBulletTime()
 
 	m_flStuntTime = 0.55f;
 	m_flBulletTimeEnd = gpGlobals->time + 0.55f;
-	SendNextStunt();
+	TS_SendNextStunt(m_pPlayer, m_flStuntTime);
 
 	pev->iuser4 |= TSSTUNT_PRONE | TSSTUNT_SLIDE;
 	m_flSlideTime = 0.55f;
@@ -405,7 +403,7 @@ void CTSStunt::GoBulletTime()
 
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x36);
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
-	MotionBlur(-1); // always
+	TS_MotionBlur(m_pPlayer, -1); // always
 }
 
 int CTSStunt::GoWheel()
@@ -422,7 +420,7 @@ int CTSStunt::GoWheel()
 	{
 		float len = pev->velocity.Length();
 		m_vecStuntDir = (len == 0.0f) ? Vector(0, 0, 1) : pev->velocity * (1.0f / len);
-		dir = GetDirection();
+		dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f); m_bDirForward = (dir != 2);
 	}
 	else
 	{
@@ -430,7 +428,7 @@ int CTSStunt::GoWheel()
 		m_vecStuntDir = gpGlobals->v_forward * -1.0f;
 		dir = 3;
 	}
-	MotionBlur(7);
+	TS_MotionBlur(m_pPlayer, 7);
 
 	if (CanDiveHigh() && (dir == 3 || pev->v_angle.x < -10.0f))
 	{
@@ -439,7 +437,7 @@ int CTSStunt::GoWheel()
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x31);
 		pev->gravity = 0.75f;
 		m_flStuntTime = NextDive();
-		SendNextStunt();
+		TS_SendNextStunt(m_pPlayer, m_flStuntTime);
 		EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 		return 1;
 	}
@@ -451,7 +449,7 @@ int CTSStunt::GoWheel()
 		pev->gravity = 0.75f;
 		if (dir == 2) pev->friction = 0.25f;
 		m_flStuntTime = NextDive();
-		SendNextStunt();
+		TS_SendNextStunt(m_pPlayer, m_flStuntTime);
 		EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 		return 1;
 	}
@@ -496,7 +494,7 @@ void CTSStunt::HandleWallJump()
 	pev->friction = 0.5f;
 	pev->view_ofs = g_vecZero;
 	m_flRollTime = 0.262f;
-	if (m_flStuntTime < 0.01f) { m_flStuntTime = 0; SendNextStunt(); }
+	if (m_flStuntTime < 0.01f) { m_flStuntTime = 0; TS_SendNextStunt(m_pPlayer, m_flStuntTime); }
 	pev->gravity = 1.0f;
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 }
@@ -517,7 +515,7 @@ void CTSStunt::HandleWallClimb()
 	pev->iuser4 &= ~TSSTUNT_WALLCLIMB_A;
 	pev->friction = 0.5f;
 	m_flRollTime = 0.262f;
-	if (m_flStuntTime < 0.01f) { m_flStuntTime = 0; SendNextStunt(); }
+	if (m_flStuntTime < 0.01f) { m_flStuntTime = 0; TS_SendNextStunt(m_pPlayer, m_flStuntTime); }
 	pev->gravity = 1.0f;
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 }
@@ -536,7 +534,7 @@ void CTSStunt::Landing()
 		pev->iuser4 &= ~TSSTUNT_DIVE;
 		pev->iuser4 |= TSSTUNT_SLIDE;
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29); // slide_<dir> prone pose
-		GetDirection();
+		m_bDirForward = (GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f) != 2); // VERIFY: also networks pev dir idx
 	}
 	else
 	{
@@ -606,4 +604,126 @@ bool CTSStunt::CheckForWallClimb()
 		}
 	}
 	return TSWallTrace(m_pPlayer, 54.0f, true, true);
+}
+
+// ---- close-combat (jump-kick) + the run-into sweep -------------------------
+
+// @0x8c630 CloseAttack — the JUMP-KICK (called from CBasePlayer::Jump). Speed-scaled melee
+// when you jump into a breakable/person with a real weapon. Returns true on a hit. (This was
+// the free function TSTryJumpKick; relocated to its real class. The original routes the hit
+// through CBasePlayer::CloseCombatAttack; we inline the trace+TraceAttack — same result.)
+int CTSStunt::CloseAttack()
+{
+	entvars_t *pev = m_pPlayer->pev;
+
+	// cooldown (CTSStunt+8 = m_flStunCooldown, decremented in Play) + FL_FROZEN guard
+	if (m_flStunCooldown > 0.0f)
+		return 0;
+	if (pev->flags & FL_FROZEN)
+		return 0;
+
+	// no kick when bare-hands KUNG-FU is active (empty grip) — kung-fu is manual when equipped.
+	if (m_pPlayer->m_szAnimExtention[0] == 0)
+		return 0;
+
+	// speed-scaled melee damage: clamp(|velocity| / 15, 10, 20), ×2 under the kung-fu powerup.
+	float spd = pev->velocity.Length() * (1.0f / 15.0f);
+	float dmg = (spd < 10.0f) ? 10.0f : (spd <= 20.0f) ? spd : 20.0f;
+	if (KungFu(m_pPlayer))
+		dmg *= 2.0f;
+
+	// forward reach 48u; thin ray then a head-hull trace (the hull makes the kick auto-connect).
+	UTIL_MakeVectors(pev->v_angle);
+	Vector vecSrc = m_pPlayer->GetGunPosition();
+	Vector vecEnd = vecSrc + gpGlobals->v_forward * 48.0f;
+
+	TraceResult tr;
+	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(pev), &tr);
+	if (tr.flFraction >= 1.0f)
+		UTIL_TraceHull(vecSrc, vecEnd, dont_ignore_monsters, head_hull, ENT(pev), &tr);
+	if (tr.flFraction >= 1.0f)
+		return 0;
+
+	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+	if (!pHit || pHit == m_pPlayer || pHit->pev->takedamage == DAMAGE_NO)
+		return 0;
+
+	ClearMultiDamage();
+	pHit->TraceAttack(pev, dmg, gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
+	ApplyMultiDamage(pev, pev);
+
+	// hard kick (damage > 30) shoves a living victim away at the kicker's speed + pops them up.
+	if (dmg > 30.0f && pHit->IsAlive() && (pHit->IsPlayer() || pHit->MyMonsterPointer() != NULL))
+	{
+		Vector dir = pHit->Center() - m_pPlayer->Center();
+		dir.z = 0;
+		dir = dir.Normalize();
+		pHit->pev->velocity = pHit->pev->velocity + dir * pev->velocity.Length();
+		pHit->pev->velocity.z = 235.0f;
+	}
+
+	// 3rd-person body kick: random circfront / latback / circback (HandleCloseCombat ids 10/14/13).
+	static const int kickActs[3] = { TSA_CC_CIRCFRONT, TSA_CC_LATBACK, TSA_CC_CIRCBACK };
+	m_pPlayer->m_TSAnim.Animate(m_pPlayer, kickActs[RANDOM_LONG(0, 2)]);
+
+	EMIT_SOUND(ENT(pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM);
+	m_flStunCooldown = 0.7f; // one kick per ~0.7s (also gates roll/wheel)
+	return 1;
+}
+
+// @0x8bd9c CheckForBreakables — per-tick (CBasePlayer::PreThink) sweep: running/diving into a
+// surface at speed counts as a melee hit. TWO modes in the original: a non-melee BREAKABLE sweep
+// (this, faithful) and a close-combat hold-deflection path against PLAYERS that calls
+// CBasePlayer::CloseCombatAttack + Victim{Kungfu,Katana,Knife}Hold — those subsystems aren't built
+// yet, so the player/melee branch is DEFERRED (VERIFY). The non-melee branch deliberately skips
+// players, so it only ever shatters world breakables — safe to run each frame.
+void CTSStunt::CheckForBreakables()
+{
+	entvars_t *pev = m_pPlayer->pev;
+
+	// throttle (orig field_0x18; -1 disables)
+	if (m_flNextBreakCheck == -1.0f)
+		return;
+	if (gpGlobals->time < m_flNextBreakCheck)
+		return;
+	m_flNextBreakCheck = gpGlobals->time;
+
+	// grounded & not in close-combat melee mode -> clear the last victim and bail.
+	if (pev->flags & FL_ONGROUND)
+	{
+		m_pLastBreakVictim = nullptr;
+		return;
+	}
+
+	const float speed = pev->velocity.Length();
+	if (speed < 100.0f)
+		return;
+
+	// sweep 100u along the velocity and hull-trace for what we're about to hit.
+	Vector dir = pev->velocity * (1.0f / speed);
+	Vector end = pev->origin + dir * 100.0f;
+	TraceResult tr;
+	UTIL_TraceHull(pev->origin, end, dont_ignore_monsters, head_hull, ENT(pev), &tr);
+	if (tr.flFraction >= 1.0f)
+		return;
+
+	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+	if (!pHit)
+		return;
+	// non-melee mode never run-damages players (the close-combat player path is deferred).
+	if (pHit->IsPlayer())
+		return;
+	if (pHit->pev->takedamage == DAMAGE_NO)
+		return;
+	if (pHit->pev->effects & EF_NODRAW)
+		return;
+	if (m_pLastBreakVictim == pHit)
+		return; // already hit this pass
+
+	// damage = the impact speed (the original gates speed vs 0.1*speed on a player virtual at
+	// vtable+0xb4 — VERIFY; for a world breakable either value just shatters it).
+	ClearMultiDamage();
+	pHit->TraceAttack(pev, speed, dir, &tr, DMG_CLUB | DMG_NEVERGIB);
+	ApplyMultiDamage(pev, pev);
+	m_pLastBreakVictim = pHit;
 }

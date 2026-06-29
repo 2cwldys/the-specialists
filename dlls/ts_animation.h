@@ -88,7 +88,7 @@ enum TSSetAnimFlags
 
 // 0=left 1=right 2=forward 3=back 4=back(alt), from a normalized direction relative to
 // facing. The original is a FREE function GetDirection__FG6VectorT0ff (not a method).
-int CTSAnim_GetDirection(const Vector &dir, const Vector &angles, float fwdBias, float sideBias);
+int GetDirection(const Vector &dir, const Vector &angles, float fwdBias, float sideBias);
 
 // Embedded on CBasePlayer. Members mirror the original's intent (the recovered
 // offsets are provenance only — the binary's fields are unnamed; written naturally).

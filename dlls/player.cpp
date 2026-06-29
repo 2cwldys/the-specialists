@@ -43,7 +43,7 @@
 #include "client.h"
 #include "ts_utils.h" // TSHudMessageOne (the `respawn`-gate "wait" message)
 #include "ts_gamerules.h" // TSGameRules() — armor_absorb (kevlar damage reduction)
-#include "ts_weapons.h" // TSTryJumpKick (jump-kick from CBasePlayer::Jump)
+#include "ts_weapons.h" // TS weapon helpers
 
 // #define DUCKFIX
 
@@ -1714,7 +1714,7 @@ void CBasePlayer::Jump()
 	// think while jump is held — i.e. mid-flight as you reach the target, not only on the press
 	// frame. (The original skips its wall-flip acrobatics when the kick connects; we have no
 	// acrobatics yet, so the normal jump just proceeds.)
-	TSTryJumpKick(this);
+	m_TSStunt.CloseAttack();
 
 	// jump velocity is sqrt( height * gravity * 2)
 
@@ -2032,6 +2032,11 @@ void CBasePlayer::PreThink()
 	// make stick (the predictor recomputed the hull every frame). +alt1 = dive / bullet-time,
 	// double-jump into a wall = wall-climb / wall-jump.
 	m_TSStunt.Play();
+
+	// TS run/dive-into-breakable melee sweep (orig CheckForBreakables, per-tick in PreThink): diving
+	// fast into a world breakable shatters it. Players are NOT run-damaged here (that close-combat
+	// path uses unbuilt Victim*Hold state — deferred).
+	m_TSStunt.CheckForBreakables();
 
 	// TS health-powerup over-heal decay (RE PreThink @0x808cc, player+0x73c = m_flHealthRegen): the
 	// health powerup boosts health past max_health; while m_flHealthRegen is armed it bleeds 1 HP/sec
