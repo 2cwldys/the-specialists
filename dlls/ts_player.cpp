@@ -488,6 +488,18 @@ void CBasePlayer::PunchScreen(float magnitude, Vector dir)
 {
 }
 
+// @0x82a08 UpdatePlayerState — derive the pose state: 2 = stunt/locked (an iuser4 lock bit set),
+// 1 = ducking (FL_DUCKING = 0x4000), 0 = normal.
+void CBasePlayer::UpdatePlayerState()
+{
+	if (pev->iuser4 & 0x30)
+		m_iPlayerState = 2;
+	else if (pev->flags & FL_DUCKING)
+		m_iPlayerState = 1;
+	else
+		m_iPlayerState = 0;
+}
+
 // @0x865d0 GetMeleeMultiplier — melee damage scales with the block-bar stamina: full (100) -> 1.0,
 // empty (0) -> 0.5. (The block bar is field_0x774 on the original player; we keep it on the TS gun.)
 float CBasePlayer::GetMeleeMultiplier()

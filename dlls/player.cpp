@@ -1968,6 +1968,8 @@ void CBasePlayer::UpdateStatusBar()
 
 void CBasePlayer::PreThink()
 {
+	UpdatePlayerState(); // @0x82a08 — refresh the networked pose state each frame
+
 	// TS dynamic-accuracy recovery (RE PreThink @0x808cc): the spread accumulator decays back toward 0 each
 	// frame (scaled by the slow-mo factor, so it recovers in game-time during bullet-time), so accuracy
 	// returns when you stop spraying. Growth is in CTSGun::ScaleSpread on each shot.
