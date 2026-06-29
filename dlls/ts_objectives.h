@@ -40,13 +40,17 @@ class CTSObjectiveManager : public CBaseEntity
 public:
 	void Spawn() override;
 	bool KeyValue(KeyValueData *pkvd) override;
+	bool Save(CSave &save) override;
+	bool Restore(CRestore &restore) override;
 	void Reset(); // @0x8b850 — HUD the messages + fire the objective-pointer targets
 
-	string_t m_objTargets[TS_OBJ_TARGETS] = {}; // objptargeta..h
-	string_t m_messages[TS_OBJ_MESSAGES] = {};  // messagea..d
-	string_t m_targetTimeLeft = iStringNull;    // targetontimeleft
-	string_t m_targetSpecDead = iStringNull;    // targetonspecdead (Team 1 dead)
-	string_t m_targetMercDead = iStringNull;    // targetonmercdead (Team 2 dead)
+	static TYPEDESCRIPTION m_SaveData[]; // the 13 saved string fields (targets/messages/end_round_target)
+
+	string_t targets[TS_OBJ_TARGETS] = {};   // keyvalue objptargeta..h
+	string_t messages[TS_OBJ_MESSAGES] = {};  // keyvalue messagea..d
+	string_t end_round_target = iStringNull;  // keyvalue targetontimeleft
+	string_t m_targetSpecDead = iStringNull;  // targetonspecdead (Team 1 dead) — not saved
+	string_t m_targetMercDead = iStringNull;  // targetonmercdead (Team 2 dead) — not saved
 };
 
 #endif // TS_OBJECTIVES_H

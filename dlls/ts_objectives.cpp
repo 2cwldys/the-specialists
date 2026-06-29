@@ -146,6 +146,14 @@ void CTSTrigger::WaitTouch(CBaseEntity *pOther)
 // CTSObjectiveManager is declared in ts_objectives.h (shared with ts_gamerules.cpp's SetObjective).
 LINK_ENTITY_TO_CLASS(ts_objective_manager, CTSObjectiveManager);
 
+// 13 saved string fields (the original's WriteFields count of 0xd): 8 targets + 4 messages + end_round_target.
+TYPEDESCRIPTION CTSObjectiveManager::m_SaveData[] = {
+	DEFINE_ARRAY(CTSObjectiveManager, targets, FIELD_STRING, TS_OBJ_TARGETS),
+	DEFINE_ARRAY(CTSObjectiveManager, messages, FIELD_STRING, TS_OBJ_MESSAGES),
+	DEFINE_FIELD(CTSObjectiveManager, end_round_target, FIELD_STRING),
+};
+IMPLEMENT_SAVERESTORE(CTSObjectiveManager, CBaseEntity);
+
 void CTSObjectiveManager::Spawn()
 {
 	pev->movetype = MOVETYPE_NONE;
@@ -155,23 +163,23 @@ void CTSObjectiveManager::Spawn()
 
 bool CTSObjectiveManager::KeyValue(KeyValueData *pkvd)
 {
-	// objptargeta..h -> m_objTargets[0..7]
+	// objptargeta..h -> targets[0..7]
 	if (!strncmp(pkvd->szKeyName, "objptarget", 10))
 	{
 		int idx = pkvd->szKeyName[10] - 'a';
 		if (idx >= 0 && idx < TS_OBJ_TARGETS)
 		{
-			m_objTargets[idx] = ALLOC_STRING(pkvd->szValue);
+			targets[idx] = ALLOC_STRING(pkvd->szValue);
 			return true;
 		}
 	}
-	// messagea..d -> m_messages[0..3]
+	// messagea..d -> messages[0..3]
 	if (!strncmp(pkvd->szKeyName, "message", 7) && pkvd->szKeyName[7] >= 'a' && pkvd->szKeyName[7] <= 'd')
 	{
-		m_messages[pkvd->szKeyName[7] - 'a'] = ALLOC_STRING(pkvd->szValue);
+		messages[pkvd->szKeyName[7] - 'a'] = ALLOC_STRING(pkvd->szValue);
 		return true;
 	}
-	if (FStrEq(pkvd->szKeyName, "targetontimeleft")) { m_targetTimeLeft = ALLOC_STRING(pkvd->szValue); return true; }
+	if (FStrEq(pkvd->szKeyName, "targetontimeleft")) { end_round_target = ALLOC_STRING(pkvd->szValue); return true; }
 	if (FStrEq(pkvd->szKeyName, "targetonspecdead")) { m_targetSpecDead = ALLOC_STRING(pkvd->szValue); return true; }
 	if (FStrEq(pkvd->szKeyName, "targetonmercdead")) { m_targetMercDead = ALLOC_STRING(pkvd->szValue); return true; }
 	return CBaseEntity::KeyValue(pkvd);
@@ -181,12 +189,12 @@ bool CTSObjectiveManager::KeyValue(KeyValueData *pkvd)
 void CTSObjectiveManager::Reset()
 {
 	for (int i = 0; i < TS_OBJ_MESSAGES; i++)
-		if (!FStringNull(m_messages[i]))
-			TSHudMessageAll(0, 0xff, 0, 8, 30, STRING(m_messages[i]));
+		if (!FStringNull(messages[i]))
+			TSHudMessageAll(0, 0xff, 0, 8, 30, STRING(messages[i]));
 
 	for (int i = 0; i < TS_OBJ_TARGETS; i++)
-		if (!FStringNull(m_objTargets[i]))
-			FireTargets(STRING(m_objTargets[i]), this, this, USE_TOGGLE, 0);
+		if (!FStringNull(targets[i]))
+			FireTargets(STRING(targets[i]), this, this, USE_TOGGLE, 0);
 }
 
 // Fire the objective manager's `targetontimeleft` when the round timer expires (called from
@@ -197,8 +205,8 @@ void TSFireTimeLeftTarget()
 	if (!pEnt)
 		return;
 	CTSObjectiveManager *mgr = (CTSObjectiveManager *)pEnt;
-	if (!FStringNull(mgr->m_targetTimeLeft))
-		FireTargets(STRING(mgr->m_targetTimeLeft), mgr, mgr, USE_TOGGLE, 0);
+	if (!FStringNull(mgr->end_round_target))
+		FireTargets(STRING(mgr->end_round_target), mgr, mgr, USE_TOGGLE, 0);
 }
 
 //============================================================================
@@ -426,17 +434,41 @@ class CTSWinGiver : public CTSObjective
 public:
 	void Spawn() override;
 	bool KeyValue(KeyValueData *pkvd) override;
+	bool Save(CSave &save) override;
+	bool Restore(CRestore &restore) override;
+	bool IsObjective() override { return true; }  // @0x7e64c — returns 1 (explicit override)
+	void EnableObjective(bool enable) override;   // @0x7e6e4-ish — reset (clears active + call state)
 	void EXPORT Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
 
-	int m_winnerTeam = 0;     // winnerteam (0 Team1, 1 Team2, 2 draw, …)
-	int m_victoryCash = 2000; // victorycash
-	int m_defeatCash = -1000; // defeatcash
-	int m_callsNumber = 1;    // calls needed to activate
-	int m_calls = 0;          // calls so far
-	bool m_bDone = false;
+	static TYPEDESCRIPTION m_SaveData[];
+
+	int winnerteam = 0;         // keyvalue "winnerteam" (0 Team1, 1 Team2, 2 draw, …)
+	int cash_for_winner = 2000; // keyvalue "victorycash"
+	int cash_for_loser = -1000; // keyvalue "defeatcash"
+	int numberofcall = 1;       // keyvalue "callsnumber": Use calls needed to fire
+	int m_calls = 0;            // calls so far (transient)
+	bool m_bDone = false;       // already fired (transient)
 };
 
 LINK_ENTITY_TO_CLASS(ts_wingiver, CTSWinGiver);
+
+// 4 saved fields (the original's WriteFields count of 4).
+TYPEDESCRIPTION CTSWinGiver::m_SaveData[] = {
+	DEFINE_FIELD(CTSWinGiver, winnerteam, FIELD_INTEGER),
+	DEFINE_FIELD(CTSWinGiver, cash_for_winner, FIELD_INTEGER),
+	DEFINE_FIELD(CTSWinGiver, cash_for_loser, FIELD_INTEGER),
+	DEFINE_FIELD(CTSWinGiver, numberofcall, FIELD_INTEGER),
+};
+IMPLEMENT_SAVERESTORE(CTSWinGiver, CTSObjective);
+
+// @EnableObjective — the original ignores the arg and just RESETs (clears the active flag + the call
+// state), regardless of enable. VERIFY: it zeroes field_0x64 (m_bActive) + a byte at field_0x68.
+void CTSWinGiver::EnableObjective(bool enable)
+{
+	m_bActive = false;
+	m_calls = 0;
+	m_bDone = false;
+}
 
 void CTSWinGiver::Spawn()
 {
@@ -449,10 +481,10 @@ void CTSWinGiver::Spawn()
 
 bool CTSWinGiver::KeyValue(KeyValueData *pkvd)
 {
-	if (FStrEq(pkvd->szKeyName, "winnerteam"))  { m_winnerTeam = atoi(pkvd->szValue); return true; }
-	if (FStrEq(pkvd->szKeyName, "victorycash")) { m_victoryCash = atoi(pkvd->szValue); return true; }
-	if (FStrEq(pkvd->szKeyName, "defeatcash"))  { m_defeatCash = atoi(pkvd->szValue); return true; }
-	if (FStrEq(pkvd->szKeyName, "callsnumber")) { m_callsNumber = atoi(pkvd->szValue); return true; }
+	if (FStrEq(pkvd->szKeyName, "winnerteam"))  { winnerteam = atoi(pkvd->szValue); return true; }
+	if (FStrEq(pkvd->szKeyName, "victorycash")) { cash_for_winner = atoi(pkvd->szValue); return true; }
+	if (FStrEq(pkvd->szKeyName, "defeatcash"))  { cash_for_loser = atoi(pkvd->szValue); return true; }
+	if (FStrEq(pkvd->szKeyName, "callsnumber")) { numberofcall = atoi(pkvd->szValue); return true; }
 	return CTSObjective::KeyValue(pkvd);
 }
 
@@ -461,7 +493,7 @@ void CTSWinGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE us
 {
 	if (m_bDone)
 		return;
-	if (++m_calls < m_callsNumber)
+	if (++m_calls < numberofcall)
 		return;
 
 	m_bDone = true;
@@ -470,8 +502,8 @@ void CTSWinGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE us
 
 	// Declare the win through the game rules: scores the team + announces + restarts the round.
 	if (TSGameRules())
-		TSGameRules()->TeamWin(m_winnerTeam);
-	// SLICE: faithful TeamWin also awards victory/defeat cash (m_victoryCash/m_defeatCash).
+		TSGameRules()->TeamWin(winnerteam);
+	// SLICE: faithful TeamWin also awards victory/defeat cash (cash_for_winner/cash_for_loser).
 }
 
 //============================================================================
@@ -511,7 +543,7 @@ void CTSScoreGiver::Spawn()
 // @Use__13CTSScoreGiver — count the calls; on the last, score the team and re-arm (repeatable).
 void CTSScoreGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
 {
-	if (++m_calls < m_callsNumber)
+	if (++m_calls < numberofcall)
 		return;
 	m_calls = 0; // repeatable (CTSWinGiver latches m_bDone; the score giver re-arms)
 
@@ -519,8 +551,8 @@ void CTSScoreGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE 
 	// round, unlike the win giver's TeamWin). // SLICE: the .so routes through TeamWin with the
 	// team-subsystem cash; the "Respawn Players" spawnflag isn't applied.
 	CTSGameRules *gr = TSGameRules();
-	if (gr && m_winnerTeam >= 0 && m_winnerTeam < 4)
-		gr->m_teamScore[m_winnerTeam]++;
+	if (gr && winnerteam >= 0 && winnerteam < 4)
+		gr->m_teamScore[winnerteam]++;
 	if (!FStringNull(pev->message))
 		TSHudMessageAll(0, 0xff, 0, 8, 50, STRING(pev->message));
 }
