@@ -133,6 +133,17 @@ velocity formula is CONFIRMED); slow-motion ✓; no unknown-command spam ✓; di
    EV_FindModelIndex("models/shell.mdl"), but TS never precached it (only stock weapons did; TS uses
    weapon_tsgun) → model index 0 → no casing. Added PRECACHE_MODEL(shell.mdl + shotgunshell.mdl) to
    PrecacheAllTSWeapons.
+8. **Akimbo/gold: no fire SOUND + no CASING on deploy until a reload (intermittent)** — MECHANISM found:
+   CTSGun::Fire() (ts_gun.cpp:651) gates `if (m_iClip <= 0) { PlayEmptySound(); return; }` BEFORE dispatching
+   to AkimboFire/StandardFire — so a weapon that deploys with m_iClip==0 yields empty clicks (no EV_TSFire =
+   no predicted fire sound AND no brass casing, both come from that event); a reload refills the clip and it
+   works. TRIGGER (why akimbo/gold deploy at clip 0 SOMETIMES) is NOT visible statically: TakeWeapon sets the
+   akimbo/gold clip correctly (ts_gun.cpp:344/352) and SelectWeapon->LoadActiveFromItem loads it on deploy, and
+   the loadout path goes through GiveTSWeapon->TakeWeapon too. So it's an intermittent client/server m_iClip
+   sync/race on deploy of a morphed akimbo type (the fire event is FEV_NOTHOST → the local player relies on the
+   PREDICTED Fire(), so a client m_iClip that's 0 for the deploy window = silent fire). NEXT: LIVE TRACE
+   (scripts/live.py) — break on the deploy + first Fire() of a gold/akimbo and read m_iClip server vs predicted.
+   Don't guess-patch a prediction race. [[predicted-weapon-gotchas]]
 6. **Dive 3rd-person looks like crouch** (1st-person spot-on) — `CTSAnimation::Animate` (gait/anim) NOT ported
    (known, VERIFICATION.md). Cosmetic.
 
