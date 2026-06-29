@@ -33,7 +33,11 @@ public:
 	void StickAt(const Vector &pos, const Vector &flyDir);
 	void StartSettle();                           // hand a bounced/stabbed knife off to SettleThink
 	void BecomePickup();                          // turn the stationary knife into a recoverable glowing E-pickup
-	static CTSKnife *Throw(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel);
+	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override; // @0x6dda4 — +use pickup
+	char *GetDescription();                       // @0x6db04 — the thrown-knife name by type
+	int  ObjectCaps() override { return FCAP_CONTINUOUS_USE; } // @0x6f04c -> 0x10
+	virtual bool ShouldCollide(CBaseEntity *pOther) { return true; } // @0x6ed54 -> 1 (TS virtual)
+	static CTSKnife *CreateKnife(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel); // @0x6d9e4
 
 	float StabDamage() const // RE BounceTouch: per-type player-stab damage (DAT_00107ec0/eac/0010761c)
 	{
@@ -284,7 +288,7 @@ void CTSKnife::PickupTouch(CBaseEntity *pOther)
 	UTIL_Remove(this);
 }
 
-CTSKnife *CTSKnife::Throw(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel)
+CTSKnife *CTSKnife::CreateKnife(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel)
 {
 	CTSKnife *p = GetClassPtr((CTSKnife *)NULL);
 	p->pev->classname = MAKE_STRING("ts_knife");
@@ -297,8 +301,34 @@ CTSKnife *CTSKnife::Throw(CBasePlayer *pOwner, int type, float damage, const Vec
 	return p;
 }
 
+// @0x6db04 GetDescription — the thrown-knife name shown in the pickup HUD, by knife type.
+char *CTSKnife::GetDescription()
+{
+	switch (m_knifeType)
+	{
+	case TSW_KNIFE:     return (char *)"Throwing Combat Knife";
+	case TSW_SEALKNIFE: return (char *)"Throwing Seal Knife";
+	case TSW_KATANA:    return (char *)"Throwing Katana";
+	default:            return (char *)"";
+	}
+}
+
+// @0x6dda4 Use — +use pickup (the impulse path; the same TSPickUpWeapon our touch path uses). The
+// original gates on a settle timer (this+0x88) and removes the knife on a successful pickup.
+void CTSKnife::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
+{
+	if (!pActivator || !pActivator->IsPlayer() || !pActivator->IsAlive())
+		return;
+	if (pActivator->pev->effects & EF_NODRAW) // spectator/observer guard
+		return;
+	TSPickUpWeapon((CBasePlayer *)pActivator, m_knifeType, 1);
+	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
+	SetTouch(nullptr);
+	UTIL_Remove(this);
+}
+
 // Public helper (ts_weapons.h) — CTSGun::ThrowKnife spawns the projectile through this.
 CBaseEntity *TSThrowKnife(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel)
 {
-	return CTSKnife::Throw(pOwner, type, damage, vecStart, vecVel);
+	return CTSKnife::CreateKnife(pOwner, type, damage, vecStart, vecVel);
 }
