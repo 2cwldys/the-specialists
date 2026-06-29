@@ -4382,3 +4382,20 @@ a LIVE TRACE of the original's CTSAnimation::Animate, do NOT guess; guessing cau
 NEXT (focused, runtime-driven): live.py + binmap CTSAnimation::Animate on the running original; user reproduces
 dive/fire/idle/block; read the activity arg + resulting pev->sequence/gaitsequence each call; THEN reconcile the
 revert minimally (hold via leg-timer; knife/katana grips; melee block on reload) — verified, not guessed.
+
+## CTSAnimation — LIVE-TRACE findings (original hl.exe, mp.dll) — CHANGES THE APPROACH
+Traced the running original's `CTSAnimation::Animate` (binmap → mp.dll **0x44b50**; live base 0x1e12ffb0 →
+abs 0x1e174b00; pid varies, re-find with `live.py pid`). gdb hardware-bp logging the `activity` arg
+(`*(int*)($esp+8)`; __thiscall: this=ecx, pPlayer=[esp+4], activity=[esp+8]). Tooling + scripts in
+`scratchpad/anim_probe.gdb` / `anim_trace.gdb`. KEY RESULT (multiple runs, incl. holding FIRE 8s):
+**Animate is called per-frame with activity 0x6 (IDLE) / 0x1 (RUN) and essentially NOTHING ELSE.** Firing did
+NOT produce Animate(TSA_FIRE=0); dive/melee/block codes (0x28/0x26/...) were not observed either.
+**=> In the original, CTSAnimation::Animate is ONLY the locomotion (run/idle) dispatcher.** The 3rd-person
+FIRE / stunt / melee body poses are set by a DIFFERENT mechanism, NOT Animate(activity). OUR build routes
+`SetAnimation(PLAYER_ATTACK1) -> Animate(TSA_FIRE)` (player.cpp:962) and ts_stunt.cpp calls `Animate(0x28/...)`,
+which DIVERGES from the original — this is why the 3rd-person fire anim doesn't match and why the stunt poses
+fight the per-frame idle. NEXT (next session, runtime): find WHERE the original sets the player's body
+sequence on fire/stunt — break on writes to the player entity's `pev->sequence` (or trace the weapon's
+StandardFire / the stunt code) to see the real path; then re-route ours to match. Do NOT keep forcing it
+through Animate(activity). (The `dossier-ctsanimation.md` Region-C body switch is real CODE in the .so, but
+the live trace shows it's reached via a path other than the per-frame PostThink Animate(1/6) — find that caller.)
