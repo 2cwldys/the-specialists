@@ -5,6 +5,47 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-06-29 (cont. 75) — source-parity restructure cont.: the CTF cluster, bottom-up (1:1)
+
+Branch `restructure-source-parity` (continues cont.74; GPG signing OFF). Same loop. This session
+reconstructed the **whole CTF cluster** to 1:1 parity from a dossier subagent's RE
+(`scratchpad/dossier-CTF.md`). Commit `a4254ec`. Builds amd64 server+client clean (glibc 2.14).
+
+- **Key structural finding (the carry model):** there is NO "flag follows the carrier" entity. The
+  flag is a 28-byte **`s_flag_status` value struct** copied byte-for-byte at every hop (briefcase→
+  flag→player→flag…); a `CTSFlag` entity exists ONLY while the flag is loose. On pickup TakeFlag
+  copies the struct onto the carrier (CBasePlayer+0x7d0) and **Destroys** the flag; on drop a fresh
+  loose flag is `CreateFlag`d. Our old `m_hCarrier`/`CarryThink`/`AttachTo` + the free
+  `TSCreateFlag/TSDropFlag/TSPlayerHasFlag/TSReturnCarriedFlag` helpers were all INVENTED — deleted.
+- **s_flag_status (player.h):** active byte / contents string_t / flagID 1..15 / team 0-based /
+  lastCarrier entindex / **EHANDLE hBriefcase** (the respawn target rides INSIDE the struct).
+- **CBasePlayer::TakeFlag/DropFlag + free HaveFlag** (ts_player.cpp / ts_gamerules.cpp): pickup =
+  copy status + the **20 slot-weight debit** (folded into TSSlotBaseSpeed/TSPlayerFreeSlots in
+  ts_gun.cpp → carrying the flag slows you, the `members-globals` rule: the "+0x548 −0x14" wasn't a
+  dead member, it's the encumbrance). DropFlag(false)=spawn loose flag (toss from eye, random
+  avelocity, dead→random dir 60..160), DropFlag(true)=silent capture clear. gmsgTSHaveFlag (0/1/2).
+- **CTSBriefcase 6/6 0-inv** (ts_briefcase.h/.cpp): the flag REGISTRY owner — static `s_nextFlagID`
+  cycling 1..15 (ctor), template status w/ EHANDLE=self (Spawn), FlagFall seeds the flag +
+  gmsgTSHaveFlag type 0, **CaptureTouch** = +10 frags + gmsgScoreInfo/TeamScore/TSVoiceMessage +
+  respawn the captured flag at ITS home base via the carried status' EHANDLE. `contents` is a
+  **char[32]** (strncpy), not string_t. (FILE MISMATCH remains: orig groups it in TS_objectives.cpp.)
+- **CTSFlag 15/15 0-inv** (ts_flag.h/.cpp) **: CTSPhysicObject** — mirrors the CTSWorldGun settle/
+  bounce machine (Spawn/BounceTouch/Fall/OnGround/WaitThink/WaitTouch). CreateFlag(owner,status)/
+  RespawnFlag (asks the briefcase to re-drop, never walks home)/Destroy/PlayerTakeFlag(=Use=WaitTouch:
+  enemy→pickup, own dropped→return +5)/CanInteract/ObjectCaps(0x10)/CanUsedTroughWalls(0). Thrown-flag
+  momentum TakeDamage in Fall. Extracted to a HEADER (fixes the audit .h-only blind spot; lets
+  briefcase/gamerules derive it).
+- **Wiring:** DropFlag(false) from PlayerKilled / StartObserver / ClientDisconnect / TSDropWeapon;
+  RestartRound clears carried flags (DropFlag(true)) + RespawnEntities now calls CTSFlag::RespawnFlag
+  (was a VERIFY `Spawn()`). Removed the obsolete `tsspawnflag` console stand-in.
+- **Metrics:** invented methods **117 → 110**, 0 missing / 0 invented classes, file mismatches 22.
+- **⚠ SCORING corrects the early handoff note:** capture = **+10** frags (CaptureTouch); returning
+  your own dropped flag = **+5** (PlayerTakeFlag). VERIFY slices: alive-drop toss speed (200), the
+  exact CaptureTouch team-score field (used m_teamScore), s_flag_status @+0x254 base-spawn field.
+- **UNPLAYTESTED** — the whole CTF flow needs a live pass before merge (with the rest of cont.74/75).
+
+---
+
 ## 2026-06-28 (cont. 74) — source-parity restructure cont.: drifted classes' MISSING methods (+drop keepalives)
 
 Branch `restructure-source-parity` (continues cont.73; GPG signing OFF). Same loop: `audit.py <Class>` ->
