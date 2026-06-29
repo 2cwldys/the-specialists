@@ -125,7 +125,7 @@ target_sources(hl PRIVATE
 	ts_stunt.cpp
 	ts_slowmotion.cpp
 	ts_slowmotionpoint.cpp
-	ts_grenade.cpp
+	ts_grenades.cpp
 	ts_groundammo.cpp
 	ts_groundweapon.cpp
 	ts_gun.cpp

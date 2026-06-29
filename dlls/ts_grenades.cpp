@@ -31,7 +31,7 @@ public:
 	void Spawn() override;
 	void Precache() override;
 	void EXPORT BounceTouch(CBaseEntity *pOther);
-	void EXPORT FadeThink();
+	void EXPORT WaitThink();
 	int ObjectCaps() override { return CBaseEntity::ObjectCaps() & ~FCAP_ACROSS_TRANSITION; }
 
 	static CTSShrapnel *Create(entvars_t *pevOwner, const Vector &vecOrigin, const Vector &vecVelocity);
@@ -58,7 +58,7 @@ void CTSShrapnel::Spawn()
 	UTIL_SetSize(pev, Vector(0, 0, 0), Vector(0, 0, 0));
 
 	SetTouch(&CTSShrapnel::BounceTouch);
-	SetThink(&CTSShrapnel::FadeThink);
+	SetThink(&CTSShrapnel::WaitThink);
 	pev->nextthink = gpGlobals->time + 1.5f; // short-lived
 }
 
@@ -85,7 +85,7 @@ void CTSShrapnel::BounceTouch(CBaseEntity *pOther)
 	}
 }
 
-void CTSShrapnel::FadeThink()
+void CTSShrapnel::WaitThink()
 {
 	UTIL_Remove(this);
 }
