@@ -11,6 +11,8 @@
 #include "ts_utils.h"     // TSHudMessageOne/All
 #include "ts_flag.h"      // CTSFlag::CreateFlag (CTF drop)
 #include "ts_weapons.h"   // TSPlayerFreeSlots (slot-weight gate)
+#include "ts_gun.h"       // GetPlayerTSGun (block-bar for GetMeleeMultiplier)
+#include "ts_worldgun.h"  // CTSAmmoPack::CreateAmmoPack (DropArmor)
 
 extern int gmsgTSHaveFlag; // "TSHaveFlag" (4) — defined in ts_flag.cpp
 
@@ -479,4 +481,38 @@ void CBasePlayer::SetPlayerGravity(float setval, float gravity)
 		pev->gravity = gravity;
 		m_flGravityValue = setval;
 	}
+}
+
+// @0x85f70 PunchScreen — a no-op in the shipped game (the screen-punch effect was disabled).
+void CBasePlayer::PunchScreen(float magnitude, Vector dir)
+{
+}
+
+// @0x865d0 GetMeleeMultiplier — melee damage scales with the block-bar stamina: full (100) -> 1.0,
+// empty (0) -> 0.5. (The block bar is field_0x774 on the original player; we keep it on the TS gun.)
+float CBasePlayer::GetMeleeMultiplier()
+{
+	CTSGun *pGun = GetPlayerTSGun(this);
+	float bar = pGun ? pGun->m_blockBar : 0.0f;
+	if (bar < 0.0f)
+		bar = 0.0f;
+	return (bar * 0.5f + 50.0f) * 0.01f;
+}
+
+// @0x83a3c DropArmor — drop the player's armor as a CTSAmmoPack (armor-only) tossed in front of them,
+// then zero the armor. (Dead drop randomizes the toss direction.)
+void CBasePlayer::DropArmor()
+{
+	if (pev->armorvalue <= 0.0f)
+		return;
+
+	Vector angles = IsAlive() ? pev->v_angle
+							   : Vector(RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(-180, 180), 0);
+	UTIL_MakeVectors(angles);
+	Vector origin = pev->origin + gpGlobals->v_forward * 8.0f + gpGlobals->v_right * 8.0f;
+
+	int armor = (int)(pev->armorvalue + 0.5f);
+	CTSAmmoPack::CreateAmmoPack(pev, nullptr, armor, origin, g_vecZero);
+	pev->armorvalue = 0;
+	EMIT_SOUND(ENT(pev), CHAN_BODY, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
 }

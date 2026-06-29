@@ -465,6 +465,9 @@ public:
 	void CutWire(int wire);                               // cut a bomb wire (the cutwire_<n> command)
 	void SetPlayerSpeed(float speed);                     // @0x83068 — clamp [0,330] + SetClientMaxspeed
 	void SetPlayerGravity(float setval, float gravity);   // @0x85b70 — set pev->gravity (gated on >= 1.0)
+	void PunchScreen(float magnitude, Vector dir);        // @0x85f70 — empty in the shipped game
+	float GetMeleeMultiplier();                           // @0x865d0 — melee dmg mult from block-bar stamina
+	void DropArmor();                                     // @0x83a3c — drop armorvalue as a CTSAmmoPack
 	float m_flSetMaxSpeed = 0;                            // 0x550 — the last SetPlayerSpeed value (clamped)
 	float m_flGravityValue = 0;                           // 0x4ec — the SetPlayerGravity stored value
 
