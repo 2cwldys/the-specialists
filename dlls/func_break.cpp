@@ -25,8 +25,13 @@
 #include "monsters.h"
 #include "saverestore.h"
 #include "func_break.h"
+#include "ts_func_break.h" // CInfoBreakable (the respawn helper)
 #include "decals.h"
 #include "explode.h"
+
+// The attacker recorded by CBreakable::Killed so Die's explosion can attribute the blast (the TS
+// original's PTR_BreakableLastpevAttacker global). NULL outside a Killed->Die.
+entvars_t* g_BreakableLastpevAttacker = nullptr;
 
 // TS glass shatter: GLASS breakables shower sprite fragments (gmsgTSCreateDebris → client
 // CHudTSDebris) instead of the TE_BREAKMODEL gib model the other materials use. Faithful to
@@ -130,6 +135,17 @@ bool CBreakable::KeyValue(KeyValueData* pkvd)
 	}
 	else if (FStrEq(pkvd->szKeyName, "lip"))
 		return true;
+	// TS respawn keyvalues
+	else if (FStrEq(pkvd->szKeyName, "respawntime"))
+	{
+		m_flRespawnTime = (float)atoi(pkvd->szValue);
+		return true;
+	}
+	else if (FStrEq(pkvd->szKeyName, "respawntarget"))
+	{
+		strncpy(m_szRespawnTarget, pkvd->szValue, sizeof(m_szRespawnTarget) - 1);
+		return true;
+	}
 
 	return CBaseDelay::KeyValue(pkvd);
 }
@@ -186,6 +202,17 @@ void CBreakable::Spawn()
 	// Flag unbreakable glass as "worldbrush" so it will block ALL tracelines
 	if (!IsBreakable() && pev->rendermode != kRenderNormal)
 		pev->flags |= FL_WORLDBRUSH;
+
+	// TS respawn wiring (additive): remember the spawn health, and — for a respawn-flagged breakable —
+	// create the CInfoBreakable retry-helper once and cross-link it. (Spawn re-runs on respawn, so the
+	// helper is created only if not already present.)
+	m_flRespawnHealth = pev->health;
+	if (m_flRespawnTime >= 0 && !((CBaseEntity*)m_hRespawner))
+	{
+		m_hRespawner = CBaseEntity::Create("info_breakable", VecBModelOrigin(pev), pev->angles, edict());
+		if ((CBaseEntity*)m_hRespawner)
+			((CInfoBreakable*)(CBaseEntity*)m_hRespawner)->m_hBreakable = this;
+	}
 }
 
 
@@ -587,8 +614,7 @@ bool CBreakable::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, flo
 	pev->health -= flDamage;
 	if (pev->health <= 0)
 	{
-		Killed(pevAttacker, GIB_NORMAL);
-		Die();
+		Killed(pevAttacker, GIB_NORMAL); // CBreakable::Killed records the attacker and calls Die()
 		return false;
 	}
 
@@ -818,8 +844,6 @@ break_done:
 	// Fire targets on break
 	SUB_UseTargets(NULL, USE_TOGGLE, 0);
 
-	SetThink(&CBreakable::SUB_Remove);
-	pev->nextthink = pev->ltime + 0.1;
 	if (!FStringNull(m_iszSpawnObject))
 		CBaseEntity::Create((char*)STRING(m_iszSpawnObject), VecBModelOrigin(pev), pev->angles, edict());
 
@@ -828,6 +852,71 @@ break_done:
 	{
 		ExplosionCreate(Center(), pev->angles, edict(), ExplosionMagnitude(), true);
 	}
+
+	// TS respawn disposition (additive — the glass/debris path above is untouched). A respawn-flagged
+	// breakable goes HIDDEN (EF_NODRAW) and arms its retry-helper to respawn after `respawntime`
+	// (default 30s) instead of being removed; a non-respawning breakable removes itself as before.
+	pev->deadflag = DEAD_DEAD;
+	pev->effects |= EF_NODRAW;
+	pev->takedamage = DAMAGE_NO;
+	if (m_flRespawnTime >= 0 && (CBaseEntity*)m_hRespawner)
+	{
+		CInfoBreakable* pHelper = (CInfoBreakable*)(CBaseEntity*)m_hRespawner;
+		pHelper->SetThink(&CInfoBreakable::RespawnThink);
+		pHelper->pev->nextthink = gpGlobals->time + (m_flRespawnTime != 0 ? m_flRespawnTime : 30.0f);
+	}
+	else
+	{
+		SetThink(&CBreakable::SUB_Remove);
+		pev->nextthink = pev->ltime + 0.1;
+	}
+}
+
+// @ Killed__10CBreakable (@0x652a8) — record the attacker (so Die's explosion can attribute the blast)
+// and break. The TS original inlines this in TakeDamage; here TakeDamage calls it directly.
+void CBreakable::Killed(entvars_t* pevAttacker, int iGib)
+{
+	g_BreakableLastpevAttacker = pevAttacker;
+	Die();
+	g_BreakableLastpevAttacker = nullptr;
+}
+
+// @ BreakableRespawn__10CBreakable (@0x64e84) — the retry: if the spot is clear, restore + re-Spawn;
+// if a player/monster is standing in it, re-arm the helper to try again in 5s; if respawn was disabled
+// mid-life (respawntime < 0), remove. Invoked by CInfoBreakable::RespawnThink.
+void CBreakable::BreakableRespawn(bool forceRespawn)
+{
+	if (pev->deadflag != DEAD_DEAD && (pev->effects & EF_NODRAW) == 0 && !forceRespawn)
+		return; // not dead and not forced — nothing to respawn
+
+	if (m_flRespawnTime >= 0)
+	{
+		// box-clear check: don't respawn into a player/monster (they'd be stuck in the brush)
+		CBaseEntity* pList[2];
+		int count = UTIL_EntitiesInBox(pList, 1, pev->absmin, pev->absmax, FL_CLIENT | FL_MONSTER);
+		if (count == 0)
+		{
+			// the spot is clear — fire the respawn target (SF 8), restore, and re-run Spawn
+			if ((pev->spawnflags & 8) && m_szRespawnTarget[0])
+				FireTargets(m_szRespawnTarget, this, this, USE_TOGGLE, 0);
+			pev->deadflag = DEAD_NO;
+			pev->health = m_flRespawnHealth;
+			pev->effects = 0;
+			SetThink(NULL);
+			Spawn();
+		}
+		else if ((CBaseEntity*)m_hRespawner)
+		{
+			// blocked — re-arm the helper to retry in 5s
+			CInfoBreakable* pHelper = (CInfoBreakable*)(CBaseEntity*)m_hRespawner;
+			pHelper->SetThink(&CInfoBreakable::RespawnThink);
+			pHelper->pev->nextthink = gpGlobals->time + 5.0f;
+		}
+	}
+	else
+	{
+		SUB_Remove(); // respawn disabled mid-life
+	}
 }
 
 
@@ -835,6 +924,22 @@ break_done:
 bool CBreakable::IsBreakable()
 {
 	return m_Material != matUnbreakableGlass;
+}
+
+
+bool CBreakable::Explodable()
+{
+	return ExplosionMagnitude() > 0;
+}
+
+int CBreakable::ExplosionMagnitude()
+{
+	return pev->impulse;
+}
+
+void CBreakable::ExplosionSetMagnitude(int magnitude)
+{
+	pev->impulse = magnitude;
 }
 
 

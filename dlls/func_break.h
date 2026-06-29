@@ -63,9 +63,14 @@ public:
 	bool Save(CSave& save) override;
 	bool Restore(CRestore& restore) override;
 
-	inline bool Explodable() { return ExplosionMagnitude() > 0; }
-	inline int ExplosionMagnitude() { return pev->impulse; }
-	inline void ExplosionSetMagnitude(int magnitude) { pev->impulse = magnitude; }
+	// TS respawn additions (TS_func_break.cpp): a "respawntime"-flagged breakable goes hidden on Die
+	// and reappears after the delay (box-clear retry). Killed only attributes the attacker.
+	void Killed(entvars_t* pevAttacker, int iGib) override; // @0x652a8 — set the global attacker, Die()
+	void BreakableRespawn(bool forceRespawn);               // @0x64e84 — box-clear retry + restore
+
+	bool Explodable();
+	int ExplosionMagnitude();
+	void ExplosionSetMagnitude(int magnitude);
 
 	static void MaterialSoundPrecache(Materials precacheMaterial);
 	static void MaterialSoundRandom(edict_t* pEdict, Materials soundMaterial, float volume);
@@ -86,4 +91,11 @@ public:
 	float m_angle;
 	int m_iszGibModel;
 	int m_iszSpawnObject;
+
+	// TS respawn state (net-new; not in the save table, matching the original). m_flRespawnTime < 0
+	// (the FGD default) = non-respawning, so stock breakables are unaffected.
+	float   m_flRespawnHealth = 0;       // +0x6c — spawn health, restored on respawn
+	EHANDLE m_hRespawner;                 // +0x70 — the CInfoBreakable retry-helper (created in Spawn)
+	float   m_flRespawnTime = -1;         // +0x90 — keyvalue "respawntime" (>=0 enables; 0 => 30s default)
+	char    m_szRespawnTarget[64] = {};   // +0x94 — keyvalue "respawntarget" (fired on respawn if SF 8)
 };
