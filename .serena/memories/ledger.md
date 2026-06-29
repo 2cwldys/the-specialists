@@ -4399,3 +4399,23 @@ sequence on fire/stunt — break on writes to the player entity's `pev->sequence
 StandardFire / the stunt code) to see the real path; then re-route ours to match. Do NOT keep forcing it
 through Animate(activity). (The `dossier-ctsanimation.md` Region-C body switch is real CODE in the .so, but
 the live trace shows it's reached via a path other than the per-frame PostThink Animate(1/6) — find that caller.)
+
+## CTSAnimation — LIVE-TRACE BREAKTHROUGH (the real model; fixes the whole approach)
+Watched the original player's `pev->sequence` (entvars offset **296**; addr from an Animate hit:
+pPlayer=[esp+4] → pev=*(pPlayer+4) → +296) while firing + diving. SEQUENCE CHANGES come from inside the LARGE
+`CTSAnimation::Animate` (mp.dll 0x44b50) — writer return-addresses cluster at RVAs **0x453a8 / 0x4548e /
+0x46023 / 0x461b2** (all inside Animate; nearest export is the unrelated CTriggerCamera::FollowTarget). Fire
+body seqs ≈ 16/48/49/61/64 (multiple sites); DIVE body seqs ≈ 103/135/139/144 (from 0x461b2). **MODEL:
+`Animate` is the SOLE per-frame body-pose setter — called every frame with ONLY idle(6)/run(1) — and it picks
+the actual pose (shoot/dive/idle/…) INTERNALLY from player STATE.** The original NEVER makes external
+`Animate(TSA_FIRE=0)` / `Animate(0x28)` calls (confirmed: held full-auto fire 8s → only act=6; the activity arg
+is the LOCOMOTION mode, not the pose selector).
+**=> OUR BUG:** we route `SetAnimation(PLAYER_ATTACK1)→Animate(TSA_FIRE)` (player.cpp:962) + ts_stunt.cpp
+`Animate(0x28/...)`, and our Animate's Region-C switches on `activity`. That's backwards. The 3rd-person fire
+pose likely never shows because the predicted-only fire path doesn't set the SERVER pev->sequence, and the
+per-frame Animate(6) doesn't read the fire state to set shoot_.
+**FIX (next session, with full context — substantial rework):** `dc.sh mp 0x44b50` (decompile the big mp.dll
+Animate) — recover its INTERNAL state checks (how it detects "firing" / a stunt to pick shoot_/dive_ vs idle_),
+then reconstruct OUR Animate to set the pose INTERNALLY each frame from player state, and REMOVE the external
+Animate(TSA_FIRE)/Animate(0x28) routing. Verify by re-watching pev->sequence on OURS vs the original. gdb
+scripts saved: scratchpad/{anim_probe,getseq,watchseq}.gdb; pev->sequence offset 296, gaitsequence 300.
