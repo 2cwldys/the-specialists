@@ -47,6 +47,46 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.77, 2026-06-29) — pickup for the next orchestrator (cont.76 = me; available for consult)
+
+**You ARE the orchestrator — continue as if you never stopped.** Branch `restructure-source-parity` (NOT merged;
+GPG signing OFF — keep `git config --local commit.gpgsign false`). Read the **`.serena/memories/ledger.md` cont.77
+entry** first (full detail). Same mission + 5 user directives as cont.76 below (audit everything bidirectionally;
+move-existing-logic before RE; names match original; MIMIC THEIRS for drop-in; don't guess vs the RE). 14 commits
+this session (`3649f43..03191a0`), every one builds `scripts/build.sh amd64 all` clean.
+
+### What changed: the audit is now TRUSTWORTHY AT EVERY LEVEL (the cont.77 win)
+The driver's false positives are gone — the headline is now a real work-list:
+`0 missing/invented classes · 19 missing methods · 42 invented methods · 0 missing members · 43 missing free funcs
+(+38 Write_<weapon> consolidated) · 22 file mismatches · 17 missing globals · 6 invented globals`, plus transparent
+**+46 client-unverifiable** & **+15 stock-SDK** method buckets. Tooling fixes (all in `scripts/coverage/`): srcparse
+now sees pointer-to-member fields + array-index (DEFINE_ARRAY) members + SOURCE-level free funcs (Allman/K&R braces,
+`pm_shared/` dir); audit buckets client.dll-no-symbol methods (UNVERIFIABLE), exact-upstream stock methods (STOCK-SDK,
+via `stock_methods.py`→`stock_methods.tsv`), and Write_<weapon> data-init (CONSOLIDATED). **Trust the numbers now.**
+
+### Done this session (cont.77) — scoreboard (full detail + hashes in the ledger)
+- **Audit trustworthiness**: members 19→0 (pointer-to-member + array-collapse + CTSPhysicObject curator mis-hoist
+  removed from `members_re.tsv`+inventory); invented 104→42 (client/stock bucketed); free funcs 94→43 real
+  (source-credit + Write_ consolidation); globals 8→6 invented (gmsg renames).
+- **2 latent bugs fixed** (`acf5ed3`, the "missing symbol = logic signal" paying off): deadcorpse precache (linked
+  ts_corpse, precached "deadcorpse" → corpse never precached) + knife worldgun touch-ignore (ts_worldgun checks
+  "knife", we linked ts_knife). Renamed entity classnames to the original (deadcorpse/knife/shrapnel).
+- **Parity moves**: GrenadeThrow→GrenadeFire (double win), gmsg vars→gmsgTSActiveItems/gmsgTSWeaponStatus,
+  Sparta()/SetSpartaWeapon extracted from compile_weapons_info. **Invented-method review (task #5) COMPLETE.**
+
+### NEXT — the remaining work is genuine-RE or PLAYTEST-GATED (the easy moves are done)
+1. **PLAYTEST (#2) is STILL THE GATE.** Everything cont.74–77 UNPLAYTESTED; the cont.77 corpse/knife classname
+   fixes are behaviour-affecting and want confirmation. Plan + in-game checklist were given to the user.
+2. **43 real missing free funcs** — genuine RE: the weapon-param tuning subsystem (TS_util.cpp Adjust/save/SendWeaponParams
+   + gmsgTSCustomWeaponParams), the **range-damage falloff** (TS_gun.cpp compile_range_damage/get_range_multipler —
+   bulletmgr uses RAW damage = a real gameplay gap), gamerules (DecideGamePlay/TSSelectSpawnSpot/GetAccelBySlots),
+   pm_shared (CanJumpHigh/FixVelocity/PseudoClimb — need Ghidra), melee Victim*Hold/FindHullIntersectionplayer (gated).
+   UNSURE to settle via Ghidra: CalcSpread vs our ScaleSpread, DropKickback vs our VKickback. **m61_grenade** LINK + classname (RE the classname first).
+3. **19 missing methods** (all playtest-gated melee/bullet/throw/spawn), **6 invented-method drift** (CTSGun::SwitchBarrel,
+   CTSKnife pickup/settle — playtest-gated), **CTSGun tail** (#6), **client HUD handlers** (#7), **22 file mismatches** (held, high-churn).
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.76, 2026-06-29) — pickup for the next orchestrator (cont.75 = me; available for consult)
 
 **You ARE the orchestrator and the previous agent (cont.75) — continue as if you never stopped.** Branch

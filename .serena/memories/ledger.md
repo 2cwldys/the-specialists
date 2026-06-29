@@ -52,12 +52,45 @@ playtest-gated):** `CTSGun::SwitchBarrel` (invented akimbo barrel-cycle replacin
 pickable"); `CTSKnife::{StartSettle,SettleThink}` (think-based settle vs the orig touch-based WaitTouch/
 WaitThink @0x6dce8). These touch combat/throw mechanisms → reconcile ON a green playtest.
 
-### NEXT (unchanged work-list; the audit is now an honest driver)
+### Free-function level made honest + 2 latent-bug fixes + the Sparta extraction (the rest of cont.77)
+Categorized all 94 missing free funcs (dossier subagent → `scratchpad/dossier-freefuncs.md`): 38 Write_<weapon>
+consolidation · 19 already-exists · 5 playtest-gated-melee · 13 unsure (need Ghidra) · 19 genuine-RE.
+- **srcparse credits SOURCE-level free funcs** (`f6bbba8`): the free-func audit was nm-only, so static
+  single-caller fns the compiler inlines away (TSDive/CheckPowerups/CalcMiniminVotants/compile_weapons_info)
+  read as MISSING though present + faithful in source. Fixed like the member level (scan source): added
+  `pm_shared/` to srcparse SRC_DIRS + Allman-brace (sig line, `{` next line) and K&R split-form (type on one
+  line, NAME(params) next) detection via next-line-`{` lookahead. Resolved 8 genuinely-present functions (94→86).
+- **Entity-classname bug fixes** (`acf5ed3`): the "missing free funcs" deadcorpse/knife/shrapnel were the
+  original's LINK factory names; we'd used ts_-prefixed names — and the mismatch had bitten TWICE (the
+  "missing symbol = logic-mismatch signal" the user wants): (1) `weapons.cpp` precached "deadcorpse" but the
+  entity linked as ts_corpse → the corpse's models NEVER precached; (2) `ts_worldgun.cpp` already checks
+  `FClassnameIs(...,"knife")` but our knife linked ts_knife → that touch-ignore never matched. Renamed LINK +
+  Create/classname/self-check to the original names. Classnames are server-internal (not the wire contract), so
+  drop-in is unaffected; the corpse/knife fixes ARE behaviour-affecting (playtest will confirm). **m61_grenade
+  DEFERRED** — CreateGrenade sets classname "grenade" not "m61_grenade"; needs RE to settle (don't guess).
+- **Sparta()/SetSpartaWeapon parity** (`3d46f67`): renamed our setter SetSparta→SetSpartaWeapon and extracted
+  the 32-call combat-param-override block out of compile_weapons_info into a `static Sparta()` invoked at the
+  same site (verbatim 32 calls, behaviour-preserving — these set the combat stats the game actually uses).
+- **CONSOLIDATED bucket** (`03191a0`): the 38 Write_<weapon> data-init the original splits one-per-file are our
+  g_weaponInfo table + Sparta() (deliberate consolidation, NOT gaps) — split into a transparent labeled bucket.
+  **Missing free funcs now 43 REAL gaps** + 38 consolidated.
+
+### Audit headline at session end (honest at EVERY level)
+`0 missing/invented classes · 19 missing methods · 42 invented methods (+46 client-unverifiable +15 stock-SDK) ·
+0 missing members · 43 missing free funcs (+38 Write_ consolidated) · 22 file mismatches · 17 missing globals ·
+6 invented globals`. The 43 real free-func gaps: the weapon-param tuning subsystem (TS_util.cpp:
+AdjustSpecificWeapon/adjust+save_weapon_value/SendWeaponParams/InformClientsOnWeaponsParams + gmsgTSCustomWeaponParams),
+the range-damage falloff (TS_gun.cpp compile_range_damage/get_range_multipler/Set_ammo_count — bulletmgr uses
+RAW damage = a real gameplay gap), gamerules pieces (DecideGamePlay/TSSelectSpawnSpot/GetAccelBySlots), pm_shared
+helpers (CanJumpHigh/FixVelocity/PseudoClimb — adjacent addrs, need Ghidra), melee Victim*Hold + FindHullIntersectionplayer
+(playtest-gated). UNSURE to settle via Ghidra: CalcSpread vs our ScaleSpread; DropKickback vs our VKickback.
+
+### NEXT (the audit is now an honest driver — remaining work is genuine-RE or playtest-gated)
 The 42 invented are mostly keepable helpers + visible virtual overrides; only the 6 drift are actionable and
-they're playtest-gated. **94 missing free funcs** = the next big bucket (categorization subagent running:
-ALREADY-EXISTS-move vs Write_<weapon>-consolidation vs genuine-RE vs playtest-gated-melee). 22 file mismatches
-+ 2 missing files are structural (entity-file consolidation + client.dll HUD track) — high-churn, hold until
-playtest. **PLAYTEST (#2) remains the GATE before merge.**
+playtest-gated. The 43 real free funcs are genuine RE (range-damage falloff is the notable gameplay gap) +
+melee-gated. 22 file mismatches + 2 missing files are structural (entity-file consolidation + client.dll HUD
+track) — high-churn, hold until playtest. **PLAYTEST (#2) remains the GATE before merge** — the corpse/knife
+classname fixes this session are behaviour-affecting and want confirmation.
 
 
 
