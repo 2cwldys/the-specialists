@@ -14,6 +14,9 @@
 
 #include "gamerules.h"
 
+class CTSObjective;        // dlls/ts_objectives.h (objective HUD-list element type)
+class CTSObjectiveManager; // dlls/ts_objectives.h (round objective managers)
+
 // TS powerup type bits — used both as ts_powerup spawnflags and as the mask for
 // GetRandomPowerup (cf. ts_fgd.fgd ts_powerup spawnflags).
 #define TS_PWUP_SLOWMO    (1 << 0) // 1
@@ -106,6 +109,26 @@ public:
 	void  SendRoundTime(CBasePlayer *pPlayer); // catch a joining client up on the round clock
 	void  RoundTimeLeft();
 	float m_flRoundEnd = 0;       // >0 = the round ends at this time (the .so's +0x8); 0 = not armed
+
+	// --- Objective subsystem (the HUD objective list + the round's objective managers). The cluster
+	// entities (ts_objective_ptr/hack/wingiver/bomb) drive the HUD through these. ---
+	// One HUD-list entry: the objective + a per-team label string (string-pool index by team).
+	struct ObjectiveEntry { CTSObjective *obj = nullptr; int teamStr[4] = {}; };
+
+	void ClearObjectiveList();                              // @0x6abdc — reset the HUD list
+	int  FindIndexByObjective(CTSObjective *pObj);          // @0x6ae20 — slot of pObj, or -1
+	int  AddObjectiveInList(CTSObjective *pObj, const int teamStr[4]); // @0x6ac00 — append (dedup), return index
+	void SendObjectiveToHud(int idx, CBasePlayer *pPlayer); // @0x6ac80 — one entry -> one client (gmsgTSObjective)
+	void SendObjectiveList(CBasePlayer *pPlayer);           // @0x6add4 — the whole list -> one client
+	void ShowObjectiveOnHud(CTSObjective *pObj, bool show); // @0x6aebc — toggle visibility (gmsgTSShowObjective)
+	void InitObjectives();                                  // @0x685d8 — scan managers + disable all objectives
+	void SetObjective();                                    // @0x690b4 — pick + Reset() a random manager
+
+	ObjectiveEntry m_objectiveList[32];        // the HUD list (field_0x2d4); count below
+	int   m_iObjectiveCount = 0;               // field_0x2d0
+	CTSObjectiveManager *m_managers[32] = {};  // every ts_objective_manager (field_0x250)
+	int   m_iManagerCount = 0;                 // field_0x24c
+	CTSObjectiveManager *m_pActiveManager = nullptr; // the chosen manager this round (field_0x554)
 
 	// @ PutPowerUp(type) — spawn a powerup of `type` at a random info_player_deathmatch
 	// (skipped if a powerup is already nearby). Returns true if one was spawned.

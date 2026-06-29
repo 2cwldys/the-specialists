@@ -30,4 +30,23 @@ public:
 	int  attacker_team = TS_TEAM_ANY; // +0x68 — keyvalue "attackerteam": team allowed to interact (-1 = any)
 };
 
+#define TS_OBJ_TARGETS 8
+#define TS_OBJ_MESSAGES 4
+
+// CTSObjectiveManager — point entity holding the round's objective-pointer targets + per-slot
+// messages; its Reset() (driven by CTSGameRules::SetObjective) announces them + fires the targets.
+class CTSObjectiveManager : public CBaseEntity
+{
+public:
+	void Spawn() override;
+	bool KeyValue(KeyValueData *pkvd) override;
+	void Reset(); // @0x8b850 — HUD the messages + fire the objective-pointer targets
+
+	string_t m_objTargets[TS_OBJ_TARGETS] = {}; // objptargeta..h
+	string_t m_messages[TS_OBJ_MESSAGES] = {};  // messagea..d
+	string_t m_targetTimeLeft = iStringNull;    // targetontimeleft
+	string_t m_targetSpecDead = iStringNull;    // targetonspecdead (Team 1 dead)
+	string_t m_targetMercDead = iStringNull;    // targetonmercdead (Team 2 dead)
+};
+
 #endif // TS_OBJECTIVES_H

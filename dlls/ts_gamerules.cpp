@@ -11,6 +11,7 @@
 #include "ts_gamerules.h"
 #include "ts_bulletmgr.h"
 #include "ts_utils.h"   // TSHudMessageAll
+#include "ts_objectives.h" // CTSObjective / CTSObjectiveManager (the objective subsystem)
 
 // DAT_0017da25 in the original: a cached flag that, when nonzero, removes the
 // low-gravity (0x100) powerup from the random pool. Zero-init in the binary, so
@@ -51,6 +52,8 @@ void TSFireTimeLeftTarget();
 
 // Round-time HUD message (remaining seconds); registered lazily on first send.
 int gmsgTSRoundTime = 0;
+int gmsgTSObjective = 0;      // "Objective" (-1, variable): one HUD objective entry (coord+idx+label)
+int gmsgTSShowObjective = 0;  // "ShowObj" (2): toggle a HUD objective entry's visibility
 
 // @ StartRoundTimer — arm the round timer for a fresh round and tell clients the time left.
 void CTSGameRules::StartRoundTimer()
@@ -67,6 +70,141 @@ void CTSGameRules::StartRoundTimer()
 	WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
 	WRITE_BYTE(0);                                     // flag: 0 = round start/restart
 	MESSAGE_END();
+}
+
+//============================================================================
+// Objective subsystem — the HUD objective list + the round's objective managers.
+//============================================================================
+
+// @0x6abdc — reset the HUD objective list.
+void CTSGameRules::ClearObjectiveList()
+{
+	m_iObjectiveCount = 0;
+	for (int i = 0; i < 32; i++)
+		m_objectiveList[i] = ObjectiveEntry();
+}
+
+// @0x6ae20 — the slot index of `pObj` in the list, or -1.
+int CTSGameRules::FindIndexByObjective(CTSObjective *pObj)
+{
+	for (int i = 0; i < m_iObjectiveCount; i++)
+		if (m_objectiveList[i].obj == pObj)
+			return i;
+	return -1;
+}
+
+// @0x6ac00 — append `pObj` (with its 4 per-team label string-indices) to the list, deduped. Returns
+// the (existing or new) index, or -1 if the list is full.
+int CTSGameRules::AddObjectiveInList(CTSObjective *pObj, const int teamStr[4])
+{
+	int i = FindIndexByObjective(pObj);
+	if (i >= 0)
+		return i;               // already listed
+	if (m_iObjectiveCount >= 32)
+		return -1;              // full
+	int idx = m_iObjectiveCount;
+	m_objectiveList[idx].obj = pObj;
+	for (int t = 0; t < 4; t++)
+		m_objectiveList[idx].teamStr[t] = teamStr ? teamStr[t] : 0;
+	m_iObjectiveCount++;
+	return idx;
+}
+
+// @0x6ac80 — send one HUD objective entry to one client (its world position, slot id, and the
+// per-team label text).
+void CTSGameRules::SendObjectiveToHud(int idx, CBasePlayer *pPlayer)
+{
+	if (!pPlayer || idx < 0 || idx >= m_iObjectiveCount)
+		return;
+	const ObjectiveEntry &slot = m_objectiveList[idx];
+
+	char label[64] = {0};
+	int teamIdx = GetTeamIndex(((CBaseEntity *)pPlayer)->TeamID());
+	if (teamIdx >= 0 && teamIdx < 4 && slot.teamStr[teamIdx] != 0)
+		strncpy(label, STRING((string_t)slot.teamStr[teamIdx]), sizeof(label) - 1);
+
+	Vector c = slot.obj ? slot.obj->Center() : g_vecZero;
+	if (gmsgTSObjective == 0)
+		gmsgTSObjective = REG_USER_MSG("Objective", -1);
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSObjective, NULL, pPlayer->edict());
+	WRITE_COORD(c.x);
+	WRITE_COORD(c.y);
+	WRITE_COORD(c.z);
+	WRITE_BYTE(idx);
+	WRITE_STRING(label);
+	MESSAGE_END();
+}
+
+// @0x6add4 — send the whole list to one client (e.g. on join).
+void CTSGameRules::SendObjectiveList(CBasePlayer *pPlayer)
+{
+	if (!pPlayer)
+		return;
+	for (int i = 0; i < m_iObjectiveCount; i++)
+		SendObjectiveToHud(i, pPlayer);
+}
+
+// @0x6aebc — toggle one objective's HUD visibility for all clients. (CTSObjective::Freeze calls this.)
+void CTSGameRules::ShowObjectiveOnHud(CTSObjective *pObj, bool show)
+{
+	int idx = FindIndexByObjective(pObj);
+	if (gmsgTSShowObjective == 0)
+		gmsgTSShowObjective = REG_USER_MSG("ShowObj", 2);
+	MESSAGE_BEGIN(MSG_ALL, gmsgTSShowObjective);
+	WRITE_BYTE(idx);
+	WRITE_BYTE(show ? 1 : 0);
+	MESSAGE_END();
+}
+
+// @0x685d8 — round start: scan the map's objective managers, set the game mode, and start every
+// objective DISABLED (a manager's Reset, via SetObjective, enables the chosen subset).
+void CTSGameRules::InitObjectives()
+{
+	m_iManagerCount = 0;
+	for (int i = 0; i < 32; i++)
+		m_managers[i] = nullptr;
+	m_pActiveManager = nullptr;
+
+	CBaseEntity *pEnt = nullptr;
+	while ((pEnt = UTIL_FindEntityByClassname(pEnt, "ts_objective_manager")) != nullptr)
+		if (m_iManagerCount < 32)
+			m_managers[m_iManagerCount++] = (CTSObjectiveManager *)pEnt;
+
+	// objective mode iff at least one manager is present (the original sets g_teamplay 2/3).
+	if (m_iManagerCount == 0)
+		return;
+
+	// Disable every objective entity up front (a manager's Reset, via SetObjective, enables the chosen
+	// subset). The original sweeps ALL entities via the CBaseEntity::IsObjective() virtual; our SDK has
+	// IsObjective only on CTSObjective, so we enumerate the objective classnames (all CTSObjective-derived).
+	static const char *const kObjClasses[] = {
+		"ts_hack", "ts_bomb", "ts_teamescape", "ts_wingiver", "ts_scoregiver", "ts_trigger" };
+	for (const char *cls : kObjClasses)
+	{
+		CBaseEntity *e = nullptr;
+		while ((e = UTIL_FindEntityByClassname(e, cls)) != nullptr)
+		{
+			CTSObjective *obj = (CTSObjective *)e; // these classnames are all CTSObjective-derived
+			if (obj->IsObjective())
+				obj->EnableObjective(false);
+		}
+	}
+}
+
+// @0x690b4 — pick the round's active objective manager at random and Reset() it (which enables +
+// announces that manager's objective subset).
+void CTSGameRules::SetObjective()
+{
+	ClearObjectiveList();
+	if (m_iManagerCount == 0)
+		return;
+	m_pActiveManager = nullptr;
+	int r = RANDOM_LONG(0, m_iManagerCount - 1);
+	if (m_managers[r])
+	{
+		m_managers[r]->Reset();
+		m_pActiveManager = m_managers[r];
+	}
 }
 
 // @ SendRoundTime — send the current remaining round time to one player. StartRoundTimer only

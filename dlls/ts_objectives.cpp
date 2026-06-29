@@ -54,20 +54,18 @@ bool CTSObjective::CanInteract(CBasePlayer *pPlayer)
 	return CanInteract(TSGameRules()->GetTeamIndex(pPlayer->TeamID()));
 }
 
-// @0x8c310 Freeze — enable/disable the objective. The original ALSO re-renders it on the HUD via
-// CTSGameRules::ShowObjectiveOnHud(this, !bFreeze) — NOT yet reconstructed (deferred with the
-// CTSGameRules objective methods); SLICE: we only toggle the active flag here.
+// @0x8c310 Freeze — enable/disable the objective + re-render it on the HUD.
 void CTSObjective::Freeze(bool bFreeze)
 {
 	m_bActive = !bFreeze;
+	if (TSGameRules())
+		TSGameRules()->ShowObjectiveOnHud(this, !bFreeze);
 }
 
 //============================================================================
 // CTSObjectiveManager — point entity that holds the map's objective-pointer targets +
 // the per-slot objective messages; fires them on Reset(). @0x8b7bc.
 //============================================================================
-#define TS_OBJ_TARGETS 8
-#define TS_OBJ_MESSAGES 4
 
 //============================================================================
 // CTSTrigger — a TS brush trigger: fires its target when a valid player (right attacker
@@ -145,20 +143,7 @@ void CTSTrigger::WaitTouch(CBaseEntity *pOther)
 	m_flNextAllowed = gpGlobals->time + delay;
 }
 
-class CTSObjectiveManager : public CBaseEntity
-{
-public:
-	void Spawn() override;
-	bool KeyValue(KeyValueData *pkvd) override;
-	void Reset(); // HUD the messages + fire the objective-pointer targets (@Reset 0x8b850)
-
-	string_t m_objTargets[TS_OBJ_TARGETS] = {}; // objptargeta..h
-	string_t m_messages[TS_OBJ_MESSAGES] = {};  // messagea..d
-	string_t m_targetTimeLeft = iStringNull;    // targetontimeleft
-	string_t m_targetSpecDead = iStringNull;    // targetonspecdead (Team 1 dead)
-	string_t m_targetMercDead = iStringNull;    // targetonmercdead (Team 2 dead)
-};
-
+// CTSObjectiveManager is declared in ts_objectives.h (shared with ts_gamerules.cpp's SetObjective).
 LINK_ENTITY_TO_CLASS(ts_objective_manager, CTSObjectiveManager);
 
 void CTSObjectiveManager::Spawn()
