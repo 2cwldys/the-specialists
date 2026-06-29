@@ -381,7 +381,7 @@ bool CBasePlayer::TakeFlag(s_flag_status *src)
 		return false; // not enough free slots, or already carrying
 
 	m_flagStatus = *src;     // copy the full 28-byte status (incl. the source lastCarrier)
-	m_flagStatus.active = 1; // now carried (slot-weight debit is folded into TSSlotBaseSpeed)
+	m_flagStatus.active = 1; // now carried (slot-weight debit is folded into GetSpeedBySlots)
 	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
 
 	if (gmsgTSHaveFlag == 0)

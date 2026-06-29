@@ -57,13 +57,19 @@ void CTSMapGlobals::Spawn(void)
 	// reconstructed yet, so the wiring is deferred (the entity itself is now method/member-faithful).
 }
 
-// Bitmask of permitted weapon types: 0x1f (all five) XOR the "No <weapon>"
-// spawnflags. (The original's InitWeaponRestriction() simply returns 0x1f.)
-// Consumed by the game rules — kept here for faithfulness; nothing calls it
-// until CTSGameRules is reconstructed.
+// @0x?? InitWeaponRestriction — the base permitted-weapon-type mask (all five categories: knife,
+// pistol, smg, rifle, shotgun). The original is a free function in TS_gamerules.cpp; we keep it
+// beside its sole caller. (It just returns 0x1f in the shipped game.)
+int InitWeaponRestriction(void)
+{
+	return 0x1f;
+}
+
+// Bitmask of permitted weapon types: InitWeaponRestriction() (all five) XOR the "No <weapon>"
+// spawnflags. Consumed by the game rules — kept here for faithfulness.
 int CTSMapGlobals::get_weapon_restriction(void)
 {
-	return 0x1f ^ pev->spawnflags;
+	return InitWeaponRestriction() ^ pev->spawnflags;
 }
 
 // Present in the original but never scheduled by Spawn (an inert 10s

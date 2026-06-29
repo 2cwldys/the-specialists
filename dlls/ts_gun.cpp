@@ -118,7 +118,7 @@ CTSGun *GetPlayerTSGun(CBasePlayer *pPlayer)
 // remaining capacity sets the base maxspeed = 210 + (120/81)*remaining → empty ~330, fully loaded ~210.
 // More/heavier guns = slower. The original recomputes this after every TakeWeapon/Drop/Select; we derive
 // it from the owned-items set each PreThink (player.cpp) and slow-mo (fuser1) scales it on top.
-float TSSlotBaseSpeed(CBasePlayer *pPlayer)
+float GetSpeedBySlots(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun)

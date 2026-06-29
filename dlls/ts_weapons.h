@@ -55,7 +55,7 @@ int TSRecordedSlowPitch(CBasePlayer *p);
 
 // @ GetSpeedBySlots — slot-based base movement speed (210..330) from the player's carried weapon slots;
 // more/heavier weapons => slower. Slow-mo (fuser1) scales it on top. Defined in ts_gun.cpp.
-float TSSlotBaseSpeed(CBasePlayer *pPlayer);
+float GetSpeedBySlots(CBasePlayer *pPlayer);
 int TSPlayerFreeSlots(CBasePlayer *pPlayer);
 
 // Barge through breakables (orig CTSStunt::CheckForBreakables @0x9bd9c, called every PreThink):

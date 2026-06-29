@@ -2080,7 +2080,7 @@ void CBasePlayer::PreThink()
 	InterpolateSlowMotion(gpGlobals->frametime, &pev->fuser1, m_flSlowMotionGo);
 	// Base move speed comes from the inventory-slot encumbrance (GetSpeedBySlots: more/heavier weapons →
 	// slower); slow-motion (fuser1) scales it on top. So maxspeed = slotBase * fuser1, every frame.
-	const float slotBase = TSSlotBaseSpeed(this);
+	const float slotBase = GetSpeedBySlots(this);
 	pev->maxspeed = slotBase * pev->fuser1;
 	if (pev->fuser1 < 0.999f)
 	{
