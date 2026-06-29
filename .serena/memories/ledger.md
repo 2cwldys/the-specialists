@@ -106,6 +106,19 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   remain; their HUD/list flow also needs the CTSGameRules objective subsystem (AddObjectiveInList/SendObjectiveToHud/
   SendObjectiveList/ShowObjectiveOnHud/SetObjective/InitObjectives + TeamWin). DO THAT SUBSYSTEM NEXT (part of CTSGameRules
   12/39), then Pointer::Use/Manager/WinGiver wire up. Decompile: scratchpad/ptruse.c.
+- **CTSGameRules objective subsystem DONE (68fba35): 12/39 -> 20/39.** Built the 8 methods + 2 gmsgs (dossier
+  scratchpad/dossier-gr-objectives.md): HUD list (m_objectiveList[32] of {CTSObjective*+per-team label string-idx}+count) —
+  ClearObjectiveList/FindIndexByObjective/AddObjectiveInList/SendObjectiveToHud('Objective' -1: coord xyz+byte idx+string
+  label, MSG_ONE)/SendObjectiveList/ShowObjectiveOnHud('ShowObj' 2: byte idx+byte show, MSG_ALL); manager array
+  (m_managers[32]) — InitObjectives(scan ts_objective_manager + disable objectives by classname)/SetObjective(random manager
+  +Reset). Extracted CTSObjectiveManager into ts_objectives.h. **UN-SLICED CTSObjective::Freeze -> ShowObjectiveOnHud** (the
+  cluster's freeze/complete now updates the HUD). ⚠ **TWO BLOCKERS for the rest of the wiring:** (1) the original's
+  IsObjective is a CBaseEntity virtual (every entity answers it) — OURS is CTSObjective-only, so you can't call
+  ->IsObjective() on an arbitrary found entity (InitObjectives works around it by enumerating objective CLASSNAMES;
+  CTSObjectivePointer::Use finds by targetname so it can't). (2) CTSObjectivePointer::Use reads the objective via
+  *(CTSObjective**)(found+0x7c) — UNCERTAIN field. To finish Pointer::Use/Manager/WinGiver: either add IsObjective() to
+  CBaseEntity (faithful — orig has it at vtbl 0x1c; verify audit doesn't flag invented) or classname-gate, AND RE the +0x7c
+  ref (live trace/decompile). Remaining CTSGameRules gap (19): voting/team-cash/round-restart/TheOne subsystems.
   derives CTSObjective; needs +Save/Restore(hacksec)+EnableObjective+ObjectCaps(0x10) and to dissolve our invented
   HackTouch into the original's **Use** (a 688-byte hack-interaction method) + the WaitThink countdown-to-Freeze model
   (EnableObjective seeds field_0x6c timer; WaitThink decrements each sec -> Freeze(true) at 0). Decompile: scratchpad/hack.c.
