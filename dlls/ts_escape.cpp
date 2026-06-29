@@ -20,35 +20,40 @@
 #include "gamerules.h"
 #include "ts_gamerules.h"
 #include "ts_utils.h"   // TSHudMessageAll
+#include "ts_objectives.h" // CTSObjective (the base CTSTeamEscape derives)
 
-#define ESCAPE_TEAM_ANY (-1)
-
-class CTSTeamEscape : public CBaseEntity
+class CTSTeamEscape : public CTSObjective
 {
 public:
 	bool KeyValue(KeyValueData *pkvd) override;
+	bool Save(CSave &save) override;
+	bool Restore(CRestore &restore) override;
 	void Spawn() override;
+	void Precache() override {}                  // @0x8d4xx — empty
+	int  ObjectCaps() override { return FCAP_CONTINUOUS_USE; } // -> 0x10
 	void EXPORT WaitTouch(CBaseEntity *pOther);
 	void EXPORT WaitThink();
-	void EnableObjective(bool enable);
+	void EnableObjective(bool enable) override;  // arm/disarm (the escape zone's own override)
 
-	bool CanInteract(int team) const { return m_attackerTeam == ESCAPE_TEAM_ANY || m_attackerTeam == team; }
-	int  AttackerTeamSize() const;
+	static TYPEDESCRIPTION m_SaveData[];
 
-	bool    m_bEnabled = false;     // +0x64
-	int     m_attackerTeam = ESCAPE_TEAM_ANY; // +0x68 (tsobjective attackerteam)
-	int     m_escapePercent = 1;    // +0xf4 — 0 one / 1 third / 2 two-thirds / 3 all
-	EHANDLE m_present[33];          // +0x6c.. — players counted this window (by entindex)
-	int     m_count = 0;            // +0xf0 — distinct attacker-team players inside
+	// m_bActive (armed, +0x64) + attacker_team (+0x68) are inherited from CTSObjective.
+	int     escape_percentage = 1;  // +0xf4 — keyvalue "escapepercentage": 0 one / 1 third / 2 two-thirds / 3 all
+	EHANDLE m_present[33];           // +0x6c.. — players counted this window (by entindex)
+	int     m_count = 0;             // +0xf0 — distinct attacker-team players inside
 };
 
 LINK_ENTITY_TO_CLASS(ts_teamescape, CTSTeamEscape)
 
+TYPEDESCRIPTION CTSTeamEscape::m_SaveData[] = {
+	DEFINE_FIELD(CTSTeamEscape, escape_percentage, FIELD_INTEGER),
+};
+IMPLEMENT_SAVERESTORE(CTSTeamEscape, CTSObjective);
+
 bool CTSTeamEscape::KeyValue(KeyValueData *pkvd)
 {
-	if (FStrEq(pkvd->szKeyName, "escapepercentage")) { m_escapePercent = atoi(pkvd->szValue); return true; }
-	if (FStrEq(pkvd->szKeyName, "attackerteam"))     { m_attackerTeam = atoi(pkvd->szValue); return true; }
-	return CBaseEntity::KeyValue(pkvd);
+	if (FStrEq(pkvd->szKeyName, "escapepercentage")) { escape_percentage = atoi(pkvd->szValue); return true; }
+	return CTSObjective::KeyValue(pkvd); // handles "attackerteam"
 }
 
 // @ Spawn — brush trigger; arm it and start the 1s reset tick.
@@ -63,7 +68,7 @@ void CTSTeamEscape::Spawn()
 // @ EnableObjective — arm/disarm: (re)set the per-window tracking and the trigger solidity.
 void CTSTeamEscape::EnableObjective(bool enable)
 {
-	m_bEnabled = enable;
+	m_bActive = enable;
 	for (int i = 0; i < 33; i++)
 		m_present[i] = NULL;
 	m_count = 0;
@@ -83,30 +88,26 @@ void CTSTeamEscape::EnableObjective(bool enable)
 	pev->nextthink = gpGlobals->time + 1.0f;
 }
 
-// live players on the attacker team (the escape target population). 0 if no specific team.
-int CTSTeamEscape::AttackerTeamSize() const
-{
-	if (m_attackerTeam < 0)
-		return 0;
-	int n = 0;
-	for (int i = 1; i <= gpGlobals->maxClients; i++)
-	{
-		CBaseEntity *p = UTIL_PlayerByIndex(i);
-		if (p && p->IsAlive() && TSGameRules()->GetTeamIndex(p->TeamID()) == m_attackerTeam)
-			n++;
-	}
-	return n;
-}
-
 // @ WaitTouch — an attacker-team player is inside: track them this window; complete when the
-// distinct count meets the escapepercentage threshold.
+// distinct count meets the escapepercentage threshold (then freeze the objective).
 void CTSTeamEscape::WaitTouch(CBaseEntity *pOther)
 {
-	if (!m_bEnabled || !pOther || !pOther->IsPlayer())
+	if (!m_bActive || !pOther || !pOther->IsPlayer())
 		return;
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	if (!CanInteract(pPlayer->pev->team))
+	if (!CanInteract(pPlayer)) // inherited CTSObjective gate (resolves the player's team index)
 		return;
+
+	// live players on the attacker team (the escape target population) — the original inlines this
+	// (TSCountPlayers on the attacker-team roster) rather than a separate helper.
+	int teamSize = 0;
+	if (attacker_team >= 0)
+		for (int i = 1; i <= gpGlobals->maxClients; i++)
+		{
+			CBaseEntity *p = UTIL_PlayerByIndex(i);
+			if (p && p->IsAlive() && TSGameRules()->GetTeamIndex(p->TeamID()) == attacker_team)
+				teamSize++;
+		}
 
 	int idx = pPlayer->entindex();
 	if (idx >= 0 && idx < 33)
@@ -116,9 +117,8 @@ void CTSTeamEscape::WaitTouch(CBaseEntity *pOther)
 		m_present[idx] = pPlayer;
 	}
 
-	int teamSize = AttackerTeamSize();
 	int threshold;
-	switch (m_escapePercent)
+	switch (escape_percentage)
 	{
 	case 0:  threshold = 1; break;                 // one member
 	case 1:  threshold = teamSize / 3; break;      // a third
@@ -133,7 +133,7 @@ void CTSTeamEscape::WaitTouch(CBaseEntity *pOther)
 			FireTargets(STRING(pev->target), this, this, USE_TOGGLE, 0);
 		if (!FStringNull(pev->message))
 			TSHudMessageAll(0, 0xff, 0, 8, 30, (char *)STRING(pev->message));
-		EnableObjective(false);
+		Freeze(true); // the original freezes the objective on completion (m_bActive=false)
 	}
 }
 
