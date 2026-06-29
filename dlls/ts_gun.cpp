@@ -514,6 +514,22 @@ void CTSGun::SetWeaponData(const weapon_data_t &data)
 	const int caliber = wi->iCaliber;
 	if (caliber > 0 && caliber < TS_NUM_CALIBERS)
 		m_ammoReserve[caliber] = data.iuser2;
+
+#ifdef CLIENT_DLL
+	// The akimbo PER-BARREL clips (m_items[type].leftClip/rightClip) are server-only state and are NOT
+	// carried in the prediction data (we only sync type/reserve/fireMode/holdpos via iuser1..4 + the base
+	// m_iClip). So a client-predicted AkimboFire saw leftClip+rightClip == 0 and EMPTY-returned — no fire
+	// event = no predicted fire SOUND and no brass CASING — until a client reload repopulated the barrels
+	// (the "akimbo/gold is silent until I reload" bug). Reconstruct the barrels from the synced combined
+	// m_iClip (the server keeps m_iClip = leftClip + rightClip, AkimboFire line `m_iClip = left+right`),
+	// so the predicted AkimboFire fires the event. Right barrel fires first, so it carries the odd round.
+	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+	{
+		TSItem &it = m_items[m_weaponType];
+		it.rightClip = (m_iClip + 1) / 2;
+		it.leftClip = m_iClip - it.rightClip;
+	}
+#endif
 }
 
 // Per-tsweapon_t viewmodel DRAW (unholster) sequence index — recovered by parsing each viewmodel's
