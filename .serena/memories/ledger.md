@@ -55,10 +55,37 @@ files — single-class renames are taken inline (corpse/grenades); the grouped m
 name map + Random<X> sets; UNLINKED: CTSPistolWeapon/Ammo; do the CTSGroundWeapon/Ammo base FIRST). `dossier-CTSAnimation.md`,
 `dossier-CTSStunt.md`, `dossier-CTSStunt-callers.md`.
 
-**NEXT** (audit.py work-list): 24 missing classes (the hldmcompat spawner family is dossiered + ready once the
-CTSGroundWeapon/Ammo base is brought to 1:1), 132 invented methods to review, the big drifted classes (CTSGameRules 12/39,
-CTSGun 28/47, CM61Grenade, CTSFlag, the CBasePlayer/CBaseEntity TS surface). Client-side structural parity (the per-fire-type
-handlers) is a separate manual track (audit.py is server-only).
+### cont.73 cont. — worldgun/hldmcompat cluster (bottom-up): missing classes 24 -> 8
+
+Per the refined goal (do dependencies first, ALL missing-class closures). Commits `875da11`..`86bfb6a`.
+
+- **CTSGroundWeapon 5/14 -> 14/14** (`875da11`, header ts_groundweapon.h): full settle-then-pickup state machine
+  (Spawn point-bbox -> Fall -> OnGround SOLID_TRIGGER grab box -> WaitTouch[0x1d auto / else USE] -> GetWeapon),
+  Save/Restore + DEFINE_FIELD table (respawntime/tsweaponid/extraclip), ObjectCaps=FCAP_CONTINUOUS_USE,
+  CanUsedTroughWalls()=0, virtual GetWeapon for subclasses. **audit.py our_members() fixed** to detect non-m_
+  members (the original's FGD/save names are unprefixed) so faithfully-named members aren't falsely "missing".
+- **CTSGroundWeapon buy gate** (`cb8330c`): the user flagged unused attackerteam/buyable = missing logic. RE:
+  CashBased() is hard-OFF in the shipped game (cash economy compiled out) so the buy gate is DEAD in the original
+  too — but PRESENT in GetWeapon. Restored it gated on CashBased() (team restriction + cash price via GiveCash);
+  attackerteam/buyable/extraclip now consumed, 1:1. **LESSON: unused members => flag + fix immediately.**
+- **10 weapon spawners** (`9d860be`, hldmcompat.cpp): 6 random (CTSPistol/BigPistol/Shotgun/Rifle/SMG/KnifeWeapon,
+  Spawn+GetWeapon+RandomX) + 4 fixed (CTSSniper/MG/Katana/GrenadeWeapon, Spawn). Derive CTSGroundWeapon, remap
+  stock HL weapon entity names. **Conflict resolved:** the stock SDK LINK_ENTITY_TO_CLASS lines (weapon_shotgun/
+  gauss/egon/rpg/crossbow/hornetgun/snark/satchel/handgrenade/9mmAR/ammo_ARgrenades) commented out across 10
+  stock weapon files (the original has no stock HL weapons); stock CLASSES stay compiled (hgrunt->CShotgun,
+  client->CRpg). No effect on TS maps; stock maps now spawn TS weapons.
+- **CTSGroundAmmo 9/11 -> 11/11 + 6 ammo spawners** (`07067a6`, header ts_groundammo.h): m_ammo[16] caliber-indexed
+  array (calibers reach 13); CTSPistol/BigPistol/Rifle/SMG/Shotgun/SniperAmmo derive it (RE: CTSBigPistolAmmo::Spawn
+  = CTSGroundAmmo::Spawn + m_ammo[5]/[11]). Stock ammo LINKs commented too. ammo amount = TSRoundsPerMag proxy (VERIFY
+  the orig get_ammo_info(cal)->default/2).
+- **Unlinked pistol keepalive** (`86bfb6a`): CTSPistolWeapon/CTSPistolAmmo are compiled-but-unlinked in the original;
+  our --gc-sections DCE'd them -> an exported `hldmcompat_keep_unlinked()` anchor keeps them. 3/3 + 1/1.
+
+**NEXT** (8 missing classes left, bottom-up): **CTSPhysicObject FIRST** (base for CTSWorldGun + CTSGrenade) -> then
+CTSGrenade + CTSWorldGun 4/13. The emitter cluster (CTSEmitter/CTSParticle/CTSSharedEmitter interrelated) + standalone
+CBulletManager/CInfoBreakable/CTSWind. Then the big drifted classes (CTSGameRules 12/39, CTSGun 28/47, CM61Grenade,
+CTSFlag), 131 invented methods to review, and client-side structural parity (separate manual track — audit.py is server-only).
+⚠ The worldgun/hldmcompat behaviour (stock-name remap, the pickup physics) is UNPLAYTESTED — needs a pass.
 
 ## 2026-06-28 (cont. 72) — RE-tooling pass: audit toolchain + deterministic inventory (committed); pump WIP
 
