@@ -21,6 +21,7 @@ STEPS = [
     "globals.py",           # → globals.tsv
     "precache.py",          # → precache.tsv        (per-entity asset lists; export folds in)
     "commands.py",          # → commands.tsv        (command → handler/dispatcher)
+    "stock_methods.py",     # → stock_methods.tsv   (upstream base methods; audit's stock-SDK whitelist)
     "filemap.py",           # → FILE_MAP.md
     "layout.py",            # → LAYOUT_MAP.md
     "reconstruction.py",    # → RECONSTRUCTION_COVERAGE.md

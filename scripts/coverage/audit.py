@@ -173,6 +173,17 @@ def analyze():
     ourmem = SRC["members"]                       # members from BOTH .cpp and .h (brace-aware)
     inln = SRC["inline_methods"]                  # methods declared in the class body (no out-of-line symbol)
     our_hier = SRC["hierarchy"]                    # our class -> base (for inheritance resolution)
+    # exact (class,method) DEFINED in the upstream halflife-updated base (stock_methods.py -> .tsv). A method we
+    # have that the ORIGINAL TS lacked but that is stock-inherited here is NOT drift. Exact-match only (a bare
+    # name match would wrongly whitelist TS virtual overrides). Degrades gracefully if the tsv is absent.
+    stock_pairs = set()
+    _sm = os.path.join(ROOT, "reference", "coverage", "stock_methods.tsv")
+    if os.path.exists(_sm):
+        for ln in open(_sm):
+            if ln.startswith("#") or "\t" not in ln:
+                continue
+            a, b = ln.rstrip("\n").split("\t", 1)
+            stock_pairs.add((a, b))
     # combined per-class method set = out-of-line nm symbols + in-body declarations.
     allm = defaultdict(set)
     for c in set(ours) | set(inln):
@@ -216,6 +227,9 @@ def analyze():
         unverifiable = []
         if ofile == "client.dll" and not o:
             unverifiable, invented = invented, []
+        # split off methods inherited verbatim from the modern halflife-updated base (stock, not TS drift).
+        stock = sorted(m for m in invented if (c, m) in stock_pairs)
+        invented = [m for m in invented if (c, m) not in stock_pairs]
         our_files = ourcf.get(c, [])
         file_ok = any(norm_file(of) == norm_file(ofile) for of in our_files) if our_files else False
         # MEMBER diff: original REAL-named members (saved/curated) not present in our source headers, by name.
@@ -227,7 +241,7 @@ def analyze():
         ourm_bases = ourm | {re.sub(r"\[\d+\]$", "", x) for x in ourm}
         missing_members = sorted(m for m in orig[c]["named_members"]
                                  if m not in ourm and re.sub(r"\[\d+\]$", "", m) not in ourm_bases)
-        per_class[c] = {"missing": missing, "invented": invented, "unverifiable": unverifiable, "orig_file": ofile,
+        per_class[c] = {"missing": missing, "invented": invented, "unverifiable": unverifiable, "stock": stock, "orig_file": ofile,
                         "our_files": our_files, "file_ok": file_ok, "impl": len(o) - len(missing), "total": len(o),
                         "missing_members": missing_members, "orig_member_count": orig[c]["member_count"],
                         "our_member_count": len(ourmem.get(c, set()))}
@@ -293,9 +307,11 @@ def main():
 
     inv_meth = {c: p["invented"] for c, p in a["per_class"].items() if p["invented"]}
     unver_meth = {c: p["unverifiable"] for c, p in a["per_class"].items() if p.get("unverifiable")}
+    stock_meth = {c: p["stock"] for c, p in a["per_class"].items() if p.get("stock")}
     file_mismatch = {c: p for c, p in a["per_class"].items() if p["our_files"] and not p["file_ok"]}
     n_inv_meth = sum(len(v) for v in inv_meth.values())
     n_unver = sum(len(v) for v in unver_meth.values())
+    n_stock = sum(len(v) for v in stock_meth.values())
 
     if "--strict" in sys.argv:
         bad = len(a["invented_classes"]) + n_inv_meth + len(a["invented_globals"])
@@ -313,7 +329,8 @@ def main():
          f"methods · {sum(len(p['missing_members']) for p in a['per_class'].values())} missing named members · "
          f"{sum(len(v) for v in a['missing_freefuncs'].values())} missing free functions · "
          f"{len(file_mismatch)} file mismatches · {len(a['missing_globals'])} missing globals · "
-         f"{len(a['invented_globals'])} invented globals · {n_unver} unverifiable (client.dll) methods.**",
+         f"{len(a['invented_globals'])} invented globals · {n_unver} unverifiable (client.dll) methods · "
+         f"{n_stock} stock-SDK (inherited) methods.**",
          "",
          "_Members scanned from BOTH .cpp and .h (brace-aware); methods resolve through inheritance + inline "
          "decls; free functions diffed per TS file. So MISSING/INVENTED here are real, not tooling blind spots._",
@@ -337,6 +354,14 @@ def main():
     for c in sorted(unver_meth):
         L.append(f"| `{c}` | {', '.join(unver_meth[c])} |")
     if not unver_meth:
+        L.append("| _none_ | |")
+
+    L += ["", "## STOCK-SDK methods (inherited verbatim from the halflife-updated base — exact `Class::Method` in "
+          "`upstream/64bit-demo`; NOT TS drift, NOT counted as invented)", "",
+          "| class | stock-inherited methods the original 2007-SDK TS lacked |", "|---|---|"]
+    for c in sorted(stock_meth):
+        L.append(f"| `{c}` | {', '.join(stock_meth[c])} |")
+    if not stock_meth:
         L.append("| _none_ | |")
 
     miss_meth = {c: p for c, p in a["per_class"].items() if p["missing"]}
