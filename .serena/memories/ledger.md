@@ -4419,3 +4419,26 @@ Animate) — recover its INTERNAL state checks (how it detects "firing" / a stun
 then reconstruct OUR Animate to set the pose INTERNALLY each frame from player state, and REMOVE the external
 Animate(TSA_FIRE)/Animate(0x28) routing. Verify by re-watching pev->sequence on OURS vs the original. gdb
 scripts saved: scratchpad/{anim_probe,getseq,watchseq}.gdb; pev->sequence offset 296, gaitsequence 300.
+
+## CTSAnimation — DECOMPILE (ts_i386.so, the right source) CORRECTS the live-trace conclusion
+Decompiled the big `Animate` (.so 0x5b470→0x5d7e4, ~0x2374 bytes; raw in scratchpad/ctsanim-all.c lines
+79-1206). **Ghidra renders `this->pev` but it's actually `m_iLastActivity` (field@0).** Structure:
+- Region A (continue dive/jump blend), Region B `switch(m_iLastActivity)` (HOLD guards), Region C `switch(a1)`
+  (set the NEW body pose), Region D (leg gait).
+- **Region C case 0/8/9 = FIRE** → `shoot_`/`crouch_shoot_`+grip, sets `m_flAimTimer=2.0` (field_0xc). So fire
+  IS an EXTERNAL Animate(0) call (my live-trace "no Animate(0)" was wrong — the hardware-bp probe missed the
+  rare per-shot calls; case 0 is real, shipped, reached). **=> do NOT remove the external fire routing.**
+- **Region C case 1/6 = RUN/IDLE = the per-frame STATE-DRIVEN pose:** (a) if `player+0x478` (a 2nd anim string)
+  is NON-EMPTY → play it directly as the body seq; (b) elif grip(player+0xb58=m_szAnimExtention) empty → break
+  (kungfu, body follows legs in D); (c) elif `m_iLastActivity ∈ {0,8,9,0x34,0x33}`(fire/draw/relo) && seq not
+  finished → HOLD (a1=m_iLastActivity, break); (d) else `aim_`/`idle_`/`crouch_aim_`/`duck_idle_` by
+  **`(m_flAimTimer>=0.01 || fov!=0)`** — NOT the attack button.
+**player+0x478 is the key missing piece:** a per-frame anim-OVERRIDE string. Non-empty → Animate plays it as the
+body. It's also HandleCloseCombat's block-type selector (kat/kni). This is what drives the user's knife-idle=kungfu
+(knife sets grip EMPTY + 0x478="knife"), katana dedicated idle, and the melee BLOCK on reload. We DON'T model it.
+Done this turn (`<pending hash>`): aligned our case-1/6 aim_ to `(fov!=0)` (the m_flAimTimer branch is held above)
++ documented 0x478. NEXT: add `m_szAnimOverride` (player+0x478), find its SETTER in the .so (what writes it on
+melee-deploy / block — decompile CTSGun deploy + the melee path), wire Animate case-1/6 to play it, and set it
+empty-grip+override for knife/katana. THAT (not removing routing) is the faithful rebuild. The "fire anim doesn't
+play" is likely a separate grip/sequence-name/server-exec detail — compare OUR pev->sequence on fire vs the
+original (watchpoint, scripts saved) before more changes.

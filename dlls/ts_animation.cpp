@@ -544,7 +544,12 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		return;
 	}
 
-	const bool aiming = (pev->button & IN_ATTACK) != 0;
+	// RE Animate@0x5b470 case 1/6: aim_ when (m_flAimTimer>=0.01 || fov!=0), NOT the attack button. The
+	// m_flAimTimer>=0.01 case is intercepted by the hold above (we keep the shoot_/relo_ pose); here that
+	// leaves the zoom (fov) case — a scoped player shows the aim pose. (Original ALSO consults a per-frame
+	// player anim-override string player+0x478 — empty>idle_+grip, non-empty>play it directly; we don't model
+	// that member yet — it's what drives the knife/katana idle + the melee block. TODO: add m_szAnimOverride.)
+	const bool aiming = (pev->fov != 0);
 	if (ducking)
 		strcpy(name, aiming ? "crouch_aim_" : "duck_idle_");
 	else
