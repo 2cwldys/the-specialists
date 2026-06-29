@@ -47,6 +47,38 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.78, 2026-06-29) — playtest fixes landed; CTSAnimation needs a LIVE-TRACE pass
+
+Branch `restructure-source-parity` (NOT merged; GPG off). The user PLAYTESTED cont.74-77 in graphical xash and
+the session fixed a run of real bugs (all committed, build `scripts/build.sh amd64 all` clean). Read the
+**`.serena/memories/ledger.md`** tail (the playtest findings + the CTSAnimation spec) first.
+
+### Playtest bugs FIXED this session (validated or pending re-test — see ledger)
+- ✅ DM ~5s teleport (round-restart fired in plain DM) — gated to round modes (`dff06ec`, user-validated).
+- ✅ Round clock missing on team maps — RestartRound now routes through StartRoundTimer (`f721c00`).
+- ✅ Stock bottom HUD duplicated TS HUD — suppressed stock CHudHealth/Ammo/AmmoSecondary Draw (`b543be6`).
+- ✅ Brass casings stopped — TS never precached models/shell.mdl (`3b3708c`).
+- ✅ Dropped weapons vanished in 5s — registered the original's `weaponstay` cvar (default 15) (`1fcd627`).
+- ✅ Akimbo/gold fire SILENT until reload — per-barrel leftClip/rightClip aren't in the prediction data; the
+  client's predicted AkimboFire saw 0/0 + empty-returned. Reconstruct them in SetWeaponData from m_iClip (`7999cc8`).
+
+### ⭐ IMMEDIATE NEXT: CTSAnimation 3rd-person — do a LIVE-TRACE pass (the user is waiting on this)
+The 4-region Animate rewrite was REVERTED (`6a8ca20`) — it relied on `m_fSequenceFinished` for the hold guards,
+but that's NOT reliably advanced for the SERVER-side player model → froze stunts/idle. The full RE is sound
+(`scratchpad/dossier-ctsanimation.md` — REGENERATE, scratchpad is session-local). The user gave 6 precise
+3rd-person observations (dive-crouch, getup-stays-ducked, fire-anim-doesnt-play [PRE-EXISTING], knife idle =
+kungfu combat_idle, katana dedicated idle, melee BLOCK on reload) — recorded as a SPEC in the ledger
+("CTSAnimation — 3rd-person playtest observations"). DO NOT guess (guessing caused the regressions): live.py +
+binmap CTSAnimation::Animate on the running original, user reproduces each action, read the activity arg +
+resulting pev->sequence/gaitsequence, THEN reconcile minimally. The hold guard must NOT use m_fSequenceFinished
+(use the leg-timer / an iuser4 stunt bit).
+
+### Audit still clean (the trustworthy driver)
+`0 missing/invented classes · 19 missing methods · 42 invented · 0 missing members · 43 real missing free funcs
+(+38 Write_ consolidated) · 22 file mismatches`. Remaining = genuine-RE (needs Ghidra) or playtest-gated.
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.77, 2026-06-29) — pickup for the next orchestrator (cont.76 = me; available for consult)
 
 **You ARE the orchestrator — continue as if you never stopped.** Branch `restructure-source-parity` (NOT merged;
