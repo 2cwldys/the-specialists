@@ -149,8 +149,17 @@ as memory `members-globals-signal-hidden-logic`). Each class drops a keepalive b
   overload), GetTeamCash (player's team-pool cash; the cash economy is hard-OFF so returns 0), and InitTeamScore/
   UpdateTeamScores (**NO-OP stubs in the original**). Added m_teamCash[]. InitTeams now drives SetTeamList/SetTeamModelList;
   the rest wired to faithful callers (GetTeamsNum->InitHUD, GetTeamCash->PlayerSpawn[inert@0], InitTeamScore->Init,
-  UpdateTeamScores->ResetRestartRound) so --gc-sections keeps them. **Remaining CTSGameRules gap (8):** voting
-  (CheckVotes/PlayerVote), TheOne (IsCTB/SelectRandomTheOne/SetPlayerTheOne/TheOneIsDead), GetPlayerModel, TogglePlayerFromSlow.
+  UpdateTeamScores->ResetRestartRound) so --gc-sections keeps them.
+- **CTSGameRules COMPLETE — 39/39 methods, 0 missing (b48ecbf/92256db/cc7059b).** Finished the last 3 subsystems:
+  **TheOne juggernaut** (IsCTB[ts_briefcase cache]/SelectRandomTheOne[throttled crown]/SetPlayerTheOne[buff: health 150+
+  regen+kungfu+low-grav+maxspeed 330]/TheOneIsDead[killer inherits]; +CBasePlayer m_bTheOne; wired Think+PlayerKilled);
+  **GetPlayerModel**(random team model, wired AssignToTeam) + **TogglePlayerFromSlow**(GoSlow(1,0), wired PlayerKilled);
+  **voting** (PlayerVote['vote reset|stats|map <name>', IS_MAP_VALID] + CheckVotes[10s tally of map/ff/teamplay votes ->
+  majority=CalcMiniminVotants=max(votants/2,1) -> mp_friendlyfire/mp_teamplay/next-map]; wired ClientCommand 'vote' + Think).
+  CTSGameRules went **12/39 -> 39/39 this session** via 5 subsystems (objective, round-restart, team-cash/list, TheOne,
+  voting). The 12 "invented" methods are legit: stock virtual overrides (PlayerKilled/PlayerSpawn) + TS team helpers
+  (AssignToTeam/IsTeamMode/GetIndexedTeamName/GetTeamID/RecountTeams/etc.) under our reconstruction names. SLICEs noted in
+  commits (cash refund/observer, ff/teamplay vote commands, next-map application, the_one powerup value). UNPLAYTESTED.
   derives CTSObjective; needs +Save/Restore(hacksec)+EnableObjective+ObjectCaps(0x10) and to dissolve our invented
   HackTouch into the original's **Use** (a 688-byte hack-interaction method) + the WaitThink countdown-to-Freeze model
   (EnableObjective seeds field_0x6c timer; WaitThink decrements each sec -> Freeze(true) at 0). Decompile: scratchpad/hack.c.
