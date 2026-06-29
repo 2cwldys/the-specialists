@@ -528,3 +528,30 @@ void CBasePlayer::DropArmor()
 	pev->armorvalue = 0;
 	EMIT_SOUND(ENT(pev), CHAN_BODY, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
 }
+
+// @0x846f0 DropAmmo — drop the active gun's per-caliber reserve as a CTSAmmoPack (no-op if empty),
+// tossed in a random nearby direction, then clear the reserve.
+void CBasePlayer::DropAmmo()
+{
+	CTSGun *pGun = GetPlayerTSGun(this);
+	if (!pGun)
+		return;
+
+	bool any = false;
+	for (int c = 0; c < TS_NUM_CALIBERS; c++)
+		if (pGun->m_ammoReserve[c] > 0)
+		{
+			any = true;
+			break;
+		}
+	if (!any)
+		return;
+
+	Vector angles(RANDOM_FLOAT(-100, 100), RANDOM_FLOAT(-100, 100), 0);
+	UTIL_MakeVectors(angles);
+	Vector origin = pev->origin + gpGlobals->v_forward * 8.0f + gpGlobals->v_right * 8.0f;
+
+	CTSAmmoPack::CreateAmmoPack(pev, pGun->m_ammoReserve, 0, origin, g_vecZero);
+	for (int c = 0; c < TS_NUM_CALIBERS; c++)
+		pGun->m_ammoReserve[c] = 0;
+}
