@@ -85,6 +85,32 @@ RAW damage = a real gameplay gap), gamerules pieces (DecideGamePlay/TSSelectSpaw
 helpers (CanJumpHigh/FixVelocity/PseudoClimb — adjacent addrs, need Ghidra), melee Victim*Hold + FindHullIntersectionplayer
 (playtest-gated). UNSURE to settle via Ghidra: CalcSpread vs our ScaleSpread; DropKickback vs our VKickback.
 
+### ⭐ FIRST PLAYTEST of cont.74–77 (user-driven, graphical xash) — VALIDATED + bug list
+**VALIDATED (working):** breakables shatter ✓; weapon throw arc/spin/drop-sound ✓ (the cont.76 ThrowWeapon
+velocity formula is CONFIRMED); slow-motion ✓; no unknown-command spam ✓; dive FIRST-person ✓.
+**BUGS found (root causes diagnosed, fixes NOT yet made — need RE/live-trace, don't guess):**
+1. **Round clock (top) gone** — `m_flRoundEnd` (the round timer) is armed ONLY for team/lms modes
+   (`ts_gamerules.cpp:384` DecideGamePlay `if (IsTeamMode() || lms)`, and `:731` StartRoundTimer gated
+   `IsTeamMode()`). User's current mode arms neither → no RoundTime msg → no clock. RoundTime is registered +
+   client-hooked fine (cl_dll/roundtime.cpp). User sees round SUMMARIES (CheckDeads resolves rounds w/o a
+   timer). ACTION: determine which TS mode the test is in + RE whether the original arms the round timer there
+   (theOne/DM round modes) — likely the cont.76 IsTeamMode gating is too narrow.
+2. **Thrown weapon never settles + despawns ~2s** — `CTSWorldGun::Spawn` uses a ZERO-size bbox
+   (`UTIL_SetSize g_vecZero`) so the engine never sets FL_ONGROUND → `Fall()`'s settle gate
+   (`FL_ONGROUND && vel<3`) never fires → slides until `m_flExpire` removes it. AND the lifetime reads
+   `CVAR_GET_FLOAT("weaponstay")` but we only register `mp_weaponstay` (stock name) → returns 0 → clamped 5s.
+   The original registers `weaponstay` (it's in coverage's MISSING server cvars). ACTION: RE the original
+   worldgun bbox + settle + lifetime (dc.sh server 0xa0954 Spawn / 0xa0d84 Fall — first cut captured but messy).
+3. **Spectate auto-jumps to a spawn after ~5s (force-respawn) w/o pressing fire; timer resets to 2s** — the
+   spawn-gate flow (m_flSpawnGateTime / TSSpectateThink / TSEnterSpectate); auto-spawns w/o IN_ATTACK. Needs
+   live-trace of the original spectate flow. (TSSpectateThink only spawns on IN_ATTACK, so the auto-spawn is elsewhere.)
+4. **Stock bottom HUD shows** — user wants the STOCK HL health/ammo HUD removed entirely (TS has its own).
+   Client-side gate (cl_dll). Tractable.
+5. **Loadout intermittent at first-join** (works most times) — buy-menu/loadout send race (the TSSendBuyMenu
+   re-send-each-tick code already hints at known timing fragility).
+6. **Dive 3rd-person looks like crouch** (1st-person spot-on) — `CTSAnimation::Animate` (gait/anim) NOT ported
+   (known, VERIFICATION.md). Cosmetic.
+
 ### NEXT (the audit is now an honest driver — remaining work is genuine-RE or playtest-gated)
 The 42 invented are mostly keepable helpers + visible virtual overrides; only the 6 drift are actionable and
 playtest-gated. The 43 real free funcs are genuine RE (range-damage falloff is the notable gameplay gap) +
