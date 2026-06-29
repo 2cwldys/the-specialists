@@ -782,6 +782,11 @@ void ClientCommand(edict_t* pEntity)
 		// behind them (silencer/scope toggle, stunts) is follow-on work.
 		// See reference/API_SURFACE.md.
 	}
+	else if (FStrEq(pcmd, "vote"))
+	{
+		// `vote reset|stats|map <name>` — the TS voting system.
+		TSGameRules()->PlayerVote(pEntity, CMD_ARGS() ? CMD_ARGS() : "");
+	}
 	else if (g_pGameRules->ClientCommand(player, pcmd))
 	{
 		// MenuSelect returns true only if the command is properly handled,  so don't print a warning

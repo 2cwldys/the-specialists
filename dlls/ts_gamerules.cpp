@@ -540,6 +540,113 @@ void CTSGameRules::TheOneIsDead(CBasePlayer *pDead, CBasePlayer *pKiller)
 	}
 }
 
+//============================================================================
+// Voting — per-player map / friendly-fire / teamplay votes, tallied to a majority.
+//============================================================================
+
+// @0x6a1b0 CalcMiniminVotants — votes needed to pass = half the votants (at least 1).
+static int CalcMiniminVotants(int votants)
+{
+	int n = votants / 2;
+	return n < 1 ? 1 : n;
+}
+
+// @0x6a1c8 PlayerVote — a player's `vote <...>` console command: reset / stats / map <name>.
+int CTSGameRules::PlayerVote(edict_t *pEntity, const char *pCmd)
+{
+	if (!pEntity || !pCmd)
+		return 0;
+	int idx = ENTINDEX(pEntity) - 1; // 0-based player slot
+	if (idx < 0 || idx >= 32)
+		return 0;
+	entvars_t *pev = &pEntity->v;
+
+	if (strstr(pCmd, "reset"))
+	{
+		m_voteMap[idx][0] = '\0';
+		m_voteFF[idx] = 0;
+		m_voteTP[idx] = 0;
+		ClientPrint(pev, HUD_PRINTTALK, "Your votes are resetted.\n");
+		return 1;
+	}
+	if (strstr(pCmd, "stats"))
+	{
+		ClientPrint(pev, HUD_PRINTTALK, "No votes in progress.\n"); // SLICE: original lists live tallies
+		return 1;
+	}
+	const char *pMap = strstr(pCmd, "map");
+	if (!pMap)
+		return 0;
+	char name[32] = {0};
+	strncpy(name, pMap + 3, sizeof(name) - 1);          // after "map"
+	while (name[0] == ' ') memmove(name, name + 1, strlen(name)); // ltrim
+	for (int i = (int)strlen(name) - 1; i >= 0 && (name[i] == ' ' || name[i] == '\n'); i--)
+		name[i] = '\0';                                  // rtrim
+
+	if (!stricmp(name, STRING(gpGlobals->mapname)))
+		ClientPrint(pev, HUD_PRINTTALK, UTIL_VarArgs("%s is the current map!\n", name));
+	else if (IS_MAP_VALID(name))
+	{
+		strncpy(m_voteMap[idx], name, sizeof(m_voteMap[idx]) - 1);
+		UTIL_ClientPrintAll(HUD_PRINTTALK, UTIL_VarArgs("%s vote for map %s\n", STRING(pev->netname), name));
+	}
+	else
+		ClientPrint(pev, HUD_PRINTTALK, UTIL_VarArgs("%s is an invalid map\n", name));
+	return 1;
+}
+
+// @0x6a5c4 CheckVotes — every ~10s, tally the players' votes; apply each category that reached the
+// majority (mp_friendlyfire / mp_teamplay cvars, or the next map).
+void CTSGameRules::CheckVotes()
+{
+	if (gpGlobals->time < m_flNextVoteCheck)
+		return;
+	m_flNextVoteCheck = gpGlobals->time + 10.0f;
+
+	int votants = 0, ffOn = 0, ffOff = 0, tpOn = 0, tpOff = 0;
+	char maps[32][32];
+	int  mapVotes[32];
+	int  nMaps = 0;
+
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBaseEntity *p = UTIL_PlayerByIndex(i);
+		if (!p || !p->IsNetClient())
+			continue;
+		int idx = i - 1;
+		if (idx < 0 || idx >= 32)
+			continue;
+		votants++;
+		if (m_voteFF[idx] == 1) ffOn++;  else if (m_voteFF[idx] == 2) ffOff++;
+		if (m_voteTP[idx] == 1) tpOn++;  else if (m_voteTP[idx] == 2) tpOff++;
+		if (m_voteMap[idx][0])
+		{
+			int m = 0;
+			for (; m < nMaps; m++)
+				if (!strcmp(maps[m], m_voteMap[idx])) { mapVotes[m]++; break; }
+			if (m == nMaps && nMaps < 32)
+			{
+				strncpy(maps[nMaps], m_voteMap[idx], sizeof(maps[0]) - 1);
+				maps[nMaps][sizeof(maps[0]) - 1] = '\0';
+				mapVotes[nMaps++] = 1;
+			}
+		}
+	}
+
+	const int need = CalcMiniminVotants(votants);
+	if (ffOn >= need)  { CVAR_SET_FLOAT("mp_friendlyfire", 1); UTIL_ClientPrintAll(HUD_PRINTCENTER, "Friendly fire enabled.\n"); }
+	else if (ffOff >= need) { CVAR_SET_FLOAT("mp_friendlyfire", 0); UTIL_ClientPrintAll(HUD_PRINTCENTER, "Friendly fire disabled.\n"); }
+	if (tpOn >= need)  { CVAR_SET_FLOAT("mp_teamplay", 1); UTIL_ClientPrintAll(HUD_PRINTCENTER, "TeamPlay in DM maps enabled, wait next map.\n"); }
+	else if (tpOff >= need) { CVAR_SET_FLOAT("mp_teamplay", 0); UTIL_ClientPrintAll(HUD_PRINTCENTER, "TeamPlay in DM maps disabled, wait next map.\n"); }
+
+	// the most-voted map, if it reached the majority -> the next map (applied at map end).
+	int best = -1, bestVotes = 0;
+	for (int m = 0; m < nMaps; m++)
+		if (mapVotes[m] > bestVotes) { bestVotes = mapVotes[m]; best = m; }
+	if (best != -1 && bestVotes >= need)
+		strncpy(m_szNextMap, maps[best], sizeof(m_szNextMap) - 1);
+}
+
 // @ PutPowerUp__12CTSGameRulesi — spawn a powerup at a random info_player_deathmatch
 // spawn point. Skips the spot if a ts_powerup is already nearby (so dynamically-spawned
 // powerups don't stack). Returns true if one was created.
@@ -621,6 +728,8 @@ void CTSGameRules::Think()
 	// "The One" juggernaut mode: keep a buffed One designated (unless it's capture-the-briefcase).
 	if (CVAR_GET_FLOAT("the_one") != 0.0f && !IsCTB())
 		SelectRandomTheOne();
+
+	CheckVotes(); // tally the players' map/ff/teamplay votes (self-throttled to ~10s)
 
 	if (gpGlobals->time < m_flNextPowerupSpawn)
 		return;

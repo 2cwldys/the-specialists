@@ -139,6 +139,15 @@ public:
 	bool  m_bCTBChecked = false;       // IsCTB cache validity
 	bool  m_bHasBriefcase = false;     // IsCTB cache: a ts_briefcase exists
 
+	// --- Voting (per-player map / friendly-fire / teamplay votes; tallied to a majority). ---
+	int  PlayerVote(edict_t *pEntity, const char *pCmd); // @0x6a1c8 — a player's `vote ...` command
+	void CheckVotes();                                   // @0x6a5c4 — tally votes (throttled), apply on majority
+	char m_voteMap[32][32] = {};       // each player's voted next map ("" = none) [field_0x684]
+	byte m_voteFF[32] = {};            // each player's friendly-fire vote (0 none / 1 on / 2 off) [field_0x6c4]
+	byte m_voteTP[32] = {};            // each player's teamplay vote (0 none / 1 on / 2 off) [field_0x6c5]
+	float m_flNextVoteCheck = 0;       // CheckVotes throttle (every ~10s) [field_0xf84]
+	char m_szNextMap[32] = {};         // the map a majority voted for (applied at map end) [field_0x1824]
+
 	// --- Objective subsystem (the HUD objective list + the round's objective managers). The cluster
 	// entities (ts_objective_ptr/hack/wingiver/bomb) drive the HUD through these. ---
 	// One HUD-list entry: the objective + a per-team label string (string-pool index by team).
