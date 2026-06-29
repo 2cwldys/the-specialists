@@ -58,6 +58,24 @@ files** (CBulletManager/the HUD client.dll classes). **The drop-in METHOD: audit
 "missing" = MOVE existing logic or RE.** ~9 commits this sub-session; all build amd64 server+client (glibc 2.14).
 **ALL UNPLAYTESTED — flag before merge.**
 
+### Worldgun throw/drop reconcile + the drop-in-compatibility principle (cont.76 tail), commits `cd892da`,`b34ef52`
+User feedback crystallized the cardinal rule (memory `mimic-original-mechanism-for-dropin`): **mimic the original's
+mechanism exactly — don't substitute our own — because drop-in client/server compatibility needs the contract to match.**
+Applied to the weapon drop (dossier `scratchpad/dossier-throwchain.md`):
+- Split our 4-arg `CTSWorldGun::CreateWeapon(type,status,origin,velocity)` → the original **3-arg
+  `CreateWeapon(owner,type,status)`** (@0x907ec) that sets NO origin/velocity (caller's job) and RESTORED what we were
+  missing: `pev->owner`, the dropped model's **skin from the dropper**, the **type-0x1d glow shell**.
+- Added the real **`CBasePlayer::ThrowWeapon`** (@0x8529c) — the throw primitive (DropWeapon is its sole caller): angles
+  (alive=view+offset / dead=random), CreateWeapon, origin=eye+16*fwd+lateral, **random avelocity tumble** (we weren't
+  spinning the gun), then velocity. DropWeapon's branches + the death scatter route through it (TSThrowWorldGun is now a
+  thin wrapper); the playtested akimbo item bookkeeping is untouched.
+- **Drop sound `items/weapondrop1.wav` → `weapons/weapondrop.wav`** — a real swap-contract bug (the original asset).
+- **Throw velocity** was flagged "needs a live trace," then RESOLVED by decoding the @0x85359/@0x853c1 x87 asm + reading
+  the `.rodata` floats (0.9@0xf7f44, 0.33@0xf92f0, 90.0, 16.0) — ground truth, no guess:
+  `velocity = 0.9*playerVelocity + S*v_forward + (0,0,0.33*S)`; alive `S=(90-pitch)*2`, dead `S=RandomLong(60,160)`.
+  (.rodata-float recipe: file offset = vaddr - .rodata_vaddr + .rodata_fileoff; GOT base ebx≈0x165e10 so `-0xNNNN(%ebx)`
+  = 0x165e10-0xNNNN.) CBasePlayer 100/120. ~32 commits total this session; HANDOFF cont.76 written for the next agent.
+
 ---
 
 ## 2026-06-29 (cont. 75) — source-parity restructure cont.: the CTF cluster, bottom-up (1:1)

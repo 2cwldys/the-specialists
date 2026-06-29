@@ -47,6 +47,142 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.76, 2026-06-29) — pickup for the next orchestrator (cont.75 = me; available for consult)
+
+**You ARE the orchestrator and the previous agent (cont.75) — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF — `git config --local commit.gpgsign false`, keep it
+off). Read this section + the `.serena/memories/ledger.md` cont.75 entries first. ~32 commits this session
+(`2969215..b34ef52`), every one builds `scripts/build.sh amd64 all` clean (glibc 2.14). **EVERYTHING THIS SESSION IS
+UNPLAYTESTED — a live pass is the gate before merge (task #9).**
+
+⚠ **SERENA ONE-LINE-JSON GOTCHA:** read the ledger with the **Read tool on `.serena/memories/ledger.md`**, NOT
+`read_memory("ledger")` — the MCP returns one giant single-line `{"result":"…"}` (~200 KB) that overflows the read
+limit. Same for any large memory (`jq -r '.result'` a saved copy if you must use the MCP).
+
+### THE MISSION (yours), with the user's sharpened feedback baked in — read this twice
+Make OUR code match the original's structure **1:1 at every level — file → class → methods → variables → globals →
+free functions** — nothing the original has that we lack, nothing we have that it doesn't (for pure-TS surface; stock
+SDK classes keep their stock surface). The DRIVER is now **trustworthy** (see below). The user's exact directives:
+1. **Audit EVERYTHING, bidirectionally.** Filenames, the classes in them, each class's methods + variables, the globals,
+   the free functions. **If something the original has doesn't exist in ours, that is a SIGNAL of a potential logic
+   mismatch → re-RE it.** A missing/extra member or global often flags mismatched LOGIC elsewhere (the worldgun
+   `s_weapon_status` that turned a "missing member" into the whole drop-the-full-item path; the `CashBased()` buy-gate
+   that consumed the "unused" members). Drive to N/N — never paper over. (memory `members-globals-signal-hidden-logic`.)
+2. **The logic is OFTEN already implemented — just `static`/inlined/renamed/as-a-method/misplaced. So a "missing"
+   symbol usually means MOVE it into the faithful shape, NOT rewrite it.** This was the dominant pattern this session
+   (slow-math was scattered static+inlined; GetSpeedBySlots was our `TSSlotBaseSpeed`; DropWeapon/CutWire were free
+   functions; StopObserver was our TSLeaveSpectate). ALWAYS grep our code for the logic before RE-ing from scratch.
+3. **VARIABLE/MEMBER NAMES must match the original's FGD/save names** — `audit.py` matches members BY NAME, so a
+   faithfully-functional-but-mis-named member reads as missing+invented. Recover the name from the decompiled
+   `KeyValue`/save-table and rename ours (we did `m_flDuration`→`duration`, `m_flSlowAmount`→`slow_ammount` keeping the
+   orig's typo, `TSSlotBaseSpeed`→`GetSpeedBySlots`, etc.). (memory `match-original-names-for-coverage`.)
+4. **MIMIC THEIRS for drop-in compatibility (the cardinal rule).** The goal: our client is a drop-in swap for the
+   original client, our server for the original server — run our client against the original server (or vice-versa) and
+   behaviour is identical. So when the original does something a particular way — ESPECIALLY anything crossing the
+   client↔server boundary (commands, user-messages, events, button/usercmd handling, asset names, who-decides-what) —
+   **do NOT substitute a different-but-equivalent mechanism; RE theirs and mimic it exactly.** If you catch yourself
+   "doing it our way," VERIFY which side does what in the original first. (memory `mimic-original-mechanism-for-dropin`.
+   Worked example this session: powerup double-tap +use — verified the original uses the `usepowerup` COMMAND (client
+   detects → server handles), `TSUse` is uncalled dead code, so our command path already matches; AND the drop-sound
+   `weapons/weapondrop.wav` vs our wrong `items/weapondrop1.wav` was a real swap-contract bug, fixed.)
+5. **Don't make shit up vs the RE.** When static RE dead-ends (esp. on a constant/formula), trace the running original
+   (`scripts/live.py`, the user keeps `hl.exe` running) or decode the raw x87 asm + `.rodata` constants — DON'T guess.
+   This session the ThrowWeapon throw-velocity was flagged "needs live trace," then resolved by decoding the asm +
+   reading the float constants (0.9/0.33/90/16) — ground truth from the binary, no guess. (memories `flag-unfound-re-early`,
+   `live-original-ts-debuggable`.)
+- **Keep going until ~90% context.** One class/cluster at a time, bottom-up (dependencies first).
+
+### ⭐ THE DRIVER IS NOW TRUSTWORTHY — `audit.py` + `srcparse.py` (the cont.76 tooling win)
+The audit had blind spots that polluted MISSING/INVENTED with false positives (so "is anything missing?" couldn't be
+answered cleanly). FIXED this session — **the numbers are now real**:
+- **NEW `scripts/coverage/srcparse.py`** — a single-pass tokenizer (handles line/block comments + string/char literals
+  so braces never desync) that brace-scans BOTH `.cpp` and `.h`, yielding per-class **members** (from `.cpp` too — the
+  big old blind spot), the class→base **hierarchy**, **in-body (inline) methods**, and file-scope **free functions**.
+  (A naive regex was leaking quotes from `//` comments across newlines and silently dropping whole classes — class
+  discovery 240→505. Don't regress this.)
+- **`scripts/coverage/audit.py`** now: members from `.cpp` too; methods resolve through **inheritance + inline** (so
+  CLadder/CTriggerPush/GetNextBestWeapon etc. no longer false-flag); a NEW **free-function level** diffs each
+  `TS_*.cpp`'s free/static functions vs our build symbols. Run `audit.py <Class>` for one class (reliable now),
+  `audit.py` for the full `reference/coverage/AUDIT.md` + headline, `audit.py --strict` as the CI gate.
+- **Current honest headline:** `0 missing / 0 invented classes · 20 missing methods · 104 invented methods · 19 missing
+  members · 94 missing free functions · 22 file mismatches · 2 missing files`. The remaining are now REAL work, NOT
+  tooling noise (the few exceptions — `.cpp`-declared stock classes' member counts, the CTSObjectiveManager DEFINE_ARRAY
+  artifact, the CTSPhysicObject curator mis-hoist — are known-false, see the per-class output / memory `audit-py-blind-spots`).
+
+### ⭐ THE LOOP (per class/cluster) — repeat this
+`audit.py <Class>` → for each MISSING: **first grep OUR code** (is it static/inlined/renamed/a-free-function/a-method?
+→ MOVE/rename it; the loop's most common case) → else RE it (small: `scripts/ghidra/re.sh <Class>` yourself; big class
+or cluster: spawn a **dossier subagent**, see the hint below) → reconcile into the original's exact method/member/name
+layout, **mimicking the original's mechanism** → `scripts/build.sh amd64 [all if client.so too]` → `audit.py <Class>`
+0/0 → commit. The free-function level uses the same loop per `TS_*.cpp` file.
+
+### ⭐ THE SUBAGENT-DOSSIER HINT (this is how the whole session scaled — KEEP USING IT)
+For a big class or an interrelated cluster (CTF cluster, CTSGun tail, the stock-class gaps, the worldgun throw/drop/
+create chain — all done this way), spawn a **`general-purpose`** subagent so the raw decompiles stay out of YOUR
+context. Prompt template (adapt per target):
+> "READ-ONLY reverse-engineering for mod-ts (reconstructing The Specialists — binaries the user OWNS — from
+> `reference/ts_i386.so`). Produce a tight markdown DOSSIER; do NOT edit source. DECOMPILE `<methods/classes>` via the
+> typed Ghidra `re` project (ALREADY BUILT — do NOT `re.sh setup`; it's **single-writer**, run ONE `re.sh`/`dc.sh` at a
+> time). `scripts/ghidra/dc.sh server 0x<nm-addr>` (adds 0x10000) per addr, or `re.sh <Class>` for a whole class.
+> Capture each decompile to `…/scratchpad/<x>.c` and grep/read it YOURSELF — do NOT paste raw decompile. For EACH
+> method: signature, step-by-step, the OTHER methods it calls, member accesses (offset+meaning), gmsg user-messages
+> (name + exact wire format), string/const literals. ENUMERATE every member (offset/type/real-name) + file-scope
+> globals + FREE FUNCTIONS. WRITE the dossier to `…/scratchpad/dossier-<x>.md` with per-method + MEMBERS + GLOBALS +
+> FREE-FUNCS + a DIFF-vs-our-source + a RECONCILE PLAN (note behavior-preserving vs needs-playtest). Reply with only a
+> ~12-line summary."
+⚠ **Single-writer lock:** only ONE thing touches the `re` project at a time. A Ghidra subagent can't overlap your own
+`re.sh`/`dc.sh`. The Ghidra GUI/MCP holding `re` blocks headless too (close it first). `dc.sh client`/`dc.sh mp` use
+separate projects. The scratchpad is SESSION-LOCAL — dossiers from a prior session are gone; regenerate via a subagent.
+
+### Done this session (cont.76) — FULL per-unit detail + commit hashes in the ledger; scoreboard:
+- **Trustworthy audit** (`a77ff52`): srcparse.py + audit.py free-function level + inheritance/inline + the c++filt
+  spacing-bug fix. THE foundational win — the audit is now a reliable work-list.
+- **CTF cluster → 1:1** (`a4254ec`): s_flag_status value-carry model, CTSBriefcase 6/6, CTSFlag 15/15, CBasePlayer
+  TakeFlag/DropFlag/HaveFlag, the -20 slot-weight encumbrance.
+- **Stock-SDK class gaps closed + match-verified** (`50a6963`,`6b722f3`,`c3960d8`,`7374852`): CBaseEntity TS base
+  virtuals (GiveSlowMul/GoSlow/InSlow/CanUsedTroughWalls/ShouldCollide/BreakableRespawn/OnFreeEntPrivateData/eoffset,
+  72→80); CBasePlayerWeapon AddWeapon/AlternateAttack; CFuncPlat targettop/targetbot + KeyValue/Save/Restore;
+  CHalfLifeMultiplay::IsValidTeam; **breakable doors** CBaseDoor/CRotDoor (TraceAttack+BreakableRespawn — UNPLAYTESTED,
+  touches every map's doors); **GetGameDescription divergence RESOLVED** (moved to CHalfLifeMultiplay, theOne→LMS→DM, no
+  teamplay branch — the user's "confirm match vs rewritten" ask).
+- **Move-existing-logic parity grind:** slow-math → `ts_shared.cpp` (`70172f1`); GetSpeedBySlots+InitWeaponRestriction
+  (`b79559e`); **CBasePlayer 96→100/120** (DropWeapon/CutWire/SetPlayerSpeed/SetPlayerGravity/PunchScreen/
+  GetMeleeMultiplier/DropArmor/DropAmmo/UpdatePlayerState/Observer_Idle/StopObserver/TSUse/ThrowWeapon — commits
+  `0c89442`,`03adb27`,`44fc97e`,`5236d40`,`945a343`,`0832bda`,`5004e1a`,`578536f`).
+- **Worldgun throw/drop reconcile** (`cd892da`+`b34ef52`): split our 4-arg CreateWeapon → the original 3-arg
+  `(owner,type,status)` factory + restored owner/skin/glow; added the real `CBasePlayer::ThrowWeapon`; fixed the
+  drop-sound swap-contract; recovered the exact throw-velocity formula from the asm (`0.9*playerVel + S*fwd + 0.33*S`
+  up; alive S=(90-pitch)*2, dead S=RandomLong(60,160)). Dossier `scratchpad/dossier-throwchain.md`.
+- **Memory saved:** `mimic-original-mechanism-for-dropin` (the drop-in compatibility principle).
+
+### NEXT — work-list (audit.py-driven; recreate the task entries below). Metrics: 20 missing methods, 104 invented, 94 missing free funcs.
+1. **PLAYTEST PASS (task #9, the GATE).** Everything is validated-vs-RE but UNPLAYTESTED. Confirm a green baseline in
+   graphical xash BEFORE the playtest-gated reshapes: breakable doors, CTF, slow-motion, the weapon throw (arcs
+   forward+up, spins, right sound), CTSGameRules round/objective/team/TheOne/voting, grenade, AmmoPack armor. The user
+   fires changes live in xash (`test.sh`); the original TS runs in `hl.exe` for live gdb traces (`scripts/live.py`).
+2. **CBasePlayer 20 missing methods (task #7)** — mostly INLINED in the playtested melee/bullet path (ShootBulletsPlayer,
+   UpdateMeleeBar, BlockPlayer, CloseCombatAttack, ColdCockAttack) → extract carefully ON a green baseline; PickUpWeapon
+   (signature differs from our slice); TSInit (1208B spawn reset — big blast radius); CheckHull/CheckForWires.
+3. **Free-function grind (task #8)** — 94 missing; ~38 are the deliberate `Write_<weapon>` data-table consolidation
+   (NOT gaps). The rest split move-existing (VictimKungfuHold/KnifeHold/KatanaHold inlined in melee; TS_util.cpp helpers)
+   vs genuine-RE (TS_pm_shared.c movement/stunt TSDive/TSWallJump; TS_gun.cpp Sparta/compile_weapons_info/CalcSpread;
+   DecideGamePlay/TSSelectSpawnSpot/GetAccelBySlots).
+4. **Review the 104 invented methods (task #4)** — confirm legit-helper vs drift vs name-mismatch vs needs-moving.
+5. **19 missing members** — mostly known-false (CTSObjectiveManager DEFINE_ARRAY artifact, CTSPhysicObject mis-hoist,
+   `.cpp`-declared stock-class member counts); each still wants a 1-line confirm.
+6. **22 file mismatches, 2 missing files** (CBulletManager grouping, the HUD client.dll classes — client-side track).
+
+### Task-list entries to recreate (the cont.76 tracker — recreate via TaskCreate):
+- `[in_progress]` **"Per-class 1:1 parity loop (audit→RE→reconcile→build→audit→commit)"** — THE recurring driver; keep open.
+- `[pending]` **"PLAYTEST pass before merging restructure-source-parity to main (everything UNPLAYTESTED)"** — the GATE.
+- `[pending]` **"CBasePlayer remaining 20 missing methods (mostly inlined melee/bullet — playtest-gated)"**.
+- `[pending]` **"Free-function move-existing-logic grind (94 missing — ~38 are Write_<weapon> consolidation)"**.
+- `[pending]` **"Review the 104 invented methods (confirm legit-helper vs drift vs name-mismatch)"**.
+- `[pending]` **"CTSGun tail 37/47 (predicted fire/melee/grenade — playtest-gated)"**.
+- `[pending]` **"Client-side parity: HUD handlers for Objective/ShowObj/Wires + per-fire-type events (dc.sh client)"**.
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.75, 2026-06-29) — pickup for the next orchestrator (cont.74 = me; available for consult)
 
 **You ARE the orchestrator and the previous agent (cont.74) — continue as if you never stopped.** Branch
