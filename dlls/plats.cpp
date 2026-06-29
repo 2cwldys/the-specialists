@@ -227,6 +227,11 @@ public:
 	void Precache() override;
 	void Setup();
 
+	bool KeyValue(KeyValueData* pkvd) override; // @0xc252c — TS adds targettop/targetbot
+	bool Save(CSave& save) override;            // @0xc248c
+	bool Restore(CRestore& restore) override;   // @0xc24dc
+	static TYPEDESCRIPTION m_SaveData[];
+
 	void Blocked(CBaseEntity* pOther) override;
 
 
@@ -240,8 +245,33 @@ public:
 	virtual void GoDown();
 	virtual void HitTop();
 	virtual void HitBottom();
+
+	string_t targettop = 0; // FGD "targettop" — fired when the plat reaches the top
+	string_t targetbot = 0; // FGD "targetbot" — fired when the plat reaches the bottom
 };
 LINK_ENTITY_TO_CLASS(func_plat, CFuncPlat);
+
+// @0xc252c — TS adds targettop/targetbot to func_plat (else chain to the base).
+bool CFuncPlat::KeyValue(KeyValueData* pkvd)
+{
+	if (FStrEq(pkvd->szKeyName, "targettop"))
+	{
+		targettop = ALLOC_STRING(pkvd->szValue);
+		return true;
+	}
+	if (FStrEq(pkvd->szKeyName, "targetbot"))
+	{
+		targetbot = ALLOC_STRING(pkvd->szValue);
+		return true;
+	}
+	return CBasePlatTrain::KeyValue(pkvd);
+}
+
+TYPEDESCRIPTION CFuncPlat::m_SaveData[] = {
+	DEFINE_FIELD(CFuncPlat, targettop, FIELD_STRING),
+	DEFINE_FIELD(CFuncPlat, targetbot, FIELD_STRING),
+};
+IMPLEMENT_SAVERESTORE(CFuncPlat, CBasePlatTrain);
 
 
 // UNDONE: Need to save this!!! It needs class & linkage
@@ -462,6 +492,9 @@ void CFuncPlat::HitBottom()
 
 	ASSERT(m_toggle_state == TS_GOING_DOWN);
 	m_toggle_state = TS_AT_BOTTOM;
+
+	if (!FStringNull(targetbot)) // @0xc2bc0 — TS fires the bottom target on arrival
+		FireTargets(STRING(targetbot), this, this, USE_TOGGLE, 0);
 }
 
 
@@ -500,6 +533,9 @@ void CFuncPlat::HitTop()
 		SetThink(&CFuncPlat::CallGoDown);
 		pev->nextthink = pev->ltime + 3;
 	}
+
+	if (!FStringNull(targettop)) // @0xc2d50 — TS fires the top target on arrival
+		FireTargets(STRING(targettop), this, this, USE_TOGGLE, 0);
 }
 
 

@@ -303,6 +303,11 @@ public:
 	virtual bool ExtractAmmo(CBasePlayerWeapon* pWeapon);	  //{ return true; }			// Return true if you can add ammo to yourself when picked up
 	virtual bool ExtractClipAmmo(CBasePlayerWeapon* pWeapon); // { return true; }			// Return true if you can add ammo to yourself when picked up
 
+	// TS base virtuals (weak defaults in the original). AddWeapon = the pickup-into-arsenal hook
+	// (extract ammo, accept); AlternateAttack = the +alt2 hook (CTSGun overrides it). @0xe3654/0xe367c.
+	virtual bool AddWeapon() { ExtractAmmo(this); return true; }
+	virtual void AlternateAttack() {}
+
 	// generic "shared" ammo handlers
 	bool AddPrimaryAmmo(CBasePlayerWeapon* origin, int iCount, char* szName, int iMaxClip, int iMaxCarry);
 	bool AddSecondaryAmmo(int iCount, char* szName, int iMaxCarry);

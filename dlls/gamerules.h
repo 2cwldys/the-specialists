@@ -270,6 +270,9 @@ public:
 
 	bool FShouldSwitchWeapon(CBasePlayer* pPlayer, CBasePlayerItem* pWeapon) override;
 
+	// @0x7b140 — TS rejects the reserved HL model names as team names (blacklist).
+	bool IsValidTeam(const char* pTeamName) override;
+
 	// Functions to verify the single/multiplayer status of a game
 	bool IsMultiplayer() override;
 	bool IsDeathmatch() override;

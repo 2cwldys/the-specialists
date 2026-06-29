@@ -261,6 +261,18 @@ bool CHalfLifeMultiplay::IsMultiplayer()
 	return true;
 }
 
+// @0x7b140 — TS blacklists the reserved Half-Life model names as team names (a player can't
+// name their team after a stock HL model). Any other name is valid.
+bool CHalfLifeMultiplay::IsValidTeam(const char* pTeamName)
+{
+	static const char* const reserved[] = {
+		"barney", "gina", "gman", "helmet", "hgrunt", "recon", "robo", "scientist", "zombie"};
+	for (const char* name : reserved)
+		if (stricmp(pTeamName, name) == 0)
+			return false;
+	return true;
+}
+
 //=========================================================
 //=========================================================
 bool CHalfLifeMultiplay::IsDeathmatch()
