@@ -127,6 +127,16 @@ public:
 	void ResetRestartRound(int depth); // @0x68750 — arm a 1s restart at round end (depth>1 wipes team scores)
 	int  CountPlayers();               // @0x6a154 — number of connected players
 
+	// --- "The One" juggernaut mode (one buffed player; the killer inherits the role). ---
+	bool IsCTB();                                          // @0x67f08 — is this capture-the-briefcase mode
+	void SelectRandomTheOne();                            // @0x6af28 — pick a random player to be The One (throttled)
+	void SetPlayerTheOne(CBasePlayer *pPlayer);           // @0x6b078 — buff `pPlayer` into The One + announce
+	void TheOneIsDead(CBasePlayer *pDead, CBasePlayer *pKiller); // @0x6b258 — clear + hand the role to the killer
+	bool  m_bTheOneActive = false;     // a One is currently designated
+	float m_flNextTheOneSelect = 0;    // SelectRandomTheOne throttle (every ~10s)
+	bool  m_bCTBChecked = false;       // IsCTB cache validity
+	bool  m_bHasBriefcase = false;     // IsCTB cache: a ts_briefcase exists
+
 	// --- Objective subsystem (the HUD objective list + the round's objective managers). The cluster
 	// entities (ts_objective_ptr/hack/wingiver/bomb) drive the HUD through these. ---
 	// One HUD-list entry: the objective + a per-team label string (string-pool index by team).

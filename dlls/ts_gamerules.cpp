@@ -240,6 +240,14 @@ void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvar
 	TSDropWeaponsOnDeath(pVictim);
 	TSDropAmmoOnDeath(pVictim);
 	TSCreateDeadCorpse(pVictim, 15.0f);
+
+	// "The One" mode: if the dead player was The One, clear/hand off the role (the killer inherits it).
+	if (pVictim->m_bTheOne)
+	{
+		CBaseEntity *pK = pKiller ? CBaseEntity::Instance(ENT(pKiller)) : nullptr;
+		TheOneIsDead(pVictim, (pK && pK->IsPlayer()) ? (CBasePlayer *)pK : nullptr);
+	}
+
 	CallCheckDeads(); // team mode: a death may have eliminated a team → resolve the round
 }
 
@@ -447,6 +455,90 @@ void CTSGameRules::ResetRestartRound(int depth)
 	TSHudMessageAll(0, 0xff, 0, 8, 30, "Restarting Round");
 }
 
+//============================================================================
+// "The One" juggernaut mode — one player is buffed into The One; killing them inherits the role.
+//============================================================================
+
+// @0x67f08 IsCTB — capture-the-briefcase mode: a ts_briefcase exists (cached). VERIFY: the original
+// also gates on the game-mode byte == 1.
+bool CTSGameRules::IsCTB()
+{
+	if (!m_bCTBChecked)
+	{
+		m_bHasBriefcase = UTIL_FindEntityByClassname(nullptr, "ts_briefcase") != nullptr;
+		m_bCTBChecked = true;
+	}
+	return m_bHasBriefcase;
+}
+
+// @0x6af28 SelectRandomTheOne — every ~10s, if nobody is The One yet, crown a random eligible (alive,
+// not spectating) player.
+void CTSGameRules::SelectRandomTheOne()
+{
+	if (gpGlobals->time < m_flNextTheOneSelect)
+		return;
+	m_flNextTheOneSelect = gpGlobals->time + 10.0f;
+
+	CBasePlayer *eligible[32];
+	int n = 0;
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
+		if (!p)
+			continue;
+		if (p->m_bTheOne)
+			return; // someone is already The One
+		if (p->IsAlive() && p->pev->iuser1 == 0 && n < 32)
+			eligible[n++] = p;
+	}
+	if (n > 0)
+		SetPlayerTheOne(eligible[RANDOM_LONG(0, n - 1)]);
+}
+
+// @0x6b078 SetPlayerTheOne — buff `pPlayer` into The One (health, regen, low-gravity, speed, kung-fu)
+// and announce it.
+void CTSGameRules::SetPlayerTheOne(CBasePlayer *pPlayer)
+{
+	if (!pPlayer || !pPlayer->IsAlive() || pPlayer->pev->iuser1 != 0)
+		return;
+	pPlayer->m_bTheOne = 1;
+	pPlayer->pev->health = 150.0f;
+	pPlayer->m_flHealthRegen = gpGlobals->time + 1.0f;
+	pPlayer->m_iKungFu = 1;
+	pPlayer->m_bLowGravity = 1;
+	pPlayer->pev->maxspeed = 330.0f; // SLICE: original CBasePlayer::SetPlayerSpeed(330)
+	if (pPlayer->m_iPowerups == 0 && pPlayer->m_iHeldPowerup == 0)
+	{
+		pPlayer->m_iHeldPowerup = 8; // VERIFY: the recovered held-powerup value
+		pPlayer->m_flPowerupExpireTime = 0;
+		pPlayer->m_flPowerupTime = 3;
+	}
+	m_bTheOneActive = true;
+	TSHudMessageAll(100, 0x96, 0xff, 1, 30,
+		UTIL_VarArgs("%s is The One!", STRING(pPlayer->pev->netname)));
+	UTIL_LogPrintf("Player \"%s\" triggered \"the_one\"\n", STRING(pPlayer->pev->netname));
+}
+
+// @0x6b258 TheOneIsDead — The One died: clear the role; if a player killed them, that killer becomes
+// the new One.
+void CTSGameRules::TheOneIsDead(CBasePlayer *pDead, CBasePlayer *pKiller)
+{
+	m_bTheOneActive = false;
+	if (!pDead)
+		return;
+	pDead->m_bTheOne = 0;
+	if (CVAR_GET_FLOAT("the_one") == 0.0f)
+		return;
+	if (!pKiller || pDead == pKiller)
+		TSHudMessageAll(100, 0x96, 0xff, 1, 30, "The One is dead.");
+	else
+	{
+		TSHudMessageAll(100, 0x96, 0xff, 1, 30,
+			UTIL_VarArgs("The One was killed by %s!", STRING(pKiller->pev->netname)));
+		SetPlayerTheOne(pKiller);
+	}
+}
+
 // @ PutPowerUp__12CTSGameRulesi — spawn a powerup at a random info_player_deathmatch
 // spawn point. Skips the spot if a ts_powerup is already nearby (so dynamically-spawned
 // powerups don't stack). Returns true if one was created.
@@ -524,6 +616,10 @@ void CTSGameRules::Think()
 		else if (gpGlobals->time >= m_flRoundEnd)
 			RoundTimeLeft();
 	}
+
+	// "The One" juggernaut mode: keep a buffed One designated (unless it's capture-the-briefcase).
+	if (CVAR_GET_FLOAT("the_one") != 0.0f && !IsCTB())
+		SelectRandomTheOne();
 
 	if (gpGlobals->time < m_flNextPowerupSpawn)
 		return;

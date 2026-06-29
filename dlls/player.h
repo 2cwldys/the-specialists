@@ -391,6 +391,7 @@ public:
 	int m_iClientBulletTime = -1;     // 0x174 — last-sent bullet-time flag (gmsgTSBulletTime)
 	byte m_iKungFu = 0;               // 0x74e — kung-fu state (kung-fu powerup)
 	byte m_bLowGravity = 0;           // 0x74f — super-jump powerup active (engine physinfo "mj")
+	byte m_bTheOne = 0;               // 0x7b9 — this player is "The One" (the juggernaut game mode)
 	float m_flKungFuBlock = 0;        // close-combat BLOCK window expire time (RE CCombatBlock player+0x7a8)
 	float m_flSuperJumpFuel = 0;      // super-jump remaining lift time (refills on the ground)
 	float m_flNextPainTime = 0;       // cooldown for the TS pain voice (player/pain1-4)
