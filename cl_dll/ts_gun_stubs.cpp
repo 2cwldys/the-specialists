@@ -25,7 +25,6 @@
 // --- 3rd-person player animation (ts_animation.cpp, server-only) — the client doesn't drive
 // other players' gait from prediction; the server replicates it. No-op client-side.
 void CTSAnimation::Animate(CBasePlayer *, int) {}
-void CTSAnimation::PlayKungFu(CBasePlayer *, const char *, float) {}
 
 // --- powerup query (ts_player.cpp): the double-fire-rate powerup isn't shipped to client
 // prediction yet, so assume "off". VERIFY: predicted fire rate ignores the powerup until its

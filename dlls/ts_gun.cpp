@@ -469,9 +469,11 @@ bool CTSGun::Deploy()
 	// real weapon with no p_model we likewise show nothing rather than the viewmodel.
 	const char *pmodel = wi->pszPlayerModel ? wi->pszPlayerModel : "";
 	const int drawSeq = (m_weaponType >= 0 && m_weaponType < TSW_COUNT) ? s_drawSeq[m_weaponType] : 0;
-	bool ok = DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, drawSeq,
-		(char *)(wi->pszAnimExt ? wi->pszAnimExt : "onehanded"));
-	m_pPlayer->m_TSAnim.m_bKungFu = (m_weaponType == TSW_MELEE); // kung-fu uses the combat_idle stance
+	// Kung-fu (TSW_MELEE) uses an EMPTY anim-ext (grip) — the original keys the bare-hands
+	// combat_idle stance + the close-combat attack set off m_szAnimExtention being empty
+	// (no invented m_bKungFu bool). Real weapons carry onehanded/twohanded/akimbo.
+	const char *animExt = (m_weaponType == TSW_MELEE) ? "" : (wi->pszAnimExt ? wi->pszAnimExt : "onehanded");
+	bool ok = DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, drawSeq, (char *)animExt);
 	if (ok)
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_DRAW); // 3rd-person draw_<grip>
 
@@ -1008,23 +1010,24 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 	m_lastMeleeAnim = oa;
 	m_lastCCTime = gpGlobals->time;
 
-	// remap the original anim id → v_melee.mdl 1st-person seq + the 3rd-person player-model kung-fu seq.
-	int vseq; const char *bodySeq;
+	// remap the original anim id → v_melee.mdl 1st-person seq + the 3rd-person close-combat
+	// ACTIVITY CODE (CTSAnimation::HandleCloseCombat maps the code to the body sequence name).
+	int vseq, bodyAct;
 	switch (oa)
 	{
-	case A_PUNCH:     { static const int jv[3]={2,3,10}; static const char *jb[3]={"punchleft","punchright","punchair"};
-	                    int j = (jabIdx >= 0 && jabIdx < 3) ? jabIdx : 0; vseq = jv[j]; bodySeq = jb[j]; break; }
-	case A_PUNCH2:    vseq = 10; bodySeq = "punchair";  break; // special punch
-	case A_AIRPUNCH:  vseq = 10; bodySeq = "punchair";  break;
-	case A_UPPERCUT:  vseq = 7;  bodySeq = "uppercut";  break;
-	case A_HANDSTAND: vseq = 6;  bodySeq = "sidekick";  break;
-	case A_BACKKICK:  vseq = 9;  bodySeq = "backkick";  break;
-	case A_DROPKICK:  vseq = 8;  bodySeq = "circspin";  break;
+	case A_PUNCH:     { static const int jv[3]={2,3,10}; static const int jb[3]={TSA_CC_PUNCHLEFT,TSA_CC_PUNCHRIGHT,TSA_CC_PUNCHAIR};
+	                    int j = (jabIdx >= 0 && jabIdx < 3) ? jabIdx : 0; vseq = jv[j]; bodyAct = jb[j]; break; }
+	case A_PUNCH2:    vseq = 10; bodyAct = TSA_CC_PUNCHAIR;  break; // special punch
+	case A_AIRPUNCH:  vseq = 10; bodyAct = TSA_CC_PUNCHAIR;  break;
+	case A_UPPERCUT:  vseq = 7;  bodyAct = TSA_CC_UPPERCUT;  break;
+	case A_HANDSTAND: vseq = 6;  bodyAct = TSA_CC_SIDEKICK;  break;
+	case A_BACKKICK:  vseq = 9;  bodyAct = TSA_CC_BACKKICK;  break;
+	case A_DROPKICK:  vseq = 8;  bodyAct = TSA_CC_CIRCSPIN;  break;
 	case A_SPIN_A: case A_SPIN_D: case A_SPIN_E: case A_SPIN_F:
-	                  vseq = 8;  bodySeq = "circspin";  break; // spin finisher
+	                  vseq = 8;  bodyAct = TSA_CC_CIRCSPIN;  break; // spin finisher
 	case A_GKICK_A: case A_GKICK_B:
 	case A_FLY_12: case A_FLY_13:
-	default:          vseq = 5;  bodySeq = "circkick";  break; // ground / flying kick
+	default:          vseq = 5;  bodyAct = TSA_CC_CIRCKICK;  break; // ground / flying kick
 	}
 
 	UTIL_MakeVectors(ppev->v_angle);
@@ -1045,9 +1048,8 @@ void CTSGun::CloseCombatAttack(bool fSecondary)
 		TS_TriggerViewShake(kfPower * 0.35f); // 0x1007a8a8 = 0.35 -> punch 7.0, kick 8.75
 	}
 #endif
-	// 3rd-person body anim (cosmetic): hold long enough to be visible even on the fast punch refire.
-	float bodyHold = (refire > 0.4f) ? refire : 0.4f;
-	m_pPlayer->m_TSAnim.PlayKungFu(m_pPlayer, bodySeq, bodyHold);
+	// 3rd-person close-combat body anim (HandleCloseCombat builds the seq + holds the torso 2.0s).
+	m_pPlayer->m_TSAnim.Animate(m_pPlayer, bodyAct);
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + refire;   // orig: both timers = base + local_10c
 	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + refire;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
@@ -1155,7 +1157,7 @@ void CTSGun::CloseCombatBlock()
 	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/block.wav", VOL_NORM, ATTN_NORM); // "hooah"
 	SendWeaponAnim(4); // block_low stance (seq 4, 1st person; VERIFY per knife/katana viewmodel)
 	if (m_weaponType == TSW_MELEE)
-		m_pPlayer->m_TSAnim.PlayKungFu(m_pPlayer, "kungfu_block1", 0.5f); // 3rd-person block pose
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_CC_BLOCK); // 3rd-person kungfu/knife/katana block pose
 	// RE CCombatBlock: re-arm next primary/secondary at +0.5 (fc_0_5), idle at +3.0 (fc_3) — you can
 	// re-block ~twice a second (faster than our old 0.8 lockout).
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
@@ -1283,8 +1285,8 @@ bool TSTryJumpKick(CBasePlayer *pPlayer)
 
 	// 3rd-person body kick: random circfront / latback / circback (orig CloseAttack ids 10/14/13 →
 	// HandleCloseCombat @0x6d8d0 maps them to these sequence names).
-	static const char *const kicks[3] = { "circfront", "latback", "circback" };
-	pPlayer->m_TSAnim.PlayKungFu(pPlayer, kicks[RANDOM_LONG(0, 2)], 0.5f);
+	static const int kickActs[3] = { TSA_CC_CIRCFRONT, TSA_CC_LATBACK, TSA_CC_CIRCBACK };
+	pPlayer->m_TSAnim.Animate(pPlayer, kickActs[RANDOM_LONG(0, 2)]);
 
 	EMIT_SOUND(ENT(pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM);
 	pPlayer->m_flNextJumpKick = gpGlobals->time + 0.7f;
