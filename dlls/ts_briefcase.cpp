@@ -33,7 +33,8 @@ class CTSBriefcase : public CBaseEntity
 public:
 	bool KeyValue(KeyValueData *pkvd) override;
 	void Spawn() override;
-	int  ObjectCaps() override { return FCAP_DONT_SAVE; }
+	// (no ObjectCaps override — the original CTSBriefcase uses base CBaseEntity::ObjectCaps; the
+	// save/transition difference is inert in multiplayer, where there is no mid-game save/load.)
 
 	void EXPORT FlagFall();                       // create this team's flag at the base
 	void EXPORT WaitThink();                      // idle keepalive (matches the .so)

@@ -25,9 +25,9 @@ public:
 	void EXPORT WaitThink();
 	void ActivateSlow(float scale, float duration, int slowBullets); // @ActivateSlow
 	void DeactivateSlow();                                           // restore everyone we slowed
-	int ObjectCaps() override { return CBaseEntity::ObjectCaps() & ~FCAP_ACROSS_TRANSITION; }
+	// (no ObjectCaps override — the original uses base CBaseEntity::ObjectCaps; runtime-created, not map-placed.)
 
-	static CTSSlowMotionPoint *Create(const Vector &origin, float scale, float duration,
+	static CTSSlowMotionPoint *CreateSlowMotionPoint(const Vector &origin, float scale, float duration,
 		int slowBullets, CBaseEntity *pOwner);
 
 	float m_flEndTime = 0;   // +0xe8 — when the bubble expires
@@ -104,7 +104,7 @@ void CTSSlowMotionPoint::DeactivateSlow()
 }
 
 // @CreateSlowMotionPoint — spawn a slow-motion bubble at `origin`.
-CTSSlowMotionPoint *CTSSlowMotionPoint::Create(const Vector &origin, float scale, float duration,
+CTSSlowMotionPoint *CTSSlowMotionPoint::CreateSlowMotionPoint(const Vector &origin, float scale, float duration,
 	int slowBullets, CBaseEntity *pOwner)
 {
 	CTSSlowMotionPoint *pPoint = GetClassPtr((CTSSlowMotionPoint *)NULL);
@@ -121,5 +121,5 @@ CTSSlowMotionPoint *CTSSlowMotionPoint::Create(const Vector &origin, float scale
 CBaseEntity *TSCreateSlowMotionPoint(const Vector &origin, float scale, float duration,
 	int slowBullets, CBaseEntity *pOwner)
 {
-	return CTSSlowMotionPoint::Create(origin, scale, duration, slowBullets, pOwner);
+	return CTSSlowMotionPoint::CreateSlowMotionPoint(origin, scale, duration, slowBullets, pOwner);
 }
