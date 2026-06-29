@@ -33,25 +33,57 @@ class CTSObjective : public CBaseEntity
 {
 public:
 	bool KeyValue(KeyValueData *pkvd) override;
+	bool Save(CSave &save) override;
+	bool Restore(CRestore &restore) override;
 
-	// @CanInteract — can a player of `team` act on this objective (-1 = any team).
-	bool CanInteract(int team) const { return m_attackerTeam == TS_TEAM_ANY || m_attackerTeam == team; }
-	// @Freeze — enable/disable the objective (the .so also calls ShowObjectiveOnHud; SLICE).
-	void Freeze(bool bFreeze) { m_bActive = !bFreeze; }
+	virtual bool CanInteract(CBasePlayer *pPlayer); // @0x8c344 — resolve the player's team, then gate
+	virtual bool CanInteract(int team);             // @0x8c38c — attacker_team gate (-1 = any)
+	virtual void Freeze(bool bFreeze);              // @0x8c310 — active = !freeze (+ ShowObjectiveOnHud)
+	virtual bool IsObjective() { return true; }     // @0x8e6e0 — return 1 (this IS a TS objective)
+	virtual void EnableObjective(bool bEnable) { m_bActive = bEnable; } // @0x8e6e4 — set the active flag
 
-	int m_attackerTeam = TS_TEAM_ANY; // +0x68 — team allowed to interact (-1 = any)
-	bool m_bActive = true;            // +0x64 — objective live (not frozen)
+	static TYPEDESCRIPTION m_SaveData[];
+
+	bool m_bActive = true;            // +0x64 — objective live (frozen/enabled flag)
+	int  attacker_team = TS_TEAM_ANY; // +0x68 — keyvalue "attackerteam": team allowed to interact (-1 = any)
 };
+
+TYPEDESCRIPTION CTSObjective::m_SaveData[] = {
+	DEFINE_FIELD(CTSObjective, attacker_team, FIELD_INTEGER),
+};
+IMPLEMENT_SAVERESTORE(CTSObjective, CBaseEntity);
 
 // @KeyValue__12CTSObjective — "attackerteam".
 bool CTSObjective::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "attackerteam"))
 	{
-		m_attackerTeam = atoi(pkvd->szValue);
+		attacker_team = atoi(pkvd->szValue);
 		return true;
 	}
 	return CBaseEntity::KeyValue(pkvd);
+}
+
+// @0x8c38c CanInteract — only the attacker team (or anyone if -1) may act on this objective.
+bool CTSObjective::CanInteract(int team)
+{
+	if (attacker_team == TS_TEAM_ANY)
+		return true;
+	return attacker_team == team;
+}
+
+// @0x8c344 CanInteract — resolve a player's team index, then gate.
+bool CTSObjective::CanInteract(CBasePlayer *pPlayer)
+{
+	return CanInteract(TSGameRules()->GetTeamIndex(pPlayer->TeamID()));
+}
+
+// @0x8c310 Freeze — enable/disable the objective. The original ALSO re-renders it on the HUD via
+// CTSGameRules::ShowObjectiveOnHud(this, !bFreeze) — NOT yet reconstructed (deferred with the
+// CTSGameRules objective methods); SLICE: we only toggle the active flag here.
+void CTSObjective::Freeze(bool bFreeze)
+{
+	m_bActive = !bFreeze;
 }
 
 //============================================================================
