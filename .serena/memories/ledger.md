@@ -4455,3 +4455,19 @@ premise was WRONG — the decompile shows fire legitimately uses an external Ani
 m_flAimTimer); kept it. STILL OPEN: fire-anim-3rd-person (#3, likely a grip/seq-name detail — needs OUR-build
 pev->sequence watch vs original), the dive-hold (#1, leg-timer-gated, not m_fSequenceFinished), melee BLOCK on
 reload (#5b — HandleCloseCombat uses player+0x478 for kat/kni block pick; now that we set 0x478 it's wireable).
+
+## CTSAnimation — FIRING/DIVING DETECTION resolved + external routing removed (the goal, completed)
+The live-trace "Animate is locomotion-only" was WRONG (the hardware-bp missed the calls). DECOMPILE ground truth
+(dc.sh on the re project): **CBasePlayer::SetAnimation@0xd8f50 is an EMPTY no-op in TS.** The 34 callers of
+Animate are the WEAPON + movement code calling it DIRECTLY with the activity: **CTSGun::Fire@0x71c78 computes
+shootanim (0 standard / 8+racktoggle pump) and calls Animate(player, shootanim) directly** (StandardFire does
+NOT); also KnifeFire/KatanaFire (melee codes), Reload, Deploy(DRAW), PM_Jump(4). So "firing detection" = the
+weapon calls Animate with the fire activity directly; SetAnimation is empty (TS moved the anim logic into the
+direct calls). REBUILT ours to match (commit pending): CTSGun::Fire now calls m_TSAnim.Animate(player,shootanim)
+DIRECTLY (0/8/9) and the SetAnimation(PLAYER_ATTACK1) indirection was removed from StandardFire + AkimboFire.
+This removes the external SetAnimation routing for the gun fire path (the goal). NET: gun fire still triggers
+Animate(TSA_FIRE) → case 0 → shoot_<grip>, but now via the original's mechanism (and it runs on the client too,
+where our SetAnimation may have been a stub — this may also be WHY the 3rd-person fire anim didn't show; PLAYTEST).
+Still indirect (separate paths, lower priority): MeleeAttack/ColdCock SetAnimation (the knife/katana/coldcock
+body — original uses KnifeFire/KatanaFire/ColdCock→Animate(melee codes)); PLAYER_WALK/IDLE/JUMP/DIE still route
+through SetAnimation (original calls Animate directly from PostThink/PM_Jump — a fuller faithful refactor later).

@@ -679,12 +679,27 @@ void CTSGun::Fire()
 		return;
 	}
 
+	// 3rd-person body fire activity. RE Fire@0x71c78: the original calls CTSAnimation::Animate DIRECTLY
+	// here (NOT via SetAnimation, which is an empty stub in TS) — standard/akimbo = TSA_FIRE(0); a pump
+	// shotgun = 8 + the rack toggle (the slide-fire activity 8/9). Each fire fn no longer routes through
+	// SetAnimation (removed there); this is the single faithful per-fire Animate call.
+	int shootanim;
 	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+	{
 		AkimboFire(wi);
+		shootanim = TSA_FIRE;
+	}
 	else if (wi->iFireType == TSFT_PUMP)
+	{
 		ShotgunFire(wi);
+		shootanim = 8 + (m_fInSpecialReload != 0 ? 1 : 0);
+	}
 	else
+	{
 		StandardFire(wi);
+		shootanim = TSA_FIRE;
+	}
+	m_pPlayer->m_TSAnim.Animate(m_pPlayer, shootanim); // the 3rd-person shoot_ body pose
 }
 
 // @ StandardFire/ShotgunFire — a single bullet (or a pump-shotgun pellet spread), with the
@@ -702,7 +717,8 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 
 	m_iClip--;
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH; // 3rd-person muzzleflash on the player model
-	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
+	// (the 3rd-person shoot_ body pose is set by CTSGun::Fire's direct Animate call — RE Fire@0x71c78 — not
+	// here; TS's SetAnimation is an empty stub, so we don't route through it.)
 
 	// Viewmodel "shoot" animation — now CLIENT-PREDICTED (CTSGun is a UseDecrement weapon, cont.69s
 	// 3d): SendWeaponAnim runs in the client's predicted ItemPostFrame, so the anim plays instantly.
@@ -1580,7 +1596,7 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 	}
 
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
-	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
+	// (3rd-person shoot body set by CTSGun::Fire's direct Animate call, not via the empty TS SetAnimation.)
 
 	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	Vector vecAiming = gpGlobals->v_forward;
