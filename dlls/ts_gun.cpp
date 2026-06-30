@@ -937,7 +937,7 @@ void CTSGun::MeleeAttack(const s_weapon_info *wi)
 #endif
 	// Swing whoosh (per attack) — server-driven EMIT_SOUND (a client no-op during prediction).
 	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
+	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_FIRE);
 	const float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.25f;
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
@@ -1304,7 +1304,7 @@ void CTSGun::ColdCock()
 	TraceResult tr;
 	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
 
-	m_pPlayer->SetAnimation(PLAYER_ATTACK1);
+	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_FIRE);
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f; // pistol-whip cadence
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 

@@ -876,7 +876,7 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 		}
 	}
 
-	SetAnimation(PLAYER_DIE);
+	m_TSAnim.Animate(this, TSA_DIE);
 
 	m_flRespawnTimer = 0.0f;
 
@@ -947,32 +947,13 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 // through CTSAnimation::Animate instead. We route the existing PLAYER_ANIM call
 // sites into m_TSAnim.Animate so the gait subsystem owns all body animation.
 // See ts_animation.{h,cpp}.
+// TS makes CBasePlayer::SetAnimation an EMPTY no-op (RE @0xd8f50). The original drives the player
+// animation by calling CTSAnimation::Animate(this, <activity>) DIRECTLY from the weapon (CTSGun::Fire/
+// KnifeFire/Reload/Deploy) and the movement code (PostThink locomotion 1/6, PM_Jump 4, death 7) — there is
+// no SetAnimation indirection. Our callers now do the same (m_TSAnim.Animate directly), so this stays empty.
+// (Stock SDK weapons still call it; harmless — they aren't given to players in TS.)
 void CBasePlayer::SetAnimation(PLAYER_ANIM playerAnim)
 {
-	int act;
-	switch (playerAnim)
-	{
-	case PLAYER_JUMP:
-	case PLAYER_SUPERJUMP:
-		act = TSA_JUMP;
-		break;
-	case PLAYER_DIE:
-		act = TSA_DIE;
-		break;
-	case PLAYER_ATTACK1:
-		act = TSA_FIRE;
-		break;
-	case PLAYER_WALK:
-		act = TSA_RUN;
-		break;
-	case PLAYER_IDLE:
-	default:
-		act = ((pev->flags & FL_FROZEN) != 0) ? TSA_IDLE
-			: (pev->velocity.Length2D() > 0) ? TSA_RUN
-											  : TSA_IDLE;
-		break;
-	}
-	m_TSAnim.Animate(this, act);
 }
 
 /*
@@ -1741,14 +1722,14 @@ void CBasePlayer::Jump()
 
 	// ClearBits(pev->flags, FL_ONGROUND);		// don't stairwalk
 
-	SetAnimation(PLAYER_JUMP);
+	m_TSAnim.Animate(this, TSA_JUMP);
 
 	if (m_fLongJump &&
 		(pev->button & IN_DUCK) != 0 &&
 		(pev->flDuckTime > 0) &&
 		pev->velocity.Length() > 50)
 	{
-		SetAnimation(PLAYER_SUPERJUMP);
+		m_TSAnim.Animate(this, TSA_JUMP);
 	}
 
 	// If you're standing on a conveyor, add it's velocity to yours (for momentum)
@@ -1794,7 +1775,7 @@ void CBasePlayer::Duck()
 	{
 		if (m_IdealActivity != ACT_LEAP)
 		{
-			SetAnimation(PLAYER_WALK);
+			m_TSAnim.Animate(this, TSA_RUN);
 		}
 	}
 }
@@ -2916,7 +2897,7 @@ void CBasePlayer::PostThink()
 
 		if (IsAlive())
 		{
-			SetAnimation(PLAYER_WALK);
+			m_TSAnim.Animate(this, TSA_RUN);
 		}
 	}
 
@@ -2934,11 +2915,11 @@ void CBasePlayer::PostThink()
 	if (IsAlive())
 	{
 		if (0 == pev->velocity.x && 0 == pev->velocity.y)
-			SetAnimation(PLAYER_IDLE);
+			m_TSAnim.Animate(this, TSA_IDLE);
 		else if ((0 != pev->velocity.x || 0 != pev->velocity.y) && (FBitSet(pev->flags, FL_ONGROUND)))
-			SetAnimation(PLAYER_WALK);
+			m_TSAnim.Animate(this, TSA_RUN);
 		else if (pev->waterlevel > 1)
-			SetAnimation(PLAYER_WALK);
+			m_TSAnim.Animate(this, TSA_RUN);
 	}
 
 	StudioFrameAdvance();
