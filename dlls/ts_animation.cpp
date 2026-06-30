@@ -529,36 +529,40 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		SetAnim(pPlayer, "", TSSA_LEGS, 0); // clear legs
 	}
 
-	// Torso: close-combat already set its pose; otherwise don't stomp an in-progress
-	// fire/reload pose (aim timer running), then select the idle/aim/combat stance.
+	// ---- The per-frame STATE-DRIVEN torso pose (RE Animate@0x5b470 case 1/6). Everything below reads
+	// PLAYER STATE this frame to choose the body sequence — there is no activity argument here; the weapon's
+	// fire/reload/deploy calls only SET state (m_szAnimOverride, m_flAimTimer, m_iLastActivity), and THIS
+	// reads it every frame. State consulted, in the original's order: m_szAnimOverride(player+0x478) >
+	// "weapon pose still playing" (m_flAimTimer; the orig uses m_fSequenceFinished which isn't advanced for
+	// the server-side player, so we gate on the timer) > grip-empty(kungfu) > aim/idle by (m_flAimTimer||fov).
 	if (ccHandled)
 		return;
 
-	// player+0x478 anim-OVERRIDE (RE Animate@0x5b470 case 1/6, checked FIRST): a dedicated melee idle
-	// (knife_idle/katana_idle/briefcase_idle) the weapon set on deploy. Non-empty -> play it directly as
-	// the body (instead of idle_/aim_<grip>), flags 0x12. This is the knife/katana dedicated 3rd-person idle.
+	// (1) player+0x478 anim-OVERRIDE — a dedicated melee idle (knife_idle/katana_idle/briefcase_idle) the
+	// weapon set on deploy. Non-empty => play it directly as the body. (knife/katana dedicated 3rd-person idle.)
 	if (pPlayer->m_szAnimOverride[0] != 0)
 	{
 		SetAnim(pPlayer, pPlayer->m_szAnimOverride, 0x12, 0);
 		return;
 	}
 
+	// (2) a weapon pose (shoot_/relo_/draw_, set when the weapon last called Animate) is still "raised":
+	// hold it. The original gates this on the sequence not being finished (m_fSequenceFinished); that field
+	// isn't advanced for the server-side player, so we read the m_flAimTimer state the fire/reload set.
 	if (m_flAimTimer >= 0.01f)
-		return; // weapon raised recently — leave the shoot/relo/aim torso playing
+		return;
 
+	// (3) bare-hands kung-fu (empty grip) => the combat_idle stance (state: grip).
 	if (kungfu)
 	{
-		// Bare-hands fighting stance (not an aim_<grip> invisible-pistol pose).
 		SetAnim(pPlayer, ducking ? "combat_idle_low" : "combat_idle", 0x12, 0);
 		return;
 	}
 
-	// RE Animate@0x5b470 case 1/6: aim_ when (m_flAimTimer>=0.01 || fov!=0), NOT the attack button. The
-	// m_flAimTimer>=0.01 case is intercepted by the hold above (we keep the shoot_/relo_ pose); here that
-	// leaves the zoom (fov) case — a scoped player shows the aim pose. (Original ALSO consults a per-frame
-	// player anim-override string player+0x478 — empty>idle_+grip, non-empty>play it directly; we don't model
-	// that member yet — it's what drives the knife/katana idle + the melee block. TODO: add m_szAnimOverride.)
-	const bool aiming = (pev->fov != 0);
+	// (4) aim_ vs idle_ — read per-frame from state (m_flAimTimer recently-raised OR fov zoomed), per the
+	// decompile's `(m_flAimTimer>=0.01 || fov!=0)` (NOT the attack button). With (2) holding the timer window,
+	// this resolves the fov (scoped) case; both are state, not an activity arg.
+	const bool aiming = (m_flAimTimer >= 0.01f || pev->fov != 0);
 	if (ducking)
 		strcpy(name, aiming ? "crouch_aim_" : "duck_idle_");
 	else
