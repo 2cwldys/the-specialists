@@ -433,26 +433,38 @@ int CTSStunt::GoWheel()
 		m_vecStuntDir = gpGlobals->v_forward * -1.0f;
 		dir = 3;
 	}
-	TS_MotionBlur(m_pPlayer, 7);
+	// RE: probabilistic motion-blur (amount 2) — fires when 10*timescale + rand(0,10) > 7 (so almost
+	// always at normal time, rarely under heavy slow-mo). Ours was an unconditional amount-7 blur.
+	if (10.0f * TS_TimeScale(m_pPlayer) + RANDOM_LONG(0, 10) > 7.0f)
+		TS_MotionBlur(m_pPlayer, 2);
 
+	// HIGH wheel — aim up (v_angle.x < -10) OR backward: a MEDIUM-tier dive (the "aim ~30° up dives &
+	// lands on feet" move). RE GoWheel@0x9c9bc: iuser4 |= PRONE|WHEEL_HI|DIVE_MED, friction(0x11c)=0.75
+	// (NOT gravity). (Ours had STOP|WHEEL_HI|DIVE_LOW + gravity=0.75 -> low tier -> "behaved like a roll".)
 	if (CanDiveHigh() && (dir == 3 || pev->v_angle.x < -10.0f))
 	{
-		pev->iuser4 |= TSSTUNT_STOP | TSSTUNT_WHEEL_HI | TSSTUNT_DIVE_LOW;
+		pev->iuser4 |= TSSTUNT_PRONE | TSSTUNT_WHEEL_HI;
 		pev->view_ofs = g_vecZero;
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x31);
-		pev->gravity = 0.75f;
+		pev->iuser4 |= TSSTUNT_DIVE_MED;
+		pev->friction = 0.75f;
 		m_flStuntTime = NextDive();
 		TS_SendNextStunt(m_pPlayer, m_flStuntTime);
 		EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
+		// VERIFY/follow-up: dir==3 (backward) also runs the backkick combo — UpdateMeleeBar(22.5) +
+		// KungFu + the whiff-lunge params (player+0x79c..0x7a8). UpdateMeleeBar is not implemented yet.
 		return 1;
 	}
+	// LOW wheel — level/down, not backward: a LOW-tier dive. RE: iuser4 |= PRONE|WHEEL_LO|DIVE_LOW,
+	// friction=0.75, and for a FORWARD wheel (dir==2) gravity(0x120)=0.25 (floaty forward flip).
 	if (CanDiveLow() && dir != 3)
 	{
-		pev->iuser4 |= TSSTUNT_STOP | TSSTUNT_WHEEL_LO | TSSTUNT_DIVE_LOW;
+		pev->iuser4 |= TSSTUNT_PRONE | TSSTUNT_WHEEL_LO;
 		pev->view_ofs = g_vecZero;
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x32);
-		pev->gravity = 0.75f;
-		if (dir == 2) pev->friction = 0.25f;
+		pev->iuser4 |= TSSTUNT_DIVE_LOW;
+		pev->friction = 0.75f;
+		if (dir == 2) pev->gravity = 0.25f;
 		m_flStuntTime = NextDive();
 		TS_SendNextStunt(m_pPlayer, m_flStuntTime);
 		EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
