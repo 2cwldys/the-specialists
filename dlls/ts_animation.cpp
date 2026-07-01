@@ -545,45 +545,46 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		m_iLastActivity = activity;
 		return;
 	}
+	// RE case 0x2e/0x2f/0x30: the direction is GetDirection(player+0x510, v_angle) where player+0x510
+	// (the stored dive-direction vector) is NEVER written in the binary -> always (0,0,0) -> GetDirection
+	// returns FORWARD. So getup/roll/dive_end are always the forward pose — they do NOT re-orient to the
+	// live strafe (using current velocity here was the churn that reset the seq -> the blink). The exact
+	// pose-name tables (CTSAnimation this+0x11c getup / +0x15c roll / +0x19c dive_end) are not yet
+	// recovered (offset collides with other classes); the forward variant of our scheme stands in. VERIFY.
 	case TSA_GETUP:
 	case TSA_ROLL:
+		SetAnim(pPlayer, "dive_f_end", 0x94, 0);
+		m_flLegTimer = 3.0f;
+		m_iLastActivity = activity;
+		return;
+	case TSA_DIVE_END:
+		SetAnim(pPlayer, "dive_f_end", 0x94, 0);
+		m_iLastActivity = activity;
+		return;
+	// RE case 0x29: pose = pronetable[m_iDirection] — the FROZEN m_iDirection (set by the dive, held
+	// steady while Region B holds), NOT a fresh GetDirection, so prone does not re-orient to strafe.
+	// (pronetable this+0xdc not yet recovered; slide_<dir>_<grip> stands in.) VERIFY table names.
+	case TSA_PRONE:
 	{
 		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
-		snprintf(name, sizeof(name), "dive_%s_end", ds[dir & 3]);
-		SetAnim(pPlayer, name, 0x94, 0);
+		int dir = (m_iDirection >= 0 && m_iDirection < 4) ? m_iDirection : 2;
+		snprintf(name, sizeof(name), "slide_%s_%s", ds[dir], grip);
+		SetAnim(pPlayer, name, 0x94, 0); // orig uses force+clearlegs
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
 	}
-	case TSA_PRONE:
+	// RE case 0x2a/0x2b: "slide_f_" + grip + "_left"/"_right" (the player+0x51c stored-dir path is
+	// dead code — 0x51c is never written, so it is always this forward slide-back-fire form).
 	case TSA_SLIDE_BL:
 	case TSA_SLIDE_BR:
-	{
-		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
-		if (activity == TSA_SLIDE_BL || dir == 3)
-			strcpy(name, "slide_b_left");
-		else if (activity == TSA_SLIDE_BR)
-			strcpy(name, "slide_b_right");
-		else
-		{
-			static const char *const ds[4] = { "l", "r", "f", "b" };
-			snprintf(name, sizeof(name), "slide_%s_%s", ds[dir & 3], grip);
-		}
+		strcpy(name, "slide_f_");
+		strcat(name, grip);
+		strcat(name, (activity == TSA_SLIDE_BL) ? "_left" : "_right");
 		SetAnim(pPlayer, name, 0x14, 0);
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
-	}
-	case TSA_DIVE_END:
-	{
-		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
-		snprintf(name, sizeof(name), "dive_%s_end", ds[dir & 3]);
-		SetAnim(pPlayer, name, 0x94, 0);
-		m_iLastActivity = activity;
-		return;
-	}
 	case TSA_WHEEL:
 	case TSA_LOWWHEEL:
 	{
