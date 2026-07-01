@@ -286,37 +286,50 @@ void CTSStunt::GoDive()
 int CTSStunt::GoRoll(int dir)
 {
 	entvars_t *pev = m_pPlayer->pev;
+	const bool onGround = (pev->flags & FL_ONGROUND) != 0;
 	bool roll = true;
 
-	const bool onGround = (pev->flags & FL_ONGROUND) != 0;
-	if (onGround) { if (m_flRollTime < gpGlobals->time) roll = false; }
-	else if (m_flRollTime < gpGlobals->time) roll = false;
+	// DOUBLE-TAP window (RE GoRoll@0x8cfe8): m_flRollNextTime is an ABSOLUTE re-arm timestamp — set to
+	// time+0.3 on a FAILED attempt, 0 on success. Airborne you may only roll if the window is armed
+	// (m_flRollNextTime >= time, i.e. a recent tap); on the ground the FIRST tap finds it expired ->
+	// roll=false -> arms below, and the SECOND tap within 0.3s finds it armed -> proceeds. => the
+	// dive-roll is a DOUBLE-TAP. (Our old code compared the roll DURATION m_flRollTime against absolute
+	// gpGlobals->time — always true -> the roll ALWAYS failed AND the fail-path corrupted m_flRollTime
+	// with an absolute value, which then broke the getup timer = the "double-jump does nothing" +
+	// "press duck -> stuck ducked" bugs.)
+	if (!onGround)
+	{
+		if (m_flRollNextTime < gpGlobals->time)
+			return 0;
+	}
+	else if (m_flRollNextTime < gpGlobals->time)
+		roll = false;
 
 	Vector h = pev->velocity; h.z = 0;
-	if (h.Length() < 80.0f) roll = false;
-	if (pev->iuser4 & TSSTUNT_ACTIVE_MASK) roll = false;
-	if (m_flRollTime > 0.0f) roll = false;
+	if (h.Length() < 80.0f) roll = false;              // need run speed
+	if (pev->iuser4 & 0x130c30) roll = false;          // any active stunt (dive/slide/wheel/walljump/climb)
+	if (m_flRollTime > 0.0f) roll = false;             // already rolling
 	if (m_pPlayer->IsOnLadder()) roll = false;
-	if (m_flStunCooldown > 0.0f) roll = false;
+	if (m_flStunCooldown > 0.0f) roll = false;         // shared kick/roll cooldown
 
 	if (!roll)
 	{
-		m_flRollTime = gpGlobals->time + 0.3f; // (cooldown shares the field on a fail)
+		m_flRollNextTime = gpGlobals->time + 0.3f;     // arm the 0.3s double-tap window
 		return 0;
 	}
 
 	float len = pev->velocity.Length();
 	m_vecStuntDir = (len == 0.0f) ? Vector(0, 0, 1) : pev->velocity * (1.0f / len);
-	m_bDirForward = (GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f) != 2); // VERIFY: also networks pev dir idx
+	m_bDirForward = (GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f) != 2);
 
-	pev->friction = 0.3f;
-	pev->iuser4 |= TSSTUNT_ROLL | TSSTUNT_PRONE | TSSTUNT_STOP;
+	pev->gravity = 0.3f;                                // RE: gravity (pev+0x120) = 0.3, NOT friction
+	pev->iuser4 |= TSSTUNT_ROLL | TSSTUNT_PRONE | TSSTUNT_STOP; // 0x40005
 	pev->view_ofs = g_vecZero;
 	m_flRollTime = 0.75f;
 
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x2f);
-	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 	m_flRollNextTime = 0;
+	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 	TS_MotionBlur(m_pPlayer, 9);
 	return 1;
 }
