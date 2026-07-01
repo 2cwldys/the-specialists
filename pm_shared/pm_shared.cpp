@@ -3151,7 +3151,7 @@ static void TSWallJump()
 	{
 		pmove->velocity[0] = -pmove->forward[0] * 210.0f;
 		pmove->velocity[1] = -pmove->forward[1] * 210.0f;
-		pmove->velocity[2] = 270.0f; // tuned (orig reads a .rodata const)
+		pmove->velocity[2] = sqrt(56000.0f); // 236.64 — RE TSWallJump@0xe9444 (.rodata double 56000.0)
 		pmove->iuser4 &= ~TSPM_WALLJUMP;
 	}
 	PM_FixupGravityVelocity();

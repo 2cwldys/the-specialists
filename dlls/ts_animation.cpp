@@ -539,37 +539,40 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	{
 		static const char *const ds[4] = { "l", "r", "f", "b" };
 		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		m_iDirection = dir; // freeze the dive direction — the following prone pose (0x29) indexes by it
 		snprintf(name, sizeof(name), "dive_%s_%s", ds[dir & 3], grip);
 		SetAnim(pPlayer, name, 0x94, 0);
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
 	}
-	// RE case 0x2e/0x2f/0x30: the direction is GetDirection(player+0x510, v_angle) where player+0x510
-	// (the stored dive-direction vector) is NEVER written in the binary -> always (0,0,0) -> GetDirection
-	// returns FORWARD. So getup/roll/dive_end are always the forward pose — they do NOT re-orient to the
-	// live strafe (using current velocity here was the churn that reset the seq -> the blink). The exact
-	// pose-name tables (CTSAnimation this+0x11c getup / +0x15c roll / +0x19c dive_end) are not yet
-	// recovered (offset collides with other classes); the forward variant of our scheme stands in. VERIFY.
+	// RE case 0x2e/0x2f/0x30: direction = GetDirection(player+0x510, v_angle); player+0x510 (the stored
+	// dive vector) is NEVER written in the binary -> always (0,0,0) -> GetDirection returns FORWARD, so
+	// getup/roll/dive_end always use the forward pose (they do NOT re-orient to live strafe). Pose names
+	// recovered from the CTSAnimation ctor pose tables (this+0x11c getup / +0x15c roll / +0x19c dive_end).
 	case TSA_GETUP:
+		SetAnim(pPlayer, "dive_f_end", 0x94, 0);   // getuptable[forward] @0x13c
+		m_flLegTimer = 3.0f;
+		m_iLastActivity = activity;
+		return;
 	case TSA_ROLL:
-		SetAnim(pPlayer, "dive_f_end", 0x94, 0);
+		SetAnim(pPlayer, "roll_f", 0x94, 0);       // rolltable[forward] @0x17c
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
 	case TSA_DIVE_END:
-		SetAnim(pPlayer, "dive_f_end", 0x94, 0);
+		SetAnim(pPlayer, "roll_f_high", 0x94, 0);  // dive_end table[forward] @0x1bc
 		m_iLastActivity = activity;
 		return;
-	// RE case 0x29: pose = pronetable[m_iDirection] — the FROZEN m_iDirection (set by the dive, held
-	// steady while Region B holds), NOT a fresh GetDirection, so prone does not re-orient to strafe.
-	// (pronetable this+0xdc not yet recovered; slide_<dir>_<grip> stands in.) VERIFY table names.
+	// RE case 0x29: pose = pronetable[m_iDirection] (this+0xdc = {slide_l_end, slide_r_end, slide_f_end,
+	// slide_b_end}), the FROZEN m_iDirection (set by the dive/landing, held steady while Region B holds).
+	// Backward (dir 3) -> slide_b_end = the on-FEET recovery pose (the "double-jump backward lands on feet");
+	// forward/left/right -> the prone slide_*_end poses. No grip suffix — these are grip-independent.
 	case TSA_PRONE:
 	{
-		static const char *const ds[4] = { "l", "r", "f", "b" };
+		static const char *const ds[4] = { "slide_l_end", "slide_r_end", "slide_f_end", "slide_b_end" };
 		int dir = (m_iDirection >= 0 && m_iDirection < 4) ? m_iDirection : 2;
-		snprintf(name, sizeof(name), "slide_%s_%s", ds[dir], grip);
-		SetAnim(pPlayer, name, 0x94, 0); // orig uses force+clearlegs
+		SetAnim(pPlayer, ds[dir], 0x94, 0); // orig uses force+clearlegs
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;

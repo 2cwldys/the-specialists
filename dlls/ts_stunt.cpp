@@ -147,39 +147,22 @@ void CTSStunt::Play()
 	// the ground and trapped you prone — RE Play @0x8a014 lines 90-147.)
 	if (!m_pPlayer->IsOnLadder() && pev->waterlevel != 3)
 	{
-		// GET UP — a SHARED, TIMED two-stage transition (RE: HandleSlide-end sets m_flRollTime = 0.75 as
-		// the getup duration). Pressing JUMP / +alt1 / DUCK while settled-prone (PM_Jump is gated, so jump
-		// never hops) STARTS the getup: keep the PRONE hull + drop to the intermediate eye (16) and play
-		// the getup ANIMATION (dive_<dir>_end), set STOP so you can move freely but slowed, for 0.75s.
-		// When the timer expires (same path the roll/landing recovery uses) we clear PRONE and go to FULL
-		// standing (28) — ALWAYS, regardless of holding duck (shared logic). PM_Duck then independently
-		// re-ducks if DUCK is held, so duck-getup reads as: prone -> up to full height -> back down to duck.
+		// GET UP (RE Play @0x8a014, the on-ground branch): a single STATE-cleanup block — NOT an animation.
+		// It fires when the prone/roll timer has expired (m_flRollTime < 0.01; the decrement floors at
+		// 0.001), clearing PRONE/STOP/ROLL atomically and restoring the standing view in ONE write
+		// (FL_DUCKING ? 16 : 28); PM_Duck independently re-ducks afterward if DUCK is held. The getup
+		// ANIMATION (0x2e) is played at LANDING time (Landing() roll branch / HandleSlide's deliberate-prone
+		// branch), NEVER here — dispatching 0x2e here while PRONE is still set is exactly what Region B of
+		// CTSAnimation::Animate swallows (the old invented two-stage getup = the stuck-prone bug). The prone
+		// timer is armed by HandleSlide's deliberate-prone branch (press jump/duck/alt1 while sliding-prone).
+		// NOTE: the original also triggers on a CBasePlayer stand-up latch (orig player+0x78); that latch's
+		// clear lifecycle is unresolved (flagged for live trace) so we use the timer path only for now.
 		bool stoodUp = false;
-		if (onGround && (pev->iuser4 & TSSTUNT_PRONE) && m_flRollTime == 0.0f &&
-			(pev->iuser4 & (TSSTUNT_DIVE_HEIGHT | TSSTUNT_WALLJUMP_M | TSSTUNT_WALLCLIMB |
-							TSSTUNT_WALLJUMP_A | TSSTUNT_WALLCLIMB_A)) == 0 &&
-			(m_pPlayer->m_afButtonPressed & (IN_JUMP | IN_ALT1 | IN_DUCK)))
-		{
-			pev->iuser4 &= ~(TSSTUNT_DIVE | TSSTUNT_SLIDE | TSSTUNT_ROLL); // free movement (no strafe-lock)
-			pev->iuser4 |= TSSTUNT_STOP;                                   // STOP halves the move cmd = slow
-			pev->view_ofs.z = 16.0f;                                      // stage 1: intermediate eye
-			pev->friction = 1.0f;
-			m_flRollTime = 0.75f;                                         // getup duration (RE HandleSlide)
-			m_flStuntTime = 0;
-			m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x2e);                 // getup animation (dive_<dir>_end)
-			stoodUp = true;
-		}
-		// stage 2: the getup / roll timer ran out -> leave the prone stunt. The END eye depends on the
-		// duck button (the prone left FL_DUCKING + the duck hull set, which PM_Duck owns from here):
-		//   - DUCK held  -> settle at the DUCK eye (12); PM_Duck keeps you in the duck hull -> prone ->
-		//                   higher (16 during getup) -> LOWER (duck). Not stuck high.
-		//   - otherwise  -> standing eye (28); PM_Duck unducks the hull (FL_DUCKING set, duck released).
 		if (m_flRollTime != 0.0f && m_flRollTime < 0.01f)
 		{
-			pev->iuser4 &= ~(TSSTUNT_DIVE | TSSTUNT_SLIDE | TSSTUNT_STOP | TSSTUNT_PRONE | TSSTUNT_ROLL);
+			pev->iuser4 &= ~(TSSTUNT_PRONE | TSSTUNT_STOP | TSSTUNT_ROLL);
 			pev->gravity = 1.0f;
-			pev->friction = 1.0f;
-			pev->view_ofs.z = (pev->button & IN_DUCK) ? 12.0f : 28.0f;
+			pev->view_ofs.z = (pev->flags & FL_DUCKING) ? 16.0f : 28.0f;
 			m_flRollTime = 0;
 			m_flStuntTime = 0;
 			stoodUp = true;
@@ -373,7 +356,7 @@ void CTSStunt::GoWallJump()
 	pev->view_ofs = g_vecZero;
 
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x37);
-	pev->gravity = 0.75f;
+	pev->friction = 0.75f; // RE GoWallJump@0x8a7d4: friction (0x11c), NOT gravity — gravity untouched
 
 	m_flWallClimbFuel += 0.35f;
 	m_flStuntTime = (m_flWallClimbFuel < 0.5f) ? 0.5f : m_flWallClimbFuel;
@@ -468,9 +451,23 @@ void CTSStunt::HandleDive()
 void CTSStunt::HandleSlide()
 {
 	entvars_t *pev = m_pPlayer->pev;
-	// the prone slide pose every frame: slide_<dir>_<grip> picked from the strafe/move direction —
-	// strafing left/right rolls you onto your side (slide_l/slide_r), back = slide_b. The Animate
-	// 0x29 case derives the direction from velocity, so it updates as you strafe while prone.
+	// DELIBERATE PRONE / start-standup (RE HandleSlide deliberate-prone branch @0x8b9f8): pressing
+	// JUMP/DUCK/ALT1 while sliding-prone drops out of SLIDE, holds the prone pose, and ARMS the 0.75s
+	// getup timer that Play's getup block consumes to stand you up. Without this arming the timer never
+	// runs, so the player was stuck prone forever (the reported getup bug). (The original also sets a
+	// CBasePlayer latch player+0x78=1 and view=28 here; the latch is unresolved and view is left to the
+	// getup block — VERIFY. The auto-slide directional pose selector — Animate 3/0x2a/0x2b by move keys —
+	// is not rebuilt here; we keep the frozen-dir prone pose the user validated.)
+	if ((pev->button & (IN_JUMP | IN_DUCK | IN_ALT1)) && m_flRollTime == 0.0f)
+	{
+		pev->iuser4 &= ~TSSTUNT_SLIDE;
+		pev->iuser4 |= TSSTUNT_STOP;
+		m_flRollTime = 0.75f;
+		pev->gravity = 1.0f;
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29); // hold the prone pose (frozen dir) while the timer runs
+		return;
+	}
+	// auto-slide: the prone slide pose every frame (Animate 0x29 uses the FROZEN m_iDirection).
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29);
 	pev->friction = 1.0f;
 }
@@ -491,11 +488,11 @@ void CTSStunt::HandleWallJump()
 	if (!(pev->flags & FL_ONGROUND))
 		return;
 	pev->iuser4 &= ~TSSTUNT_WALLJUMP_A;
-	pev->friction = 0.5f;
+	pev->gravity = 0.5f;   // RE HandleWallJump@0x8b4fc: gravity 0.5 + friction 1.0 (ours had them swapped)
+	pev->friction = 1.0f;
 	pev->view_ofs = g_vecZero;
 	m_flRollTime = 0.262f;
 	if (m_flStuntTime < 0.01f) { m_flStuntTime = 0; TS_SendNextStunt(m_pPlayer, m_flStuntTime); }
-	pev->gravity = 1.0f;
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 }
 
@@ -513,10 +510,10 @@ void CTSStunt::HandleWallClimb()
 		return;
 	}
 	pev->iuser4 &= ~TSSTUNT_WALLCLIMB_A;
-	pev->friction = 0.5f;
+	pev->gravity = 0.5f;   // RE HandleWallClimb@0x8b4fc: gravity 0.5 + friction 1.0 (ours had them swapped)
+	pev->friction = 1.0f;
 	m_flRollTime = 0.262f;
 	if (m_flStuntTime < 0.01f) { m_flStuntTime = 0; TS_SendNextStunt(m_pPlayer, m_flStuntTime); }
-	pev->gravity = 1.0f;
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 }
 
@@ -530,11 +527,15 @@ void CTSStunt::Landing()
 	// keys do NOT cancel the slide — you slide on every dive landing by default.
 	if ((pev->button & (IN_JUMP | IN_ALT1 | IN_DUCK)) == 0)
 	{
-		// slide out of the dive — keep DIVE's landing velocity, just switch to the slide pose/control
+		// slide out of the dive — keep DIVE's landing velocity, just switch to the slide pose/control.
+		// RE Landing@0x8bbf4: store the landing direction in m_iDirection (orig player+0x2a0); the prone
+		// pose (Animate 0x29) indexes it -> backward(3)=slide_b_end=feet, fwd/L/R=prone. Do NOT animate
+		// here — HandleSlide (which runs the same Play frame once SLIDE is set) picks the pose.
 		pev->iuser4 &= ~TSSTUNT_DIVE;
 		pev->iuser4 |= TSSTUNT_SLIDE;
-		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29); // slide_<dir> prone pose
-		m_bDirForward = (GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f) != 2); // VERIFY: also networks pev dir idx
+		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		m_pPlayer->m_TSAnim.m_iDirection = dir;
+		m_bDirForward = (dir != 2);
 	}
 	else
 	{

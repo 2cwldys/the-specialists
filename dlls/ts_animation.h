@@ -94,6 +94,7 @@ int GetDirection(const Vector &dir, const Vector &angles, float fwdBias, float s
 // offsets are provenance only — the binary's fields are unnamed; written naturally).
 class CTSAnimation
 {
+	friend class CTSStunt; // the stunt code freezes the landing direction (orig writes player+0x2a0 = m_iDirection)
 public:
 	void Init();                                       // reset per-spawn (@0x5b320)
 	void UpdateTimers(CBasePlayer *pPlayer);           // decay timers each frame (@0x5b37c)
