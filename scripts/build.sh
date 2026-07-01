@@ -54,7 +54,7 @@ docker run --rm -i \
   bash -lc "set -e; \
     mkdir -p /work/mod-ts/build-$ARCH; \
     cd /work/mod-ts/build-$ARCH; \
-    $ENV cmake -S /work/mod-ts -B . -DCMAKE_BUILD_TYPE=Release $TC; \
+    $ENV cmake -S /work/mod-ts -B . -DCMAKE_BUILD_TYPE=${BUILDTYPE:-Release} $TC; \
     cmake --build . -j\$(nproc)$TARGET_FLAGS"
 
 for t in $BUILD_TARGETS; do
