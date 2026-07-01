@@ -467,8 +467,16 @@ void CTSStunt::HandleSlide()
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29); // hold the prone pose (frozen dir) while the timer runs
 		return;
 	}
-	// auto-slide: the prone slide pose every frame (Animate 0x29 uses the FROZEN m_iDirection).
-	m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29);
+	// auto-slide pose selector (RE HandleSlide@0x8b9f8): strafing rolls you onto that side
+	// (IN_MOVELEFT -> 0x2a slide-left, IN_MOVERIGHT -> 0x2b slide-right); otherwise the settled prone
+	// pose (0x29). (The original's no-strafe case is Animate(3); we keep 0x29 = the validated static
+	// prone-lying pose to avoid regressing it. 0x2a/0x2b use no-FORCE flags so re-dispatch won't loop.)
+	if (pev->button & IN_MOVELEFT)
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x2a);
+	else if (pev->button & IN_MOVERIGHT)
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x2b);
+	else
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29);
 	pev->friction = 1.0f;
 }
 

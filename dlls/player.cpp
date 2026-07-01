@@ -1771,13 +1771,15 @@ void FixPlayerCrouchStuck(edict_t* pPlayer)
 
 void CBasePlayer::Duck()
 {
-	if ((pev->button & IN_DUCK) != 0)
-	{
-		if (m_IdealActivity != ACT_LEAP)
-		{
-			m_TSAnim.Animate(this, TSA_RUN);
-		}
-	}
+	// RE CBasePlayer::Duck: on the IN_DUCK EDGE, attempt the dive-ROLL (CTSStunt::GoRoll) — the fast
+	// run+duck prone dive that lands prone/feet (players call this the "double jump"). Without this call
+	// GoRoll had ZERO callers, so the move was dead code (= the "double-jump does nothing" bug). If the
+	// roll doesn't take (too slow / stunt active / cooldown), fall back to the plain duck-transition
+	// animation (goduck) while starting to duck.
+	if ((m_afButtonPressed & IN_DUCK) && m_TSStunt.GoRoll(0x30))
+		return;
+	if ((pev->button & IN_DUCK) && !FBitSet(pev->flags, FL_DUCKING))
+		m_TSAnim.Animate(this, TSA_DUCK);
 }
 
 //
@@ -2012,8 +2014,9 @@ void CBasePlayer::PreThink()
 			m_flSuperJumpFuel -= gpGlobals->frametime;
 			m_bSuperJumpAir = 1;
 		}
-		else if (!onGround)
-			m_bSuperJumpAir = 1;
+		// Only an actual DUCK+JUMP lift (holdLift, above) arms m_bSuperJumpAir -> the superjump-land
+		// thud. A plain jump-hold must NOT set it (was `else if (!onGround) m_bSuperJumpAir=1`, which
+		// played the superjump-land sound on EVERY normal jump landing while the powerup was active).
 	}
 
 	// TS STUNT/ACROBATICS (RECONSTRUCTED CTSStunt — dlls/ts_stunt.cpp, RE reference/STUNT.md).
