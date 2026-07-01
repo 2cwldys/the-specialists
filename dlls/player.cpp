@@ -1706,6 +1706,13 @@ void CBasePlayer::Jump()
 	// acrobatics yet, so the normal jump just proceeds.)
 	m_TSStunt.CloseAttack();
 
+	// DOUBLE-JUMP = the wheel/cartwheel flip (RE CBasePlayer::Jump@0x82864): on the IN_JUMP edge try
+	// CTSStunt::GoWheel — a double-tap (its own m_flWheelNextTime window) that launches a front/side/back
+	// flip landing prone (backward = on feet). If it takes, the normal jump is skipped. GoWheel had no
+	// caller here, so the double-jump did nothing.
+	if (FBitSet(m_afButtonPressed, IN_JUMP) && m_TSStunt.GoWheel())
+		return;
+
 	// jump velocity is sqrt( height * gravity * 2)
 
 	// If this isn't the first frame pressing the jump button, break out.

@@ -404,11 +404,20 @@ void CTSStunt::GoBulletTime()
 
 int CTSStunt::GoWheel()
 {
-	// cartwheel — same gating as GoRoll; defers to a dive launch on success
+	// cartwheel/flip — DOUBLE-TAP gated (RE GoWheel@0x9c9bc), the double-JUMP move. m_flWheelNextTime is
+	// an ABSOLUTE re-arm timestamp: the 1st jump fails the window (time > m_flWheelNextTime) and arms it
+	// to time+0.3; the 2nd jump within 0.3s passes (time <= m_flWheelNextTime). Must also be on the
+	// ground OR within 0.7s of leaving it (the mid-air double-jump window, via m_flLastStunt). (Our old
+	// gate never CHECKED m_flWheelNextTime, so with no Jump caller either the double-jump did nothing.)
 	entvars_t *pev = m_pPlayer->pev;
+	const bool onGround = (pev->flags & FL_ONGROUND) != 0;
 	bool ok = (m_flStuntTime <= 0.0f) && (m_flRollTime <= 0.0f) && (m_flStunCooldown <= 0.0f) &&
-			  !m_pPlayer->IsOnLadder() && (pev->iuser4 & TSSTUNT_ACTIVE_MASK) == 0;
+			  !m_pPlayer->IsOnLadder() && (pev->iuser4 & 0x130c30) == 0 &&
+			  (gpGlobals->time <= m_flWheelNextTime);
+	if (!onGround && (0.7f / TS_TimeScale(m_pPlayer)) < (gpGlobals->time - m_flLastStunt))
+		ok = false;
 	if (!ok) { m_flWheelNextTime = gpGlobals->time + 0.3f; return 0; }
+	m_flWheelNextTime = 0; // consumed on success (RE)
 
 	Vector h = pev->velocity; h.z = 0;
 	int dir;
