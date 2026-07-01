@@ -424,26 +424,39 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	}
 	else switch (activity)
 	{
-	// ---- Fire (upper body, keep legs) --------------------------------------
+	// ---- Fire (upper body). RE Animate@0x5b470 case 0/8/9 -------------------
 	case TSA_FIRE:
 	case TSA_FIRE_SLIDEL:
 	case TSA_FIRE_SLIDER:
 	{
-		if (ducking)
+		if (!onground)
+			return; // airborne: no fire body pose
+		int fflags;
+		if ((pev->iuser4 & 0x20) == 0) // NOT sliding (TSSTUNT_SLIDE 0x20)
 		{
-			strcpy(name, "crouch_shoot_");
+			m_flAimTimer = 2.0f;
+			strcpy(name, ducking ? "crouch_shoot_" : "shoot_");
 			strcat(name, grip);
+			// alt fire-stance "2" variant: recent stunt (leg timer) + standing + not scoped + one/two-handed
+			if (m_flLegTimer > 0.001f && !ducking && pev->fov == 0 &&
+				(strncmp(grip, "one", 3) == 0 || strncmp(grip, "two", 3) == 0))
+			{
+				strcat(name, "2");
+				m_flAimTimer = 0.0f;
+			}
+			fflags = 0x92; // force+interp, keep legs
 		}
-		else
+		else // sliding: the forward slide-fire combined pose (player+0x51c dir path is dead code)
 		{
-			strcpy(name, "shoot_");
-			if (strncmp(grip, "akimbo", 6) == 0)
-				strcpy(name, "shoot_akimbo_left"); // akimbo alternates barrels; default left
-			else
-				strcat(name, grip);
+			strcpy(name, "slide_f_");
+			strcat(name, grip);
+			strcat(name, "_shoot");
+			fflags = 0x94; // force+interp, clear legs
 		}
-		SetAnim(pPlayer, name, 0x92, 0); // force+interp, keep legs
-		m_flAimTimer = 2.0f;
+		// fire-while-sliding-back left/right variant (slide_b_ suffix)
+		if (activity == TSA_FIRE_SLIDER)      strcat(name, "_right");
+		else if (activity == TSA_FIRE_SLIDEL) strcat(name, "_left");
+		SetAnim(pPlayer, name, fflags, 0);
 		m_iLastActivity = activity;
 		return;
 	}
@@ -497,10 +510,12 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		return;
 	}
 
-	// ---- Grenade throw (upper body, keep legs) -----------------------------
+	// ---- Grenade throw (upper body, keep legs). RE case 0x35 ---------------
 	case TSA_GRENADE:
 		if (!onground)
-			break;
+			return;
+		if (pev->iuser4 & 0x30) // TSSTUNT_SLIDE(0x20)|TSSTUNT_DIVE(0x10): no throw pose mid-stunt
+			return;
 		SetAnim(pPlayer, "grenade", 0x92, 0);
 		m_flAimTimer = 2.0f;
 		m_flGrenadeFlag = 1.0f;
