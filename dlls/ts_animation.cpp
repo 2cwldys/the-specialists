@@ -307,11 +307,112 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		}
 	}
 
-	// ---- Phase B: keep the current (locked) pose if it is still playing -------
-	if (m_iLastActivity == TSA_SLIDE)
+	// ---- Region B: hold the current (locked) pose while its stunt/jump/slide sequence is still
+	// playing (RE Animate@0x5b470 switch(m_iLastActivity), reached BEFORE Region C so the per-frame
+	// PostThink Animate(RUN/IDLE) — or a competing fire dispatch — cannot stomp an in-progress stunt).
+	// Each case releases when: the sequence finishes (m_fSequenceFinished, now confirmed advanced
+	// server-side via PostThink StudioFrameAdvance), OR the stunt bit clears (iuser4 & TSSTUNT_PRONE=0x4),
+	// OR the incoming activity is a legitimate transition (the a1 exclusions). Every case ends in `break`
+	// (the ORIGINAL does — omitting them was the freeze bug in the reverted 4-region rewrite).
+	const bool seqPlaying = (pPlayer->m_fSequenceFinished == 0);
+	const bool alive = pPlayer->IsAlive() != 0;
+	const bool onladder = pPlayer->IsOnLadder() != 0;
+	if (!IsInCloseCombat(m_iLastActivity))
 	{
-		BlendAnimationsForSlide(pPlayer);
-		// slide keeps blending; fall through to record only
+		switch (m_iLastActivity)
+		{
+		case TSA_SLIDE: // 0x3 — keep re-blending the slide direction
+			if (alive && activity != TSA_JUMP && activity != TSA_MORFY &&
+				activity != TSA_SLIDE_BL && activity != TSA_SLIDE_BR && activity != TSA_PRONE &&
+				activity != TSA_FIRE && activity != TSA_FIRE_SLIDEL && activity != TSA_FIRE_SLIDER &&
+				!onladder)
+			{
+				BlendAnimationsForSlide(pPlayer);
+				return;
+			}
+			break;
+		case TSA_JUMP: // 0x4
+			if (seqPlaying && alive && !onground && !IsInCloseCombat(activity) &&
+				activity != TSA_JUMP && activity != TSA_DIVE && activity != TSA_ROLL &&
+				activity != TSA_DIVE_END && activity != TSA_WHEEL && activity != TSA_LOWWHEEL &&
+				activity != TSA_WALLJUMP && activity != TSA_WALLCLIMB && activity != TSA_BULLETTIME)
+				return;
+			break;
+		case TSA_DIE: // 0x7 — death holds (the die sequence was set once)
+			return;
+		case TSA_DIVE: // 0x28
+			if (seqPlaying && alive && !onladder &&
+				activity != TSA_PRONE && activity != TSA_GETUP && activity != TSA_SLIDE)
+				return;
+			break;
+		case TSA_PRONE: // 0x29
+		case TSA_GETUP: // 0x2e
+		case TSA_ROLL:  // 0x2f
+			if (seqPlaying && alive && (pev->iuser4 & 0x4 /*TSSTUNT_PRONE*/))
+				return;
+			break;
+		case TSA_SLIDE_BL: // 0x2a
+		case TSA_SLIDE_BR: // 0x2b
+		{
+			// hold the slide-back pose while stationary, or while still moving along the strafe axis
+			bool hold = false;
+			if (alive && !onladder && activity != TSA_SLIDE_BL && activity != TSA_SLIDE_BR &&
+				activity != TSA_SLIDE && activity != TSA_PRONE)
+			{
+				Vector vel = pev->velocity;
+				float spd = vel.Length();
+				if (spd == 0.0f)
+					hold = true;
+				else
+				{
+					UTIL_MakeVectors(pev->v_angle);
+					Vector vd = vel * (1.0f / spd);
+					Vector r = gpGlobals->v_right;
+					float rl = r.Length();
+					if (rl != 0.0f) r = r * (1.0f / rl);
+					if (DotProduct(vd, r) != 0.0f)
+						hold = true;
+				}
+			}
+			if (hold) return;
+			break;
+		}
+		case TSA_DIVE_END: // 0x30
+			if (seqPlaying && alive)
+				return;
+			break;
+		case TSA_WHEEL: // 0x31
+			if (seqPlaying && alive && (pev->iuser4 & 0x4 /*TSSTUNT_PRONE*/) && !onladder)
+				return;
+			break;
+		case TSA_LOWWHEEL: // 0x32
+			if (seqPlaying && alive && !onladder &&
+				activity != TSA_PRONE && activity != TSA_GETUP)
+				return;
+			break;
+		case TSA_BULLETTIME: // 0x36
+			if (seqPlaying && alive)
+				return;
+			break;
+		case TSA_WALLJUMP: // 0x37
+			if (seqPlaying && alive && (pev->iuser4 & 0x4 /*TSSTUNT_PRONE*/) && !onladder && !onground &&
+				activity != TSA_WALLJUMP && activity != TSA_WALLCLIMB && activity != TSA_DIVE)
+				return;
+			break;
+		case TSA_WALLCLIMB: // 0x38
+			if (seqPlaying && alive && (pev->iuser4 & 0x4 /*TSSTUNT_PRONE*/) && !onladder && !onground &&
+				!IsInCloseCombat(activity) &&
+				activity != TSA_WALLJUMP && activity != TSA_WALLCLIMB && activity != TSA_DIVE)
+				return;
+			break;
+		case TSA_MORFY: // 0x39
+			if (seqPlaying && alive && !onground && !IsInCloseCombat(activity) &&
+				activity != TSA_MORFY && activity != TSA_DIVE && activity != TSA_ROLL &&
+				activity != TSA_DIVE_END && activity != TSA_WHEEL && activity != TSA_LOWWHEEL &&
+				activity != TSA_WALLJUMP && activity != TSA_WALLCLIMB && activity != TSA_BULLETTIME)
+				return;
+			break;
+		}
 	}
 
 	// ---- Phase C: pick & set the NEW body sequence ---------------------------
