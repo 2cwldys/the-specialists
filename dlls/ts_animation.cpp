@@ -564,15 +564,19 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		SetAnim(pPlayer, "roll_f_high", 0x94, 0);  // dive_end table[forward] @0x1bc
 		m_iLastActivity = activity;
 		return;
-	// RE case 0x29: pose = pronetable[m_iDirection] (this+0xdc = {slide_l_end, slide_r_end, slide_f_end,
-	// slide_b_end}), the FROZEN m_iDirection (set by the dive/landing, held steady while Region B holds).
-	// Backward (dir 3) -> slide_b_end = the on-FEET recovery pose (the "double-jump backward lands on feet");
-	// forward/left/right -> the prone slide_*_end poses. No grip suffix — these are grip-independent.
+	// case 0x29: the settled prone LYING pose, indexed by the FROZEN m_iDirection. IMPORTANT: the ctor
+	// pose table this+0xdc = slide_<dir>_end, but those are the dive-RECOVERY (getup) animations — in the
+	// original, Animate(0x29)=slide_<dir>_end is dispatched ONCE for the deliberate standup, while the
+	// every-frame auto-slide uses the slide_<dir>_<grip> LYING pose. Our HandleSlide dispatches 0x29 every
+	// frame with FORCE, so slide_<dir>_end restarted the getup continuously ("constantly getting up"); the
+	// static lying pose here restarts invisibly. (Backward-feet: dir 3 -> slide_b_<grip> lying-back for now;
+	// the on-feet backward landing needs the auto-slide-vs-deliberate split — VERIFY / follow-up.)
 	case TSA_PRONE:
 	{
-		static const char *const ds[4] = { "slide_l_end", "slide_r_end", "slide_f_end", "slide_b_end" };
+		static const char *const ds[4] = { "l", "r", "f", "b" };
 		int dir = (m_iDirection >= 0 && m_iDirection < 4) ? m_iDirection : 2;
-		SetAnim(pPlayer, ds[dir], 0x94, 0); // orig uses force+clearlegs
+		snprintf(name, sizeof(name), "slide_%s_%s", ds[dir], grip);
+		SetAnim(pPlayer, name, 0x94, 0); // force+clearlegs
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
