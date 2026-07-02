@@ -241,17 +241,25 @@ void CTSAnimation::BlendAnimationsByDir(CBasePlayer *pPlayer, const Vector &dir,
 	}
 }
 
-// ---- BlendAnimationsForSlide (@0x5d400) — continuous slide-dir update -----------
+// ---- BlendAnimationsForSlide (@0x5d400, VERBATIM) — the prone AIM-TRACKING pose swapper.
+// Runs every frame from Region B while the last activity is 3 (prone-idle). ONLY when the
+// launch was non-forward (m_bDirForward): direction = GetDirection(m_vecStuntDir, v_angle)
+// — the dive-vector-vs-CURRENT-AIM delta — so aiming around swaps the lying side
+// continuously; the strafe-roll re-anchor clears m_bDirForward and the tracking stops
+// ("until you move while prone"). !=forward is rejected (keeps the last side); the swap is
+// a KEEPFRAME blend (0x194) and updates the m_iDirection latch.
 void CTSAnimation::BlendAnimationsForSlide(CBasePlayer *pPlayer)
 {
-	static const char *const slideTable[4] = { "slide_l_", "slide_r_", "slide_f_", "slide_b_" };
-	const char *grip = pPlayer->m_szAnimExtention;
-	int d = GetDirection(TS_DirNormalize(pPlayer->pev->velocity), pPlayer->pev->v_angle, 0.6f, 0.3f);
-	if (d != m_iDirection && d != 2 && d >= 0 && d < 4)
+	if (!pPlayer->m_TSStunt.m_bDirForward)
+		return;
+	int d = GetDirection(pPlayer->m_TSStunt.m_vecStuntDir, pPlayer->pev->v_angle, 0.6f, 0.3f);
+	if (d != m_iDirection && d != 2)
 	{
+		static const char *const slideTable[4] = { "slide_l_", "slide_r_", "slide_f_", "slide_b_" };
 		char name[64];
-		strcpy(name, slideTable[d]);
-		strcat(name, (grip && grip[0]) ? grip : "akimbo");
+		strcpy(name, slideTable[d & 3]);
+		const char *grip = pPlayer->m_szAnimExtention;
+		strcat(name, grip[0] ? grip : "akimbo");
 		SetAnim(pPlayer, name, 0x194, 0);
 		m_iDirection = d;
 	}
