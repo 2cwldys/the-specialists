@@ -587,12 +587,15 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	// frame with FORCE, so slide_<dir>_end restarted the getup continuously ("constantly getting up"); the
 	// static lying pose here restarts invisibly. (Backward-feet: dir 3 -> slide_b_<grip> lying-back for now;
 	// the on-feet backward landing needs the auto-slide-vs-deliberate split — VERIFY / follow-up.)
+	// RE case 0x29 (VERBATIM): the prone pose = pronetable[m_iDirection] — the ctor table
+	// @this+0xdc = {slide_l/r/f/b_end}, indexed by the LATCHED direction (m_iDirection*0x10+0xdc,
+	// then the shared SetAnim(...,0x94,0) tail). NO grip suffix — the cont.80 slide_<dir>_<grip>
+	// substitution broke to IDLE once the direction latch started carrying 0/1/3 (missing
+	// grip-variant sequences); the original's table names always exist.
 	case TSA_PRONE:
 	{
-		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = (m_iDirection >= 0 && m_iDirection < 4) ? m_iDirection : 2;
-		snprintf(name, sizeof(name), "slide_%s_%s", ds[dir], grip);
-		SetAnim(pPlayer, name, 0x94, 0); // force+clearlegs
+		static const char *const proneTable[4] = { "slide_l_end", "slide_r_end", "slide_f_end", "slide_b_end" };
+		SetAnim(pPlayer, proneTable[m_iDirection & 3], 0x94, 0);
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
