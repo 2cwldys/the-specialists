@@ -859,6 +859,36 @@ void CStudioModelRenderer::StudioSetupBones()
 		}
 	}
 
+	// ENGINE-COMPAT SHIM (cont.81): xash's CL_CompareTimestamps treats animtime deltas
+	// <= 1ms as "unchanged", and its sequence-change latch only runs when animtime changed —
+	// so on a high-fps listen server the latch RANDOMLY misses a swap and the 0.2s pose
+	// blend can't engage (GoldSrc's 100fps server cap means the original always latches).
+	// Re-latch client-side when the engine missed it. Presentation only — no wire/behavior
+	// change; the mod-DLL side is decompile-verified byte-equivalent to the original.
+	if (m_pCurrentEntity->player)
+	{
+		static int s_lastSeq[64];
+		static bool s_init;
+		if (!s_init)
+		{
+			for (int i = 0; i < 64; i++)
+				s_lastSeq[i] = -1;
+			s_init = true;
+		}
+		int idx = m_pCurrentEntity->index & 63;
+		if (s_lastSeq[idx] >= 0 && m_pCurrentEntity->curstate.sequence != s_lastSeq[idx])
+		{
+			// the engine latched iff prevsequence points at what we saw last AND the stamp is fresh
+			if (m_pCurrentEntity->latched.prevsequence != s_lastSeq[idx] ||
+				m_pCurrentEntity->latched.sequencetime + 0.2 <= m_clTime)
+			{
+				m_pCurrentEntity->latched.prevsequence = s_lastSeq[idx];
+				m_pCurrentEntity->latched.sequencetime = m_clTime - 0.001;
+			}
+		}
+		s_lastSeq[idx] = m_pCurrentEntity->curstate.sequence;
+	}
+
 	if (m_fDoInterp &&
 		0 != m_pCurrentEntity->latched.sequencetime &&
 		(m_pCurrentEntity->latched.sequencetime + 0.2 > m_clTime) &&
