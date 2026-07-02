@@ -565,6 +565,66 @@ void CBasePlayer::BlockPlayer(float flDuration)
 	pev->iuser4 |= TSSTUNT_STOP;
 }
 
+// @0x85bac FindHullIntersectionplayer — byte-for-byte the stock crowbar FindHullIntersection,
+// copied into TS_player.cpp and renamed by the original (avoids the static-linkage collision
+// with crowbar.cpp's). Double the reach, straight re-trace, else the 2x2x2 corner loop keeping
+// the closest hit (1e6 sentinel).
+void FindHullIntersectionplayer(const Vector &vecSrc, TraceResult &tr,
+	const float *mins, const float *maxs, edict_t *pEntity)
+{
+	float distance = 1e6f;
+	const float *minmaxs[2] = {mins, maxs};
+	TraceResult tmpTrace;
+
+	Vector vecHullEnd = vecSrc + ((tr.vecEndPos - vecSrc) * 2.0f);
+	UTIL_TraceLine(vecSrc, vecHullEnd, dont_ignore_monsters, pEntity, &tmpTrace);
+	if (tmpTrace.flFraction < 1.0f)
+	{
+		tr = tmpTrace;
+		return;
+	}
+
+	for (int i = 0; i < 2; i++)
+		for (int j = 0; j < 2; j++)
+			for (int k = 0; k < 2; k++)
+			{
+				Vector vecEnd(vecHullEnd.x + minmaxs[i][0],
+							  vecHullEnd.y + minmaxs[j][1],
+							  vecHullEnd.z + minmaxs[k][2]);
+				UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, pEntity, &tmpTrace);
+				if (tmpTrace.flFraction < 1.0f)
+				{
+					float thisDistance = (tmpTrace.vecEndPos - vecSrc).Length();
+					if (thisDistance < distance)
+					{
+						tr = tmpTrace;
+						distance = thisDistance;
+					}
+				}
+			}
+}
+
+// @0x85e28 CheckHull — the shared melee trace: a line trace first; on a miss, a hull trace
+// (iHull: 3 = head_hull for most melee, 1 vs the small attack class) refined through
+// FindHullIntersectionplayer. tr.flFraction >= 1 after this = a miss. (The original tail
+// has an unread vtable-slot-46 read — dead; VERIFY if it ever matters. Hull mins/maxs
+// mapping VERIFY: head hull uses the duck hull extents, like the crowbar.)
+void CBasePlayer::CheckHull(Vector vecSrc, Vector vecEnd, TraceResult &tr, int iHull)
+{
+	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, edict(), &tr);
+	if (tr.flFraction >= 1.0f)
+	{
+		UTIL_TraceHull(vecSrc, vecEnd, dont_ignore_monsters, iHull, edict(), &tr);
+		if (tr.flFraction < 1.0f)
+		{
+			if (iHull == head_hull)
+				FindHullIntersectionplayer(vecSrc, tr, VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX, edict());
+			else
+				FindHullIntersectionplayer(vecSrc, tr, VEC_HULL_MIN, VEC_HULL_MAX, edict());
+		}
+	}
+}
+
 // @0x83a3c DropArmor — drop the player's armor as a CTSAmmoPack (armor-only) tossed in front of them,
 // then zero the armor. (Dead drop randomizes the toss direction.)
 void CBasePlayer::DropArmor()

@@ -202,4 +202,10 @@ inline CTSGameRules* TSGameRules()
 	return static_cast<CTSGameRules*>(g_pGameRules);
 }
 
+// ---- melee deflect gates (free functions, TS_gamerules.cpp; RE dossier-melee §1.3) ----
+// true = the swing was blocked (caller aborts damage); the attacker pays 33 stamina.
+bool VictimKatanaHold(CBasePlayer *pAttacker, CBaseEntity *pVictim, float flDamage);
+bool VictimKnifeHold(CBasePlayer *pAttacker, CBaseEntity *pVictim, float flDamage);
+bool VictimKungfuHold(CBasePlayer *pAttacker, CBaseEntity *pVictim, float flDamage, TraceResult *ptr);
+
 #endif // TS_GAMERULES_H
