@@ -1304,21 +1304,23 @@ void PM_Friction()
 
 		trace = pmove->PM_PlayerTrace(start, stop, PM_NORMAL, -1);
 
-		if (trace.fraction == 1.0)
+		// TS-modified PM_Friction (RE @0xede08, dossier cont.81): the edgefriction doubling
+		// applies ONLY at entity friction 1.0 — stunting/rolling players (pev->friction 0.3)
+		// never get edge-doubled (the low prone hull trips the edge trace constantly, which
+		// made our rolls decay ~2.7x faster than the original's).
+		if (trace.fraction == 1.0 && pmove->friction == 1.0f)
 			friction = pmove->movevars->friction * pmove->movevars->edgefriction;
 		else
 			friction = pmove->movevars->friction;
 
-		// Grab friction value.
-		//friction = pmove->movevars->friction;
-
-		friction *= pmove->friction; // player friction?
+		friction *= pmove->friction; // player friction
 
 		// Bleed off some speed, but if we have less than the bleed
 		//  threshhold, bleed the theshold amount.
 		control = (speed < pmove->movevars->stopspeed) ? pmove->movevars->stopspeed : speed;
-		// Add the amount to t'he drop amount.
-		drop += control * friction * pmove->frametime;
+		// Add the amount to the drop amount — TS scales the whole drop by 0.75 (RE @0xede08:
+		// drop = control * friction * pmove->friction * 0.75 * frametime; softer ground decel).
+		drop += control * friction * 0.75f * pmove->frametime;
 	}
 
 	// apply water friction
