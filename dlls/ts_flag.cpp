@@ -26,7 +26,7 @@
 
 #define FLAG_MODEL "models/briefcase.mdl"
 
-// @ gmsgTSHaveFlag — MSG_ALL(4): base-spawn(0)/pickup(1)/drop(2), flagID, team+1, carrier entindex.
+// @ gmsgTSHaveFlag — wire name "TSFlag" (the original registers the tail of the "7CTSFlag" literal @0xf9c84; the GLOBAL is named gmsgTSHaveFlag). MSG_ALL(4): base-spawn(0)/pickup(1)/drop(2), flagID, team+1, carrier entindex.
 // Registered lazily, the codebase's pattern for TS messages (see ts_player.cpp gmsgTSHealth).
 int gmsgTSHaveFlag = 0;
 

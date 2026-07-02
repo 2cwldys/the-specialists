@@ -15,7 +15,7 @@
 #include "ts_worldgun.h"  // CTSAmmoPack::CreateAmmoPack (DropArmor)
 #include "ts_bomb.h"      // CTSBomb::CutWire (the cutwire_<n> command helper)
 
-extern int gmsgTSHaveFlag; // "TSHaveFlag" (4) — defined in ts_flag.cpp
+extern int gmsgTSHaveFlag; // wire name "TSFlag" (4) — defined in ts_flag.cpp
 
 // Lazily-registered TS powerup user messages (see ts_player.h).
 int gmsgTSPowerUpTime = 0;  // "PwUpTime" 1 — active countdown (UsePowerUp)
@@ -388,7 +388,7 @@ bool CBasePlayer::TakeFlag(s_flag_status *src)
 	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
 
 	if (gmsgTSHaveFlag == 0)
-		gmsgTSHaveFlag = REG_USER_MSG("TSHaveFlag", 4);
+		gmsgTSHaveFlag = REG_USER_MSG("TSFlag", 4);
 	MESSAGE_BEGIN(MSG_ALL, gmsgTSHaveFlag);
 	WRITE_BYTE(1); // type 1 = pickup
 	WRITE_BYTE(m_flagStatus.flagID);
@@ -446,7 +446,7 @@ void CBasePlayer::DropFlag(bool bSilent)
 		}
 
 		if (gmsgTSHaveFlag == 0)
-			gmsgTSHaveFlag = REG_USER_MSG("TSHaveFlag", 4);
+			gmsgTSHaveFlag = REG_USER_MSG("TSFlag", 4);
 		MESSAGE_BEGIN(MSG_ALL, gmsgTSHaveFlag);
 		WRITE_BYTE(2); // type 2 = drop
 		WRITE_BYTE(m_flagStatus.flagID);

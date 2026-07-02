@@ -842,7 +842,7 @@ void CTSBriefcase::FlagFall()
 	m_bFlagOut = true;
 
 	if (gmsgTSHaveFlag == 0)
-		gmsgTSHaveFlag = REG_USER_MSG("TSHaveFlag", 4);
+		gmsgTSHaveFlag = REG_USER_MSG("TSFlag", 4);
 	MESSAGE_BEGIN(MSG_ALL, gmsgTSHaveFlag);
 	WRITE_BYTE(0); // type 0 = base spawn
 	WRITE_BYTE(m_flagStatus.flagID);
