@@ -592,17 +592,22 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
+	// RE case 0x31/0x32 (Animate@0x5b470): direction = GetDirection(player+0x510, v_angle) — the
+	// SAME never-written stored dive vector as getup/roll/dive_end above -> always (0,0,0) ->
+	// GetDirection returns FORWARD -> the original ALWAYS plays wheel_f / lowwheel_f. (The l/r/b
+	// branches exist in the original's switch but are unreachable; lowwheel has NO _b pose at all.)
+	// Our old live-velocity read picked lowwheel_l/r/b while moving — lowwheel_b doesn't exist in
+	// the model, SetAnim failed, and the PRONE dive pose showed instead ("moving wheel = dive" bug).
 	case TSA_WHEEL:
+		SetAnim(pPlayer, "wheel_f", 0x94, 0);
+		m_flLegTimer = 3.0f; // this+0x8 = 3.0 (0x40400000)
+		m_iLastActivity = activity;
+		return;
 	case TSA_LOWWHEEL:
-	{
-		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
-		snprintf(name, sizeof(name), "%swheel_%s", (activity == TSA_LOWWHEEL) ? "low" : "", ds[dir & 3]);
-		SetAnim(pPlayer, name, 0x94, 0);
+		SetAnim(pPlayer, "lowwheel_f", 0x94, 0);
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
-	}
 	case TSA_WALLJUMP:
 		SetAnim(pPlayer, "walljump_end", 0x94, 0);
 		m_flLegTimer = 3.0f;

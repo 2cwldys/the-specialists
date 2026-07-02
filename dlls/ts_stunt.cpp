@@ -459,12 +459,12 @@ int CTSStunt::GoWheel()
 		// stunt-cluster scope — until it lands the arm only feeds the KungfuHold counter gate.
 		if (dir == 3)
 		{
-			m_pPlayer->UpdateMeleeBar(22.5f);
-			float kick = 35.0f; // VERIFY: the backkick lunge force base per @0x9cdb8
+			m_pPlayer->UpdateMeleeBar(22.5f); // fc_15 * fc_1_5 (decompile-exact)
+			float kick = 15.0f; // RE gowheel.txt: force base = fc_15 (POSITIVE), doubled under KungFu
 			if (KungFu(m_pPlayer))
 				kick *= 2.0f;
-			m_pPlayer->m_flWhiffLungeTime = 0.3f;
-			m_pPlayer->m_flWhiffLungeForce = -kick;
+			m_pPlayer->m_flWhiffLungeTime = 0.3f; // 0x3e99999a
+			m_pPlayer->m_flWhiffLungeForce = kick;
 			m_pPlayer->m_iWhiffLungeType = 0;
 			m_pPlayer->m_flKungFuBlock = 0.0f;
 		}
