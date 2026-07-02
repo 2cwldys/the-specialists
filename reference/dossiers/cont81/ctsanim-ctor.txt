@@ -1,0 +1,237 @@
+// ===== FUN @ 0006b0c8 size=597 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_animation.cpp */
+
+void CTSAnimation::CTSAnimation(CTSAnimation *this)
+
+{
+  char cVar1;
+  char cVar2;
+  char cVar3;
+  int iVar4;
+  int *piVar5;
+  int *piVar6;
+  
+  piVar5 = (int *)"jump_left_";
+  piVar6 = &this->field_0x1c;
+  for (iVar4 = 2; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(char *)((int)piVar6 + 2) = *(char *)((int)piVar5 + 2);
+  piVar5 = (int *)"jump_right_";
+  piVar6 = &this->field_0x2c;
+  for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  piVar5 = (int *)"jump_forward_";
+  piVar6 = &this->field_0x3c;
+  for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  piVar5 = (int *)"jump_forward_";
+  piVar6 = &this->field_0x4c;
+  for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  this->field_0x5c = DAT_001066af;
+  this->field_0x60 = DAT_001066b3;
+  cVar1 = s_dive_r__001066b7[1];
+  cVar2 = s_dive_r__001066b7[2];
+  cVar3 = s_dive_r__001066b7[3];
+  this->field_0x6c = s_dive_r__001066b7[0];
+  this->field_0x6d = cVar1;
+  this->field_0x6e = cVar2;
+  this->field_0x6f = cVar3;
+  this->field_0x70 = s_dive_r__001066b7._4_4_;
+  this->field_0x7c = DAT_001066bf;
+  this->field_0x80 = DAT_001066c3;
+  cVar1 = s_dive_b__001066c7[1];
+  cVar2 = s_dive_b__001066c7[2];
+  cVar3 = s_dive_b__001066c7[3];
+  this->field_0x8c = s_dive_b__001066c7[0];
+  this->field_0x8d = cVar1;
+  this->field_0x8e = cVar2;
+  this->field_0x8f = cVar3;
+  this->field_0x90 = s_dive_b__001066c7._4_4_;
+  piVar5 = (int *)"slide_l_";
+  piVar6 = &this->field_0x9c;
+  for (iVar4 = 2; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(char *)piVar6 = (char)*piVar5;
+  piVar5 = (int *)"slide_r_";
+  piVar6 = &this->field_0xac;
+  for (iVar4 = 2; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(char *)piVar6 = (char)*piVar5;
+  piVar5 = (int *)"slide_f_";
+  piVar6 = &this->field_0xbc;
+  for (iVar4 = 2; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(char *)piVar6 = (char)*piVar5;
+  piVar5 = (int *)"slide_b_";
+  piVar6 = &this->field_0xcc;
+  for (iVar4 = 2; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(char *)piVar6 = (char)*piVar5;
+  piVar5 = (int *)"slide_l_end";
+  piVar6 = &this->field_0xdc;
+  for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  piVar5 = (int *)"slide_r_end";
+  piVar6 = &this->field_0xec;
+  for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  piVar5 = (int *)"slide_f_end";
+  piVar6 = &this->field_0xfc;
+  for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  piVar5 = (int *)"slide_b_end";
+  piVar6 = &this->field_0x10c;
+  for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  piVar5 = (int *)"dive_l_end";
+  piVar6 = &this->field_0x11c;
+  for (iVar4 = 2; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(char *)((int)piVar6 + 2) = *(char *)((int)piVar5 + 2);
+  piVar5 = (int *)"dive_r_end";
+  piVar6 = &this->field_0x12c;
+  for (iVar4 = 2; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(char *)((int)piVar6 + 2) = *(char *)((int)piVar5 + 2);
+  piVar5 = (int *)"dive_f_end";
+  piVar6 = &this->field_0x13c;
+  for (iVar4 = 2; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(char *)((int)piVar6 + 2) = *(char *)((int)piVar5 + 2);
+  piVar5 = (int *)"dive_b_end";
+  piVar6 = &this->field_0x14c;
+  for (iVar4 = 2; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(char *)((int)piVar6 + 2) = *(char *)((int)piVar5 + 2);
+  piVar5 = &DAT_0010674f;
+  piVar6 = &this->field_0x15c;
+  for (iVar4 = 1; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(undefined1 *)((int)piVar6 + 2) = *(undefined1 *)((int)piVar5 + 2);
+  piVar5 = &DAT_00106756;
+  piVar6 = &this->field_0x16c;
+  for (iVar4 = 1; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(undefined1 *)((int)piVar6 + 2) = *(undefined1 *)((int)piVar5 + 2);
+  piVar5 = &DAT_0010675d;
+  piVar6 = &this->field_0x17c;
+  for (iVar4 = 1; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(undefined1 *)((int)piVar6 + 2) = *(undefined1 *)((int)piVar5 + 2);
+  piVar5 = &DAT_00106764;
+  piVar6 = &this->field_0x18c;
+  for (iVar4 = 1; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(undefined1 *)((int)piVar6 + 2) = *(undefined1 *)((int)piVar5 + 2);
+  piVar5 = &DAT_0010674f;
+  piVar6 = &this->field_0x19c;
+  for (iVar4 = 1; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(undefined1 *)((int)piVar6 + 2) = *(undefined1 *)((int)piVar5 + 2);
+  piVar5 = &DAT_00106756;
+  piVar6 = &this->field_0x1ac;
+  for (iVar4 = 1; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(undefined1 *)((int)piVar6 + 2) = *(undefined1 *)((int)piVar5 + 2);
+  piVar5 = (int *)"roll_f_high";
+  piVar6 = &this->field_0x1bc;
+  for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  piVar5 = &DAT_00106764;
+  piVar6 = &this->field_0x1cc;
+  for (iVar4 = 1; iVar4 != 0; iVar4 = iVar4 + -1) {
+    *piVar6 = *piVar5;
+    piVar5 = piVar5 + 1;
+    piVar6 = piVar6 + 1;
+  }
+  *(short *)piVar6 = (short)*piVar5;
+  *(undefined1 *)((int)piVar6 + 2) = *(undefined1 *)((int)piVar5 + 2);
+  return;
+}
+
+

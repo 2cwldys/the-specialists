@@ -1,0 +1,37 @@
+// ===== FUN @ 0006b008 size=188 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_animation.cpp */
+
+int GetDirection__FG6VectorT0ff(Vector a0,Vector a1,float a2,float a3)
+
+{
+  globalvars_t *pgVar1;
+  float fVar2;
+  int iVar3;
+  Vector local_1c;
+  
+  local_1c.y = *(vec_t *)((int)a0.y + 4);
+  local_1c.z = *(vec_t *)((int)a0.y + 8);
+  local_1c.x = 0.0;
+  UTIL_MakeVectors__FRC6Vector(&local_1c);
+  pgVar1 = *PTR_gpGlobals_00177410;
+  fVar2 = (pgVar1->v_right).z * *(float *)((int)a0.x + 8) +
+          (pgVar1->v_right).y * *(float *)((int)a0.x + 4) + (pgVar1->v_right).x * *(float *)a0.x;
+  if (-a0.z <= fVar2) {
+    if (fVar2 <= a0.z) {
+      iVar3 = ~-(uint)((pgVar1->v_forward).z * *(float *)((int)a0.x + 8) +
+                       (pgVar1->v_forward).y * *(float *)((int)a0.x + 4) +
+                       (pgVar1->v_forward).x * *(float *)a0.x < -a1.x) + 3;
+    }
+    else {
+      iVar3 = 1;
+    }
+  }
+  else {
+    iVar3 = 0;
+  }
+  return iVar3;
+}
+
+

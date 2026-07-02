@@ -1,0 +1,173 @@
+// ===== FUN @ 0009cfe8 size=1023 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_stuntmanager.cpp
+   assets: player/land.wav */
+
+undefined4 CTSStunt::GoRoll(CTSStunt *this,int a0)
+
+{
+  uint *puVar1;
+  float fVar2;
+  edict_s *a0_00;
+  Vector a0_01;
+  Vector a1;
+  Vector a1_00;
+  Vector a2;
+  enginefuncs_t *peVar3;
+  undefined uVar4;
+  int iVar5;
+  undefined3 extraout_var;
+  undefined3 extraout_var_00;
+  undefined3 extraout_var_01;
+  float *pfVar6;
+  undefined4 *puVar7;
+  float *pfVar8;
+  undefined4 *puVar9;
+  longdouble lVar10;
+  float fVar11;
+  undefined8 in_stack_ffffff54;
+  vec_t in_stack_ffffff5c;
+  undefined4 *a3;
+  undefined4 local_9c;
+  undefined4 local_98;
+  float local_94;
+  TraceResult local_8c [64];
+  undefined4 local_4c;
+  undefined4 local_48;
+  float local_44;
+  float local_3c [7];
+  float local_20;
+  
+  roll_1266 = '\x01';
+  if ((*(byte *)(*(int *)this->field_0x40 + 0x1a5) & 2) == 0) {
+    if ((float)this->m_flRollNextTime < (*PTR_gpGlobals_00177410)->time) {
+      roll_1266 = '\0';
+      return 0;
+    }
+  }
+  else if ((float)this->m_flRollNextTime < (*PTR_gpGlobals_00177410)->time) {
+    roll_1266 = '\0';
+  }
+  fVar11 = *(float *)(*(int *)this->field_0x40 + 0x20);
+  fVar2 = *(float *)(*(int *)this->field_0x40 + 0x24);
+  local_20 = SQRT(fVar2 * fVar2 + fVar11 * fVar11);
+  if (local_20 < fc_80) {
+    roll_1266 = '\0';
+  }
+  if ((*(uint *)(*(int *)this->field_0x40 + 0x250) & 0x130c30) != 0) {
+    roll_1266 = '\0';
+  }
+  if (fc_0 < this->m_flRollTime) {
+    roll_1266 = '\0';
+  }
+  iVar5 = CBasePlayer::IsOnLadder((CBasePlayer *)this->field_0x40);
+  if (iVar5 != 0) {
+    roll_1266 = '\0';
+  }
+  if (fc_0 < this->m_flStunCooldown) {
+    roll_1266 = '\0';
+  }
+  if (roll_1266 == '\0') {
+    this->m_flRollNextTime = (float)dc_0_3 + (*PTR_gpGlobals_00177410)->time;
+    return 0;
+  }
+  iVar5 = *(int *)this->field_0x40;
+  local_20 = SQRT(*(float *)(iVar5 + 0x28) * *(float *)(iVar5 + 0x28) +
+                  *(float *)(iVar5 + 0x24) * *(float *)(iVar5 + 0x24) +
+                  *(float *)(iVar5 + 0x20) * *(float *)(iVar5 + 0x20));
+  if (local_20 == fc_0) {
+    local_3c[0] = 0.0;
+    local_3c[1] = 0.0;
+    local_3c[2] = fc_1;
+  }
+  else {
+    fVar11 = fc_1 / local_20;
+    local_3c[0] = fVar11 * *(float *)(iVar5 + 0x20);
+    local_3c[1] = fVar11 * *(float *)(iVar5 + 0x24);
+    local_3c[2] = fVar11 * *(float *)(iVar5 + 0x28);
+  }
+  pfVar6 = local_3c;
+  pfVar8 = &this->m_vecStuntDir;
+  for (iVar5 = 3; iVar5 != 0; iVar5 = iVar5 + -1) {
+    *pfVar8 = *pfVar6;
+    pfVar6 = pfVar6 + 1;
+    pfVar8 = pfVar8 + 1;
+  }
+  local_3c[0] = this->m_vecStuntDir;
+  local_3c[1] = (float)this->field_0x24;
+  local_3c[2] = (float)this->field_0x28;
+  a3 = &local_4c;
+  iVar5 = *(int *)this->field_0x40;
+  local_4c = *(undefined4 *)(iVar5 + 0x74);
+  local_48 = *(undefined4 *)(iVar5 + 0x78);
+  local_44 = *(float *)(iVar5 + 0x7c);
+  a0_01.y = (vec_t)a3;
+  a0_01.x = (vec_t)local_3c;
+  a0_01.z = 0.6;
+  a1_00.y = (vec_t)(int)in_stack_ffffff54;
+  a1_00.z = (vec_t)(int)((ulonglong)in_stack_ffffff54 >> 0x20);
+  a1_00.x = 0.3;
+  direction_1267 = GetDirection__FG6VectorT0ff(a0_01,a1_00,in_stack_ffffff5c,(float)a3);
+  fVar11 = fc_0_75;
+  *(undefined4 *)(*(int *)this->field_0x40 + 0x120) = 0x3e99999a;
+  puVar1 = (uint *)(*(int *)this->field_0x40 + 0x250);
+  *puVar1 = *puVar1 & 0xffefffff;
+  puVar1 = (uint *)(*(int *)this->field_0x40 + 0x250);
+  *puVar1 = *puVar1 | 0x40005;
+  puVar7 = (undefined4 *)PTR_g_vecZero_00177698;
+  puVar9 = (undefined4 *)(*(int *)this->field_0x40 + 0x174);
+  for (iVar5 = 3; iVar5 != 0; iVar5 = iVar5 + -1) {
+    *puVar9 = *puVar7;
+    puVar7 = puVar7 + 1;
+    puVar9 = puVar9 + 1;
+  }
+  this->m_flRollTime = fVar11;
+  CTSAnimation::Animate
+            ((CTSAnimation *)(this->field_0x40 + 0x28c),(CBasePlayer *)this->field_0x40,0x2f);
+  iVar5 = *(int *)this->field_0x40;
+  if ((*(byte *)(iVar5 + 0x252) & 8) == 0) {
+    a0_00 = *(edict_s **)(*(int *)this->field_0x40 + 0x208);
+    fVar11 = 0.5;
+    uVar4 = (*PTR_g_engfuncs_001778b8->pfnRandomLong)(0,0x1f);
+    EMIT_SOUND_DYN__FP7edict_siPCcffiif
+              (a0_00,4,"player/land.wav",1.0,0.8,0,CONCAT31(extraout_var,uVar4) + 0x5f,fVar11);
+  }
+  else {
+    local_4c = *(undefined4 *)(iVar5 + 8);
+    local_48 = *(undefined4 *)(iVar5 + 0xc);
+    local_44 = *(float *)(iVar5 + 0x10) - fc_4000;
+    UTIL_TraceLine__FRC6VectorT015IGNORE_MONSTERS12IGNORE_GLASSP7edict_sP11TraceResult
+              (*(int *)this->field_0x40 + 8,a3,1,1,*(undefined4 *)(*(int *)this->field_0x40 + 0x208)
+               ,local_8c);
+    iVar5 = *(int *)this->field_0x40;
+    local_3c[0] = *(float *)(iVar5 + 8);
+    local_3c[1] = *(float *)(iVar5 + 0xc);
+    local_3c[2] = *(float *)(iVar5 + 0x10);
+    local_9c = local_4c;
+    local_98 = local_48;
+    local_94 = local_44;
+    a1.y = (vec_t)&local_9c;
+    a1.x = (vec_t)local_3c;
+    a1.z = 0.0;
+    a2.z = in_stack_ffffff5c;
+    a2.x = (vec_t)(int)in_stack_ffffff54;
+    a2.y = (vec_t)(int)((ulonglong)in_stack_ffffff54 >> 0x20);
+    TEXTURETYPE_PlaySound__FP11TraceResultG6VectorT1i(local_8c,a1,a2,(int)a3);
+  }
+  this->m_flRollNextTime = 0;
+  peVar3 = PTR_g_engfuncs_001778b8;
+  uVar4 = (*PTR_g_engfuncs_001778b8->pfnRandomLong)(0,10);
+  lVar10 = (longdouble)(**(code **)(*(int *)(this->field_0x40 + 0x60) + 0x10))(this->field_0x40);
+  if ((longdouble)fc_9 < lVar10 * (longdouble)fc_10 + (longdouble)CONCAT31(extraout_var_00,uVar4)) {
+    (*peVar3->pfnMessageBegin)
+              (4,*(undefined4 *)PTR_gmsgTSMotionBlur_00177b48,*(int *)this->field_0x40 + 8,0);
+    uVar4 = (*peVar3->pfnIndexOfEdict)(*(undefined4 *)(*(int *)this->field_0x40 + 0x208));
+    (*peVar3->pfnWriteByte)(CONCAT31(extraout_var_01,uVar4));
+    (*peVar3->pfnWriteByte)(2);
+    (*peVar3->pfnMessageEnd)();
+  }
+  return 1;
+}
+
+

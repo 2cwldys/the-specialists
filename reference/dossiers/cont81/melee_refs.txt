@@ -1,0 +1,662 @@
+// ===== UpdateMeleeBar @ 00068b20 size=6 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::UpdateMeleeBar(CBasePlayer *this,float a0)
+
+{
+  (*(code *)PTR_UpdateMeleeBar_00176818)();
+  return;
+}
+
+
+// ===== CloseCombatAttack__11CBasePlayerG6VectorN21ifibN37 @ 00068c20 size=6 =====
+
+void CloseCombatAttack__11CBasePlayerG6VectorN21ifibN37(void)
+
+{
+  (*(code *)PTR_CloseCombatAttack__11CBasePlayerG6VectorN21ifibN37_00176858)();
+  return;
+}
+
+
+// ===== ColdCockAttack__11CBasePlayerG6VectorN21ifibN37 @ 0006abf0 size=6 =====
+
+void ColdCockAttack__11CBasePlayerG6VectorN21ifibN37(void)
+
+{
+  (*(code *)PTR_ColdCockAttack__11CBasePlayerG6VectorN21ifibN37_0017704c)();
+  return;
+}
+
+
+// ===== BlockPlayer @ 000692c0 size=6 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::BlockPlayer(CBasePlayer *this,float a0)
+
+{
+  (*(code *)PTR_BlockPlayer_00176a00)();
+  return;
+}
+
+
+// DecompRefs: 4 referencing functions decompiled.
+// ===== VictimKatanaHold__FP11CBasePlayerP11CBaseEntityf @ 00076c8c size=342 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gamerules.cpp
+   assets: weapons/knife/knife_hit.wav */
+
+undefined2
+VictimKatanaHold__FP11CBasePlayerP11CBaseEntityf(CBasePlayer *a0,CBaseEntity *a1,float a2)
+
+{
+  entvars_t *peVar1;
+  entvars_t *peVar2;
+  undefined2 uVar3;
+  int iVar4;
+  float *pfVar5;
+  Vector *pVVar6;
+  float local_3c [4];
+  Vector local_2c [2];
+  
+  iVar4 = (*a1->vtbl->IsPlayer)(a1);
+  uVar3 = 0;
+  if (iVar4 != 0) {
+    uVar3 = 0;
+    if (fc_0 < *(float *)&a1->field_0x7b0) {
+      uVar3 = 0;
+      if (fc_0_10000000149011612 < *(float *)&a1->field_0x774) {
+        peVar1 = a0->pev;
+        peVar2 = a1->pev;
+        local_3c[0] = fc_0_5 * ((peVar1->origin).x + (peVar2->origin).x);
+        local_3c[1] = fc_0_5 * ((peVar1->origin).y + (peVar2->origin).y);
+        local_3c[2] = fc_0_5 * ((peVar1->origin).z + (peVar2->origin).z);
+        pfVar5 = local_3c;
+        pVVar6 = local_2c;
+        for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+          pVVar6->x = *pfVar5;
+          pfVar5 = pfVar5 + 1;
+          pVVar6 = (Vector *)&pVVar6->y;
+        }
+        local_2c[0].z = fc_20 + local_2c[0].z;
+        UTIL_Sparks__FRC6Vector(local_2c);
+        EMIT_SOUND_DYN__FP7edict_siPCcffiif
+                  (a0->pev->pContainingEntity,4,"weapons/knife/knife_hit.wav",fc_1,
+                   fc_0_800000011920929,0,100,fc_0_5);
+        a0->field_0x7a0 = 0;
+        a0->field_0x12c = 0x3f400000;
+        *(undefined4 *)&a1->field_0x12c = 0x3eb33333;
+        CBasePlayer::UpdateMeleeBar(a0,33.0);
+        uVar3 = 1;
+      }
+    }
+  }
+  return uVar3;
+}
+
+
+// ===== VictimKnifeHold__FP11CBasePlayerP11CBaseEntityf @ 00076de4 size=361 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gamerules.cpp
+   assets: weapons/knife/knife_hit.wav */
+
+undefined2 VictimKnifeHold__FP11CBasePlayerP11CBaseEntityf(CBasePlayer *a0,CBaseEntity *a1,float a2)
+
+{
+  entvars_t *peVar1;
+  entvars_t *peVar2;
+  int iVar3;
+  float *pfVar4;
+  Vector *pVVar5;
+  float local_3c [4];
+  Vector local_2c [2];
+  
+  iVar3 = (*a1->vtbl->IsPlayer)(a1);
+  if (iVar3 == 0) {
+    return 0;
+  }
+  if (*(float *)&a1->field_0x7ac <= fc_0) {
+    if (*(float *)&a1->field_0x7b0 <= fc_0) {
+      return 0;
+    }
+    if (*(float *)&a1->field_0x774 <= fc_0_10000000149011612) {
+      return 0;
+    }
+  }
+  peVar1 = a0->pev;
+  peVar2 = a1->pev;
+  local_3c[0] = fc_0_5 * ((peVar1->origin).x + (peVar2->origin).x);
+  local_3c[1] = fc_0_5 * ((peVar1->origin).y + (peVar2->origin).y);
+  local_3c[2] = fc_0_5 * ((peVar1->origin).z + (peVar2->origin).z);
+  pfVar4 = local_3c;
+  pVVar5 = local_2c;
+  for (iVar3 = 3; iVar3 != 0; iVar3 = iVar3 + -1) {
+    pVVar5->x = *pfVar4;
+    pfVar4 = pfVar4 + 1;
+    pVVar5 = (Vector *)&pVVar5->y;
+  }
+  local_2c[0].z = fc_20 + local_2c[0].z;
+  UTIL_Sparks__FRC6Vector(local_2c);
+  EMIT_SOUND_DYN__FP7edict_siPCcffiif
+            (a0->pev->pContainingEntity,4,"weapons/knife/knife_hit.wav",fc_1,fc_0_800000011920929,0,
+             100,fc_0_5);
+  a0->field_0x7a0 = 0;
+  a0->field_0x12c = 0x3f000000;
+  *(undefined4 *)&a1->field_0x12c = 0x3e800000;
+  CBasePlayer::UpdateMeleeBar(a0,33.0);
+  return 1;
+}
+
+
+// ===== VictimKungfuHold__FP11CBasePlayerP11CBaseEntityfP11TraceResult @ 00076f50 size=498 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gamerules.cpp
+   assets: player/kungfuhit.wav */
+
+undefined4
+VictimKungfuHold__FP11CBasePlayerP11CBaseEntityfP11TraceResult
+          (CBasePlayer *a0,CBaseEntity *a1,float a2,TraceResult *a3)
+
+{
+  entvars_t *peVar1;
+  entvars_t *peVar2;
+  bool bVar3;
+  float fVar4;
+  int iVar5;
+  undefined4 uVar6;
+  float *pfVar7;
+  float *pfVar8;
+  CBasePlayer *local_48;
+  float local_3c [4];
+  float local_2c [7];
+  
+  iVar5 = (*a1->vtbl->IsPlayer)(a1);
+  uVar6 = 0;
+  if (iVar5 != 0) {
+    bVar3 = false;
+    local_48 = (CBasePlayer *)0x0;
+    if (*(float *)&a1->field_0x7a8 <= fc_0) {
+      if ((fc_0 < (float)a0->field_0x7a8) && (a1->field_0x7a4 == '\0')) {
+        if (fc_0 < *(float *)&a1->field_0x79c) {
+          bVar3 = true;
+          local_48 = a0;
+          a0 = (CBasePlayer *)a1;
+        }
+      }
+    }
+    else {
+      bVar3 = true;
+      local_48 = (CBasePlayer *)a1;
+    }
+    uVar6 = 0;
+    if ((bVar3) && (local_48 != (CBasePlayer *)0x0)) {
+      peVar1 = a0->pev;
+      peVar2 = local_48->pev;
+      local_2c[0] = (peVar1->origin).x - (peVar2->origin).x;
+      local_2c[1] = (peVar1->origin).y - (peVar2->origin).y;
+      local_2c[2] = (peVar1->origin).z - (peVar2->origin).z;
+      fVar4 = SQRT(local_2c[2] * local_2c[2] + local_2c[1] * local_2c[1] + local_2c[0] * local_2c[0]
+                  );
+      if (fVar4 == fc_0) {
+        local_3c[0] = 0.0;
+        local_3c[1] = 0.0;
+        local_3c[2] = fc_1;
+      }
+      else {
+        fVar4 = fc_1 / fVar4;
+        local_3c[0] = fVar4 * local_2c[0];
+        local_3c[1] = fVar4 * local_2c[1];
+        local_3c[2] = fVar4 * local_2c[2];
+      }
+      pfVar7 = local_3c;
+      pfVar8 = local_2c;
+      for (iVar5 = 3; iVar5 != 0; iVar5 = iVar5 + -1) {
+        *pfVar8 = *pfVar7;
+        pfVar7 = pfVar7 + 1;
+        pfVar8 = pfVar8 + 1;
+      }
+      UTIL_MakeVectors__FRC6Vector(&local_48->pev->v_angle);
+      uVar6 = 0;
+      if (fc_0_10000000149011612 <= *(float *)&a1->field_0x774) {
+        EMIT_SOUND_DYN__FP7edict_siPCcffiif
+                  (a0->pev->pContainingEntity,4,"player/kungfuhit.wav",fc_1,fc_0_800000011920929,0,
+                   100,fc_0_5);
+        local_48->field_0x7a0 = 0;
+        a0->field_0x7a0 = 0;
+        a0->field_0x12c = 0x3f000000;
+        local_48->field_0x12c = 0x3e800000;
+        CBasePlayer::UpdateMeleeBar(a0,33.0);
+        uVar6 = 1;
+      }
+    }
+  }
+  return uVar6;
+}
+
+
+// ===== CCombatBlock @ 00085ebc size=436 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gun.cpp */
+
+void CTSGun::CCombatBlock(CTSGun *this)
+
+{
+  CBaseEntity *pCVar1;
+  float fVar2;
+  undefined4 uVar3;
+  longdouble lVar4;
+  
+  pCVar1 = this->m_pPlayer;
+  lVar4 = (longdouble)UTIL_WeaponTimeBase__Fv();
+  if ((longdouble)*(float *)&pCVar1->field_0x12c <= lVar4) {
+    lVar4 = (longdouble)UTIL_WeaponTimeBase__Fv();
+    if ((longdouble)(float)this->field_0x9c <= lVar4) {
+      lVar4 = (longdouble)UTIL_WeaponTimeBase__Fv();
+      if ((longdouble)(float)this->field_0xa0 <= lVar4) {
+        lVar4 = (longdouble)UTIL_WeaponTimeBase__Fv();
+        fVar2 = fc_0_5;
+        if ((((longdouble)(float)this->field_0xa4 <= lVar4) &&
+            (pCVar1 = this->m_pPlayer, (pCVar1->pev->iuser4 & 0x70c30U) == 0)) &&
+           (fc_0_009999999776482582 <= *(float *)&pCVar1->field_0x774)) {
+          uVar3 = 0;
+          if (this->m_pActiveItem == (s_weapon_status *)0x0) {
+            uVar3 = 1;
+            *(float *)&pCVar1->field_0x7a8 = fc_0_5;
+          }
+          else if (this->m_pActiveInfo != (s_weapon_info *)0x0) {
+            if (this->m_pActiveInfo->iFireType == '\n') {
+              *(float *)&this->m_pPlayer->field_0x7b0 = fc_0_5;
+            }
+            else if (this->m_pActiveInfo->iFireType == '\x03') {
+              *(float *)&this->m_pPlayer->field_0x7ac = fc_0_5;
+            }
+            uVar3 = 0x12;
+          }
+          (*PTR_g_engfuncs_001778b8->pfnPlaybackEvent)
+                    (1,this->m_pPlayer->pev->pContainingEntity,(uint)*(ushort *)&this->field_0x96c,0
+                     ,PTR_g_vecZero_00177698,PTR_g_vecZero_00177698,(float)this->m_weaponType,0,0,
+                     uVar3,0,0);
+          CTSAnimation::Animate
+                    ((CTSAnimation *)&this->m_pPlayer->field_0x28c,(CBasePlayer *)this->m_pPlayer,
+                     0x26);
+          CBasePlayer::UpdateMeleeBar((CBasePlayer *)this->m_pPlayer,33.0);
+          lVar4 = (longdouble)UTIL_WeaponTimeBase__Fv();
+          this->field_0xa0 = (int)(float)((longdouble)fVar2 + lVar4);
+          this->field_0x9c = (int)(float)((longdouble)fVar2 + lVar4);
+          lVar4 = (longdouble)UTIL_WeaponTimeBase__Fv();
+          this->field_0xa8 = (int)(float)(lVar4 + (longdouble)fc_3);
+        }
+      }
+    }
+  }
+  return;
+}
+
+
+// ===== FUN_0009c70c @ 0009c70c size=686 =====
+
+undefined4 FUN_0009c70c(void)
+
+{
+  edict_s *a0;
+  int iVar1;
+  undefined4 uVar2;
+  int a1;
+  int unaff_EBX;
+  int unaff_EBP;
+  longdouble in_ST0;
+  longdouble lVar3;
+  float fStack0000001c;
+  undefined4 in_stack_00000020;
+  undefined4 in_stack_00000024;
+  undefined4 in_stack_00000028;
+  float in_stack_00000030;
+  float in_stack_00000034;
+  float in_stack_00000038;
+  float in_stack_00000040;
+  float in_stack_00000044;
+  float in_stack_00000048;
+  float in_stack_00000050;
+  float in_stack_00000054;
+  float in_stack_00000058;
+  float fStack0000006c;
+  float in_stack_00000070;
+  float in_stack_00000074;
+  float in_stack_00000078;
+  undefined2 uVar4;
+  CBasePlayer *a0_00;
+  undefined4 in_stack_fffffff4;
+  undefined2 uVar5;
+  undefined4 in_stack_fffffff8;
+  undefined2 uVar6;
+  float fVar7;
+  
+  uVar5 = (undefined2)((uint)in_stack_fffffff4 >> 0x10);
+  uVar6 = (undefined2)((uint)in_stack_fffffff8 >> 0x10);
+  if (in_ST0 * (longdouble)*(double *)(unaff_EBX + -0x6c300) <=
+      (longdouble)*(double *)(unaff_EBX + -0x6e778)) {
+    iVar1 = **(int **)(unaff_EBP + 0x40);
+    fStack0000006c =
+         SQRT(*(float *)(iVar1 + 0x28) * *(float *)(iVar1 + 0x28) +
+              *(float *)(iVar1 + 0x24) * *(float *)(iVar1 + 0x24) +
+              *(float *)(iVar1 + 0x20) * *(float *)(iVar1 + 0x20));
+    if ((longdouble)fStack0000006c * (longdouble)*(double *)(unaff_EBX + -0x6c300) <
+        (longdouble)*(double *)(unaff_EBX + -0x6ecd0)) {
+      fStack0000001c = *(float *)(unaff_EBX + -0x6f06c);
+      goto LAB_0009c7e6;
+    }
+  }
+  iVar1 = **(int **)(unaff_EBP + 0x40);
+  fStack0000006c =
+       SQRT(*(float *)(iVar1 + 0x28) * *(float *)(iVar1 + 0x28) +
+            *(float *)(iVar1 + 0x24) * *(float *)(iVar1 + 0x24) +
+            *(float *)(iVar1 + 0x20) * *(float *)(iVar1 + 0x20));
+  if ((float)*(double *)(unaff_EBX + -0x6e778) <
+      fStack0000006c * (float)*(double *)(unaff_EBX + -0x6c300)) {
+    fStack0000001c = *(float *)(unaff_EBX + -0x6e7e8);
+  }
+  else {
+    iVar1 = **(int **)(unaff_EBP + 0x40);
+    fStack0000001c =
+         SQRT(*(float *)(iVar1 + 0x28) * *(float *)(iVar1 + 0x28) +
+              *(float *)(iVar1 + 0x24) * *(float *)(iVar1 + 0x24) +
+              *(float *)(iVar1 + 0x20) * *(float *)(iVar1 + 0x20)) *
+         (float)*(double *)(unaff_EBX + -0x6c300);
+    fStack0000006c = fStack0000001c;
+  }
+LAB_0009c7e6:
+  a0_00 = *(CBasePlayer **)(unaff_EBP + 0x40);
+  uVar4 = 9;
+  iVar1 = KungFu__FP11CBasePlayer(a0_00);
+  fVar7 = fStack0000001c;
+  if (iVar1 != 0) {
+    fVar7 = fStack0000001c + fStack0000001c;
+  }
+  *(undefined4 *)(*(int *)(unaff_EBP + 0x40) + 0x7a8) = 0;
+  in_stack_00000050 = in_stack_00000070;
+  in_stack_00000054 = in_stack_00000074;
+  in_stack_00000058 = in_stack_00000078;
+  iVar1 = **(int **)(unaff_EBX + 0x1600);
+  in_stack_00000038 = *(float *)(unaff_EBX + -0x6f068);
+  in_stack_00000030 = in_stack_00000038 * *(float *)(iVar1 + 0x28);
+  in_stack_00000034 = in_stack_00000038 * *(float *)(iVar1 + 0x2c);
+  in_stack_00000038 = in_stack_00000038 * *(float *)(iVar1 + 0x30);
+  in_stack_00000040 = in_stack_00000070 + in_stack_00000030;
+  in_stack_00000044 = in_stack_00000034 + in_stack_00000074;
+  in_stack_00000048 = in_stack_00000078 + in_stack_00000038;
+  in_stack_00000020 = *(undefined4 *)(iVar1 + 0x28);
+  in_stack_00000024 = *(undefined4 *)(iVar1 + 0x2c);
+  in_stack_00000028 = *(undefined4 *)(iVar1 + 0x30);
+  iVar1 = CloseCombatAttack__11CBasePlayerG6VectorN21ifibN37
+                    (*(undefined4 *)(unaff_EBP + 0x40),&stack0x00000050,&stack0x00000040,
+                     &stack0x00000020,3,fVar7,0xffffffff,CONCAT22(uVar4,1),(uint)a0_00 & 0xffff0000,
+                     CONCAT22(uVar5,1),CONCAT22(uVar6,1));
+  if (iVar1 == 0) {
+    uVar2 = 0;
+  }
+  else {
+    iVar1 = (**(code **)(*(int *)(unaff_EBX + 0x1aa8) + 0x168))(0,2);
+    a1 = 0xe;
+    if ((iVar1 != 1) && ((iVar1 < 2 || (a1 = 0xd, iVar1 != 2)))) {
+      a1 = 10;
+    }
+    *(undefined4 *)(unaff_EBP + 8) = 0x3f333333;
+    CTSAnimation::Animate
+              ((CTSAnimation *)(*(int *)(unaff_EBP + 0x40) + 0x28c),
+               *(CBasePlayer **)(unaff_EBP + 0x40),a1);
+    iVar1 = *(int *)(unaff_EBP + 0x40);
+    lVar3 = (longdouble)UTIL_WeaponTimeBase__Fv();
+    if ((longdouble)*(float *)(iVar1 + 300) < lVar3) {
+      lVar3 = (longdouble)UTIL_WeaponTimeBase__Fv();
+      *(float *)(*(int *)(unaff_EBP + 0x40) + 300) =
+           (float)(lVar3 + (longdouble)*(float *)(unaff_EBX + -0x6df04));
+    }
+    a0 = *(edict_s **)(**(int **)(unaff_EBP + 0x40) + 0x208);
+    fVar7 = 0.5;
+    iVar1 = (**(code **)(*(int *)(unaff_EBX + 0x1aa8) + 0x168))(0,0x1f);
+    EMIT_SOUND_DYN__FP7edict_siPCcffiif
+              (a0,4,(char *)(unaff_EBX + -0x6c344),1.0,0.8,0,iVar1 + 0x5f,fVar7);
+    CBasePlayer::UpdateMeleeBar
+              (*(CBasePlayer **)(unaff_EBP + 0x40),fStack0000001c * *(float *)(unaff_EBX + -0x6deec)
+              );
+    uVar2 = 1;
+  }
+  return uVar2;
+}
+
+
+// ===== FUN_0009cdb8 @ 0009cdb8 size=176 =====
+
+undefined4 FUN_0009cdb8(float param_1)
+
+{
+  float fVar1;
+  int iVar2;
+  int unaff_EBX;
+  int unaff_EBP;
+  int unaff_ESI;
+  edict_s *unaff_EDI;
+  int in_stack_0000002c;
+  
+  iVar2 = (**(code **)(unaff_ESI + 0x168))(0,0x1f);
+  EMIT_SOUND_DYN__FP7edict_siPCcffiif
+            (unaff_EDI,4,(char *)(unaff_EBX + -0x6c378),1.0,0.8,0,iVar2 + 0x5f,param_1);
+  *(undefined4 *)(unaff_EBP + 0x10) = 0;
+  if (in_stack_0000002c == 3) {
+    CBasePlayer::UpdateMeleeBar
+              (*(CBasePlayer **)(unaff_EBP + 0x40),
+               *(float *)(unaff_EBX + -0x6de8c) * *(float *)(unaff_EBX + -0x6deec));
+    fVar1 = *(float *)(unaff_EBX + -0x6de8c);
+    iVar2 = KungFu__FP11CBasePlayer(*(CBasePlayer **)(unaff_EBP + 0x40));
+    if (iVar2 != 0) {
+      fVar1 = fVar1 + fVar1;
+    }
+    *(undefined4 *)(*(int *)(unaff_EBP + 0x40) + 0x79c) = 0x3e99999a;
+    *(float *)(*(int *)(unaff_EBP + 0x40) + 0x7a0) = fVar1;
+    *(undefined1 *)(*(int *)(unaff_EBP + 0x40) + 0x7a4) = 0;
+    *(undefined4 *)(*(int *)(unaff_EBP + 0x40) + 0x7a8) = 0;
+  }
+  return 1;
+}
+
+
+// ===== FUN_00086c8c @ 00086c8c size=410 =====
+
+void FUN_00086c8c(undefined4 param_1,undefined4 param_2,undefined4 param_3,undefined4 param_4,
+                 int param_5,undefined4 param_6,uint param_7,float param_8,float param_9,
+                 undefined4 param_10)
+
+{
+  int iVar1;
+  int unaff_EBX;
+  int unaff_EBP;
+  longdouble in_ST0;
+  longdouble lVar2;
+  undefined4 uStack00000030;
+  undefined4 uStack00000034;
+  undefined4 uStack00000038;
+  float fStack00000068;
+  
+  fStack00000068 = (float)in_ST0;
+  iVar1 = **(int **)(unaff_EBX + 0x1600);
+  uStack00000030 = *(undefined4 *)(iVar1 + 0x28);
+  uStack00000034 = *(undefined4 *)(iVar1 + 0x2c);
+  uStack00000038 = *(undefined4 *)(iVar1 + 0x30);
+  iVar1 = CloseCombatAttack__11CBasePlayerG6VectorN21ifibN37
+                    (*(undefined4 *)(unaff_EBP + 0x80),&stack0x00000070);
+  if ((iVar1 == 0) && (*(float *)(unaff_EBX + -0x6f3f4) < param_8)) {
+    *(float *)(*(int *)(unaff_EBP + 0x80) + 0x79c) = param_8;
+    if (param_5 == 3) {
+      *(uint *)(*(int *)(unaff_EBP + 0x80) + 0x7a0) = param_7 ^ 0x80000000;
+    }
+    else {
+      *(uint *)(*(int *)(unaff_EBP + 0x80) + 0x7a0) = param_7;
+    }
+    *(undefined1 *)(*(int *)(unaff_EBP + 0x80) + 0x7a4) = 0;
+  }
+  if ((param_1._3_1_ != '\0') && (((*(byte *)(**(int **)(unaff_EBP + 0x80) + 0x250) ^ 1) & 1) != 0))
+  {
+    CBasePlayer::BlockPlayer
+              (*(CBasePlayer **)(unaff_EBP + 0x80),param_9 * *(float *)(unaff_EBX + -0x6df6c));
+  }
+  (**(code **)(*(int *)(unaff_EBX + 0x1aa8) + 0x1ec))
+            (1,*(undefined4 *)(**(int **)(unaff_EBP + 0x80) + 0x208),
+             *(undefined2 *)(unaff_EBP + 0x96c),0,*(undefined4 *)(unaff_EBX + 0x1888),
+             *(undefined4 *)(unaff_EBX + 0x1888),0,0,param_10,param_2,0,0);
+  lVar2 = (longdouble)UTIL_WeaponTimeBase__Fv();
+  *(float *)(unaff_EBP + 0xa0) = (float)(lVar2 + (longdouble)param_9);
+  *(float *)(unaff_EBP + 0x9c) = (float)(lVar2 + (longdouble)param_9);
+  lVar2 = (longdouble)UTIL_WeaponTimeBase__Fv();
+  *(float *)(unaff_EBP + 0xa8) = (float)(lVar2 + (longdouble)*(float *)(unaff_EBX + -0x6df4c));
+  *(undefined4 *)(*(int *)(unaff_EBP + 0x80) + 0x7a8) = 0;
+  *(float *)(*(int *)(unaff_EBP + 0x80) + 0x4f8) = param_9;
+  return;
+}
+
+
+// ===== ColdCock @ 00081dd0 size=821 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gun.cpp
+   assets: player/kevlarhit.wav */
+
+void CTSGun::ColdCock(CTSGun *this)
+
+{
+  entvars_t *peVar1;
+  globalvars_t *pgVar2;
+  edict_s *a0;
+  Vector a2;
+  undefined uVar3;
+  int iVar4;
+  undefined3 extraout_var;
+  CBaseEntity *pCVar5;
+  Vector *pVVar6;
+  float *pfVar7;
+  vec_t *pvVar8;
+  longdouble lVar9;
+  undefined4 in_stack_ffffff6c;
+  ushort uVar10;
+  uint uVar11;
+  CBaseEntity *pCVar12;
+  CBaseEntity *a0_00;
+  float in_stack_ffffff7c;
+  float fVar13;
+  undefined4 uVar14;
+  undefined4 in_stack_ffffff84;
+  vec_t in_stack_ffffff88;
+  TraceResult *in_stack_ffffff8c;
+  char cVar15;
+  undefined4 in_stack_ffffff90;
+  float local_50;
+  float local_4c;
+  float local_48;
+  float local_40;
+  entvars_t *local_3c;
+  CBaseEntity *local_38;
+  
+  uVar10 = (ushort)((uint)in_stack_ffffff6c >> 0x10);
+  uVar14 = 0x81ddc;
+  if (__tmp_0_1302 == 0) {
+    __tmp_0_1302 = 1;
+  }
+  if (__tmp_1_1304 == 0) {
+    __tmp_1_1304 = 1;
+  }
+  if (__tmp_2_1306 == 0) {
+    __tmp_2_1306 = 1;
+  }
+  if (this->m_pActiveItem != (s_weapon_status *)0x0) {
+    iVar4 = get_weapon_info__F10tsweapon_t(this->m_weaponType);
+    if (*(int *)(iVar4 + 0x10) != 0) {
+      peVar1 = this->m_pPlayer->pev;
+      iVar4 = CONCAT13((peVar1->iuser4 & 0x70c30U) != 0,(int3)in_stack_ffffff90);
+      UTIL_MakeVectors__FRC6Vector(&peVar1->v_angle);
+      if (this->m_pActiveInfo != (s_weapon_info *)0x0) {
+        if (this->m_pActiveInfo->iFireType == '\x02') {
+          GrenadeIdle(this,1);
+        }
+        StopReload(this);
+      }
+      rate_1307 = 0.725;
+      if ((char)((uint)iVar4 >> 0x18) != '\0') {
+        rate_1307 = fc_1_5 * 0.725;
+      }
+      Unzoom(this);
+      lVar9 = (longdouble)UTIL_WeaponTimeBase__Fv();
+      lVar9 = lVar9 + (longdouble)rate_1307;
+      this->field_0xa4 = (int)(float)lVar9;
+      this->field_0xa0 = (int)(float)lVar9;
+      this->field_0x9c = (int)(float)lVar9;
+      *(float *)&this->m_pPlayer->field_0x12c = (float)lVar9;
+      lVar9 = (longdouble)UTIL_WeaponTimeBase__Fv();
+      this->field_0xa8 = (int)(float)((longdouble)dc_2 + lVar9);
+      a0_00 = this->m_pPlayer;
+      uVar11 = 0x81f29;
+      a2.y = (vec_t)in_stack_ffffff84;
+      a2.x = (vec_t)uVar14;
+      a2.z = in_stack_ffffff88;
+      pCVar12 = (CBaseEntity *)&local_3c;
+      (*a0_00->vtbl[1].TraceAttack)
+                ((CBaseEntity *)&local_3c,(entvars_s *)a0_00,in_stack_ffffff7c,a2,in_stack_ffffff8c,
+                 iVar4);
+      pCVar5 = (CBaseEntity *)&local_3c;
+      pfVar7 = &vecSrc_1301;
+      for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+        *pfVar7 = (float)pCVar5->pev;
+        pCVar5 = (CBaseEntity *)&pCVar5->m_pGoalEnt;
+        pfVar7 = pfVar7 + 1;
+      }
+      pVVar6 = &(*PTR_gpGlobals_00177410)->v_forward;
+      pvVar8 = (vec_t *)&vecAiming_1303;
+      for (iVar4 = 3; iVar4 != 0; iVar4 = iVar4 + -1) {
+        *pvVar8 = pVVar6->x;
+        pVVar6 = (Vector *)&pVVar6->y;
+        pvVar8 = pvVar8 + 1;
+      }
+      fVar13 = (float)*(int *)&this->m_pActiveInfo->field_0x10;
+      cVar15 = (char)((uint)in_stack_ffffff8c >> 0x18);
+      if (cVar15 != '\0') {
+        fVar13 = fVar13 * fc_0_6666666865348816;
+      }
+      local_40 = vecSrc_1301;
+      local_3c = (entvars_t *)DAT_0017da58;
+      local_38 = (CBaseEntity *)DAT_0017da5c;
+      pgVar2 = *PTR_gpGlobals_00177410;
+      local_50 = vecSrc_1301 + (pgVar2->v_forward).x * 35.0;
+      local_4c = DAT_0017da58 + (pgVar2->v_forward).y * 35.0;
+      local_48 = DAT_0017da5c + (pgVar2->v_forward).z * 35.0;
+      iVar4 = ColdCockAttack__11CBasePlayerG6VectorN21ifibN37
+                        (this->m_pPlayer,&local_40,&local_50,&stack0xffffff90,3,fVar13,
+                         (cVar15 == '\0') - 1 | 0x27,(uint)uVar10 << 0x10,uVar11 & 0xffff0000,
+                         (uint)pCVar12 & 0xffff0000,(uint)a0_00 & 0xffff0000);
+      if (iVar4 != 0) {
+        a0 = this->m_pPlayer->pev->pContainingEntity;
+        fVar13 = 0.5;
+        uVar3 = (*PTR_g_engfuncs_001778b8->pfnRandomLong)(0,0x1f);
+        EMIT_SOUND_DYN__FP7edict_siPCcffiif
+                  (a0,4,"player/kevlarhit.wav",1.0,0.8,0,CONCAT31(extraout_var,uVar3) + 0x3c,fVar13)
+        ;
+      }
+      if ((this->m_pActiveItem != (s_weapon_status *)0x0) && (this->m_pActiveItem->bOwned != '\0'))
+      {
+        (*PTR_g_engfuncs_001778b8->pfnPlaybackEvent)
+                  (1,this->m_pPlayer->pev->pContainingEntity,(uint)*(ushort *)&this->field_0x966,0,
+                   PTR_g_vecZero_00177698,PTR_g_vecZero_00177698,vecDir_1305,DAT_0017da70,
+                   this->m_weaponType,this->m_pActiveItem->attachEquipped,0,0);
+      }
+    }
+  }
+  return;
+}
+
+
+// DecompRefs: 8 referencing functions decompiled.

@@ -1,0 +1,21 @@
+// ===== FUN @ 000927fc size=101 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::Duck(CBasePlayer *this)
+
+{
+  int iVar1;
+  
+  if (((this->m_afButtonPressed & 4) != 0) &&
+     (iVar1 = CTSStunt::GoRoll((CTSStunt *)&this->field_0x4f0,0x30), iVar1 != 0)) {
+    return;
+  }
+  if (((this->pev->button & 4) != 0) && ((this->pev->flags & 0x4000) == 0)) {
+    CTSAnimation::Animate((CTSAnimation *)&this->field_0x28c,this,5);
+  }
+  return;
+}
+
+

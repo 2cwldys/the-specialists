@@ -1,0 +1,221 @@
+// ===== FUN @ 0009c9bc size=586 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_stuntmanager.cpp
+   assets: player/airwheel.wav */
+
+undefined4 CTSStunt::GoWheel(CTSStunt *this)
+
+{
+  uint *puVar1;
+  float fVar2;
+  float fVar3;
+  float fVar4;
+  uint uVar5;
+  int *piVar6;
+  globalvars_t *pgVar7;
+  edict_s *peVar8;
+  bool bVar9;
+  Vector a0;
+  Vector a1;
+  enginefuncs_t *peVar10;
+  undefined uVar11;
+  int iVar12;
+  undefined3 extraout_var;
+  undefined3 extraout_var_00;
+  undefined3 extraout_var_01;
+  undefined3 extraout_var_02;
+  bool bVar13;
+  float *pfVar14;
+  undefined4 *puVar15;
+  float *pfVar16;
+  undefined4 *puVar17;
+  longdouble lVar18;
+  float fVar19;
+  undefined8 in_stack_ffffff84;
+  undefined8 in_stack_ffffff8c;
+  double dVar20;
+  int local_58;
+  undefined4 local_4c;
+  undefined4 local_48;
+  undefined4 local_44;
+  float local_3c [7];
+  float local_20;
+  
+  fVar19 = *(float *)(*(int *)this->field_0x40 + 0x20);
+  fVar2 = *(float *)(*(int *)this->field_0x40 + 0x24);
+  bVar13 = (float)this->pev <= fc_0;
+  fVar3 = this->m_flWheelNextTime;
+  fVar4 = (*PTR_gpGlobals_00177410)->time;
+  uVar5 = *(uint *)(*(int *)this->field_0x40 + 0x250);
+  bVar9 = this->m_flRollTime <= fc_0;
+  iVar12 = CBasePlayer::IsOnLadder((CBasePlayer *)this->field_0x40);
+  bVar13 = this->m_flStunCooldown <= fc_0 &&
+           (iVar12 == 0 && (bVar9 && ((uVar5 & 0x130c30) == 0 && (fVar4 <= fVar3 && bVar13))));
+  piVar6 = (int *)this->field_0x40;
+  if (((*(byte *)(*piVar6 + 0x1a5) & 2) == 0) &&
+     (fVar3 = (*PTR_gpGlobals_00177410)->time, fVar4 = (float)piVar6[0x2e2],
+     lVar18 = (longdouble)(**(code **)(piVar6[0x18] + 0x10))(piVar6),
+     (longdouble)dc_0_7 / lVar18 < (longdouble)(fVar3 - fVar4))) {
+    bVar13 = false;
+  }
+  if (bVar13) {
+    if (fc_80 <= SQRT(fVar2 * fVar2 + fVar19 * fVar19)) {
+      iVar12 = *(int *)this->field_0x40;
+      local_20 = SQRT(*(float *)(iVar12 + 0x28) * *(float *)(iVar12 + 0x28) +
+                      *(float *)(iVar12 + 0x24) * *(float *)(iVar12 + 0x24) +
+                      *(float *)(iVar12 + 0x20) * *(float *)(iVar12 + 0x20));
+      if (local_20 == fc_0) {
+        local_3c[0] = 0.0;
+        local_3c[1] = 0.0;
+        local_3c[2] = fc_1;
+      }
+      else {
+        fVar19 = fc_1 / local_20;
+        local_3c[0] = fVar19 * *(float *)(iVar12 + 0x20);
+        local_3c[1] = fVar19 * *(float *)(iVar12 + 0x24);
+        local_3c[2] = fVar19 * *(float *)(iVar12 + 0x28);
+      }
+      pfVar14 = local_3c;
+      pfVar16 = &this->m_vecStuntDir;
+      for (iVar12 = 3; iVar12 != 0; iVar12 = iVar12 + -1) {
+        *pfVar16 = *pfVar14;
+        pfVar14 = pfVar14 + 1;
+        pfVar16 = pfVar16 + 1;
+      }
+      local_3c[0] = this->m_vecStuntDir;
+      local_3c[1] = (float)this->field_0x24;
+      local_3c[2] = (float)this->field_0x28;
+      iVar12 = *(int *)this->field_0x40;
+      local_4c = *(undefined4 *)(iVar12 + 0x74);
+      local_48 = *(undefined4 *)(iVar12 + 0x78);
+      local_44 = *(undefined4 *)(iVar12 + 0x7c);
+      a0.y = (vec_t)&local_4c;
+      a0.x = (vec_t)local_3c;
+      a0.z = 0.6;
+      a1.y = (vec_t)(int)in_stack_ffffff84;
+      a1.z = (vec_t)(int)((ulonglong)in_stack_ffffff84 >> 0x20);
+      a1.x = 0.3;
+      local_58 = GetDirection__FG6VectorT0ff
+                           (a0,a1,(float)in_stack_ffffff8c,
+                            (float)((ulonglong)in_stack_ffffff8c >> 0x20));
+    }
+    else {
+      UTIL_MakeVectors__FRC6Vector((Vector *)(*(int *)this->field_0x40 + 0x74));
+      pgVar7 = *PTR_gpGlobals_00177410;
+      local_3c[0] = -(pgVar7->v_forward).x;
+      local_3c[1] = -(pgVar7->v_forward).y;
+      local_3c[2] = -(pgVar7->v_forward).z;
+      pfVar14 = local_3c;
+      pfVar16 = &this->m_vecStuntDir;
+      for (iVar12 = 3; iVar12 != 0; iVar12 = iVar12 + -1) {
+        *pfVar16 = *pfVar14;
+        pfVar14 = pfVar14 + 1;
+        pfVar16 = pfVar16 + 1;
+      }
+      local_58 = 3;
+    }
+    peVar10 = PTR_g_engfuncs_001778b8;
+    uVar11 = (*PTR_g_engfuncs_001778b8->pfnRandomLong)(0,10);
+    lVar18 = (longdouble)(**(code **)(*(int *)(this->field_0x40 + 0x60) + 0x10))(this->field_0x40);
+    if ((longdouble)fc_7 < lVar18 * (longdouble)fc_10 + (longdouble)CONCAT31(extraout_var,uVar11)) {
+      (*peVar10->pfnMessageBegin)
+                (4,*(undefined4 *)PTR_gmsgTSMotionBlur_00177b48,*(int *)this->field_0x40 + 8,0);
+      uVar11 = (*peVar10->pfnIndexOfEdict)(*(undefined4 *)(*(int *)this->field_0x40 + 0x208));
+      (*peVar10->pfnWriteByte)(CONCAT31(extraout_var_00,uVar11));
+      (*peVar10->pfnWriteByte)(2);
+      (*peVar10->pfnMessageEnd)();
+    }
+    iVar12 = CanDiveHigh(this);
+    if ((iVar12 != 0) &&
+       ((local_58 == 3 || (*(float *)(*(int *)this->field_0x40 + 0x74) < fc_neg10)))) {
+      puVar1 = (uint *)(*(int *)this->field_0x40 + 0x250);
+      *puVar1 = *puVar1 | 4;
+      puVar1 = (uint *)(*(int *)this->field_0x40 + 0x250);
+      *puVar1 = *puVar1 | 0x400;
+      puVar15 = (undefined4 *)PTR_g_vecZero_00177698;
+      puVar17 = (undefined4 *)(*(int *)this->field_0x40 + 0x174);
+      for (iVar12 = 3; iVar12 != 0; iVar12 = iVar12 + -1) {
+        *puVar17 = *puVar15;
+        puVar15 = puVar15 + 1;
+        puVar17 = puVar17 + 1;
+      }
+      CTSAnimation::Animate
+                ((CTSAnimation *)(this->field_0x40 + 0x28c),(CBasePlayer *)this->field_0x40,0x31);
+      puVar1 = (uint *)(*(int *)this->field_0x40 + 0x250);
+      *puVar1 = *puVar1 | 0x100;
+      *(undefined4 *)(*(int *)this->field_0x40 + 0x11c) = 0x3f400000;
+      lVar18 = (longdouble)NextDive(this);
+      this->pev = (entvars_t *)(float)lVar18;
+      peVar10 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSNextStunt_0017749c,0,
+                 *(undefined4 *)(*(int *)this->field_0x40 + 0x208));
+      (*peVar10->pfnWriteByte)((int)ROUND(fc_10 * (float)this->pev));
+      (*peVar10->pfnMessageEnd)();
+      peVar8 = *(edict_s **)(*(int *)this->field_0x40 + 0x208);
+      fVar19 = 0.5;
+      uVar11 = (*peVar10->pfnRandomLong)(0,0x1f);
+      EMIT_SOUND_DYN__FP7edict_siPCcffiif
+                (peVar8,4,"player/airwheel.wav",1.0,0.8,0,CONCAT31(extraout_var_01,uVar11) + 0x5f,
+                 fVar19);
+      this->m_flWheelNextTime = 0.0;
+      if (local_58 == 3) {
+        CBasePlayer::UpdateMeleeBar((CBasePlayer *)this->field_0x40,fc_15 * fc_1_5);
+        dVar20 = (double)fc_15;
+        iVar12 = KungFu__FP11CBasePlayer((CBasePlayer *)this->field_0x40);
+        lVar18 = (longdouble)dVar20;
+        if (iVar12 != 0) {
+          lVar18 = lVar18 + lVar18;
+        }
+        *(undefined4 *)(this->field_0x40 + 0x79c) = 0x3e99999a;
+        *(float *)(this->field_0x40 + 0x7a0) = (float)lVar18;
+        *(undefined1 *)(this->field_0x40 + 0x7a4) = 0;
+        *(undefined4 *)(this->field_0x40 + 0x7a8) = 0;
+      }
+      return 1;
+    }
+    iVar12 = CanDiveLow(this);
+    if ((iVar12 != 0) && (local_58 != 3)) {
+      puVar1 = (uint *)(*(int *)this->field_0x40 + 0x250);
+      *puVar1 = *puVar1 | 4;
+      puVar1 = (uint *)(*(int *)this->field_0x40 + 0x250);
+      *puVar1 = *puVar1 | 0x800;
+      puVar15 = (undefined4 *)PTR_g_vecZero_00177698;
+      puVar17 = (undefined4 *)(*(int *)this->field_0x40 + 0x174);
+      for (iVar12 = 3; iVar12 != 0; iVar12 = iVar12 + -1) {
+        *puVar17 = *puVar15;
+        puVar15 = puVar15 + 1;
+        puVar17 = puVar17 + 1;
+      }
+      CTSAnimation::Animate
+                ((CTSAnimation *)(this->field_0x40 + 0x28c),(CBasePlayer *)this->field_0x40,0x32);
+      puVar1 = (uint *)(*(int *)this->field_0x40 + 0x250);
+      *puVar1 = *puVar1 | 0x80;
+      *(undefined4 *)(*(int *)this->field_0x40 + 0x11c) = 0x3f400000;
+      if (local_58 == 2) {
+        *(undefined4 *)(*(int *)this->field_0x40 + 0x120) = 0x3e800000;
+      }
+      lVar18 = (longdouble)NextDive(this);
+      this->pev = (entvars_t *)(float)lVar18;
+      peVar10 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSNextStunt_0017749c,0,
+                 *(undefined4 *)(*(int *)this->field_0x40 + 0x208));
+      (*peVar10->pfnWriteByte)((int)ROUND(fc_10 * (float)this->pev));
+      (*peVar10->pfnMessageEnd)();
+      peVar8 = *(edict_s **)(*(int *)this->field_0x40 + 0x208);
+      fVar19 = 0.5;
+      uVar11 = (*peVar10->pfnRandomLong)(0,0x1f);
+      EMIT_SOUND_DYN__FP7edict_siPCcffiif
+                (peVar8,4,"player/airwheel.wav",1.0,0.8,0,CONCAT31(extraout_var_02,uVar11) + 0x5f,
+                 fVar19);
+      this->m_flWheelNextTime = 0.0;
+      return 1;
+    }
+  }
+  this->m_flWheelNextTime = (float)dc_0_3 + (*PTR_gpGlobals_00177410)->time;
+  return 0;
+}
+
+
