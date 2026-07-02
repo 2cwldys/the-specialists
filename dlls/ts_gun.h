@@ -33,6 +33,10 @@ struct TSItem
 	int  active = 0;       // item+0x14 — ACTIVE attachments (laser 2 / flash 4) toggled by `useitems` (SwitchItems)
 	int  barrelMask = 0;
 	bool holdPosition = false; // item+0x2c — alternate viewmodel stance (right-click toggle, see CTSGun::SecondaryAttack)
+	// item+0x24 — the per-item ALT-MODE byte: Primary/SecondaryAttack write 0/1 before calling the shared
+	// fire function (grenade toss mode, knife slash-vs-throw). The pump-shotgun's fire/rack use of the SAME
+	// original byte lives in m_fInSpecialReload instead (predicted — see the ShotgunFire note below).
+	int  altMode = 0;
 };
 
 class CTSGun : public CBasePlayerWeapon
@@ -53,6 +57,7 @@ public:
 	void ItemPostFrame() override;
 	bool ShouldWeaponIdle() override { return true; } // @0x87274 — always allow idle (the original returns 1)
 	void PrimaryAttack() override;
+	void SecondaryAttack() override;             // @SecondaryAttack__6CTSGun @0x717a8 — the right-click dispatcher
 	void Reload() override;
 	void ShotgunReload(); // @ ShotgunReload__6CTSGun @0x84aac — pump shell-by-shell 3-phase machine
 	void WeaponIdle() override;
@@ -94,6 +99,7 @@ public:
 	void CCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
 	void CCombatIdle();                      // @0x85e54 — bare-hands viewmodel idle (WeaponIdle no-item branch)
 	void GrenadeFire(const s_weapon_info *wi);  // grenade fire-type
+	void KatanaThrow();                          // @KatanaThrow__6CTSGun @0x73b68 — right-click HURLS the katana
 	void ThrowKnife();                           // @KnifeFire throw branch — right-click hurls the knife
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
 	void SwitchFireMode();                       // cycle the held weapon's fire-mode

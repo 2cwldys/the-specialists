@@ -15,10 +15,11 @@
 // Precache every weapon's models + sound (call during the map's precache window).
 void PrecacheAllTSWeapons();
 
-// Throw a knife/seal-knife projectile (CTSGun::ThrowKnife — right-click). Defined in ts_knife.cpp.
+// Throw a knife/seal-knife/katana projectile (CTSGun::ThrowKnife/KatanaThrow — right-click).
+// knifeType = the s_weapon_info+0x20 code (knife 6 / sealknife 7 / katana 8). Defined in ts_grenades.cpp.
 class CBasePlayer;
 class CBaseEntity;
-CBaseEntity *TSThrowKnife(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel);
+CBaseEntity *TSThrowKnife(CBasePlayer *pOwner, const Vector &vecStart, const Vector &vecVel, int knifeType);
 
 // Give a player a CTSGun configured for `type` (used by pickups / future buy menu).
 class CBaseEntity;

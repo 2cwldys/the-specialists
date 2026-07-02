@@ -580,6 +580,83 @@ bool CTSGun::Deploy()
 	return ok;
 }
 
+// @ SecondaryAttack__6CTSGun @0x717a8 — the right-click dispatcher (decompile-exact). Bare hands ->
+// kung-fu secondary; grenade/knife write the item's alt-mode byte (item+0x24 = 1) then share the
+// primary's fire function; the katana has its own KatanaThrow; the flag (fire-type 11) does nothing.
+// The akimbo fire-modes route right-click to Fire() — the OTHER hand shoots (mode 4 alternating needs
+// a fresh press unless the double-fire powerup); everything else cycles the scope when one is equipped
+// (attach & 8), otherwise toggles the hold-position stance, then re-arms SECONDARY +0.3 and idle +1.0
+// (the original leaves m_flNextPrimaryAttack alone here — our old inline block had the two swapped).
+void CTSGun::SecondaryAttack()
+{
+	if (m_weaponType == TSW_MELEE) // original: m_pActiveItem == NULL (bare-hands kung-fu)
+	{
+		CCombatAttack(true);
+		return;
+	}
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	TSItem &it = m_items[m_weaponType];
+
+	if (wi->iFireType == TSFT_GRENADE)
+	{
+		it.altMode = 1; // item+0x24 = 1 (VERIFY: GrenadeFire's alt-toss reading of it is un-RE'd)
+		GrenadeFire(wi);
+		return;
+	}
+	if (wi->iFireType == TSFT_KNIFE)
+	{
+		it.altMode = 1; // item+0x24 = 1 -> KnifeFire's THROW branch (our split ThrowKnife until S7c)
+		ThrowKnife();
+		return;
+	}
+	if (wi->iFireType == TSFT_KATANA)
+	{
+		KatanaThrow();
+		return;
+	}
+	if (wi->iFireType == TSFT_FLAG)
+		return; // @0x717e6: fire-type 11 has no secondary
+
+	if (m_fireMode == TSFM_AKIMBO_ALT)
+	{
+		// alternating akimbo: one other-hand shot per fresh right-click press (auto under double-fire).
+		if (!(m_pPlayer->m_afButtonPressed & IN_ATTACK2) && !DoubleFireRate(m_pPlayer))
+			return;
+	}
+	else if (m_fireMode != TSFM_AKIMBO_BOTH)
+	{
+		if (it.attach & 8)
+		{
+			// scope cycle: 0 (none) -> zoomFov1 -> zoomFov2 -> back to 0. The view FOV + viewmodel-hide
+			// are player pev fields the server networks to the client (server-authoritative).
+#ifndef CLIENT_DLL
+			const float fov = m_pPlayer->pev->fov;
+			if (fov == 0.0f)
+			{
+				if (wi->zoomFov1 != 0)
+					Zoom(wi->zoomFov1);
+			}
+			else if (wi->zoomFov2 == 0 || (float)wi->zoomFov2 == fov)
+				Unzoom();
+			else
+				Zoom(wi->zoomFov2);
+#endif
+		}
+		else if (wi->iHoldChange >= 0)
+		{
+			// hold-position stance toggle (wi+0x28c != -1): play the change/rechange transition and
+			// re-point the active anim set (the original swaps item+0x28 between info+0x252/+0x28c).
+			m_bHoldPosition = !m_bHoldPosition;
+			it.holdPosition = m_bHoldPosition;
+			SendWeaponAnim(m_bHoldPosition ? wi->iHoldChange : wi->iHoldRechange);
+		}
+		m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.3f; // dc_0_3 @LAB_000819f3
+		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 1.0f;      // dc_1
+		return;
+	}
+	Fire(); // akimbo modes 4/5: right-click fires the other hand
+}
+
 // @ PrimaryAttack__6CTSGun -> Fire -> {Standard,Shotgun,Knife,Katana,Grenade,Akimbo}Fire.
 // Faithful dispatch by the weapon's fire-type, using the recovered per-weapon
 // rate/spread (StandardFire reads s_weapon_info+0x18 rate / +0x28 spread / +0x348
@@ -603,11 +680,14 @@ void CTSGun::PrimaryAttack()
 	// original PrimaryAttack @0x81a20): melee hull-traces and the grenade throw.
 	if (wi->iFireType == TSFT_KNIFE || wi->iFireType == TSFT_KATANA)
 	{
+		if (wi->iFireType == TSFT_KNIFE)
+			m_items[m_weaponType].altMode = 0; // @0x71a89: item+0x24 = 0 (slash) before KnifeFire
 		MeleeAttack(wi);
 		return;
 	}
 	if (wi->iFireType == TSFT_GRENADE)
 	{
+		m_items[m_weaponType].altMode = 0; // @0x71a61: item+0x24 = 0 before GrenadeFire
 		GrenadeFire(wi);
 		return;
 	}
@@ -1504,6 +1584,58 @@ void CTSGun::GrenadeFire(const s_weapon_info *wi)
 	}
 }
 
+// @ KatanaThrow__6CTSGun @0x73b68 — right-click with the katana HURLS it: a 1000 u/s CTSKnife
+// (type code 8, s_weapon_info+0x20) spawned at a wall-clipped muzzle point, rolled edge-on with a
+// -700 end-over-end spin. The weapon then LEAVES the arsenal (drop + next-best select + speed
+// recompute) unless the infinite-clips powerup keeps it. No viewmodel anim, no client event —
+// a server entity + one server sound; the deploy of the next weapon is the visible presentation.
+void CTSGun::KatanaThrow()
+{
+	if (m_weaponType == TSW_MELEE) // original gate: m_pActiveItem == NULL
+		return;
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+
+	// both attack timers re-arm at info+0x28 (katana 0.7 — moot: the weapon is dropped below).
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + wi->flSpread;
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + wi->flSpread;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
+
+	// spawn point = the first hit within eye + 32*forward (+1u right) — the blade can't start in a wall.
+	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
+	Vector eyes = m_pPlayer->pev->origin + m_pPlayer->pev->view_ofs;
+	TraceResult tr;
+	UTIL_TraceLine(eyes + gpGlobals->v_right * 1.0f,
+		eyes + gpGlobals->v_forward * 32.0f + gpGlobals->v_right * 1.0f,
+		dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
+
+	CBaseEntity *pKnife = TSThrowKnife(m_pPlayer, tr.vecEndPos, gpGlobals->v_forward * 1000.0f,
+		wi->iKnifeType); // server-only (client stub returns NULL)
+	if (pKnife)
+	{
+		// the thrower orients the projectile (the original does this here, not in CTSKnife::Spawn).
+		Vector dir = pKnife->pev->velocity;
+		dir = (dir.Length() > 0.0f) ? dir.Normalize() : g_vecZero;
+		pKnife->pev->angles = UTIL_VecToAngles(dir);
+		pKnife->pev->angles.z = 90.0f;      // blade rolled edge-on
+		pKnife->pev->avelocity.x = -700.0f; // end-over-end spin (KnifeFire's knife uses -1300)
+	}
+
+	if (!(m_pPlayer->pev->iuser4 & 0x30c30) && (m_pPlayer->pev->flags & FL_ONGROUND))
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_CC_KNIFELAUNCH); // 3rd-person launch gesture, not mid-stunt
+
+	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_BODY, "weapons/katana/miss.wav",
+		VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 31)); // orig 8-arg EMIT_SOUND_DYN slowmo arg 0.5 (VERIFY L12)
+
+	if (!InfiniteClips(m_pPlayer))
+	{
+		// thrown away for good: remove from the arsenal + auto-select next-best, then recompute the
+		// move speed from the freed slots (the original refunds slotCost into player+0x548 by hand;
+		// our slots derive from the owned items, so drop first, then recompute).
+		DropWeapon(m_weaponType, true);
+		m_pPlayer->SetPlayerSpeed(GetSpeedBySlots(m_pPlayer));
+	}
+}
+
 // @ KnifeFire__6CTSGun (throw branch, reached via SecondaryAttack@0x817a8) — right-click hurls the
 // active knife as a tumbling CTSKnife projectile. The arsenal carries a stack of throwables (m_iClip);
 // each throw spends one, and running dry auto-selects the next-best weapon. The viewmodel plays the
@@ -1524,13 +1656,20 @@ void CTSGun::ThrowKnife()
 	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_forward * 16;
 	Vector vecVel = gpGlobals->v_forward * 1900; // RE KnifeFire: _UNK_00107f68 = 1900 (no player-vel term)
-	const float dmg = (wi->flDamage > 0 ? wi->flDamage : 40.0f) * TSDamageMult();
-	TSThrowKnife(m_pPlayer, m_weaponType, dmg, vecSrc, vecVel); // server-only (client stub no-ops)
+	CBaseEntity *pKnife = TSThrowKnife(m_pPlayer, vecSrc, vecVel, wi->iKnifeType); // server-only (client stub no-ops)
+	if (pKnife)
+	{
+		// the thrower orients the projectile (RE KnifeFire @0x7483b: VecToAngles + roll 90 + spin -1300).
+		Vector dir = pKnife->pev->velocity;
+		dir = (dir.Length() > 0.0f) ? dir.Normalize() : g_vecZero;
+		pKnife->pev->angles = UTIL_VecToAngles(dir);
+		pKnife->pev->angles.z = 90.0f;
+		pKnife->pev->avelocity.x = -1300.0f;
+	}
 
-	const bool isKatana = (wi->iFireType == TSFT_KATANA);
-	SendWeaponAnim((m_weaponType == TSW_KNIFE) ? 7 : 5); // "throw" seq — client-predicted (VERIFY katana seq)
+	SendWeaponAnim((m_weaponType == TSW_KNIFE) ? 7 : 5); // "throw" seq — client-predicted
 	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON,
-		isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
+		"weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
@@ -1850,66 +1989,7 @@ void CTSGun::ItemPostFrame()
 
 	if ((m_pPlayer->pev->button & IN_ATTACK2) && m_flNextSecondaryAttack <= UTIL_WeaponTimeBase())
 	{
-		// Kung-fu's right-click attacks (back-kick / handstand kick / dropkick) — CCombatAttack
-		// reads IN_ATTACK2 too. Knives THROW on right-click (CTSGun::SecondaryAttack@0x817a8 routes
-		// fire-type KNIFE -> KnifeFire's throw branch). Other weapons: zoom/coldcock are separate.
-		if (m_weaponType == TSW_MELEE)
-			CCombatAttack(true);
-		else if (wi->iFireType == TSFT_KNIFE || wi->iFireType == TSFT_KATANA)
-			ThrowKnife(); // right-click hurls the knife/seal-knife/katana (orig SecondaryAttack -> KnifeFire/KatanaThrow)
-		else if ((m_items[m_weaponType].attach & 8) &&
-			wi->iFireType != TSFT_AKIMBO && wi->iFireType != TSFT_AKIMBO_ONLY)
-		{
-			// @ CTSGun::SecondaryAttack@0x817a8 SCOPED branch (item attach & 8 — bought or built-in scope):
-			// right-click cycles the scope FOV: 0 (none) -> zoomFov1 -> zoomFov2 -> back to 0. The view FOV +
-			// viewmodel-hide are player pev fields the server networks to the client, so the zoom is server-
-			// authoritative (no client prediction needed). Timers re-arm primary +0.3 / secondary +1.0 (the
-			// recovered doubles @0xf7fb8 / @0xf6df8), the same as the hold-position toggle.
-#ifndef CLIENT_DLL
-			const float fov = m_pPlayer->pev->fov;
-			if (fov == 0.0f)
-			{
-				if (wi->zoomFov1 != 0)
-					Zoom(wi->zoomFov1);
-			}
-			else if (wi->zoomFov2 == 0 || (float)wi->zoomFov2 == fov)
-				Unzoom();
-			else
-				Zoom(wi->zoomFov2);
-#endif
-			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;
-			m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 1.0f;
-		}
-		else if (wi->iHoldChange >= 0 &&
-			wi->iFireType != TSFT_AKIMBO && wi->iFireType != TSFT_AKIMBO_ONLY)
-		{
-			// @ CTSGun::SecondaryAttack@0x717a8 hold-position branch — on a non-akimbo gun whose hold
-			// anim-block is set (wi+0x28c != -1, !scoped), right-click TOGGLES the alternate viewmodel
-			// stance (item+0x2c): play the model's change/rechange transition and re-point the active
-			// anim set so the fire anim comes from the held shoot seq. (A scoped weapon would Zoom
-			// instead — the attach&8 branch — which we don't wire yet.) Re-arms both timers: the
-			// recovered doubles set primary +0.3 (@0xf7fb8), secondary +1.0 (@0xf6df8).
-			m_bHoldPosition = !m_bHoldPosition;
-			m_items[m_weaponType].holdPosition = m_bHoldPosition;
-			SendWeaponAnim(m_bHoldPosition ? wi->iHoldChange : wi->iHoldRechange);
-			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;
-			m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 1.0f;
-		}
-		else if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
-		{
-			// Akimbo dual-wield: right-click swaps which barrel(s) fire (both->left->right->both).
-			// (useitems/SwitchItems is the ATTACHMENT toggle, not this — see SwitchBarrel.)
-			SwitchBarrel();
-			m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.3f;
-		}
-		else if (m_pPlayer->m_iKungFu)
-		{
-			// KUNG-FU POWERUP: while held it lets you close-combat WHILE ARMED — right-click throws a
-			// kung-fu KICK (a leg attack; the weapon stays in hand). This is the fallback AFTER the
-			// weapon's own secondary (scope/hold-stance), so guns without one gain the kick. (Exact
-			// in-game trigger is RE-approximate — flagged for refinement once live-confirmed.)
-			CCombatAttack(true);
-		}
+		SecondaryAttack(); // the original's virtual dispatch (stock ItemPostFrame -> SecondaryAttack@0x717a8)
 	}
 	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
 	{

@@ -439,7 +439,10 @@ public:
 	char *GetDescription();                       // @0x6db04 — the thrown-knife name by type
 	int  ObjectCaps() override { return FCAP_CONTINUOUS_USE; } // @0x6f04c -> 0x10
 	virtual bool ShouldCollide(CBaseEntity *pOther) { return true; } // @0x6ed54 -> 1 (TS virtual)
-	static CTSKnife *CreateKnife(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel); // @0x6d9e4
+	// @0x6d9e4 CreateKnife(CBasePlayer*, Vector pos, Vector vel, int knifeType) — knifeType is the
+	// s_weapon_info+0x20 code (knife 6 / sealknife 7 / katana 8; stored at knife+0xa0 in the original).
+	// NO damage parameter — the stab damage lives inside the class (StabDamage; internals VERIFY L8).
+	static CTSKnife *CreateKnife(CBasePlayer *pOwner, const Vector &vecStart, const Vector &vecVel, int knifeType);
 
 	float StabDamage() const // RE BounceTouch: per-type player-stab damage (DAT_00107ec0/eac/0010761c)
 	{
@@ -451,7 +454,6 @@ public:
 	}
 
 	int m_knifeType = TSW_KNIFE;
-	float m_flDamage = 40.0f;
 	float m_flExpire = 0; // auto-remove time if it never lands (orig this+0x88)
 
 	const char *HitSound() const { return (m_knifeType == TSW_KATANA) ? "weapons/katana/hit.wav" : "weapons/knife/knife_hit.wav"; }
@@ -473,8 +475,8 @@ void CTSKnife::Spawn()
 		: "models/w_knife.mdl";
 	SET_MODEL(ENT(pev), (char *)mdl); // precached at map load (PrecacheAllTSWeapons)
 	UTIL_SetSize(pev, Vector(0, 0, 0), Vector(0, 0, 0)); // a point hull (RE SetSize zero,zero)
-	pev->angles = UTIL_VecToAngles(pev->velocity);
-	pev->avelocity = Vector(-1300, 0, 0); // tumble end-over-end (visual)
+	// (angles/roll-90/avelocity spin are set by the THROWER after CreateKnife — KnifeFire -1300,
+	// KatanaThrow -700 — exactly like the original; Spawn does not orient the blade.)
 	SetTouch(&CTSKnife::BounceTouch);
 	SetThink(&CTSKnife::WaitThink);
 	// RE Spawn @0x6db54 line 130: nextthink = gpGlobals->time (NOT +0.1) — the first sweep fires THIS
@@ -690,12 +692,13 @@ void CTSKnife::PickupTouch(CBaseEntity *pOther)
 	UTIL_Remove(this);
 }
 
-CTSKnife *CTSKnife::CreateKnife(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel)
+CTSKnife *CTSKnife::CreateKnife(CBasePlayer *pOwner, const Vector &vecStart, const Vector &vecVel, int knifeType)
 {
 	CTSKnife *p = GetClassPtr((CTSKnife *)NULL);
 	p->pev->classname = MAKE_STRING("knife");
-	p->m_knifeType = type;
-	p->m_flDamage = damage;
+	// the original stores the raw 6/7/8 code (knife+0xa0) and maps at each use point
+	// (Use @0x6dda4: 8 -> katana, 6 -> knife, else -> sealknife); we keep the mapped TSW_* identity.
+	p->m_knifeType = (knifeType == 8) ? TSW_KATANA : (knifeType == 6) ? TSW_KNIFE : TSW_SEALKNIFE;
 	UTIL_SetOrigin(p->pev, vecStart);
 	p->pev->velocity = vecVel;
 	p->pev->owner = pOwner->edict();
@@ -729,8 +732,9 @@ void CTSKnife::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useTy
 	UTIL_Remove(this);
 }
 
-// Public helper (ts_weapons.h) — CTSGun::ThrowKnife spawns the projectile through this.
-CBaseEntity *TSThrowKnife(CBasePlayer *pOwner, int type, float damage, const Vector &vecStart, const Vector &vecVel)
+// Public helper (ts_weapons.h) — CTSGun::ThrowKnife/KatanaThrow spawn the projectile through this
+// (knifeType = the s_weapon_info+0x20 code, 6/7/8).
+CBaseEntity *TSThrowKnife(CBasePlayer *pOwner, const Vector &vecStart, const Vector &vecVel, int knifeType)
 {
-	return CTSKnife::CreateKnife(pOwner, type, damage, vecStart, vecVel);
+	return CTSKnife::CreateKnife(pOwner, vecStart, vecVel, knifeType);
 }

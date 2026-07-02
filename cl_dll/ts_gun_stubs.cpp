@@ -39,7 +39,14 @@ void PrecacheAllTSWeapons() {}
 // static CTSWorldGun::CreateWeapon / CTSAmmoPack::CreateAmmoPack factories, whose only callers — the
 // drop helpers in ts_gun.cpp — are #ifndef CLIENT_DLL, so they need no client stub.)
 CBaseEntity *TSThrowM61(entvars_s *, const Vector &, const Vector &, float) { return nullptr; }
-CBaseEntity *TSThrowKnife(CBasePlayer *, int, float, const Vector &, const Vector &) { return nullptr; }
+CBaseEntity *TSThrowKnife(CBasePlayer *, const Vector &, const Vector &, int) { return nullptr; }
+
+// --- powerup query (ts_player.cpp): infinite-clips isn't mirrored into prediction; assume "off"
+// (same accepted tradeoff as DoubleFireRate above — a mispredicted consume resyncs from the server).
+bool InfiniteClips(CBasePlayer *) { return false; }
+
+// --- server-side movement-speed push (ts_player.cpp): prediction doesn't drive maxspeed; no-op.
+void CBasePlayer::SetPlayerSpeed(float) {}
 
 // --- engine entity glue (server-only; used only by CTSGun's drop/pickup helpers).
 int DispatchSpawn(edict_t *) { return 0; }
