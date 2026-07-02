@@ -540,7 +540,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		static const char *const ds[4] = { "l", "r", "f", "b" };
 		int dir = GetDirection(TS_DirNormalize(pev->velocity), pev->v_angle, 0.6f, 0.3f);
 		m_iDirection = dir; // freeze the dive direction — the following prone pose (0x29) indexes by it
-		snprintf(name, sizeof(name), "dive_%s_%s", ds[dir & 3], grip);
+		snprintf(name, sizeof(name), "dive_%s_%s", ds[dir & 3], grip[0] ? grip : "akimbo"); // grip fallback per LAB_0006c776
 		SetAnim(pPlayer, name, 0x94, 0);
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
