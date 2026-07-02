@@ -18,6 +18,8 @@
 #include "cbase.h"
 #include "player.h"
 #include "ts_weapons.h"
+#include "ts_gamerules.h" // TS_PWUP_* (CTSSuperJump)
+#include "ts_powerup.h"   // CTSPowerUp base (CTSSuperJump)
 #include "ts_groundweapon.h"
 #include "ts_groundammo.h"
 
@@ -227,6 +229,23 @@ public:
 	}
 };
 LINK_ENTITY_TO_CLASS(ammo_crossbow, CTSSniperAmmo);
+
+//============================================================================
+// CTSSuperJump — a map-placed powerup pre-set to the low-gravity / super-jump type.
+// The .so's CTSSuperJump::Spawn (@0xc9f44) sets poweruptype = 0x100 (TS_PWUP_LOWGRAV) then
+// chains CTSPowerUp::Spawn, so it always gives the super-jump (low-gravity) effect.
+//============================================================================
+class CTSSuperJump : public CTSPowerUp
+{
+public:
+	void Spawn() override
+	{
+		poweruptype = TS_PWUP_LOWGRAV; // force the super-jump (low-gravity) powerup
+		CTSPowerUp::Spawn();
+	}
+};
+
+LINK_ENTITY_TO_CLASS(ts_superjump, CTSSuperJump);
 
 // Keep the two UNLINKED pistol classes in the binary (compiled-but-unlinked in the original;
 // weapon_9mmhandgun/357 + ammo_9mmclip/357 are string-table-only there). This exported anchor

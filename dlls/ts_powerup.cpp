@@ -495,19 +495,3 @@ bool TSGrantPowerup(CBasePlayer *pPlayer, int type, int duration)
 	return true;
 }
 
-//============================================================================
-// CTSSuperJump — a map-placed powerup pre-set to the low-gravity / super-jump type.
-// The .so's CTSSuperJump::Spawn (@0xc9f44) sets poweruptype = 0x100 (TS_PWUP_LOWGRAV) then
-// chains CTSPowerUp::Spawn, so it always gives the super-jump (low-gravity) effect.
-//============================================================================
-class CTSSuperJump : public CTSPowerUp
-{
-public:
-	void Spawn() override
-	{
-		poweruptype = TS_PWUP_LOWGRAV; // force the super-jump (low-gravity) powerup
-		CTSPowerUp::Spawn();
-	}
-};
-
-LINK_ENTITY_TO_CLASS(ts_superjump, CTSSuperJump);
