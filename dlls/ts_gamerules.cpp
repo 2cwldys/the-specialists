@@ -9,7 +9,7 @@
 #include "gamerules.h"
 #include "client.h"     // respawn()
 #include "ts_gamerules.h"
-#include "ts_bulletmgr.h"
+#include "ts_bullet.h"
 #include "ts_utils.h"   // TSHudMessageAll
 #include "ts_objectives.h" // CTSObjective / CTSObjectiveManager (the objective subsystem)
 #include "ts_func_break.h" // CInfoBreakable::RespawnThink (RespawnEntities)
@@ -697,7 +697,7 @@ void CTSGameRules::Think()
 {
 	CHalfLifeMultiplay::Think();
 
-	g_BulletManager.Think(); // TS: fly the slow-motion bullets-as-models each frame (ts_bulletmgr.cpp)
+	g_BulletManager.Think(); // TS: fly the slow-motion bullets-as-models each frame (ts_bullet.cpp)
 
 	// `slowmatch` cvar (default 1.0): a value in (0,1) runs the entire match in global
 	// slow-motion at that scale (the .so's "SlowMatch" mode). GlobalSlowMotion2 is self-

@@ -19,7 +19,7 @@ bool SlowPause(CBasePlayer *pPlayer);      // @ 0x65fb8 — m_iPowerups & 8
 bool DoubleFireRate(CBasePlayer *pPlayer); // @ 0x65fe4 — m_iPowerups & 0x10
 int  KungFu(CBasePlayer *pPlayer);         // @ 0x65fd8 — m_iKungFu
 
-// Slow-motion "bullets as models" — see CBulletManager in ts_bulletmgr.h (g_BulletManager).
+// Slow-motion "bullets as models" — see CBulletManager in ts_bullet.h (g_BulletManager).
 // The fire path calls g_BulletManager.FireBullet; gamerules Think calls g_BulletManager.Think.
 
 // @ ClientCommand `powerup <N>` apply (RE: ts_i386.so ClientCommand 0x9db8a..0x9dd42).

@@ -47,7 +47,7 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 	Vector vecSpread, float flDist, int iDamage, int seed, int caliber);
 
 // Slow-world sound pitch (1..100 = 100*perceivedSlow); pitches NORMAL-recorded combat sounds DOWN in
-// slow-motion. Defined in ts_gun.cpp; shared by ts_knife.cpp / ts_bulletmgr.cpp. See its definition.
+// slow-motion. Defined in ts_gun.cpp; shared by ts_knife.cpp / ts_bullet.cpp. See its definition.
 int TSSlowPitch(CBasePlayer *p);
 // Pitch for RECORDED-SLOW sounds (gun-fire / bullet-hit ric): 1..255 = 100 + 300*perceivedSlow — high at
 // normal play (the slowed recording sped up to sound natural), deepening in slow-motion. See ts_gun.cpp.

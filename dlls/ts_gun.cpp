@@ -20,7 +20,7 @@
 #include "player.h"
 #include "weapons.h"
 #include "ts_weapons.h"
-#include "ts_bulletmgr.h"
+#include "ts_bullet.h"
 #include "ts_player.h" // DoubleFireRate (powerup accessor)
 #include "ts_worldgun.h" // CTSWorldGun::CreateWeapon / CTSAmmoPack::CreateAmmoPack (drop side)
 
@@ -1355,7 +1355,7 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 
 	// RE ShootBulletsPlayer `rbullet` gate: when the shooter is in slow-motion (slow factor < 0.99),
 	// each pellet becomes a flying bullet (CBulletManager) instead of an instant hitscan — it crosses
-	// the map and damages where it actually arrives (dodgeable in slow-pause). See ts_bulletmgr.cpp.
+	// the map and damages where it actually arrives (dodgeable in slow-pause). See ts_bullet.cpp.
 	float shooterSlow = pPlayer->pev->fuser1;
 	if (shooterSlow < 0.01f)
 		shooterSlow = 0.01f;

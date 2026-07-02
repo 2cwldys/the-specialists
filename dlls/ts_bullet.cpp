@@ -1,5 +1,5 @@
 /***
-*  ts_bulletmgr.cpp — RECONSTRUCTED slow-motion "bullets as models" (CBulletManager, the original's
+*  ts_bullet.cpp — RECONSTRUCTED slow-motion "bullets as models" (CBulletManager, the original's
 *  256-slot ring at CTSGameRules+0x1864). When the shooter is in slow-motion, their shots stop being
 *  instant hitscans and become tracked projectiles that physically FLY across the map, doing damage
 *  when/where they actually arrive — so in slow-PAUSE you can watch a bullet crawl toward you and step
@@ -24,7 +24,7 @@
 #include "effects.h" // CBeam — the extending bullet-trail
 #include "ts_player.h"
 #include "ts_weapons.h" // TSSlowPitch (slow-world sound pitch)
-#include "ts_bulletmgr.h"
+#include "ts_bullet.h"
 #include "ts_shared.h"   // GetBulletVelocityMult (the slow-motion bullet math, original TS_shared.cpp)
 
 CBulletManager g_BulletManager; // the original embeds this in CTSGameRules (+0x1864); one instance.
@@ -33,7 +33,7 @@ CBulletManager g_BulletManager; // the original embeds this in CTSGameRules (+0x
 // math). A slow-mo bullet's speed as a fraction of full speed, from the shooter's slow factor + the
 // slow-PAUSE flag. Slow-mo (pause=0) → ~slow (a fast tracer); slow-pause (×10) → dodgeable; ≥0.99 → 1.
 
-// TSSlowBullet + CBulletManager are declared in ts_bulletmgr.h; the 256-slot ring is m_bullets.
+// TSSlowBullet + CBulletManager are declared in ts_bullet.h; the 256-slot ring is m_bullets.
 
 // Per-caliber bullet flight speed unit, RE'd from compile_ammo_info (ammo_info[+0x24]). Full speed is
 // the literal original 40 * this (≈13k–40k u/s) — the muzzle→bullet growing trail keeps the path

@@ -4,7 +4,7 @@
 *    GetBulletVelocityMult @0x89160.
 *
 *  These were already implemented in our build but SCATTERED (GetBulletVelocityMult was a static in
-*  ts_bulletmgr.cpp; InterpolateSlowMotion was inlined in CBasePlayer::PreThink; FixedSlowAmt is the
+*  ts_bullet.cpp; InterpolateSlowMotion was inlined in CBasePlayer::PreThink; FixedSlowAmt is the
 *  max(s,0.01) clamp inlined in CBaseEntity::GiveSlowMul). Consolidated here as the original's free
 *  functions so the layout matches; the call sites now route through these. Behaviour is unchanged.
 ***/

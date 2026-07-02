@@ -1,11 +1,11 @@
 /***
-*  ts_bulletmgr.h — CBulletManager (slow-motion "bullets as models", TS_bullet.cpp). In the original
+*  ts_bullet.h — CBulletManager (slow-motion "bullets as models", TS_bullet.cpp). In the original
 *  it's a 256-slot ring embedded in CTSGameRules (+0x1864); we keep a single global instance. When a
 *  shooter is slowed, their pellets become tracked projectiles that physically fly and damage on
 *  arrival (so you can watch/dodge a bullet in slow-pause).
 ***/
-#ifndef TS_BULLETMGR_H
-#define TS_BULLETMGR_H
+#ifndef TS_BULLET_H
+#define TS_BULLET_H
 
 #include "cbase.h" // EHANDLE
 
@@ -35,4 +35,4 @@ public:
 
 extern CBulletManager g_BulletManager;
 
-#endif // TS_BULLETMGR_H
+#endif // TS_BULLET_H
