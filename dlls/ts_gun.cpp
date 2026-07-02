@@ -2028,8 +2028,27 @@ void CTSGun::ShotgunReload()
 // @ WeaponIdle__6CTSGun (@0x854dc) — drives the remaining burst rounds: while a burst is
 // queued and the idle timer has elapsed, fire the next round (this is how a tapped burst
 // completes after the trigger is released).
+// @0x85e54 CCombatIdle — the bare-hands (kung-fu) viewmodel idle: on the idle timer, re-arm
+// idle +3.0 and play the TSW_MELEE row's idle sequence from the table (+0x252 — 0 in the
+// shipped data; kept as a table read like the original). Sole caller: WeaponIdle's leading
+// no-active-item branch.
+void CTSGun::CCombatIdle()
+{
+	if (m_flTimeWeaponIdle > UTIL_WeaponTimeBase())
+		return;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
+	const s_weapon_info *wi = get_weapon_info(TSW_MELEE);
+	SendWeaponAnim(wi ? wi->iIdleAnim : 0);
+}
+
 void CTSGun::WeaponIdle()
 {
+	// @0x75e54: bare hands idle through CCombatIdle (RE: the leading `if (!m_pActiveItem)`).
+	if (!m_pActiveItem)
+	{
+		CCombatIdle();
+		return;
+	}
 	if (m_fireMode == TSFM_BURST && m_burstCount > 0 &&
 		m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
 	{
