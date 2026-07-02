@@ -1122,8 +1122,11 @@ void PM_WalkMove()
 
 	pmtrace_t trace;
 
-	// Copy movement amounts
+	// Copy movement amounts. TS-modified (RE PM_WalkMove @0xea26c): BACKPEDAL input is
+	// scaled x0.8 — walking/running backward is 80% of forward.
 	fmove = pmove->cmd.forwardmove;
+	if (fmove < 0)
+		fmove *= 0.8f;
 	smove = pmove->cmd.sidemove;
 
 	// Zero out z components of movement vectors
