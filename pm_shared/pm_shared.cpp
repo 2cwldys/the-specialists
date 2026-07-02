@@ -981,7 +981,11 @@ int PM_FlyMove()
 					VectorCopy(new_velocity, original_velocity);
 				}
 				else
-					PM_ClipVelocity(original_velocity, planes[i], new_velocity, 1.0 + pmove->movevars->bounce * (1 - pmove->friction));
+					// TS-modified backoff (RE PM_FlyMove @0xed408: 1 + 0.01*(1-friction) — the
+					// movevars->bounce coefficient replaced with 0.01, so low-friction stunt
+					// players CLIP along walls instead of ricocheting off them; stock bounce=1
+					// made the +alt1 dive bounce once stunt friction became persistent).
+					PM_ClipVelocity(original_velocity, planes[i], new_velocity, 1.0 + 0.01f * (1 - pmove->friction));
 			}
 
 			VectorCopy(new_velocity, pmove->velocity);
