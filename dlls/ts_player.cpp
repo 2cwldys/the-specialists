@@ -14,6 +14,9 @@
 #include "ts_gun.h"       // GetPlayerTSGun (block-bar for GetMeleeMultiplier)
 #include "ts_worldgun.h"  // CTSAmmoPack::CreateAmmoPack (DropArmor)
 #include "ts_bomb.h"      // CTSBomb::CutWire (the cutwire_<n> command helper)
+#include "game.h"         // friendlyfire cvar (the melee twins' teammate gate)
+#include "gamerules.h"    // g_pGameRules->PlayerRelationship
+#include "weapons.h"      // ClearMultiDamage/ApplyMultiDamage
 
 extern int gmsgTSHaveFlag; // wire name "TSFlag" (4) — defined in ts_flag.cpp
 
@@ -623,6 +626,185 @@ void CBasePlayer::CheckHull(Vector vecSrc, Vector vecEnd, TraceResult &tr, int i
 				FindHullIntersectionplayer(vecSrc, tr, VEC_HULL_MIN, VEC_HULL_MAX, edict());
 		}
 	}
+}
+
+// The TS close-combat damage marker bit riding TraceAttack's bitsDamageType alongside
+// DMG_CLUB|DMG_NEVERGIB (RE CloseCombatAttack @0x8646c: bits 0x4001080).
+#define DMG_TSCLOSECOMBAT 0x4000000
+
+// @0x84900 (overload shape) DropWeapon(tsweapon_t, float) — the original's disarm entry: type -2
+// = the ACTIVE weapon, flDamage feeds an internal roll. VERIFY: the -2 roll/immunity internals
+// are un-RE'd — until then this adapter DOES NOT drop (matches our current no-disarm behavior;
+// the call sites are already faithful so only this body needs the RE).
+bool CBasePlayer::DropWeapon(int iType, float flDamage)
+{
+	(void)iType;
+	(void)flDamage;
+	return false; // VERIFY (dossier-melee L?): RE DropWeapon@0x84900's -2 sentinel + damage roll
+}
+
+// @0x85f88 CloseCombatAttack — the shared melee hit-resolver (kung-fu twin; the coldcock sibling
+// below sets glast_coldcock instead). Trace via CheckHull, gates, VictimKungfuHold deflect,
+// disarm/knockback/sound for player victims, then the marked TraceAttack. Returns the damaged
+// entity or NULL (miss/invalid/teammate/blocked). Callers (S5): CTSGun::CCombatAttack
+// (hull class==3?1:3, disarm 1, playersOnly 0, knockback 1, teamSafe 0) and
+// CTSStunt::CloseAttack (hull 3, iAnim -1, teamSafe 1).
+CBaseEntity *CBasePlayer::CloseCombatAttack(Vector vecSrc, Vector vecEnd, Vector vecDir,
+	int iHull, float flDamage, int iAnim, bool bDisarm, bool bPlayersOnly, bool bKnockback,
+	bool bForceTeamSafe)
+{
+	if (iAnim != -1)
+		m_TSAnim.Animate(this, iAnim);
+
+	// damage-scaled motion-blur roll (dmg 35 => ~35%, > 80 => always; level 2 above 50)
+	if (RANDOM_LONG(10, 80) < (int)flDamage)
+	{
+		if (gmsgTSMotionBlur == 0)
+			gmsgTSMotionBlur = REG_USER_MSG("TSMBlur", 2);
+		MESSAGE_BEGIN(MSG_PVS, gmsgTSMotionBlur, pev->origin);
+		WRITE_BYTE(ENTINDEX(edict()));
+		WRITE_BYTE(flDamage > 50.0f ? 2 : 1);
+		MESSAGE_END();
+	}
+
+	TraceResult tr;
+	CheckHull(vecSrc, vecEnd, tr, iHull);
+	if (tr.flFraction >= 1.0f)
+		return nullptr; // miss
+
+	edict_t *pHitEnt = tr.pHit ? tr.pHit : ENT(0);
+	CBaseEntity *pVictim = CBaseEntity::Instance(pHitEnt);
+	if (!pVictim)
+		return nullptr;
+	if (pVictim->pev->takedamage == DAMAGE_NO)
+		return nullptr;
+	if ((pVictim->pev->flags & FL_WORLDBRUSH) != 0)
+		return nullptr;
+	if ((pVictim->pev->effects & EF_NODRAW) != 0)
+		return nullptr;
+
+	if (pVictim->IsPlayer())
+	{
+		if ((bForceTeamSafe || friendlyfire.value == 0.0f) &&
+			g_pGameRules->PlayerRelationship(pVictim, this) == GR_TEAMMATE)
+			return nullptr;
+
+		if (VictimKungfuHold(this, pVictim, flDamage, &tr))
+			return nullptr; // deflected (the Hold plays the clack + stamps the locks)
+
+		CBasePlayer *pPlayerVictim = (CBasePlayer *)pVictim;
+		if (bDisarm && pPlayerVictim->m_flDisarmTime < gpGlobals->time)
+			pPlayerVictim->DropWeapon(-2, flDamage); // -2 = active weapon (roll VERIFY-gated)
+
+		if (bKnockback && flDamage > 30.0f)
+		{
+			float speed = pev->velocity.Length();
+			Vector dir = pVictim->pev->origin - pev->origin;
+			dir = dir.Length() > 0.0f ? dir.Normalize() : Vector(0, 0, 1);
+			pVictim->pev->velocity = pVictim->pev->velocity + dir * speed;
+			pVictim->pev->velocity.z = 235.0f; // hard-set vertical pop (disasm 0x863a0)
+		}
+
+		EMIT_SOUND_DYN(ENT(pVictim->pev), CHAN_BODY, "player/kungfuhit.wav", VOL_NORM, 0.8f, 0,
+			95 + RANDOM_LONG(0, 31));
+
+		// dead code in the shipped .so (PunchScreen is an empty stub) — shape kept faithful
+		if (m_pActiveItem && flDamage > 20.0f)
+			PunchScreen(flDamage * 0.5f, pev->origin - pVictim->pev->origin);
+	}
+	else if (bPlayersOnly)
+		return nullptr;
+
+	glast_closecombat = true;
+	ClearMultiDamage();
+	pVictim->TraceAttack(pev, flDamage, vecDir, &tr, DMG_CLUB | DMG_NEVERGIB | DMG_TSCLOSECOMBAT);
+	ApplyMultiDamage(pev, pev);
+	glast_closecombat = false;
+
+	return pVictim;
+}
+
+// @0x86610 ColdCockAttack — the pistol-whip sibling twin: identical skeleton, sets
+// glast_coldcock, and its knockback path is never exercised (the ColdCock caller passes
+// bKnockback=false). Damage bits VERIFY (L5): DMG_CLUB|DMG_NEVERGIB kept pending the raw
+// disasm read at 0x86610's TraceAttack push.
+CBaseEntity *CBasePlayer::ColdCockAttack(Vector vecSrc, Vector vecEnd, Vector vecDir,
+	int iHull, float flDamage, int iAnim, bool bDisarm, bool bPlayersOnly, bool bKnockback,
+	bool bForceTeamSafe)
+{
+	if (iAnim != -1)
+		m_TSAnim.Animate(this, iAnim);
+
+	if (RANDOM_LONG(10, 80) < (int)flDamage)
+	{
+		if (gmsgTSMotionBlur == 0)
+			gmsgTSMotionBlur = REG_USER_MSG("TSMBlur", 2);
+		MESSAGE_BEGIN(MSG_PVS, gmsgTSMotionBlur, pev->origin);
+		WRITE_BYTE(ENTINDEX(edict()));
+		WRITE_BYTE(flDamage > 50.0f ? 2 : 1);
+		MESSAGE_END();
+	}
+
+	TraceResult tr;
+	CheckHull(vecSrc, vecEnd, tr, iHull);
+	if (tr.flFraction >= 1.0f)
+		return nullptr;
+
+	edict_t *pHitEnt = tr.pHit ? tr.pHit : ENT(0);
+	CBaseEntity *pVictim = CBaseEntity::Instance(pHitEnt);
+	if (!pVictim)
+		return nullptr;
+	if (pVictim->pev->takedamage == DAMAGE_NO)
+		return nullptr;
+	if ((pVictim->pev->flags & FL_WORLDBRUSH) != 0)
+		return nullptr;
+	if ((pVictim->pev->effects & EF_NODRAW) != 0)
+		return nullptr;
+
+	bool bApplyDamage = true;
+	if (pVictim->IsPlayer())
+	{
+		if ((bForceTeamSafe || friendlyfire.value == 0.0f) &&
+			g_pGameRules->PlayerRelationship(pVictim, this) == GR_TEAMMATE)
+			return nullptr;
+
+		if (VictimKungfuHold(this, pVictim, flDamage, &tr))
+			bApplyDamage = false; // held: no drop/knockback/sound/damage
+		else
+		{
+			CBasePlayer *pPlayerVictim = (CBasePlayer *)pVictim;
+			if (bDisarm && pPlayerVictim->m_flDisarmTime < gpGlobals->time)
+				pPlayerVictim->DropWeapon(-2, flDamage);
+
+			if (bKnockback && flDamage > 30.0f) // not exercised by coldcock (bKnockback=false)
+			{
+				float speed = pev->velocity.Length();
+				Vector dir = pVictim->pev->origin - pev->origin;
+				dir = dir.Length() > 0.0f ? dir.Normalize() : Vector(0, 0, 1);
+				pVictim->pev->velocity = pVictim->pev->velocity + dir * speed;
+				pVictim->pev->velocity.z = 235.0f;
+			}
+
+			EMIT_SOUND_DYN(ENT(pVictim->pev), CHAN_BODY, "player/kungfuhit.wav", VOL_NORM, 0.8f, 0,
+				95 + RANDOM_LONG(0, 31));
+
+			if (m_pActiveItem && flDamage > 20.0f)
+				PunchScreen(flDamage * 0.5f, pev->origin - pVictim->pev->origin);
+		}
+	}
+	else if (bPlayersOnly)
+		return nullptr;
+
+	if (!bApplyDamage)
+		return nullptr;
+
+	glast_coldcock = true;
+	ClearMultiDamage();
+	pVictim->TraceAttack(pev, flDamage, vecDir, &tr, DMG_CLUB | DMG_NEVERGIB); // bits VERIFY (L5)
+	ApplyMultiDamage(pev, pev);
+	glast_coldcock = false;
+
+	return pVictim;
 }
 
 // @0x83a3c DropArmor — drop the player's armor as a CTSAmmoPack (armor-only) tossed in front of them,

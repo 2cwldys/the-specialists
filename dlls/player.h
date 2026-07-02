@@ -491,6 +491,12 @@ public:
 	void UpdateMeleeBar(float flAmount);                  // @0x8650c — THE melee-stamina drain choke-point (sends KFuPower)
 	void BlockPlayer(float flDuration);                   // @0x85b58 — post-swing movement self-root (STOP bit + m_flBlockTime)
 	void CheckHull(Vector vecSrc, Vector vecEnd, TraceResult &tr, int iHull); // @0x85e28 — melee line+hull trace
+	bool DropWeapon(int iType, float flDamage);           // @0x84900 (disarm shape): -2 = active weapon; roll VERIFY-gated
+	// @0x85f88 / @0x86610 — the shared melee hit-resolver twins (kung-fu / coldcock)
+	CBaseEntity *CloseCombatAttack(Vector vecSrc, Vector vecEnd, Vector vecDir, int iHull, float flDamage,
+		int iAnim, bool bDisarm, bool bPlayersOnly, bool bKnockback, bool bForceTeamSafe);
+	CBaseEntity *ColdCockAttack(Vector vecSrc, Vector vecEnd, Vector vecDir, int iHull, float flDamage,
+		int iAnim, bool bDisarm, bool bPlayersOnly, bool bKnockback, bool bForceTeamSafe);
 	void DropArmor();                                     // @0x83a3c — drop armorvalue as a CTSAmmoPack
 	void DropAmmo();                                      // @0x846f0 — drop the gun's reserve as a CTSAmmoPack
 	void UpdatePlayerState();                             // @0x82a08 — derive m_iPlayerState (locked/frozen/normal)
