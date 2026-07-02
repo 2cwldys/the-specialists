@@ -19,7 +19,83 @@
 #include "ts_mapglobals.h"
 #include "ts_playeramount.h"
 
-// CTSTrigger lands here (C13) — first in the original address order.
+// CTSTrigger — first in the original address order (extracted from ts_objectives.cpp).
+//============================================================================
+// CTSTrigger — a TS brush trigger: fires its target when a valid player (right attacker
+// team, optionally the flag carrier) touches it, on a recheck delay, with a HUD message.
+// @0x709b8 Spawn / @0x70ad8 WaitTouch / @0x70c68 WaitThink. Derives the team gate from
+// CTSObjective (the FGD `tsobjective` base).
+//============================================================================
+#define SF_TS_TRIGGER_FLAGCARRIER 8
+
+class CTSTrigger : public CTSObjective
+{
+public:
+	void Spawn() override;
+	bool KeyValue(KeyValueData *pkvd) override;
+	void EXPORT WaitTouch(CBaseEntity *pOther);
+	void EXPORT WaitThink();                  // @0x70c68 — keep the trigger alive (reschedule)
+	int ObjectCaps() override { return 0; }   // @0x73ad0 — no caps (not save/use-able as an objective)
+
+	float m_flNextCheck = 0;   // nextcheck (recheck delay)
+	float m_flNextAllowed = 0; // earliest time it can fire again
+};
+
+LINK_ENTITY_TO_CLASS(ts_trigger, CTSTrigger);
+
+void CTSTrigger::Spawn()
+{
+	if (!FStringNull(pev->model))
+		SET_MODEL(ENT(pev), STRING(pev->model)); // the brush
+	pev->movetype = MOVETYPE_NONE;
+	pev->solid = SOLID_TRIGGER;
+	UTIL_SetOrigin(pev, pev->origin);
+	SetTouch(&CTSTrigger::WaitTouch);
+	// keep the trigger alive (the original arms a recheck nextthink + the first-allowed time)
+	float wait = (m_flNextCheck < 0.5f) ? 0.5f : m_flNextCheck;
+	SetThink(&CTSTrigger::WaitThink);
+	pev->nextthink = gpGlobals->time + wait;
+	m_flNextAllowed = gpGlobals->time + wait;
+}
+
+// @WaitThink__10CTSTrigger — reschedule so the trigger keeps ticking (recheck delay >= 0.5s).
+void CTSTrigger::WaitThink()
+{
+	float wait = (m_flNextCheck < 0.5f) ? 0.5f : m_flNextCheck;
+	pev->nextthink = gpGlobals->time + wait;
+}
+
+bool CTSTrigger::KeyValue(KeyValueData *pkvd)
+{
+	if (FStrEq(pkvd->szKeyName, "nextcheck"))
+	{
+		m_flNextCheck = atof(pkvd->szValue);
+		return true;
+	}
+	return CTSObjective::KeyValue(pkvd); // attackerteam
+}
+
+// @WaitTouch — fire on a valid touch, then re-arm after `nextcheck` seconds.
+void CTSTrigger::WaitTouch(CBaseEntity *pOther)
+{
+	if (gpGlobals->time < m_flNextAllowed)
+		return;
+	if (!pOther->IsPlayer() || !pOther->IsAlive())
+		return;
+	if (!CanInteract(pOther->pev->team)) // attacker-team gate (-1 = any)
+		return;
+	// SLICE: the "Flag Carrier Only" spawnflag (8) needs the CTF flag system (not built);
+	// here it's ignored (the trigger fires for anyone on the right team).
+
+	if (!FStringNull(pev->target))
+		FireTargets((char *)STRING(pev->target), this, this, USE_TOGGLE, 0);
+	if (!FStringNull(pev->message))
+		TSHudMessageAll(0, 0xff, 0, 8, 30, STRING(pev->message));
+
+	float delay = m_flNextCheck < 0.5f ? 0.5f : m_flNextCheck;
+	m_flNextAllowed = gpGlobals->time + delay;
+}
+
 
 // ===================== ts_slowmotion.cpp (merged) =====================
 #define SF_SLOMO_START_ON 1
