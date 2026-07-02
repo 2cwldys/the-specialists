@@ -529,13 +529,38 @@ void CTSStunt::HandleSlide()
 	pev->friction = 1.0f;
 }
 
+// @ HandleWheel — the wheel LANDING handler (RE CTSStunt_all @0x9b...: gated on pev->flags
+// FL_ONGROUND — it does NOTHING mid-flight; our old ungated version converted the wheel to
+// SLIDE on the very next frame, so HandleSlide's per-frame prone dispatch stomped the
+// lowwheel_* anim through the 0x32 guard's deliberate 0x29 pass-through = the "low wheel
+// goes idle mid-air" glitch). LOW tier: land into the prone SLIDE, pose oriented by the
+// REVERSED stunt direction (the flip turns you over), latched into the anim m_iDirection
+// (player+0x2a0). HIGH tier: STOP root + gravity 0.25 + the 0.375s auto-getup timer.
 void CTSStunt::HandleWheel()
 {
 	entvars_t *pev = m_pPlayer->pev;
-	pev->iuser4 &= ~(TSSTUNT_WHEEL_HI | TSSTUNT_WHEEL_LO);
-	pev->iuser4 |= TSSTUNT_SLIDE;
-	pev->friction = 0.25f;
-	pev->gravity = 1.0f;
+	if (!(pev->flags & FL_ONGROUND))
+		return;
+
+	if (!(pev->iuser4 & TSSTUNT_WHEEL_HI))
+	{
+		pev->iuser4 &= ~TSSTUNT_WHEEL_LO;
+		pev->iuser4 |= TSSTUNT_SLIDE;
+		pev->view_ofs = g_vecZero;
+		m_vecStuntDir = m_vecStuntDir * -1.0f;
+		int dir = GetDirection(m_vecStuntDir, pev->v_angle, 0.6f, 0.3f);
+		m_bDirForward = (dir != 2);
+		m_pPlayer->m_TSAnim.m_iDirection = dir; // player+0x2a0 — the prone pose direction latch
+	}
+	else
+	{
+		pev->iuser4 &= ~TSSTUNT_WHEEL_HI;
+		pev->iuser4 |= TSSTUNT_STOP;
+		pev->gravity = 0.25f;  // pev+0x120 = 0x3e800000
+		pev->view_ofs = g_vecZero;
+		m_flRollTime = 0.375f; // the auto-getup timer (Play's getup block consumes it)
+	}
+	pev->friction = 1.0f;      // pev+0x11c = 0x3f800000 (both tiers)
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 }
 
