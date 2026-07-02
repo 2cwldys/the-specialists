@@ -80,7 +80,7 @@ bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count);
 // single dropped while its akimbo is owned leaves the other). Returns false if it can't drop
 // (melee/no world model). Pick up a dropped weapon of `type`/`clip` (CTSWorldGun pickup).
 // (TSDropWeapon is now the method CBasePlayer::DropWeapon — see player.h / ts_gun.cpp.)
-void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip);
+bool TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip); // false = didn't land (full/duplicate) — leave the world item
 void TSDropWeaponsOnDeath(CBasePlayer *pPlayer); // scatter the arsenal on death
 void TSDropAmmoOnDeath(CBasePlayer *pPlayer);    // drop the per-caliber reserve as a pack
 // The drop-into-world factories are the static methods CTSWorldGun::CreateWeapon /

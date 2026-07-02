@@ -37,6 +37,9 @@ struct TSItem
 	// fire function (grenade toss mode, knife slash-vs-throw). The pump-shotgun's fire/rack use of the SAME
 	// original byte lives in m_fInSpecialReload instead (predicted — see the ShotgunFire note below).
 	int  altMode = 0;
+	// item+0x8 for the blades — BLOODY-BLADE state, set on a player hit: drives the gun's pev->body = 1
+	// (bloody w_/p_ submodel) and rides the knife.sc/katana.sc events as iparam2 (bloody viewmodel).
+	int  bloody = 0;
 };
 
 class CTSGun : public CBasePlayerWeapon
@@ -99,6 +102,7 @@ public:
 	void CCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
 	void CCombatIdle();                      // @0x85e54 — bare-hands viewmodel idle (WeaponIdle no-item branch)
 	void GrenadeFire(const s_weapon_info *wi);  // grenade fire-type
+	void KatanaFire();                           // @KatanaFire__6CTSGun @0x733f0 — the 5-stance katana slash
 	void KatanaThrow();                          // @KatanaThrow__6CTSGun @0x73b68 — right-click HURLS the katana
 	void ThrowKnife();                           // @KnifeFire throw branch — right-click hurls the knife
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
@@ -154,6 +158,7 @@ public:
 	unsigned short m_usFire = 0; // events/fire.sc handle (predicted fire: sound/flash/anim)
 	unsigned short m_usDraw = 0; // events/draw.sc handle (deploy: seed the client param cache)
 	unsigned short m_usMelee = 0; // events/knife.sc handle (predicted melee impact spark/decal)
+	unsigned short m_usKatana = 0; // events/katana.sc handle (gun+0x974): every katana swing, iparam1=vmAnim, iparam2=bloody
 
 	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends
 	// WeaponInfo on change from CTSGun::UpdateClientData @0x758c8; we mirror that.

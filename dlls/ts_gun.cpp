@@ -22,6 +22,9 @@
 #include "ts_weapons.h"
 #include "ts_bullet.h"
 #include "ts_player.h" // DoubleFireRate (powerup accessor)
+#ifndef CLIENT_DLL
+#include "ts_gamerules.h" // VictimKatanaHold/VictimKnifeHold (the melee block gates)
+#endif
 #include "ts_worldgun.h" // CTSWorldGun::CreateWeapon / CTSAmmoPack::CreateAmmoPack (drop side)
 
 // WEAPON TIMING: the build defines CLIENT_WEAPONS (both targets), so UTIL_WeaponTimeBase() == 0 — a
@@ -460,6 +463,7 @@ void CTSGun::Precache()
 	m_usFire = PRECACHE_EVENT(1, "events/fire.sc"); // predicted fire (sound/flash/anim + shell)
 	m_usDraw = PRECACHE_EVENT(1, "events/draw.sc"); // deploy: seed the client active-weapon param cache
 	m_usMelee = PRECACHE_EVENT(1, "events/knife.sc"); // melee impact spark/decal on a hard surface
+	m_usKatana = PRECACHE_EVENT(1, "events/katana.sc"); // katana swing presentation (gun+0x974)
 	PRECACHE_SOUND("player/kungfuhit.wav");   // kung-fu flesh hit (also the coldcock bash)
 	PRECACHE_SOUND("player/closecombat.wav"); // kung-fu swing whoosh (miss / surface)
 	PRECACHE_SOUND("player/block.wav");       // kung-fu block "hooah" (reload)
@@ -678,11 +682,15 @@ void CTSGun::PrimaryAttack()
 
 	// Fire-types dispatched directly (outside the fire-mode trigger system, like the
 	// original PrimaryAttack @0x81a20): melee hull-traces and the grenade throw.
-	if (wi->iFireType == TSFT_KNIFE || wi->iFireType == TSFT_KATANA)
+	if (wi->iFireType == TSFT_KNIFE)
 	{
-		if (wi->iFireType == TSFT_KNIFE)
-			m_items[m_weaponType].altMode = 0; // @0x71a89: item+0x24 = 0 (slash) before KnifeFire
+		m_items[m_weaponType].altMode = 0; // @0x71a89: item+0x24 = 0 (slash) before KnifeFire
 		MeleeAttack(wi);
+		return;
+	}
+	if (wi->iFireType == TSFT_KATANA)
+	{
+		KatanaFire(); // @0x71aaf: fire-type 10 has its OWN fire fn (never through KnifeFire)
 		return;
 	}
 	if (wi->iFireType == TSFT_GRENADE)
@@ -1582,6 +1590,141 @@ void CTSGun::GrenadeFire(const s_weapon_info *wi)
 		m_items[m_weaponType].owned = false;
 		GetBetterWeapon(m_weaponType);
 	}
+}
+
+// @ KatanaFire__6CTSGun @0x733f0 — the katana slash, a 5-STANCE system (decompile + raw-disasm exact;
+// reference/dossiers/cont81/analysis_katanafire.md). Stance -> {reach, SIGNED dmg, delay, viewmodel
+// anim (the event's iparam1), 3rd-person anim, post-swing lock}:
+//   STUNT (iuser4 & 0x70c30)      35 /  35 / 1.0 / 17 / -1 (keep the stunt anim)
+//   BACK  (moving backward)       55 / -75 / 1.0 / 15 / 35  + lock — swings BEHIND the player
+//   DUCK  (ground + duck)         50 /  65 / 0.9 / 17 / 37  + lock + PRONE|STOP + view_ofs 16 + aux 2.0
+//   NORMAL (ground)               50 /  45 / 0.7 / 17|16 / 33|34 alternating (m_lastMeleeAnim 1<->2)
+//   AIR                           50 / clamp(speed*2/13, 35, 55) / 1.1 / 17 / 36
+// dmg x GetMeleeMultiplier; negative dmg traces BACKWARD (CheckHull hull 1, else 3); VictimKatanaHold
+// deflects into the block presentation; a player hit bloodies the blade (item+0x8 + pev->body=1) and
+// plays hit-body.wav on the VICTIM; a miss arms the whiff-lunge (0.25s window, SIGNED force, type 2).
+// katana.sc plays EVERY swing (FEV_NOTHOST, iparam1=vmAnim, iparam2=bloody) — the whoosh/viewmodel
+// presentation is CLIENT-side; the server emits no swing sound and sends no SendWeaponAnim.
+void CTSGun::KatanaFire()
+{
+	if (m_weaponType == TSW_MELEE) // original gate: m_pActiveItem == NULL
+		return;
+	entvars_t *ppev = m_pPlayer->pev;
+	TSItem &it = m_items[m_weaponType];
+
+	UTIL_MakeVectors(ppev->v_angle);
+	const bool stunting = (ppev->iuser4 & 0x70c30) != 0;
+	const bool onGround = (ppev->flags & FL_ONGROUND) != 0;
+	const float speed = ppev->velocity.Length();
+
+	// moving backward: slow -> the +back key; fast -> velocity vs facing (dot <= -0.5).
+	bool movingBack;
+	if (speed <= 100.0f)
+		movingBack = (ppev->button & IN_BACK) != 0;
+	else
+		movingBack = DotProduct(gpGlobals->v_forward, ppev->velocity * (1.0f / speed)) <= -0.5f;
+
+	int reach, vmAnim, bodyAnim;
+	float dmg, delay;
+	bool lock = false;
+	if (stunting)
+	{
+		reach = 35; dmg = 35.0f; delay = 1.0f; vmAnim = 17; bodyAnim = -1;
+	}
+	else if (movingBack)
+	{
+		reach = 55; dmg = -75.0f; delay = 1.0f; vmAnim = 15; bodyAnim = TSA_CC_KATANA3; // 35
+		lock = true;
+	}
+	else if (onGround && ((ppev->button & IN_DUCK) || (pev->flags & FL_DUCKING)))
+	{
+		// NB: the FL_DUCKING test reads the GUN's own pev (original-source slip @0x73624 — a carried
+		// item never has it set, so IN_DUCK is the live trigger). Replicated as-is for fidelity (L4).
+		reach = 50; dmg = 65.0f; delay = 0.9f; vmAnim = 17; bodyAnim = TSA_CC_KATANADUCK; // 37
+		lock = true;
+		ppev->iuser4 |= TSSTUNT_PRONE | TSSTUNT_STOP; // drop into the ducking hull + damp velocity
+		ppev->view_ofs = Vector(0, 0, 16);
+		m_pPlayer->m_flDuckSlashAux = 2.0f; // player+0x4f4 (consumer VERIFY)
+	}
+	else if (onGround)
+	{
+		reach = 50; dmg = 45.0f; delay = 0.7f;
+		// alternate the two normal slashes without repeating (this+0xa04 cycle 1<->2).
+		if (m_lastMeleeAnim != 1 && m_lastMeleeAnim != 2)
+			m_lastMeleeAnim = RANDOM_LONG(1, 2);
+		if (m_lastMeleeAnim == 1)
+		{
+			vmAnim = 17; bodyAnim = TSA_CC_KATANA1; m_lastMeleeAnim = 2; // 33
+		}
+		else
+		{
+			vmAnim = 16; bodyAnim = TSA_CC_KATANA2; m_lastMeleeAnim = 1; // 34
+		}
+	}
+	else
+	{
+		reach = 50; delay = 1.1f; vmAnim = 17; bodyAnim = TSA_CC_KATANAAIR; // 36
+		dmg = speed * (2.0f / 13.0f); // air slash scales with speed
+		if (dmg < 35.0f) dmg = 35.0f;
+		if (dmg > 55.0f) dmg = 55.0f;
+	}
+
+	m_pPlayer->m_TSAnim.Animate(m_pPlayer, bodyAnim); // -1 (stunt) is a no-op
+
+#ifndef CLIENT_DLL // hit resolution is server-authoritative (house pattern, see ColdCock/CCombatAttack)
+	dmg *= m_pPlayer->GetMeleeMultiplier();
+
+	// signed damage sets the trace direction: the back-slash sweeps BEHIND the player.
+	Vector vecSrc = m_pPlayer->GetGunPosition();
+	Vector vecEnd = vecSrc + gpGlobals->v_forward * ((dmg < 0) ? -(float)reach : (float)reach);
+	TraceResult tr;
+	m_pPlayer->CheckHull(vecSrc, vecEnd, tr, (dmg < 0) ? 1 : 3);
+
+	bool whiff = true;
+	if (tr.flFraction < 1.0f)
+	{
+		CBaseEntity *pEnt = tr.pHit ? CBaseEntity::Instance(tr.pHit) : nullptr;
+		if (pEnt && pEnt->IsAlive() && !(pEnt->pev->effects & EF_NODRAW))
+		{
+			whiff = false;
+			if (!VictimKatanaHold(m_pPlayer, pEnt, dmg))
+			{
+				ClearMultiDamage();
+				pEnt->TraceAttack(ppev, fabsf(dmg), gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
+				ApplyMultiDamage(ppev, ppev);
+				if (pEnt->IsPlayer())
+				{
+					it.bloody = 1;   // item+0x8 — bloody blade (rides the event as iparam2)
+					pev->body = 1;   // bloody katana w_/p_ submodel
+					EMIT_SOUND_DYN(ENT(pEnt->pev), CHAN_BODY, "weapons/katana/hit-body.wav",
+						VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 31)); // from the VICTIM's edict
+				}
+			}
+		}
+	}
+	if (whiff)
+	{
+		// miss (or a dead/nodraw target): arm the whiff-lunge — SIGNED force, katana flavor.
+		m_pPlayer->m_flWhiffLungeTime = 0.25f;
+		m_pPlayer->m_flWhiffLungeForce = dmg;
+		m_pPlayer->m_iWhiffLungeType = 2;
+	}
+
+	// post-swing root (back/duck slash): skipped when STOP is already up (the duck branch set it).
+	if (lock && !(ppev->iuser4 & TSSTUNT_STOP))
+	{
+		m_pPlayer->m_flBlockTime = delay * 0.9f;
+		ppev->iuser4 |= TSSTUNT_STOP;
+	}
+#endif
+
+	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usKatana, 0.0, g_vecZero, g_vecZero,
+		0.0, 0.0, vmAnim, it.bloody, 0, 0);
+
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + delay;
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + delay;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
+	m_pPlayer->m_flLastMeleeRate = delay; // player+0x4f8
 }
 
 // @ KatanaThrow__6CTSGun @0x73b68 — right-click with the katana HURLS it: a 1000 u/s CTSKnife
@@ -2521,15 +2664,19 @@ void TSDropAmmoOnDeath(CBasePlayer *pPlayer)
 // Pick up a dropped weapon of `type` carrying `clip` loaded rounds (CTSWorldGun pickup):
 // add it to the arsenal (combining if it triggers an akimbo upgrade), then restore the
 // carried clip — unless the pickup combined into the akimbo (which sets its own barrels).
-void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip)
+// Returns false when the pickup didn't land (won't fit / already-owned duplicate) so the
+// caller can leave the world item on the floor (the original PickUpWeapon failure contract).
+bool TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	const bool ownedBefore = pGun && pGun->IsOwned(type);
 
-	GiveTSWeapon(pPlayer, (tsweapon_t)type);
+	if (!GiveTSWeapon(pPlayer, (tsweapon_t)type))
+		return false; // refused (slot capacity / duplicate) — the world item stays
+
 	pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun)
-		return;
+		return false;
 
 	// If we already owned the single and the pickup combined into the akimbo, leave the
 	// combined barrel clips alone. Otherwise restore the carried clip on the picked-up type.
@@ -2539,6 +2686,7 @@ void TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip)
 		if (type == pGun->m_weaponType)
 			pGun->m_iClip = clip;
 	}
+	return true;
 }
 
 // Add per-caliber reserve to the player's TS gun (CTSGroundAmmo refill station).

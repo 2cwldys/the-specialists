@@ -17,6 +17,7 @@
 #include "weapons.h"
 #include "player.h" // CBasePlayer::m_flSlowMotionGo (slow-mo propagation in CreateGrenade)
 #include "ts_weapons.h"
+#include "ts_player.h" // KungFu() — the thrown-katana pickup gate (CTSKnife::Use)
 #include "ts_physicobject.h"
 
 //============================================================================
@@ -427,14 +428,9 @@ class CTSKnife : public CBaseEntity
 {
 public:
 	void Spawn() override;
-	int Classify() override { return CLASS_NONE; }
 	void EXPORT BounceTouch(CBaseEntity *pOther); // @CTSKnife::BounceTouch @0x6decc — contact handler
-	void EXPORT WaitThink();                     // @CTSKnife::WaitThink @0x6ea30 — in-flight swept break
-	void EXPORT PickupTouch(CBaseEntity *pOther);
-	void EXPORT SettleThink();                    // after first contact: fall, poll FL_ONGROUND, become the pickup
-	void StickAt(const Vector &pos, const Vector &flyDir);
-	void StartSettle();                           // hand a bounced/stabbed knife off to SettleThink
-	void BecomePickup();                          // turn the stationary knife into a recoverable glowing E-pickup
+	void EXPORT WaitTouch(CBaseEntity *pOther);   // @CTSKnife::WaitTouch @0x6dce8 — post-settle ground damping
+	void EXPORT WaitThink();                     // @CTSKnife::WaitThink @0x6ea30 — in-flight swept break + expire
 	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override; // @0x6dda4 — +use pickup
 	char *GetDescription();                       // @0x6db04 — the thrown-knife name by type
 	int  ObjectCaps() override { return FCAP_CONTINUOUS_USE; } // @0x6f04c -> 0x10
@@ -444,7 +440,7 @@ public:
 	// NO damage parameter — the stab damage lives inside the class (StabDamage; internals VERIFY L8).
 	static CTSKnife *CreateKnife(CBasePlayer *pOwner, const Vector &vecStart, const Vector &vecVel, int knifeType);
 
-	float StabDamage() const // RE BounceTouch: per-type player-stab damage (DAT_00107ec0/eac/0010761c)
+	float StabDamage() const // RE BounceTouch: per-type player-stab damage (katana 150 / knife 100 / seal 50)
 	{
 		return (m_knifeType == TSW_KATANA) ? 150.0f : (m_knifeType == TSW_SEALKNIFE) ? 50.0f : 100.0f;
 	}
@@ -453,11 +449,12 @@ public:
 		return (m_knifeType == TSW_KATANA) ? 0.85f : (m_knifeType == TSW_SEALKNIFE) ? 0.3f : 0.75f;
 	}
 
-	int m_knifeType = TSW_KNIFE;
-	float m_flExpire = 0; // auto-remove time if it never lands (orig this+0x88)
-
-	const char *HitSound() const { return (m_knifeType == TSW_KATANA) ? "weapons/katana/hit.wav" : "weapons/knife/knife_hit.wav"; }
-	const char *BodySound() const { return (m_knifeType == TSW_KATANA) ? "weapons/katana/hit-body.wav" : "weapons/knife/knife_hitbody.wav"; }
+	int m_knifeType = TSW_KNIFE; // the TSW_* identity (the original stores the raw 6/7/8 code at +0xa0)
+	float m_flExpire = 0;        // orig +0x88 — auto-remove time (Spawn +30s; settle tail +10s; Use gate)
+	bool m_bInFlight = false;    // orig +0x90 — set in Spawn; cleared on a sub-700 u/s touch + in the settle
+	                             // tail; Use refuses pickup while set
+	int m_iKatanaFlag = 0;       // orig +0x91 — re-derived EVERY touch: 1 iff a katana touched a non-player;
+	                             // Use gates a flagged blade on KungFu(player)
 };
 
 LINK_ENTITY_TO_CLASS(knife, CTSKnife); // orig classname "knife" (CTSWorldGun::ShouldCollide checks "knife")
@@ -484,6 +481,24 @@ void CTSKnife::Spawn()
 	// +0.1 let the knife fly ~190u and hit the pane via engine collision before the first sweep ran.)
 	pev->nextthink = gpGlobals->time;
 	m_flExpire = gpGlobals->time + 30.0f; // RE DAT_00107148 = 30s vanish-if-it-never-lands
+	m_bInFlight = true; // orig @0x6dcbe: this+0x90 = 1 — no +USE pickup while flying
+}
+
+// @ CTSKnife::WaitTouch (@0x6dce8) — the post-settle touch handler (installed by BounceTouch's settle
+// tail; pOther is ignored). Pure ground damping: each on-ground contact halves the velocity; below
+// 32 u/s the knife lies flat (pitch/roll zeroed) and stops. No pickup, no sound, no state change —
+// the knife stays a MOVETYPE_BOUNCE point object; pickup is exclusively the +USE path (Use below).
+void CTSKnife::WaitTouch(CBaseEntity *pOther)
+{
+	if (!(pev->flags & FL_ONGROUND))
+		return;
+	pev->velocity = pev->velocity * 0.5f;
+	if (pev->velocity.Length() < 32.0f)
+	{
+		pev->angles.x = 0;
+		pev->angles.z = 0;
+		pev->velocity = g_vecZero;
+	}
 }
 
 // @ CTSKnife::WaitThink (@0x6ea30) — the in-flight physics think, the SOLE breaker. Every 0.1s, if
@@ -522,42 +537,6 @@ void CTSKnife::WaitThink()
 	}
 }
 
-// Turn the (now-stationary) knife into a recoverable USE-pickup: a small trigger with the white drop
-// glow, picked up on E. Our nicety — the original leaves a settled knife inert; we make every drop pickable.
-void CTSKnife::BecomePickup()
-{
-	// A KATANA is a single weapon — throwing it LOSES it: a stuck/settled katana stays embedded as
-	// inert decoration and is NOT pickup-removable (per the original; the user confirmed). Only the
-	// stackable throwing knives (knife/seal-knife) become recoverable pickups.
-	if (m_knifeType == TSW_KATANA)
-	{
-		pev->velocity = g_vecZero;
-		pev->avelocity = g_vecZero;
-		pev->movetype = MOVETYPE_NONE;
-		pev->solid = SOLID_NOT;       // embedded blade — no pickup trigger, no collision
-		SetTouch(nullptr);
-		SetThink(&CBaseEntity::SUB_Remove);
-		pev->nextthink = gpGlobals->time + 60.0f; // linger as decoration, then vanish (no edict leak)
-		return;
-	}
-
-	pev->velocity = g_vecZero;
-	pev->avelocity = g_vecZero;
-	pev->movetype = MOVETYPE_NONE;
-	// Become a recoverable trigger. Set the solid + a real (small) trigger size, THEN relink via
-	// UTIL_SetSize/SetOrigin — changing pev->solid without relinking trips "trigger in clipping list".
-	pev->solid = SOLID_TRIGGER;
-	UTIL_SetSize(pev, Vector(-16, -16, -16), Vector(16, 16, 16)); // a USE-pickup radius (relinks the edict)
-	UTIL_SetOrigin(pev, pev->origin);                             // relink at the rest position
-	// WHITE glow shell so the dropped knife reads as a pickup (every TS drop glows — see CTSWorldGun).
-	pev->renderfx = kRenderFxGlowShell;
-	pev->rendercolor = Vector(255, 255, 255);
-	pev->renderamt = 4;
-	SetTouch(&CTSKnife::PickupTouch);
-	SetThink(&CBaseEntity::SUB_Remove);
-	pev->nextthink = gpGlobals->time + 30.0f; // linger as a pickup, then vanish
-}
-
 // Pitch a thrown-knife impact sound by the THROWER's slow factor (slow-motion deepens it, like every
 // other normal-recorded combat sound — see TSSlowPitch). 100 (normal) if the thrower isn't a player.
 static int KnifeHitPitch(CBaseEntity *knife)
@@ -568,128 +547,106 @@ static int KnifeHitPitch(CBaseEntity *knife)
 	return 100;
 }
 
-// Embed the knife at `pos`, pointing the way it flew, as a recoverable pickup (walk into it). Worldspawn only.
-void CTSKnife::StickAt(const Vector &pos, const Vector &flyDir)
-{
-	pev->angles = UTIL_VecToAngles(flyDir);
-	pev->angles.z = 90.0f; // RE worldspawn stick: roll the embedded blade 90° (orig sets angles.z = 90)
-	UTIL_SetOrigin(pev, pos - flyDir * 4.0f); // pull back a touch so the blade sits IN the surface
-	if (UTIL_PointContents(pos) != CONTENTS_SKY)
-		UTIL_Sparks(pos);
-	EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM, 0, KnifeHitPitch(this));
-	BecomePickup(); // white glow + E-pickup at the embed point
-}
-
-// Too-glancing (steep-angle) hit? RE CTSKnife::BounceTouch worldspawn path: the knife only sticks when
-// it hits flat enough — it SLIDES/deflects when the blade↔surface alignment -(normal·flyDir) < 0.4 AND
-// it's not a near-flat floor (normal.z <= 0.98). Thresholds DAT_00107ed8 (0.4) / DAT_00107ed0 (0.98).
-static bool KnifeGlances(const Vector &normal, const Vector &flyDir)
-{
-	const float align = -DotProduct(normal, flyDir); // 1 = head-on, ~0 = glancing
-	return (align < 0.4f && normal.z <= 0.98f);
-}
-
-// @ CTSKnife::BounceTouch (@0x6decc) — the contact handler. It NEVER breaks anything (the swept
-// WaitThink is the sole breaker). It only: stabs PLAYERS (per-type damage, then bounces off), sticks in
-// the WORLD head-on / slides off it glancing, and BOUNCES off every other solid (incl. breakables the
-// sweep couldn't kill — they bounce, they don't break). Break (sweep, pre-contact → fly through) and
-// bounce (here) are thus mutually exclusive, exactly like the original.
+// @ CTSKnife::BounceTouch (@0x6decc, decompile-exact) — the contact handler. It NEVER breaks anything
+// (the swept WaitThink is the sole breaker). Branches: stab PLAYERS (per-type damage, -0.25 bounce-off),
+// worldspawn fast+glancing → deflect (no settle), worldspawn otherwise → EMBED (SOLID_NOT +
+// MOVETYPE_FLY, back off 6u, roll 90 — fast OR slow), other thrown knives → ignore, any other solid →
+// -0.25 BOUNCE. Every non-glance path funnels into the common settle tail @LAB_0007e985: hit sound,
+// SetTouch(WaitTouch) + SetThink(WaitThink), in-flight cleared, gravity 0.75, expire = time + 10.
 void CTSKnife::BounceTouch(CBaseEntity *pOther)
 {
 	pev->nextthink = gpGlobals->time + 0.1f; // RE BounceTouch resets nextthink
 	if (!pOther || pOther->edict() == pev->owner)
 		return; // never collide with the thrower
 	if (pOther->pev->effects & EF_NODRAW)
-		return; // RE BounceTouch @0x6decc: ((char)effects < 0) → skip EF_NODRAW (triggers/invisible brushes)
+		return; // RE @0x6decc: ((char)effects < 0) → skip EF_NODRAW (triggers/invisible brushes)
 
-	const Vector flyDir = pev->velocity.Normalize();
 	const float speed = pev->velocity.Length();
+	if (speed < 700.0f)
+		m_bInFlight = false; // RE fc_700: slowed below throw speed → becomes +USE-recoverable
+
+	const Vector flyDir = (speed > 0) ? pev->velocity * (1.0f / speed) : Vector(0, 0, 1);
 	TraceResult tr = UTIL_GetGlobalTrace();
 
-	// PLAYER stab (RE: takedamage != 0 && IsPlayer()) — damage, then bounce off (knife does NOT stick in
-	// bodies in TS). Attacker credit goes to the thrower.
+	m_iKatanaFlag = 0; // +0x91 — re-derived every touch
+
+	// the common settle tail (@LAB_0007e985): sound + WaitTouch/WaitThink re-arm + settle state.
+	const char *tailSnd = "weapons/knife/knife_hit.wav";
+	bool tailSparks = true; // the stab path skips the sparks (jumps straight to the sound)
+
+	// PLAYER stab (RE: takedamage != 0 && IsPlayer()) — damage, then bounce off (knife does NOT stick
+	// in bodies in TS). Attacker credit goes to the thrower.
 	if (pOther->pev->takedamage != DAMAGE_NO && pOther->IsPlayer())
 	{
 		entvars_t *pevOwner = pev->owner ? VARS(pev->owner) : pev;
 		ClearMultiDamage();
 		pOther->TraceAttack(pevOwner, StabDamage(), flyDir, &tr, DMG_CLUB | DMG_NEVERGIB);
 		ApplyMultiDamage(pev, pevOwner);
-		EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, BodySound(), VOL_NORM, ATTN_NORM, 0, KnifeHitPitch(this));
 		pev->velocity = pev->velocity * -0.25f; // RE DAT_00107e98 bounce-back
-		m_flExpire = gpGlobals->time + 10.0f;   // RE DAT_00107140 post-bounce expire
-		StartSettle();                          // RE LAB_0007e985: hand off to the ground-settle handler
-		return;
+		tailSnd = "weapons/knife/knife_hitbody.wav"; // ALL blade types use the knife wavs here
+		tailSparks = false;
 	}
-
-	// WORLDSPAWN (the BSP world) — the ONLY thing the knife sticks in (RE: func_wall/breakables bounce).
-	if (FClassnameIs(pOther->pev, "worldspawn"))
+	else
 	{
-		// Head-on (or slow) → embed as a recoverable pickup. Glancing & fast → slide off, dampened.
-		if (speed >= 100.0f && KnifeGlances(tr.vecPlaneNormal, flyDir)) // RE: speed >= DAT_0010761c(100)
+		if (m_knifeType == TSW_KATANA)
+			m_iKatanaFlag = 1; // a settled katana is +USE-gated on KungFu()
+
+		if (FClassnameIs(pOther->pev, "worldspawn"))
 		{
-			if (UTIL_PointContents(pev->origin) != CONTENTS_SKY)
-				UTIL_Sparks(pev->origin);
-			EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM, 0, KnifeHitPitch(this));
-			pev->velocity = pev->velocity * 0.5f; // RE: /= DAT_00107ec4(2); engine clip already slid it
-			return;
+			// embed in the world: back off 6u along the flight, point the way it flew, roll 90,
+			// SOLID_NOT + MOVETYPE_FLY (no gravity — it stays in the wall), full stop.
+			auto embed = [&]()
+			{
+				Vector back = flyDir * 6.0f;
+				UTIL_SetOrigin(pev, pev->origin - back);
+				pev->angles = UTIL_VecToAngles(back);
+				pev->angles.z = 90.0f;
+				pev->solid = SOLID_NOT;
+				pev->movetype = MOVETYPE_FLY;
+				pev->velocity = g_vecZero;
+				pev->avelocity = g_vecZero;
+			};
+			if (speed >= 100.0f)
+			{
+				// fast + too glancing (blade↔surface alignment < 0.4, not a near-flat floor) →
+				// DEFLECT: spark + a high hit note, halve the speed, keep flying. NO settle tail.
+				if (-DotProduct(tr.vecPlaneNormal, flyDir) < 0.4f && tr.vecPlaneNormal.z <= 0.98f)
+				{
+					if (UTIL_PointContents(pev->origin) != CONTENTS_SKY)
+						UTIL_Sparks(pev->origin);
+					EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "weapons/knife/knife_hit.wav", VOL_NORM, 0.8f, 0,
+						(int)(100 + RANDOM_FLOAT(0, 10)) * KnifeHitPitch(this) / 100);
+					pev->velocity = pev->velocity * 0.5f; // RE: /2; engine clip already slid it
+					return;
+				}
+				embed(); // fast head-on
+			}
+			else
+			{
+				// slow world touch: embed too, with an extra softer hit note before the tail.
+				embed();
+				EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "weapons/knife/knife_hit.wav", VOL_NORM, 0.8f, 0,
+					(int)(100 + RANDOM_FLOAT(-10, 0)) * KnifeHitPitch(this) / 100);
+			}
 		}
-		StickAt(pev->origin - flyDir * 6.0f, flyDir); // RE: back off DAT_00107e9c(6) along flight, embed
-		return;
+		else
+		{
+			if (FClassnameIs(pOther->pev, "knife"))
+				return; // ignore other thrown knives (orig classname "knife")
+			pev->velocity = pev->velocity * -0.25f; // bounce off any other solid (breakable/func_wall/door…)
+		}
 	}
 
-	// ANY OTHER non-player solid (breakable the sweep couldn't kill, func_wall, door…) → BOUNCE off.
-	// RE: the original NEVER sticks here — it bounces (-0.25·vel) and settles flat on the FLOOR (so it never
-	// ends up stuck in a glass pane); we then make the rested knife a glowing pickup like every other drop.
-	if (FClassnameIs(pOther->pev, "knife"))
-		return; // RE BounceTouch else-branch: ignore other thrown knives (orig classname "knife")
-	if (UTIL_PointContents(pev->origin) != CONTENTS_SKY)
+	// --- the common settle tail (@LAB_0007e985) ---
+	if (tailSparks && UTIL_PointContents(pev->origin) != CONTENTS_SKY)
 		UTIL_Sparks(pev->origin);
-	EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, HitSound(), VOL_NORM, ATTN_NORM, 0, KnifeHitPitch(this));
-	pev->velocity = pev->velocity * -0.25f; // RE DAT_00107e98 bounce-back
-	m_flExpire = gpGlobals->time + 10.0f;   // RE DAT_00107140 post-bounce expire
-	StartSettle();                          // RE LAB_0007e985: hand off to the ground-settle handler
-}
-
-// After its first non-stick contact (stab or bounce) the knife is done flying — settle it like every other
-// dropped weapon (mirrors CTSWorldGun: MOVETYPE_TOSS to the floor, poll FL_ONGROUND in a think, then become
-// the glowing USE-pickup). We use a think (not the original's touch-based WaitTouch @0x6dce8) because a
-// zero-hull MOVETYPE_BOUNCE knife rarely gets FL_ONGROUND from a touch, so most bounced knives never became
-// pickups (and so never lit the glow). This is our pickup nicety; the original leaves a bounced knife inert.
-void CTSKnife::StartSettle()
-{
-	pev->gravity = 0.75f;            // RE LAB_0007e985: gravity 0.75 after first contact
-	pev->movetype = MOVETYPE_TOSS;  // fall + land reliably (FL_ONGROUND), exactly like CTSWorldGun
-	SetTouch(nullptr);              // no more contact handling — the sweep already had its chance
-	SetThink(&CTSKnife::SettleThink);
+	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, tailSnd, VOL_NORM, 0.8f, 0, KnifeHitPitch(this)); // orig pitch 100 + 0.5 slowmo arg
+	SetTouch(&CTSKnife::WaitTouch);
+	SetThink(&CTSKnife::WaitThink); // the swept-break/expire think keeps running after settle
+	m_bInFlight = false;
 	pev->nextthink = gpGlobals->time + 0.1f;
-}
-
-void CTSKnife::SettleThink()
-{
-	pev->nextthink = gpGlobals->time + 0.1f;
-	if (m_flExpire != 0 && gpGlobals->time > m_flExpire) // never reached the ground (fell in a pit, etc.)
-	{
-		UTIL_Remove(this);
-		return;
-	}
-	if (!(pev->flags & FL_ONGROUND)) // same landing test as CTSWorldGun::FallThink
-		return;
-	pev->avelocity = g_vecZero;
-	pev->angles.x = 0; // lie flat
-	pev->angles.z = 0;
-	BecomePickup();    // white glow + E-pickup, identical to every other TS ground weapon
-}
-
-void CTSKnife::PickupTouch(CBaseEntity *pOther)
-{
-	if (!pOther || !pOther->IsPlayer() || !pOther->IsAlive())
-		return;
-	if (!(pOther->pev->button & IN_USE)) // press USE (E) to pick up — like every TS dropped weapon
-		return;
-	TSPickUpWeapon((CBasePlayer *)pOther, m_knifeType, 1);
-	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
-	SetTouch(nullptr);
-	UTIL_Remove(this);
+	pev->gravity = 0.75f;
+	m_flExpire = gpGlobals->time + 10.0f; // a settled knife lives ~10 s unless picked up
 }
 
 CTSKnife *CTSKnife::CreateKnife(CBasePlayer *pOwner, const Vector &vecStart, const Vector &vecVel, int knifeType)
@@ -718,16 +675,30 @@ char *CTSKnife::GetDescription()
 	}
 }
 
-// @0x6dda4 Use — +use pickup (the impulse path; the same TSPickUpWeapon our touch path uses). The
-// original gates on a settle timer (this+0x88) and removes the knife on a successful pickup.
+// @0x6dda4 Use — the ONLY pickup path (+USE via FCAP_CONTINUOUS_USE), decompile-exact gates:
+// no pickup while in flight (+0x90); player/alive/!EF_NODRAW; a flagged katana (+0x91) only for a
+// KungFu() player; an EXPIRED knife is silently cleaned up on use; a failed pickup (arsenal full /
+// duplicate) leaves the knife on the ground. On success/expiry the knife is removed.
+// (Original also calls RemoveEntityFromSlowedArray(this) — our slow-mo doesn't keep that array yet;
+// lands with the TS_util freefunc group.)
 void CTSKnife::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
 {
+	if (m_bInFlight)
+		return;
 	if (!pActivator || !pActivator->IsPlayer() || !pActivator->IsAlive())
 		return;
 	if (pActivator->pev->effects & EF_NODRAW) // spectator/observer guard
 		return;
-	TSPickUpWeapon((CBasePlayer *)pActivator, m_knifeType, 1);
-	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
+	if (m_iKatanaFlag && !KungFu((CBasePlayer *)pActivator))
+		return; // a thrown katana is recoverable ONLY by a kung-fu player (RE +0x91 gate; L13)
+
+	if (m_flExpire > gpGlobals->time)
+	{
+		if (!TSPickUpWeapon((CBasePlayer *)pActivator, m_knifeType, 1))
+			return; // arsenal full / duplicate — the knife stays
+		// (the pickup confirm; the original's feedback lives inside PickUpWeapon — VERIFY)
+		EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
+	}
 	SetTouch(nullptr);
 	UTIL_Remove(this);
 }
