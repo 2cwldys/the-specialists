@@ -1140,8 +1140,6 @@ void CTSGun::CCombatAttack(bool fSecondary)
 	UTIL_MakeVectors(ppev->v_angle);
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecEnd = vecSrc + gpGlobals->v_forward * range;
-	TraceResult tr;
-	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
 
 	SendWeaponAnim(vseq);                        // the v_melee.mdl punch/kick (1st-person fists)
 #ifdef CLIENT_DLL
@@ -1155,66 +1153,52 @@ void CTSGun::CCombatAttack(bool fSecondary)
 		TS_TriggerViewShake(kfPower * 0.35f); // 0x1007a8a8 = 0.35 -> punch 7.0, kick 8.75
 	}
 #endif
-	// 3rd-person close-combat body anim (HandleCloseCombat builds the seq + holds the torso 2.0s).
-	m_pPlayer->m_TSAnim.Animate(m_pPlayer, bodyAct);
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + refire;   // orig: both timers = base + local_10c
 	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + refire;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 
-	// Kung-fu hit sounds (RE: the .so close-combat path + player/* sounds): a PLAYER/monster hit is
-	// the wet "kungfuhit.wav" punch (+ damage); a WORLD/surface hit thuds (a footstep-material sound
-	// pl_step*) under the swing; a clean miss (air swing) is just the swing whoosh (closecombat.wav).
-	CBaseEntity *pHit = (tr.flFraction < 1.0f) ? CBaseEntity::Instance(tr.pHit) : nullptr;
-	const bool flesh = (pHit && pHit->pev->takedamage != DAMAGE_NO);
-	const bool surface = (tr.flFraction < 1.0f && !flesh);
+#ifndef CLIENT_DLL
+	// @0x76cf6: route the hit through the shared resolver CBasePlayer::CloseCombatAttack —
+	// it does the 3rd-person anim, the TSMBlur roll, the CheckHull trace, validity/teammate
+	// gates, the VictimKungfuHold deflect (incl. the counter role-swap), disarm-pressure,
+	// >30-dmg knockback and the glast-marked TraceAttack. Hull: the backkick family (attack
+	// class 3) uses the human hull (1), everything else the head hull (3).
+	const int ccHull = (oa == A_BACKKICK) ? 1 : 3;
+	CBaseEntity *pHit = m_pPlayer->CloseCombatAttack(vecSrc, vecEnd, gpGlobals->v_forward,
+		ccHull, dmg * TSDamageMult(), bodyAct, true, false, true, false);
 
-	if (flesh)
+	// tail per @0x76c8c: attacking closes your own block window; the last melee refire is stored.
+	// DEFERRED (VERIFY L7): the per-move whiff-lunge arm on miss (+0x79c/0x7a0, negated for the
+	// backkick) and the rootFlag BlockPlayer(refire*0.75) self-lock — the per-move table is
+	// un-RE'd; the lunge consumer is stunt-cluster scope. closecombat.sc playback lands in S7b.
+	m_pPlayer->m_flKungFuBlock = 0.0f;
+	m_pPlayer->m_flLastMeleeRate = refire;
+
+	if (!pHit)
 	{
-		// Kung-fu BLOCK (RE VictimKungfuHold@0x66f50): a player victim holding a block (their block window,
-		// opened by CCombatBlock = IN_RELOAD while unarmed/melee) DEFLECTS this close-combat hit — the
-		// "kungfuhit.wav" clack plays but NO damage lands, and the ATTACKER is stunned 0.5s while the blocker
-		// recovers in 0.25s. So a kung-fu reload-block beats an incoming kick.
-		CBasePlayer *pVictim = pHit->IsPlayer() ? (CBasePlayer *)pHit : nullptr;
-		const bool blocked = pVictim && pVictim->m_flKungFuBlock > 0.0f; // VALUE window (PreThink-decayed)
-		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-		if (blocked)
-		{
-			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;   // attacker stunned (VictimKungfuHold)
-			m_flNextSecondaryAttack = m_flNextPrimaryAttack;
-			pVictim->m_flKungFuBlock = 0.25f;                       // blocker holds/recovers 0.25 more (value)
-		}
-		else
-		{
-			ClearMultiDamage();
-			pHit->TraceAttack(m_pPlayer->pev, dmg * TSDamageMult(), gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
-			ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
-		}
-	}
-	else
-	{
-		// miss OR surface: the swing whoosh.
+		// miss/surface presentation KEPT until the closecombat.sc event swap (S7b): the original
+		// carries all of this in the event; without the client handler a miss would be silent.
+		TraceResult trMiss;
+		UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &trMiss);
 		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-		if (surface)
+		if (trMiss.flFraction < 1.0f)
 		{
-			// + the footstep-style surface thud (the material the fist struck).
 			char step[24];
 			sprintf(step, "player/pl_step%d.wav", RANDOM_LONG(1, 4));
 			EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, step, VOL_NORM, ATTN_NORM);
-
-			// A kung-fu wall hit puffs the same impact SMOKE as bullets — but ONLY the smoke: no decal,
-			// no bullet hole, no sparks. A short-lived additive smoke sprite a touch off the surface.
-			Vector pos = tr.vecEndPos + tr.vecPlaneNormal * 2.0f;
+			Vector pos = trMiss.vecEndPos + trMiss.vecPlaneNormal * 2.0f;
 			MESSAGE_BEGIN(MSG_PVS, SVC_TEMPENTITY, pos);
 			WRITE_BYTE(TE_SPRITE);
 			WRITE_COORD(pos.x);
 			WRITE_COORD(pos.y);
 			WRITE_COORD(pos.z);
-			WRITE_SHORT(MODEL_INDEX("sprites/gun_smoke_add.spr")); // precached in PrecacheAllTSWeapons
-			WRITE_BYTE(4);   // scale 0.4 (matches the bullet-impact puff)
-			WRITE_BYTE(150); // brightness
+			WRITE_SHORT(MODEL_INDEX("sprites/gun_smoke_add.spr"));
+			WRITE_BYTE(4);
+			WRITE_BYTE(150);
 			MESSAGE_END();
 		}
 	}
+#endif
 }
 
 // @ CCombatBlock__6CTSGun (@0x85ebc) — kung-fu "reload" = the block taunt. Plays the "hooah"

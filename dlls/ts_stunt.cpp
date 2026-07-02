@@ -453,8 +453,21 @@ int CTSStunt::GoWheel()
 		m_flStuntTime = NextDive();
 		TS_SendNextStunt(m_pPlayer, m_flStuntTime);
 		EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
-		// VERIFY/follow-up: dir==3 (backward) also runs the backkick combo — UpdateMeleeBar(22.5) +
-		// KungFu + the whiff-lunge params (player+0x79c..0x7a8). UpdateMeleeBar is not implemented yet.
+		// BACKKICK combo (RE the GoWheel dir==3 tail @0x9cdb8): drain 22.5 stamina and arm the
+		// whiff-lunge BACKWARD — window 0.3, force = -kick damage (doubled under KungFu), kungfu
+		// type, own block window closed. The lunge CONSUMER (PreThink velocity apply) is
+		// stunt-cluster scope — until it lands the arm only feeds the KungfuHold counter gate.
+		if (dir == 3)
+		{
+			m_pPlayer->UpdateMeleeBar(22.5f);
+			float kick = 35.0f; // VERIFY: the backkick lunge force base per @0x9cdb8
+			if (KungFu(m_pPlayer))
+				kick *= 2.0f;
+			m_pPlayer->m_flWhiffLungeTime = 0.3f;
+			m_pPlayer->m_flWhiffLungeForce = -kick;
+			m_pPlayer->m_iWhiffLungeType = 0;
+			m_pPlayer->m_flKungFuBlock = 0.0f;
+		}
 		return 1;
 	}
 	// LOW wheel — level/down, not backward: a LOW-tier dive. RE: iuser4 |= PRONE|WHEEL_LO|DIVE_LOW,
@@ -677,39 +690,25 @@ int CTSStunt::CloseAttack()
 	if (KungFu(m_pPlayer))
 		dmg *= 2.0f;
 
-	// forward reach 48u; thin ray then a head-hull trace (the hull makes the kick auto-connect).
+	// forward reach 48u; route through the shared resolver (RE @0x8c8b9: hull 3, iAnim -1 —
+	// it animates only on a HIT; disarm on, playersOnly off, knockback on, teamSafe FORCED).
 	UTIL_MakeVectors(pev->v_angle);
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecEnd = vecSrc + gpGlobals->v_forward * 48.0f;
 
-	TraceResult tr;
-	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(pev), &tr);
-	if (tr.flFraction >= 1.0f)
-		UTIL_TraceHull(vecSrc, vecEnd, dont_ignore_monsters, head_hull, ENT(pev), &tr);
-	if (tr.flFraction >= 1.0f)
+	CBaseEntity *pHit = m_pPlayer->CloseCombatAttack(vecSrc, vecEnd, gpGlobals->v_forward,
+		3, dmg, -1, true, false, true, true);
+	if (!pHit)
 		return 0;
 
-	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
-	if (!pHit || pHit == m_pPlayer || pHit->pev->takedamage == DAMAGE_NO)
-		return 0;
-
-	ClearMultiDamage();
-	pHit->TraceAttack(pev, dmg, gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
-	ApplyMultiDamage(pev, pev);
-
-	// hard kick (damage > 30) shoves a living victim away at the kicker's speed + pops them up.
-	if (dmg > 30.0f && pHit->IsAlive() && (pHit->IsPlayer() || pHit->MyMonsterPointer() != NULL))
-	{
-		Vector dir = pHit->Center() - m_pPlayer->Center();
-		dir.z = 0;
-		dir = dir.Normalize();
-		pHit->pev->velocity = pHit->pev->velocity + dir * pev->velocity.Length();
-		pHit->pev->velocity.z = 235.0f;
-	}
-
-	// 3rd-person body kick: random circfront / latback / circback (HandleCloseCombat ids 10/14/13).
+	// hit tail per the fragment @0x9c70c: close own kungfu window, random kick body anim
+	// (circfront/latback/circback = ids 0xa/0xe/0xd), top up the attack gate if expired.
+	// DEFERRED (VERIFY L10): UpdateMeleeBar(dmg * const) — the drain constant is un-RE'd.
+	m_pPlayer->m_flKungFuBlock = 0.0f;
 	static const int kickActs[3] = { TSA_CC_CIRCFRONT, TSA_CC_LATBACK, TSA_CC_CIRCBACK };
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, kickActs[RANDOM_LONG(0, 2)]);
+	if (m_pPlayer->m_flNextAttack <= 0.0f)
+		m_pPlayer->m_flNextAttack = 0.5f; // top-up (VERIFY exact value at @0x9c70c)
 
 	EMIT_SOUND(ENT(pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM);
 	m_flStunCooldown = 0.7f; // one kick per ~0.7s (also gates roll/wheel)
