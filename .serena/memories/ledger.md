@@ -119,6 +119,21 @@ is a LANDING handler (FL_ONGROUND gate, 4e4eb36 — the ungated version caused t
 and the directional-pose dispatch (27fde55, see the m_vecStuntDir correction above). Verify any remaining
 pev-offset reading with /tmp/offcheck-style offsetof before trusting it.
 
+### The PRONE/LYING system transcribed verbatim (cont.81 continued; user-driven playtest loop)
+Model-dump ground truth (agent.mdl 171 seqs, parsed via studiohdr) + the Animate/HandleSlide decompiles settled
+the whole family: settled prone = Animate case 3 = LOOPING slide_<dir>_<grip> (dir = GetDirection(m_vecStuntDir,
+v_angle) with the !=2 latch; m_bDirForward==false -> forward; grip->akimbo fallback; entry guard vs last 0/8/9) ·
+case 0x29 = the slide_*_end GETUP family (standups only) · 0x2a/0x2b = the LOOPING slide_f_<grip>_left/right
+prone ROLLS with the m_bDirForward gate (non-forward = the original's missing slide_b_left/right quirk) ·
+HandleSlide VERBATIM @0x9b9f8: FL_ONGROUND gate, slideTime<0.01 branch gates, IN_BACK friction pin, and the
+strafe-roll DIRECTION RE-ANCHOR (m_vecStuntDir = aim forward, m_bDirForward=false, latch=2) — the fix for
+"sideways prone can't roll"; deliberate standup arms rollTime 0.75 + player+0x78 (m_iStandUpLatch NEW member —
+the cont.80 unresolved latch's WRITER found, consumer still VERIFY) · dive case 0x28 grip fallback. ALSO:
+player+0x51c = m_bDirForward (CTSStunt+0x2c — second embedded-object-blindness find). HandleWheel = LANDING
+handler (FL_ONGROUND; LOW->SLIDE + reversed-dir latch, HIGH->STOP+friction .25+rollTime .375; gravity restore).
+USER-VALIDATED: double-jump + double-duck "absolutely nailed"; dive + landing poses per direction AND per grip
+perfect. Remaining prone re-test: the strafe-roll re-anchor fix (658d211).
+
 ### STILL OPEN (cont.81 → next)
 - **Apply the dossiers**: melee S0–S10 (UpdateMeleeBar unblocks the GoWheel backkick = stunt tail), gmsg U0–U5
   (TSFlag 1-liner first), freefuncs F1–F10 (F3 falloff playtest-gated). All work-lists are commit-ordered.
