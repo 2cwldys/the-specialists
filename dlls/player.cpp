@@ -2019,6 +2019,8 @@ void CBasePlayer::PreThink()
 		m_flKungFuBlock = V_max(m_flKungFuBlock - flDecay, 0.0f);
 		m_flKatanaBlock = V_max(m_flKatanaBlock - flDecay, 0.0f);
 		m_flKnifeBlock = V_max(m_flKnifeBlock - flDecay, 0.0f);
+		// disarm pressure (+0x7b4): decays at 5x the delta (RE PreThink +0x237)
+		m_flDisarmPressure = V_max(m_flDisarmPressure - flDecay * 5.0f, 0.0f);
 		// BlockPlayer root timer (+0x4dc): countdown; on expiry clear the STOP bit + zero
 		if (m_flBlockTime != 0.0f)
 		{
@@ -3222,6 +3224,7 @@ void CBasePlayer::Spawn()
 	m_flWhiffLungeTime = m_flWhiffLungeForce = 0.0f;
 	m_iWhiffLungeType = 0;
 	m_flBlockTime = 0.0f;
+	m_flDisarmPressure = 0.0f;
 
 	pev->classname = MAKE_STRING("player");
 	pev->health = 100;
