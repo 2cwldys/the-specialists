@@ -32,6 +32,14 @@ CLSO = os.path.join(ROOT, "build-amd64", "cl_dll", "client.so")
 SRC_DIRS = [os.path.join(ROOT, "dlls"), os.path.join(ROOT, "cl_dll")]
 OUT = os.path.join(ROOT, "reference", "coverage", "AUDIT.md")
 
+# client.dll has no symbols/paths — the original client FILE names are unknowable, so these
+# class->file placements can never be name-verified. Accepted by decision (C19), reported
+# transparently in the "ACCEPTED file mappings" section instead of as FILE mismatches.
+ACCEPTED_CLIENT_FILES = {
+    "CHudTSBuyMenu": "cl_dll/ts_buymenu.cpp",
+    "CHudTSWeaponBar": "cl_dll/ts_weaponbar.cpp",
+}
+
 
 def norm_file(f):
     """normalize a source filename for cross-naming comparison: TS_gun.cpp ~ ts_gun.cpp; drop dir + ext."""
@@ -46,6 +54,8 @@ def load_original():
     classes, file_classes = {}, defaultdict(set)
     for fn, fe in d.get("files", {}).items():
         for c, ci in fe.get("classes", {}).items():
+            if c.startswith("__"):  # gcc2 RTTI/CRT junk (__user_type_info in "pm_shared.c"), not a mod class
+                continue
             mem = ci.get("members", [])
             classes[c] = {
                 "file": fn,
@@ -232,6 +242,10 @@ def analyze():
         invented = [m for m in invented if (c, m) not in stock_pairs]
         our_files = ourcf.get(c, [])
         file_ok = any(norm_file(of) == norm_file(ofile) for of in our_files) if our_files else False
+        accepted_file = False
+        if not file_ok and ofile == "client.dll" and c in ACCEPTED_CLIENT_FILES and \
+                any(of.endswith(ACCEPTED_CLIENT_FILES[c]) or of == ACCEPTED_CLIENT_FILES[c] for of in our_files):
+            file_ok, accepted_file = True, True
         # MEMBER diff: original REAL-named members (saved/curated) not present in our source headers, by name.
         # (Only the named ones — the auto skeleton is field_0xNN placeholders; and our modern layout uses
         # different OFFSETS by design, so we match on NAME, not offset.)
@@ -242,14 +256,17 @@ def analyze():
         missing_members = sorted(m for m in orig[c]["named_members"]
                                  if m not in ourm and re.sub(r"\[\d+\]$", "", m) not in ourm_bases)
         per_class[c] = {"missing": missing, "invented": invented, "unverifiable": unverifiable, "stock": stock, "orig_file": ofile,
-                        "our_files": our_files, "file_ok": file_ok, "impl": len(o) - len(missing), "total": len(o),
+                        "our_files": our_files, "file_ok": file_ok, "accepted_file": accepted_file,
+                        "impl": len(o) - len(missing), "total": len(o),
                         "missing_members": missing_members, "orig_member_count": orig[c]["member_count"],
                         "our_member_count": len(ourmem.get(c, set()))}
 
     # FILE level (derived from classes): original TS files w/ no class built, our files holding invented classes
     orig_ts_files = sorted({orig[c]["file"] for c in ts_orig})
-    missing_files = sorted(f for f in orig_ts_files
-                           if not any(c in ours for c in orig_file_classes.get(f, ())))
+    # client.dll is not a source file — its classes are built into client.so, which our_methods()
+    # (server hl.so symbols) can't see; the ACCEPTED_CLIENT_FILES table covers the class placements.
+    missing_files = sorted(f for f in orig_ts_files if f != "client.dll"
+                           and not any(c in ours for c in orig_file_classes.get(f, ())))
 
     # GLOBALS level: the json's recovered globals (TS-relevant) vs our build's data symbols.
     d = json.load(open(JSON))
@@ -402,6 +419,15 @@ def main():
     for c, p in sorted(file_mismatch.items()):
         L.append(f"| `{c}` | `{p['orig_file']}` | {', '.join(p['our_files'])} |")
     if not file_mismatch:
+        L.append("| _none_ | | |")
+
+    accepted = {c: p for c, p in a["per_class"].items() if p.get("accepted_file")}
+    L += ["", "## ACCEPTED file mappings (client.dll classes — original client file names are unknowable; "
+          "placement accepted by decision, not name-verified)", "",
+          "| class | original binary | our file |", "|---|---|---|"]
+    for c, p in sorted(accepted.items()):
+        L.append(f"| `{c}` | `{p['orig_file']}` | {', '.join(p['our_files'])} |")
+    if not accepted:
         L.append("| _none_ | | |")
 
     L += ["", "## MISSING files (original TS file whose classes we haven't built)", "",
