@@ -3445,8 +3445,12 @@ void PM_Move(struct playermove_s* ppmove, qboolean server)
 		pmove->flags &= ~FL_ONGROUND;
 	}
 
-	// Reset friction after each movement so FrictionModifier Triggers work still.
-	if (pmove->movetype == MOVETYPE_WALK)
+	// In SINGLE PLAYER ONLY, reset friction after each movement so FrictionModifier
+	// Triggers work still (stock + the original TS PM_Move @0xf1188: gated on
+	// !pmove->multiplayer — the halflife-updated base dropped the gate, which made
+	// pev->friction a one-shot in MP and erased every stunt's friction (roll 0.3,
+	// wheel-landing 0.25, walljump 0.5) before PM_Friction ever saw it).
+	if (!pmove->multiplayer && pmove->movetype == MOVETYPE_WALK)
 	{
 		pmove->friction = 1.0f;
 	}
