@@ -1,0 +1,702 @@
+// ===== FUN @ 000d7db0 size=158 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* player.cpp */
+
+void LinkUserMessages__Fv(void)
+
+{
+  enginefuncs_t *peVar1;
+  undefined *puVar2;
+  undefined uVar3;
+  undefined3 extraout_var;
+  undefined3 extraout_var_00;
+  undefined3 extraout_var_01;
+  undefined3 extraout_var_02;
+  undefined3 extraout_var_03;
+  undefined3 extraout_var_04;
+  undefined3 extraout_var_05;
+  undefined3 extraout_var_06;
+  undefined3 extraout_var_07;
+  undefined3 extraout_var_08;
+  undefined3 extraout_var_09;
+  undefined3 extraout_var_10;
+  undefined3 extraout_var_11;
+  undefined3 extraout_var_12;
+  undefined3 extraout_var_13;
+  undefined3 extraout_var_14;
+  undefined3 extraout_var_15;
+  undefined3 extraout_var_16;
+  undefined3 extraout_var_17;
+  undefined3 extraout_var_18;
+  undefined3 extraout_var_19;
+  undefined3 extraout_var_20;
+  undefined3 extraout_var_21;
+  undefined3 extraout_var_22;
+  undefined3 extraout_var_23;
+  undefined3 extraout_var_24;
+  undefined3 extraout_var_25;
+  undefined3 extraout_var_26;
+  undefined3 extraout_var_27;
+  undefined3 extraout_var_28;
+  undefined3 extraout_var_29;
+  undefined3 extraout_var_30;
+  undefined3 extraout_var_31;
+  undefined3 extraout_var_32;
+  undefined3 extraout_var_33;
+  undefined3 extraout_var_34;
+  undefined3 extraout_var_35;
+  undefined3 extraout_var_36;
+  undefined3 extraout_var_37;
+  undefined3 extraout_var_38;
+  undefined3 extraout_var_39;
+  undefined3 extraout_var_40;
+  undefined3 extraout_var_41;
+  undefined3 extraout_var_42;
+  undefined3 extraout_var_43;
+  undefined3 extraout_var_44;
+  undefined3 extraout_var_45;
+  undefined3 extraout_var_46;
+  undefined3 extraout_var_47;
+  undefined3 extraout_var_48;
+  undefined3 extraout_var_49;
+  undefined3 extraout_var_50;
+  undefined3 extraout_var_51;
+  undefined3 extraout_var_52;
+  undefined3 extraout_var_53;
+  undefined3 extraout_var_54;
+  undefined3 extraout_var_55;
+  undefined3 extraout_var_56;
+  undefined3 extraout_var_57;
+  undefined3 extraout_var_58;
+  undefined3 extraout_var_59;
+  undefined3 extraout_var_60;
+  undefined3 extraout_var_61;
+  undefined3 extraout_var_62;
+  
+  puVar2 = PTR_gmsgSelAmmo_00177f14;
+  peVar1 = PTR_g_engfuncs_001778b8;
+  if (*(int *)PTR_gmsgSelAmmo_00177f14 == 0) {
+    uVar3 = (*PTR_g_engfuncs_001778b8->pfnRegUserMsg)("SelAmmo",4);
+    *(uint *)puVar2 = CONCAT31(extraout_var,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("CurWeapon",3);
+    *(uint *)PTR_gmsgCurWeapon_0017739c = CONCAT31(extraout_var_00,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("Geiger",1);
+    *(uint *)PTR_gmsgGeigerRange_00177914 = CONCAT31(extraout_var_01,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("Health",1);
+    *(uint *)PTR_gmsgHealth_00177778 = CONCAT31(extraout_var_02,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("Damage",0xc);
+    *(uint *)PTR_gmsgDamage_00177e90 = CONCAT31(extraout_var_03,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("Battery",2);
+    *(uint *)PTR_gmsgBattery_00177c50 = CONCAT31(extraout_var_04,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("Train",1);
+    *(uint *)PTR_gmsgTrain_001774e8 = CONCAT31(extraout_var_05,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e3cb,0xffffffff);
+    *(uint *)PTR_gmsgHudText_00177228 = CONCAT31(extraout_var_06,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("SayText",0xffffffff);
+    *(uint *)PTR_gmsgSayText_00177ce8 = CONCAT31(extraout_var_07,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e3db,0xffffffff);
+    *(uint *)PTR_gmsgTextMsg_00177a50 = CONCAT31(extraout_var_08,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("WeaponList",0xffffffff);
+    *(uint *)PTR_gmsgWeaponList_00177e58 = CONCAT31(extraout_var_09,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("ResetHUD",1);
+    *(uint *)PTR_gmsgResetHUD_001772e4 = CONCAT31(extraout_var_10,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("InitHUD",0);
+    *(uint *)PTR_gmsgInitHUD_00177238 = CONCAT31(extraout_var_11,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("GameTitle",1);
+    *(uint *)PTR_gmsgShowGameTitle_00177d6c = CONCAT31(extraout_var_12,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("DeathMsg",0xffffffff);
+    *(uint *)PTR_gmsgDeathMsg_001779dc = CONCAT31(extraout_var_13,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("ScoreInfo",9);
+    *(uint *)PTR_gmsgScoreInfo_00177108 = CONCAT31(extraout_var_14,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TeamInfo",0xffffffff);
+    *(uint *)PTR_gmsgTeamInfo_00177c0c = CONCAT31(extraout_var_15,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TeamScore",0xffffffff);
+    *(uint *)PTR_gmsgTeamScore_001779f8 = CONCAT31(extraout_var_16,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("GameMode",1);
+    *(uint *)PTR_gmsgGameMode_00177a70 = CONCAT31(extraout_var_17,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e430,0xffffffff);
+    *(uint *)PTR_gmsgMOTD_00177268 = CONCAT31(extraout_var_18,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("ServerName",0xffffffff);
+    *(uint *)PTR_gmsgServerName_001774d8 = CONCAT31(extraout_var_19,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("AmmoPickup",2);
+    *(uint *)PTR_gmsgAmmoPickup_00177bb0 = CONCAT31(extraout_var_20,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("WeapPickup",1);
+    *(uint *)PTR_gmsgWeapPickup_00177250 = CONCAT31(extraout_var_21,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("ItemPickup",0xffffffff);
+    *(uint *)PTR_gmsgItemPickup_0017764c = CONCAT31(extraout_var_22,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("HideWeapon",1);
+    *(uint *)PTR_gmsgHideWeapon_001777b0 = CONCAT31(extraout_var_23,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e46c,1);
+    *(uint *)PTR_gmsgSetFOV_00177718 = CONCAT31(extraout_var_24,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("ShowMenu",0xffffffff);
+    *(uint *)PTR_gmsgShowMenu_00177e84 = CONCAT31(extraout_var_25,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("ScreenShake",6);
+    *(uint *)PTR_gmsgShake_00177e88 = CONCAT31(extraout_var_26,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("ScreenFade",10);
+    *(uint *)PTR_gmsgFade_00177bbc = CONCAT31(extraout_var_27,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e493,0xffffffff);
+    *(uint *)PTR_gmsgTSFade_001775d0 = CONCAT31(extraout_var_28,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e49a,2);
+    *(uint *)PTR_gmsgAmmoX_001777b4 = CONCAT31(extraout_var_29,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TeamNames",0xffffffff);
+    *(uint *)PTR_gmsgTeamNames_0017794c = CONCAT31(extraout_var_30,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("VGUIMenu",1);
+    *(uint *)PTR_gmsgVGUIMenu_00177e20 = CONCAT31(extraout_var_31,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("WeaponInfo",6);
+    *(uint *)PTR_gmsgWeaponInfo_001771f8 = CONCAT31(extraout_var_32,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("ClipInfo",1);
+    *(uint *)PTR_gmsgClipInfo_00177bf0 = CONCAT31(extraout_var_33,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("WStatus",3);
+    *(uint *)PTR_gmsgTSWeaponStatus_00177160 = CONCAT31(extraout_var_34,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("ActItems",2);
+    *(uint *)PTR_gmsgTSActiveItems_00177b2c = CONCAT31(extraout_var_35,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("KFuPower",1);
+    *(uint *)PTR_gmsgKFuPower_00177488 = CONCAT31(extraout_var_36,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSHealth",1);
+    *(uint *)PTR_gmsgTSHealth_00177c4c = CONCAT31(extraout_var_37,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSArmor",1);
+    *(uint *)PTR_gmsgTSArmor_00177428 = CONCAT31(extraout_var_38,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSState",1);
+    *(uint *)PTR_gmsgTSState_00177ac0 = CONCAT31(extraout_var_39,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSCash",2);
+    *(uint *)PTR_gmsgTSCash_001777e4 = CONCAT31(extraout_var_40,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSSpace",1);
+    *(uint *)PTR_gmsgTSSpace_00177388 = CONCAT31(extraout_var_41,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("NextStunt",1);
+    *(uint *)PTR_gmsgTSNextStunt_0017749c = CONCAT31(extraout_var_42,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e513,3);
+    *(uint *)PTR_gmsgTSPowerUp_00177548 = CONCAT31(extraout_var_43,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("PwUpTime",1);
+    *(uint *)PTR_gmsgTSPowerUpTime_00177c48 = CONCAT31(extraout_var_44,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("RoundTime",2);
+    *(uint *)PTR_gmsgTSRoundTime_001770d8 = CONCAT31(extraout_var_45,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("Objective",0xffffffff);
+    *(uint *)PTR_gmsgTSObjective_00177b5c = CONCAT31(extraout_var_46,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e52b,2);
+    *(uint *)PTR_gmsgTSShowObjective_00177694 = CONCAT31(extraout_var_47,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("Wires",3);
+    *(uint *)PTR_gmsgTSWires_00177638 = CONCAT31(extraout_var_48,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e539,3);
+    *(uint *)PTR_gmsgTSServerSetting_00177d44 = CONCAT31(extraout_var_49,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSPAward",2);
+    *(uint *)PTR_gmsgTSPlayerAward_001776dc = CONCAT31(extraout_var_50,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSBTime",1);
+    *(uint *)PTR_gmsgTSBulletTime_0017735c = CONCAT31(extraout_var_51,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSHVoice",1);
+    *(uint *)PTR_gmsgTSVoiceMessage_00177944 = CONCAT31(extraout_var_52,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSFlag",4);
+    *(uint *)PTR_gmsgTSHaveFlag_00177d30 = CONCAT31(extraout_var_53,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("CustomWP",0xffffffff);
+    *(uint *)PTR_gmsgTSCustomWeaponParams_00177bac = CONCAT31(extraout_var_54,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("Spectator",2);
+    *(uint *)PTR_gmsgSpectator_00177b94 = CONCAT31(extraout_var_55,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e564,2);
+    *(uint *)PTR_gmsgTSMotionBlur_00177b48 = CONCAT31(extraout_var_56,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSMessage",0xffffffff);
+    *(uint *)PTR_gmsgTSMessage_00177528 = CONCAT31(extraout_var_57,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSSlowMo",2);
+    *(uint *)PTR_gmsgTSSlowAmt_00177838 = CONCAT31(extraout_var_58,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("PTakeDam",0xd);
+    *(uint *)PTR_gmsgTSTakeDamage_001775b4 = CONCAT31(extraout_var_59,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("TSFrags",0xffffffff);
+    *(uint *)PTR_gmsgTSCreateDebris_00177150 = CONCAT31(extraout_var_60,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)("PlInfo",3);
+    *(uint *)PTR_gmsgTSPlayerInfo_00177720 = CONCAT31(extraout_var_61,uVar3);
+    uVar3 = (*peVar1->pfnRegUserMsg)(&UNK_0010e597,0xffffffff);
+    *(uint *)PTR_gmsgTSParticleSystem_00177b08 = CONCAT31(extraout_var_62,uVar3);
+  }
+  return;
+}
+
+
+// ===== FUN @ 00091d00 size=2190 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::UpdateClientData(CBasePlayer *this)
+
+{
+  float fVar1;
+  undefined *puVar2;
+  enginefuncs_t *peVar3;
+  undefined1 uVar4;
+  undefined uVar5;
+  int iVar6;
+  uint uVar7;
+  undefined3 extraout_var;
+  undefined3 extraout_var_00;
+  undefined2 in_FPUControlWord;
+  undefined4 in_stack_ffffffe8;
+  undefined2 uVar9;
+  undefined4 uVar8;
+  
+  uVar9 = (undefined2)((uint)in_stack_ffffffe8 >> 0x10);
+  if (((float)this->field_0x534 <= (*PTR_gpGlobals_00177410)->time) &&
+     (fc_0 <= (float)this->field_0x534)) {
+    this->field_0x534 = (int)((float)dc_0_1 + (*PTR_gpGlobals_00177410)->time);
+    if (*(int *)&this->m_fInitHUD != 0) {
+      *(undefined4 *)&this->m_fInitHUD = 0;
+      *(undefined4 *)PTR_gInitHUD_00177b8c = 0;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgResetHUD_001772e4,0,this->pev->pContainingEntity);
+      (*peVar3->pfnWriteByte)(0);
+      (*peVar3->pfnMessageEnd)();
+      if (this->field_0x9b8 == 0) {
+        (*peVar3->pfnMessageBegin)
+                  (1,*(undefined4 *)PTR_gmsgInitHUD_00177238,0,this->pev->pContainingEntity);
+        (*peVar3->pfnMessageEnd)();
+        puVar2 = PTR_g_pGameRules_00177e70;
+        (**(code **)(**(int **)PTR_g_pGameRules_00177e70 + 0x34))
+                  (*(int **)PTR_g_pGameRules_00177e70,this);
+        CTSGameRules::InitHUD((CTSGameRules *)PTR_TSGameRules_00177300,this);
+        this->field_0x9b8 = 1;
+        iVar6 = (**(code **)(**(int **)puVar2 + 0x1c))(*(int **)puVar2);
+        if (iVar6 != 0) {
+          FireTargets__FPCcP11CBaseEntityT18USE_TYPEf("game_playerjoin",this,this,3,0);
+        }
+      }
+      FireTargets__FPCcP11CBaseEntityT18USE_TYPEf("game_playerspawn",this,this,3,0);
+      peVar3 = PTR_g_engfuncs_001778b8;
+      puVar2 = PTR_TSGameRules_00177300;
+      if ((*(float *)(PTR_TSGameRules_00177300 + 8) != 0.0) &&
+         (PTR_TSGameRules_00177300[0x10] != '\0')) {
+        (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                  (1,*(undefined4 *)PTR_gmsgTSRoundTime_001770d8,0,this->pev->pContainingEntity);
+        fVar1 = *(float *)(puVar2 + 8) - (*PTR_gpGlobals_00177410)->time;
+        if (fVar1 < 0.0) {
+          fVar1 = 0.0;
+        }
+        (*peVar3->pfnWriteByte)((int)ROUND(fVar1));
+        peVar3 = PTR_g_engfuncs_001778b8;
+        (*PTR_g_engfuncs_001778b8->pfnWriteByte)(0);
+        (*peVar3->pfnMessageEnd)();
+      }
+      peVar3 = PTR_g_engfuncs_001778b8;
+      if ((PTR_TSGameRules_00177300[0x5885] != '\0') && (*(char *)&this->m_bLowGravity != '\0')) {
+        (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                  (1,*(undefined4 *)PTR_gmsgTSPowerUp_00177548,0,this->pev->pContainingEntity);
+        (*peVar3->pfnWriteShort)(0x100);
+        (*peVar3->pfnWriteByte)(0);
+        (*peVar3->pfnMessageEnd)();
+      }
+    }
+    peVar3 = PTR_g_engfuncs_001778b8;
+    if (this->m_iHideHUD != this->field_0x9ec) {
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgHideWeapon_001777b0,0,this->pev->pContainingEntity);
+      (*peVar3->pfnWriteByte)(this->m_iHideHUD);
+      (*peVar3->pfnMessageEnd)();
+      this->field_0x9ec = this->m_iHideHUD;
+    }
+    peVar3 = PTR_g_engfuncs_001778b8;
+    if ((float)this->field_0x9e0 != this->pev->health) {
+      fVar1 = this->pev->health;
+      if (fVar1 < fc_0) {
+        fVar1 = fc_0;
+      }
+      uVar8 = CONCAT22(uVar9,in_FPUControlWord);
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSHealth_00177c4c,0,this->pev->pContainingEntity,
+                 (int)ROUND(fVar1),uVar8);
+      uVar9 = (undefined2)((uint)uVar8 >> 0x10);
+      (*peVar3->pfnWriteByte)((int)ROUND(fVar1));
+      (*peVar3->pfnMessageEnd)();
+      this->field_0x9e0 = (int)ROUND(this->pev->health);
+    }
+    if ((float)this->field_0x9e4 != this->pev->armorvalue) {
+      iVar6 = (int)ROUND(this->pev->armorvalue);
+      this->field_0x9e4 = iVar6;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSArmor_00177428,0,this->pev->pContainingEntity,iVar6,
+                 CONCAT22(uVar9,in_FPUControlWord));
+      (*peVar3->pfnWriteByte)((int)ROUND(this->pev->armorvalue));
+      (*peVar3->pfnMessageEnd)();
+    }
+    peVar3 = PTR_g_engfuncs_001778b8;
+    if ((this->m_iTrain & 0xc0U) != 0) {
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTrain_001774e8,0,this->pev->pContainingEntity);
+      (*peVar3->pfnWriteByte)(this->m_iTrain & 0xf);
+      (*peVar3->pfnMessageEnd)();
+      this->m_iTrain = this->m_iTrain & 0xffffff3f;
+    }
+    if (this->field_0x498 != (char)this->field_0x499) {
+      *(undefined1 *)&this->field_0x499 = this->field_0x498;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSState_00177ac0,0,this->pev->pContainingEntity);
+      (*peVar3->pfnWriteByte)((uint)(byte)this->field_0x498);
+      (*peVar3->pfnMessageEnd)();
+    }
+    if (this->field_0x540 != this->field_0x544) {
+      this->field_0x544 = this->field_0x540;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSCash_001777e4,0,this->pev->pContainingEntity);
+      (*peVar3->pfnWriteShort)(this->field_0x540);
+      (*peVar3->pfnMessageEnd)();
+    }
+    if (this->field_0x548 != this->field_0x54c) {
+      this->field_0x54c = this->field_0x548;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSSpace_00177388,0,this->pev->pContainingEntity);
+      (*peVar3->pfnWriteByte)(this->field_0x548);
+      (*peVar3->pfnMessageEnd)();
+    }
+    if ((this->m_iClientHeldType != this->m_iHeldPowerup) ||
+       (this->m_iClientHeldDur != this->m_flPowerupTime)) {
+      this->m_iClientHeldType = this->m_iHeldPowerup;
+      this->m_iClientHeldDur = this->m_flPowerupTime;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSPowerUp_00177548,0,this->pev->pContainingEntity);
+      (*peVar3->pfnWriteShort)(this->m_iHeldPowerup);
+      (*peVar3->pfnWriteByte)
+                (this->m_flPowerupTime & 0xffffffffU - ((int)this->m_flPowerupTime >> 0x1f));
+      (*peVar3->pfnMessageEnd)();
+    }
+    fVar1 = fc_0_22499999403953552;
+    if (((this->m_iPowerups & 8) == 0) &&
+       (fVar1 = fc_0_3499999940395355, (this->m_iPowerups & 1) == 0)) {
+      fVar1 = this->m_flSlowMotionTarget;
+    }
+    if (fVar1 != this->m_flClientSlowAmt) {
+      this->m_flClientSlowAmt = fVar1;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSSlowAmt_00177838,0,this->pev->pContainingEntity);
+      (*peVar3->pfnWriteCoord)(fc_100 * this->m_flClientSlowAmt);
+      (*peVar3->pfnMessageEnd)();
+    }
+    if (this->field_0x174 != this->field_0x175) {
+      this->field_0x174 = this->field_0x175;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSBulletTime_0017735c,0,this->pev->pContainingEntity);
+      (*peVar3->pfnWriteByte)((int)(char)this->field_0x174);
+      (*peVar3->pfnMessageEnd)();
+    }
+    if ((((this->m_pActiveItem != (CBaseEntity *)0x0) &&
+         (iVar6 = (*this->vtbl->IsAlive)(this), iVar6 != 0)) &&
+        (((CTSGun *)this->m_pActiveItem)->m_iId == 0x10)) &&
+       (iVar6 = this->field_0x720, uVar7 = CTSGun::GetActiveItems((CTSGun *)this->m_pActiveItem),
+       (byte)iVar6 != uVar7)) {
+      uVar4 = CTSGun::GetActiveItems((CTSGun *)this->m_pActiveItem);
+      *(undefined1 *)&this->field_0x720 = uVar4;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (2,*(undefined4 *)PTR_gmsgTSActiveItems_00177b2c,0,0);
+      uVar5 = (*peVar3->pfnIndexOfEdict)(this->pev->pContainingEntity);
+      (*peVar3->pfnWriteByte)(CONCAT31(extraout_var,uVar5));
+      (*peVar3->pfnWriteByte)((uint)(byte)this->field_0x720);
+      (*peVar3->pfnMessageEnd)();
+    }
+    if (this->field_0x74d != this->field_0x74c) {
+      this->field_0x74d = this->field_0x74c;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (2,*(undefined4 *)PTR_gmsgTSPlayerAward_001776dc,0,0);
+      uVar5 = (*peVar3->pfnIndexOfEdict)(this->pev->pContainingEntity);
+      (*peVar3->pfnWriteByte)(CONCAT31(extraout_var_00,uVar5));
+      (*peVar3->pfnWriteByte)((uint)(byte)this->field_0x74c);
+      (*peVar3->pfnMessageEnd)();
+    }
+    if ((this->field_0x78c != this->field_0x78f) ||
+       (*(short *)&this->field_0x78d != (short)*(undefined4 *)&this->field_0x790)) {
+      this->field_0x78f = this->field_0x78c;
+      this->field_0x790 = this->field_0x78d;
+      this->field_0x791 = this->field_0x78e;
+      peVar3 = PTR_g_engfuncs_001778b8;
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSWires_00177638,0,this->pev->pContainingEntity);
+      (*peVar3->pfnWriteByte)((uint)(byte)this->field_0x78c);
+      (*peVar3->pfnWriteByte)((uint)(byte)this->field_0x78d);
+      (*peVar3->pfnWriteByte)((uint)(byte)this->field_0x78e);
+      (*peVar3->pfnMessageEnd)();
+    }
+    if ((this->m_pActiveItem != (CBaseEntity *)0x0) &&
+       (*(int *)&this->m_pActiveItem->field_0x88 == 0x10)) {
+      (*this->m_pActiveItem->vtbl[1].OnFreeEntPrivateData)(this->m_pActiveItem);
+    }
+    this->field_0xa14 = (int)this->m_pActiveItem;
+    this->field_0x9f4 = this->m_iFOV;
+  }
+  return;
+}
+
+
+// ===== FUN @ 00092f08 size=171 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::CheckForWires(CBasePlayer *this)
+
+{
+  char cVar1;
+  int iVar2;
+  CTSObjective *this_00;
+  
+  this->field_0x78c = 0;
+  this->field_0x78d = 0;
+  this->field_0x78e = 0;
+  this_00 = (CTSObjective *)0x0;
+  while( true ) {
+    this_00 = (CTSObjective *)
+              UTIL_FindEntityInSphere__FP11CBaseEntityRC6Vectorf
+                        ((CBaseEntity *)this_00,&this->pev->origin,64.0);
+    if (this_00 == (CTSObjective *)0x0) break;
+    iVar2 = strcmp((*PTR_gpGlobals_00177410)->pStringBase + this_00->pev->classname,"ts_bomb");
+    if ((iVar2 == 0) && ((char)this_00->field_0x64 != '\0')) {
+      cVar1 = CTSObjective::CanInteract(this_00,this);
+      if (cVar1 != '\0') {
+        this->field_0x78c = this_00->field_0x7c;
+        this->field_0x78d = this_00->field_0x7d;
+        this->field_0x78e = this_00->field_0x7e;
+      }
+    }
+  }
+  return;
+}
+
+
+// ===== FUN @ 00079134 size=1256 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gamerulesclass.cpp */
+
+void CTSGameRules::InitHUD(CTSGameRules *this,CBasePlayer *a0)
+
+{
+  float fVar1;
+  enginefuncs_t *peVar2;
+  undefined *puVar3;
+  undefined uVar4;
+  char *a5;
+  int *piVar5;
+  int iVar6;
+  undefined3 extraout_var;
+  uint uVar7;
+  int iVar8;
+  undefined2 in_FPUControlWord;
+  entvars_t *peVar9;
+  vec_t local_4c;
+  vec_t local_48;
+  vec_t local_44;
+  vec_t local_3c;
+  vec_t local_38;
+  vec_t local_34;
+  int local_24;
+  undefined2 local_20;
+  undefined2 uStack_1e;
+  undefined3 extraout_var_00;
+  
+  if ((*(float *)PTR_g_flWeaponCheat_00177bcc != 0.0) &&
+     (TSHudMessageOne__FUcUcUciiPcP9entvars_s
+                (0x2d,0xc3,0x2d,8,100,"This server has cheats enabled.",a0->pev),
+     0.0 < *(float *)(PTR_damagemult_00177294 + 0xc))) {
+    peVar9 = a0->pev;
+    a5 = (char *)UTIL_VarArgs__FPce("This server has custom weapon damages (%.2f)");
+    TSHudMessageOne__FUcUcUciiPcP9entvars_s(0x2d,0xc3,0x2d,8,100,a5,peVar9);
+  }
+  if (this->field_0x5884 != '\0') {
+    InformClientsOnWeaponsParams__FP11CBaseEntity((CBaseEntity *)a0);
+  }
+  puVar3 = PTR_gmsgTSServerSetting_00177d44;
+  peVar2 = PTR_g_engfuncs_001778b8;
+  (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+            (1,*(undefined4 *)PTR_gmsgTSServerSetting_00177d44,0,a0->pev->pContainingEntity);
+  (*peVar2->pfnWriteByte)(0);
+  (*peVar2->pfnWriteShort)(this->field_0x578);
+  (*peVar2->pfnMessageEnd)();
+  (*peVar2->pfnMessageBegin)(1,*(undefined4 *)puVar3,0,a0->pev->pContainingEntity);
+  (*peVar2->pfnWriteByte)(1);
+  (*peVar2->pfnWriteShort)((uint)(*(float *)(PTR_dmcashbased_00177290 + 0xc) != 0.0));
+  (*peVar2->pfnMessageEnd)();
+  (*peVar2->pfnMessageBegin)(1,*(undefined4 *)puVar3,0,a0->pev->pContainingEntity);
+  (*peVar2->pfnWriteByte)(2);
+  local_24 = (int)ROUND(*(float *)(PTR_cv_ammocount_001776cc + 0xc));
+  (*peVar2->pfnWriteShort)(local_24);
+  (*peVar2->pfnMessageEnd)();
+  (*peVar2->pfnMessageBegin)(1,*(undefined4 *)puVar3,0,a0->pev->pContainingEntity);
+  (*peVar2->pfnWriteByte)(3);
+  (*peVar2->pfnWriteShort)(this->field_0x5870);
+  (*peVar2->pfnMessageEnd)();
+  if ((this->m_flRoundEnd != 0.0) && ((char)this->field_0x10 != '\0')) {
+    (*peVar2->pfnMessageBegin)
+              (1,*(undefined4 *)PTR_gmsgTSRoundTime_001770d8,0,a0->pev->pContainingEntity);
+    fVar1 = this->m_flRoundEnd - (*PTR_gpGlobals_00177410)->time;
+    if (fVar1 < 0.0) {
+      fVar1 = 0.0;
+    }
+    local_24 = (int)ROUND(fVar1);
+    (*peVar2->pfnWriteByte)(local_24);
+    peVar2 = PTR_g_engfuncs_001778b8;
+    (*PTR_g_engfuncs_001778b8->pfnWriteByte)(0);
+    (*peVar2->pfnMessageEnd)();
+  }
+  peVar2 = PTR_g_engfuncs_001778b8;
+  iVar8 = 1;
+  if (0 < (*PTR_gpGlobals_00177410)->maxClients) {
+    do {
+      piVar5 = (int *)UTIL_PlayerByIndex__Fi(iVar8);
+      if ((piVar5 != (int *)0x0) && (iVar6 = (**(code **)(piVar5[0x18] + 200))(piVar5), iVar6 != 0))
+      {
+        (*peVar2->pfnMessageBegin)
+                  (1,*(undefined4 *)PTR_gmsgSpectator_00177b94,0,a0->pev->pContainingEntity);
+        uVar4 = (*peVar2->pfnIndexOfEdict)(*(undefined4 *)(*piVar5 + 0x208));
+        (*peVar2->pfnWriteByte)(CONCAT31(extraout_var,uVar4));
+        (*peVar2->pfnWriteByte)((uint)(*(int *)(*piVar5 + 0x244) != 0));
+        (*peVar2->pfnMessageEnd)();
+      }
+      iVar8 = iVar8 + 1;
+    } while (iVar8 <= (*PTR_gpGlobals_00177410)->maxClients);
+  }
+  peVar9 = a0->pev;
+  local_3c = (peVar9->origin).x;
+  local_38 = (peVar9->origin).y;
+  local_34 = (peVar9->origin).z;
+  peVar9 = a0->pev;
+  local_4c = (peVar9->v_angle).x;
+  local_48 = (peVar9->v_angle).y;
+  local_44 = (peVar9->v_angle).z;
+  CBasePlayer::StartObserver(a0,&local_3c,&local_4c);
+  a0->field_0x7ba = 0;
+  a0->m_iGrenadeBuys = 0;
+  *(undefined4 *)&a0->field_0x53c = 0;
+  *(undefined4 *)&a0->field_0x538 = 0;
+  *(undefined4 *)&a0->field_0x7c4 = 0;
+  a0->field_0x7c8 = 0;
+  a0->field_0x7cc = 0;
+  fVar1 = *(float *)(PTR_respawntime_00177d94 + 0xc);
+  if (*(float *)(PTR_respawntime_00177d94 + 0xc) < fc_5) {
+    fVar1 = fc_5;
+  }
+  if (fc_30 < fVar1) {
+    fVar1 = fc_30;
+  }
+  _local_20 = CONCAT22(uStack_1e,in_FPUControlWord);
+  local_24 = (int)ROUND(fVar1);
+  SetPlayerRespawnTime__FP11CBasePlayerib(a0,local_24,false);
+  memset((void *)((int)&a0->field_0x499 + 1),0,0x40);
+  CBasePlayer::ResetArmament(a0);
+  if (*(int *)PTR_g_teamplay_00177f1c - 2U < 2) {
+    *(undefined4 *)&a0->field_0x758 = 0;
+    SendObjectiveList(this,(CBaseEntity *)a0);
+  }
+  uVar4 = (*PTR_g_engfuncs_001778b8->pfnIndexOfEdict)(a0->pev->pContainingEntity);
+  uVar7 = CONCAT31(extraout_var_00,uVar4);
+  if (uVar7 < 0x20) {
+    piVar5 = &this->field_0x684 + uVar7 * 0x12;
+    for (iVar8 = 0x12; iVar8 != 0; iVar8 = iVar8 + -1) {
+      *piVar5 = 0;
+      piVar5 = piVar5 + 1;
+    }
+    (&this->field_0x6c8)[uVar7 * 0x12] = uVar7 + 1;
+  }
+  return;
+}
+
+
+// ===== FUN @ 000ecc54 size=293 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* util.cpp */
+
+void UTIL_ScreenFadeWrite__FRC10ScreenFadeP11CBaseEntity(ScreenFade *a0,CBaseEntity *a1)
+
+{
+  enginefuncs_t *peVar1;
+  int iVar2;
+  longdouble extraout_ST0;
+  longdouble extraout_ST0_00;
+  
+  if (a1 != (CBaseEntity *)0x0) {
+    iVar2 = (*a1->vtbl->IsNetClient)(a1);
+    peVar1 = PTR_g_engfuncs_001778b8;
+    if (iVar2 != 0) {
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (1,*(undefined4 *)PTR_gmsgTSFade_001775d0,0,a1->pev->pContainingEntity);
+      (*a1->vtbl->GiveSlowMul)(a1);
+      (*peVar1->pfnWriteShort)((int)ROUND((longdouble)*(ushort *)a0 / extraout_ST0));
+      (*a1->vtbl->GiveSlowMul)(a1);
+      (*peVar1->pfnWriteShort)((int)ROUND((longdouble)*(ushort *)(a0 + 2) / extraout_ST0_00));
+      (*peVar1->pfnWriteShort)((int)*(short *)(a0 + 4));
+      (*peVar1->pfnWriteByte)((uint)(byte)a0[6]);
+      (*peVar1->pfnWriteByte)((uint)(byte)a0[7]);
+      (*peVar1->pfnWriteByte)((uint)(byte)a0[8]);
+      (*peVar1->pfnWriteByte)((uint)(byte)a0[9]);
+      (*peVar1->pfnMessageEnd)();
+    }
+  }
+  return;
+}
+
+
+// ===== FUN @ 000ecb94 size=190 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* util.cpp */
+
+void UTIL_ScreenFadeBuild__FR10ScreenFadeRC6Vectorffii
+               (ScreenFade *a0,Vector *a1,float a2,float a3,int a4,int a5)
+
+{
+  undefined2 uVar1;
+  
+  uVar1 = FixedUnsigned16__Fff(a2,4096.0);
+  *(undefined2 *)a0 = uVar1;
+  uVar1 = FixedUnsigned16__Fff(a3,4096.0);
+  *(undefined2 *)(a0 + 2) = uVar1;
+  a0[6] = SUB41((int)ROUND(a1->x),0);
+  a0[7] = SUB41((int)ROUND(a1->y),0);
+  a0[8] = SUB41((int)ROUND(a1->z),0);
+  a0[9] = a4._0_1_;
+  *(short *)(a0 + 4) = (short)a5;
+  return;
+}
+
+
+// ===== FUN @ 000ecdec size=72 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* util.cpp */
+
+void UTIL_ScreenFade__FP11CBaseEntityRC6Vectorffii
+               (CBaseEntity *a0,Vector *a1,float a2,float a3,int a4,int a5)
+
+{
+  ScreenFade local_1c [16];
+  
+  UTIL_ScreenFadeBuild__FR10ScreenFadeRC6Vectorffii(local_1c,a1,a2,a3,a4,a5);
+  UTIL_ScreenFadeWrite__FRC10ScreenFadeP11CBaseEntity(local_1c,a0);
+  return;
+}
+
+
+// ===== FUN @ 000ecd7c size=107 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* util.cpp */
+
+void UTIL_ScreenFadeAll__FRC6Vectorffii(Vector *a0,float a1,float a2,int a3,int a4)
+
+{
+  CBaseEntity *a1_00;
+  int a0_00;
+  ScreenFade local_1c [16];
+  
+  UTIL_ScreenFadeBuild__FR10ScreenFadeRC6Vectorffii(local_1c,a0,a1,a2,a3,a4);
+  for (a0_00 = 1; a0_00 <= (*PTR_gpGlobals_00177410)->maxClients; a0_00 = a0_00 + 1) {
+    a1_00 = (CBaseEntity *)UTIL_PlayerByIndex__Fi(a0_00);
+    UTIL_ScreenFadeWrite__FRC10ScreenFadeP11CBaseEntity(local_1c,a1_00);
+  }
+  return;
+}
+
+

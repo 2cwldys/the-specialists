@@ -1,0 +1,17 @@
+// ===== FUN @ 1004fb00 size=71 =====
+
+void __thiscall FUN_1004fb00(void *this,undefined4 param_1,undefined4 param_2,undefined4 param_3)
+
+{
+  uint uVar1;
+  
+  FUN_100299b0(param_3,param_2);
+  uVar1 = FUN_10029a10();
+  *(char *)((int)this + 0x36fc) = (char)uVar1;
+  uVar1 = FUN_10029a10();
+  *(char *)((int)this + 0x36fd) = (char)uVar1;
+  uVar1 = FUN_10029a10();
+  *(char *)((int)this + 0x36fe) = (char)uVar1;
+  *(uint *)((int)this + 0x10) = *(uint *)((int)this + 0x10) | 1;
+  return;
+}

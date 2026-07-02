@@ -20,3 +20,13 @@ project (`scripts/ghidra/re.sh`) — regenerate any missing piece the same way.
 - `pm_*.c`, `setanim.c`, `blend_helpers.c`, `dropweapon.c`, `holster.c`, `deploy.c`,
   `speed.c`, `mp_animate.c` — the movement/anim decompiles behind the cont.81 physics
   and pose fixes.
+- `gmsg_<Name>.c` — the client.dll user-message HANDLER decompiles (the gmsg workflow's
+  clientdll batch) — needed when applying U0-U5's client side.
+- `*.gdb` — the reusable live-probe templates: `anim_log.gdb` (member-read probe on OUR
+  build via test.sh GDB=), `setanim_probe.gdb` (log SetAnim pose names on the ORIGINAL
+  hl.exe — needs the live mp.dll base re-derived per session), `stunt_probe*.gdb`.
+- `offs.cpp` — the -m32 offsetof ground-truth checker for entvars (gravity=0x11c etc.).
+- `linkmsg.py`/`hooks.py`/`split_ff.py`, `star_decomp*.txt`, `cca_calls.txt`,
+  `orig_factories.txt`, `pm_catpos_tail.txt` — misc working aids from the star/freefunc passes.
+- NOT preserved (regenerable): `ts.dis` (9.9MB full objdump — regenerate with
+  `objdump -d reference/ts_i386.so > ts.dis`), nm dumps, raw batch/err files.

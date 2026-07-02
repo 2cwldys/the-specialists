@@ -1,0 +1,30 @@
+  local_2c[0].y = fVar4;
+  pCVar9 = (CBaseEntity *)
+           CSprite::SpriteCreate
+                     ((CSprite *)"sprites/flare3.spr",(char *)&local_3c,(Vector *)0x0,iVar10);
+  this->m_pGlow = pCVar9;
+  fVar4 = (this->pev->rendercolor).x;
+  fVar1 = (this->pev->rendercolor).y;
+  fVar2 = (this->pev->rendercolor).z;
+  fVar3 = this->pev->renderamt;
+  iVar10 = this->pev->renderfx;
+  pCVar9->pev->rendermode = 3;
+  (pCVar9->pev->rendercolor).x = (float)(int)ROUND(fVar4);
+  (pCVar9->pev->rendercolor).y = (float)(int)ROUND(fVar1);
+  (pCVar9->pev->rendercolor).z = (float)(int)ROUND(fVar2);
+  pCVar9->pev->renderamt = (float)(int)ROUND(fVar3);
+  pCVar9->pev->renderfx = iVar10;
+  pCVar9 = this->m_pGlow;
+  peVar6 = this->pev->pContainingEntity;
+  if (peVar6 != (edict_t *)0x0) {
+    peVar5 = pCVar9->pev;
+    uVar8 = (*peVar7->pfnIndexOfEdict)(peVar6);
+    peVar5->skin = CONCAT31(extraout_var,uVar8);
+    pCVar9->pev->body = 1;
+    pCVar9->pev->aiment = peVar6;
+    pCVar9->pev->movetype = 0xc;
+  }
+  return;
+}
+
+

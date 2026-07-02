@@ -1,0 +1,788 @@
+// ===== FUN @ 00077204 size=1365 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gamerulesclass.cpp */
+
+void CTSGameRules::Think(CTSGameRules *this)
+
+{
+  double dVar1;
+  bool bVar2;
+  globalvars_t **ppgVar3;
+  enginefuncs_t *peVar4;
+  globalvars_t *pgVar5;
+  CBaseEntity *this_00;
+  int iVar6;
+  int iVar7;
+  longdouble extraout_ST0;
+  CTSGameRules *in_stack_ffffffc4;
+  
+  if ((fc_0 != this->m_flGlobalSlowEnd) &&
+     (this->m_flGlobalSlowEnd < (*PTR_gpGlobals_00177410)->time)) {
+    this->m_flGlobalSlowActive = 0;
+  }
+  if (fc_0 == (float)this->m_flGlobalSlowActive) {
+    if (fc_0 != this->m_flGlobalSlowScale) {
+      in_stack_ffffffc4 = this;
+      GlobalSlowMotion2(this,0.0,false);
+      this->m_flGlobalSlowScale = 0.0;
+      this->m_flGlobalSlowEnd = 0.0;
+    }
+  }
+  else {
+    in_stack_ffffffc4 = this;
+    GlobalSlowMotion2(this,this->m_flGlobalSlowScale,false);
+  }
+  if ((fc_0 != this->m_flCheckDeads) && (this->m_flCheckDeads < (*PTR_gpGlobals_00177410)->time)) {
+    in_stack_ffffffc4 = this;
+    CheckDeads(this);
+  }
+  if (*(byte *)&this->pev < 2) {
+    if (*(char *)((int)&this->pev + 1) == -1) {
+      *(undefined1 *)((int)&this->pev + 1) = 1;
+    }
+    if ((*(float *)(PTR_nopowerup_00177c34 + 0xc) != 1.0) &&
+       (*(char *)((int)&this->pev + 1) == '\x01')) {
+      if ((*PTR_gpGlobals_00177410)->time <= (float)this->field_0x4) {
+        if ((float)dc_21 < (float)this->field_0x4 - (*PTR_gpGlobals_00177410)->time) {
+          this->field_0x4 = 0;
+        }
+      }
+      else {
+        (*PTR_g_engfuncs_001778b8->pfnRandomFloat)(0,0x3f800000);
+        if (((longdouble)dc_0_25 <= extraout_ST0) ||
+           (iVar7 = 1, *(float *)(PTR_slowmatch_001772c8 + 0xc) == 1.0)) {
+          iVar7 = GetRandomPowerup((CTSGameRules *)PTR_TSGameRules_00177300,0x1ff);
+        }
+        iVar7 = PutPowerUp(this,iVar7);
+        if (iVar7 == 0) {
+          pgVar5 = *PTR_gpGlobals_00177410;
+          dVar1 = dc_1;
+        }
+        else {
+          pgVar5 = *PTR_gpGlobals_00177410;
+          dVar1 = UNK_00107698;
+        }
+        this->field_0x4 = (int)((float)dVar1 + pgVar5->time);
+      }
+    }
+    ppgVar3 = PTR_gpGlobals_00177410;
+    if ((*(int *)PTR_g_theOneMode_001770dc != 0) &&
+       ((float)this->field_0x587c < (*PTR_gpGlobals_00177410)->time)) {
+      bVar2 = false;
+      this->field_0x5876 = 0;
+      iVar7 = 0;
+      if (0 < (*ppgVar3)->maxClients) {
+        do {
+          this_00 = (CBaseEntity *)UTIL_PlayerByIndex__Fi(iVar7);
+          if (((this_00 != (CBaseEntity *)0x0) &&
+              (iVar6 = (*this_00->vtbl->IsPlayer)(this_00), iVar6 != 0)) &&
+             (iVar6 = CBaseEntity::IsDormant(this_00), iVar6 == 0)) {
+            if (this_00->field_0x7b9 == '\0') {
+              this->field_0x5876 = this->field_0x5876 + '\x01';
+            }
+            else {
+              bVar2 = true;
+            }
+          }
+          iVar7 = iVar7 + 1;
+        } while (iVar7 < (*PTR_gpGlobals_00177410)->maxClients);
+      }
+      if (!bVar2) {
+        SelectRandomTheOne(this);
+      }
+      this->field_0x587c = (int)(fc_10 + (*PTR_gpGlobals_00177410)->time);
+    }
+    if ((*(int *)PTR_g_lastManStanding_0017733c != 0) && (*(char *)&this->pev == '\0')) {
+      if ((this->m_flRoundRestart < (*PTR_gpGlobals_00177410)->time) &&
+         (fc_0 != this->m_flRoundRestart)) {
+        RestartRound(this);
+      }
+      if ((this->m_flRoundEnd < (*PTR_gpGlobals_00177410)->time) && (fc_0 == this->m_flRoundRestart)
+         ) {
+        CheckDeads(this);
+      }
+    }
+  }
+  else {
+    if (((this->m_flRoundEnd < (*PTR_gpGlobals_00177410)->time) && (fc_0 == this->m_flRoundRestart))
+       && ((char)this->field_0x10 != '\0')) {
+      if (*(char *)&this->pev == '\x02') {
+        TeamWin(this,2,0,1,(uint)in_stack_ffffffc4 & 0xffff0000);
+      }
+      else {
+        RoundTimeLeft(this);
+      }
+    }
+    if ((this->m_flRoundRestart < (*PTR_gpGlobals_00177410)->time) &&
+       (fc_0 != this->m_flRoundRestart)) {
+      RestartRound(this);
+    }
+  }
+  CheckVotes(this);
+  if ((float)this->field_0x578 != *(float *)(PTR_realbullet_00177544 + 0xc)) {
+    this->field_0x578 = (int)ROUND(*(float *)(PTR_realbullet_00177544 + 0xc));
+    peVar4 = PTR_g_engfuncs_001778b8;
+    (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+              (2,*(undefined4 *)PTR_gmsgTSServerSetting_00177d44,0,0);
+    (*peVar4->pfnWriteByte)(0);
+    (*peVar4->pfnWriteShort)(this->field_0x578);
+    (*peVar4->pfnMessageEnd)();
+  }
+  if (this->field_0x5864 != 0) {
+    CBulletManager::Think((CBulletManager *)&this->field_0x1864);
+  }
+  if ((float)this->field_0x558 != *(float *)(PTR_dmcashbased_00177290 + 0xc)) {
+    this->field_0x558 = (int)ROUND(*(float *)(PTR_dmcashbased_00177290 + 0xc));
+    peVar4 = PTR_g_engfuncs_001778b8;
+    (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+              (2,*(undefined4 *)PTR_gmsgTSServerSetting_00177d44,0,0);
+    (*peVar4->pfnWriteByte)(1);
+    (*peVar4->pfnWriteShort)((uint)(this->field_0x558 != 0));
+    (*peVar4->pfnMessageEnd)();
+  }
+  iVar7 = (int)ROUND(*(float *)(PTR_cv_ammocount_001776cc + 0xc));
+  if (iVar7 != this->field_0x55c) {
+    this->field_0x55c = iVar7;
+    Set_ammo_count__Fi(iVar7);
+    peVar4 = PTR_g_engfuncs_001778b8;
+    (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+              (2,*(undefined4 *)PTR_gmsgTSServerSetting_00177d44,0,0);
+    (*peVar4->pfnWriteByte)(2);
+    (*peVar4->pfnWriteShort)(this->field_0x55c);
+    (*peVar4->pfnMessageEnd)();
+  }
+  return;
+}
+
+
+// ===== FUN @ 000c58a0 size=262 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* game.cpp */
+
+void cmd_weaponrestriction__Fv(void)
+
+{
+  int iVar1;
+  undefined *puVar2;
+  enginefuncs_t *peVar3;
+  undefined uVar4;
+  undefined3 extraout_var;
+  int iVar5;
+  undefined4 uVar6;
+  uint uVar7;
+  
+  uVar4 = (*PTR_g_engfuncs_001778b8->pfnCmd_Argc)();
+  puVar2 = PTR_TSGameRules_00177300;
+  if (CONCAT31(extraout_var,uVar4) < 2) {
+    display_weaponrestriction__Fv();
+  }
+  else {
+    iVar1 = *(int *)(PTR_TSGameRules_00177300 + 0x5870);
+    uVar4 = (*PTR_g_engfuncs_001778b8->pfnCmd_Argv)(1);
+    iVar5 = __strtol_internal(uVar4,0,10,0);
+    if (iVar5 == 5) {
+      uVar6 = InitWeaponRestriction__Fv();
+      *(undefined4 *)(puVar2 + 0x5870) = uVar6;
+    }
+    else {
+      uVar4 = (*PTR_g_engfuncs_001778b8->pfnCmd_Argv)(1);
+      iVar5 = __strtol_internal(uVar4,0,10,0);
+      uVar7 = WeaponRestrictionByID__Fi(iVar5);
+      *(uint *)(PTR_TSGameRules_00177300 + 0x5870) =
+           uVar7 & *(uint *)(PTR_TSGameRules_00177300 + 0x586c);
+    }
+    peVar3 = PTR_g_engfuncs_001778b8;
+    puVar2 = PTR_TSGameRules_00177300;
+    if (*(int *)(PTR_TSGameRules_00177300 + 0x5870) != iVar1) {
+      (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+                (2,*(undefined4 *)PTR_gmsgTSServerSetting_00177d44,0,0);
+      (*peVar3->pfnWriteByte)(3);
+      (*peVar3->pfnWriteShort)(*(undefined4 *)(puVar2 + 0x5870));
+      (*peVar3->pfnMessageEnd)();
+    }
+    display_weaponrestriction__Fv();
+  }
+  return;
+}
+
+
+// ===== FUN @ 000c5770 size=300 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* game.cpp */
+
+void display_weaponrestriction__Fv(void)
+
+{
+  char local_7c [120];
+  
+  local_7c[0] = '\0';
+  if (*(int *)(PTR_TSGameRules_00177300 + 0x5870) == 0) {
+    (*PTR_g_engfuncs_001778b8->pfnAlertMessage)(1,"All weapons are restricted.\n");
+  }
+  else {
+    if ((PTR_TSGameRules_00177300[0x5870] & 1) != 0) {
+      strcat(local_7c,*(char **)(PTR_g_szRestrictions_00177b84 + 4));
+    }
+    if ((PTR_TSGameRules_00177300[0x5870] & 2) != 0) {
+      strcat(local_7c,*(char **)(PTR_g_szRestrictions_00177b84 + 8));
+    }
+    if ((PTR_TSGameRules_00177300[0x5870] & 4) != 0) {
+      strcat(local_7c,*(char **)(PTR_g_szRestrictions_00177b84 + 0xc));
+    }
+    if ((PTR_TSGameRules_00177300[0x5870] & 8) != 0) {
+      strcat(local_7c,*(char **)(PTR_g_szRestrictions_00177b84 + 0x10));
+    }
+    if ((PTR_TSGameRules_00177300[0x5870] & 0x10) != 0) {
+      strcat(local_7c,*(char **)(PTR_g_szRestrictions_00177b84 + 0x14));
+    }
+    (*PTR_g_engfuncs_001778b8->pfnAlertMessage)(1,"Weapons allowed: %s\n",local_7c);
+  }
+  return;
+}
+
+
+// ===== FUN @ 00075ff4 size=302 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gamerules.cpp */
+
+void SetPlayerRespawnTime__FP11CBasePlayerib(CBasePlayer *a0,int a1,bool a2)
+
+{
+  float fVar1;
+  float fVar2;
+  
+  if ((((*PTR_TSGameRules_00177300 == '\x03') || (*PTR_TSGameRules_00177300 == '\x02')) ||
+      (*(int *)PTR_g_lastManStanding_0017733c == 0)) || (*PTR_TSGameRules_00177300 != '\0')) {
+    a0->field_0x770 = (int)((float)a1 + (*PTR_gpGlobals_00177410)->time);
+  }
+  else {
+    fVar1 = *(float *)(PTR_respawnnumber_001779d4 + 0xc);
+    if (fVar1 < fc_1) {
+      fVar1 = fc_1;
+    }
+    if (fVar1 <= (float)(short)(char)a0->field_0x7ba) {
+      a0->field_0x770 = -0x40800000;
+    }
+    else {
+      fVar1 = *(float *)(PTR_TSGameRules_00177300 + 8) - (*PTR_gpGlobals_00177410)->time;
+      fVar2 = (float)a1;
+      if (fVar1 < fVar2) {
+        fVar2 = fVar1;
+      }
+      a0->field_0x770 = (int)(fVar2 + (*PTR_gpGlobals_00177410)->time);
+      fVar1 = *(float *)(PTR_TSGameRules_00177300 + 8) - (*PTR_gpGlobals_00177410)->time;
+      if (fc_10 < fVar1) {
+        fVar1 = fc_10;
+      }
+      a0->field_0x7bc = (int)(fVar1 + (*PTR_gpGlobals_00177410)->time);
+    }
+  }
+  if ((float)a0->field_0x770 < fc_0) {
+    a0->field_0x74c = 1;
+  }
+  else {
+    a0->field_0x74c = 0xb;
+  }
+  return;
+}
+
+
+// ===== FUN @ 0007b078 size=480 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gamerulesclass.cpp */
+
+void CTSGameRules::SetPlayerTheOne(CTSGameRules *this,CBasePlayer *a0)
+
+{
+  undefined *puVar1;
+  enginefuncs_t *peVar2;
+  int iVar3;
+  char *a5;
+  
+  iVar3 = (*a0->vtbl->IsAlive)(a0);
+  if ((iVar3 != 0) && (a0->pev->iuser1 == 0)) {
+    a0->field_0x7b9 = 1;
+    a0->pev->health = 150.0;
+    a0->m_flHealthRegen = (float)dc_1 + (*PTR_gpGlobals_00177410)->time;
+    a0->field_0x74e = 1;
+    *(undefined1 *)&a0->m_bLowGravity = 1;
+    peVar2 = PTR_g_engfuncs_001778b8;
+    (*PTR_g_engfuncs_001778b8->pfnSetPhysicsKeyValue)(a0->pev->pContainingEntity,&DAT_0010791d,"1");
+    CBasePlayer::SetPlayerSpeed(a0,330.0);
+    puVar1 = PTR_gmsgTSPowerUp_00177548;
+    (*peVar2->pfnMessageBegin)
+              (1,*(undefined4 *)PTR_gmsgTSPowerUp_00177548,0,a0->pev->pContainingEntity);
+    (*peVar2->pfnWriteShort)(4);
+    (*peVar2->pfnWriteByte)(0);
+    (*peVar2->pfnMessageEnd)();
+    (*peVar2->pfnMessageBegin)(1,*(undefined4 *)puVar1,0,a0->pev->pContainingEntity);
+    (*peVar2->pfnWriteShort)(0x100);
+    (*peVar2->pfnWriteByte)(0);
+    (*peVar2->pfnMessageEnd)();
+    if ((a0->m_iPowerups == 0) && (a0->m_iHeldPowerup == 0)) {
+      a0->m_iPowerups = 0;
+      a0->m_iHeldPowerup = 8;
+      a0->m_flPowerupExpireTime = 0.0;
+      a0->m_flPowerupTime = 3;
+    }
+    a0->field_0x74c = 10;
+    *(undefined1 *)&this->field_0x5878 = 1;
+    this->field_0x5877 = 0;
+    a5 = (char *)UTIL_VarArgs__FPce("%s is The One!");
+    TSHudMessageAll__FUcUcUciiPc(100,0x96,0xff,1,0x1e,a5);
+    UTIL_LogPrintf__FPce("Player \"%s\" triggered \"the_one\"\n");
+  }
+  return;
+}
+
+
+// ===== FUN @ 0008ed5c size=2042 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::Killed(CBasePlayer *this,entvars_s *a0,int a1)
+
+{
+  int *piVar1;
+  undefined1 *puVar2;
+  float fVar3;
+  float fVar4;
+  entvars_t *peVar5;
+  undefined *puVar6;
+  undefined uVar7;
+  undefined3 extraout_var;
+  undefined3 extraout_var_00;
+  undefined3 extraout_var_01;
+  undefined3 extraout_var_02;
+  undefined3 extraout_var_03;
+  undefined3 extraout_var_04;
+  int iVar8;
+  undefined3 extraout_var_05;
+  int iVar9;
+  CSoundEnt *this_00;
+  CSound *this_01;
+  undefined3 extraout_var_06;
+  int iVar10;
+  enginefuncs_t *peVar11;
+  float *pfVar12;
+  Vector *pVVar13;
+  undefined2 in_FPUControlWord;
+  longdouble lVar14;
+  edict_t *peVar15;
+  CBasePlayer *a0_00;
+  float local_5c;
+  float local_58;
+  float local_54;
+  float local_3c [6];
+  int local_24;
+  undefined2 local_20;
+  undefined2 uStack_1e;
+  
+  peVar11 = PTR_g_engfuncs_001778b8;
+  if (*PTR_glast_closecombat_00177730 == '\0') {
+LAB_0008edc8:
+    peVar11 = PTR_g_engfuncs_001778b8;
+    uVar7 = (*PTR_g_engfuncs_001778b8->pfnRandomLong)(0,100);
+    if (0x31 < CONCAT31(extraout_var_00,uVar7)) goto LAB_0008ee32;
+    (*peVar11->pfnMessageBegin)(4,*(undefined4 *)PTR_gmsgTSMotionBlur_00177b48,&a0->origin,0);
+    peVar15 = a0->pContainingEntity;
+  }
+  else {
+    uVar7 = (*PTR_g_engfuncs_001778b8->pfnRandomLong)(0,100);
+    if (0x4f < CONCAT31(extraout_var,uVar7)) goto LAB_0008edc8;
+    (*peVar11->pfnMessageBegin)(4,*(undefined4 *)PTR_gmsgTSMotionBlur_00177b48,&a0->origin,0);
+    peVar15 = a0->pContainingEntity;
+  }
+  uVar7 = (*peVar11->pfnIndexOfEdict)(peVar15);
+  (*peVar11->pfnWriteByte)(CONCAT31(extraout_var_01,uVar7));
+  (*peVar11->pfnWriteByte)(1);
+  (*peVar11->pfnMessageEnd)();
+LAB_0008ee32:
+  peVar11 = PTR_g_engfuncs_001778b8;
+  uVar7 = (*PTR_g_engfuncs_001778b8->pfnRandomLong)(0,100);
+  if (CONCAT31(extraout_var_02,uVar7) < 0x32) {
+    (*peVar11->pfnMessageBegin)(4,*(undefined4 *)PTR_gmsgTSMotionBlur_00177b48,&this->pev->origin,0)
+    ;
+    uVar7 = (*peVar11->pfnIndexOfEdict)(this->pev->pContainingEntity);
+    (*peVar11->pfnWriteByte)(CONCAT31(extraout_var_03,uVar7));
+    (*peVar11->pfnWriteByte)(0);
+    (*peVar11->pfnMessageEnd)();
+  }
+  this->field_0x768 = (int)(fc_3 + (*PTR_gpGlobals_00177410)->time);
+  this->field_0x544 = -1;
+  ResetArmament(this);
+  peVar11 = PTR_g_engfuncs_001778b8;
+  peVar15 = this->pev->pContainingEntity;
+  (*PTR_g_engfuncs_001778b8->pfnSetView)(peVar15,peVar15);
+  EnableControl(this,1);
+  this->field_0x7ba = this->field_0x7ba + '\x01';
+  if (*(int *)PTR_g_pevLastInflictor_00177ab0 != 0) {
+    iVar8 = *(int *)(*(int *)PTR_g_pevLastInflictor_00177ab0 + 0x208);
+    if (iVar8 == 0) {
+      uVar7 = (*peVar11->pfnPEntityOfEntOffset)(0);
+      iVar8 = CONCAT31(extraout_var_04,uVar7);
+    }
+    iVar10 = 0;
+    if (iVar8 != 0) {
+      iVar10 = *(int *)(iVar8 + 0x7c);
+    }
+    iVar8 = (**(code **)(*(int *)(iVar10 + 0x60) + 200))(iVar10);
+    if (iVar8 == 0) {
+      this->pev->iuser2 = 0;
+    }
+    else {
+      peVar5 = this->pev;
+      uVar7 = (*PTR_g_engfuncs_001778b8->pfnIndexOfEdict)
+                        (*(undefined4 *)(*(int *)PTR_g_pevLastInflictor_00177ab0 + 0x208));
+      peVar5->iuser2 = CONCAT31(extraout_var_05,uVar7);
+      iVar8 = UTIL_PlayerByIndex__Fi(this->pev->iuser2);
+      this->field_0x75c = iVar8;
+    }
+  }
+  fVar3 = *(float *)(PTR_respawntime_00177d94 + 0xc);
+  if (*(float *)(PTR_respawntime_00177d94 + 0xc) < fc_5) {
+    fVar3 = fc_5;
+  }
+  if (fc_30 < fVar3) {
+    fVar3 = fc_30;
+  }
+  _local_20 = CONCAT22(uStack_1e,in_FPUControlWord);
+  local_24 = (int)ROUND(fVar3);
+  SetPlayerRespawnTime__FP11CBasePlayerib(this,local_24,false);
+  if ((float)this->field_0x770 < fc_0) {
+    this->field_0x74c = 1;
+  }
+  else {
+    this->field_0x74c = 0xb;
+  }
+  if ((this->field_0x10c == 1) && (PTR_TSGameRules_00177300[0x18] == '\0')) {
+    (*this->vtbl->GoSlow)(this,0.33,'\0');
+  }
+  this->pev->iuser4 = 0;
+  piVar1 = &this->pev->iuser4;
+  *piVar1 = *piVar1 | 2;
+  if (this->m_pActiveItem != (CBaseEntity *)0x0) {
+    (*this->m_pActiveItem->vtbl[1].IsObjective)(this->m_pActiveItem);
+  }
+  DropAmmo(this);
+  DropFlag(this,false);
+  DropWeapon(this,1,0);
+  iVar8 = get_weapon_info__F10tsweapon_t(1);
+  if (*(int *)(iVar8 + 200) != -1) {
+    DropWeapon(this,1,0);
+  }
+  iVar8 = 2;
+  do {
+    DropWeapon(this,iVar8,0);
+    iVar10 = get_weapon_info__F10tsweapon_t(iVar8);
+    if (*(int *)(iVar10 + 200) != -1) {
+      DropWeapon(this,iVar8,0);
+    }
+    iVar10 = iVar8 + 1;
+    DropWeapon(this,iVar10,0);
+    iVar9 = get_weapon_info__F10tsweapon_t(iVar10);
+    if (*(int *)(iVar9 + 200) != -1) {
+      DropWeapon(this,iVar10,0);
+    }
+    iVar10 = iVar8 + 2;
+    DropWeapon(this,iVar10,0);
+    iVar9 = get_weapon_info__F10tsweapon_t(iVar10);
+    if (*(int *)(iVar9 + 200) != -1) {
+      DropWeapon(this,iVar10,0);
+    }
+    iVar10 = iVar8 + 3;
+    DropWeapon(this,iVar10,0);
+    iVar9 = get_weapon_info__F10tsweapon_t(iVar10);
+    if (*(int *)(iVar9 + 200) != -1) {
+      DropWeapon(this,iVar10,0);
+    }
+    iVar8 = iVar8 + 4;
+  } while (iVar8 < 0x26);
+  a0_00 = this;
+  (**(code **)(**(int **)PTR_g_pGameRules_00177e70 + 0x70))
+            (*(int **)PTR_g_pGameRules_00177e70,this,a0,
+             *(undefined4 *)PTR_g_pevLastInflictor_00177ab0);
+  puVar2 = &this->field_0x9c4;
+  iVar8 = __opi__7EHANDLE(puVar2);
+  if (iVar8 != 0) {
+    iVar8 = __rf__7EHANDLE(puVar2);
+    (**(code **)(*(int *)(iVar8 + 0x60) + 0xe0))(iVar8,this,this,0,0);
+    a0_00 = (CBasePlayer *)0x0;
+    __as__7EHANDLEP11CBaseEntity(puVar2);
+  }
+  this_00 = (CSoundEnt *)
+            CSoundEnt::ClientSoundIndex((CSoundEnt *)this->pev->pContainingEntity,(edict_s *)a0_00);
+  this_01 = (CSound *)CSoundEnt::SoundPointerForIndex(this_00,(int)a0_00);
+  if (this_01 != (CSound *)0x0) {
+    CSound::Reset(this_01);
+  }
+  CTSAnimation::Animate((CTSAnimation *)&this->field_0x28c,this,7);
+  this->field_0xb34 = 0;
+  this->pev->modelindex = *(int *)PTR_g_ulModelIndexPlayer_00177cb0;
+  this->pev->deadflag = 1;
+  this->pev->movetype = 6;
+  piVar1 = &this->pev->flags;
+  *piVar1 = *piVar1 & 0xfffffdff;
+  peVar5 = this->pev;
+  local_54 = SQRT(*(float *)(PTR_g_vecAttackDir_0017799c + 8) *
+                  *(float *)(PTR_g_vecAttackDir_0017799c + 8) +
+                  *(float *)(PTR_g_vecAttackDir_0017799c + 4) *
+                  *(float *)(PTR_g_vecAttackDir_0017799c + 4) +
+                  *(float *)PTR_g_vecAttackDir_0017799c * *(float *)PTR_g_vecAttackDir_0017799c);
+  if (local_54 == fc_0) {
+    local_54 = fc_1;
+    local_5c = 0.0;
+    local_58 = 0.0;
+  }
+  else {
+    local_54 = fc_1 / local_54;
+    local_5c = local_54 * *(float *)PTR_g_vecAttackDir_0017799c;
+    local_58 = local_54 * *(float *)(PTR_g_vecAttackDir_0017799c + 4);
+    local_54 = local_54 * *(float *)(PTR_g_vecAttackDir_0017799c + 8);
+  }
+  lVar14 = (longdouble)
+           CBaseMonster::DamageForce((CBaseMonster *)this,(float)this->m_lastDamageAmount);
+  if ((longdouble)fc_500 <= lVar14) {
+    lVar14 = (longdouble)fc_neg500;
+  }
+  else {
+    lVar14 = (longdouble)
+             CBaseMonster::DamageForce((CBaseMonster *)this,(float)this->m_lastDamageAmount);
+    lVar14 = -lVar14;
+  }
+  local_3c[0] = (float)((longdouble)(peVar5->velocity).x + lVar14 * (longdouble)local_5c);
+  local_3c[1] = (peVar5->velocity).y + (float)(lVar14 * (longdouble)local_58);
+  local_3c[2] = (peVar5->velocity).z + (float)(lVar14 * (longdouble)local_54);
+  pfVar12 = local_3c;
+  pVVar13 = &peVar5->velocity;
+  for (iVar8 = 3; iVar8 != 0; iVar8 = iVar8 + -1) {
+    pVVar13->x = *pfVar12;
+    pfVar12 = pfVar12 + 1;
+    pVVar13 = (Vector *)&pVVar13->y;
+  }
+  fVar3 = (this->pev->velocity).x;
+  fVar4 = (this->pev->velocity).y;
+  if (((fc_80 < SQRT(fVar4 * fVar4 + fVar3 * fVar3)) || (0x32 < this->m_lastDamageAmount)) &&
+     (this->field_0x470 == 0)) {
+    (this->pev->velocity).z = 180.0;
+    this->pev->gravity = 0.5;
+  }
+  SetSuitUpdate(this,(char *)0x0,0,0);
+  this->field_0x9e0 = 0;
+  peVar11 = PTR_g_engfuncs_001778b8;
+  (*PTR_g_engfuncs_001778b8->pfnMessageBegin)
+            (1,*(undefined4 *)PTR_gmsgTSHealth_00177c4c,0,this->pev->pContainingEntity);
+  (*peVar11->pfnWriteByte)(this->field_0x9e0);
+  (*peVar11->pfnMessageEnd)();
+  (*peVar11->pfnMessageBegin)(2,*(undefined4 *)PTR_gmsgTSActiveItems_00177b2c,0,0);
+  uVar7 = (*peVar11->pfnIndexOfEdict)(this->pev->pContainingEntity);
+  (*peVar11->pfnWriteByte)(CONCAT31(extraout_var_06,uVar7));
+  (*peVar11->pfnWriteByte)(0);
+  (*peVar11->pfnMessageEnd)();
+  this->field_0x9f4 = 0;
+  this->m_iFOV = 0;
+  this->pev->fov = 0.0;
+  (*peVar11->pfnMessageBegin)
+            (1,*(undefined4 *)PTR_gmsgSetFOV_00177718,0,this->pev->pContainingEntity);
+  (*peVar11->pfnWriteByte)(0);
+  (*peVar11->pfnMessageEnd)();
+  if (((this->pev->health < fc_neg40) && (a1 != 1)) || (a1 == 2)) {
+    this->pev->solid = 0;
+    (*this->vtbl->GibMonster)((CBaseMonster *)this);
+    piVar1 = &this->pev->effects;
+    *piVar1 = *piVar1 | 0x80;
+  }
+  else {
+    (this->pev->angles).x = 0.0;
+    (this->pev->angles).z = 0.0;
+    puVar6 = PTR_PlayerDeathThink_00177800;
+    this->field_0xc = -0x10000;
+    this->field_0x10 = (int)puVar6;
+    this->pev->nextthink = (float)dc_0_1 + (*PTR_gpGlobals_00177410)->time;
+  }
+  return;
+}
+
+
+// ===== FUN @ 0008c598 size=110 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_objectives.cpp */
+
+void CTSBomb::SetRandomWires(CTSBomb *this)
+
+{
+  enginefuncs_t *peVar1;
+  undefined uVar2;
+  undefined3 extraout_var;
+  undefined3 extraout_var_00;
+  
+  this->field_0x7c = 3;
+  this->field_0x7d = 3;
+  this->field_0x7e = 3;
+  peVar1 = PTR_g_engfuncs_001778b8;
+  uVar2 = (*PTR_g_engfuncs_001778b8->pfnRandomLong)(0,2);
+  (&this->field_0x7c)[CONCAT31(extraout_var,uVar2)] = 1;
+  do {
+    uVar2 = (*peVar1->pfnRandomLong)(0,2);
+  } while ((&this->field_0x7c)[CONCAT31(extraout_var_00,uVar2)] == '\x01');
+  (&this->field_0x7c)[CONCAT31(extraout_var_00,uVar2)] = 2;
+  return;
+}
+
+
+// ===== FUN @ 0008c70c size=338 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_objectives.cpp */
+
+void CTSBomb::CutWire(CTSBomb *this,int a0,CBasePlayer *a1)
+
+{
+  if (((((char)this->field_0x64 != '\0') && (this->cancutwire != 0)) &&
+      (fc_0 < (float)this->field_0x6c)) && ((uint)a0 < 3)) {
+    if (((&this->field_0x7c)[a0] != '\0') && (a1 != (CBasePlayer *)0x0)) {
+      if ((&this->field_0x7c)[a0] == '\x03') {
+        (&this->field_0x7c)[a0] = 0;
+        this->field_0x6c = 0;
+      }
+      else if ((&this->field_0x7c)[a0] == '\x02') {
+        this->field_0x7f = 1;
+        (&this->field_0x7c)[a0] = 0;
+        a1->field_0x78c = this->field_0x7c;
+        a1->field_0x78d = this->field_0x7d;
+        a1->field_0x78e = this->field_0x7e;
+      }
+      else if ((&this->field_0x7c)[a0] == '\x01') {
+        (&this->field_0x7c)[a0] = 0;
+        if (this->pev->target != 0) {
+          FireTargets__FPCcP11CBaseEntityT18USE_TYPEf
+                    ((*PTR_gpGlobals_00177410)->pStringBase + this->pev->target,this,this,3,0);
+        }
+        if (this->pev->message != 0) {
+          TSHudMessageAll__FUcUcUciiPc
+                    (0,0xff,0,8,0x1e,(*PTR_gpGlobals_00177410)->pStringBase + this->pev->message);
+        }
+        this->field_0x6c = 0;
+        this->field_0x70 = 0;
+        (*this->vtbl->Freeze)((CTSObjective *)this,true);
+      }
+    }
+  }
+  return;
+}
+
+
+// ===== FUN @ 000929d0 size=54 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::GoSlow(CBasePlayer *this,float a0,char a1)
+
+{
+  if (this->pev->iuser1 == 0) {
+    this->m_flSlowMotionGo = a0;
+  }
+  else {
+    this->m_flSlowMotionGo = 1.0;
+  }
+  this->m_flSlowMotionTarget = a0;
+  this->field_0x175 = a1;
+  return;
+}
+
+
+// ===== FUN @ 00095748 size=482 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::UpdatePowerUpState(CBasePlayer *this)
+
+{
+  int iVar1;
+  int *piVar2;
+  Vector *pVVar3;
+  vec_t *pvVar4;
+  int in_stack_ffffffdc;
+  
+  if (this->m_iHeldPowerup != 0) {
+    if (this->m_iPowerups == 0) {
+      iVar1 = (*this->vtbl->IsAlive)(this);
+      if (iVar1 != 0) {
+        return;
+      }
+      if (((byte)*PTR_TSGameRules_00177300 < 2) &&
+         ((((*(byte *)&this->m_iHeldPowerup ^ 1) & 1) != 0 ||
+          (((this->m_iHeldPowerup & 1) != 0 && (2 < (int)this->m_flPowerupTime)))))) {
+        piVar2 = (int *)CTSPowerUp::CreatePowerUp
+                                  ((CTSPowerUp *)this->m_iHeldPowerup,-1,in_stack_ffffffdc);
+        pVVar3 = &this->pev->origin;
+        pvVar4 = (vec_t *)(*piVar2 + 8);
+        for (iVar1 = 3; iVar1 != 0; iVar1 = iVar1 + -1) {
+          *pvVar4 = pVVar3->x;
+          pVVar3 = (Vector *)&pVVar3->y;
+          pvVar4 = pvVar4 + 1;
+        }
+      }
+    }
+    else {
+      if ((this->m_iPowerups & 9) == 0) {
+        if ((this->m_iPowerups & 0x100) != 0) {
+          this->pev->gravity = 0.15;
+        }
+      }
+      else if ((this->m_flPowerupExpireTime < (*PTR_gpGlobals_00177410)->time) ||
+              (iVar1 = (*this->vtbl->IsAlive)(this), iVar1 == 0)) {
+        DeactivateSlowMotionFlow(this);
+      }
+      else if ((this->m_iPowerups & 8) == 0) {
+        if ((this->m_iPowerups & 1) != 0) {
+          this->field_0x175 = 0;
+          this->m_flSlowMotionRamp = 0.35;
+          this->m_flSlowMotionScale = 0.6;
+        }
+      }
+      else {
+        this->field_0x175 = 1;
+        this->m_flSlowMotionRamp = 0.225;
+        this->m_flSlowMotionScale = 0.8;
+      }
+      if (((*PTR_gpGlobals_00177410)->time <= this->m_flPowerupExpireTime) &&
+         (iVar1 = (*this->vtbl->IsAlive)(this), iVar1 != 0)) {
+        return;
+      }
+      iVar1 = (*this->vtbl->IsAlive)(this);
+      if (((iVar1 == 0) && ((byte)*PTR_TSGameRules_00177300 < 2)) &&
+         (((((byte)this->m_iPowerups ^ 1) & 1) != 0 ||
+          (((this->m_iPowerups & 1) != 0 && (2 < (int)this->m_flPowerupTime)))))) {
+        piVar2 = (int *)CTSPowerUp::CreatePowerUp
+                                  ((CTSPowerUp *)this->m_iPowerups,-1,in_stack_ffffffdc);
+        pVVar3 = &this->pev->origin;
+        pvVar4 = (vec_t *)(*piVar2 + 8);
+        for (iVar1 = 3; iVar1 != 0; iVar1 = iVar1 + -1) {
+          *pvVar4 = pVVar3->x;
+          pVVar3 = (Vector *)&pVVar3->y;
+          pvVar4 = pvVar4 + 1;
+        }
+      }
+      if ((this->m_iPowerups & 0x100) != 0) {
+        this->pev->gravity = 1.0;
+      }
+    }
+    this->m_flPowerupExpireTime = 0.0;
+    this->m_flPowerupTime = 0;
+    this->m_iPowerups = 0;
+    this->m_iHeldPowerup = 0;
+  }
+  return;
+}
+
+
