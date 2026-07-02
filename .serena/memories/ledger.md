@@ -134,6 +134,24 @@ handler (FL_ONGROUND; LOW->SLIDE + reversed-dir latch, HIGH->STOP+friction .25+r
 USER-VALIDATED: double-jump + double-duck "absolutely nailed"; dive + landing poses per direction AND per grip
 perfect. Remaining prone re-test: the strafe-roll re-anchor fix (658d211).
 
+### ⭐ THE MOVEMENT-PHYSICS ARC (cont.81 continued): pm phase-2 recovered via user-driven probes
+The roll-decel A/B ("ours slower, theirs keeps rolling") unravelled the WHOLE TS movement layer:
+1. **THE ROOT CAUSE (d315000)**: the halflife-updated base DROPPED the stock `!pmove->multiplayer` gate on the
+   per-move `pmove->friction = 1.0` reset → in MP pev->friction became a ONE-SHOT, silently ERASING every stunt
+   friction (roll 0.3, wheel 0.25, walljump 0.5) before PM_Friction saw it (probe-proven fric=1.00 every roll
+   frame; the original's SOLE reset site @0xf1229 in PM_Move is !multiplayer-gated, disasm-verified). THE THIRD
+   base-SDK divergence this arc (gmsgWeapons regs, SetAnim seq-0 fallback semantics, this).
+2. **PM_Friction (4511683)**: TS deltas = drop x0.75 + edgefriction only at entity friction 1.0 (control =
+   max(speed, stopspeed) is STOCK — the Ghidra "control=0" was an artifact, raw-asm verified).
+3. **PM_FlyMove (e4aec54)**: wall backoff = 1 + 0.01*(1-friction) (movevars->bounce coefficient replaced by
+   0.01) — no stunt ricochet; surfaced as "+alt1 dive bounces off walls" once friction persisted.
+4. **PM_WalkMove (50d2d3c)**: backpedal x0.8.
+5. Blend snap (6fd6163): xash's CL_CompareTimestamps 1ms quantization randomly skips the sequence latch at high
+   listenserver fps (GoldSrc 100fps always latches) → client re-latch shim in OUR StudioModelRenderer
+   (presentation-only; SetAnim @0x5d7e4 decompile-diffed byte-equivalent).
+USER-VALIDATED: roll carry "PERFECT", matches the original. pm phase-2 (PM_Jump/PM_Duck full diffs) still has
+un-diffed remainder — the four functions above are transcribed at the divergence points found.
+
 ### STILL OPEN (cont.81 → next)
 - **Apply the dossiers**: melee S0–S10 (UpdateMeleeBar unblocks the GoWheel backkick = stunt tail), gmsg U0–U5
   (TSFlag 1-liner first), freefuncs F1–F10 (F3 falloff playtest-gated). All work-lists are commit-ordered.
