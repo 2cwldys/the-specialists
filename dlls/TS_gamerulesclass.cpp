@@ -16,16 +16,8 @@
 #include "ts_groundweapon.h" // CTSGroundWeapon::Fall (RespawnEntities)
 #include "ts_flag.h"       // CTSFlag::RespawnFlag, HaveFlag (CTF)
 
-CBaseEntity *TSCreatePowerUpAt(int type, const Vector &vecOrigin);
 // Defined in ts_objectives.cpp — fire the objective manager's targetontimeleft on round timeout.
 void TSFireTimeLeftTarget();
-
-// @0x67148 HaveFlag — is this player carrying a CTF flag? (free fn; TS_gamerules.cpp). The carry
-// state is the inline s_flag_status on the player; the active byte is the answer.
-bool HaveFlag(CBasePlayer *pPlayer)
-{
-	return pPlayer && pPlayer->m_flagStatus.active != 0;
-}
 
 // Round-time HUD message (remaining seconds); registered lazily on first send.
 int gmsgTSRoundTime = 0;
