@@ -82,7 +82,10 @@ undisarmable) · S5 rewired CCombatAttack + CTSStunt::CloseAttack onto CloseComb
 counter/disarm/knockback live; miss presentation kept until S7b) + **the GoWheel dir==3 BACKKICK combo is
 WIRED (UpdateMeleeBar 22.5 + backward whiff arm) — the Track-B blocker** · S9 CCombatIdle + WeaponIdle
 bare-hands branch. Headline: **13 missing methods · 41 invented · 39 free funcs.**
-REMAINING melee: S6 ColdCock wrapper + AlternateAttack gate + kill-feed strings; S7a/b/c knife/katana
+S6 LANDED (794635e): ColdCock wrapper RE-exact (iColdCockDamage table, x2/3 stunting, 0.725 cadence,
+kevlarhit confirm 60-91, twin-routed four-false) + AlternateAttack gate (active+coldcock-capable, clip
+gate removed) + the DeathNotice kill-feed flavor ("Kung Fu" / "<weapon> Stock" + #TS_Coldcock broadcast).
+REMAINING melee: S7a/b/c knife/katana
 split (largest; MeleeAttack/ThrowKnife absorbed; knife/katana/draw.sc protocol swaps need the client side
 simultaneously); S8 CTSKnife WaitTouch + settle/pickup rewire; S10 close-out. Then gmsg U0-U5 (dossier-
 gmsg + star_*.md — registration parity first) and freefuncs F1-F10 (dossier-freefuncs). VERIFY tags in
