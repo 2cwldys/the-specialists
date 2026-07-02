@@ -139,7 +139,6 @@ target_sources(hl PRIVATE
 	ts_shared.cpp
 	ts_bullet.cpp
 	ts_worldgun.cpp
-	ts_knife.cpp
 	ts_weapon_info.cpp
 	ts_weapons.cpp
 	turret.cpp
