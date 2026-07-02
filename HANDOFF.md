@@ -47,6 +47,123 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.82) — pickup for the next orchestrator (cont.81 = me; available for consult)
+
+**You ARE the orchestrator and the previous agent (cont.81) — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF — keep `git config --local commit.gpgsign
+false`). 55 commits this session (`05be983..`), every one builds `scripts/build.sh amd64 all` clean + gated on
+`nm -D` T-export identity (baseline `/tmp/nm_T_baseline.txt` — regenerate it first thing:
+`nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}' | sort > /tmp/nm_T_baseline.txt`).
+
+⚠ **SERENA ONE-LINE-JSON GOTCHA:** read the ledger with the **Read tool on `.serena/memories/ledger.md`**, NOT
+`read_memory("ledger")` — the MCP returns one giant single-line `{"result":"…"}` (~350 KB) that overflows the
+read limit. Same for any large memory.
+
+### THE MISSION + the user's directives (the law — reread the cont.79 section far below for the long form)
+Make OUR code a **1:1 drop-in** for the original at EVERY level — **file → class → methods → variables →
+globals → free functions**. Driver = `scripts/coverage/audit.py [<Class>]`. Current headline:
+**13 missing methods · 41 invented methods · 39 missing free funcs · 17 missing globals · 0 file mismatches ·
+0 missing files · 0 class/member gaps.**
+1. **Names must match the original's** (FGD/save/wire names) — audit matches BY NAME; a faithful-but-misnamed
+   symbol reads as missing+invented.
+2. **A missing/extra symbol SIGNALS a logic mismatch → re-RE it.** This paid off relentlessly: "never-written
+   player+0x510" was really m_vecStuntDir through the EMBEDDED CTSStunt@+0x4f0 (memory
+   [[embedded-object-offset-blindness]]); the "dead" +0x51c was m_bDirForward; the missing HolsterWeapon
+   decompile revealed the whiff-clear-on-switch.
+3. **The logic often EXISTS already — moved/renamed/inlined — so MOVE it, don't rewrite.** Grep our code first.
+4. **MIMIC THEIRS (the drop-in cardinal rule):** our client must swap against the original server and
+   vice-versa. Wire names byte-exact (the "TSFlag"-not-"TSHaveFlag" shipped bug), mechanisms exact.
+5. **Don't invent vs the RE.** When static RE dead-ends: a 5-line runtime PROBE the user drives beats hours of
+   decompile re-reads (this session's blend + friction root causes both fell to user-run probes). The user
+   DRIVES all playtests — hand them a NUMBERED protocol; never launch xash/xdotool yourself (memory
+   [[user-drives-playtests]]).
+6. **⭐ NEW (cont.81): when verbatim code STILL misbehaves, suspect the BASE SDK** — halflife-updated tracks the
+   HL ANNIVERSARY SDK, not the 2003 stock the original targets (user: expected). Three hits this session, worst:
+   pm_shared dropped the stock `!pmove->multiplayer` gate on the per-move friction reset, silently erasing EVERY
+   stunt friction. Memory [[base-sdk-divergence-check]]: probe the value at the consumption point, then diff
+   base-vs-stock-vs-original.
+
+### ⭐ WHAT cont.81 DID (full detail: ledger cont.81 entries, top of `.serena/memories/ledger.md`)
+- **File-consolidation plan C1–C20 FULLY APPLIED** — 22→0 file mismatches, 2→0 missing files; the tree now
+  mirrors the original TU layout (TS_entities.cpp, TS_objectives.cpp, TS_gamerulesclass.cpp + the free-fn
+  TS_gamerules.cpp scaffold, ts_bullet/ts_worldgun/ts_grenades/ts_emitter merges, pm_shared/TS_pm_shared.{h,cpp}
+  both libs, audit.py ACCEPTED_CLIENT_FILES for the 2 unknowable client.dll rows).
+- **Melee dossier S0–S6 + S9 APPLIED** (19→13 missing methods): UpdateMeleeBar (+ the RE-proven PreThink regen
+  15/s + block-window value decay), BlockPlayer, CheckHull + FindHullIntersectionplayer + the Victim*Hold trio,
+  the CloseCombatAttack/ColdCockAttack twins, the DropWeapon(-2) disarm-pressure accumulator (player+0x7b4),
+  the CCombatAttack/CloseAttack rewire + **the GoWheel dir==3 BACKKICK combo (wired)**, the ColdCock wrapper +
+  kill-feed flavor ("Kung Fu"/"<weapon> Stock" + #TS_Coldcock), CCombatIdle. The **"TSFlag"(4)** wire-name fix.
+- **The ENTIRE stunt/prone/movement chapter, user-validated "PERFECT"**: directional poses off m_vecStuntDir
+  (wheel_b standing, lowwheel_f/l/r, roll_l/r/f/b), GetDirection VERBATIM + normalized callers, HandleWheel as a
+  LANDING handler, the prone LYING system (case 3 slide_<dir>_<grip> + aim-tracking BlendAnimationsForSlide +
+  the strafe-roll direction re-anchor + case 0x29 = the slide_*_end getup family), HandleSlide VERBATIM
+  (+player+0x78 m_iStandUpLatch writer found), the gravity/friction map CORRECTED (gravity=0x11c,
+  friction=0x120 — offsetof-proven; cont.80 had it inverted), and the **pm phase-2 deltas**: PM_Friction
+  (drop x0.75, edgefriction only at friction 1.0), PM_FlyMove (backoff 1+0.01*(1-friction) — no stunt
+  ricochet), PM_WalkMove (backpedal x0.8), and THE ROOT CAUSE fix (the !multiplayer friction-reset gate).
+  Blend-snap fixed via a client re-latch shim (xash's 1ms CL_CompareTimestamps quantization vs GoldSrc's
+  100fps cadence). Stamina HUD wired to the WeaponInfo melee byte (regen/respawn refill visible).
+
+### ⭐ WHERE TO GO (the queue, in order — the RE for ALL of it is DONE; only application remains)
+**The dossiers + plans + typed decompiles are COMMITTED at `reference/dossiers/cont81/` (see its README —
+regenerate anything else via re.sh).** Do NOT redo the RE fan-out; apply:
+1. **Melee S7a/b/c + S8 + S10** (`dossier-melee.md` §3): the knife/katana split — KatanaThrow+SecondaryAttack,
+   KatanaFire (5-stance), KnifeFire (absorbs MeleeAttack/ThrowKnife); S8 CTSKnife WaitTouch + settle/pickup
+   rewire (absorbs StartSettle/SettleThink/BecomePickup/PickupTouch/Classify); S10 audit close-out. ⚠ S7's
+   knife.sc/katana.sc/draw.sc WIRE-FORMAT swaps need the CLIENT event handlers updated simultaneously.
+   HolsterWeapon is now fully decompiled (`holster.c`) — it's one of the 13 missing; fold it in during S7.
+2. **gmsg U0–U5** (`dossier-gmsg.md` + `star_*.md`): U0 registration-set parity FIRST (add SelAmmo/ClipInfo,
+   DELETE our invented gmsgStatusText/StatusValue/Weapons/Flashlight/FlashBat regs — gmsgWeapons removal is
+   playtest-gated vs HLU weapon-bits), then TSState/TSSpace/TSBTime/TSPAward/PlInfo/SrvSett/Wires/PTakeDam/
+   TSFade/CustomWP. All wire formats + send sites are in the star addenda (id0=realbullet, TSBTime src =
+   m_bSlowBullets, etc.).
+3. **Freefuncs F1–F10** (`dossier-freefuncs.md`): F1 = 10 dead/trivial pure adds in one commit; F2 the
+   s_ammo_info/CustomWP pipeline (fixes the REAL kAmmoMax wrong-column + kBulletSpeedUnit wrong-order bugs);
+   F3 ★ the range-damage falloff (the biggest gameplay gap); F6 DecideGamePlay/game-mode globals; F8
+   TSPrecache/TSPlayerDisconnect (vote-rejoin bug) etc.
+4. **Task #8**: the 41 invented methods review (CTSGameRules 11 + CBasePlayer TS* 8 + misc) + 17 missing
+   globals tail (TSGameRules global instance @0x1681a0, objects, roundtime) + m61_grenade classname.
+5. **Stunt tail remainder** (small): superjump morfy anim (Animate 0x39), directional death (field_0x10c +
+   die_spinback range), the +0x78 latch CONSUMER, PseudoClimb (pm scaffold), PM_Jump/PM_Duck full diffs, the
+   getup-anim-on-deliberate-standup divergence question (ask the user).
+
+### ⭐ THE METHODS THAT WORKED THIS SESSION (use them)
+- **Workflows for RE fan-out** (user-approved this session; ultracode-style opt-in came from the user): the
+  Workflow tool with a SERIAL decompile stage (the Ghidra `re` project is SINGLE-WRITER) then parallel analysts
+  then a synthesis agent. 42 subagents, ~4.4M tokens kept out of the orchestrator. Pattern per workflow:
+  decompile-stage agent runs ONE `re.sh 0xA 0xB …` batch → per-item analyst agents (READ-ONLY, no Ghidra) diff
+  the decompile vs OUR source → synthesis writes the dossier + build-green plan. Apply CENTRALLY yourself,
+  one nm-gated commit per unit. The `clientdll`/`mpdll` Ghidra projects are separate locks (parallel-safe).
+- **The dossier-subagent prompt template** (for one-off big classes) is in the cont.79 section below.
+- **Single general-purpose agents** for serial star-passes (the gmsg ★ decompiles).
+- **User-driven probes**: build a 5-line Con_Printf/instrumentation, hand a numbered protocol, read the pasted
+  output (the SEQSWAP + PMFRIC probes cracked both engine-side root causes). gdb attach to the ORIGINAL hl.exe
+  requires asking (user approves; wrap in `timeout`, verify the int3 actually planted — see the ledger's probe
+  saga; run_in_background Bash tasks, NOT `&`).
+- **Lock-free binary archaeology**: objdump offset scans + nearest-nm-symbol + GOT-relative .rodata reads
+  settle member/write questions WITHOUT Ghidra (but see [[embedded-object-offset-blindness]] — decompose
+  composite offsets vs the embedded-object table first: CTSStunt@player+0x4f0, CTSAnimation@player+0x28c).
+- **offsetof ground truth**: compile a tiny -m32 offsetof check against engine/progdefs.h before trusting ANY
+  entvars offset mapping (gravity=0x11c, friction=0x120, v_angle=0x74, view_ofs=0x174, button=0x180,
+  flags=0x1a4, iuser4=0x250, fuser1=0x254).
+- **Model ground truth**: parse the player .mdl sequence table (python studiohdr parse — the script pattern is
+  in the ledger) when pose names/families are in question.
+
+### Task-list entries to recreate (via TaskCreate) — the cont.82 tracker
+- `[in_progress]` **"Per-class 1:1 parity loop (audit→RE→reconcile→build→audit→commit)"** — the driver.
+- `[in_progress]` **"PLAYTEST gate before merging restructure-source-parity to main"** — the stunt/movement
+  chapter + melee S0-S6 basics are user-validated; everything else still needs the final playtest.
+- `[pending]` **"Melee S7a/b/c blade split + S8 knife settle/pickup + S10 close-out (dossier-melee §3;
+  client event handlers move WITH the wire swaps; fold HolsterWeapon in)"**.
+- `[pending]` **"gmsg U0-U5 (dossier-gmsg + star addenda; U0 registration parity first; gmsgWeapons removal
+  playtest-gated)"**.
+- `[pending]` **"Freefuncs F1-F10 (dossier-freefuncs; F3 falloff = the gameplay headline, playtest-gated)"**.
+- `[pending]` **"41 invented methods review + 17 missing globals + m61_grenade"**.
+- `[pending]` **"Stunt/pm tail: morfy anim, directional death, +0x78 consumer, PseudoClimb, PM_Jump/PM_Duck
+  diffs, getup-anim divergence question"**.
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.81, 2026-07-02) — pickup for the next orchestrator (cont.80 = me; available for consult)
 
 **You ARE the orchestrator and the previous agent (cont.80) — continue as if you never stopped.** Branch

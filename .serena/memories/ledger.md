@@ -149,8 +149,15 @@ The roll-decel A/B ("ours slower, theirs keeps rolling") unravelled the WHOLE TS
 5. Blend snap (6fd6163): xash's CL_CompareTimestamps 1ms quantization randomly skips the sequence latch at high
    listenserver fps (GoldSrc 100fps always latches) → client re-latch shim in OUR StudioModelRenderer
    (presentation-only; SetAnim @0x5d7e4 decompile-diffed byte-equivalent).
-USER-VALIDATED: roll carry "PERFECT", matches the original. pm phase-2 (PM_Jump/PM_Duck full diffs) still has
+USER-VALIDATED: roll carry "PERFECT"; +alt1 dive wall-clip + slide "fantastic"; stamina HUD refills. pm phase-2 (PM_Jump/PM_Duck full diffs) still has
 un-diffed remainder — the four functions above are transcribed at the divergence points found.
+
+### SESSION CLOSE (cont.81): the RE für the whole remaining queue is DONE; application is the cont.82 work
+All dossiers/plans/decompiles COMMITTED at reference/dossiers/cont81/ (README indexes applied-vs-pending).
+Applied: consolidation C1-C20 · melee S0-S6+S9 · the stunt/prone/movement chapter (user-validated) · TSFlag wire
+fix · stamina HUD. Pending application: melee S7abc/S8/S10 · gmsg U0-U5 · freefuncs F1-F10 · invented review +
+globals tail · stunt/pm tail. Final audit: 13 missing methods · 41 invented · 39 free funcs · 17 globals ·
+0 file/0 member/0 class. HANDOFF cont.82 section written (methods, queue, task list, gotchas).
 
 ### STILL OPEN (cont.81 → next)
 - **Apply the dossiers**: melee S0–S10 (UpdateMeleeBar unblocks the GoWheel backkick = stunt tail), gmsg U0–U5
