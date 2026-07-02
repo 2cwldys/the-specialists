@@ -16,37 +16,6 @@
 #include "ts_groundweapon.h" // CTSGroundWeapon::Fall (RespawnEntities)
 #include "ts_flag.h"       // CTSFlag::RespawnFlag, HaveFlag (CTF)
 
-// DAT_0017da25 in the original: a cached flag that, when nonzero, removes the
-// low-gravity (0x100) powerup from the random pool. Zero-init in the binary, so
-// low-gravity is permitted by default. VERIFY: which cvar feeds this.
-static byte g_iNoLowGravPowerup = 0;
-
-// @ GetRandomPowerup__12CTSGameRulesi — collect the permitted powerup bits from
-// `mask` and return a random one (0 if the pool is empty). Faithful to the .so:
-// the 0x80 slot is always skipped, and 0x100 (low gravity) is gated.
-int CTSGameRules::GetRandomPowerup(int mask)
-{
-	int list[9];
-	int count = 0;
-
-	for (int bit = 1; bit <= TS_PWUP_LOWGRAV; bit <<= 1)
-	{
-		if ((mask & bit) == 0)
-			continue;
-		if (bit == 0x80) // unused powerup slot
-			continue;
-		if (bit == TS_PWUP_LOWGRAV && g_iNoLowGravPowerup != 0)
-			continue;
-		list[count++] = bit;
-	}
-
-	if (count == 0)
-		return 0;
-
-	return list[RANDOM_LONG(0, count - 1)];
-}
-
-// Defined in ts_powerup.cpp — create a temporary powerup of `type` at `vecOrigin`.
 CBaseEntity *TSCreatePowerUpAt(int type, const Vector &vecOrigin);
 // Defined in ts_objectives.cpp — fire the objective manager's targetontimeleft on round timeout.
 void TSFireTimeLeftTarget();
@@ -662,32 +631,6 @@ void CTSGameRules::CheckVotes()
 		strncpy(m_szNextMap, maps[best], sizeof(m_szNextMap) - 1);
 }
 
-// @ PutPowerUp__12CTSGameRulesi — spawn a powerup at a random info_player_deathmatch
-// spawn point. Skips the spot if a ts_powerup is already nearby (so dynamically-spawned
-// powerups don't stack). Returns true if one was created.
-bool CTSGameRules::PutPowerUp(int type)
-{
-	// Collect the deathmatch spawn points (the .so caps at 32).
-	CBaseEntity *spawns[32];
-	int count = 0;
-	CBaseEntity *pSpot = nullptr;
-	while (count < 32 &&
-		(pSpot = UTIL_FindEntityByClassname(pSpot, "info_player_deathmatch")) != nullptr)
-		spawns[count++] = pSpot;
-
-	if (count == 0)
-		return false;
-
-	Vector vecOrigin = spawns[RANDOM_LONG(0, count - 1)]->pev->origin + Vector(0, 0, 16);
-
-	// Don't pile powerups onto a spot that already has one.
-	CBaseEntity *pNear = nullptr;
-	while ((pNear = UTIL_FindEntityInSphere(pNear, vecOrigin, 128.0f)) != nullptr)
-		if (FClassnameIs(pNear->pev, "ts_powerup"))
-			return false;
-
-	return TSCreatePowerUpAt(type, vecOrigin) != nullptr;
-}
 
 // @ CTSGameRules::Think — run the inherited MP think, then (in non-team deathmatch) drive
 // the dynamic powerup spawner: roll a random powerup every ~20s and PutPowerUp it (retry in
