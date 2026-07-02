@@ -68,6 +68,20 @@ IDENTICAL between 05be983 and HEAD via a temp worktree), not a contract change.
   GetCloseCombatVectors/WeaponIdFromString/AdjustSpecificWeapon/TSFoundRandomEntity/GetAccelBySlots. Sightings:
   TSGameRules = GLOBAL CTSGameRules instance @0x1681a0 size 0x5894; objects/roundtime unseen by the 43.
 
+### Melee dossier APPLIED through S4 (cont.81 continued; commits 4377174..40c9bb5)
+S0 inert state (members+glast_*+table columns) · S1 UpdateMeleeBar + bar->player migration + RE-proven
+15/s PreThink regen + VALUE window decay (m_flKungFuBlock semantics converted, all readers updated;
+RegenBlockBar + 4 invented members deleted; WeaponInfo clip byte = ROUND(bar) for melee) · S2 BlockPlayer
++ PreThink root/whiff lifecycle (+ stunt reset zeroes) · S3 CheckHull + FindHullIntersectionplayer +
+Victim{Katana,Knife,Kungfu}Hold (counter role-swap faithful; uncalled) · S4 the twins CloseCombatAttack/
+ColdCockAttack (uncalled; DropWeapon(int,float) disarm shape added with the -2 roll VERIFY-gated INERT).
+Headline now: **14 missing methods · 41 invented · 39 missing free funcs · 0 file/0 member/0 class gaps.**
+NEXT: S5 rewire CCombatAttack/CloseAttack onto the twins (+ GoWheel backkick tail = the Track-B blocker),
+S6 ColdCock wrapper, S7a/b/c knife/katana split, S8 knife settle/pickup, S9 CCombatIdle, S10 close-out.
+S5+ are PLAYTEST-GATED behavior changes. Before S5's disarm goes live: RE DropWeapon@0x84900's -2 roll
+(re project is FREE). VERIFY tags in code: 8-arg EMIT_SOUND_DYN trailing 0.5, coldcock damage bits (L5),
+CheckHull hull mins/maxs, whiff expiry predicate.
+
 ### STILL OPEN (cont.81 → next)
 - **Apply the dossiers**: melee S0–S10 (UpdateMeleeBar unblocks the GoWheel backkick = stunt tail), gmsg U0–U5
   (TSFlag 1-liner first), freefuncs F1–F10 (F3 falloff playtest-gated). All work-lists are commit-ordered.
