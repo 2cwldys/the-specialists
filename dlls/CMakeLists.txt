@@ -132,7 +132,7 @@ target_sources(hl PRIVATE
 	ts_gun.cpp
 	ts_deadcorpse.cpp
 	ts_dmhill.cpp
-	ts_objectives.cpp
+	TS_objectives.cpp
 	ts_powerup.cpp
 	ts_shared.cpp
 	ts_bullet.cpp
