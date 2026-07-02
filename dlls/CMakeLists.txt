@@ -110,7 +110,6 @@ target_sources(hl PRIVATE
 	ts_cvars.cpp
 	ts_buy.cpp
 	ts_flag.cpp
-	ts_briefcase.cpp
 	ts_player.cpp
 	ts_animation.cpp
 	ts_stunt.cpp
