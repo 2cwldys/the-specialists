@@ -19,6 +19,12 @@ bool SlowPause(CBasePlayer *pPlayer);      // @ 0x65fb8 — m_iPowerups & 8
 bool DoubleFireRate(CBasePlayer *pPlayer); // @ 0x65fe4 — m_iPowerups & 0x10
 int  KungFu(CBasePlayer *pPlayer);         // @ 0x65fd8 — m_iKungFu
 
+// Kill-flavor globals (original .data @0x104480/81/82) — melee/coldcock/headshot kill blow
+// markers driving the death-notice weapon string + #TS_Coldcock HUD broadcast. ts_player.cpp.
+extern bool glast_closecombat;
+extern bool glast_coldcock;
+extern bool glast_headshot;
+
 // Slow-motion "bullets as models" — see CBulletManager in ts_bullet.h (g_BulletManager).
 // The fire path calls g_BulletManager.FireBullet; gamerules Think calls g_BulletManager.Think.
 

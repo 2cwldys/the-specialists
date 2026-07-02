@@ -50,6 +50,9 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->zoomFov2 = 0;
 	w->attachSupported = 0;  // default: mounts no attachments (overridden in compile_weapons_info)
 	w->attachBuiltin = 0;    // default: ships with none
+	w->iColdCockDamage = 0;  // default: can't coldcock (overridden per weapon below)
+	w->iKnifeType = 0;       // default: not a throwable blade
+	w->iIdleAnim = 0;        // shipped data: 0 for all rows (CCombatIdle table read)
 }
 
 // SetSpartaWeapon (ts_i386.so @0x6fa34): the combat-param override applied after the Write_<weapon> stage.
@@ -393,6 +396,26 @@ static void compile_weapons_info()
     g_weaponInfo[h.type].iHoldFireAnim  = h.holdFire;
     g_weaponInfo[h.type].iHoldReloadAnim = h.holdReload;
   }
+
+  // Cold-cock damage column (s_weapon_info+0x10) — RE CTSGun::ColdCock @0x81dd0 per-weapon
+  // damage reads (dossier-melee.md §2 coldcock). Only these 11 weapons can coldcock.
+  g_weaponInfo[TSW_AUG].iColdCockDamage = 35;
+  g_weaponInfo[TSW_BENELLIM3].iColdCockDamage = 35;
+  g_weaponInfo[TSW_M16].iColdCockDamage = 35;
+  g_weaponInfo[TSW_M4].iColdCockDamage = 35;
+  g_weaponInfo[TSW_BARRETT].iColdCockDamage = 70;
+  g_weaponInfo[TSW_DESERT].iColdCockDamage = 25;
+  g_weaponInfo[TSW_M60].iColdCockDamage = 50;
+  g_weaponInfo[TSW_SAWEDOFF].iColdCockDamage = 50;
+  g_weaponInfo[TSW_USAS12].iColdCockDamage = 50;
+  g_weaponInfo[TSW_MAC10].iColdCockDamage = 30;
+  g_weaponInfo[TSW_MP5SD].iColdCockDamage = 30;
+
+  // Thrown-blade type codes (s_weapon_info+0x20) — CreateKnife's typeCode (knife 6 /
+  // sealknife 7 / katana 8; drives the projectile model/gravity/pickup identity).
+  g_weaponInfo[TSW_KNIFE].iKnifeType = 6;
+  g_weaponInfo[TSW_SEALKNIFE].iKnifeType = 7;
+  g_weaponInfo[TSW_KATANA].iKnifeType = 8;
 
   g_weaponInfoCompiled = true;
 }

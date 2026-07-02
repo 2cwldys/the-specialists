@@ -416,6 +416,17 @@ public:
 	byte m_bLowGravity = 0;           // 0x74f — super-jump powerup active (engine physinfo "mj")
 	byte m_bTheOne = 0;               // 0x7b9 — this player is "The One" (the juggernaut game mode)
 	float m_flKungFuBlock = 0;        // close-combat BLOCK window expire time (RE CCombatBlock player+0x7a8)
+	// ---- melee stamina/whiff/block state (transient, NOT saved; RE dossier-melee.md + the L1/L2 addendum) ----
+	float m_flMeleeBar = 100.0f;      // 0x774 — melee stamina 0..100; UpdateMeleeBar drains, PreThink regens 15/s, TSInit=100
+	float m_flWhiffLungeTime = 0;     // 0x79c — whiff-lunge window, armed on a MISSED swing; PreThink counts down
+	float m_flWhiffLungeForce = 0;    // 0x7a0 — SIGNED lunge force (backkick/backslash negative); doubled if KungFu; zeroed on a block
+	int m_iWhiffLungeType = 0;        // 0x7a4 — 0 kungfu / 1 knife / 2 katana (VictimKungfuHold's counter reads ==0)
+	float m_flKnifeBlock = 0;         // 0x7ac — knife block window: VALUE 0.5 set by CCombatBlock, PreThink-decayed, floor 0
+	float m_flKatanaBlock = 0;        // 0x7b0 — katana block window (also deflects a knife); same decay law
+	float m_flBlockTime = 0;          // 0x4dc — BlockPlayer() self-root timer (pairs w/ iuser4 STOP bit); PreThink-decayed
+	float m_flLastMeleeRate = 0;      // 0x4f8 — last melee refire interval (written by every melee fire; consumer VERIFY)
+	float m_flDuckSlashAux = 0;       // 0x4f4 — katana duck-slash aux (=2.0; consumer VERIFY)
+	float m_flDisarmTime = 0;         // 0x71c — disarm-immunity gate for DropWeapon(-2) in the melee twins
 	float m_flSuperJumpFuel = 0;      // super-jump remaining lift time (refills on the ground)
 	float m_flNextPainTime = 0;       // cooldown for the TS pain voice (player/pain1-4)
 	byte m_bSuperJumpAir = 0;         // super-jump: was airborne last frame (to detect the landing thud)

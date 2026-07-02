@@ -17,6 +17,14 @@
 
 extern int gmsgTSHaveFlag; // wire name "TSFlag" (4) — defined in ts_flag.cpp
 
+// Kill-flavor globals (@0x104480/81/82 in the original .data) — set around TraceAttack/
+// ApplyMultiDamage on a melee/coldcock/headshot kill blow; read by TSGetPointsForFrag +
+// PlayerKilled (death-notice weapon string "Kung Fu"/"<weapon> Stock" + #TS_Coldcock HUD)
+// + Killed. Wire-visible via the kill feed. RE dossier-melee.md §1.4.
+bool glast_closecombat = false;
+bool glast_coldcock = false;
+bool glast_headshot = false;
+
 // Lazily-registered TS powerup user messages (see ts_player.h).
 int gmsgTSPowerUpTime = 0;  // "PwUpTime" 1 — active countdown (UsePowerUp)
 int gmsgTSMotionBlur = 0;   // "TSMBlur"  2 — entindex + 1/2 (UsePowerUp)

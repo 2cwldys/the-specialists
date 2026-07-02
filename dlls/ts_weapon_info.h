@@ -95,6 +95,15 @@ struct s_weapon_info
 	// for the only-akimbo gold colts). Set in compile_weapons_info (see ts_weapon_info.cpp).
 	int   iAkimboType; // +0xc8 — single -> akimbo upgrade target, or TSW_MELEE-sentinel -1
 	int   iSingleType; // +0xcc — akimbo -> single base
+	// Cold-cock (rifle-butt / pistol-whip) damage (s_weapon_info+0x10). 0 = the weapon can't
+	// coldcock (the AlternateAttack gate). Per-weapon values RE'd from CTSGun::ColdCock @0x81dd0.
+	int   iColdCockDamage; // +0x10 — coldcock hit damage (0 = no coldcock)
+	// Thrown-blade type code (s_weapon_info+0x20): knife 6 / sealknife 7 / katana 8; 0 = not a
+	// blade. Passed to CreateKnife (drives the projectile's model/gravity/pickup identity).
+	int   iKnifeType;      // +0x20 — CreateKnife type code (6/7/8, 0 = none)
+	// Kung-fu idle viewmodel sequence (s_weapon_info+0x252; 0 in the shipped data — kept as a
+	// table read because CTSGun::CCombatIdle reads it from the TSW_MELEE row).
+	int   iIdleAnim;       // +0x252 — bare-hands idle anim (0 in shipped data)
 	// Fire-mode mask (s_weapon_info+0xc): bitset of the trigger modes this weapon offers,
 	// cycled by CTSGun::SwitchFireMode. Bit N set => mode N (tsfiremode_mode_t) available.
 	int   iFireModes;  // +0xc — available fire-modes bitmask
