@@ -1245,14 +1245,18 @@ void CTSGun::CCombatBlock()
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
 }
 
-// @ AlternateAttack__6CTSGun @0x81ba8 — the +alt2 input: pistol-whip (ColdCock) when the
-// active weapon has a round loaded (the .so gates on the active slot's clip > 0).
+// @ AlternateAttack__6CTSGun @0x81ba8 — the +alt2 input: pistol-whip (ColdCock). RE: the
+// gate is `m_pActiveItem && iColdCockDamage > 0` (NOT the clip — dispatcher gates VERIFY L9;
+// our timer check kept meanwhile as the anti-spam floor).
 void CTSGun::AlternateAttack()
 {
 	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
-		return; // mid-attack cooldown
-	if (m_iClip <= 0)
-		return; // .so: only coldcock with a loaded weapon
+		return; // KEPT until the dispatcher-gates VERIFY (L9)
+	if (!m_pActiveItem)
+		return;
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	if (!wi || wi->iColdCockDamage <= 0)
+		return;
 	ColdCock();
 }
 
@@ -1261,30 +1265,53 @@ void CTSGun::AlternateAttack()
 // damage. Reuses the knife melee sounds (no dedicated coldcock sound ships). SLICE: the
 // faithful coldcock viewmodel anim rides events/coldcock.sc (not yet reconstructed); we
 // drive the 3rd-person attack anim + sound server-side.
+// @0x81dd0 ColdCock — the pistol-whip/rifle-butt wrapper: per-weapon damage from the table
+// (iColdCockDamage, x2/3 while stunting), range 35, hull 3, routed through the
+// ColdCockAttack twin with all four behavior bools FALSE. Cadence 0.725 (x1.5 stunting).
+// Interrupts zoom/reload/grenade-idle. Attacker confirm on a player hit = kevlarhit.wav
+// pitch 60-91. coldcock.sc fires even on a miss in the original — the event swap lands
+// with the S7b protocol step (presentation kept server-side meanwhile).
 void CTSGun::ColdCock()
 {
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	if (!wi || wi->iColdCockDamage <= 0)
+		return; // this weapon can't coldcock
+
+	const bool stunting = (m_pPlayer->pev->iuser4 & 0x70c30) != 0;
+	float dmg = (float)wi->iColdCockDamage;
+	if (stunting)
+		dmg *= 2.0f / 3.0f;
+
+#ifndef CLIENT_DLL
+	Unzoom(); // the original interrupts zoom (+ StopReload/GrenadeIdle — those interrupts VERIFY placement)
+#endif
+
 	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	Vector vecSrc = m_pPlayer->GetGunPosition();
-	Vector vecEnd = vecSrc + gpGlobals->v_forward * 40.0f;
+	Vector vecEnd = vecSrc + gpGlobals->v_forward * 35.0f;
 
-	TraceResult tr;
-	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
-
-	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_FIRE);
-	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f; // pistol-whip cadence
+	const float cadence = stunting ? 0.725f * 1.5f : 0.725f;
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + cadence;
+	m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 
-	if (tr.flFraction >= 1.0f)
-		return; // miss (swing is the visual; no sound)
-
-	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
-	if (pHit)
+#ifndef CLIENT_DLL
+	CBaseEntity *pHit = m_pPlayer->ColdCockAttack(vecSrc, vecEnd, gpGlobals->v_forward,
+		3, dmg * TSDamageMult(), stunting ? -1 : 39 /*anim 39, none while stunting*/,
+		false, false, false, false);
+	if (pHit && pHit->IsPlayer())
 	{
-		ClearMultiDamage();
-		pHit->TraceAttack(m_pPlayer->pev, 25.0f * TSDamageMult(), gpGlobals->v_forward, &tr, DMG_CLUB | DMG_NEVERGIB);
-		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
+		// attacker confirm — the kevlar "clonk" (RE: pitch 60 + rand(0,31))
+		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kevlarhit.wav", VOL_NORM,
+			ATTN_NORM, 0, 60 + RANDOM_LONG(0, 31));
 	}
+	else if (!pHit)
+	{
+		// miss presentation kept until the coldcock.sc event swap (S7b)
+		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM,
+			ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
+	}
+#endif
 }
 
 // Trigger the active TS gun's alternate attack (+alt2 / coldcock) for a player.

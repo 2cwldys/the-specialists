@@ -29,6 +29,8 @@
 #include "hltv.h"
 #include "trains.h"
 #include "UserMessages.h"
+#include "ts_player.h" // glast_* kill-flavor globals
+#include "ts_utils.h"  // TSHudMessageAll
 
 #define ITEM_RESPAWN_TIME 30
 #define WEAPON_RESPAWN_TIME 20
@@ -682,6 +684,21 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 		killer_weapon_name += 8;
 	else if (strncmp(killer_weapon_name, "func_", 5) == 0)
 		killer_weapon_name += 5;
+
+	// TS kill-flavor rewrite (RE dossier-melee §1.4: glast_* set around the killing TraceAttack,
+	// still true here): a close-combat kill reads "Kung Fu"; a coldcock kill appends " Stock"
+	// and broadcasts the #TS_Coldcock HUD line. Wire-visible (the kill feed) — byte-faithful.
+	char tsWeaponFlavor[64];
+	if (glast_closecombat)
+		killer_weapon_name = "Kung Fu";
+	else if (glast_coldcock)
+	{
+		snprintf(tsWeaponFlavor, sizeof(tsWeaponFlavor), "%s Stock", killer_weapon_name);
+		killer_weapon_name = tsWeaponFlavor;
+		char msg[128];
+		snprintf(msg, sizeof(msg), "#TS_Coldcock #TS_FrgFr %s!", STRING(pVictim->pev->netname));
+		TSHudMessageAll(0, 0xff, 0, 1, 0x14, msg);
+	}
 
 	MESSAGE_BEGIN(MSG_ALL, gmsgDeathMsg);
 	WRITE_BYTE(killer_index);				// the killer
