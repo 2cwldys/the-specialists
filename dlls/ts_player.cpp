@@ -13,6 +13,7 @@
 #include "ts_weapons.h"   // TSPlayerFreeSlots (slot-weight gate)
 #include "ts_gun.h"       // GetPlayerTSGun (block-bar for GetMeleeMultiplier)
 #include "ts_worldgun.h"  // CTSAmmoPack::CreateAmmoPack (DropArmor)
+#include "ts_bomb.h"      // CTSBomb::CutWire (the cutwire_<n> command helper)
 
 extern int gmsgTSHaveFlag; // "TSHaveFlag" (4) — defined in ts_flag.cpp
 
@@ -568,4 +569,12 @@ void CBasePlayer::DropAmmo()
 	CTSAmmoPack::CreateAmmoPack(pev, pGun->m_ammoReserve, 0, origin, g_vecZero);
 	for (int c = 0; c < TS_NUM_CALIBERS; c++)
 		pGun->m_ammoReserve[c] = 0;
+}
+
+// Free helper for the wire-cut console command (the cl_dll wire UI isn't built).
+void CBasePlayer::CutWire(int wire)
+{
+	CBaseEntity *pEnt = nullptr;
+	while ((pEnt = UTIL_FindEntityByClassname(pEnt, "ts_bomb")) != nullptr)
+		((CTSBomb *)pEnt)->CutWire(wire, this);
 }
