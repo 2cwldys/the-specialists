@@ -76,11 +76,18 @@ RegenBlockBar + 4 invented members deleted; WeaponInfo clip byte = ROUND(bar) fo
 Victim{Katana,Knife,Kungfu}Hold (counter role-swap faithful; uncalled) · S4 the twins CloseCombatAttack/
 ColdCockAttack (uncalled; DropWeapon(int,float) disarm shape added with the -2 roll VERIFY-gated INERT).
 Headline now: **14 missing methods · 41 invented · 39 missing free funcs · 0 file/0 member/0 class gaps.**
-NEXT: S5 rewire CCombatAttack/CloseAttack onto the twins (+ GoWheel backkick tail = the Track-B blocker),
-S6 ColdCock wrapper, S7a/b/c knife/katana split, S8 knife settle/pickup, S9 CCombatIdle, S10 close-out.
-S5+ are PLAYTEST-GATED behavior changes. Before S5's disarm goes live: RE DropWeapon@0x84900's -2 roll
-(re project is FREE). VERIFY tags in code: 8-arg EMIT_SOUND_DYN trailing 0.5, coldcock damage bits (L5),
-CheckHull hull mins/maxs, whiff expiry predicate.
+S4b DropWeapon(-2) internals RE'd + implemented (decompiled @0x84900: a PRESSURE ACCUMULATOR player+0x7b4
+= the 5x-decay PreThink field; thresholds katana 30 / melee cat 25 / clamp(slotCost,20,50); TSW_FLAG
+undisarmable) · S5 rewired CCombatAttack + CTSStunt::CloseAttack onto CloseCombatAttack (full deflect/
+counter/disarm/knockback live; miss presentation kept until S7b) + **the GoWheel dir==3 BACKKICK combo is
+WIRED (UpdateMeleeBar 22.5 + backward whiff arm) — the Track-B blocker** · S9 CCombatIdle + WeaponIdle
+bare-hands branch. Headline: **13 missing methods · 41 invented · 39 free funcs.**
+REMAINING melee: S6 ColdCock wrapper + AlternateAttack gate + kill-feed strings; S7a/b/c knife/katana
+split (largest; MeleeAttack/ThrowKnife absorbed; knife/katana/draw.sc protocol swaps need the client side
+simultaneously); S8 CTSKnife WaitTouch + settle/pickup rewire; S10 close-out. Then gmsg U0-U5 (dossier-
+gmsg + star_*.md — registration parity first) and freefuncs F1-F10 (dossier-freefuncs). VERIFY tags in
+code: L7 per-move whiff/rootFlag table, L10 CloseAttack drain const + top-up, backkick force base,
+8-arg EMIT_SOUND_DYN, coldcock dmg bits (L5), CheckHull hull extents, whiff expiry predicate.
 
 ### STILL OPEN (cont.81 → next)
 - **Apply the dossiers**: melee S0–S10 (UpdateMeleeBar unblocks the GoWheel backkick = stunt tail), gmsg U0–U5
