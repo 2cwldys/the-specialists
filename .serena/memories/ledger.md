@@ -5,6 +5,78 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-02 (cont. 81) — workflow-orchestrated RE fan-out + the file-consolidation plan applied (C1–C20)
+
+Continued `restructure-source-parity` (NOT merged; GPG off). NEW METHOD this session (user-directed): **multi-agent
+Workflows** — 4 concurrent RE workflows + 1 star-pass agent (42 subagents total, ~4.4M tokens of raw decompile kept
+out of the orchestrator context), each on its own Ghidra-project lock domain (re / clientdll / none), all read-only;
+every source edit applied centrally afterward. Dossiers in the session scratchpad (regenerate if gone):
+`dossier-melee.md` (+`-addendum-L1-L2.md`), `dossier-gmsg.md` (+6 `star_*.md`), `dossier-freefuncs.md`
+(+5 `analysis_ff_*.md`), `plan-consolidation.md` (+6 `plan_files_*.md`).
+
+### The consolidation plan APPLIED — 20 commits (846d960..), audit FILE level now CLEAN
+**22→0 FILE mismatches, 2→0 MISSING files.** Every commit build-green (`build.sh amd64`, C18 `all`) + gated on
+`nm -D` T-export set EXACTLY identical to the 05be983 baseline (proven: the whole plan is text motion) + audit
+monotone. C1 ts_bulletmgr→ts_bullet · C2 fog→ts_emitter · C3 knife→ts_grenades · C4 ts_gamerules→TS_gamerulesclass
+· C5 GetRandomPowerup/PutPowerUp/g_iNoLowGravPowerup→ts_powerup · C6 NEW TS_gamerules.cpp (free-fn file; HaveFlag +
+InitWeaponRestriction) · C7 ts_teams folded into TS_gamerulesclass · C8 CTSSuperJump→hldmcompat · C9/C10
+groundweapon+groundammo→ts_worldgun · C11 →TS_objectives.cpp · C12 NINE entity files→TS_entities.cpp (binary
+address order) · C13 CTSTrigger→TS_entities · C14 bomb→TS_objectives + CBasePlayer::CutWire→ts_player · C15/C16
+escape+briefcase→TS_objectives · C17 audit comment-regex false-positive reword (TU-order polish deferred) · C18
+pm_shared/TS_pm_shared.{h,cpp} carve-out BOTH libs (6 TS* fns de-static'd; hidden-visibility so dyn exports
+unchanged) · C19 audit.py: skip `__*` RTTI junk (phantom pm_shared.c), client.dll ACCEPTED_CLIENT_FILES mapping +
+report section, client.dll out of missing_files · C20 docs regen. Gotcha ×2: python "body after last include"
+splits DROP defines/enums sitting between includes (SF_SLOMO_*, BOMB_*/tsbomb_wire_t) — restored by hand.
+REPORT.md regen showed non-cosmetic drift → PROVED pre-existing staleness (LINK_ENTITY_TO_CLASS set diffed
+IDENTICAL between 05be983 and HEAD via a temp worktree), not a contract change.
+
+### The RE dossiers (all reconcile work-lists, NOT yet applied — the next session's queue)
+- **MELEE (dossier-melee.md, 9 missing methods)**: bar lives on the PLAYER (+0x774), whiff-lunge +0x79c..0x7a4,
+  block windows +0x7a8/ac/b0 (value 0.5, PreThink-decayed, floor 0); UpdateMeleeBar = single drain choke-point
+  (<0.01 → bar=0 + m_flNextAttack=1.5 lockout; ALWAYS sends KFuPower CHAR); twins CloseCombatAttack/ColdCockAttack
+  (CheckHull trace → Victim*Hold deflect → disarm/knockback → glast_* damage); KnifeFire/KatanaFire/KatanaThrow/
+  CCombatIdle on CTSGun; CTSKnife::WaitTouch replaces our invented settle/pickup set. Rename/absorb map + S0–S10
+  build-green order in the dossier. **L1/L2 CLOSED STATICALLY (addendum)**: regen = PreThink
+  `bar += GiveSlowMul()*frametime*15.0` (×1.5 under TS_PWUP_DBLFIRE bit 0x10 = m_iPowerups), clamp 100, init 100 in
+  TSInit — our invented 25/s regen is WRONG; block windows decay by the same delta with 0-floor; bonus: GoWheel/
+  CloseAttack clear the kungfu window; 4th timer +0x7b4 decays ×5. Method: objdump scan for member-offset accesses
+  + nearest-nm-symbol + GOT-relative .rodata reads — no live trace needed.
+- **GMSG (dossier-gmsg.md + star_*.md, 14 messages, 6 units U0–U5)**: SelAmmo(4)/ClipInfo(1) register-only;
+  SetCurWeap dead (we already match); gmsgStatusText/StatusValue/Weapons/Flashlight/FlashBat = INVENTED
+  registrations to DELETE (registration-set parity; gmsgWeapons removal playtest-gated vs HLU 64-bit weapon bits).
+  Real carriers: TSState(1,@0x498)/TSSpace(1,@0x548)/TSBTime(1,src=m_bSlowBullets@0x175)/TSPAward(2,MSG_ALL,
+  @0x74c, producers fully mapped incl. lastman/killer tiers)/PlInfo(3,laser color)/SrvSett(3: id0=realbullet NOT
+  roundtime, id1=dmcashbased cvar "usecash", id2→Set_ammo_count, id3 weaponrestriction; InitHUD sends ALL FOUR)/
+  Wires(3, CheckForWires: PreThink-only, gamemode==3, 0.5s throttle, sphere-64 ts_bomb scan, ROLE codes on the
+  wire)/PTakeDam(13, TraceAttack)/TSFade(-1, Write divides fixed 4.12 ushorts by per-recipient GiveSlowMul; stock
+  Fade never sent)/CustomWP(-1, "%i %f %f %f %f %i" string, needs iPrice column). **★ SHIPPED BUG CONFIRMED: the
+  original registers the flag message as "TSFlag"(4) (string = tail of "7CTSFlag" @0xf9c84) into gmsgTSHaveFlag;
+  our ts_flag.cpp registers "TSHaveFlag" → drop-in client would never get flag updates. 1-line fix queued.**
+  Full 64-entry LinkUserMessages registration order recovered (star_LinkUserMessages.md).
+- **FREEFUNCS (dossier-freefuncs.md, all 43 RE'd, plan F1–F10)**: s_ammo_info 16×0x38 table fully recovered
+  (price/kind/maxcarry/mag/travel/falloff-range/speed/name); range-damage falloff = clamp01(1/sqrt(0.1·i)) LUT,
+  two index forms (dist/30 kind==2, dist/ammoInfo[+0x20] per-caliber 800u..2000u) — our flat damage is the biggest
+  gameplay gap (F3 ★). LIVE divergences found: kAmmoMax serves the FALLOFF-RANGE column as reserve cap (9mm 80 vs
+  real 210, mode-scaled +0xc via missing Set_ammo_count); kBulletSpeedUnit in compile-write order not caliber
+  order; cal13 = 7.62x51mm not .45LC. TS_util.cpp = CustomWP pipeline + slowed-array (+0x208[32]/+0x288 — our
+  player.h comment says 0x188, fix) + lifecycle (TSPlayerDisconnect resets = vote-rejoin bug fix + CallCheckDeads
+  round-end; TSCountPlayers counts dead-awaiting-respawn +0x770>=0; PlayerIsCheating = forced cl_lw 1; TSPrecache
+  ~30 missing assets). TS_gamerules.cpp: DecideGamePlay (g_gamemode 1DM/2Team/3LMS/4TheOne, cvar priority
+  theone>lms>teamplay), Victim*Hold (melee S3), TSSelectSpawnSpot (far-enemy scorer + 300dmg telefrag),
+  DoSpectacularNess (style points). pm_shared: PseudoClimb = the one real gap; FixVelocity = empty ret; CanJumpHigh
+  = DEAD (superjump hint REFUTED). Dead-in-binary but reconstruct-for-parity: CalcSpread/DropKickback/
+  GetCloseCombatVectors/WeaponIdFromString/AdjustSpecificWeapon/TSFoundRandomEntity/GetAccelBySlots. Sightings:
+  TSGameRules = GLOBAL CTSGameRules instance @0x1681a0 size 0x5894; objects/roundtime unseen by the 43.
+
+### STILL OPEN (cont.81 → next)
+- **Apply the dossiers**: melee S0–S10 (UpdateMeleeBar unblocks the GoWheel backkick = stunt tail), gmsg U0–U5
+  (TSFlag 1-liner first), freefuncs F1–F10 (F3 falloff playtest-gated). All work-lists are commit-ordered.
+- Track B stunt tail unchanged (cont.80 STILL-OPEN list) + task #8 invented-method review (CTSGameRules 11,
+  CBasePlayer TS* 8) + TU-order polish (C17 deferral) + runtime smoke points from the plan (tm_avana, ts_wyndham,
+  ctb map, stunt prediction) — ALL of C1–C20 is nm-gated but UNPLAYTESTED.
+
+---
+
 ## 2026-07-01 (cont. 80) — CTSAnimation Region B + fire/grenade faithful; live-trace proved m_fSequenceFinished works
 
 Continued `restructure-source-parity` (NOT merged; GPG off). Focus: the CTSAnimation 3rd-person tail (task #3),
