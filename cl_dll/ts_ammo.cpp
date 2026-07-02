@@ -28,6 +28,7 @@
 #include "parsemsg.h"
 #include "ts_hud.h"
 #include "ts_attachments.h" // TS_LocalActiveAttach — which equipped attachments are toggled ON
+#include "../dlls/ts_weapon_info.h" // get_weapon_info (the melee-bar byte routing)
 
 #include <stdio.h>
 
@@ -144,10 +145,19 @@ bool CHudTSAmmo::MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
 	m_iWeaponType = READ_BYTE();
-	m_iClip = READ_BYTE();
+	int clipByte = READ_BYTE();
 	m_iReserve = READ_SHORT();
 	m_iFireMode = READ_BYTE();
 	m_iEquip = READ_BYTE(); // EQUIPPED attachment mask (silencer 1 / laser 2 / flash 4 / scope 8)
+
+	// The clip byte carries the MELEE BAR for melee weapons (the server mirrors the original
+	// UpdateClientData's read of player+0x774) — this is how the HUD tracks the silent PreThink
+	// regen and the respawn refill (KFuPower only fires on drains).
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_iWeaponType);
+	if (wi && (wi->iFireType == 3 || wi->iFireType == 10))
+		m_iMeleeBar = clipByte;
+	else
+		m_iClip = clipByte;
 
 	g_iTSActiveWeapon = m_iWeaponType; // the weapon-select bar highlights this slot
 
