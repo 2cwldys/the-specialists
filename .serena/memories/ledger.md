@@ -108,6 +108,17 @@ wheel_b = standing double-jump. STILL OPEN from the playtest: wheel lands prone 
 stay down unless moving) + prone switches too fast; the stamina-bar HUD refill (client-side KFuPower drain-only —
 wire the WeaponInfo melee byte into the HUD bar + reset on respawn).
 
+### ⭐ SECOND SYSTEMATIC CORRECTION (cont.81): entvars gravity/friction map was INVERTED (offsetof-proven)
+gravity = pev+0x11c, friction = pev+0x120 (32-bit offsetof; anchors v_angle 0x74 / view_ofs 0x174 / button
+0x180 / flags 0x1a4 / iuser4 0x250 all verified). The cont.80 ledger's "GoRoll gravity 0.3 (pev+0x120)" and
+every derived stunt transcription had the two swapped. Swept (60086ff): GoRoll = friction 0.3 · GoWallJump =
+gravity 0.75 · GoWheel = gravity 0.75 both tiers + forward-LOW friction 0.25 (the "flying" double-jump bug) ·
+HandleWheel = HIGH-landing friction 0.25 + gravity-1.0 restore tail · HandleWallJump/Climb = friction 0.5 +
+gravity 1.0 · HandleSlide deliberate = friction 1.0 · getup restores both. Also fixed this session: HandleWheel
+is a LANDING handler (FL_ONGROUND gate, 4e4eb36 — the ungated version caused the lowwheel mid-air prone stomp)
+and the directional-pose dispatch (27fde55, see the m_vecStuntDir correction above). Verify any remaining
+pev-offset reading with /tmp/offcheck-style offsetof before trusting it.
+
 ### STILL OPEN (cont.81 → next)
 - **Apply the dossiers**: melee S0–S10 (UpdateMeleeBar unblocks the GoWheel backkick = stunt tail), gmsg U0–U5
   (TSFlag 1-liner first), freefuncs F1–F10 (F3 falloff playtest-gated). All work-lists are commit-ordered.
