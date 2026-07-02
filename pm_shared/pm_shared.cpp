@@ -25,6 +25,7 @@
 #include "pm_materials.h"
 #include "pm_movevars.h"
 #include "pm_debug.h"
+#include "TS_pm_shared.h"
 #include <stdio.h>	// NULL
 #include <string.h> // strcpy
 #include <stdlib.h> // atoi
@@ -79,26 +80,7 @@ typedef struct hull_s
 // Ducking time
 #define TIME_TO_DUCK 0.4
 #define MAX_CLIMB_SPEED 200
-#define STUCK_MOVEUP 1
-#define STUCK_MOVEDOWN -1
 #define STOP_EPSILON 0.1
-
-// TS stunt prediction flags — pev->iuser4 networked into pmove->iuser4 (mirror
-// dlls/ts_stunt.h). Read by the TS* hooks below + the PM_Duck gate. See reference/STUNT.md.
-#define TSPM_STOP        0x000001 // damp velocity x0.5
-#define TSPM_PRONE       0x000004 // use the ducking hull
-#define TSPM_STANDUP     0x000008 // leave the ducking hull
-#define TSPM_DIVE        0x000010 // dive in progress (strafe-only air control)
-#define TSPM_SLIDE       0x000020 // slide: vel.x=0, vel.{y,z} x0.3
-#define TSPM_DIVE_HIGH   0x000040
-#define TSPM_DIVE_LOW    0x000080
-#define TSPM_DIVE_MED    0x000100
-#define TSPM_DIVE_HEIGHT (TSPM_DIVE_HIGH | TSPM_DIVE_LOW | TSPM_DIVE_MED)
-#define TSPM_WALLJUMP    0x001000
-#define TSPM_WALLJUMP_M  0x007000 // any wall-jump bit
-#define TSPM_WALLCLIMB   0x008000 // sign bit of the low short
-#define TSPM_WALLDIVE    0x800000
-#define TSPM_STUNT_MASK  0x03CC3C // any stunt -> PM_Duck skips the normal duck
 
 #define STEP_CONCRETE 0 // default step sound
 #define STEP_METAL 1	// metal floor
@@ -3058,140 +3040,6 @@ void PM_ReduceTimers()
 			pmove->flSwimTime = 0;
 		}
 	}
-}
-
-// ===== TS STUNT PREDICTION HOOKS (RE reference/STUNT.md §4) ==================
-// pev->iuser4 stunt flags networked into pmove->iuser4 (mirror dlls/ts_stunt.h).
-// TSHandle() is called from PM_PlayerMove (before PM_Duck) on BOTH the server and
-// the client predictor, so the dive/prone hull + low view + launch velocity are
-// PREDICTED identically — the fix for the DLL-only hull forcing that never stuck.
-// (the TSPM_* flag bits are defined near the top of this file.)
-
-// predicted PRONE hull (TSGoDuck @0xe93a8) — same small hull as a duck + a low eye.
-static void TSGoDuck()
-{
-	if (pmove->usehull == 1)
-		return;
-	pmove->usehull = 1;
-	pmove->flags |= FL_DUCKING;
-	// NOTE: TSGoDuck@0xe93a8 does NOT set view_ofs — matching that. The prone eye drops because the
-	// server's CTSStunt Go* methods set pev->view_ofs = (0,0,0) (RE: g_vecZero -> pev+0x174 = view_ofs,
-	// which I'd mislabeled as punchangle), networked to the camera. Don't fight it here.
-	if (pmove->onground != -1)
-	{
-		for (int i = 0; i < 3; i++)
-			pmove->origin[i] -= (pmove->player_mins[1][i] - pmove->player_mins[0][i]);
-		PM_FixPlayerCrouchStuck(STUCK_MOVEUP);
-		PM_CatagorizePosition();
-	}
-}
-
-// leave the prone hull when there's headroom (TSStandUp @0xe91fc; mirrors PM_UnDuck).
-static void TSStandUp()
-{
-	Vector newOrigin;
-	VectorCopy(pmove->origin, newOrigin);
-	if (pmove->onground != -1)
-	{
-		for (int i = 0; i < 3; i++)
-			newOrigin[i] += (pmove->player_mins[1][i] - pmove->player_mins[0][i]);
-	}
-	pmtrace_t trace = pmove->PM_PlayerTrace(newOrigin, newOrigin, PM_NORMAL, -1);
-	if (0 == trace.startsolid)
-	{
-		pmove->usehull = 0;
-		trace = pmove->PM_PlayerTrace(newOrigin, newOrigin, PM_NORMAL, -1);
-		if (0 != trace.startsolid)
-		{
-			pmove->usehull = 1; // still stuck — stay prone
-			return;
-		}
-		pmove->flags &= ~FL_DUCKING;
-		pmove->view_ofs = VEC_VIEW;
-		VectorCopy(newOrigin, pmove->origin);
-		PM_FixPlayerCrouchStuck(STUCK_MOVEUP);
-		PM_CatagorizePosition();
-		pmove->iuser4 &= ~TSPM_STANDUP;
-	}
-	else
-	{
-		pmove->usehull = 1;
-		pmove->flags |= FL_DUCKING;
-	}
-}
-
-// the dive launch impulse (TSDive body @0xf953f): speed + vertical boost by tier,
-// then clears that tier bit so it fires exactly once.
-static void TSDive()
-{
-	int speed, zb;
-	if (pmove->iuser4 & TSPM_DIVE_MED)        { speed = 90;  zb = 25; pmove->iuser4 &= ~TSPM_DIVE_MED; }
-	else if (!(pmove->iuser4 & TSPM_DIVE_HIGH)) { speed = 100; zb = 10; pmove->iuser4 &= ~TSPM_DIVE_LOW; }
-	else                                      { speed = 90;  zb = 50; pmove->iuser4 &= ~TSPM_DIVE_HIGH; }
-
-	Vector dir;
-	VectorCopy(pmove->velocity, dir);
-	VectorNormalize(dir);
-	if (pmove->iuser4 & TSPM_WALLDIVE)
-		VectorScale(pmove->forward, 3.0f, dir);
-
-	pmove->velocity[0] += speed * dir[0];
-	pmove->velocity[1] += speed * dir[1];
-	pmove->velocity[2] = sqrt((float)(zb * 1600));
-	pmove->onground = -1;
-	pmove->iuser4 &= ~TSPM_WALLDIVE;
-	PM_FixupGravityVelocity();
-}
-
-// wall-jump (TSWallJump @0xe9444): kick back off the faced wall.
-static void TSWallJump()
-{
-	pmove->onground = -1;
-	if (pmove->iuser4 & TSPM_WALLJUMP)
-	{
-		pmove->velocity[0] = -pmove->forward[0] * 210.0f;
-		pmove->velocity[1] = -pmove->forward[1] * 210.0f;
-		pmove->velocity[2] = sqrt(56000.0f); // 236.64 — RE TSWallJump@0xe9444 (.rodata double 56000.0)
-		pmove->iuser4 &= ~TSPM_WALLJUMP;
-	}
-	PM_FixupGravityVelocity();
-}
-
-// wall-climb (TSWallJumpClimb @0xe94e0): a straight upward kick.
-static void TSWallJumpClimb()
-{
-	pmove->onground = -1;
-	if ((short)pmove->iuser4 < 0) // TSPM_WALLCLIMB
-	{
-		pmove->velocity[2] = sqrt(112000.0f); // 334.66
-		pmove->iuser4 &= ~TSPM_WALLCLIMB;
-	}
-	PM_FixupGravityVelocity();
-}
-
-// the pm_shared dispatcher (TSHandle @0xe96a0) — keyed on pmove->iuser4.
-void TSHandle()
-{
-	// STOP / SLIDE damp the MOVE COMMAND (not velocity) — your launch/landing velocity carries
-	// you (that IS the slide); you only get reduced input control. RE TSHandle @0xe96a0: these
-	// touch cmd.forwardmove/sidemove/upmove (the same fields PM_Duck's 0.333 multiplier scales).
-	if (pmove->iuser4 & TSPM_STOP)
-	{
-		pmove->cmd.forwardmove *= 0.5f;
-		pmove->cmd.sidemove *= 0.5f;
-		pmove->cmd.upmove *= 0.5f;
-	}
-	if (pmove->iuser4 & TSPM_SLIDE)
-	{
-		pmove->cmd.forwardmove = 0;    // strafe only — no forward/back thrust while prone/sliding
-		pmove->cmd.sidemove *= 0.3f;   // slow strafe
-		pmove->cmd.upmove *= 0.3f;
-	}
-	if (pmove->iuser4 & TSPM_DIVE_HEIGHT) TSDive();
-	if (pmove->iuser4 & TSPM_WALLJUMP_M)  TSWallJump();
-	if ((short)pmove->iuser4 < 0)         TSWallJumpClimb();
-	if (pmove->iuser4 & TSPM_PRONE)       TSGoDuck();
-	if (pmove->iuser4 & TSPM_STANDUP)     TSStandUp();
 }
 
 /*

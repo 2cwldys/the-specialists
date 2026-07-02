@@ -186,6 +186,7 @@ target_sources(client PRIVATE
 
 	../pm_shared/pm_debug.cpp
 	../pm_shared/pm_math.cpp
+	../pm_shared/TS_pm_shared.cpp
 	../pm_shared/pm_shared.cpp
 
 	../public/interface.cpp
@@ -284,6 +285,7 @@ target_sources(client PRIVATE
 	../pm_shared/pm_info.h
 	../pm_shared/pm_materials.h
 	../pm_shared/pm_movevars.h
+	../pm_shared/TS_pm_shared.h
 	../pm_shared/pm_shared.h
 
 	../public/interface.h)
