@@ -338,7 +338,7 @@ void CTSHack::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useTyp
 
 //============================================================================
 // CTSWinGiver — when Use'd `callsnumber` times, declares a team the winner. @0x8bf10.
-// FAITHFUL: Use -> CTSGameRules::TeamWin(team, cash, …) + HUD. // SLICE (team subsystem
+// FAITHFUL: Use -> the gamerules TeamWin (team, cash, …) + HUD. // SLICE (team subsystem
 // not built): announce the win + fire the message-as-target; no cash/round restart.
 //============================================================================
 // CTSWinGiver is declared in ts_wingiver.h (extracted so the audit sees its FGD members
