@@ -310,11 +310,13 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 			BlendJumpAnimations(pPlayer);
 		else if (activity == TSA_BLENDDIR)
 		{
-			// RE (Animate head, a1==2 caller): the mid-air dive re-blend feeds the STORED dive
-			// vector (m_vecStuntDir = player+0x510) vs the CURRENT aim — aiming mid-flight swaps
-			// the dive pose. Empty grip = no-op inside ByDir (no akimbo fallback here, verbatim).
+			// RE (Animate head, a1==2 caller, RAW-ASM @0x5b628-0x5b67a): the mid-air dive re-blend
+			// feeds the STORED dive vector (m_vecStuntDir) vs the CURRENT aim — aiming mid-flight
+			// swaps the dive pose. The CALLER substitutes "akimbo" for an empty grip (repz cmpsb
+			// vs "" then the 0xF6777 fallback — Ghidra's truncated call hid this; bare hands DO
+			// re-blend).
 			static const char *const diveTable[4] = { "dive_l_", "dive_r_", "dive_f_", "dive_b_" };
-			BlendAnimationsByDir(pPlayer, pPlayer->m_TSStunt.m_vecStuntDir, pev->v_angle, diveTable, grip);
+			BlendAnimationsByDir(pPlayer, pPlayer->m_TSStunt.m_vecStuntDir, pev->v_angle, diveTable, grip[0] ? grip : "akimbo");
 		}
 	}
 
