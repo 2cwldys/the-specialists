@@ -28,5 +28,6 @@ project (`scripts/ghidra/re.sh`) — regenerate any missing piece the same way.
 - `offs.cpp` — the -m32 offsetof ground-truth checker for entvars (gravity=0x11c etc.).
 - `linkmsg.py`/`hooks.py`/`split_ff.py`, `star_decomp*.txt`, `cca_calls.txt`,
   `orig_factories.txt`, `pm_catpos_tail.txt` — misc working aids from the star/freefunc passes.
-- NOT preserved (regenerable): `ts.dis` (9.9MB full objdump — regenerate with
-  `objdump -d reference/ts_i386.so > ts.dis`), nm dumps, raw batch/err files.
+- The BIG regenerable files live ON DISK ONLY (gitignored, no LFS) at
+  `recovered/scratch-cont81/`: `ts.dis` (the 9.9MB full objdump), nm dumps, the raw
+  decompile batches. Regenerate `ts.dis` with `objdump -d reference/ts_i386.so > ts.dis`.
