@@ -111,7 +111,6 @@ target_sources(hl PRIVATE
 	ts_mapglobals.cpp
 	TS_gamerules.cpp
 	TS_gamerulesclass.cpp
-	ts_teams.cpp
 	ts_cvars.cpp
 	ts_buy.cpp
 	ts_flag.cpp
