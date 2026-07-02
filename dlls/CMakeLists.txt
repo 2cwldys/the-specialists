@@ -125,7 +125,6 @@ target_sources(hl PRIVATE
 	ts_slowmotion.cpp
 	ts_slowmotionpoint.cpp
 	ts_grenades.cpp
-	ts_groundammo.cpp
 	hldmcompat.cpp
 	ts_sharedemitter.cpp
 	ts_emitter.cpp
