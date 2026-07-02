@@ -5,6 +5,120 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-01 (cont. 80) — CTSAnimation Region B + fire/grenade faithful; live-trace proved m_fSequenceFinished works
+
+Continued `restructure-source-parity` (NOT merged; GPG off). Focus: the CTSAnimation 3rd-person tail (task #3),
+driven by a LIVE gdb trace of OUR OWN build. Commits: `fea34f9` (Region B), `cdc6cc9` (tooling), `b4d6be4`
+(fire/grenade), `eedf94f` (prone/getup/roll dir source). All build `scripts/build.sh amd64 all` clean.
+
+### cont.80 continued (2026-07-01/02) — the WHOLE CTSStunt acrobatics system, playtest+RE driven (10 commits)
+After the CTSAnimation tail, the user set a `/goal` (Stop hook) to fix the 3rd-person stunt behaviours and drove
+an iterative playtest loop. Every "does X do Y?" was settled by RE (decompile the original CTSStunt fn) + a live
+playtest, NOT by guessing. Commits `fea34f9..07494ea`. The full input→move map (RE-confirmed, user-validated):
+- **Double-tap DUCK (running ≥80) → dive-ROLL** = `CTSStunt::GoRoll` (roll_f). Original caller = `CBasePlayer::Duck`
+  on the IN_DUCK edge (only caller — RE'd via re.sh refs + the cached Duck decompile). `a245229` wired it (GoRoll
+  had ZERO callers = dead), `8a82ee9` fixed GoRoll's gate: it's a DOUBLE-TAP via `m_flRollNextTime` (ABSOLUTE
+  re-arm timestamp, time+0.3 on fail, 0 on success; airborne needs it armed, ground 1st-tap arms/2nd-tap rolls).
+  Our old GoRoll compared the roll DURATION `m_flRollTime` against absolute `gpGlobals->time` (always true → roll
+  ALWAYS failed) AND the fail-path set `m_flRollTime = time+0.3` (absolute), CORRUPTING the duration so the getup
+  timer never fired AND HandleStunt's `m_flRollTime>0.001` guard tripped forever → that ONE bug was blocking the
+  dive, the walljump, AND causing "press duck → stuck ducked". GoRoll sets gravity=0.3 (pev+0x120), not friction.
+- **Double-tap JUMP → wheel/cartwheel FLIP** = `CTSStunt::GoWheel` (front/side/back flip landing prone; backward =
+  feet). Original caller = `CBasePlayer::Jump` on the IN_JUMP edge (before the normal jump) — RE'd via the Jump
+  decompile. `20aa568` wired it (Jump never called GoWheel) + fixed GoWheel's double-tap gate (`time <=
+  m_flWheelNextTime` + on-ground/within-0.7s-of-ground via m_flLastStunt). `07494ea` fixed the tiers: aim-up
+  (v_angle.x<-10)/backward = HIGH wheel `iuser4 PRONE|WHEEL_HI|DIVE_MED` + friction 0.75; level/forward = LOW wheel
+  `PRONE|WHEEL_LO|DIVE_LOW` + friction 0.75, forward(dir==2) gravity 0.25. Ours had STOP/DIVE_LOW + gravity↔friction
+  swapped → "behaved like a roll" at 30° up instead of the dive-to-feet. (User found the 30°-up nuance.)
+- **+alt1 at a wall (facing+close, jump NOT held) → BACKFLIP** = HandleStunt `!(button&IN_JUMP) && (m_afButtonPressed
+  &IN_ALT1) → CheckForWallJump → GoWallJump` (RE-confirmed at CTSStunt_all.txt HandleStunt call-site; also a mid-
+  climb path in HandleWallClimb). `90e73f6` fixed GoWallJump gravity→friction; pm_shared TSWallJump `-forward*210`,
+  `z=√56000≈236.6` (was a tuned 270). The backflip was ALSO blocked by the GoRoll m_flRollTime corruption (guard);
+  fixing GoRoll unblocked it. USER-VALIDATED both work.
+- **GETUP** (`fea34f9`+`90e73f6`+`4204c4b`): Region B hold-guards transcribed 1:1 from Animate@0x5b470 (the
+  swallow/freeze fix); the Play getup is ONE state-cleanup block (NO Animate — the getup ANIM is only in Landing's
+  roll branch); HandleSlide's deliberate-prone branch arms m_flRollTime=0.75. Prone pose = slide_<dir>_<grip> (the
+  ctor pose table `this+0xdc`=slide_*_end are the RECOVERY/getup anims, NOT the settled prone — using them + our
+  every-frame FORCE re-dispatch made "constantly getting up"; `4204c4b` reverted to the lying pose). Pose tables
+  recovered from the CTSAnimation ctor@0x5b0c8: prone this+0xdc={slide_l/r/f/b_end}, getup this+0x11c={dive_*_end}
+  →dive_f_end, roll this+0x15c={roll_l/r/f/b}→roll_f, dive_end this+0x19c→roll_f_high (getup/roll/dive_end always
+  FORWARD because player+0x510, their dir source, is NEVER written in the binary → GetDirection returns forward).
+- **superjump-land sound on a normal jump** (`a245229`): player.cpp low-grav block set m_bSuperJumpAir on ANY
+  airborne frame; removed the `else if(!onGround)` so only a real duck+jump lift arms the land thud.
+- **prone roll L/R** (`a245229`): HandleSlide auto-slide maps IN_MOVELEFT→Animate(0x2a), IN_MOVERIGHT→0x2b (both
+  no-FORCE, no loop), else 0x29 (RE says no-strafe = Animate(3); kept 0x29 = the validated static prone).
+
+**LIVE-TRACE TOOLING built (reuse it):** `BUILDTYPE=RelWithDebInfo scripts/build.sh` (build.sh honors $BUILDTYPE;
+Release has no DWARF so gdb can't read members). `test.sh GDB=<script.gdb>` launches xash UNDER gdb batch (gdb=
+parent satisfies ptrace_scope=1, NO sudo). Probe = a python `gdb.Breakpoint` on the fn, `stop()` returns False
+(logs, never halts), reads args from ENTRY registers ($rsi/$edx — params optimized out of scope at -O2), casts via
+`gdb.parse_and_eval` in the SELECTED frame (`gdb.newest_frame().select()`; global lookup_type fails). Scripts in
+scratchpad/anim_log.gdb. **⭐ decisive win:** the trace PROVED m_fSequenceFinished DOES advance server-side (hits 1
+at pev->frame 255 via PostThink StudioFrameAdvance) — the prior "it doesn't" premise (and the timer substitution +
+the reverted 4-region rewrite) was WRONG; the reverted rewrite froze because its hold cases fell through (no break).
+
+### STILL OPEN (cont.80 → next; behaviour-verified where noted, else playtest-gated / RE-flagged)
+- **GoWheel pitch tiers** (`07494ea`) — awaiting the user's re-test (aim-up dive-to-feet vs level roll).
+- **Backward double-jump BACKKICK combo** (GoWheel dir==3): needs `CBasePlayer::UpdateMeleeBar` (one of the 19
+  missing methods) + the whiff-lunge params player+0x79c..0x7a8. Flagged in 07494ea.
+- **Roll DIRECTIONAL variants** (roll_l/r/b): the roll always plays roll_f because Animate case 0x2f (ROLL) reads
+  the dir from player+0x510 (never written→forward). The user wants roll_l/r/b. RE how the original gets a
+  directional roll (does GoRoll write player+0x510? or is m_iDirection the source? — recheck; player+0x510
+  "never written" was from a grep, re-verify against GoRoll/GoWheel writes).
+- **GETUP ANIMATION on the deliberate prone-standup**: the original plays NO anim there (only the roll-landing
+  animates); the user WANTS an anim. Region B case 0x29 swallows a 0x2e dispatch while PRONE set → to animate the
+  deliberate standup you'd need to clear PRONE first or use a non-swallowed path = an intentional divergence; ask.
+- **HandleSlide full auto-slide** (RE = Animate(3) no-strafe / 0x2a / 0x2b): we kept 0x29 for no-strafe to preserve
+  the validated pose. The stand-up latch player+0x78 is unresolved (timer-only getup) — live-trace its clear.
+- **Superjump ANIMATION** (ducking in mid-air): the m_bLowGravity superjump is a rough "per playtest" reconstruction,
+  not the faithful CTSStunt superjump/morfy — RE the real one (Animate 0x39 morfy).
+- **Directional DEATH** (Animate case 7): needs player field_0x10c semantics + the die_spinback RANDOM_LONG range.
+- **CTSAnimation exact pose tables** are now recovered (ctor@0x5b0c8) — prone/getup/roll/dive_end names are RE-exact.
+
+### ⭐ THE DECISIVE FINDING (kills the prior premise): m_fSequenceFinished DOES advance server-side
+The cont.78/79 revert (6a8ca20) of the 4-region Animate rewrite was justified as "m_fSequenceFinished isn't
+advanced for the server-side player." **That was WRONG.** Live-traced our own hl.so (built RelWithDebInfo so gdb
+can read members — see tooling below): a register-read probe on CTSAnimation::Animate logged
+pPlayer->m_fSequenceFinished every call. It reaches 1 exactly at pev->frame==255 for non-looping seqs (seq 64,
+seq 61 observed). PostThink's StudioFrameAdvance (player.cpp:2925) advances it. So the timer substitution was
+unnecessary; the reverted rewrite actually froze because its Region-B hold cases FELL THROUGH (no `break`) into
+`case TSA_DIE: return` (unconditional hold). The original has an explicit break per case.
+
+### Live-trace tooling (reusable — `[[live-original-ts-debuggable]]` but for OUR build)
+- `BUILDTYPE=RelWithDebInfo scripts/build.sh` (build.sh now honors $BUILDTYPE; default Release has NO DWARF, so
+  gdb resolves function symbols but not types/members — blocks member reads). `test.sh GDB=<script.gdb>` launches
+  xash UNDER gdb batch (gdb=parent satisfies ptrace_scope=1, no sudo). Probe: a python gdb.Breakpoint on
+  CTSAnimation::Animate, stop() returns False (logs, never halts), reads pPlayer from $rsi (params are optimized
+  out of scope at -O2; the entry regs this=rdi/pPlayer=rsi/activity=edx are intact at the first-line bp), casts
+  via gdb.parse_and_eval in the selected frame (lookup_type fails globally). Scripts in scratchpad/anim_log.gdb.
+
+### Fixed + USER-VERIFIED
+- **Region B hold-guards** (`fea34f9`): transcribed Animate@0x5b470 switch(m_iLastActivity) 1:1 (all stunt/jump/
+  slide/die cases, break per case, iuser4 & TSSTUNT_PRONE(0x4) gates, a1 exclusions, IsAlive/IsOnLadder). Fixes
+  dive/prone-as-crouch: without it the per-frame PostThink Animate(1/6) + a competing fire re-forced the pose
+  every frame (seq flip-flopped, frame reset -> crouch). Trace after fix: seq holds, frame 0->32 smooth. ✅
+- **Fire/grenade** (`b4d6be4`): fire case 0/8/9 — airborne early-return; sliding (iuser4&0x20) plays
+  slide_f_<grip>_shoot (player+0x51c stored-dir path is DEAD CODE, 0x51c never written); the "2" alt-stance
+  variant; FIRE_SLIDEL/R append _left/_right; removed invented shoot_akimbo_left. Grenade adds iuser4&0x30 guard.
+- **prone/getup/roll/dive_end direction source** (`eedf94f`): getup/roll/dive_end take dir from player+0x510 (the
+  stored dive vector) which is NEVER written -> always (0,0,0) -> GetDirection=forward, so they DON'T re-orient;
+  prone uses FROZEN m_iDirection not a fresh GetDirection. Our old fresh-GetDirection churned the seq on strafe
+  (re-orient + the blink). USER-VERIFIED: blink GONE, prone pose FIXED (not re-orienting). ✅
+
+### OPEN (goal active — RE-verify, in progress via a CTSStunt dossier subagent)
+- **getup/roll never plays** — stays prone. ROOT CAUSE identified: our getup gate (ts_stunt.cpp:158) dispatches
+  Animate(0x2e) but does NOT clear TSSTUNT_PRONE, so my new Region B (case 0x29 holds on iuser4&PRONE) swallows
+  the getup dispatch (last=PRONE still). Need the original's standup path: does it clear PRONE / is prone seq
+  looping. (Subagent REing Play@0x8a014.)
+- **+alt1 mid-air wall-jump backflip** (gated: at+facing a wall, holding jump) — RE CheckForWallJump/GoWallJump/
+  HandleWallJump for the exact airborne gate + backflip velocity/anim.
+- **double-jump landing**: fwd/left/right -> land PRONE, backward -> land on FEET. RE the direction branch.
+- **VERIFY (flagged, not guessed):** exact CTSAnimation pose-name tables this+0xdc(prone)/0x11c(getup)/0x15c(roll)/
+  0x19c(dive_end) — offset collides with other classes; forward/slide_ stand-ins used. Directional death case 7
+  needs field_0x10c semantics + the die_spinback RANDOM_LONG range (deferred, not a user complaint).
+
+---
+
 ## 2026-06-29 (cont. 77) — audit trustworthiness push: member/global/invented levels made honest
 
 Continued the source-parity restructure on `restructure-source-parity` (NOT merged; GPG off). Baseline green

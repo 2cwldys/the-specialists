@@ -47,6 +47,301 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.81, 2026-07-02) — pickup for the next orchestrator (cont.80 = me; available for consult)
+
+**You ARE the orchestrator and the previous agent (cont.80) — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF — `git config --local commit.gpgsign false`,
+keep it off). Read this section + the **`.serena/memories/ledger.md` cont.80 entry (top)** first — it has the
+full per-commit detail of the whole CTSStunt/CTSAnimation stunt-system reconstruction done this session. 10
+commits `fea34f9..07494ea`, every one builds `scripts/build.sh amd64 all` clean (glibc 2.14).
+
+⚠ **SERENA ONE-LINE-JSON GOTCHA:** read the ledger with the **Read tool on `.serena/memories/ledger.md`**, NOT
+`read_memory("ledger")` — the MCP returns one giant single-line `{"result":"…"}` (~300 KB) that overflows the
+read limit. Same for any large memory (`jq -r '.result'` a saved copy if you must use the MCP).
+
+### THE MISSION (yours) + the user's directives — these are the law (unchanged from cont.79 below; re-read them)
+Make OUR code a **1:1 drop-in** for the original at **every level — file → class → methods → variables → globals →
+free functions**. The exhaustive statement + the 5 baked-in directives are in the **cont.79 START HERE section
+directly below** — READ IT. The essence, in the user's own words this session:
+1. **Audit EVERYTHING bidirectionally** (filenames, the classes in them, each class's methods + VARIABLES, the
+   globals, the free functions) — nothing the original has that we lack, nothing we have that it lacks (pure-TS
+   surface; stock-SDK keeps its stock surface). **Driver = `scripts/coverage/audit.py <Class>` / `audit.py`** (see
+   cont.79 for the full trustworthy-at-every-level description; current headline **0 missing/0 invented classes ·
+   19 missing methods · 42 invented · 0 missing members · 43 real missing free funcs · 22 file mismatches · 2
+   missing files**). Variable/member/file/global **NAMES must match** the original's FGD/save names — audit
+   matches BY NAME, so a faithfully-functional-but-mis-named symbol reads as missing+invented.
+2. **A missing/extra symbol is a SIGNAL of a potential LOGIC mismatch → re-RE it.** This paid off ALL SESSION:
+   `GoRoll`/`GoWheel` had ZERO callers (dead code) = the "double-jump does nothing" bug; a `player+0x78` latch,
+   `player+0x2a0`, `player+0x510` etc. each flagged real behaviour. When a symbol is missing, first assume the
+   logic exists elsewhere and re-RE to find where.
+3. **The logic is OFTEN already implemented — just `static`/inlined/renamed/as-a-method/misplaced/mis-wired. So a
+   "missing" symbol usually means MOVE/re-wire it, NOT rewrite.** This session: `GoRoll` existed but wasn't called
+   from `Duck`; `GoWheel` existed but wasn't called from `Jump`; the getup logic was there but dispatched from the
+   wrong place. ALWAYS grep OUR code first.
+4. **MIMIC THEIRS for drop-in compatibility (the cardinal rule).** Our client must be a drop-in swap for the
+   original client, our server for the original server — run our client vs the original SERVER (or vice-versa) and
+   behaviour is identical. When the original does something a particular way — ESPECIALLY across the client↔server
+   boundary (commands, user-messages, events, button/usercmd handling, asset names, who-decides-what) — do NOT
+   substitute a different-but-equivalent mechanism; RE theirs and mimic it EXACTLY. The user reinforced this
+   session: *"if you're reading the full original, try to match it… drop-in replace and behave identically."*
+5. **Don't make shit up vs the RE.** When static RE is uncertain, **live-trace** it (`scripts/live.py` on the
+   ORIGINAL `hl.exe`, always running; OR the NEW live-trace of OUR OWN build, below) or decode the raw asm/.rodata.
+   The DECOMPILE is ground truth (a hardware-bp live trace LIED this session — missed rare per-shot calls).
+
+### ⭐ WHERE TO GO — the work is now TWO tracks; keep both moving
+**Track A — the audit-driven parity grind (the core mission, `audit.py`).** 19 missing methods · 42 invented · 43
+free funcs · 22 file mismatches · 2 missing files. This is the systematic 1:1 reconciliation the whole restructure
+is about. Loop per class/file: `audit.py <Class>` → for each MISSING first GREP OUR CODE (move/rename the existing
+logic) → else RE it (small: `re.sh <Class>`; big/cluster: dossier subagent) → reconcile into the original's EXACT
+file/class/method/variable/global/NAME layout, mimicking the mechanism → `scripts/build.sh amd64 [all]` → `audit.py`
+0/0 → commit (one unit). Many of the 19 missing methods are the INLINED melee/bullet path + the CTSGun tail (see
+cont.79 #3/#4). `CBasePlayer::UpdateMeleeBar` specifically is now BLOCKING the GoWheel backward-backkick combo.
+
+**Track B — the CTSStunt/CTSAnimation behaviour tail (this session's thread; user is actively playtesting).** The
+whole stunt input→move system now works and is user-validated (double-tap-DUCK roll, double-tap-JUMP wheel-flip,
++alt1-wall backflip, getup, prone). **The OPEN items are listed in the ledger cont.80 "STILL OPEN" block** — pick
+them up: GoWheel pitch tiers (awaiting re-test), the backward backkick combo (needs UpdateMeleeBar), directional
+roll variants (roll_l/r/b — re-verify player+0x510), the getup ANIMATION on deliberate standup (ask the user — the
+original has none), HandleSlide full auto-slide, the stand-up latch player+0x78, the superjump ANIM (m_bLowGravity
+is a non-faithful reconstruction → RE the real morfy superjump), directional death. **The user drives playtests:**
+they fire our build in graphical xash (`./test.sh`) and keep the ORIGINAL running in `hl.exe` for live gdb/MCP —
+reach for a live trace whenever a "what does the original do here" question is uncertain. **Don't guess; RE + trace.**
+
+### ⭐ THE GHIDRA / RUNTIME TOOLCHAIN (there is a LOT — the cont.79 section below documents ALL of it; use it)
+- **`scripts/ghidra/re.sh`** — server decompile front-end on the typed `re` project (ApplyInventory: typed
+  `this`/args/returns, `pev->`, member structs, vtables). `re.sh <Class>`, `re.sh 0x<ghidra-addr>` (= nm addr +
+  0x10000), `re.sh refs <Class|addr>` (direct callers — used it this session to prove GoRoll's only caller is
+  Duck), `re.sh vrefs <Method>` (VIRTUAL callers), `re.sh members`, `re.sh export <Class>`, `re.sh setup` (rebuild
+  FRESH — single-writer). **Single-writer lock:** only ONE thing touches the `re` project at a time.
+- **`scripts/ghidra/dc.sh <client|mp|server> 0x<addr>…`** — decompile-by-address for client.dll/mp.dll/the .so.
+- **Ghidra MCP** (`mcp__ghidra-mcp__*`, 184 tools) — interactive decompile + **xref/callgraph** on a LIVE Ghidra
+  GUI. First reach for "read/trace this fn + who calls it" once the GUI has the typed `re` project open
+  (`scripts/ghidra/mcp-up.sh` prints the steps). ⚠ holds the `re` lock → close it before `re.sh`/`dc.sh server`.
+- **`scripts/live.py`** — drive the running ORIGINAL `hl.exe` (server=mp.dll, client=client.dll). `pid`/`base`/
+  `resolve`/`bt`/`read`/`readabs`/`vmethod`/`watch`/`break`. **`scripts/binmap.py <name>`** → live mp.dll RVA.
+- **★ NEW this session — live-trace OUR OWN build (server .so, full symbols):** `BUILDTYPE=RelWithDebInfo
+  scripts/build.sh amd64 all` (build.sh now honors `$BUILDTYPE`; default **Release has NO DWARF** so gdb resolves
+  function symbols but not TYPES/MEMBERS — this blocks member reads). `test.sh GDB=<script.gdb>` launches xash
+  UNDER gdb batch (gdb=parent satisfies `ptrace_scope=1`, **no sudo**). Probe pattern (scratchpad/anim_log.gdb): a
+  python `gdb.Breakpoint`, `stop()` returns False (logs, never halts, ~full speed), reads args from ENTRY registers
+  ($rsi/$edx — the named params are optimized out of scope at -O2; break at the first source line where the entry
+  regs are still intact), casts via `gdb.parse_and_eval("(CBasePlayer*)$rsi")` in the SELECTED frame
+  (`gdb.newest_frame().select()`; global `lookup_type` fails). This is how m_fSequenceFinished was PROVEN to work.
+- **`scripts/coverage/*`** — the gap harness / inventory / completeness metric (`audit.py`, `coverage.py`,
+  `reconstruction.py`, `extract_vtables.py`, `run.py`→`export.py`→`ts_inventory.json`, `members*.tsv`).
+
+### ⭐ THE SUBAGENT-DOSSIER HINT (how this session scaled the CTSStunt RE — KEEP USING IT)
+For a big class or interrelated cluster spawn a **`general-purpose`** subagent so the raw decompiles stay OUT of
+YOUR context. It's RESUMABLE via `SendMessage(to: <agentId>, …)` — I resumed the CTSStunt dossier agent twice with
+follow-up questions and it re-read its own cached scratchpad decompiles. Prompt template (adapt per target):
+> "READ-ONLY reverse-engineering for mod-ts (reconstructing The Specialists — binaries the user OWNS — from
+> `reference/ts_i386.so`). Produce a tight markdown DOSSIER; do NOT edit source. DECOMPILE `<methods/classes>` via
+> the typed Ghidra `re` project (ALREADY BUILT — do NOT `re.sh setup`; single-writer, run ONE `re.sh`/`dc.sh` at a
+> time). Capture each decompile to `…/scratchpad/<x>.c` and grep/read it YOURSELF — do NOT paste raw decompile.
+> For EACH method: signature, step-by-step, the OTHER fns it calls, member accesses (offset+meaning), gmsg wire
+> formats, string/const literals, and (crucial this session) the EXACT input/button gates + iuser4 bit sets/clears.
+> ENUMERATE every member (offset/type/real-name) + globals + FREE FUNCTIONS. WRITE the dossier to
+> `…/scratchpad/dossier-<x>.md` with a DIFF-vs-our-source + a RECONCILE PLAN (behavior-preserving vs playtest).
+> Reply with ONLY a ~15-line concrete summary (triggers, gates, bit ops, formulas)."
+⚠ **Single-writer lock:** a Ghidra dossier subagent can't overlap your own `re.sh`/`dc.sh` on the `re` project.
+The scratchpad is SESSION-LOCAL — dossiers/decompiles from a prior session are gone; regenerate. This session's
+cached CTSStunt decompiles (CTSStunt_all.txt, gowheel.txt, goroll.txt, jump.txt, Duck.txt) will NOT survive.
+
+### Task-list entries to recreate (via TaskCreate) — the cont.81 tracker
+- `[in_progress]` **"Per-class 1:1 parity loop (audit→RE→reconcile→build→audit→commit)"** — THE recurring driver.
+- `[in_progress]` **"PLAYTEST gate before merging restructure-source-parity to main"** — everything is UNPLAYTESTED
+  except what the user validated this session (the stunt system + the cont.78 bug fixes).
+- `[pending]` **"CTSStunt/CTSAnimation behaviour tail (ledger cont.80 STILL-OPEN list): GoWheel pitch re-test,
+  backward backkick (needs UpdateMeleeBar), directional roll roll_l/r/b, getup animation, HandleSlide auto-slide,
+  superjump morfy anim, directional death"**.
+- `[pending]` **"CBasePlayer 19 missing methods (inlined melee/bullet — UpdateMeleeBar blocks GoWheel backkick) +
+  CTSGun fire/melee/grenade tail"**.
+- `[pending]` **"43 real missing free funcs (range-damage falloff = gameplay gap; weapon-param tuning; gamerules/
+  pm_shared) + m61_grenade classname"**.
+- `[pending]` **"Review 6 invented-method DRIFT items (CTSGun::SwitchBarrel, CTSKnife settle/pickup)"**.
+- `[pending]` **"17 missing globals = unimplemented gmsg* protocol (client HUD track)"**.
+- `[pending]` **"22 file mismatches + 2 missing files — entity-file consolidation + client.dll HUD + pm_shared.c"**.
+
+---
+
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.79, 2026-06-30) — pickup for the next orchestrator (cont.78 = me; available for consult)
+
+**You ARE the orchestrator and the previous agent — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF — `git config --local commit.gpgsign false`,
+keep it off). Read this whole section + the `.serena/memories/ledger.md` cont.77/78/79 entries first. ~30 commits
+this session (`3649f43..0d4572e`), every one builds `scripts/build.sh amd64 all` clean (glibc 2.14).
+
+⚠ **SERENA ONE-LINE-JSON GOTCHA:** read the ledger with the **Read tool on `.serena/memories/ledger.md`**, NOT
+`read_memory("ledger")` — the MCP returns one giant single-line `{"result":"…"}` (~250 KB) that overflows the
+read limit. Same for any large memory (`jq -r '.result'` a saved copy if you must use the MCP).
+
+### THE MISSION (yours) + the user's directives — read this twice, these are the law
+Make OUR code match the original's structure **1:1 at every level — file → class → methods → variables → globals →
+free functions** — nothing the original has that we lack, nothing we have that it doesn't (for pure-TS surface;
+stock-SDK classes keep their stock surface). The user's exact, baked-in directives:
+1. **Audit EVERYTHING, bidirectionally** (filenames, the classes in them, each class's methods + variables, the
+   globals, the free functions). **If something the original has doesn't exist in ours, that is a SIGNAL of a
+   potential LOGIC mismatch → re-RE it.** A missing/extra member or global frequently flags a logic mismatch
+   ELSEWHERE (the worldgun `s_weapon_status` that exposed the drop-the-full-item path; the akimbo per-barrel
+   clips that exposed the silent-fire prediction gap). Drive to N/N; **never paper over**. (memory
+   `members-globals-signal-hidden-logic`.)
+2. **The logic is OFTEN already implemented — just `static`/inlined/renamed/as-a-method/misplaced. So a "missing"
+   symbol usually means MOVE it into the faithful shape, NOT rewrite it.** ALWAYS grep our code first (this
+   session: Sparta/SetSpartaWeapon were inlined; CheckPowerups/CalcMiniminVotants were static; the gait logic
+   was scattered). (memory `match-original-names-for-coverage`.)
+3. **VARIABLE/MEMBER/FILE/global NAMES must match the original's FGD/save names** — `audit.py` matches BY NAME,
+   so a faithfully-functional-but-mis-named symbol reads as missing+invented. Recover the name from the
+   decompiled `KeyValue`/save-table and rename ours (e.g. `gmsgActItems`→`gmsgTSActiveItems`,
+   `GrenadeThrow`→`GrenadeFire`, `slow_ammount` keeping the orig's typo). (memory `match-original-names-for-coverage`.)
+4. **MIMIC THEIRS for drop-in compatibility (the cardinal rule).** The goal: our client is a drop-in swap for the
+   original client, our server for the original server — run our client against the original SERVER (or
+   vice-versa) and behaviour is identical. So when the original does something a particular way — ESPECIALLY
+   anything crossing the client↔server boundary (commands, user-messages, events, button/usercmd handling, asset
+   names, who-decides-what) — **do NOT substitute a different-but-equivalent mechanism; RE theirs and mimic it
+   exactly.** If you catch yourself "doing it our way," VERIFY which side does what in the original first.
+   (memory `mimic-original-mechanism-for-dropin`.)
+5. **Don't make shit up vs the RE.** When static RE dead-ends (esp. a constant/formula/control-flow), trace the
+   running original (`scripts/live.py`, the user keeps `hl.exe` running) or decode the raw asm + `.rodata`.
+   **Static reading is fallible** — this session a hardware-bp live trace LIED (missed per-shot Animate calls)
+   and I built a whole wrong "breakthrough" on it; the **decompile is ground truth**, cross-check live traces
+   against it. (memories `flag-unfound-re-early`, `live-original-ts-debuggable`.)
+- **Keep going until ~90% context.** One class/cluster at a time, bottom-up (dependencies first).
+
+### ⭐ THE DRIVER — `audit.py` is now TRUSTWORTHY at every level (the cont.76/77 win — trust the numbers)
+`scripts/coverage/audit.py <Class>` (one class) / `audit.py` (full `reference/coverage/AUDIT.md` + headline) /
+`audit.py --strict` (CI gate). It bidirectionally diffs OUR build vs the original inventory (`ts_inventory.json`)
+at **file → class → method → member → global → free-function**. Backed by `srcparse.py` (brace-aware single-pass
+tokenizer; scans `.cpp` AND `.h` AND `pm_shared/`; sees pointer-to-member fields, DEFINE_ARRAY members, inline
+methods, Allman/K&R free-fn braces). Transparency buckets so MISSING/INVENTED are REAL, not noise: **UNVERIFIABLE**
+(client.dll classes, no symbols), **STOCK-SDK** (exact upstream `Class::Method` via `stock_methods.py`),
+**CONSOLIDATED** (the 38 `Write_<weapon>` data-table fns we deliberately folded into `g_weaponInfo`+`Sparta()`).
+**Current honest headline:** `0 missing/0 invented classes · 19 missing methods · 42 invented · 0 missing members ·
+43 real missing free funcs (+38 Write_ consolidated) · 22 file mismatches · 17 missing globals · 6 invented globals`.
+Companion scripts in `scripts/coverage/`: `reconstruction.py` (per-class method %), `extract_vtables.py` (all 226
+vtables), `audit.py` is the driver. Regenerate the whole inventory with `scripts/coverage/run.py` (then `export.py`
+→ `ts_inventory.json`); curator gotcha — `members_re.tsv` `keep`-persists rows even past a class's binary footprint
+(a mis-hoist; verify offset is in `members_auto.tsv` for that class). (memory `audit-py-blind-spots`.)
+
+### ⭐ THE LOOP (per class/cluster) — repeat this
+`audit.py <Class>` → for each MISSING: **first grep OUR code** (static/inlined/renamed/free-fn/method? → MOVE/
+rename it — the most common case) → else RE it (small: `re.sh <Class>` yourself; big class/cluster: spawn a
+**dossier subagent**, hint below) → reconcile into the original's exact method/member/NAME layout, **mimicking the
+original's mechanism** → `scripts/build.sh amd64 [all if client.so too]` → `audit.py <Class>` 0/0 → commit (one
+unit per commit). The free-function level uses the same loop per `TS_*.cpp` file.
+
+### ⭐ THE SUBAGENT-DOSSIER HINT (how this whole session scaled — KEEP USING IT)
+For a big class or interrelated cluster (CTF, the worldgun throw chain, the 104-invented-method classification,
+the 94-free-func categorization, the full CTSAnimation RE — all done this way), spawn a **`general-purpose`**
+subagent so the raw decompiles stay out of YOUR context. Prompt template (adapt per target):
+> "READ-ONLY reverse-engineering for mod-ts (reconstructing The Specialists — binaries the user OWNS — from
+> `reference/ts_i386.so`). Produce a tight markdown DOSSIER; do NOT edit source. DECOMPILE `<methods/classes>` via
+> the typed Ghidra `re` project (ALREADY BUILT — do NOT `re.sh setup`; it's **single-writer**, run ONE
+> `re.sh`/`dc.sh` at a time). `scripts/ghidra/dc.sh server 0x<nm-addr>` (adds 0x10000) per addr, or `re.sh <Class>`
+> for a whole class. Capture each decompile to `…/scratchpad/<x>.c` and grep/read it YOURSELF — do NOT paste raw
+> decompile. For EACH method: signature, step-by-step, the OTHER methods it calls, member accesses (offset+meaning),
+> gmsg user-messages (name + exact wire format), string/const literals. ENUMERATE every member (offset/type/real-
+> name) + file-scope globals + FREE FUNCTIONS. WRITE the dossier to `…/scratchpad/dossier-<x>.md` with per-method +
+> MEMBERS + GLOBALS + FREE-FUNCS + a DIFF-vs-our-source + a RECONCILE PLAN (note behavior-preserving vs needs-
+> playtest). Reply with only a ~12-line summary."
+⚠ **Single-writer lock:** only ONE thing touches the `re` Ghidra project at a time. A Ghidra subagent can't
+overlap your own `re.sh`/`dc.sh`. The Ghidra GUI/MCP holding `re` blocks headless too (close it first). `dc.sh
+client`/`dc.sh mp` use separate projects. The scratchpad is SESSION-LOCAL — dossiers from a prior session are
+gone; regenerate via a subagent. (memory `ghidra-mcp-vs-own-tooling`.)
+
+### ⭐ THE GHIDRA / RUNTIME TOOLCHAIN (there is a LOT — use it)
+- **`scripts/ghidra/re.sh`** — server decompile front-end on the typed `re` project (ApplyInventory: typed
+  `this`/args/returns, `pev->`, member structs, vtables). `re.sh setup` (rebuild FRESH — single-writer),
+  `re.sh <Class>`, `re.sh refs <Class|addr>` (direct callers), `re.sh vrefs <Method>` (VIRTUAL callers), `re.sh
+  members`, `re.sh export <Class>`, `re.sh 0x<ghidra-addr>` (= nm addr + 0x10000).
+- **`scripts/ghidra/dc.sh <client|mp|server> 0x<addr>…`** — decompile-by-address for the Windows binaries
+  (client.dll/mp.dll, separate projects) and the server `.so`. Feed it an RVA from a live trace.
+- **Ghidra MCP** (`mcp__ghidra-mcp__*`) — interactive decompile + **xref/callgraph** on a LIVE Ghidra GUI. The
+  user runs the GUI (`scripts/ghidra/mcp-up.sh` prints the steps; open `recovered/ghidra/re/re.gpr` + the
+  `ts_i386.so` program, then `list_instances`→`connect_instance("re")`→`open_program`). First reach for
+  "read/trace this function + who calls it". ⚠ holds the `re` lock → close it before `re.sh`/`dc.sh server`.
+- **`scripts/live.py`** — drive the running ORIGINAL (`hl.exe` under Proton; server=mp.dll, client=client.dll).
+  `pid`/`base <module>`/`resolve`/`bt`/`read`/`readabs`/`vmethod`/`watch`/`break`. **`scripts/binmap.py <name>`**
+  resolves a `.so` fn NAME → live mp.dll RVA. **The user KEEPS hl.exe RUNNING — reach for it whenever static RE is
+  uncertain.** ⚠⚠ **but hardware breakpoints can MISS rapid calls** (this session a `break`/probe on Animate
+  showed "only idle/run, no fire calls" — WRONG; the decompile showed 34 weapon→Animate call sites). **Always
+  cross-check a live trace against the decompile; the decompile wins.** gdb recipe for logging a value over many
+  hits / watchpointing a player field: see `scratchpad/anim_probe.gdb`/`watchseq.gdb` + the ledger CTSAnimation
+  entries (e.g. watch player `pev->sequence` at entvars offset **296**, `pev->gaitsequence` 300; the player's
+  `CTSAnimation m_TSAnim` is at player+**0x28c**).
+
+### Done this session (cont.78–79) — scoreboard (FULL per-unit detail + hashes in the ledger)
+- **First PLAYTEST of cont.74–77** (user-driven, graphical xash) — VALIDATED + a run of real bug fixes:
+  - ✅ DM ~5s teleport = the round-restart subsystem firing in plain DM (`dff06ec`); ✅ round clock missing on
+    team maps (`f721c00`, RestartRound→StartRoundTimer registers the msg); ✅ stock bottom HUD duplicated TS HUD
+    (`b543be6`, suppress stock CHudHealth/Ammo/AmmoSecondary Draw); ✅ brass casings stopped (`3b3708c`, TS never
+    precached models/shell.mdl); ✅ dropped weapons vanished in 5s (`1fcd627`, registered the original's
+    `weaponstay` cvar default 15); ✅ akimbo/gold fire SILENT until reload (`7999cc8` — per-barrel leftClip/
+    rightClip are server-only, not in the prediction data; the client's predicted AkimboFire saw 0/0 → empty;
+    reconstruct from the synced m_iClip in SetWeaponData).
+- **CTSAnimation 3rd-person** (the deep work — see below): RE'd the full `Animate@0x5b470`, recovered the real
+  model, implemented the `player+0x478` anim-override (`a9871ff`, knife/katana dedicated idle), made SetAnimation
+  an empty no-op + all anim via direct Animate calls (`de29687`, `fb142f0`), the per-frame STATE-driven torso
+  (`0d4572e`). A full 4-region rewrite (`482a099`) was tried and REVERTED (`6a8ca20`) — it relied on
+  `m_fSequenceFinished`, which is NOT advanced for the server-side player.
+- **Memory saved:** `mimic-original-mechanism-for-dropin`, `audit-py-blind-spots`, `members-globals-signal-hidden-logic`.
+
+### ⭐ CTSANIMATION — the model recovered (read before touching player anim)
+`CBasePlayer::SetAnimation@0xd8f50 is an EMPTY no-op in TS.` The original drives player animation by calling
+`CTSAnimation::Animate(this, activity)` **directly** from the weapon (`CTSGun::Fire@0x71c78`→Animate(0/8/9),
+KnifeFire/KatanaFire/Reload/Deploy) and movement (PostThink locomotion 1/6, PM_Jump 4, death 7) — 34 verified
+call sites. `Animate` (`m_TSAnim` at player+**0x28c**) is one big function: Region A continue-blend · Region B
+`switch(m_iLastActivity)` HOLD guards · Region C `switch(a1)` set body (case 0/8/9 FIRE→`shoot_`, case 0x28 DIVE,
+…) · Region D leg gait (`pev->gaitsequence`). **Region C case 1/6 (run/idle, called EVERY frame) is the per-frame
+STATE-driven torso:** reads `player+0x478`(anim-override string: knife_idle/katana_idle/briefcase_idle, set in
+`DefaultDeploy@0x90178` per m_weaponType) > weapon-pose-raised > grip > `aim_`/`idle_` by `(m_flAimTimer||fov)`.
+We now mirror all of this (SetAnimation empty, direct calls, the override, the state-driven torso). **STILL OPEN
+(playtest-gated, the user reported these vs the original):** (1) the 3rd-person FIRE pose still may not show right
+— next step is a `pev->sequence` watch on OUR build (xash rig) vs the original on the same shot; (2) the DIVE-hold
+(must gate on a leg-timer / iuser4 stunt bit, NOT m_fSequenceFinished); (3) getup leaves the player ducked (likely
+TS_pm_shared unduck, not Animate); (4) the melee BLOCK on reload (kungfu/knife/katana — HandleCloseCombat reads
+player+0x478 for the kat/kni pick; now that we SET 0x478 it's wireable). **EVERYTHING cont.74–79 is UNPLAYTESTED
+except the 6 fixed bugs above — a live pass is the GATE before merge.**
+
+### NEXT — the work-list (audit.py-driven). Numbers: 19 missing methods · 42 invented · 43 real free funcs · 22 file mismatches.
+1. **PLAYTEST the latest CTSAnimation + akimbo + round/HUD/casing/weaponstay fixes** (the GATE). The user fires
+   changes live in xash (`./test.sh`); the original runs in `hl.exe` for live gdb/MCP. Confirm no regression in
+   walk/run/idle/jump/death (the empty-SetAnimation refactor is behaviour-identical) + the new wins.
+2. **CTSAnimation tail** — the 4 open items above (fire-pose pev->sequence compare; dive leg-timer hold; getup
+   unduck; melee block via player+0x478). Use the live `pev->sequence` watch (scripts saved) vs the decompile.
+3. **CBasePlayer 19 missing methods** — mostly INLINED in the playtest-gated melee/bullet path (ShootBulletsPlayer,
+   UpdateMeleeBar, BlockPlayer, CloseCombatAttack, ColdCockAttack, CheckHull/CheckForWires); CTSGun tail
+   (CCombatIdle/EmptySound/GrenadeFire/GrenadeIdle/HolsterWeapon/KatanaFire/KatanaThrow/KnifeFire/ReloadWeapon/
+   StopReload); CTSKnife::WaitTouch (the original's TOUCH-based settle vs our invented think-based StartSettle/
+   SettleThink — a mechanism drift, see #4). Extract ON a green baseline.
+4. **42 invented methods** — classified (`scratchpad/dossier-invented-methods.md` if regenerated): 22 keepable
+   helpers, ~12 stock-virtual overrides (visible by design), **6 DRIFT to reconcile** (CTSGun::SwitchBarrel =
+   invented akimbo barrel-cycle replacing the orig SecondaryAttack@0x817a8 fire-the-other-hand; CTSKnife
+   BecomePickup/PickupTouch/StickAt/StartSettle/SettleThink = think-based settle vs the orig touch-based
+   WaitTouch/WaitThink@0x6dce8). All playtest-gated combat mechanisms.
+5. **43 real missing free funcs** — genuine RE: the weapon-param tuning subsystem (TS_util.cpp Adjust/save/
+   SendWeaponParams + gmsgTSCustomWeaponParams), the **range-damage falloff** (TS_gun.cpp compile_range_damage/
+   get_range_multipler — bulletmgr uses RAW damage = a real gameplay gap), gamerules (DecideGamePlay/
+   TSSelectSpawnSpot/GetAccelBySlots), pm_shared (CanJumpHigh/FixVelocity/PseudoClimb), melee Victim*Hold/
+   FindHullIntersectionplayer (gated). UNSURE: CalcSpread vs our ScaleSpread; DropKickback vs our VKickback. The
+   **m61_grenade** classname (CreateGrenade sets "grenade" not "m61_grenade" — RE which before renaming).
+6. **17 missing globals** — the gmsg* ones map to the MISSING user-message list (server-send + client-hook
+   unimplemented = real protocol RE, overlaps the client-HUD track: Objective/ShowObj/Wires/TSState/TSFade/…).
+7. **22 file mismatches + 2 missing files** — structural (the original groups entities into TS_entities.cpp/
+   TS_objectives.cpp/TS_grenades.cpp/TS_worldgun.cpp; we split per-class). High-churn behaviour-preserving moves;
+   the 2 missing files are client.dll (HUD track) + pm_shared.c (movement free-fns, partly credited now).
+
+### Task-list entries to recreate (via TaskCreate) — the cont.79 tracker
+- `[in_progress]` **"Per-class 1:1 parity loop (audit→RE→reconcile→build→audit→commit)"** — THE recurring driver; keep open.
+- `[in_progress]` **"PLAYTEST gate before merging restructure-source-parity to main (everything cont.74–79 UNPLAYTESTED bar the 6 fixed bugs)"**.
+- `[pending]` **"CTSAnimation tail: 3rd-person fire-pose pev->sequence compare; dive leg-timer hold; getup-unduck; melee block via player+0x478"**.
+- `[pending]` **"CBasePlayer 19 missing methods (inlined melee/bullet — playtest-gated) + CTSGun fire/melee/grenade tail"**.
+- `[pending]` **"43 real missing free funcs (range-damage falloff = gameplay gap; weapon-param tuning; gamerules/pm_shared) + m61_grenade classname"**.
+- `[pending]` **"Review the 6 invented-method DRIFT items (CTSGun::SwitchBarrel, CTSKnife settle/pickup — mechanism drift, playtest-gated)"**.
+- `[pending]` **"17 missing globals = unimplemented gmsg* protocol (client HUD track: Objective/ShowObj/Wires/TSState/…)"**.
+- `[pending]` **"22 file mismatches + 2 missing files — entity-file consolidation + client.dll HUD + pm_shared.c"**.
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.78, 2026-06-29) — playtest fixes landed; CTSAnimation needs a LIVE-TRACE pass
 
 Branch `restructure-source-parity` (NOT merged; GPG off). The user PLAYTESTED cont.74-77 in graphical xash and
