@@ -92,6 +92,22 @@ gmsg + star_*.md — registration parity first) and freefuncs F1-F10 (dossier-fr
 code: L7 per-move whiff/rootFlag table, L10 CloseAttack drain const + top-up, backkick force base,
 8-arg EMIT_SOUND_DYN, coldcock dmg bits (L5), CheckHull hull extents, whiff expiry predicate.
 
+### ⭐ MAJOR RE CORRECTION (cont.81, user-driven): directional stunt poses — the "+0x510 never written" premise was WRONG
+player+0x510 IS m_vecStuntDir: CTSStunt is EMBEDDED at CBasePlayer+0x4f0 (Jump: GoWheel((CTSStunt*)&this->
+field_0x4f0)) and m_vecStuntDir = CTSStunt+0x20 → 0x510. GoRoll/GoWheel write it via the STUNT this-pointer —
+invisible to every player-relative write scan (the cont.80 eedf94f "always forward" reading AND cont.81's objdump
+sweep were both blind to this; the USER's original-game knowledge was right → memory
+[[embedded-object-offset-blindness]]). Fixed (27fde55): Animate 0x2e/0x2f/0x30/0x31/0x32 dispatch directionally
+off GetDirection(m_vecStuntDir, v_angle, 0.6, 0.3) with the ctor tables (getup dive_l/r/f/b_end · roll
+roll_l/r/f/b · dive_end {roll_l, roll_r, roll_f_high, roll_b} · wheel 0/1/3/else→l/r/b/f · lowwheel 2/0/else→
+f/l/r, NO lowwheel_b). GetDirection rewritten VERBATIM (@0x6b008: yaw+roll basis pitch-zeroed, right-dot ±0.6
+first, fwd-dot < -0.3 = back) + ALL callers now pass NORMALIZED vectors (orig normalizes per-site; zero→(0,0,1)).
+Also f85d325 (the earlier wrong always-_f fix, superseded) + backkick force = +15 doubled-KungFu (gowheel
+decompile-exact, was -35 VERIFY). User-confirmed the model: lowwheel_* = double-jump moving, roll_* = double-duck,
+wheel_b = standing double-jump. STILL OPEN from the playtest: wheel lands prone but "immediately gets up" (should
+stay down unless moving) + prone switches too fast; the stamina-bar HUD refill (client-side KFuPower drain-only —
+wire the WeaponInfo melee byte into the HUD bar + reset on respawn).
+
 ### STILL OPEN (cont.81 → next)
 - **Apply the dossiers**: melee S0–S10 (UpdateMeleeBar unblocks the GoWheel backkick = stunt tail), gmsg U0–U5
   (TSFlag 1-liner first), freefuncs F1–F10 (F3 falloff playtest-gated). All work-lists are commit-ordered.
