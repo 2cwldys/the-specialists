@@ -2008,15 +2008,42 @@ void CBasePlayer::PreThink()
 			m_flMeleeBar = 100.0f;
 	}
 
-	// TS block-window decay (RE PreThink @0x808cc +0x1ce..+0x22d, addendum L2): the three deflect
-	// windows are VALUES counted down by the same slow-scaled delta, floored at 0.
+	// TS melee timer lifecycle (RE PreThink @0x808cc, addendum L2): the deflect windows, the
+	// BlockPlayer root timer and the whiff-lunge window are all VALUES counted down by the same
+	// slow-scaled delta.
 	{
 		float flDecay = GiveSlowMul() * gpGlobals->frametime;
 		if ((m_iPowerups & TS_PWUP_DBLFIRE) != 0)
 			flDecay *= 1.5f;
+		// deflect windows (+0x7a8/ac/b0): floor 0
 		m_flKungFuBlock = V_max(m_flKungFuBlock - flDecay, 0.0f);
 		m_flKatanaBlock = V_max(m_flKatanaBlock - flDecay, 0.0f);
 		m_flKnifeBlock = V_max(m_flKnifeBlock - flDecay, 0.0f);
+		// BlockPlayer root timer (+0x4dc): countdown; on expiry clear the STOP bit + zero
+		if (m_flBlockTime != 0.0f)
+		{
+			m_flBlockTime -= flDecay;
+			if (m_flBlockTime < 0.01f)
+			{
+				m_flBlockTime = 0.0f;
+				pev->iuser4 &= ~TSSTUNT_STOP;
+			}
+		}
+		// whiff-lunge window (+0x79c): countdown; on expiry zero the force/type + the kungfu
+		// window (RE +0x547..+0x59d; exact expiry condition VERIFY — force==0 also collapses it).
+		// NOTE: the lunge EXECUTION (applying m_flWhiffLungeForce to velocity inside the window)
+		// is stunt-cluster scope — lands with the CTSStunt reconcile.
+		if (m_flWhiffLungeTime != 0.0f)
+		{
+			m_flWhiffLungeTime -= flDecay;
+			if (m_flWhiffLungeTime < 0.01f || m_flWhiffLungeForce == 0.0f)
+			{
+				m_flWhiffLungeTime = 0.0f;
+				m_flWhiffLungeForce = 0.0f;
+				m_iWhiffLungeType = 0;
+				m_flKungFuBlock = 0.0f; // the @+0x599 clear rides the whiff expiry
+			}
+		}
 	}
 
 	// TS SUPER-JUMP powerup — an INDEPENDENT persistent powerup (m_bLowGravity, set by PlayerAddPowerUp)

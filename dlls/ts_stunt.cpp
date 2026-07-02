@@ -93,6 +93,7 @@ void CTSStunt::Init(CBasePlayer *pPlayer)
 static void TS_ResetStuntState(CBasePlayer *pl)
 {
 	entvars_t *pev = pl->pev;
+	pl->m_flBlockTime = 0.0f; // the STOP bit's timer resets with it (RE CTSStunt::Play reset)
 	pev->iuser4 &= ~(TSSTUNT_STOP | TSSTUNT_PRONE | TSSTUNT_STANDUP | TSSTUNT_DIVE |
 					 TSSTUNT_SLIDE | TSSTUNT_DIVE_HEIGHT | TSSTUNT_WHEEL_HI | TSSTUNT_WHEEL_LO |
 					 TSSTUNT_WALLJUMP | TSSTUNT_WALLCLIMB | TSSTUNT_WALLJUMP_A | TSSTUNT_WALLCLIMB_A |
@@ -161,6 +162,7 @@ void CTSStunt::Play()
 		if (m_flRollTime != 0.0f && m_flRollTime < 0.01f)
 		{
 			pev->iuser4 &= ~(TSSTUNT_PRONE | TSSTUNT_STOP | TSSTUNT_ROLL);
+			m_pPlayer->m_flBlockTime = 0.0f; // STOP cleared -> its timer too
 			pev->gravity = 1.0f;
 			pev->view_ofs.z = (pev->flags & FL_DUCKING) ? 16.0f : 28.0f;
 			m_flRollTime = 0;

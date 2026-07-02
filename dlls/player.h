@@ -489,6 +489,7 @@ public:
 	void PunchScreen(float magnitude, Vector dir);        // @0x85f70 — empty in the shipped game
 	float GetMeleeMultiplier();                           // @0x865d0 — melee dmg mult from melee-bar stamina
 	void UpdateMeleeBar(float flAmount);                  // @0x8650c — THE melee-stamina drain choke-point (sends KFuPower)
+	void BlockPlayer(float flDuration);                   // @0x85b58 — post-swing movement self-root (STOP bit + m_flBlockTime)
 	void DropArmor();                                     // @0x83a3c — drop armorvalue as a CTSAmmoPack
 	void DropAmmo();                                      // @0x846f0 — drop the gun's reserve as a CTSAmmoPack
 	void UpdatePlayerState();                             // @0x82a08 — derive m_iPlayerState (locked/frozen/normal)

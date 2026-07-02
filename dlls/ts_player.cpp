@@ -554,6 +554,17 @@ void CBasePlayer::UpdateMeleeBar(float flAmount)
 	MESSAGE_END();
 }
 
+// @0x85b58 BlockPlayer — a movement SELF-ROOT (NOT the deflect-block; 24 bytes in the original):
+// arm the stop timer and set the STOP stunt bit (pm_shared TSHandle halves the move command
+// while it's set). PreThink counts the timer down and clears the bit on expiry; the stunt reset
+// paths zero it. Callers: the CCombatAttack tail (roots the ATTACKER after a swing, refire*0.75)
+// + KatanaFire's back/duck slash lock (delay*0.9) — both land in dossier S5/S7b.
+void CBasePlayer::BlockPlayer(float flDuration)
+{
+	m_flBlockTime = flDuration;
+	pev->iuser4 |= TSSTUNT_STOP;
+}
+
 // @0x83a3c DropArmor — drop the player's armor as a CTSAmmoPack (armor-only) tossed in front of them,
 // then zero the armor. (Dead drop randomizes the toss direction.)
 void CBasePlayer::DropArmor()
