@@ -163,7 +163,8 @@ void CTSStunt::Play()
 		{
 			pev->iuser4 &= ~(TSSTUNT_PRONE | TSSTUNT_STOP | TSSTUNT_ROLL);
 			m_pPlayer->m_flBlockTime = 0.0f; // STOP cleared -> its timer too
-			pev->gravity = 1.0f;
+			pev->gravity = 1.0f;  // pev+0x11c = 1.0 (getup restores BOTH)
+			pev->friction = 1.0f; // pev+0x120 = 1.0
 			pev->view_ofs.z = (pev->flags & FL_DUCKING) ? 16.0f : 28.0f;
 			m_flRollTime = 0;
 			m_flStuntTime = 0;
@@ -324,7 +325,7 @@ int CTSStunt::GoRoll(int dir)
 	m_vecStuntDir = (len == 0.0f) ? Vector(0, 0, 1) : pev->velocity * (1.0f / len);
 	m_bDirForward = (GetDirection(m_vecStuntDir, pev->v_angle, 0.6f, 0.3f) != 2); // normalized (just stored)
 
-	pev->gravity = 0.3f;                                // RE: gravity (pev+0x120) = 0.3, NOT friction
+	pev->friction = 0.3f;                               // RE: pev+0x120 = 0.3 = FRICTION (offsetof-proven; the cont.80 gravity reading was the inverted map)
 	pev->iuser4 |= TSSTUNT_ROLL | TSSTUNT_PRONE | TSSTUNT_STOP; // 0x40005
 	pev->view_ofs = g_vecZero;
 	m_flRollTime = 0.75f;
@@ -371,7 +372,7 @@ void CTSStunt::GoWallJump()
 	pev->view_ofs = g_vecZero;
 
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x37);
-	pev->friction = 0.75f; // RE GoWallJump@0x8a7d4: friction (0x11c), NOT gravity — gravity untouched
+	pev->gravity = 0.75f;  // RE GoWallJump@0x8a7d4: pev+0x11c = 0.75 = GRAVITY (offsetof-proven)
 
 	m_flWallClimbFuel += 0.35f;
 	m_flStuntTime = (m_flWallClimbFuel < 0.5f) ? 0.5f : m_flWallClimbFuel;
@@ -449,7 +450,7 @@ int CTSStunt::GoWheel()
 		pev->view_ofs = g_vecZero;
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x31);
 		pev->iuser4 |= TSSTUNT_DIVE_MED;
-		pev->friction = 0.75f;
+		pev->gravity = 0.75f;  // pev+0x11c = 0.75 (offsetof-proven: GRAVITY)
 		m_flStuntTime = NextDive();
 		TS_SendNextStunt(m_pPlayer, m_flStuntTime);
 		EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
@@ -478,8 +479,8 @@ int CTSStunt::GoWheel()
 		pev->view_ofs = g_vecZero;
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x32);
 		pev->iuser4 |= TSSTUNT_DIVE_LOW;
-		pev->friction = 0.75f;
-		if (dir == 2) pev->gravity = 0.25f;
+		pev->gravity = 0.75f;  // pev+0x11c = 0.75 (offsetof-proven: GRAVITY)
+		if (dir == 2) pev->friction = 0.25f; // pev+0x120 = 0.25 = FRICTION (was gravity = the "flying" bug)
 		m_flStuntTime = NextDive();
 		TS_SendNextStunt(m_pPlayer, m_flStuntTime);
 		EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/airwheel.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
@@ -512,7 +513,7 @@ void CTSStunt::HandleSlide()
 		pev->iuser4 &= ~TSSTUNT_SLIDE;
 		pev->iuser4 |= TSSTUNT_STOP;
 		m_flRollTime = 0.75f;
-		pev->gravity = 1.0f;
+		pev->friction = 1.0f; // pev+0x120 = 1.0 (gravity is restored by the getup block)
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29); // hold the prone pose (frozen dir) while the timer runs
 		return;
 	}
@@ -556,11 +557,11 @@ void CTSStunt::HandleWheel()
 	{
 		pev->iuser4 &= ~TSSTUNT_WHEEL_HI;
 		pev->iuser4 |= TSSTUNT_STOP;
-		pev->gravity = 0.25f;  // pev+0x120 = 0x3e800000
+		pev->friction = 0.25f; // pev+0x120 = 0.25 = FRICTION (offsetof-proven)
 		pev->view_ofs = g_vecZero;
 		m_flRollTime = 0.375f; // the auto-getup timer (Play's getup block consumes it)
 	}
-	pev->friction = 1.0f;      // pev+0x11c = 0x3f800000 (both tiers)
+	pev->gravity = 1.0f;       // pev+0x11c = 1.0 = GRAVITY restore at landing (both tiers)
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
 }
 
@@ -570,8 +571,8 @@ void CTSStunt::HandleWallJump()
 	if (!(pev->flags & FL_ONGROUND))
 		return;
 	pev->iuser4 &= ~TSSTUNT_WALLJUMP_A;
-	pev->gravity = 0.5f;   // RE HandleWallJump@0x8b4fc: gravity 0.5 + friction 1.0 (ours had them swapped)
-	pev->friction = 1.0f;
+	pev->friction = 0.5f;  // RE HandleWallJump@0x8b4fc: pev+0x120 = 0.5 = FRICTION (offsetof-proven)
+	pev->gravity = 1.0f;   // pev+0x11c = 1.0 = GRAVITY restore
 	pev->view_ofs = g_vecZero;
 	m_flRollTime = 0.262f;
 	if (m_flStuntTime < 0.01f) { m_flStuntTime = 0; TS_SendNextStunt(m_pPlayer, m_flStuntTime); }
@@ -592,8 +593,8 @@ void CTSStunt::HandleWallClimb()
 		return;
 	}
 	pev->iuser4 &= ~TSSTUNT_WALLCLIMB_A;
-	pev->gravity = 0.5f;   // RE HandleWallClimb@0x8b4fc: gravity 0.5 + friction 1.0 (ours had them swapped)
-	pev->friction = 1.0f;
+	pev->friction = 0.5f;  // RE HandleWallClimb: pev+0x120 = 0.5 = FRICTION (offsetof-proven)
+	pev->gravity = 1.0f;   // pev+0x11c = 1.0 = GRAVITY restore
 	m_flRollTime = 0.262f;
 	if (m_flStuntTime < 0.01f) { m_flStuntTime = 0; TS_SendNextStunt(m_pPlayer, m_flStuntTime); }
 	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/land.wav", VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 0x1f));
