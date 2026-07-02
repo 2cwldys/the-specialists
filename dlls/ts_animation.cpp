@@ -19,27 +19,27 @@
 // Leg locomotion gait speed split (original fc_180): above -> run2, below (moving) -> walk2.
 #define TSA_RUN_SPEED 180.0f
 
-// ---- free GetDirection (original GetDirection__FG6VectorT0ff) --------------------
-// 0=left 1=right 2=forward 3=back, from velocity relative to a yaw facing. The original
-// takes (normalized dir, view-angles, fwdBias, sideBias); we reproduce the behaviour
-// from the horizontal velocity vs the facing forward/right basis.
-int GetDirection(const Vector &dir, const Vector &angles, float fwdBias, float sideBias)
+// ---- free GetDirection (original GetDirection__FG6VectorT0ff @0x6b008, VERBATIM) --------
+// 0=left 1=right 2=forward 3=back. Takes a NORMALIZED direction + view angles; the basis is
+// yaw+roll with PITCH ZEROED. Priority: right-dot vs ±sideThresh(0.6) first, then
+// forward-dot < -fwdThresh(0.3) = back, else forward. Callers MUST pass a unit vector
+// (the original normalizes at every call site; zero velocity becomes (0,0,1) -> forward).
+int GetDirection(const Vector &dir, const Vector &angles, float sideThresh, float fwdThresh)
 {
-	Vector v = dir;
-	v.z = 0;
-	if (v.Length() < 1.0f)
-		return 2; // forward when stationary/ambiguous
+	UTIL_MakeVectors(Vector(0, angles.y, angles.z)); // pitch zeroed, yaw+roll kept (RE)
+	float rdot = DotProduct(gpGlobals->v_right, dir);
+	if (rdot < -sideThresh)
+		return 0; // left
+	if (rdot > sideThresh)
+		return 1; // right
+	return (DotProduct(gpGlobals->v_forward, dir) < -fwdThresh) ? 3 /*back*/ : 2 /*forward*/;
+}
 
-	UTIL_MakeVectors(Vector(0, angles.y, 0));
-	Vector fwd = gpGlobals->v_forward;  fwd.z = 0;
-	Vector right = gpGlobals->v_right;  right.z = 0;
-
-	float fdot = DotProduct(v, fwd);
-	float rdot = DotProduct(v, right);
-
-	if (fabs(fdot) >= fabs(rdot))
-		return (fdot >= 0) ? 2 /*forward*/ : 3 /*back*/;
-	return (rdot >= 0) ? 1 /*right*/ : 0 /*left*/;
+// The original's per-call-site normalization (velocity -> unit dir; zero -> (0,0,1)).
+static Vector TS_DirNormalize(const Vector &v)
+{
+	float len = v.Length();
+	return (len == 0.0f) ? Vector(0, 0, 1) : v * (1.0f / len);
 }
 
 // ---- Init (@0x5b320) -------------------------------------------------------------
@@ -246,7 +246,7 @@ void CTSAnimation::BlendAnimationsForSlide(CBasePlayer *pPlayer)
 {
 	static const char *const slideTable[4] = { "slide_l_", "slide_r_", "slide_f_", "slide_b_" };
 	const char *grip = pPlayer->m_szAnimExtention;
-	int d = GetDirection(pPlayer->pev->velocity, pPlayer->pev->v_angle, 0.6f, 0.3f);
+	int d = GetDirection(TS_DirNormalize(pPlayer->pev->velocity), pPlayer->pev->v_angle, 0.6f, 0.3f);
 	if (d != m_iDirection && d != 2 && d >= 0 && d < 4)
 	{
 		char name[64];
@@ -263,7 +263,7 @@ void CTSAnimation::BlendJumpAnimations(CBasePlayer *pPlayer)
 	const char *grip = pPlayer->m_szAnimExtention;
 	if (!grip || !grip[0])
 		return;
-	int d = GetDirection(pPlayer->pev->velocity, pPlayer->pev->v_angle, 0.6f, 0.3f);
+	int d = GetDirection(TS_DirNormalize(pPlayer->pev->velocity), pPlayer->pev->v_angle, 0.6f, 0.3f);
 	if (d != m_iDirection)
 	{
 		const char *jd = (d == 0) ? "jump_left_" : (d == 1) ? "jump_right_" : "jump_forward_";
@@ -303,7 +303,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		else if (activity == TSA_BLENDDIR)
 		{
 			static const char *const diveTable[4] = { "dive_l_", "dive_r_", "dive_f_", "dive_b_" };
-			BlendAnimationsByDir(pPlayer, pev->velocity, pev->v_angle, diveTable, grip[0] ? grip : "akimbo");
+			BlendAnimationsByDir(pPlayer, TS_DirNormalize(pev->velocity), pev->v_angle, diveTable, grip[0] ? grip : "akimbo");
 		}
 	}
 
@@ -466,7 +466,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	{
 		if (speed > 16.0f)
 		{
-			int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+			int dir = GetDirection(TS_DirNormalize(pev->velocity), pev->v_angle, 0.6f, 0.3f);
 			m_iDirection = dir;
 			const char *jd = (dir == 0) ? "jump_left_" : (dir == 1) ? "jump_right_" : "jump_forward_";
 			strcpy(name, jd);
@@ -538,7 +538,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	case TSA_DIVE:
 	{
 		static const char *const ds[4] = { "l", "r", "f", "b" };
-		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		int dir = GetDirection(TS_DirNormalize(pev->velocity), pev->v_angle, 0.6f, 0.3f);
 		m_iDirection = dir; // freeze the dive direction — the following prone pose (0x29) indexes by it
 		snprintf(name, sizeof(name), "dive_%s_%s", ds[dir & 3], grip);
 		SetAnim(pPlayer, name, 0x94, 0);
@@ -546,24 +546,40 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		m_iLastActivity = activity;
 		return;
 	}
-	// RE case 0x2e/0x2f/0x30: direction = GetDirection(player+0x510, v_angle); player+0x510 (the stored
-	// dive vector) is NEVER written in the binary -> always (0,0,0) -> GetDirection returns FORWARD, so
-	// getup/roll/dive_end always use the forward pose (they do NOT re-orient to live strafe). Pose names
-	// recovered from the CTSAnimation ctor pose tables (this+0x11c getup / +0x15c roll / +0x19c dive_end).
+	// RE case 0x2e/0x2f/0x30 (CORRECTED cont.81): direction = GetDirection(player+0x510, v_angle,
+	// 0.6, 0.3). player+0x510 IS m_vecStuntDir — CTSStunt is EMBEDDED at CBasePlayer+0x4f0 and
+	// m_vecStuntDir is CTSStunt+0x20 (0x4f0+0x20=0x510); GoRoll/GoWheel/GoDive write it through the
+	// stunt this-pointer, which is why every player-relative write-scan called it "never written".
+	// So these poses ARE directional: the direction the stunt was LAUNCHED in, relative to view
+	// (roll_b for a backward dive-roll, etc.). Pose tables from the ctor: +0x11c getup
+	// {dive_l/r/f/b_end}, +0x15c roll {roll_l/r/f/b}, +0x19c dive_end {roll_l, roll_r,
+	// roll_f_high, roll_b} (the forward slot alone gets the _high variant).
 	case TSA_GETUP:
-		SetAnim(pPlayer, "dive_f_end", 0x94, 0);   // getuptable[forward] @0x13c
+	{
+		static const char *const getupTable[4] = { "dive_l_end", "dive_r_end", "dive_f_end", "dive_b_end" };
+		int dir = GetDirection(pPlayer->m_TSStunt.m_vecStuntDir, pev->v_angle, 0.6f, 0.3f);
+		SetAnim(pPlayer, getupTable[dir & 3], 0x94, 0);
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
+	}
 	case TSA_ROLL:
-		SetAnim(pPlayer, "roll_f", 0x94, 0);       // rolltable[forward] @0x17c
+	{
+		static const char *const rollTable[4] = { "roll_l", "roll_r", "roll_f", "roll_b" };
+		int dir = GetDirection(pPlayer->m_TSStunt.m_vecStuntDir, pev->v_angle, 0.6f, 0.3f);
+		SetAnim(pPlayer, rollTable[dir & 3], 0x94, 0);
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
+	}
 	case TSA_DIVE_END:
-		SetAnim(pPlayer, "roll_f_high", 0x94, 0);  // dive_end table[forward] @0x1bc
+	{
+		static const char *const diveEndTable[4] = { "roll_l", "roll_r", "roll_f_high", "roll_b" };
+		int dir = GetDirection(pPlayer->m_TSStunt.m_vecStuntDir, pev->v_angle, 0.6f, 0.3f);
+		SetAnim(pPlayer, diveEndTable[dir & 3], 0x94, 0);
 		m_iLastActivity = activity;
 		return;
+	}
 	// case 0x29: the settled prone LYING pose, indexed by the FROZEN m_iDirection. IMPORTANT: the ctor
 	// pose table this+0xdc = slide_<dir>_end, but those are the dive-RECOVERY (getup) animations — in the
 	// original, Animate(0x29)=slide_<dir>_end is dispatched ONCE for the deliberate standup, while the
@@ -592,22 +608,29 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
-	// RE case 0x31/0x32 (Animate@0x5b470): direction = GetDirection(player+0x510, v_angle) — the
-	// SAME never-written stored dive vector as getup/roll/dive_end above -> always (0,0,0) ->
-	// GetDirection returns FORWARD -> the original ALWAYS plays wheel_f / lowwheel_f. (The l/r/b
-	// branches exist in the original's switch but are unreachable; lowwheel has NO _b pose at all.)
-	// Our old live-velocity read picked lowwheel_l/r/b while moving — lowwheel_b doesn't exist in
-	// the model, SetAnim failed, and the PRONE dive pose showed instead ("moving wheel = dive" bug).
+	// RE case 0x31/0x32 (CORRECTED cont.81, same +0x510 = m_vecStuntDir resolution as above):
+	// the wheels ARE directional off the stunt-launch direction. 0x31: switch 0->wheel_l,
+	// 1->wheel_r, 3->wheel_b (the standing wheel: GoWheel stores -v_forward -> backward ->
+	// wheel_b), default->wheel_f. 0x32: 2->lowwheel_f, 0->lowwheel_l, else->lowwheel_r
+	// (there is NO lowwheel_b — dir 3 falls to lowwheel_r, per the original's exact branch shape).
 	case TSA_WHEEL:
-		SetAnim(pPlayer, "wheel_f", 0x94, 0);
+	{
+		int dir = GetDirection(pPlayer->m_TSStunt.m_vecStuntDir, pev->v_angle, 0.6f, 0.3f);
+		const char *pose = (dir == 0) ? "wheel_l" : (dir == 1) ? "wheel_r" : (dir == 3) ? "wheel_b" : "wheel_f";
+		SetAnim(pPlayer, pose, 0x94, 0);
 		m_flLegTimer = 3.0f; // this+0x8 = 3.0 (0x40400000)
 		m_iLastActivity = activity;
 		return;
+	}
 	case TSA_LOWWHEEL:
-		SetAnim(pPlayer, "lowwheel_f", 0x94, 0);
+	{
+		int dir = GetDirection(pPlayer->m_TSStunt.m_vecStuntDir, pev->v_angle, 0.6f, 0.3f);
+		const char *pose = (dir == 2) ? "lowwheel_f" : (dir == 0) ? "lowwheel_l" : "lowwheel_r";
+		SetAnim(pPlayer, pose, 0x94, 0);
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
 		return;
+	}
 	case TSA_WALLJUMP:
 		SetAnim(pPlayer, "walljump_end", 0x94, 0);
 		m_flLegTimer = 3.0f;
@@ -647,7 +670,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	// Legs: crawl when ducking+moving, run2/walk2 by speed, none when still.
 	if (speed > 1.0f)
 	{
-		m_iDirection = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		m_iDirection = GetDirection(TS_DirNormalize(pev->velocity), pev->v_angle, 0.6f, 0.3f);
 		if (ducking)
 			SetAnim(pPlayer, "crawl", TSSA_LEGS, 0);
 		else

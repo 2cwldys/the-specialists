@@ -43,6 +43,12 @@ class CBasePlayer;
 class CTSStunt
 {
 public:
+	// +0x20 — the stunt/dive direction stored by GoRoll/GoWheel/GoDive (normalize(velocity), or
+	// -v_forward for a standing wheel). CTSStunt is embedded at CBasePlayer+0x4f0 in the original,
+	// so this IS "player+0x510" — the direction source Animate's roll/getup/dive_end/wheel cases
+	// read (GetDirection(m_vecStuntDir, v_angle, 0.6, 0.3) -> the pose direction).
+	Vector m_vecStuntDir;
+
 	void Init(CBasePlayer *pPlayer);          // @0x89fbc — reset per spawn
 	void Play();                               // @0x8a014 — per-frame driver (PreThink)
 
@@ -85,7 +91,6 @@ private:
 	float m_flRollNextTime = 0;     // +0x0c earliest next roll
 	float m_flWheelNextTime = 0;    // +0x10 earliest next wheel
 	float m_flWallClimbNextTime = 0;// +0x14 wall-climb retry cooldown
-	Vector m_vecStuntDir;           // +0x20 stunt/dive direction
 	bool  m_bDirForward = false;    // +0x2c GetDirection() != back
 	float m_flSlideTime = 0;        // +0x30 slide/bullet-time timer
 	float m_flBulletTimeEnd = 0;    // +0x34 bullet-time end

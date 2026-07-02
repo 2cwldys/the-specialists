@@ -322,7 +322,7 @@ int CTSStunt::GoRoll(int dir)
 
 	float len = pev->velocity.Length();
 	m_vecStuntDir = (len == 0.0f) ? Vector(0, 0, 1) : pev->velocity * (1.0f / len);
-	m_bDirForward = (GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f) != 2);
+	m_bDirForward = (GetDirection(m_vecStuntDir, pev->v_angle, 0.6f, 0.3f) != 2); // normalized (just stored)
 
 	pev->gravity = 0.3f;                                // RE: gravity (pev+0x120) = 0.3, NOT friction
 	pev->iuser4 |= TSSTUNT_ROLL | TSSTUNT_PRONE | TSSTUNT_STOP; // 0x40005
@@ -427,7 +427,7 @@ int CTSStunt::GoWheel()
 	{
 		float len = pev->velocity.Length();
 		m_vecStuntDir = (len == 0.0f) ? Vector(0, 0, 1) : pev->velocity * (1.0f / len);
-		dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f); m_bDirForward = (dir != 2);
+		dir = GetDirection(m_vecStuntDir, pev->v_angle, 0.6f, 0.3f); m_bDirForward = (dir != 2); // normalized (just stored)
 	}
 	else
 	{
@@ -590,7 +590,10 @@ void CTSStunt::Landing()
 		// here — HandleSlide (which runs the same Play frame once SLIDE is set) picks the pose.
 		pev->iuser4 &= ~TSSTUNT_DIVE;
 		pev->iuser4 |= TSSTUNT_SLIDE;
-		int dir = GetDirection(pev->velocity, pev->v_angle, 0.6f, 0.3f);
+		Vector landDir = pev->velocity;
+		float landLen = landDir.Length();
+		landDir = (landLen == 0.0f) ? Vector(0, 0, 1) : landDir * (1.0f / landLen);
+		int dir = GetDirection(landDir, pev->v_angle, 0.6f, 0.3f);
 		m_pPlayer->m_TSAnim.m_iDirection = dir;
 		m_bDirForward = (dir != 2);
 	}
