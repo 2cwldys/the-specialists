@@ -109,7 +109,7 @@ target_sources(hl PRIVATE
 	ts_customtarget.cpp
 	ts_model.cpp
 	ts_mapglobals.cpp
-	ts_gamerules.cpp
+	TS_gamerulesclass.cpp
 	ts_teams.cpp
 	ts_cvars.cpp
 	ts_buy.cpp
