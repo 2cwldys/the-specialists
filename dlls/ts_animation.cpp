@@ -602,11 +602,20 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	}
 	// RE case 0x2a/0x2b: "slide_f_" + grip + "_left"/"_right" (the player+0x51c stored-dir path is
 	// dead code — 0x51c is never written, so it is always this forward slide-back-fire form).
+	// RE case 0x2a/0x2b (VERBATIM): the prone ROLL. Forward launches (m_bDirForward false):
+	// "slide_f_" + grip(/akimbo) + "_left"/"_right" (the LOOPING roll, agent.mdl 123/124 etc.).
+	// Non-forward: the bare "slide_b_left"/"slide_b_right" — NOT present in agent.mdl (an
+	// original-content quirk; the lookup falls through exactly as the original's would).
 	case TSA_SLIDE_BL:
 	case TSA_SLIDE_BR:
-		strcpy(name, "slide_f_");
-		strcat(name, grip);
-		strcat(name, (activity == TSA_SLIDE_BL) ? "_left" : "_right");
+		if (!pPlayer->m_TSStunt.m_bDirForward)
+		{
+			strcpy(name, "slide_f_");
+			strcat(name, grip[0] ? grip : "akimbo");
+			strcat(name, (activity == TSA_SLIDE_BL) ? "_left" : "_right");
+		}
+		else
+			strcpy(name, (activity == TSA_SLIDE_BL) ? "slide_b_left" : "slide_b_right");
 		SetAnim(pPlayer, name, 0x14, 0);
 		m_flLegTimer = 3.0f;
 		m_iLastActivity = activity;
@@ -653,10 +662,36 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		m_iLastActivity = activity;
 		return;
 
+	// RE case 3 (VERBATIM): the settled PRONE LYING pose — the LOOPING slide_<dir>_<grip>
+	// (agent.mdl 111-114/125-128/135-138). Direction: non-directional launches
+	// (m_bDirForward false) lie forward; else GetDirection(m_vecStuntDir) with the
+	// !=forward latch update into m_iDirection. Grip falls back to "akimbo". Entry guard:
+	// don't stomp a still-playing fire pose (last 0/8/9 = FIRE/FIRE_SLIDEL/R).
+	case TSA_SLIDE:
+	{
+		if ((m_iLastActivity != TSA_FIRE && m_iLastActivity != TSA_FIRE_SLIDEL &&
+			 m_iLastActivity != TSA_FIRE_SLIDER) || pPlayer->m_fSequenceFinished)
+		{
+			if (!pPlayer->m_TSStunt.m_bDirForward)
+				strcpy(name, "slide_f_");
+			else
+			{
+				int dir = GetDirection(pPlayer->m_TSStunt.m_vecStuntDir, pev->v_angle, 0.6f, 0.3f);
+				if (dir != m_iDirection && dir != 2)
+					m_iDirection = dir;
+				static const char *const slideTable[4] = { "slide_l_", "slide_r_", "slide_f_", "slide_b_" };
+				strcpy(name, slideTable[m_iDirection & 3]);
+			}
+			strcat(name, grip[0] ? grip : "akimbo");
+			SetAnim(pPlayer, name, 0x94, 0);
+			m_iLastActivity = activity;
+		}
+		return;
+	}
+
 	// ---- Move / idle (handled by Phase D) ----------------------------------
 	case TSA_RUN:
 	case TSA_IDLE:
-	case TSA_SLIDE:
 	default:
 		break;
 	}

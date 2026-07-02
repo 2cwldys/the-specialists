@@ -526,7 +526,8 @@ void CTSStunt::HandleSlide()
 	else if (pev->button & IN_MOVERIGHT)
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x2b);
 	else
-		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29);
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 3); // RE: the settled LYING pose is case 3 (not 0x29 —
+		                                           // that's the slide_*_end getup family)
 	pev->friction = 1.0f;
 }
 
