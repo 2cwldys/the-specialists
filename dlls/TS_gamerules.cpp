@@ -20,3 +20,11 @@ bool HaveFlag(CBasePlayer *pPlayer)
 {
 	return pPlayer && pPlayer->m_flagStatus.active != 0;
 }
+
+// @0x?? InitWeaponRestriction — the base permitted-weapon-type mask (all five categories: knife,
+// pistol, smg, rifle, shotgun). Free function in TS_gamerules.cpp (original home);
+// sole caller: CTSMapGlobals::get_weapon_restriction (TS_entities.cpp). (It just returns 0x1f in the shipped game.)
+int InitWeaponRestriction(void)
+{
+	return 0x1f;
+}

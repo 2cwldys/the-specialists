@@ -105,10 +105,6 @@ target_sources(hl PRIVATE
 	triggers.cpp
 	tripmine.cpp
 	ts_utils.cpp
-	ts_timer.cpp
-	ts_customtarget.cpp
-	ts_model.cpp
-	ts_mapglobals.cpp
 	TS_gamerules.cpp
 	TS_gamerulesclass.cpp
 	ts_cvars.cpp
@@ -116,14 +112,10 @@ target_sources(hl PRIVATE
 	ts_flag.cpp
 	ts_briefcase.cpp
 	ts_bomb.cpp
-	ts_sellzone.cpp
 	ts_escape.cpp
-	ts_playeramount.cpp
 	ts_player.cpp
 	ts_animation.cpp
 	ts_stunt.cpp
-	ts_slowmotion.cpp
-	ts_slowmotionpoint.cpp
 	ts_grenades.cpp
 	hldmcompat.cpp
 	ts_sharedemitter.cpp
@@ -131,7 +123,7 @@ target_sources(hl PRIVATE
 	ts_func_break.cpp
 	ts_gun.cpp
 	ts_deadcorpse.cpp
-	ts_dmhill.cpp
+	TS_entities.cpp
 	TS_objectives.cpp
 	ts_powerup.cpp
 	ts_shared.cpp
