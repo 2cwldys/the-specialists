@@ -25,6 +25,9 @@ extern bool glast_closecombat;
 extern bool glast_coldcock;
 extern bool glast_headshot;
 
+// "KFuPower" (1, CHAR 0..100) — the melee stamina bar; sent ONLY from CBasePlayer::UpdateMeleeBar.
+extern int gmsgKFuPower;
+
 // Slow-motion "bullets as models" — see CBulletManager in ts_bullet.h (g_BulletManager).
 // The fire path calls g_BulletManager.FireBullet; gamerules Think calls g_BulletManager.Think.
 

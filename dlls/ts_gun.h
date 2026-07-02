@@ -92,7 +92,6 @@ public:
 	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
 	void CCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
 	void CCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
-	void RegenBlockBar();                        // continuous regen of the melee block bar (m_blockBar toward 100)
 	void GrenadeFire(const s_weapon_info *wi);  // grenade fire-type
 	void ThrowKnife();                           // @KnifeFire throw branch — right-click hurls the knife
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
@@ -145,10 +144,6 @@ public:
 	int m_lastMeleeAnim = 0;    // last kung-fu attack id (this+0xa04): drives the no-repeat anim cycling per move
 	int m_slashStep = 0;        // knife slash anim cycle (RE KnifeFire melee: 0x1d + random(0,2) body anims)
 	float m_lastCCTime = 0.0f;  // last close-combat attack time (combo only continues if rapid/held)
-	float m_blockBar = 100.0f;  // melee block stamina (field_0x774 / UpdateMeleeBar): each block drains 33, regens
-	float m_blockBarTime = 0.0f;// last time the block bar was regenerated (for the continuous regen)
-	float m_blockCooldown = 0.0f;// stamina-depleted lockout (RE UpdateMeleeBar field_0x12c): no block until this time
-	int   m_iClientBlockBar = -1;// last value networked via gmsgKFuPower (the melee bar; change-detect)
 	unsigned short m_usFire = 0; // events/fire.sc handle (predicted fire: sound/flash/anim)
 	unsigned short m_usDraw = 0; // events/draw.sc handle (deploy: seed the client param cache)
 	unsigned short m_usMelee = 0; // events/knife.sc handle (predicted melee impact spark/decal)

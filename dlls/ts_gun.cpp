@@ -33,7 +33,7 @@
 // (cont.69q earlier used absolute gpGlobals->time as a workaround for "fire-once-stuck"; that was only
 // needed because UseDecrement() was false → the server decrement loop above skipped CTSGun. With
 // UseDecrement()==true the server decrements it, so the 0-base elapses correctly. See EVENTS.md.)
-// NOTE: real-time DELTAS (m_lastCCTime combo window, m_blockBar stamina regen) keep gpGlobals->time —
+// NOTE: real-time DELTAS (m_lastCCTime combo window, melee-bar regen now in PreThink) keep gpGlobals->time —
 // they measure wall-clock elapsed, not a decremented weapon timer.
 
 // The single weapon_tsgun (id 16) IS the player's whole TS arsenal. The original
@@ -57,7 +57,7 @@ static int gmsgWeaponInfo = 0;
 // The weapon-select bar message: "WStatus", size 3 = BYTE type, BYTE owned, BYTE clip.
 static int gmsgTSWeaponStatus = 0;
 static int gmsgTSActiveItems = 0; // per-player attach broadcast (laser/flashlight visible to all clients)
-static int gmsgKFuPower = 0; // melee block bar (stamina 0..100, CHAR) — owner-only, gmsgKFuPower @UpdateMeleeBar
+// gmsgKFuPower moved to ts_player.cpp — sent ONLY from CBasePlayer::UpdateMeleeBar (extern via ts_player.h)
 
 // `damagemult` cvar (default 0.0 = off → 1x). A value > 0 scales all TS weapon damage.
 static float TSDamageMult()
@@ -168,9 +168,6 @@ void CTSGun::Reset()
 	m_lastMeleeAnim = 0;
 	m_slashStep = 0;
 	m_lastCCTime = 0.0f;
-	m_blockBar = 100.0f;
-	m_blockBarTime = 0.0f;
-	m_blockCooldown = 0.0f;
 
 	// per-fire transient timers
 	m_burstCount = 0;
@@ -185,7 +182,6 @@ void CTSGun::Reset()
 	m_iClientFireMode = -1;
 	m_iClientAttach = -1;
 	m_iClientEquip = -1;
-	m_iClientBlockBar = -1;
 	m_bWStatusInit = false;
 
 	UpdateActivePointers();
@@ -1179,13 +1175,13 @@ void CTSGun::CCombatAttack(bool fSecondary)
 		// "kungfuhit.wav" clack plays but NO damage lands, and the ATTACKER is stunned 0.5s while the blocker
 		// recovers in 0.25s. So a kung-fu reload-block beats an incoming kick.
 		CBasePlayer *pVictim = pHit->IsPlayer() ? (CBasePlayer *)pHit : nullptr;
-		const bool blocked = pVictim && pVictim->m_flKungFuBlock > gpGlobals->time;
+		const bool blocked = pVictim && pVictim->m_flKungFuBlock > 0.0f; // VALUE window (PreThink-decayed)
 		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kungfuhit.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
 		if (blocked)
 		{
 			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;   // attacker stunned (VictimKungfuHold)
 			m_flNextSecondaryAttack = m_flNextPrimaryAttack;
-			pVictim->m_flKungFuBlock = gpGlobals->time + 0.25f;     // blocker holds/recovers 0.25 more
+			pVictim->m_flKungFuBlock = 0.25f;                       // blocker holds/recovers 0.25 more (value)
 		}
 		else
 		{
@@ -1222,61 +1218,47 @@ void CTSGun::CCombatAttack(bool fSecondary)
 }
 
 // @ CCombatBlock__6CTSGun (@0x85ebc) — kung-fu "reload" = the block taunt. Plays the "hooah"
-// (player/block.wav) + the block_low stance, and briefly gates attacks (sets the next-attack times).
-// It costs stamina (the .so's melee bar, UpdateMeleeBar(33) → ~3 blocks); spamming it past empty
-// plays the exhausted breathing (player/breathe2.wav) instead and does not block. The bar regens.
-// Continuous regen of the melee block bar (m_blockBar -> 100). Idempotent: advances by the time since
-// the last call. (RE: the original regens field_0x774 via UpdateMeleeBar with a negative amount.)
-void CTSGun::RegenBlockBar()
-{
-	if (m_blockBarTime == 0.0f)
-		m_blockBarTime = gpGlobals->time;
-	// Regen is ALWAYS on — even while blocking (matches the original). The rate is low enough that 4
-	// rapid blocks (0.5s apart, -25 each) still out-drain it to empty, while paced blocks sustain longer.
-	m_blockBar += (gpGlobals->time - m_blockBarTime) * 25.0f; // ~25/sec continuous -> ~4s full refill (user-tuned)
-	if (m_blockBar > 100.0f)
-		m_blockBar = 100.0f;
-	m_blockBarTime = gpGlobals->time;
-}
-
-// @ CCombatBlock__6CTSGun (@0x85ebc) — RELOAD with ANY melee weapon (kung-fu/knife/katana/seal-knife) =
-// the block taunt. Plays the "hooah" (player/block.wav) + a block stance, opens a brief deflect window,
-// and gates attacks. It costs stamina (the melee bar, UpdateMeleeBar(33) -> ~3 blocks); spamming it past
-// empty plays the exhausted breathing (player/breathe2.wav), does NOT block, and starts a recovery
-// lockout. The bar regens continuously (RegenBlockBar, networked via gmsgKFuPower).
+// @ CCombatBlock__6CTSGun — RELOAD with ANY melee weapon (kung-fu/knife/katana/seal-knife) =
+// the block taunt: opens the per-weapon 0.5s deflect window, drains 33 stamina via
+// CBasePlayer::UpdateMeleeBar (which handles the depleted 1.5s lockout + the KFuPower send),
+// and gates attacks. RE-faithful gates: not mid-attack, not stunting (iuser4 & 0x70c30), bar
+// must be non-empty (>= 0.01 — a LOW bar still blocks, then empties + locks out).
+// The window is a VALUE 0.5 counted down in PreThink (addendum L2), floor 0.
 void CTSGun::CCombatBlock()
 {
 	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
 		return; // mid-attack / already blocking
+	if (m_pPlayer->m_flNextAttack > 0.0f)
+		return; // global attack gate (incl. the depleted-bar 1.5s lockout)
+	if ((m_pPlayer->pev->iuser4 & 0x70c30) != 0)
+		return; // stunting (dive/roll/wall-jump family) — no block
+	if (m_pPlayer->m_flMeleeBar < 0.01f)
+		return; // empty bar — nothing to block with
 
-	RegenBlockBar();
-
-	const float kCost = 33.0f; // RE UpdateMeleeBar(33); with the ~25/sec regen the net visible step is ~25% and
-	                           // 4 rapid blocks empty it (the regen tops up a little between presses)
-	if (m_blockBar < kCost || gpGlobals->time < m_blockCooldown)
-	{
-		// exhausted — the Valve breathing puff, no block, short lockout (RE: field_0x12c recovery delay).
-		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/breathe2.wav", VOL_NORM, ATTN_NORM);
-		if (m_blockBar < kCost)
-			m_blockCooldown = gpGlobals->time + 1.5f;
-		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
-		m_flNextSecondaryAttack = m_flNextPrimaryAttack;
-		return;
-	}
-
-	m_blockBar -= kCost;
+	// server presentation kept until the closecombat.sc event swap (dossier S7b): the original
+	// carries the block presentation in the event (iparam2 = 1 bare / 0x12 armed), not sounds.
 	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/block.wav", VOL_NORM, ATTN_NORM); // "hooah"
 	SendWeaponAnim(4); // block_low stance (seq 4, 1st person; VERIFY per knife/katana viewmodel)
 	if (m_weaponType == TSW_MELEE)
-		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_CC_BLOCK); // 3rd-person kungfu/knife/katana block pose
-	// RE CCombatBlock: re-arm next primary/secondary at +0.5 (fc_0_5), idle at +3.0 (fc_3) — you can
-	// re-block ~twice a second (faster than our old 0.8 lockout).
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_CC_BLOCK); // 3rd-person block pose
+
+	// Open the fire-type-matched BLOCK window (RE: +0x7a8 bare/kungfu, +0x7ac knife, +0x7b0 katana = 0.5).
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	if (wi && wi->iFireType == 10)
+		m_pPlayer->m_flKatanaBlock = 0.5f;
+	else if (wi && wi->iFireType == 3 && m_weaponType != TSW_MELEE)
+		m_pPlayer->m_flKnifeBlock = 0.5f;
+	else
+		m_pPlayer->m_flKungFuBlock = 0.5f;
+
+#ifndef CLIENT_DLL
+	m_pPlayer->UpdateMeleeBar(33.0f); // drain (handles depletion lockout + the KFuPower send; server-only)
+#endif
+
+	// RE CCombatBlock: re-arm next primary/secondary at +0.5, idle at +3.0.
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
-	// Open the BLOCK window (RE CCombatBlock@0x85ebc sets player+0x7a8 = 0.5): for the next 0.5s an
-	// incoming close-combat attack is deflected (CCombatAttack -> VictimKungfuHold checks this).
-	m_pPlayer->m_flKungFuBlock = gpGlobals->time + 0.5f;
 }
 
 // @ AlternateAttack__6CTSGun @0x81ba8 — the +alt2 input: pistol-whip (ColdCock) when the
@@ -1749,38 +1731,26 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 		MESSAGE_END();
 	}
 
-	// Melee block bar (gmsgKFuPower): regen the stamina continuously and network it (CHAR, 0..100) to the
-	// owner on change. The client draws it as the bottom weapon-box bar, but ONLY while a melee weapon is
-	// held (guns have no block bar). Sent before the WeaponInfo early-out so the bar always tracks regen.
-	RegenBlockBar();
-	{
-		const int barv = (int)(m_blockBar + 0.5f);
-		if (barv != m_iClientBlockBar)
-		{
-			if (gmsgKFuPower == 0)
-				gmsgKFuPower = REG_USER_MSG("KFuPower", 1);
-			m_iClientBlockBar = barv;
-			MESSAGE_BEGIN(MSG_ONE, gmsgKFuPower, NULL, pPlayer->pev);
-			WRITE_CHAR(barv);
-			MESSAGE_END();
-		}
-	}
-
 	const int equipped = m_items[m_weaponType].attach;
-	if (m_weaponType == m_iClientWeaponType && m_iClip == m_iClientClip &&
+	// The WeaponInfo "clip" byte carries the MELEE BAR for melee weapons (RE UpdateClientData
+	// @0x758c8 reads player+0x774) — this is how the client tracks the silent PreThink regen.
+	const s_weapon_info *wiActive = get_weapon_info((tsweapon_t)m_weaponType);
+	const bool meleeInfo = wiActive && (wiActive->iFireType == 3 || wiActive->iFireType == 10);
+	const int clipByte = meleeInfo ? (int)(pPlayer->m_flMeleeBar + 0.5f) : m_iClip;
+	if (m_weaponType == m_iClientWeaponType && clipByte == m_iClientClip &&
 		reserve == m_iClientReserve && m_fireMode == m_iClientFireMode &&
 		equipped == m_iClientEquip)
 		return false; // nothing changed
 
 	m_iClientWeaponType = m_weaponType;
-	m_iClientClip = m_iClip;
+	m_iClientClip = clipByte;
 	m_iClientReserve = reserve;
 	m_iClientFireMode = m_fireMode;
 	m_iClientEquip = equipped;
 
 	MESSAGE_BEGIN(MSG_ONE, gmsgWeaponInfo, NULL, pPlayer->pev);
 	WRITE_BYTE(m_weaponType);     // active tsweapon_t
-	WRITE_BYTE(m_iClip);          // rounds currently loaded
+	WRITE_BYTE(clipByte);         // rounds loaded (melee: the stamina bar)
 	WRITE_SHORT(reserve);         // spare rounds for this caliber
 	WRITE_BYTE(m_fireMode);       // 0=auto 1=semi 2=burst 3=pump
 	WRITE_BYTE(equipped);         // EQUIPPED attachment mask (silencer 1 / laser 2 / flash 4 / scope 8)

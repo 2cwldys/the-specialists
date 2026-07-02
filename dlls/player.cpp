@@ -1993,6 +1993,32 @@ void CBasePlayer::PreThink()
 	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame (sets the slow triple)
 	SlowMotionFlow();     // TS: every 0.5s, slow self + LOS-visible enemies while a slow powerup is active
 
+	// TS melee-stamina regen (RE PreThink @0x808cc +0x4eb, dossier-melee addendum L1): the bar
+	// refills at 15/s in slow-scaled game time (x1.5 under the double-fire powerup), clamped 100.
+	// The regen is SILENT — KFuPower is only sent by UpdateMeleeBar (drains); the client tracks
+	// the refill via the WeaponInfo melee bar byte.
+	if (m_flMeleeBar < 100.0f)
+	{
+		float flMeleeDelta = GiveSlowMul() * gpGlobals->frametime;
+		if ((m_iPowerups & TS_PWUP_DBLFIRE) != 0)
+			flMeleeDelta *= 1.5f;
+		// the original adds the raw (unscaled) delta on a negative-bar sentinel; kept verbatim
+		m_flMeleeBar += (m_flMeleeBar >= -0.001f) ? flMeleeDelta * 15.0f : flMeleeDelta;
+		if (m_flMeleeBar >= 100.0f)
+			m_flMeleeBar = 100.0f;
+	}
+
+	// TS block-window decay (RE PreThink @0x808cc +0x1ce..+0x22d, addendum L2): the three deflect
+	// windows are VALUES counted down by the same slow-scaled delta, floored at 0.
+	{
+		float flDecay = GiveSlowMul() * gpGlobals->frametime;
+		if ((m_iPowerups & TS_PWUP_DBLFIRE) != 0)
+			flDecay *= 1.5f;
+		m_flKungFuBlock = V_max(m_flKungFuBlock - flDecay, 0.0f);
+		m_flKatanaBlock = V_max(m_flKatanaBlock - flDecay, 0.0f);
+		m_flKnifeBlock = V_max(m_flKnifeBlock - flDecay, 0.0f);
+	}
+
 	// TS SUPER-JUMP powerup — an INDEPENDENT persistent powerup (m_bLowGravity, set by PlayerAddPowerUp)
 	// that coexists with the held slow/double slot. The original sets an engine physinfo key ("mj") that
 	// the engine's movement reads for the lift; our engine has no such hook, so we drive it here. Behaviour
@@ -3160,6 +3186,15 @@ void CBasePlayer::Spawn()
 
 	m_TSAnim.Init(); // TS: reset the 3rd-person gait state for this life
 	m_TSStunt.Init(this); // TS: reset the stunt state machine for this life
+
+	// TS per-life melee state reset (RE TSInit @0x82a4c: bar=100 @+0x357, block windows +
+	// whiff cluster zeroed @+0x386..). TSInit itself is still a missing method; these lines
+	// migrate into it when it lands.
+	m_flMeleeBar = 100.0f;
+	m_flKungFuBlock = m_flKnifeBlock = m_flKatanaBlock = 0.0f;
+	m_flWhiffLungeTime = m_flWhiffLungeForce = 0.0f;
+	m_iWhiffLungeType = 0;
+	m_flBlockTime = 0.0f;
 
 	pev->classname = MAKE_STRING("player");
 	pev->health = 100;

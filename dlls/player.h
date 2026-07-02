@@ -415,7 +415,7 @@ public:
 	byte m_iKungFu = 0;               // 0x74e — kung-fu state (kung-fu powerup)
 	byte m_bLowGravity = 0;           // 0x74f — super-jump powerup active (engine physinfo "mj")
 	byte m_bTheOne = 0;               // 0x7b9 — this player is "The One" (the juggernaut game mode)
-	float m_flKungFuBlock = 0;        // close-combat BLOCK window expire time (RE CCombatBlock player+0x7a8)
+	float m_flKungFuBlock = 0;        // 0x7a8 — kungfu block window: VALUE 0.5 set by CCombatBlock, PreThink-decayed, floor 0
 	// ---- melee stamina/whiff/block state (transient, NOT saved; RE dossier-melee.md + the L1/L2 addendum) ----
 	float m_flMeleeBar = 100.0f;      // 0x774 — melee stamina 0..100; UpdateMeleeBar drains, PreThink regens 15/s, TSInit=100
 	float m_flWhiffLungeTime = 0;     // 0x79c — whiff-lunge window, armed on a MISSED swing; PreThink counts down
@@ -487,7 +487,8 @@ public:
 	void SetPlayerSpeed(float speed);                     // @0x83068 — clamp [0,330] + SetClientMaxspeed
 	void SetPlayerGravity(float setval, float gravity);   // @0x85b70 — set pev->gravity (gated on >= 1.0)
 	void PunchScreen(float magnitude, Vector dir);        // @0x85f70 — empty in the shipped game
-	float GetMeleeMultiplier();                           // @0x865d0 — melee dmg mult from block-bar stamina
+	float GetMeleeMultiplier();                           // @0x865d0 — melee dmg mult from melee-bar stamina
+	void UpdateMeleeBar(float flAmount);                  // @0x8650c — THE melee-stamina drain choke-point (sends KFuPower)
 	void DropArmor();                                     // @0x83a3c — drop armorvalue as a CTSAmmoPack
 	void DropAmmo();                                      // @0x846f0 — drop the gun's reserve as a CTSAmmoPack
 	void UpdatePlayerState();                             // @0x82a08 — derive m_iPlayerState (locked/frozen/normal)

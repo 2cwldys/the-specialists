@@ -30,6 +30,7 @@ int gmsgTSPowerUpTime = 0;  // "PwUpTime" 1 — active countdown (UsePowerUp)
 int gmsgTSMotionBlur = 0;   // "TSMBlur"  2 — entindex + 1/2 (UsePowerUp)
 int gmsgTSPowerUp = 0;      // "PwUp"     3 — held type (short) + duration (byte) — the held-powerup HUD (UpdateClientData)
 int gmsgTSSlowAmt = 0;      // "TSSlowMo" 2 — coord(100*applied slow) — drives the client green slow-mo overlay
+int gmsgKFuPower = 0;       // "KFuPower" 1 — the melee stamina bar (CHAR, 0..100); sent ONLY by UpdateMeleeBar
 // SLICE: gmsgTSBulletTime "TSBTime" (byte 0x175) drives the bullet-time render variant; deferred.
 
 // Lazily-registered TS custom-HUD user messages. Names + fixed sizes are byte-faithful
@@ -527,11 +528,30 @@ void CBasePlayer::UpdatePlayerState()
 // empty (0) -> 0.5. (The block bar is field_0x774 on the original player; we keep it on the TS gun.)
 float CBasePlayer::GetMeleeMultiplier()
 {
-	CTSGun *pGun = GetPlayerTSGun(this);
-	float bar = pGun ? pGun->m_blockBar : 0.0f;
+	float bar = m_flMeleeBar; // the bar lives on the PLAYER (+0x774), like the original
 	if (bar < 0.0f)
 		bar = 0.0f;
 	return (bar * 0.5f + 50.0f) * 0.01f;
+}
+
+// @0x8650c UpdateMeleeBar — THE melee-stamina drain choke-point (the only writer besides the
+// PreThink regen + TSInit refill): subtract, floor at 0 with a 1.5s global attack lockout on
+// depletion, then ALWAYS network the bar (KFuPower MSG_ONE CHAR — one send per call, no
+// change-detect). Callers: CCombatBlock(33) raise-block, Victim*Hold(attacker, 33) got-blocked,
+// the jump-kick (dmg-scaled) and the GoWheel backkick (22.5). No upper clamp here.
+void CBasePlayer::UpdateMeleeBar(float flAmount)
+{
+	m_flMeleeBar -= flAmount;
+	if (m_flMeleeBar < 0.01f)
+	{
+		m_flMeleeBar = 0.0f;
+		m_flNextAttack = 1.5f; // depleted: 1.5s global attack lockout (raw store; CLIENT_WEAPONS base 0)
+	}
+	if (gmsgKFuPower == 0)
+		gmsgKFuPower = REG_USER_MSG("KFuPower", 1);
+	MESSAGE_BEGIN(MSG_ONE, gmsgKFuPower, NULL, pev);
+	WRITE_CHAR((int)(m_flMeleeBar + 0.5f));
+	MESSAGE_END();
 }
 
 // @0x83a3c DropArmor — drop the player's armor as a CTSAmmoPack (armor-only) tossed in front of them,
