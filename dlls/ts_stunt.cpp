@@ -498,37 +498,54 @@ void CTSStunt::HandleDive()
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, 2);
 }
 
+// @0x9b9f8 HandleSlide — the per-frame PRONE handler (VERBATIM). Gated on FL_ONGROUND.
+// Branches (all action branches also gated on m_flSlideTime < 0.01):
+//  - JUMP/DUCK/ALT1 = the deliberate STANDUP: STOP on, SLIDE off, view 28, arm the 0.75s
+//    getup timer + the player+0x78 stand-up latch, pose 0x29 (the slide_*_end getup family).
+//  - strafe = the prone ROLL (0x2a/0x2b) AND the direction re-anchor: m_vecStuntDir = the
+//    CURRENT aim forward, m_bDirForward = false, anim latch = forward — so the roll (and the
+//    following lying pose) is aim-relative no matter how the dive was launched. (Without the
+//    re-anchor a sideways-launched prone strafes into the missing slide_b_left/right = idle.)
+//  - else = the settled LYING pose (case 3).
+// Moving-back (IN_BACK) additionally pins friction 1.0 each frame.
 void CTSStunt::HandleSlide()
 {
 	entvars_t *pev = m_pPlayer->pev;
-	// DELIBERATE PRONE / start-standup (RE HandleSlide deliberate-prone branch @0x8b9f8): pressing
-	// JUMP/DUCK/ALT1 while sliding-prone drops out of SLIDE, holds the prone pose, and ARMS the 0.75s
-	// getup timer that Play's getup block consumes to stand you up. Without this arming the timer never
-	// runs, so the player was stuck prone forever (the reported getup bug). (The original also sets a
-	// CBasePlayer latch player+0x78=1 and view=28 here; the latch is unresolved and view is left to the
-	// getup block — VERIFY. The auto-slide directional pose selector — Animate 3/0x2a/0x2b by move keys —
-	// is not rebuilt here; we keep the frozen-dir prone pose the user validated.)
-	if ((pev->button & (IN_JUMP | IN_DUCK | IN_ALT1)) && m_flRollTime == 0.0f)
-	{
-		pev->iuser4 &= ~TSSTUNT_SLIDE;
-		pev->iuser4 |= TSSTUNT_STOP;
-		m_flRollTime = 0.75f;
-		pev->friction = 1.0f; // pev+0x120 = 1.0 (gravity is restored by the getup block)
-		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29); // hold the prone pose (frozen dir) while the timer runs
+	if (!(pev->flags & FL_ONGROUND))
 		return;
+	if (pev->button & IN_BACK)
+		pev->friction = 1.0f;
+
+	if ((pev->button & (IN_JUMP | IN_DUCK | IN_ALT1)) && m_flSlideTime < 0.01f)
+	{
+		pev->iuser4 |= TSSTUNT_STOP;
+		pev->iuser4 &= ~TSSTUNT_SLIDE;
+		pev->view_ofs = Vector(0, 0, 28);
+		m_flRollTime = 0.75f;
+		m_pPlayer->m_iStandUpLatch = 1; // player+0x78 (consumer VERIFY — the timer path stands us up)
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29);
+		pev->friction = 1.0f;
 	}
-	// auto-slide pose selector (RE HandleSlide@0x8b9f8): strafing rolls you onto that side
-	// (IN_MOVELEFT -> 0x2a slide-left, IN_MOVERIGHT -> 0x2b slide-right); otherwise the settled prone
-	// pose (0x29). (The original's no-strafe case is Animate(3); we keep 0x29 = the validated static
-	// prone-lying pose to avoid regressing it. 0x2a/0x2b use no-FORCE flags so re-dispatch won't loop.)
-	if (pev->button & IN_MOVELEFT)
+	else if ((pev->button & IN_MOVELEFT) && m_flSlideTime < 0.01f)
+	{
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x2a);
-	else if (pev->button & IN_MOVERIGHT)
+		UTIL_MakeVectors(pev->v_angle);
+		m_vecStuntDir = gpGlobals->v_forward; // re-anchor the stunt dir to the CURRENT aim
+		pev->friction = 1.0f;
+		m_bDirForward = false;
+		m_pPlayer->m_TSAnim.m_iDirection = 2; // player+0x2a0 = forward
+	}
+	else if ((pev->button & IN_MOVERIGHT) && m_flSlideTime < 0.01f)
+	{
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x2b);
+		UTIL_MakeVectors(pev->v_angle);
+		m_vecStuntDir = gpGlobals->v_forward;
+		pev->friction = 1.0f;
+		m_bDirForward = false;
+		m_pPlayer->m_TSAnim.m_iDirection = 2;
+	}
 	else
-		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 3); // RE: the settled LYING pose is case 3 (not 0x29 —
-		                                           // that's the slide_*_end getup family)
-	pev->friction = 1.0f;
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 3);
 }
 
 // @ HandleWheel — the wheel LANDING handler (RE CTSStunt_all @0x9b...: gated on pev->flags
