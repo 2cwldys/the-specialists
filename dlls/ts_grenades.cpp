@@ -704,10 +704,11 @@ void CTSKnife::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useTy
 
 	if (m_flExpire > gpGlobals->time)
 	{
-		if (!TSPickUpWeapon((CBasePlayer *)pActivator, m_knifeType, 1))
-			return; // arsenal full / duplicate — the knife stays
-		// (the pickup confirm; the original's feedback lives inside PickUpWeapon — VERIFY)
-		EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
+		// @0x6de93: PickUpWeapon(type, NULL, 0, bSelect FALSE — recovering a thrown blade
+		// does NOT switch you off your gun; an owned stack just gains the unit. The pickup
+		// sound plays inside.
+		if (!((CBasePlayer *)pActivator)->PickUpWeapon(m_knifeType, NULL, 0, false, false))
+			return; // won't fit — the knife stays
 	}
 	SetTouch(nullptr);
 	UTIL_Remove(this);

@@ -44,6 +44,10 @@ struct TSItem
 	// the original). PARKED per item: HolsterWeapon clears reloading+burstOrPhase but NOT this
 	// (@0x85698), so the rack/barrel step survives a weapon switch. Live mirror = m_fInSpecialReload.
 	int  pumpToggle = 0;
+	// item+0x30 — the recorded OWNER (an EHANDLE): CBasePlayer::PickUpWeapon writes the picker
+	// into it (and into the akimbo pair's slot) ONLY on the bRecordOwner path — the BUY path
+	// (@0x846ca is the sole true caller). Consumer VERIFY (likely the sell-zone's yours-check).
+	EHANDLE hOwner;
 };
 
 class CTSGun : public CBasePlayerWeapon
@@ -126,7 +130,11 @@ public:
 	// arsenal (the items-by-tsweapon_t array). @ TakeWeapon/SelectWeapon/DropWeapon__6CTSGun.
 	bool IsOwned(int type) const { return type >= 0 && type < TSW_COUNT && m_items[type].owned; }
 	int  OwnedCount() const;          // number of owned weapon types
-	bool TakeWeapon(tsweapon_t type);  // @TakeWeapon — add/combine into the arsenal + wield it (false = won't fit)
+	// @TakeWeapon @0x80a04 — install into the arsenal: akimbo combine, the STACKABLE merge
+	// (an owned knife stack ADDS the picked units), or a fresh slot (pStatus = the dropped
+	// gun's full carried state; else iClip>0 = the loaded rounds, 0 = a full clip). NO
+	// auto-wield — the caller (PickUpWeapon) selects per its bSelect arg, like the original.
+	bool TakeWeapon(tsweapon_t type, const TSItem *pStatus = nullptr, int iClip = 0);
 	int  SlotsUsed() const;           // sum of slotCost over owned items (CBasePlayer+0x548 = 81 - this)
 	void HolsterWeapon();         // @HolsterWeapon @0x85698 — park state + reset to bare hands (kungfu draw)
 	void SelectWeapon(int type);  // @SelectWeapon — wield an owned type (HolsterWeapon->deploy)

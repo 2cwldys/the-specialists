@@ -402,7 +402,7 @@ int CTSGun::SlotsUsed() const
 	return used;
 }
 
-bool CTSGun::TakeWeapon(tsweapon_t type)
+bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iClip)
 {
 	if (type < 0 || type >= TSW_COUNT)
 		return false;
@@ -410,16 +410,30 @@ bool CTSGun::TakeWeapon(tsweapon_t type)
 	if (!wi->pszViewModel)
 		return false; // invalid weapon (e.g. the unused flag slot 29)
 
-	// The active item's live clip lives in m_iClip; park it so the combine reads the current
-	// rounds when the single being upgraded is the one we're holding.
+	// The active item's live clip lives in m_iClip; park it so the combine/merge reads the
+	// current rounds when the affected slot is the one we're holding.
 	SyncActiveToItem();
 
 	int fill = type; // the item slot we will fill
 	if (m_items[type].owned)
 	{
-		// Already own this type. If it upgrades to an akimbo we don't own yet, fill the
-		// akimbo (the combine — the ONE case picking up an owned weapon is allowed). Otherwise it's a
-		// duplicate of something we already carry: just top the caliber reserve (no second pickup).
+		// The STACKABLE merge (knife/sealknife/m61): picking more of an owned stack ADDS the
+		// units (the dropped stack's clip; a bare re-pickup = one). Slot cost is charged per
+		// unit through SlotsUsed.
+		if (wi->iStackable)
+		{
+			TSItem &it = m_items[type];
+			int add = pStatus ? pStatus->clip : iClip;
+			if (add <= 0)
+				add = 1;
+			it.clip += add;
+			if (type == m_weaponType)
+				m_iClip = it.clip;
+			return true;
+		}
+		// If it upgrades to an akimbo we don't own yet, fill the akimbo (the combine — the ONE
+		// other case picking up an owned weapon is allowed). Otherwise it's a duplicate: refuse
+		// (leave the world weapon on the floor).
 		if (wi->iAkimboType >= 0 && wi->iAkimboType < TSW_COUNT &&
 			get_weapon_info((tsweapon_t)wi->iAkimboType)->pszViewModel && !m_items[wi->iAkimboType].owned)
 		{
@@ -427,8 +441,6 @@ bool CTSGun::TakeWeapon(tsweapon_t type)
 		}
 		else
 		{
-			// We already own this weapon and it can't combine into a new akimbo — so DON'T pick it up
-			// (leave the world weapon on the floor). User-directed: no re-picking-up owned weapons.
 			return false;
 		}
 	}
@@ -440,9 +452,19 @@ bool CTSGun::TakeWeapon(tsweapon_t type)
 			return false;
 	}
 
-	// --- fill items[fill] (give path; world-pickup carrying a saved status is the SLICE case) ---
+	// --- fill items[fill] ---
 	const s_weapon_info *fwi = get_weapon_info((tsweapon_t)fill);
 	TSItem &it = m_items[fill];
+
+	if (pStatus && fill == type)
+	{
+		// a world pickup carrying its full parked state (clip/mode/attach/barrels/hold)
+		it = *pStatus;
+		it.owned = true;
+		AddAmmo(fwi->iCaliber, fwi->iClip); // the pickup still tops the shared caliber reserve
+		return true;
+	}
+
 	it.owned = true;
 	it.mode = TSDefaultFireMode(fwi->iFireModes);
 	it.attach = fwi->attachBuiltin; // integral attachments ship with the gun (AUG/Barrett scope, MP5SD/Ruger silencer)
@@ -470,11 +492,12 @@ bool CTSGun::TakeWeapon(tsweapon_t type)
 	}
 	else
 	{
-		it.clip = fwi->iClip;
+		it.clip = (iClip > 0) ? iClip : fwi->iClip; // map-placed guns can carry a set load
 		AddAmmo(fwi->iCaliber, fwi->iClip * 3); // give/refill the caliber's shared reserve
 	}
 
-	SelectWeapon(fill);
+	// NO auto-wield here — PickUpWeapon selects per its bSelect arg (@0x83318), so e.g.
+	// recovering a thrown knife does NOT switch you off your gun.
 	return true;
 }
 
@@ -2961,29 +2984,6 @@ void TSDropAmmoOnDeath(CBasePlayer *pPlayer)
 // carried clip — unless the pickup combined into the akimbo (which sets its own barrels).
 // Returns false when the pickup didn't land (won't fit / already-owned duplicate) so the
 // caller can leave the world item on the floor (the original PickUpWeapon failure contract).
-bool TSPickUpWeapon(CBasePlayer *pPlayer, int type, int clip)
-{
-	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	const bool ownedBefore = pGun && pGun->IsOwned(type);
-
-	if (!GiveTSWeapon(pPlayer, (tsweapon_t)type))
-		return false; // refused (slot capacity / duplicate) — the world item stays
-
-	pGun = GetPlayerTSGun(pPlayer);
-	if (!pGun)
-		return false;
-
-	// If we already owned the single and the pickup combined into the akimbo, leave the
-	// combined barrel clips alone. Otherwise restore the carried clip on the picked-up type.
-	if (!ownedBefore && pGun->IsOwned(type))
-	{
-		pGun->m_items[type].clip = clip;
-		if (type == pGun->m_weaponType)
-			pGun->m_iClip = clip;
-	}
-	return true;
-}
-
 // Add per-caliber reserve to the player's TS gun (CTSGroundAmmo refill station).
 bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count)
 {

@@ -224,23 +224,10 @@ void CTSWorldGun::GetWeapon(CBaseEntity *pOther)
 		return;
 
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	const bool ownedBefore = pGun && pGun->IsOwned(m_weaponType);
-
-	GiveTSWeapon(pPlayer, (tsweapon_t)m_weaponType);
-	pGun = GetPlayerTSGun(pPlayer);
-	if (!pGun)
+	// @0x91224: PickUpWeapon(type, &m_status, 0, type != FLAG (the briefcase never auto-wields),
+	// no owner record). A refusal (full slots / owned duplicate) leaves the gun in the world.
+	if (!pPlayer->PickUpWeapon(m_weaponType, &m_status, 0, m_weaponType != TSW_FLAG, false))
 		return;
-
-	// Restore the carried weapon state — unless the pickup combined into an akimbo (which sets its
-	// own barrels). Matches CBasePlayer::PickUpWeapon restoring the s_weapon_status onto the slot.
-	if (!ownedBefore && pGun->IsOwned(m_weaponType))
-	{
-		pGun->m_items[m_weaponType] = m_status;
-		pGun->m_items[m_weaponType].owned = true;
-		if (m_weaponType == pGun->m_weaponType)
-			pGun->m_iClip = m_status.clip;
-	}
 
 	m_bTaken = true;
 	UTIL_Remove(this);
@@ -594,11 +581,11 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 		pPlayer->GiveCash(-price);
 	}
 
-	// SLICE: faithful is CBasePlayer::PickUpWeapon(tsweaponid, clip, spawnflags, type!=0x1d, …)
-	// (not yet reconstructed). We give via the dual-wield arsenal.
-	if (!GiveTSWeapon(pPlayer, (tsweapon_t)tsweaponid))
+	// @0x924ff: PickUpWeapon(type, NULL, clip, type != FLAG, no owner record) — the pickup
+	// sound + speed recompute live inside. (The original's clip arg is a local; map-placed
+	// guns load full — iClip 0.)
+	if (!pPlayer->PickUpWeapon(tsweaponid, NULL, 0, tsweaponid != TSW_FLAG, false))
 		return; // won't fit -> leave it on the floor
-	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
 
 	if (!FStringNull(pev->message))
 		UTIL_ShowMessage(STRING(pev->message), pPlayer);

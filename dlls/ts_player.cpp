@@ -625,6 +625,60 @@ void CBasePlayer::UpdatePlayerState()
 		m_iPlayerState = 0;
 }
 
+// @ PickUpWeapon__11CBasePlayer10tsweapon_tPvibT4 (@0x8314c, decompile-exact) — the ONE gate
+// every weapon acquisition goes through. Callers + args recovered from the call sites:
+//   CTSWorldGun::GetWeapon   (type, &status, 0,    type != FLAG, false)  @0x91224
+//   CTSGroundWeapon::GetWeapon(type, NULL,   clip, type != FLAG, false)  @0x924ff
+//   CTSKnife::Use            (type, NULL,    0,    false,        false)  @0x6de93 — NO switch!
+//   CBasePlayer::BuyWeapon   (type, NULL,    clip, true,         true)   @0x846ca — the sole owner-record
+//   PlayerAddPowerUp / give  (M61,  NULL,    0,    true,         false)  @0x87d4e/@0x9dbdf
+// Flow: refuse a direct akimbo-class pickup (its SINGLE merges instead); the slot gate
+// (stackables charge per unit); TakeWeapon (stack merge / akimbo combine / fresh install with
+// the carried status); record the owner EHANDLE(s) if asked; speed recompute; gunpickup2
+// (CHAN_ITEM, attn 0.8); select the picked type — or its AKIMBO if that is owned — when asked
+// OR when bare-handed.
+bool CBasePlayer::PickUpWeapon(int type, TSItem *pStatus, int iClip, bool bSelect, bool bRecordOwner)
+{
+	CTSGun *pGun = GetPlayerTSGun(this); // orig: this->m_pActiveItem gated on m_iId == 0x10
+	if (!pGun || type < 0 || type >= TSW_COUNT)
+		return false;
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)type);
+	if (wi->iFireType == TSFT_AKIMBO && wi->iSingleType != -1)
+		return false; // @0x83197 — pick the single up; it merges into the akimbo
+
+	// the slot gate (@0x831bd): stackables charge slotCost per carried unit
+	float weight = (float)wi->slotCost;
+	const int nUnits = pStatus ? pStatus->clip : iClip;
+	if (wi->iStackable && nUnits > 0)
+		weight *= (float)nUnits;
+	if ((float)TSPlayerFreeSlots(this) - weight < 0.0f)
+		return false;
+
+	if (!pGun->TakeWeapon((tsweapon_t)type, pStatus, iClip))
+		return false;
+
+	if (bRecordOwner)
+	{
+		// item+0x30 (@0x83234): the buyer is recorded on the item — and on its akimbo pair
+		// when that is owned (consumer VERIFY — likely the sell-zone's yours-check)
+		pGun->m_items[type].hOwner = this;
+		if (wi->iAkimboType != -1 && pGun->IsOwned(wi->iAkimboType))
+			pGun->m_items[wi->iAkimboType].hOwner = this;
+	}
+
+	SetPlayerSpeed(GetSpeedBySlots(this));
+	EMIT_SOUND_DYN(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
+
+	if (bSelect || !pGun->m_pActiveItem)
+	{
+		int sel = type;
+		if (wi->iAkimboType != -1 && pGun->IsOwned(wi->iAkimboType))
+			sel = wi->iAkimboType; // picking the single while owning the pair wields the PAIR
+		pGun->SelectWeapon(sel);   // ours deploys inside (the original SelectWeapon+Deploy)
+	}
+	return true;
+}
+
 // @ TSInit__11CBasePlayer (@0x82a4c, decompile-exact) — the TS per-life reset, the FIRST call in
 // the original's Spawn (@0x7f586). Everything TS about a player resets here: the anim/stunt
 // machines, slow-motion, posture + the client change-detect caches (0xff = force the first

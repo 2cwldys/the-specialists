@@ -164,7 +164,9 @@ bool CBasePlayer::BuyWeapon(int type)
 	// Free in the shipped game (CashBased() == false). If a cash economy is ever turned
 	// on, this is where the price (get_weapon_info(type)->price, s_weapon_info+0xd8) would
 	// be checked against m_iCash and deducted.
-	return GiveTSWeapon(this, (tsweapon_t)type) != nullptr;
+	// @0x846ca: the buy path selects the purchase AND records the buyer (the sole
+	// bRecordOwner caller — item+0x30).
+	return PickUpWeapon(type, NULL, 0, true, true);
 }
 
 // @ BuyAmmo — give the player ammo for a caliber (free). Tops up the shared per-caliber

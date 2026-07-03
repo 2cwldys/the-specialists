@@ -437,8 +437,9 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 	}
 	else if (type & TS_PWUP_GRENADE)
 	{
-		// SLICE: original arms via CBasePlayer::PickUpWeapon(grenade); hand the M61.
-		if (!GiveTSWeapon(pPlayer, TSW_M61))
+		// @0x87d4e: PickUpWeapon(M61, NULL, 0, SELECT true, no owner record) — the powerup
+		// hands the grenade AND wields it.
+		if (!pPlayer->PickUpWeapon(TSW_M61, NULL, 0, true, false))
 			return false;
 	}
 	else if (type & TS_PWUP_INFCLIP)
@@ -499,8 +500,8 @@ bool TSGrantPowerup(CBasePlayer *pPlayer, int type, int duration)
 	}
 	else if (type & TS_PWUP_GRENADE)
 	{
-		// original powerup 2 -> CBasePlayer::PickUpWeapon(grenade) (tsweapon 24 = M61).
-		if (!GiveTSWeapon(pPlayer, TSW_M61))
+		// original powerup 2 -> PickUpWeapon(M61, NULL, 0, true, false): hand + wield it.
+		if (!pPlayer->PickUpWeapon(TSW_M61, NULL, 0, true, false))
 			return false;
 	}
 	else if (type & TS_PWUP_INFCLIP)
