@@ -79,13 +79,20 @@ struct s_weapon_info
 	const char *pszAnimExt;     // DefaultDeploy anim ext: onehanded/twohanded/akimbo
 	const char *pszFireSound;   // weapons/*/fire.wav
 	int   iClip;       // rounds per clip
-	float flDamage;    // per-bullet damage
+	// ⚠⚠ SPARTA TWO-STAGE WARNING — the next four fields are OVERWRITTEN by Sparta() after every
+	// Write_<weapon> (SetSpartaWeapon @0x6fa34 == client FUN_10007a50; memory
+	// [[sparta-overrides-write-weapon]]). The Write_ disasm values for +0x1c/+0x28/+0x30/+0x34
+	// are a DEAD EARLIER STAGE — never extract these four columns from Write_ bodies (that bit
+	// us: skorpion viewkick, bull, mossberg, ...). EVERY OTHER column (clips, calibers, caps,
+	// prices, anim blocks, fire types, ...) is Write_-stage truth — Sparta touches nothing else.
+	float flDamage;    // +0x1c ⚠ SPARTA-OWNED — per-bullet damage (the Sparta() table is live)
 	int   iFireType;   // s_weapon_info+0x348 — see TSFT_* below
-	float flFireRate;  // seconds between shots (s_weapon_info+0x18)
-	float flSpread;    // base bullet spread cone (s_weapon_info+0x28)
-	float flRecoil;    // per-shot spread INCREMENT fed to CTSGun::ScaleSpread (s_weapon_info+0x34)
+	float flFireRate;  // seconds between shots (s_weapon_info+0x18) — Write_ truth (NOT Sparta)
+	float flSpread;    // +0x28 ⚠ SPARTA-OWNED — base bullet spread cone
+	float flRecoil;    // +0x34 ⚠ SPARTA-OWNED — per-shot spread INCREMENT (CTSGun::ScaleSpread)
 	// The TS dynamic-accuracy fields (RE'd from CTSGun::StandardFire @0x824a4 + ScaleSpread @0x802a8):
-	float flViewKick;  // +0x30 — VKickback view-punch magnitude per shot (bull 18, barrett 10, autos 4-5)
+	float flViewKick;  // +0x30 ⚠ SPARTA-OWNED — VKickback view-punch per shot (bull 13 NOT the
+	                   // Write_ 18; barrett 10; autos 4-5 — always read the Sparta() table)
 	int   bUsesSpread; // +0x2c — if set, StandardFire runs ScaleSpread (dynamic recoil); 0 = static (shotgun/melee)
 	// NB: ScaleSpread accumulates spread into CBasePlayer+0x778 and the effective spread = flSpread + that
 	// accumulator; the accumulator's recovery path is still being RE'd, so the accumulation isn't wired yet.

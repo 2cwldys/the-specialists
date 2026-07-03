@@ -247,6 +247,12 @@ void InformClientsOnWeaponsParams(CBaseEntity *pOnly)
 		SendWeaponParams((tsweapon_t)i, pOnly);
 }
 
+// ⚠ SPARTA STAGE ORDER: the tunable quartet here (spread/viewkick/recoil/damage) is the
+// CustomWP RUNTIME THIRD STAGE — it overwrites Sparta(), which itself overwrote the Write_
+// init ([[sparta-overrides-write-weapon]]). Stage order: Write_ (dead for these four) ->
+// Sparta() (the shipped live values) -> adjust_weapon_value/AdjustSpecificWeapon (server
+// customization, broadcast via CustomWP so clients re-sync). When "verifying" a combat value,
+// know WHICH stage you're reading: a Write_ disasm read is two stages stale.
 // @0x8ea3c AdjustSpecificWeapon — set one weapon's tunable quintet (no clamps), broadcast it,
 // announce, and flag the rules custom. DEAD in the shipped Linux .so (the console path was
 // compiled out) — kept callable for parity.
@@ -267,6 +273,7 @@ void AdjustSpecificWeapon(tsweapon_t id, float acc, float vkick, float akick, fl
 }
 
 // @0x8eca4 adjust_weapon_value — load + apply a weapons config file from the game dir.
+// ⚠ SPARTA STAGE ORDER: this is the CustomWP third stage over Sparta() — see the banner above.
 // Exact behaviors kept: "//" ANYWHERE = comment; armor_absorb/health_absorb lines (clamped
 // >= 0) land in the rules; a weapon line with fewer than 6 fields ABORTS with the original
 // console string but still returns 1; accuracy floors at 0.001 (the only clamp); EOF

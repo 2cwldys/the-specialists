@@ -19,6 +19,11 @@
 static s_weapon_info g_weaponInfo[TSW_COUNT];
 static bool g_weaponInfoCompiled = false;
 
+// ⚠ SPARTA TWO-STAGE: the dmg/spread/recoil (+ flViewKick set later from kWriteViewKick) that
+// Write() stores here are the original's EARLIER INIT STAGE — Sparta() (called at the end of
+// compile_weapons_info, mirroring the binary's Write_* -> Sparta order) OVERWRITES them for all
+// 32 firearms. Only the 6 melee/grenade/flag rows keep their Write values for those four fields.
+// Do NOT "fix" a combat-feel value here from a Write_ disasm read — fix it in Sparta().
 static void Write(s_weapon_info *w, const char *name, const char *v, const char *p,
 	const char *world, const char *anim, const char *fire, int clip, float dmg, int firetype,
 	float rate, float spread, float recoil)
@@ -80,6 +85,11 @@ static void SetSpartaWeapon(int idx, float spread, float viewKick, float recoil,
 	g_weaponInfo[idx].flDamage = dmg;      // +0x1c
 }
 
+// ⚠⚠ SPARTA IS THE LIVE TRUTH for spread/viewkick/recoil/damage — and ONLY for those four.
+// Anyone extracting weapon stats from the Write_<weapon> disasm must skip +0x1c/+0x28/+0x30/
+// +0x34 (dead stage) and must NOT expect Sparta to carry anything else (clips/caps/prices/anim
+// blocks are Write_-stage). The pair below is BYTE-IDENTICAL to the client's copy
+// (FUN_10007a80 -> FUN_10007a50), so server sim and client prediction/recoil agree.
 // === Sparta() — the authoritative combat-param OVERRIDE. RE: ts_i386.so Sparta() @0x6fa78 ->
 // SetSpartaWeapon(idx, spread, viewKick, recoil, dmg) @0x6fa34, BYTE-IDENTICAL to client.dll
 // FUN_10007a80 -> FUN_10007a50. It runs after every Write_<weapon> and OVERWRITES the four combat fields:
@@ -282,6 +292,10 @@ int TSDefaultFireMode(int modeMask)
 }
 
 // @ compile_weapons_info__Fv — populate the weapon table (indices == tsweapon_t).
+// ⚠ SPARTA TWO-STAGE: the per-row dmg/spread/recoil literals below are the Write_-stage values,
+// kept byte-faithful to the original init order — Sparta() OVERWRITES them for every firearm
+// before the table is ever read. The LIVE combat feel lives in Sparta(); everything else in
+// these rows (clips, models, rates, fire types) is the live truth.
 static void compile_weapons_info()
 {
   Write(&g_weaponInfo[0], "Kung-Fu", "models/v_melee.mdl", nullptr, nullptr, nullptr, nullptr, 0, 36.0f, 3, 0.1f, 0.02f, 0.0f); // melee/kung-fu — fists (v_melee.mdl, no p_/w_ model, no clip)

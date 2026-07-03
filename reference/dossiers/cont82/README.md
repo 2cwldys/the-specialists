@@ -22,5 +22,10 @@ Ghidra addr = nm + 0x10000) unless noted; regenerate any missing piece the same 
 Key disasm-extraction one-liners used this session (the Write_<weapon> column pattern —
 reuse for any missing s_weapon_info column): grep each `<Write_x__FP13s_weapon_info>:` body in
 `recovered/scratch-cont81/ts.dis` for `movl $V,0xOFF(%eax)` / `movw $V,0xOFF(%eax)`.
+⚠ TWO TRAPS: (1) SPARTA — +0x1c/+0x28/+0x30/+0x34 (damage/spread/viewkick/recoil) in Write_
+bodies are the DEAD stage; Sparta() overwrites them for all firearms — never extract those four
+from Write_ ([[sparta-overrides-write-weapon]]). (2) movl PAIRS — a movl at a short-array offset
+writes TWO shorts (low+high); the single-value regex silently drops the odd entries (this hid
+half the anim blocks until cont.83).
 Columns already extracted this way: iPrice(+0xd8), iKnifeType(+0x20, incl. m61=4),
 iSwingAnims(+0x270..274), iBody*(+0x128..130), the m61/knife/sealknife/katana anim blocks.
