@@ -2099,6 +2099,11 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 			cd->m_flNextAttack = pl->m_flNextAttack;
 			cd->fuser2 = pl->m_flNextAmmoBurn;
 			cd->fuser3 = pl->m_flAmmoStartCharge;
+			// TS: the ACTIVE powerup bits ride the spare clientdata iuser4 — the PREDICTED
+			// trigger logic reads DoubleFireRate() (semi weapons full-auto while the
+			// double-fire powerup runs); without the sync the client-side gate always saw 0
+			// (round 8: 'weapons should fullauto ... IF double fire rate has been triggered').
+			cd->iuser4 = pl->m_iPowerups;
 			cd->vuser1.x = pl->ammo_9mm;
 			cd->vuser1.y = pl->ammo_357;
 			cd->vuser1.z = pl->ammo_argrens;

@@ -715,6 +715,7 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 	player.m_flNextAttack = from->client.m_flNextAttack;
 	player.m_flNextAmmoBurn = from->client.fuser2;
 	player.m_flAmmoStartCharge = from->client.fuser3;
+	player.m_iPowerups = from->client.iuser4; // TS: active powerup bits (DoubleFireRate full-auto gate)
 
 	//Stores all our ammo info, so the client side weapons can use them.
 	player.ammo_9mm = (int)from->client.vuser1[0];
