@@ -283,9 +283,8 @@ void SpectatorPanel::ShowMenu(bool isVisible)
 	{
 		gViewPort->HideCommandMenu();
 
-		// if switching from visible menu to invisible menu, show help text. NOT during the TS
-		// free-look spectate/buy phase — TS has its own bottom help bar (no "Press DUCK" prompt).
-		if (m_menuVisible && this->isVisible() && !gHUD.m_Spectate.IsActive())
+		// if switching from visible menu to invisible menu, show help text
+		if (m_menuVisible && this->isVisible())
 		{
 			char string[64];
 
@@ -390,21 +389,22 @@ void SpectatorPanel::Update()
 	int iTimeHeight, iTimeWidth;
 	int offset, j;
 
-	// The Specialists has NO stock spectator chrome — no top "Map:" bar, no TFC bottom button bar
-	// (verified against the original: there is no top bar; only a dark bottom bar with the camera
-	// mode + help). During the TS spectate/buy phase, suppress the inherited SpectatorPanel UI; the
-	// TS free-look bar + the buy menu are drawn by CHudSpectate / CHudTSBuyMenu. (cont.69l)
+	// The Specialists RUNS the stock spectator panel — the original client.dll keeps the whole
+	// stock CHudSpectator/SpectatorPanel and only RE-SKINS it (its strings: #Spec_TSHelp%d,
+	// #Spec_Help_TSTitle + ts/titles.txt carries the texts). TS-patched delta: NO TOP bar (no
+	// "Map:" banner — user-verified vs the live original), the bottom bar + its labels stay
+	// stock. (cont.84 — replaces the cont.69l suppress-and-replace invention.)
 	if (gHUD.m_Spectate.IsActive())
 	{
 		m_TopBorder->setVisible(false);
 		m_TopBanner->setVisible(false);
-		m_BottomBorder->setVisible(false);
 		m_ExtraInfo->setVisible(false);
 		m_TimerImage->setVisible(false);
 		m_CurrentTime->setVisible(false);
 		m_Separator->setVisible(false);
 		for (j = 0; j < TEAM_NUMBER; j++)
 			m_TeamScores[j]->setVisible(false);
+		m_BottomBorder->setVisible(true);
 		return;
 	}
 	m_TopBorder->setVisible(true);

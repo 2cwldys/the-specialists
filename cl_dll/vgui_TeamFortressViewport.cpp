@@ -1212,8 +1212,11 @@ void TeamFortressViewport::UpdateSpectatorPanel()
 			gHUD.m_TextMessage.MsgFunc_TextMsg(NULL, strlen(tempString) + 1, tempString);
 		}
 
+		// TS-patched stock (original client.dll strings "#Spec_TSHelp%d" + ts/titles.txt):
+		// the bottom bar's HELP line is the per-mode TS hint ("JUMP - Change Camera modes,
+		// FORWARD - Next Player, ..."), the mode label stays stock.
 		sprintf(bottomText, "#Spec_Mode%d", g_iUser1);
-		sprintf(helpString2, "#Spec_Mode%d", g_iUser1);
+		sprintf(helpString2, "#Spec_TSHelp%d", g_iUser1);
 
 		if (0 != gEngfuncs.IsSpectateOnly())
 			strcat(helpString2, " - HLTV");
@@ -1426,10 +1429,12 @@ CMenuPanel* TeamFortressViewport::CreateTextWindow(int iTextToShow)
 	}
 	else if (iTextToShow == SHOW_SPECHELP)
 	{
-		CHudTextMessage::LocaliseTextString("#Spec_Help_Title", cTitle, MAX_TITLE_LENGTH);
+		// TS token (original client.dll: "#Spec_Help_TSTitle"; empty in ts/titles.txt — the
+		// original neutralizes the stock spectator help popup this way)
+		CHudTextMessage::LocaliseTextString("#Spec_Help_TSTitle", cTitle, MAX_TITLE_LENGTH);
 		cTitle[MAX_TITLE_LENGTH - 1] = 0;
 
-		char* pfile = CHudTextMessage::BufferedLocaliseTextString("#Spec_Help_Text");
+		char* pfile = CHudTextMessage::BufferedLocaliseTextString("#Spec_Help_TSText"); // TS token (empty)
 		if (pfile)
 		{
 			cText = pfile;

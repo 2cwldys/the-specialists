@@ -119,7 +119,7 @@ void SpectatorHelp()
 	}
 	else
 	{
-		char* text = CHudTextMessage::BufferedLocaliseTextString("#Spec_Help_Text");
+		char* text = CHudTextMessage::BufferedLocaliseTextString("#Spec_Help_TSText"); // TS token (empty in ts/titles.txt)
 
 		if (text)
 		{

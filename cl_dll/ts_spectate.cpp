@@ -40,15 +40,16 @@ void CHudSpectate::Reset()
 	memset(s_bPlayerSpectating, 0, sizeof(s_bPlayerSpectating));
 }
 
-// Is the LOCAL player spectating per the (idx,flag) table? Computed lazily — during connect
-// the first Spectator broadcast arrives BEFORE GetLocalPlayer() is valid, so latching local
-// state at parse time misses it (the round-7c "buy menu gone" regression).
+// Is the LOCAL player spectating? The ORIGINAL architecture: the stock g_iUser1 (the observer
+// mode from the networked entity state, entity.cpp HUD_TxferLocalOverrides) — NOT the Spectator
+// user message. The message only maintains the per-player table (the stock g_IsSpectator shape);
+// the local player's own state always rides iuser1. (Round-7c/7d: wire-latched local state was
+// unreliable during connect; g_iUser1 cannot be.)
+extern int g_iUser1;
+
 static bool TS_LocalSpectating()
 {
-	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
-	if (!local || local->index < 1 || local->index > MAX_PLAYERS)
-		return false;
-	return s_bPlayerSpectating[local->index];
+	return g_iUser1 != 0;
 }
 
 bool CHudSpectate::IsActive() const
@@ -86,14 +87,6 @@ static void TS_SpectateFireCheck()
 	gEngfuncs.pfnClientCmd("respawn");
 }
 
-// Centre a console-font string horizontally at the given y.
-static void DrawCentered(int y, const char* str, int r, int g, int b)
-{
-	int w, h;
-	GetConsoleStringSize(str, &w, &h);
-	gHUD.DrawHudString((ScreenWidth - w) / 2, y, ScreenWidth, str, r, g, b);
-}
-
 bool CHudSpectate::Draw(float flTime)
 {
 	// Per-frame local-state derivation + edge detection (parse time is too early — see above).
@@ -111,24 +104,8 @@ bool CHudSpectate::Draw(float flTime)
 	// (The respawn countdown number + "Press Fire To Play!" arrive as server TSMessage lines
 	// now — the original mechanism; nothing to draw here for them.)
 
-	// The TS spectate bottom bar (no top bar — verified vs the original): a dark band carrying the
-	// camera-mode label + the free-look control help. Drawn in the HUD layer (so the help is NOT
-	// hidden under the stock spectator overlay, which is now suppressed during TS spectate).
-	int br, bg, bb;
-	UnpackRGB(br, bg, bb, RGB_YELLOWISH); // the bottom bar (mode + help) is the orange spectator text
-	ScaleColors(br, bg, bb, 255);
-	// Geometry from the stock SpectatorPanel bottom border (the original's spectate bar IS that panel):
-	// height = YRES_HD(PANEL_HEIGHT=64), anchored at the screen bottom; the mode label sits YRES_HD(6)
-	// from the bar top (vgui_SpectatorPanel.cpp), the help line near the bottom.
-	const int barH = (int)YRES_HD(64);
-	const int barY = ScreenHeight - barH;
-	const int lineH = gHUD.m_scrinfo.iCharHeight;
-	// pfnFillRGBA is ADDITIVE (black adds nothing -> invisible); the dark bar needs the alpha-BLEND fill.
-	gEngfuncs.pfnFillRGBABlend(0, barY, ScreenWidth, barH, 0, 0, 0, 180);
-	DrawCentered(barY + (int)YRES_HD(6), "Free-Look", br, bg, bb);
-	DrawCentered(barY + barH - lineH - (int)YRES_HD(6),
-		"JUMP - Change Camera modes, MOVEMENT KEYS - move around, MOUSE - rotate view",
-		br, bg, bb);
+	// (The bottom bar is the STOCK SpectatorPanel — the original re-skins the stock spectator
+	// rather than drawing its own; our old custom orange bar was the invention. cont.84)
 
 	return true;
 }
