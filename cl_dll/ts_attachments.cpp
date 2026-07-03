@@ -116,10 +116,21 @@ static bool GetMuzzleAim(int idx, Vector& muzzle, Vector& forward)
 
 	cl_entity_t* model = nullptr;
 	if (isLocal && 0 == CL_IsThirdPerson())
+	{
 		model = gEngfuncs.GetViewModel();
-
-	// Non-local (and local third-person): the renderer-fed gun-anchor CACHE — cl_entity.attachment
-	// is engine-owned and unreliable at read time (the pelvis bug; dossier-attachments §4a).
+		// zoomed in (scope): the viewmodel is HIDDEN — no anchor source, NO beam (round-7g:
+		// the beam froze at the last drawn position; same class as the dead-player beams).
+		if (!model || !model->model)
+			return false;
+	}
+	else
+	{
+		// Non-local / third-person: the renderer-fed gun-anchor CACHE. STALE cache (the player
+		// wasn't drawn recently — dead body, out of view) = no anchor source, NO beam.
+		if (g_tsPlayerGunAttTime[idx] <= 0.0f ||
+			gEngfuncs.GetClientTime() - g_tsPlayerGunAttTime[idx] > 0.25f)
+			return false;
+	}
 	const float* a0 = model ? (const float*)model->attachment[0] : TS_PlayerGunAtt(idx, 0);
 	const float* a1 = model ? (const float*)model->attachment[1] : TS_PlayerGunAtt(idx, 1);
 	const bool haveAttach = (a0[0] || a0[1] || a0[2]) && (a1[0] || a1[1] || a1[2]) &&

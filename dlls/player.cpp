@@ -1408,6 +1408,15 @@ void CBasePlayer::TSEnterSpectate()
 
 	TSSendBuyMenu();   // open the TS buy/config menu (gmsgShowMenu, compact list)
 
+	// @0x89634 (StartObserver): the original broadcasts TSActiveItems{idx, 0} — every client
+	// stops rendering this player's laser/flashlight beams (round-7g: dead players' beams
+	// haunted the corpse position).
+	extern int gmsgTSActiveItems;
+	MESSAGE_BEGIN(MSG_ALL, gmsgTSActiveItems);
+	WRITE_BYTE(ENTINDEX(edict()));
+	WRITE_BYTE(0);
+	MESSAGE_END();
+
 	// @0x89634 (StartObserver end): broadcast the stock-shaped spectator state — (idx, 1).
 	MESSAGE_BEGIN(MSG_ALL, gmsgSpectator);
 	WRITE_BYTE(ENTINDEX(edict()));
@@ -1572,13 +1581,16 @@ void CBasePlayer::TSSpectateThink()
 	// ROUND(gate−time), so its LAST tick inside the final half-second paints
 	// "Press Fire To Play!" (hold 30); a change-based throttle never reaches it
 	// (round-7f: the countdown stalled at 1).
-	if (m_flTSRespawnTime > 0.0f && gpGlobals->time < m_flTSRespawnTime &&
-		m_flSpecMsgTime < gpGlobals->time)
+	if (m_flTSRespawnTime > 0.0f && m_flSpecMsgTime < gpGlobals->time)
 	{
 		m_flSpecMsgTime = gpGlobals->time + 1.0f;
 		float rem = m_flTSRespawnTime - gpGlobals->time;
 		int r = (int)(rem + 0.5f);
 		if (r < 1)
+			// gate reached (or the final sub-second tick): the prompt — painted while the
+			// player remains in the wait (the sub-second-only window a strict decompile read
+			// gives cannot survive per-tick frame drift; the live original SHOWS the prompt
+			// after "1" — observed behavior wins, VERIFY the original's exact carrier)
 			TSHudMessageOne(0, 0, 0, 16, 30, "Press Fire To Play!", pev);
 		else
 			TSHudMessageOne(0, 0, 0, 16, 20, UTIL_VarArgs("%i", r > 30 ? 30 : r), pev);
