@@ -207,7 +207,7 @@ void SpectatorPanel::Initialize()
 
 	m_BottomMainButton->setParent(m_BottomBorder);
 	m_BottomMainButton->setPaintBackgroundEnabled(false);
-	m_BottomMainButton->setFgColor(Scheme::sc_primary1);
+	m_BottomMainButton->setFgColor(255, 160, 0, 0); // TS: the HUD orange (original re-colors the stock bar text)
 	m_BottomMainButton->setContentAlignment(vgui::Label::a_center);
 	m_BottomMainButton->setBorder(new LineBorder(Color(59, 58, 34, 48)));
 	m_BottomMainButton->setBoundKey((char)255); // special no bound to avoid leading spaces in name
@@ -223,7 +223,7 @@ void SpectatorPanel::Initialize()
 
 	m_BottomMainLabel->setParent(m_BottomBorder);
 	m_BottomMainLabel->setPaintBackgroundEnabled(false);
-	m_BottomMainLabel->setFgColor(Scheme::sc_primary1);
+	m_BottomMainLabel->setFgColor(255, 160, 0, 0); // TS: the HUD orange
 	m_BottomMainLabel->setContentAlignment(vgui::Label::a_center);
 	m_BottomMainLabel->setBorder(NULL);
 	m_BottomMainLabel->setVisible(false);
@@ -234,7 +234,7 @@ void SpectatorPanel::Initialize()
 		XRES_HD((15 + OPTIONS_BUTTON_X + 15) + 31), YRES_HD(6) + YRES_HD(20), flLabelSize, YRES_HD(20));
 	m_BottomHelpLabel->setParent(m_BottomBorder);
 	m_BottomHelpLabel->setPaintBackgroundEnabled(false);
-	m_BottomHelpLabel->setFgColor(Scheme::sc_primary1);
+	m_BottomHelpLabel->setFgColor(255, 160, 0, 0); // TS: the HUD orange
 	m_BottomHelpLabel->setContentAlignment(vgui::Label::a_center);
 	m_BottomHelpLabel->setBorder(NULL);
 	m_BottomHelpLabel->setVisible(false);

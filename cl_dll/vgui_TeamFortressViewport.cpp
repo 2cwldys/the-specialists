@@ -1258,9 +1258,11 @@ void TeamFortressViewport::UpdateSpectatorPanel()
 			m_pSpectatorPanel->m_BottomMainButton->setFgColor(r, g, b, 0);
 		}
 		else
-		{ // restore GUI color
-			m_pSpectatorPanel->m_BottomMainLabel->setFgColor(143, 143, 54, 0);
-			m_pSpectatorPanel->m_BottomMainButton->setFgColor(143, 143, 54, 0);
+		{ // restore the TS bar color — the HUD orange (the original re-colors the stock
+		  // 143,143,54 greenish scheme text; user-verified vs the live hl.exe)
+			m_pSpectatorPanel->m_BottomMainLabel->setFgColor(255, 160, 0, 0);
+			m_pSpectatorPanel->m_BottomMainButton->setFgColor(255, 160, 0, 0);
+			m_pSpectatorPanel->m_BottomHelpLabel->setFgColor(255, 160, 0, 0);
 		}
 
 		// add sting auto if we are in auto directed mode
