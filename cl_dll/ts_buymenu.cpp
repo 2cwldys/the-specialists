@@ -14,6 +14,8 @@
 #include "cl_util.h"
 #include "ts_hud.h"
 #include "ts_buymenu.h"
+#include "ts_weapon_info.h" // get_weapon_info — CustomWP live prices + tunables
+#include "parsemsg.h"
 #include "vgui_TeamFortressViewport.h" // GetNumberOfTeams() + UpdateCursorState() (cursor while up)
 
 #include <stdio.h>
@@ -148,10 +150,41 @@ static int ScreenMidY() { return gHUD.m_scrinfo.iHeight / 2; }
 
 //-----------------------------------------------------------------------------
 
+// "CustomWP" — one ASCII line "%i %f %f %f %f %i" (id accuracy viewkick accuracykick damage
+// cost) per customized weapon. Writes straight into the SHARED g_weaponInfo table so
+// prediction picks the new tunables up for free; prices re-resolve live through iPrice.
+// The original's no-clamp quirk kept: a bad id mutates slot 0 via get_weapon_info.
+static int MsgFunc_CustomWP(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	const char* line = READ_STRING();
+	int id = 0, cost = 0;
+	float acc = 0, vkick = 0, akick = 0, dmg = 0;
+	if (sscanf(line, "%i %f %f %f %f %i", &id, &acc, &vkick, &akick, &dmg, &cost) == 6)
+	{
+		s_weapon_info* wi = (s_weapon_info*)get_weapon_info((tsweapon_t)id);
+		wi->flSpread = acc;
+		wi->flViewKick = vkick;
+		wi->flRecoil = akick;
+		wi->flDamage = dmg;
+		wi->iPrice = cost;
+	}
+	return 1;
+}
+
+// The live buy price: the shared table's iPrice (CustomWP-adjustable), falling back to the
+// static menu row for anything the table doesn't price.
+static int LivePrice(const TSWeapon* w)
+{
+	const int p = get_weapon_info((tsweapon_t)w->id)->iPrice;
+	return p > 0 ? p : w->price;
+}
+
 bool CHudTSBuyMenu::Init()
 {
 	gHUD.AddHudElem(this);
 	m_iFlags = 0;
+	gEngfuncs.pfnHookUserMsg("CustomWP", MsgFunc_CustomWP);
 	Reset();
 	return true;
 }
@@ -261,8 +294,8 @@ int CHudTSBuyMenu::WeaponCost(int id, int attachMask, bool akimboOrFull) const
 	if (!w)
 		return 0;
 	if (w->full)
-		return w->price * (akimboOrFull ? w->fullcnt : 1);
-	int cost = w->price * (akimboOrFull ? 2 : 1);
+		return LivePrice(w) * (akimboOrFull ? w->fullcnt : 1);
+	int cost = LivePrice(w) * (akimboOrFull ? 2 : 1);
 	for (int bit = 0; bit < 4; bit++)
 		if (attachMask & (1 << bit))
 			cost += s_attachCost[bit];
@@ -352,7 +385,7 @@ bool CHudTSBuyMenu::QueueWeapon(int id, int attachMask, bool akimboOrFull, bool 
 			if (m_slots[i].count >= w->fullcnt)
 				return false;
 			m_slots[i].count++;
-			m_slots[i].cost += w->price;
+			m_slots[i].cost += LivePrice(w);
 			Recount();
 			return true;
 		}
@@ -1089,7 +1122,7 @@ void CHudTSBuyMenu::DrawWeaponPreview(int id)
 	FillRGBA(0x108, y, 0xff, 0x2f, r, g, b, 0x19);
 
 	char buf[32];
-	sprintf(buf, "%d Credits", w->price);
+	sprintf(buf, "%d Credits", LivePrice(w));
 	TSHud_DrawString(0x108 + 0x80, y, ScreenWidth, buf, r / 2, g / 2, b / 2);
 	sprintf(buf, "%d Slots", w->slot);
 	TSHud_DrawString(0x108 + 0x80, y + 0x14, ScreenWidth, buf, r / 2, g / 2, b / 2);

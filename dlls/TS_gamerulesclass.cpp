@@ -1094,6 +1094,10 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	WRITE_SHORT(m_iWeaponRestriction);
 	MESSAGE_END();
 
+	// custom-weapons catch-up (@0x691d8): a joiner on a customized server gets the whole table.
+	if (m_bWeaponParamsCustom)
+		InformClientsOnWeaponsParams(pPlayer);
+
 	if (!IsTeamMode())
 		return;
 

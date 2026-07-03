@@ -56,6 +56,7 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iKnifeType = 0;       // default: not a throwable blade
 	w->iIdleAnim = 0;        // shipped data: 0 for all rows (CCombatIdle table read)
 	w->iSwingAnims[0] = w->iSwingAnims[1] = w->iSwingAnims[2] = 0; // blades override below
+	w->iPrice = 0;           // set from the price table below
 }
 
 // SetSpartaWeapon (ts_i386.so @0x6fa34): the combat-param override applied after the Write_<weapon> stage.
@@ -527,6 +528,21 @@ static void compile_weapons_info()
   g_weaponInfo[TSW_KATANA].iSwingAnims[0] = 4; // [15] = the reverse back-slash
   g_weaponInfo[TSW_KATANA].iSwingAnims[1] = 3;
   g_weaponInfo[TSW_KATANA].iSwingAnims[2] = 2;
+
+  // Buy prices (s_weapon_info+0xd8) — disasm-read from every Write_<weapon> (movl $N,0xd8).
+  // NB two dossier spot-checks corrected by the disasm: M60 = 8000, Skorpion = 1100.
+  {
+    static const int prices[TSW_COUNT] = {
+      /* 0 melee*/ 0, /* 1*/ 850, /* 2*/ 900, /* 3*/ 1300, /* 4*/ 3000, /* 5*/ 4500,
+      /* 6*/ 2500, /* 7*/ 1500, /* 8*/ 900, /* 9*/ 700, /*10*/ 700, /*11*/ 5100,
+      /*12*/ 1050, /*13*/ 3000, /*14*/ 1250, /*15*/ 5000, /*16*/ 1300, /*17*/ 1100,
+      /*18*/ 9000, /*19*/ 2800, /*20*/ 2100, /*21*/ 2600, /*22*/ 1300, /*23*/ 2300,
+      /*24*/ 1000, /*25*/ 100, /*26*/ 2500, /*27*/ 2500, /*28*/ 1500, /*29*/ 0,
+      /*30*/ 1250, /*31*/ 2100, /*32*/ 8000, /*33*/ 1900, /*34*/ 2900, /*35*/ 100,
+      /*36*/ 1500, /*37*/ 1100};
+    for (int i = 0; i < TSW_COUNT; i++)
+      g_weaponInfo[i].iPrice = prices[i];
+  }
 
   // the original chains the ammo table + the falloff LUT off the weapon-table build:
   // compile_weapons_info -> { Write_<weapon> x38, compile_ammo_info -> Set_ammo_count(0),

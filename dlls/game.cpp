@@ -521,6 +521,29 @@ static void cmd_weaponrestriction()
 	display_weaponrestriction();
 }
 
+// --- customweapons load/save (@cmd_loadweapons/@cmd_saveweapons, game.cpp home). The console
+// command NAMES are swap contract. loadweapons: adjust_weapon_value + broadcast the table;
+// saveweapons: dump the current table. Default file per the original example.
+int adjust_weapon_value(char *pszFile);   // TS_util.cpp
+int save_weapon_value(char *pszFile);     // TS_util.cpp
+void InformClientsOnWeaponsParams(CBaseEntity *pOnly); // TS_util.cpp
+
+static void cmd_loadweapons()
+{
+	char *file = (char *)(CMD_ARGC() > 1 ? CMD_ARGV(1) : "weapons_custom.txt");
+	if (adjust_weapon_value(file))
+		InformClientsOnWeaponsParams(NULL);
+	else
+		ALERT(at_console, "Couldn't open %s\n", file);
+}
+
+static void cmd_saveweapons()
+{
+	char *file = (char *)(CMD_ARGC() > 1 ? CMD_ARGV(1) : "weapons_custom.txt");
+	if (!save_weapon_value(file))
+		ALERT(at_console, "Couldn't write %s\n", file);
+}
+
 void GameDLLInit()
 {
 	// Register cvars here:
@@ -572,6 +595,8 @@ void GameDLLInit()
 	TSRegisterCvars();
 
 	g_engfuncs.pfnAddServerCommand("weaponrestriction", cmd_weaponrestriction); // swap-contract command name
+	g_engfuncs.pfnAddServerCommand("loadweapons", cmd_loadweapons); // swap-contract command names
+	g_engfuncs.pfnAddServerCommand("saveweapons", cmd_saveweapons);
 
 	// REGISTER CVARS FOR SKILL LEVEL STUFF
 	// Agrunt

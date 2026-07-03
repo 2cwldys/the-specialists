@@ -13,6 +13,7 @@
 #define TS_GAMERULES_H
 
 #include "gamerules.h"
+#include "ts_weapon_info.h" // tsweapon_t (the CustomWP pipeline decls below)
 
 class CTSObjective;        // dlls/ts_objectives.h (objective HUD-list element type)
 class CTSObjectiveManager; // dlls/ts_objectives.h (round objective managers)
@@ -57,6 +58,8 @@ public:
 	int m_iSrvAmmoCount = 0;         // 0x55c — cached (int)round(ammocount.value)
 	int m_iWeaponRestriction = 0x1f; // 0x5870 — ALLOWED-categories bitmask (knife 1/pistol 2/smg 4/rifle 8/shotgun 0x10)
 	int m_iAllowedCategories = 0x1f; // 0x586c — the map's allowed mask (cmd args are AND-masked by it)
+	int m_bWeaponParamsCustom = 0;   // 0x5884 — set once a customweapons file loads; InitHUD gates on it
+	float m_flHealthAbsorb = 0;      // 0x5888 — the customweapons health_absorb value (reader VERIFY)
 
 	// --- Team subsystem (cont.35) ---
 	// The map is a team-mode map. Faithful gate is the TS game-mode member (@+0 == 2/3),
@@ -222,6 +225,8 @@ extern int g_lastManStanding; // last-man-standing mode flag
 int WeaponRestrictionByID(int id); // @0x66ad8 — 1->0x0, 2->0x1, 3->0x3, 4->0x13, else InitWeaponRestriction()
 int InitWeaponRestriction(void);   // @TS_gamerules.cpp — 0x1f (all five categories)
 extern int gmsgTSServerSetting;    // "SrvSett" 3 — TS_gamerulesclass.cpp
+void SendWeaponParams(tsweapon_t id, CBaseEntity *pOnly);   // @0x8eb98 — TS_util.cpp (CustomWP)
+void InformClientsOnWeaponsParams(CBaseEntity *pOnly);      // @0x8eb14 — banner + full 38-slot sync
 bool VictimKatanaHold(CBasePlayer *pAttacker, CBaseEntity *pVictim, float flDamage);
 bool VictimKnifeHold(CBasePlayer *pAttacker, CBaseEntity *pVictim, float flDamage);
 bool VictimKungfuHold(CBasePlayer *pAttacker, CBaseEntity *pVictim, float flDamage, TraceResult *ptr);

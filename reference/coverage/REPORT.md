@@ -80,7 +80,7 @@ _For entities we implement: FGD-declared map keys that no `KeyValue()` in our DL
 
 _The registered byte-size per message (−1 = variable). A MISMATCH silently corrupts the wire format = a drop-in breaker. Compared for messages present in both with a literal size._
 
-- original messages with a recovered size: **64**  |  ours (literal sizes): **62**  |  size mismatches: **0**
+- original messages with a recovered size: **64**  |  ours (literal sizes): **63**  |  size mismatches: **0**
 
 ### Events (events/*.sc)
 

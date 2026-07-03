@@ -108,6 +108,10 @@ struct s_weapon_info
 	// 0x272/0x274, disasm-read from Write_knife/sealknife/katana): the logical swing ids the
 	// knife.sc/katana.sc events carry, remapped client-side to v_*.mdl sequences.
 	int   iSwingAnims[3];  // +0x270/0x272/0x274 — swing ids 15/16/17 -> viewmodel sequence
+	// Buy price (s_weapon_info+0xd8), disasm-read from every Write_<weapon>. The CustomWP
+	// pipeline (SendWeaponParams/adjust_weapon_value) reads+writes it; the buy menu prices
+	// resolve through it so a customized server re-prices live.
+	int   iPrice;          // +0xd8 — buy price (cash)
 	// Fire-mode mask (s_weapon_info+0xc): bitset of the trigger modes this weapon offers,
 	// cycled by CTSGun::SwitchFireMode. Bit N set => mode N (tsfiremode_mode_t) available.
 	int   iFireModes;  // +0xc — available fire-modes bitmask
