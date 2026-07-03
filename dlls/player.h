@@ -438,6 +438,8 @@ public:
 	float m_flSuperJumpFuel = 0;      // super-jump remaining lift time (refills on the ground)
 	float m_flNextPainTime = 0;       // cooldown for the TS pain voice (player/pain1-4)
 	byte m_bSuperJumpAir = 0;         // super-jump: was airborne last frame (to detect the landing thud)
+	int m_bSuperJumpArmed = 0;      // the flight LAUNCHED as duck+jump (round 8: a plain jump followed
+	                                // by a mid-air duck — the climb motion — must NOT engage the lift)
 	float m_flWallClimbFuel = 0;      // double-jump wall-climb budget (refills on ground; weight-scaled)
 	byte m_bDiveRolling = 0;          // mid double-jump dive-roll (land prone on touchdown)
 	byte m_iDiveRollDir = 0;          // roll direction: 0 fwd / 1 back / 2 left / 3 right (back = land on feet)

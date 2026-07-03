@@ -1986,13 +1986,17 @@ void CBasePlayer::PreThink()
 		if (onGround)
 		{
 			m_flSuperJumpFuel = kFuelMax; // refuel on the ground
+			// the lift ARMS only when the flight LAUNCHES as duck+jump — a plain jump
+			// ducked mid-air (the climb motion) must not engage it (round 8, user vs the
+			// live original: "they check for if a jump was done first").
+			m_bSuperJumpArmed = holdLift ? 1 : 0;
 			if (m_bSuperJumpAir)          // just landed after a flight
 			{
 				EMIT_SOUND(ENT(pev), CHAN_BODY, "player/superjump-land.wav", VOL_NORM, ATTN_NORM);
 				m_bSuperJumpAir = 0;
 			}
 		}
-		if (holdLift && m_flSuperJumpFuel > 0.0f && !onGround)
+		if (holdLift && m_bSuperJumpArmed && m_flSuperJumpFuel > 0.0f && !onGround)
 		{
 			// sustained lift while held + fuel remains; gravity still pulls (release => fall)
 			if (pev->velocity.z < kLiftSpeed)
