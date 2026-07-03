@@ -828,7 +828,11 @@ bool CTSGun::Deploy()
 	// combat_idle stance + the close-combat attack set off m_szAnimExtention being empty
 	// (no invented m_bKungFu bool). Real weapons carry onehanded/twohanded/akimbo.
 	const char *animExt = (m_weaponType == TSW_MELEE) ? "" : (wi->pszAnimExt ? wi->pszAnimExt : "onehanded");
-	bool ok = DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, drawSeq, (char *)animExt);
+	// @0x710c4: the draw anim CARRIES the attachment body — DefaultDeploy's 5th arg reaches the
+	// viewmodel via the weaponanim message (pev->body alone never does; the missing-silencer/
+	// scope-submodel bug).
+	bool ok = DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, drawSeq, (char *)animExt,
+		GetBodyByItems(m_weaponType, m_items[m_weaponType].attach));
 	// @0x710c4: the deployed viewmodel BODY comes from the EQUIPPED attachment mask through
 	// GetBodyByItems (silencer/laser/flash/scope submodels; the client draw.sc handler runs
 	// the same math via FUN_10007110).
@@ -2293,6 +2297,13 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 // bit — the client buy menu's AttachAvailable already gates which weapons can be sold a silencer, and
 // EV_TSFire only swaps the SOUND for weapons that have a `-sil` variant, so an unsupported attach is inert.
 // The attach mask travels to the client in the fire event (iparam2 — see StandardFire/AkimboFire).
+void CTSGun::SendWeaponAnim(int iAnim)
+{
+	const int body = (m_weaponType >= 0 && m_weaponType < TSW_COUNT)
+		? GetBodyByItems(m_weaponType, m_items[m_weaponType].attach) : 0;
+	CBasePlayerWeapon::SendWeaponAnim(iAnim, body);
+}
+
 int CTSGun::AddItem(int bits)
 {
 	if (m_weaponType < 0 || m_weaponType >= TSW_COUNT)
@@ -2699,7 +2710,7 @@ void CTSGun::WeaponIdle()
 			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
 			const int idleAnim = (m_bHoldPosition && m_pActiveInfo->iIdleAnimHold >= 0)
 				? m_pActiveInfo->iIdleAnimHold : m_pActiveInfo->iIdleAnim; // stance block [0]
-			SendWeaponAnim(idleAnim, pev->body);
+			SendWeaponAnim(idleAnim); // the CTSGun shadow computes the attachment body itself
 		}
 	}
 }

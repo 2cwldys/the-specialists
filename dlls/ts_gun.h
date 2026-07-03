@@ -77,6 +77,9 @@ public:
 	void EmptySound();    // @ EmptySound__6CTSGun @0x71be4 — dry-fire click via events/empty.sc + 0.1s re-arm
 	void ShotgunReload(); // @ ShotgunReload__6CTSGun @0x74aac — pump shell-by-shell 3-phase machine
 	void WeaponIdle() override;
+	// Shadow the base SendWeaponAnim: EVERY CTSGun viewmodel anim carries the attachment BODY
+	// (silencer/scope submodels) — the base default body=0 wiped the deploy body on each anim.
+	void SendWeaponAnim(int iAnim);
 	int  AddItem(int bits); // @ AddItem__6CTSGuni @0x80794 — attach a gun item (silencer/laser/.. bits 1/2/4/8) to the active weapon
 #ifndef CLIENT_DLL
 	void Zoom(int fov);     // @ Zoom__6CTSGuni @0x71710 — scope: set pev->fov (+ hide viewmodel for high-mag scopes)

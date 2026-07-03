@@ -109,19 +109,31 @@ static void GetLaserColor(int index, float& r, float& g, float& b)
 // attachments of the active model (dir = attachment[1] - attachment[0]); for the LOCAL player that's
 // the viewmodel, for others the player (p_) model. Falls back to the entity origin + view/body angles
 // when a model hasn't populated its attachments yet (returns false if nothing usable).
+static bool s_bLocalZoomedAim = false; // this frame's aim came from the VIEW (scope-zoomed local)
+
 static bool GetMuzzleAim(int idx, Vector& muzzle, Vector& forward)
 {
 	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
 	const bool isLocal = local && local->index == idx;
 
 	cl_entity_t* model = nullptr;
+	s_bLocalZoomedAim = false;
 	if (isLocal && 0 == CL_IsThirdPerson())
 	{
 		model = gEngfuncs.GetViewModel();
-		// zoomed in (scope): the viewmodel is HIDDEN — no anchor source, NO beam (round-7g:
-		// the beam froze at the last drawn position; same class as the dead-player beams).
+		// zoomed in (scope): the viewmodel is HIDDEN — no attachment anchor. Fall back to the
+		// VIEW aim (v_origin/v_angles): the FLASHLIGHT stays fully on and the laser keeps its
+		// HUD dot; only the laser BEAM is skipped (round-7h, user-verified vs the original).
 		if (!model || !model->model)
-			return false;
+		{
+			extern Vector v_origin, v_angles; // view.cpp
+			Vector fwd;
+			AngleVectors(v_angles, fwd, nullptr, nullptr);
+			muzzle = Vector(v_origin[0], v_origin[1], v_origin[2]);
+			forward = fwd;
+			s_bLocalZoomedAim = true;
+			return true;
+		}
 	}
 	else
 	{
@@ -345,7 +357,8 @@ void TS_Attachments_Draw()
 				if (LocalLaserEndpoint(m2, ep))
 					beamEnd = ep;
 			}
-			DrawBeam(lmuzzle, beamEnd, s_laserBeamSpr, 1.25f, r, g, b, beamFrame);
+			if (!(isLocal && s_bLocalZoomedAim)) // zoomed: the beam is off; the HUD dot stays
+				DrawBeam(lmuzzle, beamEnd, s_laserBeamSpr, 1.25f, r, g, b, beamFrame);
 			// The SURFACE dot is OTHERS-only — the local player's dot is the HUD dot (ts_reticle.cpp /
 			// TS_LocalLaserDot), since the original draws no world dot for the local player.
 			if (!isLocal)

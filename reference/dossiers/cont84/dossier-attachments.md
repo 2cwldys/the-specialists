@@ -381,3 +381,6 @@ reuse the field (shotgun rack via pump.sc's direct EV_PlaySound, cont83 §3, sti
   the beam gate must distinguish beam-off/dot-on (laser) from fully-on (flashlight) while the
   local viewmodel is hidden — refine the round-7g stale-anchor gate accordingly (dot from a
   view-forward trace, not the vm attachment).
+- ADDENDUM 2 (round 7h): the scope OVERLAY applies to EVERY sub-40 zoom (mp5k included, not
+  just rifles): the whole reticle swaps to the scoped one (black mask + cross); with a
+  lasersight the laser DOT stays pinned static at the centre, exactly like unzoomed.
