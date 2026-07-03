@@ -433,7 +433,10 @@ public:
 	float m_flLastMeleeRate = 0;      // 0x4f8 — last melee refire interval (written by every melee fire; consumer VERIFY)
 	float m_flDisarmTime = 0;         // 0x71c — disarm-immunity gate for DropWeapon(-2) in the melee twins
 	float m_flDisarmPressure = 0;     // 0x7b4 — accumulated melee disarm pressure; PreThink decays x5; DropWeapon(-2) threshold
-	int m_iStandUpLatch = 0;          // 0x78 — set 1 by HandleSlide's deliberate standup (consumer VERIFY)
+	int m_iSlideStandUp = 0;          // 0x78 — STICKY: =1 at HandleSlide's deliberate standup (@0x8baa0, the
+	                                  // binary's ONLY writer; NEVER cleared) -> Play's getup fires instantly on
+	                                  // any live roll timer thereafter. Also read by PlayerDeathThink,
+	                                  // CTSAnimation::Animate (x13) + BulletDance (reads not yet reconstructed)
 	float m_flSuperJumpFuel = 0;      // super-jump remaining lift time (refills on the ground)
 	float m_flNextPainTime = 0;       // cooldown for the TS pain voice (player/pain1-4)
 	byte m_bSuperJumpAir = 0;         // super-jump: was airborne last frame (to detect the landing thud)

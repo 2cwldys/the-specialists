@@ -1670,7 +1670,7 @@ void CTSGun::CCombatAttack()
 		if (setDuckView)
 		{
 			ppev->view_ofs = Vector(0, 0, 16);
-			m_pPlayer->m_TSStunt.m_flRollTime = 2.0f; // stunt+0x4 — fallback timer; crouch-release stands up sooner
+			m_pPlayer->m_TSStunt.m_flRollTime = 2.0f; // stunt+0x4 (orig player+0x4f4) — runs down during the fall
 		}
 
 		// on-ground kicks self-root the attacker briefly after the swing (gated on the STOP bit clear).

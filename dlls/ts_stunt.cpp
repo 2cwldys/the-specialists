@@ -146,33 +146,28 @@ void CTSStunt::Play()
 	// the ground and trapped you prone — RE Play @0x8a014 lines 90-147.)
 	if (!m_pPlayer->IsOnLadder() && pev->waterlevel != 3)
 	{
-		// GET UP (RE Play @0x8a014, the on-ground branch): a single STATE-cleanup block — NOT an animation.
-		// It fires when the prone/roll timer has expired (m_flRollTime < 0.01; the decrement floors at
-		// 0.001), clearing PRONE/STOP/ROLL atomically and restoring the standing view in ONE write
-		// (FL_DUCKING ? 16 : 28); PM_Duck independently re-ducks afterward if DUCK is held. The getup
-		// ANIMATION (0x2e) is played at LANDING time (Landing() roll branch / HandleSlide's deliberate-prone
-		// branch), NEVER here — dispatching 0x2e here while PRONE is still set is exactly what Region B of
-		// CTSAnimation::Animate swallows (the old invented two-stage getup = the stuck-prone bug). The prone
-		// timer is armed by HandleSlide's deliberate-prone branch (press jump/duck/alt1 while sliding-prone).
-		// NOTE: the original also triggers on a CBasePlayer stand-up latch (orig player+0x78); that latch's
-		// The getup fires on EITHER the roll timer expiring OR the stand-up latch (player+0x78,
-		// m_iStandUpLatch) — RE Play @0x8a014: `m_flRollTime != 0 && (m_flRollTime < 0.01 || player+0x78)`.
-		// HandleSlide sets the latch on a SLIDE landing (with m_flRollTime=0.75), so a dive/slide (incl.
-		// the mid-air "sidekick" that lands as a slide) stands up the FRAME IT TOUCHES DOWN — instant on
-		// landing, matching the live original. The on-ground duckkick has no landing/latch, so it stands
-		// up on the timer alone. The getup CONSUMES (clears) the latch (its clear lifecycle = consume-here).
-		bool stoodUp = false;
-		if (m_flRollTime != 0.0f && (m_flRollTime < 0.01f || m_pPlayer->m_iStandUpLatch != 0))
+		// GET UP (RE Play @0x8a014 disasm @0x8a2e0-0x8a3d0): a single STATE-cleanup block — NOT an
+		// animation. Fires when a roll timer is LIVE and it either expired (m_flRollTime < 0.01; the
+		// decrement floors at 0.001) OR the sticky slide-standup flag (player+0x78, m_iSlideStandUp)
+		// is set: `roll != 0 && (roll < 0.01 || player+0x78)`. Clears exactly ROLL|0x80000|PRONE|STOP|
+		// 0x2 (@0x8a316: five andl's; 0x2/0x80000 have un-RE'd producers), zeroes the roll timer +
+		// m_flBlockTime (player+0x4dc @0x8a35d), restores friction ONLY (pev+0x120 @0x8a36c — gravity
+		// is NOT touched here), and restores the view in ONE write (FL_DUCKING ? 16 : 28 @0x8a37b);
+		// PM_Duck independently re-ducks afterward if DUCK is held. The flag is NOT consumed — its
+		// sole writer in the whole binary is HandleSlide's deliberate-standup (=1, @0x8baa0) and NOTHING
+		// ever clears it, so after a player's first slide-standup of the map, EVERY armed roll timer
+		// (duck/side-kick land-low 2.0, dive-roll, …) stands up the next Play frame. Mimic that.
+		// The getup ANIMATION (0x2e) is played at LANDING time (Landing() roll branch / HandleSlide's
+		// deliberate-prone branch), NEVER here — dispatching 0x2e here while PRONE is still set is
+		// exactly what Region B of CTSAnimation::Animate swallows (the old invented two-stage getup =
+		// the stuck-prone bug).
+		if (m_flRollTime != 0.0f && (m_flRollTime < 0.01f || m_pPlayer->m_iSlideStandUp != 0))
 		{
-			pev->iuser4 &= ~(TSSTUNT_PRONE | TSSTUNT_STOP | TSSTUNT_ROLL);
-			m_pPlayer->m_flBlockTime = 0.0f; // STOP cleared -> its timer too
-			pev->gravity = 1.0f;  // pev+0x11c = 1.0 (getup restores BOTH)
-			pev->friction = 1.0f; // pev+0x120 = 1.0
-			pev->view_ofs.z = (pev->flags & FL_DUCKING) ? 16.0f : 28.0f;
+			pev->iuser4 &= ~(TSSTUNT_ROLL | 0x80000 | TSSTUNT_PRONE | TSSTUNT_STOP | 0x2);
 			m_flRollTime = 0;
-			m_flStuntTime = 0;
-			m_pPlayer->m_iStandUpLatch = 0; // consume the stand-up latch (player+0x78)
-			stoodUp = true;
+			m_pPlayer->m_flBlockTime = 0.0f; // player+0x4dc (STOP cleared -> its timer too)
+			pev->friction = 1.0f;            // pev+0x120 (gravity deliberately untouched)
+			pev->view_ofs.z = (pev->flags & FL_DUCKING) ? 16.0f : 28.0f;
 		}
 
 		if (pev->iuser4 & TSSTUNT_DIVE)       HandleDive();
@@ -180,7 +175,7 @@ void CTSStunt::Play()
 		if (pev->iuser4 & (TSSTUNT_WHEEL_HI | TSSTUNT_WHEEL_LO)) HandleWheel();
 		if (pev->iuser4 & TSSTUNT_WALLJUMP_A) HandleWallJump();
 		if (pev->iuser4 & TSSTUNT_WALLCLIMB_A) HandleWallClimb();
-		if (!stoodUp && (pev->button & (IN_JUMP | IN_ALT1))) HandleStunt();
+		if (pev->button & (IN_JUMP | IN_ALT1)) HandleStunt(); // @orig: 0x180 & 0x4002, no stood-up gate
 	}
 	else
 	{
@@ -526,7 +521,7 @@ void CTSStunt::HandleSlide()
 		pev->iuser4 &= ~TSSTUNT_SLIDE;
 		pev->view_ofs = Vector(0, 0, 28);
 		m_flRollTime = 0.75f;
-		m_pPlayer->m_iStandUpLatch = 1; // player+0x78 — Play's getup consumes this => stand up the frame we land
+		m_pPlayer->m_iSlideStandUp = 1; // player+0x78 @0x8baa0 — sticky (never cleared); Play's getup goes instant
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29);
 		pev->friction = 1.0f;
 	}
