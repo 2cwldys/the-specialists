@@ -1265,8 +1265,9 @@ void TeamFortressViewport::UpdateSpectatorPanel()
 			m_pSpectatorPanel->m_BottomHelpLabel->setFgColor(255, 160, 0, 0);
 		}
 
-		// add sting auto if we are in auto directed mode
-		if (0 != gHUD.m_Spectator.m_autoDirector->value)
+		// add sting auto if we are in auto directed mode — HLTV ONLY (the original's bar shows
+		// no "Auto" prefix in normal play; user-verified vs the live hl.exe, round 7e)
+		if (0 != gHUD.m_Spectator.m_autoDirector->value && 0 != gEngfuncs.IsSpectateOnly())
 		{
 			char tempString[128];
 			sprintf(tempString, "#Spec_Auto %s", helpString2);

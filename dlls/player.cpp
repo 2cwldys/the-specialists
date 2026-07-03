@@ -1614,15 +1614,28 @@ void CBasePlayer::StopObserver()
 	pev->nextthink = -1;
 }
 
-// @ ClientCommand "respawn" — request a respawn from the spectate-wait. If the spawn gate has
-// elapsed, leave spectate into play (same as fire-to-play); otherwise tell the player to wait.
-// (Original: GetClassPtr<CBasePlayer> -> TSHudMessageOne(...) "wait" / StopObserver respawn.)
+// @ ClientCommand "respawn" (decompile-exact gates, dossier-invented B2): the wait line shows
+// ONLY when the gate is NEGATIVE (the -4.0 wait-next-round sentinel — LMS lockout / round
+// logic; NEVER set in plain DM). Firing during a normal countdown is SILENT (neither branch).
+// The wait line is 1 Hz-throttled off the same +0x754 clock as the countdown.
 void CBasePlayer::TSTryRespawn()
 {
-	if (m_fInSpectateWait && m_flTSRespawnTime >= 0 && gpGlobals->time >= m_flTSRespawnTime)
+	if (!m_fInSpectateWait)
+		return; // original: requires iuser2 != 0
+	if (m_flTSRespawnTime < 0)
+	{
+		if (gpGlobals->time > m_flSpecMsgTime)
+		{
+			m_flSpecMsgTime = gpGlobals->time + 1.0f;
+			TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
+		}
+	}
+	else if (m_flTSRespawnTime > 0 && m_flTSRespawnTime < gpGlobals->time)
+	{
+		m_flTSRespawnTime = 0;
 		StopObserver();
-	else
-		TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
+		pev->impulse = 0;
+	}
 }
 
 //

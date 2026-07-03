@@ -148,8 +148,8 @@ bool CHudTSMessage::Draw(float flTime)
 			y = ScreenHeight - YRES(0x40);
 		else
 			y = ScreenHeight / 2;
-		y += line * (h + 2); // stack multiple messages downward
-
+		// The original OVERLAPS all centre messages at the same spot (round 7e, user-verified:
+		// the countdown overwrites "Press fire to play"; nothing drops down a line).
 		gHUD.DrawHudString(x, y, ScreenWidth, m.text, r, g, b);
 		line++;
 	}

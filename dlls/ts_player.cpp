@@ -711,7 +711,7 @@ void CBasePlayer::TSInit()
 		m_bLowGravity = 0;
 		g_engfuncs.pfnSetPhysicsKeyValue(edict(), "mj", "0");
 	}
-	// player+0x754 = 0 (unnamed)
+	m_flSpecMsgTime = 0; // +0x754 — the spectate HUD-line 1 Hz throttle clock
 	if (pev->iuser1 != 0 || pev->iuser2 != 0)
 	{
 		// @0x82a4c: the stock-shaped spectator-state broadcast — (BYTE playerIndex, BYTE 0).

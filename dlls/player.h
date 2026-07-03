@@ -577,7 +577,8 @@ public:
 	void TSEnterSpectate();         // enter free-look spectate-wait (called at end of Spawn)
 	void StopObserver();         // press-fire: leave spectate -> respawn into play
 	void TSSpectateThink();         // per-frame while waiting: countdown msg + fire check
-	void TSTryRespawn();            // `respawn` cmd: leave spectate if the gate elapsed, else "wait" msg
+	void TSTryRespawn();            // `respawn` cmd: leave spectate if the gate elapsed; wait line only when gate < 0
+	float m_flSpecMsgTime = 0;      // +0x754 — the 1 Hz spectate HUD-line throttle clock (countdown + wait line)
 	void TSSendScoreInfo();         // broadcast this player's scoreboard row (class=WAITING while spectating)
 	void TSSendBuyMenu();           // send the buy/config menu (gmsgShowMenu, compact list)
 	void TSCloseMenu();             // turn the menu off (ShowMenu with 0 valid slots)

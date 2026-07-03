@@ -233,6 +233,8 @@ void SpectatorPanel::Initialize()
 	m_BottomHelpLabel = new Label("Spectator Help",
 		XRES_HD((15 + OPTIONS_BUTTON_X + 15) + 31), YRES_HD(6) + YRES_HD(20), flLabelSize, YRES_HD(20));
 	m_BottomHelpLabel->setParent(m_BottomBorder);
+	m_BottomHelpLabel->setFont(pSchemes->getFont(hSmallScheme)); // non-bold small text (the original's
+	                                                             // help line is plain, not the bold title font)
 	m_BottomHelpLabel->setPaintBackgroundEnabled(false);
 	m_BottomHelpLabel->setFgColor(255, 160, 0, 0); // TS: the HUD orange
 	m_BottomHelpLabel->setContentAlignment(vgui::Label::a_center);
