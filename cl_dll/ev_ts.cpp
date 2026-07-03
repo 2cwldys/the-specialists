@@ -506,13 +506,13 @@ void EV_TSFire(event_args_t* args)
 		// TS AIM-recoil (RE client.dll FUN_10008230): kick the actual aim up + per-firetype horizontal,
 		// eased into cl.viewangles in V_CalcRefdef (TS_UpdateViewRecoil). Persistent — the player pulls
 		// down. Replaces the old -2.0 punchangle placeholder (the original gates server punchangle to
-		// bots; the real recoil moves the aim client-side). bullet-time: VERIFY (no client slow-mo flag
-		// wired yet -> false).
+		// bots; the real recoil moves the aim client-side).
 		const s_weapon_info* wiLocal = get_weapon_info((tsweapon_t)weaponType);
 		// fparam2 = the recoil magnitude computed predicted-side in CTSGun::StandardFire/AkimboFire (= flViewKick,
 		// with the pump-shotgun 0.35x reduction already folded in when in pump mode). NOT wiLocal->flViewKick,
 		// which would be the unreduced value (the pump reduction is mode-dependent and only known on the fire side).
-		TS_AddViewRecoil(args->fparam2, wiLocal->iFireType, args->ducking != 0, false);
+		extern bool g_bBulletTime; // TSBTime wire flag (cl_dll/ts_powerup_hud.cpp) — recoil x0.66667
+		TS_AddViewRecoil(args->fparam2, wiLocal->iFireType, args->ducking != 0, g_bBulletTime);
 	}
 
 	// Eject a brass shell from the viewmodel/player.

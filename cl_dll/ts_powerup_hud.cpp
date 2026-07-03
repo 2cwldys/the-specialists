@@ -21,6 +21,7 @@
 DECLARE_MESSAGE(m_TSPowerUp, PwUp)
 DECLARE_MESSAGE(m_TSPowerUp, PwUpTime)
 DECLARE_MESSAGE(m_TSPowerUp, TSSlowMo)
+DECLARE_MESSAGE(m_TSPowerUp, TSBTime)
 
 // held powerup type bits (dlls/ts_gamerules.h TS_PWUP_*)
 #define PWUP_SLOWMO    0x01
@@ -35,6 +36,7 @@ bool CHudTSPowerUp::Init()
 	HOOK_MESSAGE(PwUp);
 	HOOK_MESSAGE(PwUpTime);
 	HOOK_MESSAGE(TSSlowMo);
+	HOOK_MESSAGE(TSBTime); // bullet-time variant flag (recoil x0.66667 consumer, ev_ts.cpp)
 	gHUD.AddHudElem(this);
 	m_iFlags |= HUD_ACTIVE; // self-gates on a held powerup
 	Reset();
@@ -129,6 +131,18 @@ bool CHudTSPowerUp::MsgFunc_TSSlowMo(const char* pszName, int iSize, void* pbuf)
 // RE: client DAT_100963e8 — consumed by the weapon-fire events to pitch the gunshot sounds (the more
 // time is dilated, the deeper they sound). See ev_ts.cpp.
 float g_flClientSlow = 1.0f;
+
+// TSBTime — the bullet-time variant flag (server byte 0x175). Consumed by the recoil
+// reduction in ev_ts.cpp (x0.66667 while in bullet-time).
+bool g_bBulletTime = false;
+
+bool CHudTSPowerUp::MsgFunc_TSBTime(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	g_bBulletTime = READ_BYTE() != 0;
+	m_iFlags |= HUD_ACTIVE;
+	return true;
+}
 
 // Draw one independent-powerup indicator centred horizontally at row `y`: the named sprite (additive,
 // drawn at its natural colour) if it loads, otherwise a whitish text label. It's a binary "have it /

@@ -45,6 +45,9 @@ int gmsgTSKickAlign = 0;    // "TSKickAlign" — DEAD in the original: the globa
 static int gmsgTSHealth = 0;
 static int gmsgTSArmor = 0;
 static int gmsgTSCash = 0;
+static int gmsgTSState = 0;      // "TSState" 1 — posture byte 0x498 (star_TSState_TSSpace_TSBTime.md)
+static int gmsgTSSpace = 0;      // "TSSpace" 1 — free carry slots (int 0x548)
+static int gmsgTSBulletTime = 0; // "TSBTime" 1 — the bullet-time variant flag (byte 0x175 = m_bSlowBullets)
 
 // @ part of CBasePlayer::UpdateClientData @0x81d00 — the TS per-frame HUD sends. Each
 // message is throttled-by-change (only sent when the cached value differs) exactly as
@@ -83,12 +86,38 @@ void CBasePlayer::TSUpdateClientData()
 		MESSAGE_END();
 	}
 
+	// TSState — the posture byte (0 stand / 1 duck / 2 stunt-prone), source 0x498 / cache 0x499.
+	// Plain on-change, NO ResetHUD-forced resend (the original's InitHUD memset deliberately
+	// starts at 0x49A and skips this cache). Original send order: TSArmor -> TSState -> TSCash.
+	if (gmsgTSState == 0)
+		gmsgTSState = REG_USER_MSG("TSState", 1);
+	if (m_iPlayerState != m_iClientTSState)
+	{
+		m_iClientTSState = m_iPlayerState;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSState, NULL, ENT(pev));
+		WRITE_BYTE(m_iPlayerState);
+		MESSAGE_END();
+	}
+
 	// TSCash — the player's cash (a short).
 	if (m_iCash != m_iClientTSCash)
 	{
 		m_iClientTSCash = m_iCash;
 		MESSAGE_BEGIN(MSG_ONE, gmsgTSCash, NULL, ENT(pev));
 		WRITE_SHORT(m_iCash);
+		MESSAGE_END();
+	}
+
+	// TSSpace — the free carry slots. The original sends the MAINTAINED int at 0x548 directly
+	// (no clamp at the write); our slots derive from the arsenal, so the recompute IS the member.
+	if (gmsgTSSpace == 0)
+		gmsgTSSpace = REG_USER_MSG("TSSpace", 1);
+	const int freeSlots = TSPlayerFreeSlots(this);
+	if (freeSlots != m_iClientTSSpace)
+	{
+		m_iClientTSSpace = freeSlots;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSSpace, NULL, ENT(pev));
+		WRITE_BYTE(freeSlots);
 		MESSAGE_END();
 	}
 
@@ -125,6 +154,19 @@ void CBasePlayer::TSUpdateClientData()
 		m_flClientSlowAmt = slowAmt;
 		MESSAGE_BEGIN(MSG_ONE, gmsgTSSlowAmt, NULL, ENT(pev));
 		WRITE_COORD(slowAmt);
+		MESSAGE_END();
+	}
+
+	// TSBTime — the bullet-time variant flag: source byte 0x175 (m_bSlowBullets — the SAME byte,
+	// by construction; star addendum settles the 0x175-vs-[0x5d] ambiguity), cache 0x174.
+	// Client consumer: the recoil x0.66667 reduction while in bullet-time.
+	if (gmsgTSBulletTime == 0)
+		gmsgTSBulletTime = REG_USER_MSG("TSBTime", 1);
+	if ((int)m_bSlowBullets != m_iClientBulletTime)
+	{
+		m_iClientBulletTime = m_bSlowBullets;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSBulletTime, NULL, ENT(pev));
+		WRITE_BYTE(m_bSlowBullets);
 		MESSAGE_END();
 	}
 }

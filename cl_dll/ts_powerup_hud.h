@@ -20,6 +20,7 @@ public:
 	bool MsgFunc_PwUp(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_PwUpTime(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_TSSlowMo(const char* pszName, int iSize, void* pbuf);
+	bool MsgFunc_TSBTime(const char* pszName, int iSize, void* pbuf); // bullet-time variant flag
 
 private:
 	int m_iHeldType;       // held powerup type bits (0 = none held)

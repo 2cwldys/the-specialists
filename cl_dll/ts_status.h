@@ -35,11 +35,15 @@ public:
 	bool MsgFunc_TSHealth(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_TSArmor(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_TSCash(const char* pszName, int iSize, void* pbuf);
+	bool MsgFunc_TSState(const char* pszName, int iSize, void* pbuf); // posture byte (0 stand/1 duck/2 prone)
+	bool MsgFunc_TSSpace(const char* pszName, int iSize, void* pbuf); // free carry slots
 
 private:
 	int m_iHealth; // last TSHealth byte received
 	int m_iArmor;  // last TSArmor byte received
 	int m_iCash;   // last TSCash short received
+	int m_iState = 0; // last TSState byte — drives the posture figure directly (server-authoritative)
+	int m_iSpace = 0; // last TSSpace byte — free carry slots (panel styling VERIFY)
 
 	// Custom TS status-panel sprites (sprites/player/*.spr), loaded in VidInit and
 	// drawn bottom-left in Draw — the posture figure (stand/crouched/prone), the

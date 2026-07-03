@@ -411,7 +411,7 @@ public:
 	int m_iClientHeldType = -1;       // 0x738 — last-sent held powerup type (gmsgTSPowerUp change-detect)
 	int m_iClientHeldDur = -1;        // 0x734 — last-sent held powerup duration
 	float m_flClientSlowAmt = -1;     // 0x16c — last-sent slow amount (gmsgTSSlowAmt change-detect)
-	int m_iClientBulletTime = -1;     // 0x174 — last-sent bullet-time flag (gmsgTSBulletTime)
+	int m_iClientBulletTime = 0;      // 0x174 — last-sent bullet-time flag (gmsgTSBulletTime; byte cache, init 0 like the original)
 	byte m_iKungFu = 0;               // 0x74e — kung-fu state (kung-fu powerup)
 	byte m_bLowGravity = 0;           // 0x74f — super-jump powerup active (engine physinfo "mj")
 	byte m_bTheOne = 0;               // 0x7b9 — this player is "The One" (the juggernaut game mode)
@@ -503,6 +503,9 @@ public:
 	void DropAmmo();                                      // @0x846f0 — drop the gun's reserve as a CTSAmmoPack
 	void UpdatePlayerState();                             // @0x82a08 — derive m_iPlayerState (locked/frozen/normal)
 	int m_iPlayerState = 0;                               // 0x498 — pose: 0 normal, 1 ducking, 2 stunt/locked
+	int m_iClientTSState = 0;                             // 0x499 — last-sent TSState byte (plain on-change; the
+	                                                      // original's InitHUD memset deliberately skips this cache)
+	int m_iClientTSSpace = 0;                             // 0x54c — last-sent TSSpace free-slots value
 	void TSUse();                                         // @0x856e0 — server-side double-tap +use -> UsePowerUp
 	float m_flUseDoubleTap = 0;                           // 0x164 — the double-tap +use window deadline
 	float m_flSetMaxSpeed = 0;                            // 0x550 — the last SetPlayerSpeed value (clamped)

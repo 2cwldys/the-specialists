@@ -30,15 +30,11 @@
 
 #include <stdio.h>
 
-// Posture for the status-panel figure. 0 = standing, 1 = crouched, 2 = prone.
-// Crouch is read client-side from the local player's hull; prone is CTSStunt-driven
-// (dives / double-jump roll) and stays dormant until that movement system lands —
-// g_iTSProne is the hook the stunt code will set. (HANDOFF Track B / CTSStunt.)
-int g_iTSProne = 0;
-
 DECLARE_MESSAGE(m_TSStatus, TSHealth)
 DECLARE_MESSAGE(m_TSStatus, TSArmor)
 DECLARE_MESSAGE(m_TSStatus, TSCash)
+DECLARE_MESSAGE(m_TSStatus, TSState)
+DECLARE_MESSAGE(m_TSStatus, TSSpace)
 
 bool CHudTSStatus::Init()
 {
@@ -49,6 +45,8 @@ bool CHudTSStatus::Init()
 	HOOK_MESSAGE(TSHealth);
 	HOOK_MESSAGE(TSArmor);
 	HOOK_MESSAGE(TSCash);
+	HOOK_MESSAGE(TSState); // posture byte (0 stand / 1 duck / 2 stunt-prone) — server-authoritative
+	HOOK_MESSAGE(TSSpace); // free carry slots
 
 	TSHud_RegisterCvars();
 
@@ -117,6 +115,22 @@ bool CHudTSStatus::MsgFunc_TSCash(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
+bool CHudTSStatus::MsgFunc_TSState(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	m_iState = READ_BYTE();
+	m_iFlags |= HUD_ACTIVE;
+	return true;
+}
+
+bool CHudTSStatus::MsgFunc_TSSpace(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	m_iSpace = READ_BYTE(); // free carry slots (panel styling VERIFY — stored, drawn later)
+	m_iFlags |= HUD_ACTIVE;
+	return true;
+}
+
 bool CHudTSStatus::Draw(float flTime)
 {
 	if ((m_iFlags & HUD_ACTIVE) == 0)
@@ -140,18 +154,11 @@ bool CHudTSStatus::Draw(float flTime)
 
 	const int lineHeight = gHUD.m_scrinfo.iCharHeight + 2;
 
-	// Choose the posture figure: prone (CTSStunt, dormant) > crouched (local hull) > stand.
+	// Posture figure = the server's TSState byte (0 stand / 1 duck / 2 stunt-prone) — the
+	// invented local derivation (g_iTSProne + curstate.usehull) is deleted; the wire drives it.
 	HSPRITE hFig = m_hStand;
 	Rect* rcFig = &m_rcStand;
-	int posture = 0;
-	if (g_iTSProne != 0)
-		posture = 2;
-	else
-	{
-		cl_entity_t* local = gEngfuncs.GetLocalPlayer();
-		if (local != nullptr && local->curstate.usehull == 1) // ducked hull
-			posture = 1;
-	}
+	const int posture = m_iState;
 	if (posture == 2 && m_hProne != 0) { hFig = m_hProne; rcFig = &m_rcProne; }
 	else if (posture == 1 && m_hCrouch != 0) { hFig = m_hCrouch; rcFig = &m_rcCrouch; }
 
