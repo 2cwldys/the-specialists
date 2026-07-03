@@ -97,14 +97,13 @@ public:
 	                                             // fire-step / pump(rack)-step per trigger-frame (see .cpp)
 	void VKickback(float magnitude, int firetype); // @VKickback @0x70414 — recoil view-punch (punchangle)
 	void ScaleSpread(float &spread, float increment, bool ducking); // @ScaleSpread @0x702a8 — dynamic accuracy
-	void MeleeAttack(const s_weapon_info *wi);   // knife/katana fire-types
+	void KnifeFire();                            // @KnifeFire__6CTSGun @0x74044 — knife slash AND throw (item+0x24)
 	void CCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
 	void CCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
 	void CCombatIdle();                      // @0x85e54 — bare-hands viewmodel idle (WeaponIdle no-item branch)
 	void GrenadeFire(const s_weapon_info *wi);  // grenade fire-type
 	void KatanaFire();                           // @KatanaFire__6CTSGun @0x733f0 — the 5-stance katana slash
 	void KatanaThrow();                          // @KatanaThrow__6CTSGun @0x73b68 — right-click HURLS the katana
-	void ThrowKnife();                           // @KnifeFire throw branch — right-click hurls the knife
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
 	void SwitchFireMode();                       // cycle the held weapon's fire-mode
 	void SwitchItems();                          // @SwitchItems__6CTSGun (useitems) — toggle ACTIVE attachments (laser/flash)
@@ -153,11 +152,10 @@ public:
 	int m_comboStep = 0;        // kung-fu PUNCH combo counter (this+0x9fc in the .so): 3 jabs → uppercut, reset on finisher
 	int m_kickCombo = 0;        // kung-fu KICK combo counter (this+0xa00 in the .so): 3 kicks → spin finisher, reset on finisher/dive
 	int m_lastMeleeAnim = 0;    // last kung-fu attack id (this+0xa04): drives the no-repeat anim cycling per move
-	int m_slashStep = 0;        // knife slash anim cycle (RE KnifeFire melee: 0x1d + random(0,2) body anims)
 	float m_lastCCTime = 0.0f;  // last close-combat attack time (combo only continues if rapid/held)
 	unsigned short m_usFire = 0; // events/fire.sc handle (predicted fire: sound/flash/anim)
 	unsigned short m_usDraw = 0; // events/draw.sc handle (deploy: seed the client param cache)
-	unsigned short m_usMelee = 0; // events/knife.sc handle (predicted melee impact spark/decal)
+	unsigned short m_usMelee = 0; // events/knife.sc handle (gun+0x972): every knife slash, iparam1=weaponType, iparam2=bloody
 	unsigned short m_usKatana = 0; // events/katana.sc handle (gun+0x974): every katana swing, iparam1=vmAnim, iparam2=bloody
 
 	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends

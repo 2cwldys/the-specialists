@@ -216,56 +216,7 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 	gEngfuncs.pEventAPI->EV_PopPMStates();
 }
 
-// events/knife.sc → EV_TSMelee — the original FUN_10043c90. A knife/katana slash hitting a HARD
-// surface throws the per-surface impact effect (scintille glint + sparks on metal/glass, debris on
-// concrete/wood). The server only plays this on non-flesh hits; the impact point rides in
-// args->origin and the player aim in args->angles. We trace a short ray through the impact point to
-// recover the surface material, then run the byte-ported dispatcher (cont.69x; was R_SparkShower).
-void EV_TSMelee(event_args_t* args)
-{
-	Vector fwd, r, u;
-	AngleVectors(args->angles, fwd, r, u);
-
-	Vector start, stop;
-	for (int i = 0; i < 3; i++)
-	{
-		start[i] = args->origin[i] - fwd[i] * 16.0f;
-		stop[i] = args->origin[i] + fwd[i] * 16.0f;
-	}
-
-	gEngfuncs.pEventAPI->EV_SetUpPlayerPrediction(0, 1);
-	gEngfuncs.pEventAPI->EV_PushPMStates();
-	gEngfuncs.pEventAPI->EV_SetSolidPlayers(args->entindex - 1);
-	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
-	pmtrace_t tr;
-	gEngfuncs.pEventAPI->EV_PlayerTrace(start, stop, PM_NORMAL, -1, &tr);
-
-	char chType = CHAR_TEX_METAL; // melee on a hard surface defaults to a metallic scrape
-	Vector pos, normal(-fwd.x, -fwd.y, -fwd.z);
-	VectorCopy(args->origin, pos);
-	if (tr.fraction < 1.0f)
-	{
-		VectorCopy(tr.plane.normal, normal);
-		for (int i = 0; i < 3; i++)
-			pos[i] = tr.endpos[i] + tr.plane.normal[i] * 2.0f;
-		physent_t* pe = gEngfuncs.pEventAPI->EV_GetPhysent(tr.ent);
-		bool isBrush = pe && (pe->solid == SOLID_BSP || pe->movetype == MOVETYPE_PUSH || tr.ent == 0);
-		if (isBrush)
-		{
-			const char* texName = gEngfuncs.pEventAPI->EV_TraceTexture(tr.ent, start, stop);
-			if (texName && texName[0])
-			{
-				char buf[64];
-				strncpy(buf, texName, sizeof(buf) - 1);
-				buf[sizeof(buf) - 1] = 0;
-				chType = PM_FindTextureType(buf);
-			}
-		}
-	}
-
-	gEngfuncs.pEventAPI->EV_PopPMStates();
-	TS_MeleeImpact(pos, normal, chType); // glint + sparks only (no smoke/debris) — FUN_10043c90
-}
+// (EV_TSKnife — the faithful knife.sc handler — is defined below the shared melee kit.)
 
 // ---- The faithful TS melee-event presentation kit (dossier-ev-melee.md §0.4–0.7) ----
 
@@ -358,6 +309,67 @@ static char TS_MeleePlayTextureSound(pmtrace_t* tr, const float* start, const fl
 	return chType;
 }
 
+// events/knife.sc → EV_TSKnife — the original LAB_10043c90 (dossier-ev-melee.md §1). The server
+// (CTSGun::KnifeFire) plays it EVERY slash with iparam1 = the weaponType and iparam2 = the bloody
+// flag. ALL slash presentation is client-side: 35u forward trace; miss -> knife_miss.wav; hard
+// surface -> texture note + 6 metal glints + sparks + knife_hit.wav; wood/dirt -> texture note
+// only; flesh -> silent + forces the blade bloody. The viewmodel swing is chosen CLIENT-side
+// (RandomLong(0,2) -> swing ids 15/16/17 -> the weapon's anim block), body = bloody.
+void EV_TSKnife(event_args_t* args)
+{
+	const int idx = args->entindex;
+	const int weaponType = args->iparam1;
+	int bloody = args->iparam2;
+
+	Vector fwd, right, up;
+	AngleVectors(args->angles, fwd, right, up);
+	Vector gun;
+	EV_GetGunPosition(args, gun, args->origin);
+	Vector end;
+	for (int i = 0; i < 3; i++)
+		end[i] = gun[i] + fwd[i] * 35.0f;
+
+	gEngfuncs.pEventAPI->EV_SetUpPlayerPrediction(0, 1);
+	gEngfuncs.pEventAPI->EV_PushPMStates();
+	gEngfuncs.pEventAPI->EV_SetSolidPlayers(idx - 1);
+	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
+	pmtrace_t tr;
+	gEngfuncs.pEventAPI->EV_PlayerTrace(gun, end, PM_STUDIO_BOX, -1, &tr);
+
+	if (tr.fraction >= 1.0f)
+	{
+		gEngfuncs.pEventAPI->EV_PlaySound(idx, args->origin, CHAN_WEAPON,
+			"weapons/knife/knife_miss.wav", TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+	}
+	else
+	{
+		const char chType = TS_MeleePlayTextureSound(&tr, gun, end);
+		if (chType == CHAR_TEX_FLESH)
+			bloody = 1; // a flesh hit blooms the blade immediately (silent — the server owns it)
+		else if (chType != 0 && chType != CHAR_TEX_DIRT && chType != CHAR_TEX_WOOD)
+		{
+			TS_MeleeImpact(tr.endpos, tr.plane.normal, chType, 6); // knife: 6 glints + sparks
+			gEngfuncs.pEventAPI->EV_PlaySound(idx, args->origin, CHAN_WEAPON,
+				"weapons/knife/knife_hit.wav", TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+		}
+	}
+
+	if ((EV_IsLocal(idx) || TS_InEyeSpectating(idx)) && 0 == CL_IsThirdPerson())
+	{
+		const s_weapon_info* wi = get_weapon_info((tsweapon_t)weaponType);
+		const int swing = gEngfuncs.pfnRandomLong(0, 2); // the client picks the swing (ids 15/16/17)
+		gEngfuncs.pEventAPI->EV_WeaponAnimation(wi->iSwingAnims[swing], bloody);
+	}
+	if (EV_IsLocal(idx))
+	{
+		// per-swing "bounce-back" screen shake (RE client FUN_1000a270: amp = flDamage*0.15,
+		// dur 0.2, freq 10 — live-verified earlier; presentation-only, local player).
+		TS_TriggerViewShake(get_weapon_info((tsweapon_t)weaponType)->flDamage * 0.15f);
+	}
+
+	gEngfuncs.pEventAPI->EV_PopPMStates();
+}
+
 // events/katana.sc → EV_TSKatana — the original LAB_10044230 (dossier-ev-melee.md §2). The server
 // (CTSGun::KatanaFire) plays it EVERY swing with iparam1 = the logical swing id (15 = the reverse
 // back-slash / 16 / 17) and iparam2 = the bloody-blade flag. ALL swing presentation is client-side:
@@ -414,6 +426,11 @@ void EV_TSKatana(event_args_t* args)
 		const int swing = animId - 15;
 		if (swing >= 0 && swing < 3)
 			gEngfuncs.pEventAPI->EV_WeaponAnimation(wi->iSwingAnims[swing], bloody);
+	}
+	if (EV_IsLocal(idx))
+	{
+		// per-swing "bounce-back" screen shake (RE client FUN_1000a270; presentation-only).
+		TS_TriggerViewShake(get_weapon_info(TSW_KATANA)->flDamage * 0.15f);
 	}
 
 	gEngfuncs.pEventAPI->EV_PopPMStates();

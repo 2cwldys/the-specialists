@@ -169,7 +169,6 @@ void CTSGun::Reset()
 	m_comboStep = 0;
 	m_kickCombo = 0;
 	m_lastMeleeAnim = 0;
-	m_slashStep = 0;
 	m_lastCCTime = 0.0f;
 
 	// per-fire transient timers
@@ -609,8 +608,8 @@ void CTSGun::SecondaryAttack()
 	}
 	if (wi->iFireType == TSFT_KNIFE)
 	{
-		it.altMode = 1; // item+0x24 = 1 -> KnifeFire's THROW branch (our split ThrowKnife until S7c)
-		ThrowKnife();
+		it.altMode = 1; // item+0x24 = 1 -> KnifeFire's THROW branch (@0x717d3)
+		KnifeFire();
 		return;
 	}
 	if (wi->iFireType == TSFT_KATANA)
@@ -685,7 +684,7 @@ void CTSGun::PrimaryAttack()
 	if (wi->iFireType == TSFT_KNIFE)
 	{
 		m_items[m_weaponType].altMode = 0; // @0x71a89: item+0x24 = 0 (slash) before KnifeFire
-		MeleeAttack(wi);
+		KnifeFire();
 		return;
 	}
 	if (wi->iFireType == TSFT_KATANA)
@@ -987,72 +986,141 @@ void CTSGun::VKickback(float magnitude, int firetype)
 	}
 }
 
-// @ KnifeFire/KatanaFire — a short forward hull trace; on a hit, melee damage.
-// SLICE: no swing/hit sounds (the TS knife sounds aren't precached here) and no
-// faithful katana throw/charge — just the close-range slash.
-void CTSGun::MeleeAttack(const s_weapon_info *wi)
+// @ KnifeFire__6CTSGun @0x74044 — the knife/sealknife SLASH and THROW in one method, split on the
+// item's alt-mode byte (item+0x24: PrimaryAttack writes 0 = slash, SecondaryAttack 1 = throw).
+// No button/timer gates here (ItemPostFrame + the dispatcher gate); both attack timers re-arm at
+// flFireRate (x1.5 stunting) so holding either button auto-repeats. SLASH: 3rd-person anim 29-31
+// random, dmg x(2/3 stunting) x GetMeleeMultiplier, CheckHull hull-3 at 35u, VictimKnifeHold
+// deflect, DMG_SLASH|DMG_NEVERGIB, player hit bloodies the blade + victim-edict knife_hitbody.wav,
+// miss arms the whiff-lunge; knife.sc plays EVERY slash (FEV_NOTHOST, iparam1=weaponType,
+// iparam2=bloody — ALL swing presentation is client-side, no server whoosh, no SendWeaponAnim).
+// THROW: wall-clipped eye trace spawn, CreateKnife @1900, roll 90 / spin -1300, anim 32, server
+// knife_miss.wav whoosh, consume gated !InfiniteClips; 0 knives -> DropWeapon(type, true), else a
+// model-derived redraw + draw.sc + idle 2.0.
+void CTSGun::KnifeFire()
 {
-	// RE KnifeFire melee branch: NOT one-per-press — holding ATTACK slashes continuously, gated only by
-	// m_flNextPrimaryAttack (flFireRate), exactly like the kung-fu CCombatAttack path. (Was a press-only
-	// gate, so the knife could only slash once per click.)
-	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
-	Vector vecSrc = m_pPlayer->GetGunPosition();
-	const float flRange = (wi->iFireType == TSFT_KATANA) ? 64.0f : 48.0f;
-	Vector vecEnd = vecSrc + gpGlobals->v_forward * flRange;
+	if (m_weaponType == TSW_MELEE) // original gate: m_pActiveItem == NULL
+		return;
+	entvars_t *ppev = m_pPlayer->pev;
+	TSItem &it = m_items[m_weaponType];
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 
-	TraceResult tr;
-	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
+	const bool stunting = (ppev->iuser4 & 0x70c30) != 0;
+	float rate = wi->flFireRate;
+	if (stunting)
+		rate *= 1.5f;
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + rate;
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + rate;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
+	m_pPlayer->m_flLastMeleeRate = rate; // player+0x4f8
+	UTIL_MakeVectors(ppev->v_angle);
 
-	// 1st-person viewmodel slash — CLIENT-PREDICTED (CTSGun is a UseDecrement weapon). The melee viewmodels
-	// carry MULTIPLE slash sequences; the original cycles them (RE: 3 body anims 0x1d+RANDOM(0,2), viewmodel
-	// via knife.sc). We cycle them DETERMINISTICALLY (m_slashStep, predicted in lockstep with the server) so
-	// the held slash animates through its variants without snapping on reconcile. // VERIFY seq indices.
-	const bool isKatana = (wi->iFireType == TSFT_KATANA);
-	const int slashBase = (m_weaponType == TSW_KNIFE) ? 3 : 2; // v_knife slash1=3; v_katana/v_sealknife slash1=2
-	const int nSlash = 3;                                       // RE: 3 slash variants (0x1d/1e/1f body anims)
-	SendWeaponAnim(slashBase + (m_slashStep % nSlash));
-	m_slashStep++;
-#ifdef CLIENT_DLL
-	// Knife/katana "bounce-back" screen-shake, per swing (RE client FUN_1000a270 @0xa345: Shake_Setup(amp =
-	// flDamage*0.15, dur 0.2, freq 10) — knife dmg 30 -> amp 4.5, live-verified). Client-predicted path =
-	// local player; transient render-only shake (TS_ApplyMeleeShake in V_CalcRefdef). The fire-rate gate
-	// (m_flNextPrimaryAttack below) means MeleeAttack runs once per swing, so prediction replay won't re-fire.
-	TS_TriggerViewShake(wi->flDamage * 0.15f);
-#endif
-	// Swing whoosh (per attack) — server-driven EMIT_SOUND (a client no-op during prediction).
-	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, isKatana ? "weapons/katana/miss.wav" : "weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_FIRE);
-	const float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.25f;
-	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+	bool consumed = false;
 
-	if (tr.flFraction >= 1.0f)
-		return; // miss
-
-	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
-	if (pHit)
+	if (it.altMode == 0)
 	{
-		// Surface vs flesh hit sound (players/monsters → body; world/props → blade-on-surface).
-		const bool flesh = pHit->IsPlayer() || (pHit->pev->flags & FL_MONSTER) != 0;
-		const char *hitSnd = isKatana
-			? (flesh ? "weapons/katana/hit-body.wav" : "weapons/katana/hit.wav")
-			: (flesh ? "weapons/knife/knife_hitbody.wav" : "weapons/knife/knife_hit.wav");
-		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, hitSnd, VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-		// events/knife.sc → EV_TSMelee: blade-on-surface spark + decal (the original FUN_10043c90).
-		// SERVER-AUTHORITATIVE (not predicted): the client-predicted melee world-trace is unreliable
-		// and usually misses, so playing it from prediction (FEV_NOTHOST) gave the local slasher no
-		// spark. The server's trace reliably hits, so broadcast to EVERYONE incl. the host (flags 0).
-		// Only on hard surfaces (not flesh) — impact point in the origin, player aim in the angles so
-		// the client can trace the surface (material + normal).
-#ifndef CLIENT_DLL
-		if (!flesh && m_usMelee)
-			PLAYBACK_EVENT_FULL(0, m_pPlayer->edict(), m_usMelee, 0.0,
-				tr.vecEndPos, m_pPlayer->pev->v_angle, 0.0, 0.0, 0, 0, 0, 0);
+		// ---- SLASH ----
+		const int r = RANDOM_LONG(0, 2);
+		if (!stunting && (ppev->flags & FL_ONGROUND))
+			m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_CC_KNIFE1 + r); // body anims 29-31
+
+		float dmg = wi->flDamage;
+		if (stunting)
+			dmg *= 2.0f / 3.0f;
+
+#ifndef CLIENT_DLL // hit resolution is server-authoritative (house pattern)
+		dmg *= m_pPlayer->GetMeleeMultiplier();
+		Vector vecSrc = m_pPlayer->GetGunPosition();
+		Vector vecEnd = vecSrc + gpGlobals->v_forward * 35.0f; // slash reach 35, hull-3 sweep
+		TraceResult tr;
+		m_pPlayer->CheckHull(vecSrc, vecEnd, tr, 3);
+
+		bool whiff = true;
+		if (tr.flFraction < 1.0f)
+		{
+			CBaseEntity *pEnt = tr.pHit ? CBaseEntity::Instance(tr.pHit) : nullptr;
+			if (pEnt && pEnt->IsAlive() && !(pEnt->pev->effects & EF_NODRAW))
+			{
+				// world/props take NO slash damage — only living, drawn victims resolve.
+				whiff = false;
+				if (!VictimKnifeHold(m_pPlayer, pEnt, dmg))
+				{
+					ClearMultiDamage();
+					pEnt->TraceAttack(ppev, dmg, gpGlobals->v_forward, &tr, DMG_SLASH | DMG_NEVERGIB); // 0x1004
+					ApplyMultiDamage(ppev, ppev);
+					if (pEnt->IsPlayer())
+					{
+						it.bloody = 1; // item+0x8 — bloody knife (rides knife.sc as iparam2)
+						pev->body = 1; // bloody w_/p_ submodel
+						EMIT_SOUND_DYN(ENT(pEnt->pev), CHAN_BODY, "weapons/knife/knife_hitbody.wav",
+							VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 31)); // from the VICTIM's edict
+					}
+				}
+			}
+		}
+		if (whiff)
+		{
+			// miss (or a non-living hit): arm the whiff-lunge — knife flavor.
+			m_pPlayer->m_flWhiffLungeTime = 0.25f * wi->flFireRate;
+			m_pPlayer->m_flWhiffLungeForce = dmg;
+			m_pPlayer->m_iWhiffLungeType = 1;
+		}
 #endif
-		ClearMultiDamage();
-		pHit->TraceAttack(m_pPlayer->pev, wi->flDamage * TSDamageMult(), gpGlobals->v_forward, &tr,
-			DMG_CLUB | DMG_NEVERGIB);
-		ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
+		// knife.sc EVERY slash — the whoosh/impact/viewmodel presentation is client-side.
+		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usMelee, 0.0, g_vecZero, g_vecZero,
+			0.0, 0.0, m_weaponType, it.bloody, 0, 0);
+		// the slash never touches the clip (consumed stays false).
+	}
+	else
+	{
+		// ---- THROW ----
+		Vector eyes = ppev->origin + ppev->view_ofs;
+		TraceResult tr;
+		UTIL_TraceLine(eyes + gpGlobals->v_right * 1.0f,
+			eyes + gpGlobals->v_forward * 32.0f + gpGlobals->v_right * 1.0f,
+			dont_ignore_monsters, ENT(ppev), &tr);
+
+		CBaseEntity *pKnife = TSThrowKnife(m_pPlayer, tr.vecEndPos, gpGlobals->v_forward * 1900.0f,
+			wi->iKnifeType); // server-only (client stub returns NULL)
+		if (pKnife)
+		{
+			Vector dir = pKnife->pev->velocity;
+			dir = (dir.Length() > 0.0f) ? dir.Normalize() : g_vecZero;
+			pKnife->pev->angles = UTIL_VecToAngles(dir);
+			pKnife->pev->angles.z = 90.0f;       // blade rolled edge-on
+			pKnife->pev->avelocity.x = -1300.0f; // end-over-end spin (KatanaThrow uses -700)
+		}
+		consumed = true; // even if CreateKnife failed (the original's merge point @0x74865)
+
+		if (!(ppev->iuser4 & 0x30c30) && (ppev->flags & FL_ONGROUND))
+			m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_CC_KNIFELAUNCH); // throw anim 32
+
+		EMIT_SOUND_DYN(ENT(ppev), CHAN_BODY, "weapons/knife/knife_miss.wav",
+			VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 31)); // the throw whoosh — always
+	}
+
+	if (consumed)
+	{
+		if (!InfiniteClips(m_pPlayer))
+		{
+			// the thrown knife frees its carry slots + the move speed recomputes. (Original:
+			// player+0x548 += slotCost by hand; our slots derive from the owned items, so the
+			// recompute only shifts on the LAST knife's DropWeapon below — VERIFY per-knife cost.)
+			m_iClip--;
+			m_pPlayer->SetPlayerSpeed(GetSpeedBySlots(m_pPlayer));
+		}
+		if (m_iClip <= 0)
+		{
+			DropWeapon(m_weaponType, true); // threw the last one — leaves the arsenal, next-best deploys
+		}
+		else
+		{
+			// redraw the next knife: model-derived draw seq + draw.sc + a short idle.
+			SendWeaponAnim(s_drawSeq[m_weaponType]);
+			PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usDraw, 0.0, g_vecZero, g_vecZero,
+				0.0, 0.0, m_weaponType, it.attach, 0, 0);
+			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
+		}
 	}
 }
 
@@ -1776,52 +1844,6 @@ void CTSGun::KatanaThrow()
 		// our slots derive from the owned items, so drop first, then recompute).
 		DropWeapon(m_weaponType, true);
 		m_pPlayer->SetPlayerSpeed(GetSpeedBySlots(m_pPlayer));
-	}
-}
-
-// @ KnifeFire__6CTSGun (throw branch, reached via SecondaryAttack@0x817a8) — right-click hurls the
-// active knife as a tumbling CTSKnife projectile. The arsenal carries a stack of throwables (m_iClip);
-// each throw spends one, and running dry auto-selects the next-best weapon. The viewmodel plays the
-// model's "throw" sequence (v_knife throw=7, v_sealknife throw=5) — predicted via SendWeaponAnim.
-void CTSGun::ThrowKnife()
-{
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	if (!(m_pPlayer->m_afButtonPressed & IN_ATTACK2))
-		return; // one throw per press
-	if (m_iClip <= 0)
-	{
-		PlayEmptySound();
-		m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.5f;
-		return;
-	}
-	m_iClip--;
-
-	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
-	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_forward * 16;
-	Vector vecVel = gpGlobals->v_forward * 1900; // RE KnifeFire: _UNK_00107f68 = 1900 (no player-vel term)
-	CBaseEntity *pKnife = TSThrowKnife(m_pPlayer, vecSrc, vecVel, wi->iKnifeType); // server-only (client stub no-ops)
-	if (pKnife)
-	{
-		// the thrower orients the projectile (RE KnifeFire @0x7483b: VecToAngles + roll 90 + spin -1300).
-		Vector dir = pKnife->pev->velocity;
-		dir = (dir.Length() > 0.0f) ? dir.Normalize() : g_vecZero;
-		pKnife->pev->angles = UTIL_VecToAngles(dir);
-		pKnife->pev->angles.z = 90.0f;
-		pKnife->pev->avelocity.x = -1300.0f;
-	}
-
-	SendWeaponAnim((m_weaponType == TSW_KNIFE) ? 7 : 5); // "throw" seq — client-predicted
-	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON,
-		"weapons/knife/knife_miss.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
-	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.5f;
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
-
-	// Thrown the last one — drop the (now empty) knife slot + auto-select the next-best weapon.
-	if (m_iClip <= 0)
-	{
-		m_items[m_weaponType].owned = false;
-		GetBetterWeapon(m_weaponType);
 	}
 }
 
