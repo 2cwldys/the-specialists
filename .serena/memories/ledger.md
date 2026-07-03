@@ -5,6 +5,55 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 85/86) — kung-fu kick chain + 3rd-person gait + weapon-data audit + stunt getup (session close)
+
+User-driven playtest loop on `restructure-source-parity`. All build-green (`scripts/build.sh amd64 all`),
+nm-T stable, deployed to the xash rig each time. Full pickup detail is in **HANDOFF.md cont.86** (the START-
+HERE block); decode dossiers preserved + committed at **`reference/dossiers/cont85/`** (`kick_decode.md`,
+`anim_statemachine.md`, the raw decompiles). Commits `6b3b3db..d7f74f9`.
+
+Done (verified from the decompile, not guessed):
+- **W_Precache CRASH FIX** (in HEAD from compaction): stock-HL `W_Precache` precached `weapon_shotgun` etc.
+  which TS remaps onto `CTSGroundWeapon` (no `GetItemInfo` slot) → SIGSEGV via `UTIL_PrecacheOtherWeapon`.
+  Reconstructed decompile-exact (`@0xe12e8`): `item_suit` + TS entities via `UTIL_PrecacheOther`, one
+  `UTIL_PrecacheOtherWeapon("weapon_tsgun")`.
+- **CCombatAttack (kung-fu) rebuilt** (`@0x76078`, `29bb434`): flDamage = the SPEED-SCALED lunge (also the
+  whiff-lunge on miss), NOT flat 35/45/55 (= trace REACH); iAnim = MOVE-ID (0x0a..0x19 == m_lastMeleeAnim).
+- **CTSAnimation 3rd-person gait** (`@0x5b470`, `8f496cf`): TWO seqs/frame (TORSO `pev->sequence` + LEGS
+  `pev->gaitsequence`) + a body→legs sync for bare hands; fire/reload FALL THROUGH to the gait block.
+- **animation "snapping" fixed** (`479122d`): the leg block's `SetAnim(TSSA_LEGS)` (no INTERP bit) ran
+  `pev->effects |= EF_NOINTERP` every grounded frame → killed model interpolation. Set `gaitsequence`
+  DIRECTLY (inline, no helper — user caught my invented `SetGait`).
+- **sawed-off shell-retained reload** (`d850ba6`/`dd3f9d3`, user-approved improvement): event phase 8 when a
+  shell is chambered → block[8]; use `m_iClip` LIVE not the parked `m_pActiveItem->clip`.
+- **weapon grips = original `szAnimExt`** (`34a94c6`): m61/knife/katana/sealknife/flag = EMPTY `""` (not
+  `nullptr`→"onehanded"). ⚠ I first INVENTED `"m61_grenade"` — that string is the thrown-grenade ENTITY
+  CLASSNAME (`fn @0x6c850`/`CM61Grenade`), NOT an anim-ext. Lesson: a `.rodata` string existing ≠ the field's
+  value; trace the actual assignment. [[weapon-table-verify-source]]
+- **DATA AUDIT (clean):** `Sparta()` (`@0x6fa78`, 32 firearms × spread/viewKick/recoil/dmg) matches the
+  original BYTE-EXACT (hex-float diff). `extract_weapons.py` numeric columns are UNRELIABLE (wrong offsets) —
+  verify at the real `Write_<weapon>` store. Write vs Sparta = two datasets, each matching its own original.
+- **stunt getup on the stand-up latch** (`13d808d`): `CTSStunt::Play` getup now fires on `m_flRollTime<0.01
+  || m_iStandUpLatch` (player+0x78) matching `@0x8a014`; HandleSlide already set the latch on landing.
+
+UNRESOLVED (the cont.86 live pickup — priority order in HANDOFF):
+1. **Kick recover flat ~2s** (`d7f74f9` WIP): fuser1 confirmed **1.0** live, roll arm **2.0** in the
+   decompile → server math is 2.0s, but the ORIGINAL is height/air-time dependent (roll decrements during
+   the fall). STRONG SUSPECT: the local view is CLIENT-PREDICTED and `Play`/the getup doesn't run in the
+   client predictor. DO NOT re-fudge the arm (user: "no stopgaps").
+2. **Sidekick FPV** plays the regular kick, not "sidekick" — SERVER picks B3 correctly (debug-ALERT
+   confirmed), so the CLIENT's PREDICTED CCombatAttack hits a different branch. Make predicted state parity.
+3-4. **HUD color** (stale cfg 125/150/165 vs original 150/175/255) + **HUD bottom-left layout** (team label,
+   free-slots section, smaller health) — client VGUI, live-RE `client.dll`.
+5. **Superjump** hold-space-only after launch (preserve stock duck+jump). **HUD powerup icons** (opacity +
+   two-icon). **Per-class parity loop** (`audit.py`): 0 missing methods/funcs/members/files, 25 invented
+   methods, 1 missing global (`TSGameRules` singleton `@0x1681a0`), 3 invented globals.
+
+Method notes (see HANDOFF cont.86 §METHODS): DEBUG-LOG-IN-SOURCE (`ALERT`) beat live gdb for OUR build;
+live.py on hl.exe/mp.dll works but mp.dll is MSVC so offsets DIFFER from the `.so` (pev@player+4,
+CTSStunt@player+0x4dc, fuser1@pev+0x254) — my first trace failed on `.so` offsets. The dossier-subagent hint
+(self-contained prompt → decode dossier to `reference/dossiers/`) kept ~330k tokens out of context.
+
 ## 2026-07-03 (cont. 84, chunk 5) — ROUND 8: the DEATH CHAPTER complete + fixes batch (session close)
 
 All user-driven, each answered with binary RE (commits c1013a9..2e63e70):

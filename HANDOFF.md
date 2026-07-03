@@ -47,6 +47,163 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.86) — pickup for the next orchestrator (cont.85 = me; available for consult)
+
+**You ARE the orchestrator and the previous agent (cont.85) — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF — keep `git config --local
+commit.gpgsign false`). Every commit is build-green (`scripts/build.sh amd64 all`) + nm-T-gated.
+REGENERATE the baseline first thing: `nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}' | sort >
+/tmp/nm_T_baseline.txt`. **Read the `.serena/memories/ledger.md` cont.85 entry (top) via the Read tool.**
+
+⚠ **SERENA GOTCHA (unchanged, still bites):** read the ledger with the **Read tool on
+`.serena/memories/ledger.md`** — NEVER `read_memory("ledger")` (Serena MCP), which returns one giant
+single-line `{"result":"…"}` JSON (~500 KB) that overflows the read limit. Read the `.md` file directly.
+
+### THE MISSION (the user's directives — the law; unchanged from cont.85, re-affirmed cont.86)
+Make OUR code a **1:1 drop-in** for the original at EVERY level — **file → class → methods → variables →
+globals → free functions**: nothing the original has that we lack, nothing we have that it lacks. The
+**drop-in contract**: our client must run against the ORIGINAL server and vice-versa, byte-identically —
+so wire names/formats, event/cvar/command names, and MECHANISMS must match. The user re-stated the five
+rules this session; internalize them:
+1. **A missing/extra symbol SIGNALS a logic mismatch → re-RE it.** Match by NAME (audit.py matches by name),
+   so **our method/class/file/variable/global names must equal the original's** (FGD/save/wire names, the
+   gcc2-demangled names). A field/method that "doesn't exist" in one side is a red flag, not a rounding error.
+2. **The logic often EXISTS already — moved/renamed/inlined. MOVE it, don't rewrite.** Grep OUR code first
+   before reconstructing (this session: the sidekick anim, block sequences, and the gait leg-block were all
+   already present/correct — the bug was elsewhere).
+3. **MIMIC THEIRS.** When ours "works differently but fine", it is WRONG for a drop-in. Copy the mechanism.
+4. **The USER drives all playtests** — give numbered protocols; **never launch xash/xdotool to sim input**.
+   And **HALT after you ask them to do something in hl.exe** — they lose focus if you keep running commands;
+   set up the capture, tell them, and STOP until they report (this bit us repeatedly this session).
+5. **When verbatim code STILL misbehaves, suspect the BASE SDK / ENGINE / CLIENT PREDICTION** (halflife-updated
+   diverges from 2003 stock; the local player's view-model + view_ofs are client-predicted, not networked).
+6. **The TS decompile is COMPLETE** (`ts_inventory.json` is the machine-checkable inventory of every original
+   class/method/member/global/free-func). So a symbol we lack = a real gap to RE, not "not decompiled yet".
+7. **Discovered gaps: FLAG, don't ignore — but finish the ORIGINAL issue first, THEN report.** (This session:
+   the kick recover dig surfaced the FPV client-prediction bug + the HUD gaps — logged as tasks, not chased mid-fix.)
+
+### ⭐ WHAT cont.85 DID (commits `6b3b3db..d7f74f9` on `restructure-source-parity`)
+All build-green, nm-T stable, deployed to the xash rig each time. Detail in the ledger cont.85 entry.
+- **CRASH FIX — W_Precache (in `HEAD` from the compaction, verified):** the inherited stock-HL `W_Precache`
+  precached `weapon_shotgun` etc., which TS **remaps** onto `CTSGroundWeapon` subclasses (`hldmcompat.cpp`,
+  `CBaseEntity`-derived, no `GetItemInfo` vtable slot) → `UTIL_PrecacheOtherWeapon`'s `((CBasePlayerItem*)e)->
+  GetItemInfo()` jumped into the typeinfo → SIGSEGV on any map load. Reconstructed `W_Precache` decompile-exact
+  (`ts_i386.so @0xe12e8`): only `item_suit` + the TS entities via plain `UTIL_PrecacheOther` + ONE
+  `UTIL_PrecacheOtherWeapon("weapon_tsgun")`. (`dlls/weapons.cpp`.)
+- **`29bb434` CCombatAttack (kung-fu) rebuilt decompile-exact** (`ts_i386.so @0x76078`; decode dossier
+  `reference/dossiers/cont85/kick_decode.md`). Reads IN_ATTACK/IN_ATTACK2 in one fn (dropped `fSecondary`).
+  Key: flDamage = the SPEED-SCALED lunge (also the whiff-lunge on a miss), NOT flat 35/45/55 (that's the
+  trace REACH); iAnim = the MOVE-ID (0x0a..0x19 == m_lastMeleeAnim, HandleCloseCombat case), not 1/2/3.
+- **`8f496cf` CTSAnimation 3rd-person gait** reconciled vs `Animate @0x5b470` (dossier `anim_statemachine.md`):
+  the original picks TWO seqs/frame — TORSO (`pev->sequence`) + LEGS (`pev->gaitsequence`) — with a body→legs
+  sync for bare hands; fire/reload FALL THROUGH to the gait block (run-and-gun); jump keyed on GRIP.
+- **`479122d` animation "snapping" fixed:** the leg block used `SetAnim(TSSA_LEGS)`, and `TSSA_LEGS` (0x01) has
+  no INTERP bit, so SetAnim ran `pev->effects |= EF_NOINTERP` EVERY grounded frame → killed model interpolation.
+  Original sets `gaitsequence` DIRECTLY (inline, no helper). (User caught my invented `SetGait` helper — inlined it.)
+- **`d850ba6`/`dd3f9d3` sawed-off shell-retained reload** (user-approved improvement; use `m_iClip` LIVE not
+  `m_pActiveItem->clip` which is a parked mirror) — send event phase 8 when a shell is chambered → block[8].
+- **`6ef364b`→`34a94c6` weapon grips = original `szAnimExt`:** m61/knife/katana/sealknife/flag are **empty ""**
+  (not `nullptr`→"onehanded"). ⚠ I INVENTED `"m61_grenade"` as the m61 grip first — that string is the thrown-
+  grenade ENTITY CLASSNAME (`fn @0x6c850`/`CM61Grenade`), NOT an anim-ext. **Lesson: a `.rodata` string existing
+  ≠ it's the field's value; trace the ACTUAL assignment/xref.** [[weapon-table-verify-source]]
+- **DATA AUDIT (verified clean):** the **Sparta table** (`Sparta()` @0x6fa78, 32 firearms × spread/viewKick/
+  recoil/dmg) matches the original **byte-exact** (hex-float diff, 0 divergences). Write-table numerics
+  (clip/firetype/models) are correct — the `extract_weapons.py` numeric columns are UNRELIABLE (wrong offsets;
+  verify at the real `Write_<weapon>` store instead). Write vs Sparta are TWO datasets each matching its own original.
+
+### ⭐ UNRESOLVED — the live pickup (in priority order)
+
+1. **THE KICK RECOVER — still flat ~2s (the current in-progress fight; commit `d7f74f9` is the WIP).** The
+   duck/side-kick "land low, get up": ours holds the low view (`view_ofs=16 + PRONE + m_flRollTime=2.0`) and
+   the getup is `CTSStunt::Play`'s roll-timer (`m_flRollTime < 0.01`). **The ORIGINAL is height/air-time
+   dependent** — the roll timer decrements DURING the fall, so a high fall (2nd story) → roll≈0 by landing →
+   near-instant getup; standing kick (no fall) → full ~2s; normal jump → in between. **Our `Play()` decrements
+   `m_flRollTime` unconditionally every frame from `PreThink` (ts_stunt.cpp:111), so the SERVER should be
+   height-dependent — yet in-game it's a FLAT ~2s.** ⇒ **STRONG SUSPECT: the LOCAL player's VIEW is
+   CLIENT-PREDICTED, and the getup/roll-decrement doesn't run in the client predictor** (CTSStunt::Play is a
+   server PreThink call; the client's predicted view stays low the flat 2s until the server networks it).
+   **NEXT: verify whether Play/the getup runs client-side for the local view; if not, that's the fix.** (fuser1
+   is confirmed **1.0** live, roll arm confirmed **2.0** in the decompile — so the SERVER math is 2.0s; the flat-
+   vs-height difference is the prediction layer.) DO NOT re-fudge the arm to 1.0 (user: "no stopgaps").
+2. **SIDEKICK FPV plays the REGULAR kick, not "sidekick".** Confirmed via a debug ALERT: the SERVER's
+   CCombatAttack picks B3 (sidekick, `evAnim=8` → melee `animBlock[8]=6=sidekick`) correctly. But the FPV shows
+   the regular kick (v_melee seq 5). ⇒ **the CLIENT's PREDICTED CCombatAttack hits a DIFFERENT branch** (B1
+   duckkick `evAnim=6` or B4 circlekick `evAnim=9`, both → animBlock→seq 5) — a client-vs-server `onGround`/
+   `speed`/`fwdDot` disagreement during the jump. The FPV for the local player rides the `FEV_NOTHOST`
+   closecombat.sc event fired during CLIENT prediction. **NEXT: make the client-side branch selection match the
+   server's (predicted state parity), OR RE how the original routes the local FPV.** (Mappings all verified
+   correct: `animBlock[8]=6=sidekick`, block seqs knife=hold/katana=block/sealknife=block/melee=block_low —
+   these were a VERIFY request, confirmed, no change needed.)
+3. **HUD color bluish (task #10) — nearly done:** all 3 TS HUD elements draw via `TSHud_Color()` reading
+   `hud_r/g/b` (correct — the ORIGINAL config also uses them, 150/175/255). Our xash **config.cfg has stale
+   125/150/165** (washed gray) overriding our 150/175/255 default. It's a stale-archive, not a code bug — the
+   original's config has 150/175/255. Fix = reset the cfg values or ensure our default.cfg ships the right ones
+   (no game/ts/*.cfg sets them, so it's the runtime archive). Low-risk.
+4. **HUD bottom-left layout (task #11):** `ts_status.cpp` — missing the TEAM label ABOVE health (lighter/more-
+   opaque bg, e.g. "humans"), missing an "X free slots" section to the RIGHT of health, and our health box is a
+   giant mostly-empty panel (original's is MUCH smaller). Client-side VGUI → **live-RE the original client.dll**.
+5. **`m_iStandUpLatch` getup change (task #9):** commit `13d808d` made Play's getup fire on `m_flRollTime<0.01
+   || m_iStandUpLatch` (matching the decompile). Faithful, but re-verify it doesn't make actual dives/slides
+   stand up too fast (their landing sets the latch in HandleSlide).
+
+### Task-list entries to recreate (via TaskCreate — the cont.86 tracker)
+- `[in_progress]` **"Kick recover — client-prediction of the roll-timer getup (flat 2s bug)"** — #1 above.
+- `[pending]` **"Sidekick FPV — client/server CCombatAttack branch parity"** — #2 above.
+- `[pending]` **"HUD color bluish (hud_r/g/b stale-cfg)"** — #3.
+- `[pending]` **"HUD bottom-left layout (team + free-slots + smaller health)"** — #4.
+- `[pending]` **"VERIFY getup-latch vs dives/slides"** — #5.
+- `[pending]` **"Superjump: hold-space-only after launch (preserve stock duck+jump)"** — RE the pm_shared/stunt
+  jump path; CAREFUL to not break the stock HL duck+jump (box-hopping).
+- `[pending]` **"HUD powerup icons — opacity + two-icon (kfu + superjump)"** — `ts_powerup_hud.cpp`; too bright
+  (less opaque), and with BOTH powerups it wrongly shows a weapon icon / flips to the "numbers" sprite on
+  invnext/prev — want TWO icons, same opacity.
+- `[pending]` **"Per-class 1:1 parity loop (audit.py driver)"** — the standing driver; `audit.py [Class]` +
+  `coverage.py all`; headline at cont.85 close was **0 missing methods/funcs/members/files · 25 invented methods
+  · 1 missing global (TSGameRules singleton @0x1681a0) · 3 invented globals**.
+
+### ⭐ THE METHODS THAT WORKED THIS SESSION (keep using them)
+- **★ DEBUG-LOG-IN-SOURCE beats gdb for OUR build.** When live gdb on the running process kept failing on
+  attach/timing/offsets, adding a temporary `ALERT(at_console, "[CCK] move=0x%x evAnim=%d ... iuser4=0x%x
+  rollT=%.2f\n", …)` (server, `#ifndef CLIENT_DLL`) in the function, build+deploy, and having the USER do the
+  action + paste the console line, was FAR more reliable and gave exact branch/state data in one shot. Remove it
+  after. **Reach for this FIRST for runtime questions in our build.**
+- **★ LIVE gdb on the ORIGINAL (hl.exe/mp.dll) — the MSVC offset gotcha (this cost real time).** `scripts/live.py`
+  works (`pid`/`base`/`resolve`/`bt`/`read`/`break`). The traps: (a) **mp.dll is MSVC, `.so` is gcc2 — member
+  offsets DIFFER**; pev is at `player+4` in mp.dll (vtable@0, pev@4), NOT `player+0` like the `.so`. (b) The
+  CTSStunt EMBED offset differs: `.so` = player+0x4f0, **mp.dll = player+0x4dc** (compute it live: `CTSStunt −
+  m_pPlayer` from a Play breakpoint). (c) `entvars_t` offsets: **iuser4=`pev+0x250`, fuser1=`pev+0x254`,
+  flags=`pev+0x1a4`, gravity=0x11c, friction=0x120** (my progdefs parser DRIFTS after friction — trust the
+  mp.dll decompile's offsets). (d) Verify a read with a KNOWN field first (flags should read `0x208`
+  ONGROUND|CLIENT). (e) **Use a conditional breakpoint** (`break *ADDR if <cond>`) so the game stays smooth when
+  idle. (f) **`set logging file … / redirect on / on`** so the capture survives the `timeout` kill (stdout is
+  lost on SIGTERM). (g) Play @ mp.dll base `0x1e12ffb0` + RVA `0x68440` = `0x1e1983f0` (verify base each session
+  — it changes). AND: **HALT after arming — tell the user, then STOP; don't run more commands while they switch
+  to hl.exe and do the action** (rule #4).
+- **★ THE DOSSIER-SUBAGENT HINT (used twice this session, ~330k tokens kept out of context).** Spawn a
+  `general-purpose` subagent (Agent tool) with a SELF-CONTAINED prompt: repo root, the tool recipes incl. the
+  addr-base rules (`re.sh 0x<nm+0x10000>` server, `dc.sh client|mp 0x<RVA>`), known addresses, an explicit
+  work-list, "do NOT edit source", "decode the DENORMAL floats (N·1.4013e-45 = int N)", and "write the decode
+  dossier + every raw decompile to `reference/dossiers/cont85/`". Its final message = the summary table you
+  implement from centrally. ⚠ **its LABELS can be WRONG — cross-check** (this session it caught TWO of MY
+  "established facts" inverted via objdump, and I still had to re-verify the arm value). Resume via SendMessage.
+- **★ SCRATCHPADS ARE PRESERVED at `reference/dossiers/cont85/`** (committed `d7f74f9`): `kick_decode.md`
+  (the full CCombatAttack per-branch decode), `anim_statemachine.md` (the gait/SetAnim/blend spec), and the raw
+  decompiles (`anim_animate.c`, `anim_setanim_blend.c`, `anim_handleclosecombat.c`, `anim_gaitclosecombat.c`,
+  `animate_and_closecombat.raw.c`, `animation_helpers.c`). READ these before touching the kick/gait code.
+- **Ghidra tooling (full stack):** `re.sh <Class|0xADDR>` (server, typed by ApplyInventory) · `dc.sh
+  client|mp|server 0x<RVA>` (Windows binaries; client takes the RAW RVA, e.g. `0x43200` not `0x10043200`) ·
+  `re.sh refs/vrefs` (callers) · **the Ghidra MCP** (`mcp__ghidra-mcp__*`, interactive xrefs on the typed `re`
+  project — see CLAUDE.md §4a.3; single-writer `.lock`, don't run re.sh while the GUI holds it) · `live.py`
+  (runtime) · `binmap.py <name>` (`.so` name → mp.dll RVA; ⚠ heed the `string?` AMBIGUOUS flag; string-poor fns
+  don't match — fall back to a caller) · `scripts/coverage/*` (`audit.py` INTERNAL-structure diff BOTH ways =
+  the parity driver; `coverage.py all` EXTERNAL swap contract). **client.dll decompiles TRUNCATE in Ghidra**
+  (the big handlers) — read the raw disasm (objdump) for the tail / SendWeaponAnim args.
+- **Weapon-table audit method** [[weapon-table-verify-source]]: verify each value at its REAL `Write_<weapon>`
+  store (`re.sh`), NOT the `extract_weapons.py` numeric columns (wrong offsets). Sparta (`Sparta()`) = the FINAL
+  firearm combat stats; diff hex-floats. Empty grip (`szAnimExt=DAT_00106657=""`) ≠ "onehanded".
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.85) — pickup for the next orchestrator (cont.84 = me; available for consult)
 
 **You ARE the orchestrator and the previous agent (cont.84) — continue as if you never stopped.** Branch
