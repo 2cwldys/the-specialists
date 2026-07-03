@@ -119,7 +119,13 @@ bool CHudTSDebris::MsgFunc_TSCreateDebris(const char* pszName, int iSize, void* 
 		// explode never plays (the user-reported stock-HL-boom bug). Full debris VERIFY (#8).
 		char snd[24];
 		sprintf(snd, "explo/explode%d.wav", gEngfuncs.pfnRandomLong(1, 4));
-		gEngfuncs.pEventAPI->EV_PlaySound(0, origin, CHAN_STATIC, snd, VOL_NORM, 0.8f, 0, PITCH_NORM);
+		// the explode wavs are RECORDED SLOW (like the gunshots): pitch UP for normal play,
+		// deepening toward natural in slow-mo — the same 100 + 300*slow formula as ev_ts.cpp.
+		extern float g_flClientSlow;
+		int pitch = 100 + (int)(300.0f * g_flClientSlow);
+		if (pitch > 255) pitch = 255;
+		if (pitch < 1) pitch = 1;
+		gEngfuncs.pEventAPI->EV_PlaySound(0, origin, CHAN_STATIC, snd, VOL_NORM, 0.8f, 0, pitch);
 		const int fireball = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/zerogxplode.spr");
 		if (fireball)
 			gEngfuncs.pEfxAPI->R_Explosion(origin, fireball, size.x * (1.0f / 44.0f), 15.0f,

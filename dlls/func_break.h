@@ -94,8 +94,11 @@ public:
 
 	// TS respawn state (net-new; not in the save table, matching the original). m_flRespawnTime < 0
 	// (the FGD default) = non-respawning, so stock breakables are unaffected.
+	float   m_flDieDamage = 0;            // transient — the last TraceAttack damage (shard-speed scale)
 	float   m_flRespawnHealth = 0;       // +0x6c — spawn health, restored on respawn
 	EHANDLE m_hRespawner;                 // +0x70 — the CInfoBreakable retry-helper (created in Spawn)
-	float   m_flRespawnTime = -1;         // +0x90 — keyvalue "respawntime" (>=0 enables; 0 => 30s default)
+	float   m_flRespawnTime = 0;          // +0x90 — keyvalue "respawntime". DEFAULT 0 (gcc2 entity data is
+	                                      // calloc'd, so an ABSENT keyvalue = 0 = the 30s default respawn —
+	                                      // EVERY breakable respawns unless the map sets it NEGATIVE)
 	char    m_szRespawnTarget[64] = {};   // +0x94 — keyvalue "respawntarget" (fired on respawn if SF 8)
 };

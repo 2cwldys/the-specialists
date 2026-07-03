@@ -87,7 +87,9 @@ public:
 	float m_flBreakHealth = 0;   // +0x118 — "maxdamage": damage to shatter (<=0 = unbreakable)
 	int   m_iAccumDamage = 0;    // +0x110 — accumulated damage toward the threshold
 	int   m_DoorMaterial = 1;    // +0x11c — "doormaterial" (Materials; default 1 = matWood-ish)
-	float m_flRespawnTime = -1;  // +0x10c — "respawntime": respawn delay (<0 = never)
+	float m_flRespawnTime = 0;   // +0x10c — "respawntime". DEFAULT 0 (gcc2 entity data is calloc'd:
+	                             // an absent keyvalue = 0 = the 30s default — breakable doors
+	                             // respawn unless the map sets it NEGATIVE)
 	Vector m_vecSpawnOrigin;     // +0x124 — saved origin (restored on respawn)
 	Vector m_vecSpawnAngles;     // +0x130 — saved angles
 	float m_flDoorNextAttack = 0; // +0x114 — per-door damage cooldown

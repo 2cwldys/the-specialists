@@ -611,6 +611,7 @@ bool CBreakable::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, flo
 	g_vecAttackDir = vecTemp.Normalize();
 
 	// do the damage
+	m_flDieDamage = flDamage; // the killing blow's magnitude (drives the shard speed in Die)
 	pev->health -= flDamage;
 	if (pev->health <= 0)
 	{
@@ -750,7 +751,12 @@ void CBreakable::Die()
 		// VERIFY: the original's per-pane velocity base (CBreakable+0x110) is a runtime/keyvalue
 		// value not recovered statically — 150 is a grounded starting point (cf. the directed-gib
 		// 200 below); tune from playtest. The fragments fly forward along the bullet/attack dir.
-		const float velMag = 150.0f;
+// Die's wire velMag = <local> x this+0x110 in the binary (the factor's writer is still
+		// un-RE'd) — scaled here by the KILLING BLOW's damage so a 300-dmg grenade blast shards
+		// far harder than a 20-dmg bullet (user-directed; exact original factor VERIFY).
+		float velMag = 150.0f * (m_flDieDamage > 30.0f ? m_flDieDamage / 30.0f : 1.0f);
+		if (velMag > 600.0f)
+			velMag = 600.0f;
 		// shatter direction = the bullet TRAVEL direction (away from the shooter). g_vecAttackDir
 		// points FROM the breakable TOWARD the attacker (that's why the gib code below uses
 		// -g_vecAttackDir), so negate it — otherwise the glass flew back at the shooter.
