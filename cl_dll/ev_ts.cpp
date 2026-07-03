@@ -24,6 +24,7 @@
 //
 
 #include "hud.h"
+#include "ts_gunanchor.h" // TS_PlayerGunAtt — the per-player gun-anchor cache (pelvis fix)
 #include "cl_util.h"
 #include "const.h"
 #include "entity_state.h"
@@ -109,9 +110,9 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
 	// the flares stuck at the spot where thirdperson was toggled) — use the player's world model,
 	// exactly like the brass/smoke paths (dossier §0.3: third-person effects ride the PLAYER
 	// attachments).
-	cl_entity_t* ent = (EV_IsLocal(idx) && 0 == CL_IsThirdPerson())
-		? gEngfuncs.GetViewModel() : gEngfuncs.GetEntityByIndex(idx);
-	if (!ent)
+	const bool vmView = (EV_IsLocal(idx) && 0 == CL_IsThirdPerson());
+	cl_entity_t* ent = vmView ? gEngfuncs.GetViewModel() : NULL;
+	if (vmView && !ent)
 		return;
 	if (spr <= 0)
 		return;
@@ -126,7 +127,15 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
 	const int att = (akimbo && side) ? 2 : 0;
 
 	float pos[3];
-	VectorCopy(ent->attachment[att], pos);
+	if (vmView)
+	{
+		VectorCopy(ent->attachment[att], pos);
+	}
+	else
+	{
+		const float* att0 = TS_PlayerGunAtt(idx, att); // the renderer-fed anchor cache, never cl_entity.attachment
+		pos[0] = att0[0]; pos[1] = att0[1]; pos[2] = att0[2];
+	}
 	const float scale = 0.5f;
 	// A muzzle flash is a single brief pop — a very short life and NO frame-cycle (FTENT_SPRCYCLE
 	// kept it animating/visible far too long, "slow enough to walk around"). One frame, gone fast.
@@ -700,7 +709,9 @@ void EV_TSReload(event_args_t* args)
 			for (int c = 0; c < 3; c++)
 				sv[c] = vel[c] + right[c] * gEngfuncs.pfnRandomLong(-30, 30) + fwd[c] * 10.0f +
 					up[c] * gEngfuncs.pfnRandomLong(0, 30);
-			EV_EjectBrass(pl->attachment[0], sv, angles[1], shell, bounce);
+			const float* ba = TS_PlayerGunAtt(idx, 0);
+			Vector brassPos(ba[0], ba[1], ba[2]);
+			EV_EjectBrass(brassPos, sv, angles[1], shell, bounce);
 		}
 	}
 	else
@@ -713,7 +724,7 @@ void EV_TSReload(event_args_t* args)
 			Vector pos, mv, mang;
 			for (int c = 0; c < 3; c++)
 			{
-				pos[c] = pl->attachment[k == 0 ? 0 : 2][c] - fwd[c] * 8.0f;
+				pos[c] = TS_PlayerGunAtt(idx, k == 0 ? 0 : 2)[c] - fwd[c] * 8.0f;
 				mv[c] = vel[c] + right[c] * (k == 0 ? 60.0f : -60.0f);
 				mang[c] = gEngfuncs.pfnRandomFloat(-60.0f, 60.0f);
 			}
@@ -770,7 +781,7 @@ void EV_TSPump(event_args_t* args)
 			Vector pos, sv;
 			for (int c = 0; c < 3; c++)
 			{
-				pos[c] = pl->attachment[3][c] - fwd[c] * (float)wi->iShellSetback;
+				pos[c] = TS_PlayerGunAtt(idx, 3)[c] - fwd[c] * (float)wi->iShellSetback;
 				sv[c] = vel[c] + fwd[c] * r1 + up[c] * r2 + right[c] * r1;
 			}
 			EV_EjectBrass(pos, sv, angles[1], shell, TE_BOUNCE_SHOTSHELL);
@@ -966,11 +977,13 @@ void EV_TSFireLinked(event_args_t* args)
 			const float r1 = skorp ? (float)gEngfuncs.pfnRandomLong(-40, 40)
 			                       : (float)gEngfuncs.pfnRandomLong(120, 140);
 			Vector pos, sv;
-			cl_entity_t* src = (EV_IsLocal(idx) && 0 == CL_IsThirdPerson())
-				? gEngfuncs.GetViewModel() : gEngfuncs.GetEntityByIndex(idx);
+			const bool vmView = (EV_IsLocal(idx) && 0 == CL_IsThirdPerson());
+			cl_entity_t* src = vmView ? gEngfuncs.GetViewModel() : NULL;
 			for (int c = 0; c < 3; c++)
 			{
-				pos[c] = (src ? src->attachment[b == 0 ? 0 : 2][c] : origin[c]) - fwd[c] * (float)wi->iShellSetback;
+				const float* att = (src ? (const float*)src->attachment[b == 0 ? 0 : 2]
+				                        : TS_PlayerGunAtt(idx, b == 0 ? 0 : 2));
+				pos[c] = att[c] - fwd[c] * (float)wi->iShellSetback;
 				sv[c] = velocity[c] + fwd[c] * (r2 + 50.0f) + up[c] * r2 + right[c] * r1;
 			}
 			EV_EjectBrass(pos, sv, angles[1], shell, TE_BOUNCE_SHELL);

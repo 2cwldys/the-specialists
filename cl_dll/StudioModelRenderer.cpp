@@ -19,6 +19,20 @@
 #include "r_studioint.h"
 
 #include "StudioModelRenderer.h"
+#include "ts_gunanchor.h"
+
+Vector g_tsPlayerGunAtt[65][4];
+float g_tsPlayerGunAttTime[65];
+
+const float* TS_PlayerGunAtt(int idx, int n)
+{
+	static Vector fallback;
+	if (idx >= 1 && idx <= 64 && n >= 0 && n < 4 && g_tsPlayerGunAttTime[idx] > 0.0f)
+		return g_tsPlayerGunAtt[idx][n];
+	cl_entity_t* ent = gEngfuncs.GetEntityByIndex(idx);
+	fallback = ent ? Vector(ent->origin) : Vector(0, 0, 0);
+	return fallback;
+}
 #include "GameStudioModelRenderer.h"
 
 extern cvar_t* tfc_newmodels;
@@ -1514,14 +1528,16 @@ bool CStudioModelRenderer::StudioDrawPlayer(int flags, entity_state_t* pplayer)
 
 	m_pPlayerInfo = NULL;
 
-	// TS: compute + publish the player's gun attachments EVERY frame — not only when the
-	// engine passes STUDIO_EVENTS (the pelvis-flare root cause: without the flag the
-	// attachment array stayed at the entity origin). The original's client refreshes its
-	// per-player anchor cache from these every frame (dossier-attachments §4a); the muzzle
-	// flare / brass / laser all anchor here.
+	// TS: compute the player's gun attachments EVERY frame and publish them into OUR anchor
+	// cache (the original's per-player table, dossier-attachments §4a). cl_entity.attachment
+	// belongs to the engine (xash resets/owns it — writing it did NOT survive to event time:
+	// the pelvis bug); the muzzle flare / brass / magazines / laser read the cache instead.
 	StudioCalcAttachments();
-	if (m_pCurrentEntity->index > 0)
+	if (m_pCurrentEntity->index > 0 && m_pCurrentEntity->index <= 64)
 	{
+		for (int a = 0; a < 4; a++)
+			g_tsPlayerGunAtt[m_pCurrentEntity->index][a] = m_pCurrentEntity->attachment[a];
+		g_tsPlayerGunAttTime[m_pCurrentEntity->index] = gEngfuncs.GetClientTime();
 		cl_entity_t* ent = gEngfuncs.GetEntityByIndex(m_pCurrentEntity->index);
 		memcpy(ent->attachment, m_pCurrentEntity->attachment, sizeof(Vector) * 4);
 	}

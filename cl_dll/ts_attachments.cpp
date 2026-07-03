@@ -23,6 +23,8 @@
 #include "com_model.h"
 #include "parsemsg.h" // BEGIN_READ / READ_BYTE
 #include "ts_attachments.h"
+#include "ts_gunanchor.h" // TS_PlayerGunAtt — the renderer-fed gun-anchor cache
+extern "C" int CL_IsThirdPerson(); // in_camera.cpp
 
 #include <string.h>
 #include <math.h>
@@ -113,15 +115,13 @@ static bool GetMuzzleAim(int idx, Vector& muzzle, Vector& forward)
 	const bool isLocal = local && local->index == idx;
 
 	cl_entity_t* model = nullptr;
-	if (isLocal)
+	if (isLocal && 0 == CL_IsThirdPerson())
 		model = gEngfuncs.GetViewModel();
-	if (!model)
-		model = gEngfuncs.GetEntityByIndex(idx);
-	if (!model)
-		return false;
 
-	const float* a0 = model->attachment[0];
-	const float* a1 = model->attachment[1];
+	// Non-local (and local third-person): the renderer-fed gun-anchor CACHE — cl_entity.attachment
+	// is engine-owned and unreliable at read time (the pelvis bug; dossier-attachments §4a).
+	const float* a0 = model ? (const float*)model->attachment[0] : TS_PlayerGunAtt(idx, 0);
+	const float* a1 = model ? (const float*)model->attachment[1] : TS_PlayerGunAtt(idx, 1);
 	const bool haveAttach = (a0[0] || a0[1] || a0[2]) && (a1[0] || a1[1] || a1[2]) &&
 		(a0[0] != a1[0] || a0[1] != a1[1] || a0[2] != a1[2]);
 
