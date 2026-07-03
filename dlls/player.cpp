@@ -1224,6 +1224,13 @@ void CBasePlayer::PlayerDeathThink()
 	// a loadout before pressing fire. (Replaces the stock button/forcerespawn-timer respawn + deathcam.)
 	if (pev->deadflag == DEAD_DEAD)
 	{
+		// @0x7eaec: the corpse spawns HERE — the death anim has fully eased into its idle
+		// pose, so the copy holds the settled body (lifetime 10.0); the player entity then
+		// vanishes into observer and the corpse takes its place seamlessly.
+		{
+			extern CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime);
+			TSCreateDeadCorpse(this, 10.0f);
+		}
 		pev->deadflag = DEAD_RESPAWNABLE;
 		m_fInSpectateWait = true;
 		TSEnterSpectate();   // free-look observer + buy menu; fire-to-respawn via PreThink/TSSpectateThink

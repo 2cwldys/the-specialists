@@ -212,7 +212,10 @@ void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvar
 	pVictim->DropFlag(false); // CTF: a killed carrier drops the flag where they fell (spawns a loose flag)
 	TSDropWeaponsOnDeath(pVictim);
 	TSDropAmmoOnDeath(pVictim);
-	TSCreateDeadCorpse(pVictim, 15.0f);
+	// (the corpse is NOT spawned here — @0x7eaec spawns it in PlayerDeathThink at the
+	// spectate transition, AFTER the death anim settles: spawning at kill time froze the
+	// still-standing pose half-sunk at the dead origin — the round-8 'second model stuck
+	// in the floor'.)
 	TogglePlayerFromSlow(pVictim); // a dead player drops out of slow-motion
 
 	// "The One" mode: if the dead player was The One, clear/hand off the role (the killer inherits it).
