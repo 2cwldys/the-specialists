@@ -34,6 +34,7 @@ void EV_TSFire(struct event_args_s* args); // The Specialists predicted fire (ev
 void EV_TSDraw(struct event_args_s* args); // The Specialists deploy: seed the param cache (ts_weapon_predict.cpp)
 void EV_TSKnife(struct event_args_s* args); // The Specialists knife slash presentation (ev_ts.cpp)
 void EV_TSKatana(struct event_args_s* args); // The Specialists katana swing presentation (ev_ts.cpp)
+void EV_TSColdCock(struct event_args_s* args); // The Specialists coldcock bash presentation (ev_ts.cpp)
 
 void Game_HookEvents()
 {
@@ -41,6 +42,7 @@ void Game_HookEvents()
 	gEngfuncs.pfnHookEvent("events/draw.sc", EV_TSDraw); // TS: weapon_tsgun Deploy (param-cache seed)
 	gEngfuncs.pfnHookEvent("events/knife.sc", EV_TSKnife); // TS: knife slash (whoosh/impact/vm anim)
 	gEngfuncs.pfnHookEvent("events/katana.sc", EV_TSKatana); // TS: katana swing (whoosh/impact/vm anim)
+	gEngfuncs.pfnHookEvent("events/coldcock.sc", EV_TSColdCock); // TS: coldcock bash (vm anim/whoosh/puff)
 	// The stock-HL weapon event hooks (glock/shotgun/mp5/python/gauss/crowbar/crossbow/rpg/egon/
 	// hornet/tripmine/snark) are DELETED — the original TS client hooks only its own 11 events
 	// (registration parity; the stock weapons aren't playable in TS). train.sc/vehicle.sc are

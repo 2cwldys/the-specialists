@@ -36,11 +36,11 @@ _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI
 
 _Commands the server accepts from a client (exact strcmp dispatch). EXTRA = the prime 'invented/HL-leftover' signal. NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths (strstr/sscanf), not captured here — so `weapon_<N>` is not flagged._
 
-- matched: **20**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **18**
+- matched: **20**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **16**
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `+alt1`, `+alt2`, `+break`, `-alt1`, `-alt2`, `-break`, `buy`, `closemenus`, `follownext`, `give`, `menuselect`, `special`, `specmode`, `spectate`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `vote`
+  `+alt1`, `+break`, `-alt1`, `-break`, `buy`, `closemenus`, `follownext`, `give`, `menuselect`, `special`, `specmode`, `spectate`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `vote`
 
 ### Client console commands (pfnAddCommand)
 
@@ -86,11 +86,11 @@ _The registered byte-size per message (−1 = variable). A MISMATCH silently cor
 
 _Predicted-event scripts referenced by each server. MISSING = a TS event we don't reference; EXTRA = a stock-HL event we still precache that the original removed (HL leftover)._
 
-- matched: **7**  |  missing (orig→not ours): **5**  |  extra (ours→not orig): **19**
+- matched: **9**  |  missing (orig→not ours): **3**  |  extra (ours→not orig): **19**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `events/closecombat.sc`, `events/coldcock.sc`, `events/empty.sc`, `events/firelinked.sc`, `events/pump.sc`
+  `events/closecombat.sc`, `events/firelinked.sc`, `events/pump.sc`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 

@@ -184,6 +184,8 @@ public:
 	unsigned short m_usMelee = 0; // events/knife.sc handle (gun+0x972): every knife slash, iparam1=weaponType, iparam2=bloody
 	unsigned short m_usKatana = 0; // events/katana.sc handle (gun+0x974): every katana swing, iparam1=vmAnim, iparam2=bloody
 	unsigned short m_usGrenade = 0; // events/grenade.sc handle (gun+0x978): iparam1 = 19 pin / 20 overhand / 21 underhand
+	unsigned short m_usColdCock = 0; // events/coldcock.sc handle (gun+0x966): every bash, iparam1=type,
+	                                 // iparam2=attach, fparam1/2 = the aim dir x/y (unconsumed client-side)
 	unsigned short m_usEmpty = 0;  // events/empty.sc handle (gun+0x968): the dry-fire click (all params 0)
 	unsigned short m_usReload = 0; // events/reload.sc handle (gun+0x970): iparam1=type, iparam2=attach,
 	                               // fparam1 = 0 whole-clip / 8 pump-open / 9 shell-insert / 10 pump-close

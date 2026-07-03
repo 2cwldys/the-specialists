@@ -558,12 +558,14 @@
   "xen_ttrigger"
  ],
  "events": [
+  "events/coldcock.sc",
   "events/crossbow1.sc",
   "events/crossbow2.sc",
   "events/crowbar.sc",
   "events/draw.sc",
   "events/egon_fire.sc",
   "events/egon_stop.sc",
+  "events/empty.sc",
   "events/fire.sc",
   "events/firehornet.sc",
   "events/gauss.sc",
@@ -835,10 +837,8 @@
  "server_bin": "/home/stevenlafl/Projects/goldsrc.net/mod-ts/build-amd64/dlls/hl.so",
  "server_commands": [
   "+alt1",
-  "+alt2",
   "+break",
   "-alt1",
-  "-alt2",
   "-break",
   "buy",
   "cashala",

@@ -436,6 +436,74 @@ void EV_TSKatana(event_args_t* args)
 	gEngfuncs.pEventAPI->EV_PopPMStates();
 }
 
+// The coldcock hit-puff (dossier-ev-melee §4/§5 step: FUN_100464f0(endpos, normal, spr, 5, 12, 30)):
+// wood/dirt -> wood_smoke_add.spr, flesh -> nothing, else gun_smoke_add.spr. A short additive
+// smoke sprite at the impact. (VERIFY the 5/12/30 args' exact scale/life mapping.)
+static void TS_MeleeSmokePuff(pmtrace_t* tr, char chType)
+{
+	const char* spr;
+	if (chType == CHAR_TEX_FLESH)
+		return;
+	if (chType == CHAR_TEX_WOOD || chType == CHAR_TEX_DIRT)
+		spr = "sprites/wood_smoke_add.spr";
+	else
+		spr = "sprites/gun_smoke_add.spr";
+	const int mdl = gEngfuncs.pEventAPI->EV_FindModelIndex(spr);
+	if (!mdl)
+		return;
+	Vector up(tr->plane.normal[0] * 12.0f, tr->plane.normal[1] * 12.0f, tr->plane.normal[2] * 12.0f);
+	gEngfuncs.pEfxAPI->R_TempSprite(tr->endpos, up, 0.5f, mdl,
+		kRenderTransAdd, kRenderFxNone, 0.35f, 0.3f, FTENT_SPRANIMATE | FTENT_FADEOUT);
+}
+
+// events/coldcock.sc → EV_TSColdCock — the original LAB_10043800 (dossier-ev-melee.md §4). The
+// server (CTSGun::ColdCock) plays it on EVERY bash with iparam1 = the weaponType and iparam2 =
+// the ATTACHMENT mask (through the same body math as draw.sc — the gun keeps its attachments
+// visible). Viewmodel anim FIRST — the stance block's [28] (our iColdCockAnim column), gated
+// local-or-spectated with NO third-person check (unlike knife/katana). 30u forward trace; the
+// closecombat.wav whoosh plays ALWAYS (hit or miss, before the trace); a hit adds the texture
+// material sound + the smoke puff. No sparks, no weapon hit sound, no bloody logic.
+void EV_TSColdCock(event_args_t* args)
+{
+	const int idx = args->entindex;
+	const int weaponType = args->iparam1;
+	const int attach = args->iparam2;
+	const s_weapon_info* wi = get_weapon_info((tsweapon_t)weaponType);
+
+	if (EV_IsLocal(idx) || TS_InEyeSpectating(idx)) // NO CL_IsThirdPerson gate (dossier §4.1)
+	{
+		const int anim = (wi->iColdCockAnim >= 0) ? wi->iColdCockAnim : 0;
+		gEngfuncs.pEventAPI->EV_WeaponAnimation(anim, GetBodyByItems(weaponType, attach));
+	}
+
+	Vector fwd, right, up;
+	AngleVectors(args->angles, fwd, right, up);
+	Vector gun;
+	EV_GetGunPosition(args, gun, args->origin);
+	Vector end;
+	for (int i = 0; i < 3; i++)
+		end[i] = gun[i] + fwd[i] * 30.0f;
+
+	// the whoosh, ALWAYS (before the trace — §4.3)
+	gEngfuncs.pEventAPI->EV_PlaySound(idx, args->origin, CHAN_WEAPON,
+		"player/closecombat.wav", TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+
+	gEngfuncs.pEventAPI->EV_SetUpPlayerPrediction(0, 1);
+	gEngfuncs.pEventAPI->EV_PushPMStates();
+	gEngfuncs.pEventAPI->EV_SetSolidPlayers(idx - 1);
+	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
+	pmtrace_t tr;
+	gEngfuncs.pEventAPI->EV_PlayerTrace(gun, end, PM_STUDIO_BOX, -1, &tr);
+
+	if (tr.fraction < 1.0f)
+	{
+		const char chType = TS_MeleePlayTextureSound(&tr, gun, end);
+		TS_MeleeSmokePuff(&tr, chType);
+	}
+
+	gEngfuncs.pEventAPI->EV_PopPMStates();
+}
+
 // Bullet-flyby "whizz" (RE client.dll FUN_100450c0 tracer path): when a round fired by SOMEONE ELSE
 // passes within a glaze radius of the LOCAL player, a random weapons/whizz1-5.wav cracks past your ear.
 // The original gates it on the perpendicular distance from the local view origin to the bullet line

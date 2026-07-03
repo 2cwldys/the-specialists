@@ -689,6 +689,7 @@ void CTSGun::Precache()
 	m_usMelee = PRECACHE_EVENT(1, "events/knife.sc"); // melee impact spark/decal on a hard surface
 	m_usKatana = PRECACHE_EVENT(1, "events/katana.sc"); // katana swing presentation (gun+0x974)
 	m_usGrenade = PRECACHE_EVENT(1, "events/grenade.sc"); // pin/throw presentation (gun+0x978)
+	m_usColdCock = PRECACHE_EVENT(1, "events/coldcock.sc"); // the bash presentation (gun+0x966)
 	m_usEmpty = PRECACHE_EVENT(1, "events/empty.sc");   // dry-fire click (gun+0x968)
 	m_usReload = PRECACHE_EVENT(1, "events/reload.sc"); // reload presentation (gun+0x970)
 	PRECACHE_SOUND("player/kungfuhit.wav");   // kung-fu flesh hit (also the coldcock bash)
@@ -1697,14 +1698,14 @@ void CTSGun::ColdCock()
 	if (stunting)
 		dmg *= 2.0f / 3.0f;
 
-	// STAND-IN first-person bash anim until the coldcock.sc event swap lands (the original's
-	// client handler plays the stance block's [28]); predicted, so it plays instantly.
-	{
-		const int ccAnim = (m_bHoldPosition && wi->iColdCockAnimHold >= 0)
-			? wi->iColdCockAnimHold : wi->iColdCockAnim;
-		if (ccAnim >= 0)
-			SendWeaponAnim(ccAnim, pev->body);
-	}
+	// events/coldcock.sc (@0x81f80, gated on the item being owned): the CLIENT owns the whole
+	// presentation — the block[28] viewmodel anim, the ALWAYS-whoosh, the texture note + smoke
+	// puff on a hit (EV_TSColdCock). iparam1=type, iparam2=attach; fparam1/2 carry the aim dir
+	// x/y (unconsumed by the handler — kept for byte-faithfulness).
+	if (m_pActiveItem && m_pActiveItem->owned)
+		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usColdCock, 0.0, g_vecZero,
+			g_vecZero, gpGlobals->v_forward.x, gpGlobals->v_forward.y,
+			m_weaponType, m_pActiveItem->attach, 0, 0);
 
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecEnd = vecSrc + gpGlobals->v_forward * 35.0f;
@@ -1719,14 +1720,8 @@ void CTSGun::ColdCock()
 		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_BODY, "player/kevlarhit.wav", VOL_NORM,
 			0.8f, 0, 60 + RANDOM_LONG(0, 31));
 	}
-	else if (!pHit)
-	{
-		// STAND-IN miss whoosh until the coldcock.sc event swap lands (the original plays
-		// events/coldcock.sc here — gun+0x966, gated on the item being owned — and the CLIENT
-		// handler owns the presentation; anim block [28] per gun is extracted, see the dossier).
-		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM,
-			ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-	}
+	// (the miss whoosh now rides events/coldcock.sc — the client plays closecombat.wav on
+	// EVERY bash, hit or miss)
 #endif
 }
 
