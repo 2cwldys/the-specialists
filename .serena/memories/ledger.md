@@ -106,12 +106,19 @@ ReloadWeapon, StopReload (+CBasePlayer CheckForWires/PickUpWeapon/ShootBulletsPl
   gains caliber+kind; TSFireBulletsPenetrate — per-layer re-base). + **UTIL_TraceLine_Expanded @0x5f4f4** +
   vecBoxes[33] (±32u player absbox inflate, absmax-only restore quirk) swapped into both traces.
   PLAYTEST-GATED as one "TS gunfeel" gate. 21→20.
+- **U3 + F4 applied (b4f464c)**: SrvSett full (InitHUD all-four catch-up MSG_ONE; Think tail on-change
+  MSG_ALL ids 0-2, id2 → Set_ammo_count BEFORE the send; caches as CTSGameRules members 0x578/0x558/0x55c) +
+  the weaponrestriction system (cmd_weaponrestriction AddServerCommand + display + g_szRestrictions +
+  WeaponRestrictionByID presets AND-masked by 0x586c + GetWeaponType/IsRestrictedWeapon + the BuyWeapon gate;
+  default 0x1f = stock behavior). Client MsgFunc_SrvSett 4-way switch, case 2 = SHARED Set_ammo_count;
+  ids 0/1/3 globals (consumers VERIFY tail). 20→17 missing free funcs.
 - **REMAINING freefuncs**: F2b (iPrice extraction + CustomWP pipeline SendWeaponParams/InformClients/
   adjust/save_weapon_value + cmd_load/saveweapons + client MsgFunc_CustomWP + CTSGameRules m_bWeaponParams
-  Custom/m_flHealthAbsorb — pairs with gmsg U5) · F4 (GetWeaponType/IsRestrictedWeapon/WeaponRestrictionByID/
-  cmd_weaponrestriction — pairs with gmsg U3 id3) · F5+ (see dossier-freefuncs §3: GetBodyByItems→Deploy,
-  TSGetPointsForFrag, TSSelectSpawnSpot, SetPlayerRespawnTime, DecideGamePlay, TSPrecache,
-  TSPlayerDisconnect, TSCountPlayers, PlayerIsCheating, RemoveEntityFromSlowedArray, PseudoClimb...).
+  Custom/m_flHealthAbsorb — pairs with gmsg U5) · F5+ (see dossier-freefuncs §3: GetBodyByItems→Deploy,
+  TSGetPointsForFrag, TSSelectSpawnSpot, SetPlayerRespawnTime→completes the TSPAward producers, DecideGamePlay,
+  TSPrecache, TSPlayerDisconnect, TSCountPlayers, PlayerIsCheating, RemoveEntityFromSlowedArray→completes
+  CTSKnife::Use, PseudoClimb). REMAINING gmsg: U3b Wires (decompile CheckForWires first) · U4b TSFade
+  (decompile UTIL_ScreenFadeWrite @0xdcc54 first) · U5 CustomWP (with F2b).
 
 ---
 
