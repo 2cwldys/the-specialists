@@ -459,9 +459,22 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 			}
 			fflags = 0x92; // force+interp, keep legs
 		}
-		else // sliding: the forward slide-fire combined pose (player+0x51c dir path is dead code)
+		else // sliding: the DIRECTIONAL slide-fire pose (slide_<l/r/f/b>_<grip>_shoot). The old
+		     // "player+0x51c dir path is dead code" note was WRONG — +0x51c is m_bDirForward
+		     // (cont.81), and the original (@case 0/8/9) picks the direction exactly like the
+		     // TSA_SLIDE lying pose: non-directional launches lie forward, else GetDirection on
+		     // the stored stunt vector with the !=forward latch.
 		{
-			strcpy(name, "slide_f_");
+			if (!pPlayer->m_TSStunt.m_bDirForward)
+				strcpy(name, "slide_f_");
+			else
+			{
+				int dir = GetDirection(pPlayer->m_TSStunt.m_vecStuntDir, pev->v_angle, 0.6f, 0.3f);
+				if (dir != m_iDirection && dir != 2)
+					m_iDirection = dir;
+				static const char *const slideFireTable[4] = { "slide_l_", "slide_r_", "slide_f_", "slide_b_" };
+				strcpy(name, slideFireTable[m_iDirection & 3]);
+			}
 			strcat(name, grip);
 			strcat(name, "_shoot");
 			fflags = 0x94; // force+interp, clear legs

@@ -972,7 +972,11 @@ void CStudioModelRenderer::StudioSetupBones()
 		{
 			auto bone = &pbones[i];
 
-			if (0 == strcmp(bone->name, "Bip01 Spine"))
+			// TS: the player skeletons are ITALIAN-boned ("Bip01 Dorso" = Spine, "Bip01
+			// Bacino" = Pelvis) — the original client.dll adds "Bip01 Dorso" to the stock
+			// split (both strings ship in reference/client.dll). Without it the gait owned
+			// the WHOLE skeleton and the fire/aim torso never rendered while moving.
+			if (0 == strcmp(bone->name, "Bip01 Spine") || 0 == strcmp(bone->name, "Bip01 Dorso"))
 			{
 				copy = false;
 			}

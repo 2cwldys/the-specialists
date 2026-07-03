@@ -747,13 +747,19 @@ void CTSGun::SetWeaponData(const weapon_data_t &data)
 		m_ammoReserve[caliber] = data.iuser2;
 
 #ifdef CLIENT_DLL
-	// The akimbo PER-BARREL clips (m_items[type].leftClip/rightClip) are server-only state and are NOT
-	// carried in the prediction data (we only sync type/reserve/fireMode/holdpos via iuser1..4 + the base
-	// m_iClip). So a client-predicted AkimboFire saw leftClip+rightClip == 0 and EMPTY-returned — no fire
-	// event = no predicted fire SOUND and no brass CASING — until a client reload repopulated the barrels
-	// (the "akimbo/gold is silent until I reload" bug). Reconstruct the barrels from the synced combined
-	// m_iClip (the server keeps m_iClip = leftClip + rightClip, AkimboFire line `m_iClip = left+right`),
-	// so the predicted AkimboFire fires the event. Right barrel fires first, so it carries the odd round.
+	// The per-item ARSENAL state (m_items[]) is server-only and NOT in the prediction data — only
+	// type/reserve/mode/holdpos travel (iuser1..4) + the base m_iClip. Anything a PREDICTED code
+	// path gates on must be reconstructed here or the host's predicted events silently vanish
+	// (FEV_NOTHOST means the server copy skips the host — the "coldcock went silent" bug: its
+	// playback gates on item->owned, which stayed false client-side).
+	// The wielded item is by definition OWNED:
+	if (m_pActiveItem)
+		m_pActiveItem->owned = true;
+	// The akimbo PER-BARREL clips: a client-predicted AkimboFire saw leftClip+rightClip == 0 and
+	// EMPTY-returned — no fire event = no predicted SOUND/CASING — until a client reload
+	// repopulated the barrels (the "akimbo/gold is silent until I reload" bug). Reconstruct from
+	// the synced combined m_iClip (the server keeps m_iClip = left + right); the right barrel
+	// fires first, so it carries the odd round.
 	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
 	{
 		TSItem &it = m_items[m_weaponType];
