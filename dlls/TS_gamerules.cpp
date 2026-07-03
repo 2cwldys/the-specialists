@@ -42,6 +42,119 @@ int g_gamemode = 0;
 int g_theOneMode = 0;
 int g_lastManStanding = 0;
 
+// @0x66244 TSSelectSpawnSpot(class, player, fallback) — TS's spawn scorer (decompile-exact).
+// Collects up to 32 IsTriggered spots of `class` (or `fallback` when none of `class` exist) and
+// scores each against every OTHER live, visible player:
+//  - a TEAMMATE who can SEE the spot (glass-ignoring trace) from >= 128u away puts it in the TOP
+//    band (random 0x1801..0x2000 — spawn near covering teammates);
+//  - a spot NOBODY can see scores the middle band (random 0x1001..0x1800);
+//  - a spot seen by an enemy (or a too-close teammate) scores its distance to the NEAREST player
+//    (init 4096) — the low band, maximizing separation.
+// Highest score wins. If even the winner scored < 128 (someone visible within touch range), every
+// live player inside a 128u sphere of it is TELEFRAGGED (300 dmg, DMG_NEVERGIB, world attacker).
+// No spots at all -> info_player_deathmatch -> info_player_start -> NULL. Sets g_pLastSpawn.
+// (The original scores into a 33-slot array at [i+1] — the off-by-one kept as plain indexing.)
+edict_t *TSSelectSpawnSpot(const char *szClass, CBaseEntity *pPlayer, const char *szFallback)
+{
+	char szSpot[32];
+	strncpy(szSpot, szClass, sizeof(szSpot) - 1);
+	szSpot[sizeof(szSpot) - 1] = 0;
+	if (szFallback && !UTIL_FindEntityByClassname(NULL, szClass))
+	{
+		strncpy(szSpot, szFallback, sizeof(szSpot) - 1);
+		szSpot[sizeof(szSpot) - 1] = 0;
+	}
+
+	CBaseEntity *spots[32] = {};
+	int scores[33] = {};
+	int n = 0;
+	CBaseEntity *pSpot = NULL;
+	while (n < 32)
+	{
+		pSpot = UTIL_FindEntityByClassname(pSpot, szSpot);
+		if (!pSpot)
+			break;
+		if (!pSpot->IsTriggered(pPlayer))
+			continue;
+
+		bool unseen = true;
+		bool teammateFar = false;
+		int minDist = 0x1000;
+		CBaseEntity *pOther = NULL;
+		while ((pOther = UTIL_FindEntityByClassname(pOther, "player")) != NULL)
+		{
+			if (pOther == pPlayer || !pOther->IsPlayer() || !pOther->IsAlive() ||
+				(pOther->pev->effects & EF_NODRAW) != 0)
+				continue;
+			if (unseen)
+			{
+				Vector vecEye = pOther->pev->origin + pOther->pev->view_ofs;
+				TraceResult tr;
+				UTIL_TraceLine(pSpot->pev->origin, vecEye, ignore_monsters, ignore_glass,
+					ENT(pSpot->pev), &tr);
+				if (tr.flFraction == 1.0f)
+				{
+					if (g_pGameRules->PlayerRelationship(pPlayer, pOther) == GR_TEAMMATE &&
+						(pSpot->pev->origin - pOther->pev->origin).Length() >= 128.0f)
+					{
+						teammateFar = true; // a covering teammate sees it from range
+					}
+					else
+					{
+						unseen = false; // an enemy (or a crowding teammate) sees it
+					}
+				}
+			}
+			const int dist = (int)((pSpot->pev->origin - pOther->pev->origin).Length() + 0.5f);
+			if (dist < minDist)
+				minDist = dist;
+		}
+
+		spots[n] = pSpot;
+		n++;
+		if (teammateFar && unseen)
+			scores[n] = RANDOM_LONG(0x1801, 0x2000);
+		else if (unseen)
+			scores[n] = RANDOM_LONG(0x1001, 0x1800);
+		else
+			scores[n] = minDist;
+	}
+
+	if (n < 1)
+	{
+		CBaseEntity *pFall = UTIL_FindEntityByClassname(NULL, "info_player_deathmatch");
+		if (!pFall)
+			pFall = UTIL_FindEntityByClassname(NULL, "info_player_start");
+		return pFall ? ENT(pFall->pev) : NULL;
+	}
+
+	int iBest = 0, best = 0;
+	for (int i = 0; i < n; i++)
+	{
+		if (scores[i + 1] > best)
+		{
+			best = scores[i + 1];
+			iBest = i;
+		}
+	}
+	CBaseEntity *pWin = spots[iBest];
+
+	if (scores[iBest + 1] < 0x80)
+	{
+		// even the best spot is CROWDED — telefrag whoever stands there (world attacker)
+		CBaseEntity *pKill = NULL;
+		while ((pKill = UTIL_FindEntityInSphere(pKill, pWin->pev->origin, 128.0f)) != NULL)
+		{
+			if (pKill->IsPlayer() && pKill != pPlayer && pKill->IsAlive() &&
+				(pKill->pev->effects & EF_NODRAW) == 0)
+				pKill->TakeDamage(VARS(INDEXENT(0)), VARS(INDEXENT(0)), 300.0f, DMG_NEVERGIB);
+		}
+	}
+
+	g_pLastSpawn = pWin;
+	return ENT(pWin->pev);
+}
+
 // @0x65ff4 SetPlayerRespawnTime(player, seconds, bool) — EVERY respawn-wait path funnels here
 // (InitHUD join / Killed death / ChangePlayerTeam(5s)). The bool arg is dead in the original.
 // Plain modes: the gate (+0x770) = now + seconds. LAST-MAN-STANDING (mode 0 + lms): respawns

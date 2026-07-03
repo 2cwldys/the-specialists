@@ -3083,114 +3083,30 @@ bool IsSpawnPointValid(CBaseEntity* pPlayer, CBaseEntity* pSpot)
 }
 
 /*
-============
-EntSelectSpawnPoint
-
-Returns the entity to spawn at
-
-USES AND SETS GLOBAL g_pLastSpawn
-============
+@0x66128 EntSelectSpawnPoint (decompile-exact shape) — the original REPLACED the stock spot
+walker with a 4-call body: pick the class ("info_player_team<N>" for a team player, else
+"info_player_deathmatch") and delegate to TSSelectSpawnSpot (the scorer: teammate-cover band /
+unseen band / nearest-distance, crowded-winner telefrag, info_player_deathmatch/start fallback;
+sets g_pLastSpawn).
 */
 edict_t* EntSelectSpawnPoint(CBaseEntity* pPlayer)
 {
-	CBaseEntity* pSpot;
-	edict_t* player;
-
-	int nNumRandomSpawnsToTry = 10;
-
-	player = pPlayer->edict();
-
-	// choose a info_player_deathmatch point
-	if (g_pGameRules->IsCoOp())
+	char szSpotClass[32];
+	strcpy(szSpotClass, "info_player_deathmatch");
+	CTSGameRules* pRules = dynamic_cast<CTSGameRules*>(g_pGameRules);
+	if (pRules && pPlayer && pPlayer->IsPlayer())
 	{
-		pSpot = UTIL_FindEntityByClassname(g_pLastSpawn, "info_player_coop");
-		if (!FNullEnt(pSpot))
-			goto ReturnSpot;
-		pSpot = UTIL_FindEntityByClassname(g_pLastSpawn, "info_player_start");
-		if (!FNullEnt(pSpot))
-			goto ReturnSpot;
+		const int team = pRules->GetTeamIndex(((CBasePlayer*)pPlayer)->m_szTeamName) + 1;
+		if (team >= 1 && team <= 4)
+			sprintf(szSpotClass, "info_player_team%i", team);
 	}
-	else if (g_pGameRules->IsDeathmatch())
-	{
-		if (NULL == g_pLastSpawn)
-		{
-			int nNumSpawnPoints = 0;
-			CBaseEntity* pEnt = UTIL_FindEntityByClassname(NULL, "info_player_deathmatch");
-			while (NULL != pEnt)
-			{
-				nNumSpawnPoints++;
-				pEnt = UTIL_FindEntityByClassname(pEnt, "info_player_deathmatch");
-			}
-			nNumRandomSpawnsToTry = nNumSpawnPoints;
-		}
-
-		pSpot = g_pLastSpawn;
-		// Randomize the start spot
-		for (int i = RANDOM_LONG(1, nNumRandomSpawnsToTry - 1); i > 0; i--)
-			pSpot = UTIL_FindEntityByClassname(pSpot, "info_player_deathmatch");
-		if (FNullEnt(pSpot)) // skip over the null point
-			pSpot = UTIL_FindEntityByClassname(pSpot, "info_player_deathmatch");
-
-		CBaseEntity* pFirstSpot = pSpot;
-
-		do
-		{
-			if (pSpot)
-			{
-				// check if pSpot is valid
-				if (IsSpawnPointValid(pPlayer, pSpot))
-				{
-					if (pSpot->pev->origin == Vector(0, 0, 0))
-					{
-						pSpot = UTIL_FindEntityByClassname(pSpot, "info_player_deathmatch");
-						continue;
-					}
-
-					// if so, go to pSpot
-					goto ReturnSpot;
-				}
-			}
-			// increment pSpot
-			pSpot = UTIL_FindEntityByClassname(pSpot, "info_player_deathmatch");
-		} while (pSpot != pFirstSpot); // loop if we're not back to the start
-
-		// we haven't found a place to spawn yet,  so kill any guy at the first spawn point and spawn there
-		if (!FNullEnt(pSpot))
-		{
-			CBaseEntity* ent = NULL;
-			while ((ent = UTIL_FindEntityInSphere(ent, pSpot->pev->origin, 128)) != NULL)
-			{
-				// if ent is a client, kill em (unless they are ourselves)
-				if (ent->IsPlayer() && !(ent->edict() == player))
-					ent->TakeDamage(CWorld::World->pev, CWorld::World->pev, 300, DMG_GENERIC);
-			}
-			goto ReturnSpot;
-		}
-	}
-
-	// If startspot is set, (re)spawn there.
-	if (FStringNull(gpGlobals->startspot) || 0 == strlen(STRING(gpGlobals->startspot)))
-	{
-		pSpot = UTIL_FindEntityByClassname(NULL, "info_player_start");
-		if (!FNullEnt(pSpot))
-			goto ReturnSpot;
-	}
-	else
-	{
-		pSpot = UTIL_FindEntityByTargetname(NULL, STRING(gpGlobals->startspot));
-		if (!FNullEnt(pSpot))
-			goto ReturnSpot;
-	}
-
-ReturnSpot:
-	if (FNullEnt(pSpot))
+	edict_t* pent = TSSelectSpawnSpot(szSpotClass, pPlayer, "info_player_deathmatch");
+	if (FNullEnt(pent))
 	{
 		ALERT(at_error, "PutClientInServer: no info_player_start on level");
 		return CWorld::World->edict();
 	}
-
-	g_pLastSpawn = pSpot;
-	return pSpot->edict();
+	return pent;
 }
 
 void CBasePlayer::Spawn()

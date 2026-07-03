@@ -227,6 +227,9 @@ extern int g_theOneMode;      // The One mode flag
 extern int g_lastManStanding; // last-man-standing mode flag
 // @0x65ff4 — every respawn-wait funnels here (TS_gamerules.cpp); the bool is dead in the original.
 void SetPlayerRespawnTime(CBasePlayer *pPlayer, int sec, bool bUnused);
+// @0x66244 — TS's spawn scorer (teammate-cover band / unseen band / nearest-distance;
+// crowded-winner telefrag; sets g_pLastSpawn). The sole caller is EntSelectSpawnPoint.
+edict_t *TSSelectSpawnSpot(const char *szClass, CBaseEntity *pPlayer, const char *szFallback);
 int WeaponRestrictionByID(int id); // @0x66ad8 — 1->0x0, 2->0x1, 3->0x3, 4->0x13, else InitWeaponRestriction()
 int InitWeaponRestriction(void);   // @TS_gamerules.cpp — 0x1f (all five categories)
 extern int gmsgTSServerSetting;    // "SrvSett" 3 — TS_gamerulesclass.cpp
