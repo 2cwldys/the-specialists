@@ -456,6 +456,66 @@ static void TS_MeleeSmokePuff(pmtrace_t* tr, char chType)
 		kRenderTransAdd, kRenderFxNone, 0.35f, 0.3f, FTENT_SPRANIMATE | FTENT_FADEOUT);
 }
 
+// events/closecombat.sc → EV_TSCloseCombat — the original FUN_10043200 (dossier-ev-melee.md §5).
+// Servers: CCombatBlock (iparam1=0) + CCombatAttack (moves 1/2/3). iparam2 = the ANIM-BLOCK index
+// (played raw: animBlock[iparam2]); fparam1 = the weaponType as a FLOAT (kung-fu is 0 but an armed
+// block carries the gun's type). iparam1 picks the reach: 3 = back move traces 55u BEHIND, 2 =
+// 45u forward, else 35u. BLOCK (0) plays player/block.wav and returns — no trace, no effects.
+// Otherwise the closecombat.wav whoosh ALWAYS, then the hull-2 trace; a hit adds the texture
+// material note + the coldcock smoke puff. Viewmodel anim FIRST, gated local-or-in-eye with NO
+// third-person check.
+void EV_TSCloseCombat(event_args_t* args)
+{
+	const int idx = args->entindex;
+	const int move = args->iparam1;
+	const int animIdx = args->iparam2;
+	const int weaponType = (int)args->fparam1;
+	const s_weapon_info* wi = get_weapon_info((tsweapon_t)weaponType);
+
+	if (EV_IsLocal(idx) || TS_InEyeSpectating(idx)) // NO CL_IsThirdPerson gate (§5.1)
+	{
+		const int anim = (animIdx >= 0 && animIdx < 29 && wi->animBlock[animIdx] >= 0)
+			? wi->animBlock[animIdx] : 0;
+		gEngfuncs.pEventAPI->EV_WeaponAnimation(anim, 0);
+	}
+
+	if (move == 0)
+	{
+		// BLOCK: the "hooah" and nothing else (§5.3)
+		gEngfuncs.pEventAPI->EV_PlaySound(idx, args->origin, CHAN_WEAPON,
+			"player/block.wav", TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+		return;
+	}
+
+	Vector fwd, right, up;
+	AngleVectors(args->angles, fwd, right, up);
+	Vector gun;
+	EV_GetGunPosition(args, gun, args->origin);
+	const float reach = (move == 3) ? -55.0f : (move == 2) ? 45.0f : 35.0f;
+	Vector end;
+	for (int i = 0; i < 3; i++)
+		end[i] = gun[i] + fwd[i] * reach;
+
+	// the whoosh, ALWAYS (§5.5)
+	gEngfuncs.pEventAPI->EV_PlaySound(idx, args->origin, CHAN_WEAPON,
+		"player/closecombat.wav", TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+
+	gEngfuncs.pEventAPI->EV_SetUpPlayerPrediction(0, 1);
+	gEngfuncs.pEventAPI->EV_PushPMStates();
+	gEngfuncs.pEventAPI->EV_SetSolidPlayers(idx - 1);
+	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
+	pmtrace_t tr;
+	gEngfuncs.pEventAPI->EV_PlayerTrace(gun, end, PM_STUDIO_BOX, -1, &tr);
+
+	if (tr.fraction < 1.0f)
+	{
+		const char chType = TS_MeleePlayTextureSound(&tr, gun, end);
+		TS_MeleeSmokePuff(&tr, chType); // same puff as coldcock (§5.7)
+	}
+
+	gEngfuncs.pEventAPI->EV_PopPMStates();
+}
+
 // events/coldcock.sc → EV_TSColdCock — the original LAB_10043800 (dossier-ev-melee.md §4). The
 // server (CTSGun::ColdCock) plays it on EVERY bash with iparam1 = the weaponType and iparam2 =
 // the ATTACHMENT mask (through the same body math as draw.sc — the gun keeps its attachments

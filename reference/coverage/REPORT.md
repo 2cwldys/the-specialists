@@ -86,11 +86,11 @@ _The registered byte-size per message (−1 = variable). A MISMATCH silently cor
 
 _Predicted-event scripts referenced by each server. MISSING = a TS event we don't reference; EXTRA = a stock-HL event we still precache that the original removed (HL leftover)._
 
-- matched: **9**  |  missing (orig→not ours): **3**  |  extra (ours→not orig): **19**
+- matched: **10**  |  missing (orig→not ours): **2**  |  extra (ours→not orig): **19**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `events/closecombat.sc`, `events/firelinked.sc`, `events/pump.sc`
+  `events/firelinked.sc`, `events/pump.sc`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 

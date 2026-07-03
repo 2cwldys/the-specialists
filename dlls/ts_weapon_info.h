@@ -196,6 +196,14 @@ struct s_weapon_info
 	// coldcock.sc client handler; our stand-in SendWeaponAnims it until the ev swap lands. -1 = none.
 	int   iColdCockAnim;
 	int   iColdCockAnimHold;
+	// The FULL viewmodel ANIM BLOCKS (29 shorts per stance: normal wi+0x252, hold wi+0x28c) —
+	// the client event handlers' anim source: they play animBlock[logical index]. [0] idle,
+	// [1] reload, [2] draw, [3..6] shoots, [8..14] pump-reload family, [15..18] melee swings +
+	// the armed block [0x12], [19..21] grenade pin/overhand/underhand, [20] knife throw,
+	// [22..27] akimbo barrels, [28] coldcock. -1 = unset. The item's live block pointer
+	// (item+0x28) re-points between the two per the hold stance (WeaponIdle).
+	short animBlock[29];
+	short animBlockHold[29];
 };
 
 // Per-caliber ammo: the 16 calibers, the mag/magazine size, and the max reserve (rounds),

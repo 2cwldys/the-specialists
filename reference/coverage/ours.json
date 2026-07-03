@@ -558,6 +558,7 @@
   "xen_ttrigger"
  ],
  "events": [
+  "events/closecombat.sc",
   "events/coldcock.sc",
   "events/crossbow1.sc",
   "events/crossbow2.sc",

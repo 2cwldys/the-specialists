@@ -690,6 +690,7 @@ void CTSGun::Precache()
 	m_usKatana = PRECACHE_EVENT(1, "events/katana.sc"); // katana swing presentation (gun+0x974)
 	m_usGrenade = PRECACHE_EVENT(1, "events/grenade.sc"); // pin/throw presentation (gun+0x978)
 	m_usColdCock = PRECACHE_EVENT(1, "events/coldcock.sc"); // the bash presentation (gun+0x966)
+	m_usCloseCombat = PRECACHE_EVENT(1, "events/closecombat.sc"); // kung-fu/block presentation (gun+0x96c)
 	m_usEmpty = PRECACHE_EVENT(1, "events/empty.sc");   // dry-fire click (gun+0x968)
 	m_usReload = PRECACHE_EVENT(1, "events/reload.sc"); // reload presentation (gun+0x970)
 	PRECACHE_SOUND("player/kungfuhit.wav");   // kung-fu flesh hit (also the coldcock bash)
@@ -1601,40 +1602,53 @@ void CTSGun::CCombatAttack(bool fSecondary)
 // and gates attacks. RE-faithful gates: not mid-attack, not stunting (iuser4 & 0x70c30), bar
 // must be non-empty (>= 0.01 — a LOW bar still blocks, then empties + locks out).
 // The window is a VALUE 0.5 counted down in PreThink (addendum L2), floor 0.
+// @ CCombatBlock__6CTSGun (@0x75ebc, decompile-exact) — the melee BLOCK. Gates: the player's
+// m_flNextAttack AND all three weapon timers (primary/secondary/ALTERNATE) clear, not stunting
+// (iuser4 & 0x70c30), melee bar >= 0.01. Opens the fire-type-matched block window (+0x7a8 bare /
+// +0x7ac knife / +0x7b0 katana = 0.5s), then the CLIENT owns the presentation via
+// events/closecombat.sc — iparam1 = 0 (BLOCK: the handler plays player/block.wav and returns),
+// iparam2 = the anim-block index (1 bare hands / 0x12 armed), fparam1 = (float)weaponType.
+// 3rd-person Animate(TSA_CC_BLOCK) ALWAYS (armed too); UpdateMeleeBar(33); primary+secondary
+// +0.5, idle +3.0.
 void CTSGun::CCombatBlock()
 {
-	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
-		return; // mid-attack / already blocking
-	if (m_pPlayer->m_flNextAttack > 0.0f)
+	if (m_pPlayer->m_flNextAttack > UTIL_WeaponTimeBase())
 		return; // global attack gate (incl. the depleted-bar 1.5s lockout)
+	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase() ||
+		m_flNextSecondaryAttack > UTIL_WeaponTimeBase() ||
+		m_flNextAlternateAttack > UTIL_WeaponTimeBase())
+		return; // mid-attack / already blocking (all THREE gates, @0x75ee4)
 	if ((m_pPlayer->pev->iuser4 & 0x70c30) != 0)
 		return; // stunting (dive/roll/wall-jump family) — no block
 	if (m_pPlayer->m_flMeleeBar < 0.01f)
 		return; // empty bar — nothing to block with
 
-	// server presentation kept until the closecombat.sc event swap (dossier S7b): the original
-	// carries the block presentation in the event (iparam2 = 1 bare / 0x12 armed), not sounds.
-	EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_VOICE, "player/block.wav", VOL_NORM, ATTN_NORM); // "hooah"
-	SendWeaponAnim(4); // block_low stance (seq 4, 1st person; VERIFY per knife/katana viewmodel)
-	if (m_weaponType == TSW_MELEE)
-		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_CC_BLOCK); // 3rd-person block pose
-
-	// Open the fire-type-matched BLOCK window (RE: +0x7a8 bare/kungfu, +0x7ac knife, +0x7b0 katana = 0.5).
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	if (wi && wi->iFireType == 10)
-		m_pPlayer->m_flKatanaBlock = 0.5f;
-	else if (wi && wi->iFireType == 3 && m_weaponType != TSW_MELEE)
-		m_pPlayer->m_flKnifeBlock = 0.5f;
-	else
+	// Open the fire-type-matched BLOCK window + pick the event's anim index.
+	int blockIdx;
+	if (!m_pActiveItem)
+	{
 		m_pPlayer->m_flKungFuBlock = 0.5f;
+		blockIdx = 1; // the bare-hands block anim slot
+	}
+	else
+	{
+		if (m_pActiveInfo && m_pActiveInfo->iFireType == TSFT_KATANA)
+			m_pPlayer->m_flKatanaBlock = 0.5f;
+		else if (m_pActiveInfo && m_pActiveInfo->iFireType == TSFT_KNIFE)
+			m_pPlayer->m_flKnifeBlock = 0.5f;
+		blockIdx = 0x12; // the armed block anim slot
+	}
 
+	// events/closecombat.sc — the block presentation (the client plays block.wav + block[idx]).
+	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usCloseCombat, 0.0, g_vecZero,
+		g_vecZero, (float)m_weaponType, 0.0, 0, blockIdx, 0, 0);
+
+	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_CC_BLOCK); // 3rd-person block pose (armed too)
 #ifndef CLIENT_DLL
 	m_pPlayer->UpdateMeleeBar(33.0f); // drain (handles depletion lockout + the KFuPower send; server-only)
 #endif
-
-	// RE CCombatBlock: re-arm next primary/secondary at +0.5, idle at +3.0.
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.5f;
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
-	m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
 }
 
