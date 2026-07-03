@@ -5,6 +5,37 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 84, chunk 3) — spectate = TS-patched STOCK (user-guided) + dossier-attachments LANDED
+
+- **THE SPECTATE ARCHITECTURE INVERSION (user's question was the key)**: the original KEEPS the stock
+  CHudSpectator/SpectatorPanel and RE-SKINS it (#Spec_TSHelp%d/#Spec_Help_TSTitle/TSText tokens, texts in
+  ts/titles.txt, help POPUP tokens empty = neutralized). Our parallel TS bar + stock suppression =
+  the invention, DELETED (8537452). Deltas applied to stock: NO top border/banner; bottom help line
+  rendered (stock BUILDS helpString2 and never draws it — added m_BottomHelpLabel, small non-bold font,
+  0b418e0/1dce625); text = HUD ORANGE 255,160,0 (29f4767); '#Spec_Auto' prefix HLTV-only; per-mode help
+  token #Spec_TSHelp%d. IsActive() = STOCK g_iUser1 (the wire-latched local state was unreliable during
+  connect — the buy-menu-gone bug); Spectator msg only fills the per-player table. User: "flawless".
+- **Round 7e (1dce625)**: TSTryRespawn decompile-exact (wait line ONLY when gate<0 = the -4 sentinel;
+  silent during countdown; never in plain DM) + m_flSpecMsgTime = the original's +0x754 1 Hz clock (was
+  the known unnamed) · TSMessage centre notifications OVERLAP (no line stacking) · countdown 0x10 class
+  replaces in place.
+- **dossier-attachments.md LANDED** (reference/dossiers/cont84/ + 19 att_*.c) — THE map for the next
+  implementation wave: (1) p_ SIL SWAP: new wi+0x1b2 pszPlayerModelSil (16 literal p_X_sil names;
+  mp5sd/ruger dup normal; mac10->p_ump_sil), Deploy @0x71030 picks it iff attach&1, TSPrecache both;
+  (1b) FIRE-SOUND FLAG CORRECTION: silenced = iparam2&1 (NOT linked — fixes the user's akimbo-sil
+  report): wi+0x306 at vol .84-.92 attn x2; linked unsilenced = the NORMAL sample; (2) BUY GRAMMAR:
+  attach rides INSIDE tkw as type_attach (tki = items only; akimbo double = extra type_0; stackables
+  type_count); in-memory last-config (no file — live-dir verified); (3) RIGHT-CLICK TREE: attach&8 ->
+  zoom cycle 0->fov1->fov2->0 + Unzoom hooks in Reload/ShotgunReload/ColdCock/Holster; no scope ->
+  hold/tilt = anim block[7] + block-pointer swap 0x252<->0x28c; (4) GUN-ANCHOR CACHE: per-frame in
+  HUD_DrawTransparentTriangles copy each player ent->attachment[0..3] (PLAYER.mdl atts: 0/1/3 collinear
+  right-gun bone, 2 = left; p_ models have ZERO; my 0-attachment read was a WRONG OFFSET — 212/216 is
+  right) -> fixes the PELVIS FLARE + brass; (5) LASER: remote dir = smoothed normalize(cacheAtt1-att0)
+  (v_ models carry collinear att pairs too — dir rotates with the gun bone = the reload sweep), start
+  origin+stance-z, color from PlInfo (1 green/2 blue/else red 255,25,25); local = vm att0 along
+  att1-att0 (+att2/3 second akimbo beam); (6) draw.sc mask = BODY only (the +0x178 anim-offset prior
+  finding was a misread). WeaponInfo byte4 = fireMode, byte5 attach = HUD-only. ActItems stores a byte,
+  nothing else. NEXT: implement 4+5 (pelvis flare + laser) first, then 1/1b, then 2, then 3.
 ## 2026-07-03 (cont. 84, chunk 2) — round-7 folds + the Spectator wire + the attachment RE opened
 
 - **Round 7 results folded**: dry-click/brass/pump/linked/FOV/HUD/glass PASS. Fixes: the third-person
