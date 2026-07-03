@@ -124,6 +124,20 @@ Spectator wire, the gmsg central registration, the cvar renames, the door-helper
   directly in CCombatAttack (the duck-kick case visibly sets view_ofs=(0,0,16) + field_0x4f4=2.0
   in the @0x76078 decompile); recover the front-kick case's view_ofs/timer pair with the
   selector pass and wire the dip.
+  DECODED (cont.84 close, FULL decompile at reference/dossiers/cont84/kick_ccombatattack.c):
+  bVar9 = 2 + movingBack (speed<=100: button&IN_BACK; else velocity·v_forward dot <= -0.5).
+  Cases: STUNTING (iuser4&0x50c30) -> move 4, dmg 15, refire .55 · DUCK-KICK (ONGROUND +
+  (IN_DUCK || FL_DUCKING)) -> move 6, dmg 45(0x2d), refire 1.0, blockstun .35, iuser4|=4|1,
+  view_ofs=(0,0,16) + stunt+0x4 timer 2.0 · BACKKICK (bVar9==3) -> move 7, dmg = speed*0.303
+  clamp[15,80] (SPEED-SCALED, ours is flat 55!), refire 1.35 (1.0 grounded) · THE FRONT KICK
+  (airborne + speed3D>270 + IN_DUCK + fwd-dot>0.5 — a plain running jump+duck DOES clear 270
+  via the z component; ours has the same 3D math so the TRIGGER may already fire) -> move 8
+  (ours sent 0x10 DROPKICK — WRONG id), dmg = speed*0.1538 clamp[15,45] (speed-scaled), budget
+  45, refire 1.0, blockstun .25, iuser4|=4, view_ofs=(0,0,16) + timer 2.0 = THE DIP · then the
+  ground combo / fly family (moves 0x8..0xb / 0x3-0x5 region — map the rest from the file).
+  IMPLEMENT: rebuild our kick chain from kick_ccombatattack.c — move ids, SPEED-SCALED damages,
+  the view dips + the stunt+0x4 restore timer, iuser4 bits. The 'no front kick' feel = the
+  wrong move id (anim) + missing dip, NOT the trigger.
 - **DOUBLE-FIRE powerup = FULL-AUTO**: with the doubletap-E double-fire-rate powerup active, SEMI
   weapons fire full-auto while held. Our semi gate requires trigger release — find the original's
   DoubleFireRate bypass in the ItemPostFrame/Fire semi leg (we already call DoubleFireRate() for
