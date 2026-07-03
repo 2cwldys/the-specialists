@@ -155,9 +155,14 @@ void CTSStunt::Play()
 		// CTSAnimation::Animate swallows (the old invented two-stage getup = the stuck-prone bug). The prone
 		// timer is armed by HandleSlide's deliberate-prone branch (press jump/duck/alt1 while sliding-prone).
 		// NOTE: the original also triggers on a CBasePlayer stand-up latch (orig player+0x78); that latch's
-		// clear lifecycle is unresolved (flagged for live trace) so we use the timer path only for now.
+		// The getup fires on EITHER the roll timer expiring OR the stand-up latch (player+0x78,
+		// m_iStandUpLatch) — RE Play @0x8a014: `m_flRollTime != 0 && (m_flRollTime < 0.01 || player+0x78)`.
+		// HandleSlide sets the latch on a SLIDE landing (with m_flRollTime=0.75), so a dive/slide (incl.
+		// the mid-air "sidekick" that lands as a slide) stands up the FRAME IT TOUCHES DOWN — instant on
+		// landing, matching the live original. The on-ground duckkick has no landing/latch, so it stands
+		// up on the timer alone. The getup CONSUMES (clears) the latch (its clear lifecycle = consume-here).
 		bool stoodUp = false;
-		if (m_flRollTime != 0.0f && m_flRollTime < 0.01f)
+		if (m_flRollTime != 0.0f && (m_flRollTime < 0.01f || m_pPlayer->m_iStandUpLatch != 0))
 		{
 			pev->iuser4 &= ~(TSSTUNT_PRONE | TSSTUNT_STOP | TSSTUNT_ROLL);
 			m_pPlayer->m_flBlockTime = 0.0f; // STOP cleared -> its timer too
@@ -166,6 +171,7 @@ void CTSStunt::Play()
 			pev->view_ofs.z = (pev->flags & FL_DUCKING) ? 16.0f : 28.0f;
 			m_flRollTime = 0;
 			m_flStuntTime = 0;
+			m_pPlayer->m_iStandUpLatch = 0; // consume the stand-up latch (player+0x78)
 			stoodUp = true;
 		}
 
@@ -520,7 +526,7 @@ void CTSStunt::HandleSlide()
 		pev->iuser4 &= ~TSSTUNT_SLIDE;
 		pev->view_ofs = Vector(0, 0, 28);
 		m_flRollTime = 0.75f;
-		m_pPlayer->m_iStandUpLatch = 1; // player+0x78 (consumer VERIFY — the timer path stands us up)
+		m_pPlayer->m_iStandUpLatch = 1; // player+0x78 — Play's getup consumes this => stand up the frame we land
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29);
 		pev->friction = 1.0f;
 	}
