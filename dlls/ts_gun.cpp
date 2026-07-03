@@ -1697,6 +1697,15 @@ void CTSGun::ColdCock()
 	if (stunting)
 		dmg *= 2.0f / 3.0f;
 
+	// STAND-IN first-person bash anim until the coldcock.sc event swap lands (the original's
+	// client handler plays the stance block's [28]); predicted, so it plays instantly.
+	{
+		const int ccAnim = (m_bHoldPosition && wi->iColdCockAnimHold >= 0)
+			? wi->iColdCockAnimHold : wi->iColdCockAnim;
+		if (ccAnim >= 0)
+			SendWeaponAnim(ccAnim, pev->body);
+	}
+
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecEnd = vecSrc + gpGlobals->v_forward * 35.0f;
 

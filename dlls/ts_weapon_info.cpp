@@ -64,6 +64,8 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iIdleAnimHold = -1;       // +0x28c hold block [0] — set from kHoldIdle below
 	w->iReloadKeepAnim = -1;     // +0x262 block [8] — shell-retained reload (sawed-off)
 	w->iReloadKeepAnimHold = -1; // +0x29c hold twin
+	w->iColdCockAnim = -1;       // +0x28a block [28] — coldcock vm anim (set below)
+	w->iColdCockAnimHold = -1;   // +0x2c4 hold twin
 }
 
 // SetSpartaWeapon (ts_i386.so @0x6fa34): the combat-param override applied after the Write_<weapon> stage.
@@ -545,6 +547,25 @@ static void compile_weapons_info()
   g_weaponInfo[TSW_SAWEDOFF].iReloadKeepAnim = 9;
   g_weaponInfo[TSW_SAWEDOFF].iReloadKeepAnimHold = 10;
   g_weaponInfo[TSW_MELEE].iReloadKeepAnim = 6;
+
+  // COLDCOCK viewmodel anims — anim block [28] (wi+0x28a / hold +0x2c4, disasm-read; the
+  // cont83/animblocks.md column). Exactly the 11 coldcock-capable guns carry one; the
+  // desert/m16/m4/sawed-off hold stances reuse the same sequence.
+  g_weaponInfo[TSW_AUG].iColdCockAnim = 4;
+  g_weaponInfo[TSW_BARRETT].iColdCockAnim = 5;
+  g_weaponInfo[TSW_BENELLIM3].iColdCockAnim = 10;
+  g_weaponInfo[TSW_DESERT].iColdCockAnim = 11;
+  g_weaponInfo[TSW_DESERT].iColdCockAnimHold = 11;
+  g_weaponInfo[TSW_M16].iColdCockAnim = 15;
+  g_weaponInfo[TSW_M16].iColdCockAnimHold = 15;
+  g_weaponInfo[TSW_M4].iColdCockAnim = 15;
+  g_weaponInfo[TSW_M4].iColdCockAnimHold = 15;
+  g_weaponInfo[TSW_M60].iColdCockAnim = 5;
+  g_weaponInfo[TSW_MAC10].iColdCockAnim = 6;
+  g_weaponInfo[TSW_MP5SD].iColdCockAnim = 6;
+  g_weaponInfo[TSW_SAWEDOFF].iColdCockAnim = 13;
+  g_weaponInfo[TSW_SAWEDOFF].iColdCockAnimHold = 13;
+  g_weaponInfo[TSW_USAS12].iColdCockAnim = 4;
 
   // Hold-position (alternate stance) toggle per weapon — RE: CTSGun::SecondaryAttack@0x717a8 toggles
   // the stance on any non-akimbo, non-scoped gun whose hold anim-block idle (wi+0x28c) is set. Each

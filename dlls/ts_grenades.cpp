@@ -661,6 +661,17 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 	pev->nextthink = gpGlobals->time + 0.1f;
 	pev->gravity = 0.75f;
 	m_flExpire = gpGlobals->time + 10.0f; // a settled knife lives ~10 s unless picked up
+
+	// The white PICKUPABLE glow shell on a settled blade — same live-original divergence as the
+	// dropped-gun glow (neither binary writes render fields in the knife code; the user's live
+	// game shows the shell = "you can pick this up"). The KATANA is the exception: NO shell
+	// (its recovery is KungFu-gated, the +0x91 flag — playtest-confirmed).
+	if (m_knifeType != TSW_KATANA)
+	{
+		pev->renderamt = 5;
+		pev->renderfx = kRenderFxGlowShell;
+		pev->rendercolor = Vector(200, 200, 200);
+	}
 }
 
 CTSKnife *CTSKnife::CreateKnife(CBasePlayer *pOwner, const Vector &vecStart, const Vector &vecVel, int knifeType)

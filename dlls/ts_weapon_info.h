@@ -191,6 +191,11 @@ struct s_weapon_info
 	// clip > 0). -1 = none.
 	int   iReloadKeepAnim;
 	int   iReloadKeepAnimHold;
+	// COLDCOCK viewmodel anim — anim block entry [28] (short at wi+0x28a / hold +0x2c4,
+	// disasm-read; exactly the iColdCockDamage set carries one). The original plays it via the
+	// coldcock.sc client handler; our stand-in SendWeaponAnims it until the ev swap lands. -1 = none.
+	int   iColdCockAnim;
+	int   iColdCockAnimHold;
 };
 
 // Per-caliber ammo: the 16 calibers, the mag/magazine size, and the max reserve (rounds),
