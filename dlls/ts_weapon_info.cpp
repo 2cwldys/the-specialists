@@ -57,6 +57,8 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iIdleAnim = 0;        // shipped data: 0 for all rows (CCombatIdle table read)
 	w->iSwingAnims[0] = w->iSwingAnims[1] = w->iSwingAnims[2] = 0; // blades override below
 	w->iPrice = 0;           // set from the price table below
+	w->iBodySilencer = w->iBodyLaser = w->iBodyFlash = w->iBodyScope = 0;
+	w->iBodyLaserFlash = -1;
 }
 
 // SetSpartaWeapon (ts_i386.so @0x6fa34): the combat-param override applied after the Write_<weapon> stage.
@@ -222,6 +224,32 @@ float get_range_multipler(int idx)
 	if (idx > 9999)
 		idx = 9999;
 	return range_damage_multipler[idx];
+}
+
+// @0x6f0a4 GetBodyByItems — compose the viewmodel body from the EQUIPPED attachment mask
+// (silencer 1 / laser 2 / flashlight 4 / scope 8; laser+flash use the combined body when the
+// weapon has one). Type-36 (contender) quirk: +1 body when the scope bit is CLEAR. The client
+// mirror is FUN_10007110 (draw.sc/coldcock.sc handlers use the same math).
+int GetBodyByItems(int type, int items)
+{
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)type);
+	int body = 0;
+	if (items & 1)
+		body += wi->iBodySilencer;
+	if ((items & 2) && (items & 4) && wi->iBodyLaserFlash != -1)
+		body += wi->iBodyLaserFlash;
+	else
+	{
+		if (items & 2)
+			body += wi->iBodyLaser;
+		if (items & 4)
+			body += wi->iBodyFlash;
+	}
+	if (items & 8)
+		body += wi->iBodyScope;
+	else if (type == 0x24)
+		body += 1; // contender: the no-scope body variant
+	return body;
 }
 
 // Legacy accessors — now thin reads of the real table (the callers predate it).
@@ -542,6 +570,30 @@ static void compile_weapons_info()
       /*36*/ 1500, /*37*/ 1100};
     for (int i = 0; i < TSW_COUNT; i++)
       g_weaponInfo[i].iPrice = prices[i];
+  }
+
+  // Attachment body-offset shorts (wi+0x128..0x130), disasm-read from every Write_<weapon>.
+  // {silencer, laser, flash, scope, laser+flash-combined(-1 = none)} per tsweapon_t.
+  {
+    static const short bodies[TSW_COUNT][5] = {
+      /* 0*/ {0,0,0,0,-1}, /* 1*/ {1,2,2,0,2}, /* 2*/ {1,2,2,0,2}, /* 3*/ {1,0,0,0,-1},
+      /* 4*/ {0,2,2,1,2},  /* 5*/ {1,4,2,8,-1}, /* 6*/ {0,0,0,1,-1}, /* 7*/ {2,0,0,1,-1},
+      /* 8*/ {1,2,2,0,2},  /* 9*/ {1,2,2,0,2}, /*10*/ {1,2,2,0,2}, /*11*/ {0,2,1,0,-1},
+      /*12*/ {1,0,0,2,-1}, /*13*/ {0,0,0,1,-1}, /*14*/ {1,2,2,0,2}, /*15*/ {1,0,0,0,-1},
+      /*16*/ {1,0,0,0,-1}, /*17*/ {0,0,0,0,-1}, /*18*/ {0,0,0,0,-1}, /*19*/ {1,0,0,2,-1},
+      /*20*/ {0,0,0,0,-1}, /*21*/ {0,0,0,0,-1}, /*22*/ {1,2,2,0,2}, /*23*/ {2,0,0,1,-1},
+      /*24*/ {0,0,0,0,-1}, /*25*/ {0,0,0,0,-1}, /*26*/ {0,2,1,0,-1}, /*27*/ {0,0,0,1,-1},
+      /*28*/ {0,0,0,0,-1}, /*29*/ {0,0,0,0,-1}, /*30*/ {1,2,2,0,2}, /*31*/ {0,0,0,1,-1},
+      /*32*/ {0,0,0,0,-1}, /*33*/ {0,0,0,0,-1}, /*34*/ {0,0,0,0,-1}, /*35*/ {0,0,0,0,-1},
+      /*36*/ {0,0,0,2,-1}, /*37*/ {0,0,0,0,-1}};
+    for (int i = 0; i < TSW_COUNT; i++)
+    {
+      g_weaponInfo[i].iBodySilencer = bodies[i][0];
+      g_weaponInfo[i].iBodyLaser = bodies[i][1];
+      g_weaponInfo[i].iBodyFlash = bodies[i][2];
+      g_weaponInfo[i].iBodyScope = bodies[i][3];
+      g_weaponInfo[i].iBodyLaserFlash = bodies[i][4];
+    }
   }
 
   // the original chains the ammo table + the falloff LUT off the weapon-table build:

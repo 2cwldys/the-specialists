@@ -24,6 +24,7 @@
 *  for real and stores the timed ones as the player's held powerup.
 ***/
 #include "extdll.h"
+#include <math.h>
 #include "util.h"
 #include "cbase.h"
 #include "player.h"
@@ -119,7 +120,7 @@ void CTSPowerUp::Spawn()
 	pev->renderfx = kRenderFxNoDissipation;
 
 	UTIL_SetOrigin(pev, pev->origin);
-	UTIL_SetSize(pev, Vector(-16, -16, -36), Vector(16, 16, 36));
+	UTIL_SetSize(pev, g_vecZero, g_vecZero); // @Spawn: a POINT hull while falling (orig zero size)
 
 	SetTouch(NULL);
 	SetThink(&CTSPowerUp::Fall);
@@ -207,9 +208,12 @@ void CTSPowerUp::OnGround()
 {
 	pev->solid = SOLID_TRIGGER;
 	pev->effects &= ~EF_NODRAW;
-	pev->effects |= EF_DIMLIGHT;
+	pev->effects |= EF_MUZZLEFLASH; // @OnGround disasm: orl $2 — NOT a dynamic light (the old
+	                                // EF_DIMLIGHT was invented; the original has no light glow)
 	UTIL_SetOrigin(pev, pev->origin);
-	UTIL_SetSize(pev, Vector(-16, -16, -16), Vector(16, 16, 16));
+	// bbox BOTTOM at the origin (z 0..64) — the model sits ON the floor (the old -16..16 hull
+	// floated the origin 16u up, drawing the powerup twice as high as the original).
+	UTIL_SetSize(pev, Vector(-16, -16, 0), Vector(16, 16, 64));
 
 	SetTouch(&CTSPowerUp::WaitTouch);
 	SetThink(&CTSPowerUp::WaitThink);
@@ -317,6 +321,31 @@ CTSPowerUp *CTSPowerUp::CreatePowerUp(int type, int duration)
 	pPowerup->Spawn();
 	pPowerup->SetupPowerUp(type, duration, 60.0f, false);
 	return pPowerup;
+}
+
+// @0x874f4 GetRandomPosition — a random reachable point around `center` (decompile-exact):
+// 16 compass sectors of round(360/16) = 22 deg (the FPU round of 22.5 — quirk kept), start
+// sector RANDOM_LONG(0,16) (17 values — quirk kept); per try: dist = RANDOM_LONG(128,1024),
+// flat dir (cos,sin,0) normalized, TraceLine(center -> center+dir*dist, ignore_monsters),
+// candidate = hitpoint - dir*64; accept unless inside CONTENTS_SOLID; advance one sector,
+// 16 tries; all rejected -> the center itself.
+Vector GetRandomPosition(Vector &center)
+{
+	const int step = 22; // (int)ROUND(360.0 / 16.0) — 22, not 22.5 (the original's FPU round)
+	int angle = RANDOM_LONG(0, 16) * step;
+	for (int i = 1; i <= 16; i++, angle += step)
+	{
+		const float dist = (float)RANDOM_LONG(0x80, 0x400);
+		Vector dir(cosf(angle * (float)(M_PI / 180.0)), sinf(angle * (float)(M_PI / 180.0)), 0.0f);
+		const float len = dir.Length();
+		dir = (len > 0.0f) ? dir * (1.0f / len) : Vector(0, 0, 1);
+		TraceResult tr;
+		UTIL_TraceLine(center, center + dir * dist, ignore_monsters, nullptr, &tr);
+		Vector pos = ((tr.flFraction >= 1.0f) ? (center + dir * dist) : tr.vecEndPos) - dir * 64.0f;
+		if (UTIL_PointContents(pos) != CONTENTS_SOLID)
+			return pos;
+	}
+	return center;
 }
 
 // Free helper for CTSGameRules::PutPowerUp (dynamic deathmatch powerup spawning): create a

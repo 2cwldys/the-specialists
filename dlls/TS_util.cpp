@@ -57,6 +57,36 @@ CBaseEntity *TSFoundRandomEntity(char *pszClassname)
 	return arr[RANDOM_LONG(0, n - 1)];
 }
 
+// @0x8fae0 PlayerIsCheating — bots never cheat; a human cheats iff their cl_lw != "1"
+// (the forced-client-side-weapons check). Callers: ClientUserInfoChanged (which then forces
+// cl_lw "1") and TSInit (result discarded — the original's quirk).
+bool PlayerIsCheating(CBasePlayer *pPlayer, char *infobuffer)
+{
+	if (pPlayer->pev->flags & FL_FAKECLIENT)
+		return false;
+	const char *lw = g_engfuncs.pfnInfoKeyValue(infobuffer, "cl_lw");
+	return !lw || strcmp(lw, "1") != 0;
+}
+
+// @0x8f238 TSCountPlayers — players on `team` (case-insensitive TeamID match; NULL/empty team =
+// everyone); onlyActive counts the alive PLUS the dead-but-respawning (+0x770 >= 0).
+int TSCountPlayers(const char *team, bool onlyActive)
+{
+	int n = 0;
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
+		if (!p)
+			continue;
+		if (team && team[0] && (!p->TeamID() || strcasecmp(team, p->TeamID()) != 0))
+			continue;
+		if (onlyActive && !p->IsAlive() && p->m_flTSRespawnTime < 0)
+			continue;
+		n++;
+	}
+	return n;
+}
+
 // ---- The CustomWP pipeline (dossier-freefuncs F2b / dossier-gmsg U5; analysis_ff_util §4-7) ----
 
 // "CustomWP" (-1) — ONE WRITE_STRING: "%i %f %f %f %f %i" = id accuracy viewkick

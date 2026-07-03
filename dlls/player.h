@@ -514,6 +514,8 @@ public:
 	                                                      // (0 cut / 1 defuse / 2 boobytrap / 3 intact)
 	byte m_iClientWires[3] = {};                          // 0x78f-0x791 — the last-sent Wires triple
 	float m_flNextWiresCheck = 0;                         // 0x794 — the 0.5 s CheckForWires throttle
+	float m_flTSRespawnTime = 0;                          // 0x770 — the TS respawn gate: the absolute time the
+	                                                      // player may respawn; < 0 = OUT of the round (LMS)
 	void CheckForWires();                                 // @0x82f08 — sphere-64 armed-ts_bomb wire scan
 	void TSUse();                                         // @0x856e0 — server-side double-tap +use -> UsePowerUp
 	float m_flUseDoubleTap = 0;                           // 0x164 — the double-tap +use window deadline

@@ -112,6 +112,14 @@ struct s_weapon_info
 	// pipeline (SendWeaponParams/adjust_weapon_value) reads+writes it; the buy menu prices
 	// resolve through it so a customized server re-prices live.
 	int   iPrice;          // +0xd8 — buy price (cash)
+	// Attachment viewmodel-body offsets (shorts at wi+0x128..0x130, disasm-read from every
+	// Write_<weapon>): per-bit adds for silencer/laser/flashlight/scope + the laser+flash
+	// combined body (-1 = none). GetBodyByItems composes the viewmodel body from these.
+	int   iBodySilencer;   // +0x128 — mask bit 1
+	int   iBodyLaser;      // +0x12a — mask bit 2
+	int   iBodyFlash;      // +0x12c — mask bit 4
+	int   iBodyScope;      // +0x12e — mask bit 8
+	int   iBodyLaserFlash; // +0x130 — bits 2|4 together (-1 = use the separate adds)
 	// Fire-mode mask (s_weapon_info+0xc): bitset of the trigger modes this weapon offers,
 	// cycled by CTSGun::SwitchFireMode. Bit N set => mode N (tsfiremode_mode_t) available.
 	int   iFireModes;  // +0xc — available fire-modes bitmask
@@ -200,6 +208,7 @@ void Set_ammo_count(int mode);           // @0x6f2cc — the ammocount-mode max-
 void compile_range_damage(void);         // @0x6f1f4 — the falloff LUT
 float get_range_multipler(int idx);      // @0x6f290 — clamped LUT read
 
+int GetBodyByItems(int type, int items); // @0x6f0a4 — attachment mask -> viewmodel body (Deploy)
 int TSAmmoMax(int caliber); // max reserve (rounds) for a caliber, 0 if none
 int TSRoundsPerMag(int caliber); // rounds per magazine for a caliber (CTSGroundAmmo magsN)
 

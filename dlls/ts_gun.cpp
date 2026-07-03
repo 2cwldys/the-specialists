@@ -710,8 +710,9 @@ bool CTSGun::Deploy()
 	// broke the fresh-buy laser. The map-change loss was the CLIENT clearing its g_playerAttach array on
 	// VidInit; that clear was removed (cl_dll/ts_attachments.cpp) so the array stays in sync with this
 	// change-detect cache across a level change. See [[map-change-state-reset]].
-	// SLICE: faithful Deploy uses the items array + GetBodyByItems + a weapon-param
-	// message; here we just show the view/player model via DefaultDeploy.
+	// Faithful Deploy: view/player model via DefaultDeploy + the attachment BODY via
+	// GetBodyByItems below (the weapon-param message ride-along is WeaponInfo, sent by
+	// UpdateClientData's change-detect).
 	// Kung-fu (TSW_MELEE) has NO 3rd-person weapon model — it's bare hands, so the player must
 	// hold NOTHING (empty weaponmodel) and just play the kung-fu body animations. Falling back to
 	// the VIEW model here put v_melee on the player's back/hands (a phantom held weapon). For any
@@ -723,6 +724,10 @@ bool CTSGun::Deploy()
 	// (no invented m_bKungFu bool). Real weapons carry onehanded/twohanded/akimbo.
 	const char *animExt = (m_weaponType == TSW_MELEE) ? "" : (wi->pszAnimExt ? wi->pszAnimExt : "onehanded");
 	bool ok = DefaultDeploy((char *)wi->pszViewModel, (char *)pmodel, drawSeq, (char *)animExt);
+	// @0x710c4: the deployed viewmodel BODY comes from the EQUIPPED attachment mask through
+	// GetBodyByItems (silencer/laser/flash/scope submodels; the client draw.sc handler runs
+	// the same math via FUN_10007110).
+	pev->body = GetBodyByItems(m_weaponType, m_items[m_weaponType].attach);
 	// player+0x478 3rd-person body-anim OVERRIDE (RE DefaultDeploy@0x90178, weapon_tsgun switch on m_weaponType):
 	// the dedicated melee idles. CTSAnimation::Animate plays this directly when non-empty (else idle_/aim_<grip>).
 	const char *ov = (m_weaponType == TSW_KNIFE || m_weaponType == TSW_SEALKNIFE) ? "knife_idle"
