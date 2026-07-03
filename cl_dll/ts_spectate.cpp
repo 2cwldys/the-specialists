@@ -8,16 +8,19 @@
 #include "ts_spectate.h"
 
 #include <stdio.h>
+#include "kbutton.h" // in_attack state — the fire-to-play "respawn" sender
 
-// gmsgSpectator byte-1 states — must match dlls/player.h.
-#define TSSPEC_OFF 0
-#define TSSPEC_COUNTDOWN 1
-#define TSSPEC_READY 2
+// Per-player spectator flags from the (idx, flag) broadcast — the ORIGINAL wire
+// (client.dll FUN_10065250 parses exactly BYTE idx + BYTE flag into a per-player array).
+static bool s_bPlayerSpectating[MAX_PLAYERS + 1];
+
+extern kbutton_t in_attack; // cl_dll/input.cpp
 
 bool CHudSpectate::Init()
 {
-	m_iState = TSSPEC_OFF;
+	m_iState = 0;
 	m_iSeconds = 0;
+	memset(s_bPlayerSpectating, 0, sizeof(s_bPlayerSpectating));
 	// NB: the "Spectator" message is hooked in CHud::Init (routes to this element);
 	// we do not HOOK_MESSAGE here to avoid double-registering the callback.
 	gHUD.AddHudElem(this);
@@ -31,37 +34,56 @@ bool CHudSpectate::VidInit()
 
 void CHudSpectate::Reset()
 {
-	m_iState = TSSPEC_OFF;
+	m_iState = 0;
 	m_iSeconds = 0;
+	memset(s_bPlayerSpectating, 0, sizeof(s_bPlayerSpectating));
 }
 
+// The ORIGINAL wire: BYTE playerIndex (1..32), BYTE flag (1 = spectating, 0 = playing).
+// (The old state+seconds payload was an invented wire — refuted by the cont.84 dossier;
+// the respawn countdown/"Press Fire To Play!" lines arrive as TSMessage texts instead.)
 int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
-	const int oldState = m_iState;
-	m_iState = READ_BYTE();
-	m_iSeconds = READ_BYTE();
+	const int idx = READ_BYTE();
+	const int flag = READ_BYTE();
+	if (idx >= 1 && idx <= MAX_PLAYERS)
+		s_bPlayerSpectating[idx] = (flag != 0);
 
-	if (m_iState != TSSPEC_OFF)
+	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
+	if (!local || idx != local->index)
+		return 1;
+
+	const int oldState = m_iState;
+	m_iState = flag;
+	if (m_iState != 0)
 		m_iFlags |= HUD_ACTIVE;
 	else
 		m_iFlags &= ~HUD_ACTIVE;
 
-	// "Press fire to play" is a one-shot prompt shown when the respawn countdown finishes (it fades),
-	// NOT a permanent centre overlay — push it through the notification queue on the transition to READY.
-	if (m_iState == TSSPEC_READY && oldState != TSSPEC_READY)
-		gHUD.m_TSMessage.Add("Press fire to play", 0, 0, 0, 20, 0);
-
-	// Open the TS buy/config menu ONCE, on entering the spectate-wait phase — NOT every countdown
-	// tick. The server resends the spectate message each tick; reopening every tick made the menu
-	// flicker (and reappear after the player applied a config). After the player applies (which closes
-	// the menu), it stays closed; `buy` reopens it. Hide it on spawn (transition to OFF).
-	if (m_iState != TSSPEC_OFF && oldState == TSSPEC_OFF)
+	// Open the TS buy/config menu ONCE, on entering the spectate-wait phase; close it on
+	// entering play. (Unchanged behavior — only the trigger byte moved to the (idx,flag) wire.)
+	if (m_iState != 0 && oldState == 0)
 		gHUD.m_TSBuyMenu.Open();
-	else if (m_iState == TSSPEC_OFF)
+	else if (m_iState == 0)
 		gHUD.m_TSBuyMenu.Close();
 
 	return 1;
+}
+
+// Fire-to-play: the ORIGINAL client sends the "respawn" console command on +attack while
+// spectating (client.dll @0x10023450, 0.2 s ratelimit) — the server's respawn gate decides.
+// Gated on the buy menu being closed: while the menu is up, a click belongs to the menu.
+static void TS_SpectateFireCheck()
+{
+	static float s_flNextSend;
+	const float now = gEngfuncs.GetClientTime();
+	if ((in_attack.state & 1) == 0 || gHUD.m_TSBuyMenu.IsUp())
+		return;
+	if (now < s_flNextSend)
+		return;
+	s_flNextSend = now + 0.2f;
+	gEngfuncs.pfnClientCmd("respawn");
 }
 
 // Centre a console-font string horizontally at the given y.
@@ -74,18 +96,13 @@ static void DrawCentered(int y, const char* str, int r, int g, int b)
 
 bool CHudSpectate::Draw(float flTime)
 {
-	if (m_iState == TSSPEC_OFF)
+	if (m_iState == 0)
 		return true;
 
-	// Centre overlay: the respawn countdown number (light text, centred — the TS notification style).
-	// "Press fire to play" is NOT drawn here; it's a one-shot fading notification pushed on the
-	// transition to READY (see MsgFunc_Spectator), so it appears after the countdown then disappears.
-	if (m_iState == TSSPEC_COUNTDOWN && m_iSeconds > 0)
-	{
-		char szNum[8];
-		sprintf(szNum, "%d", m_iSeconds);
-		DrawCentered(ScreenHeight / 2, szNum, 230, 230, 230);
-	}
+	TS_SpectateFireCheck(); // fire-to-play -> the "respawn" console command (original mechanism)
+
+	// (The respawn countdown number + "Press Fire To Play!" arrive as server TSMessage lines
+	// now — the original mechanism; nothing to draw here for them.)
 
 	// The TS spectate bottom bar (no top bar — verified vs the original): a dark band carrying the
 	// camera-mode label + the free-look control help. Drawn in the HUD layer (so the help is NOT

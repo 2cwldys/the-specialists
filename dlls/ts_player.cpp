@@ -9,6 +9,7 @@
 #include "ts_gamerules.h" // TS_PWUP_* bit constants
 #include "ts_player.h"
 #include "ts_utils.h"     // TSHudMessageOne/All
+#include "UserMessages.h" // gmsgSpectator (the (idx,flag) spectator-state broadcast)
 #include "ts_flag.h"      // CTSFlag::CreateFlag (CTF drop)
 #include "ts_weapons.h"   // TSPlayerFreeSlots (slot-weight gate)
 #include "ts_gun.h"       // GetPlayerTSGun (block-bar for GetMeleeMultiplier)
@@ -713,10 +714,13 @@ void CBasePlayer::TSInit()
 	// player+0x754 = 0 (unnamed)
 	if (pev->iuser1 != 0 || pev->iuser2 != 0)
 	{
-		// the original broadcasts gmsgSpectator (playerIdx, 0) here. Our "Spectator" message
-		// carries a DIFFERENT payload (state, seconds — the spectate-wait HUD; an INVENTED wire
-		// vs the original's stock spectator-panel broadcast, flagged for the invented review),
-		// so only the observer state clears here. VERIFY: reconcile the Spectator wire.
+		// @0x82a4c: the stock-shaped spectator-state broadcast — (BYTE playerIndex, BYTE 0).
+		// (Wire reconciled cont.84: Spectator carries (idx, flag) everywhere; the spectate-wait
+		// countdown rides TSHudMessageOne instead.)
+		MESSAGE_BEGIN(MSG_ALL, gmsgSpectator);
+		WRITE_BYTE(ENTINDEX(edict()));
+		WRITE_BYTE(0);
+		MESSAGE_END();
 		pev->iuser1 = 0;
 		pev->iuser2 = 0;
 	}

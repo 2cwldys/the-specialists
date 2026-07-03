@@ -1407,7 +1407,14 @@ void CBasePlayer::TSEnterSpectate()
 	SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
 
 	TSSendBuyMenu();   // open the TS buy/config menu (gmsgShowMenu, compact list)
-	TSSpectateThink(); // send the initial countdown state
+
+	// @0x89634 (StartObserver end): broadcast the stock-shaped spectator state — (idx, 1).
+	MESSAGE_BEGIN(MSG_ALL, gmsgSpectator);
+	WRITE_BYTE(ENTINDEX(edict()));
+	WRITE_BYTE(1);
+	MESSAGE_END();
+
+	TSSpectateThink(); // paint the initial countdown line
 }
 
 // The TS buy/config menu — the compact gmsgShowMenu list (CHudMenu draws it; matches
@@ -1544,7 +1551,7 @@ void CBasePlayer::TSSpectateThink()
 		}
 	}
 
-	// resend the Spectator state only when the countdown second changes
+	// once per second: the menu/scoreboard upkeep + the ORIGINAL's countdown HUD texts.
 	if (secs != m_iClientSpecSecs)
 	{
 		m_iClientSpecSecs = secs;
@@ -1557,10 +1564,26 @@ void CBasePlayer::TSSpectateThink()
 		if (pev->playerclass != TS_SCORE_WAITING)
 			pev->playerclass = TS_SCORE_WAITING;
 		TSSendScoreInfo();
-		MESSAGE_BEGIN(MSG_ONE, gmsgSpectator, NULL, pev);
-		WRITE_BYTE(state);
-		WRITE_BYTE(secs);
-		MESSAGE_END();
+
+		// @0x81458 (PreThink iuser1-block, 1 Hz off the +0x754 throttle): the countdown rides
+		// TSHudMessageOne (gmsgTSMessage), NOT the Spectator message — Spectator carries only
+		// the stock (idx, flag) spectator state. Text/args decompile-exact:
+		// remaining >= 0.5s -> "%i" (clamped 30) at (0,0,0,16,20); else "Press Fire To Play!"
+		// at (0,0,0,16,30).
+		if (m_flTSRespawnTime > 0.0f && gpGlobals->time < m_flTSRespawnTime)
+		{
+			if (secs < 1)
+				TSHudMessageOne(0, 0, 0, 16, 30, "Press Fire To Play!", pev);
+			else
+				TSHudMessageOne(0, 0, 0, 16, 20, UTIL_VarArgs("%i", secs > 30 ? 30 : secs), pev);
+		}
+		// the LMS re-entry window paints its own line while it runs (expiry is handled in PreThink)
+		else if (m_flRespawnHoldTime != 0.0f && gpGlobals->time <= m_flRespawnHoldTime)
+		{
+			TSHudMessageOne(0, 0, 0, 16, 20,
+				UTIL_VarArgs("%i seconds left for respawn, press Fire to Play!",
+					(int)(m_flRespawnHoldTime - gpGlobals->time + 0.5f)), pev);
+		}
 	}
 }
 
@@ -1579,9 +1602,9 @@ void CBasePlayer::StopObserver()
 	m_hObserverTarget = NULL;
 	m_iHideHUD = 0;
 
-	// tell the client spectate is off (the menu closes client-side on fire)
-	MESSAGE_BEGIN(MSG_ONE, gmsgSpectator, NULL, pev);
-	WRITE_BYTE(TSSPEC_OFF);
+	// @0x89a14: the stock-shaped spectator-state broadcast — BYTE playerIndex, BYTE 0 (off).
+	MESSAGE_BEGIN(MSG_ALL, gmsgSpectator);
+	WRITE_BYTE(ENTINDEX(edict()));
 	WRITE_BYTE(0);
 	MESSAGE_END();
 
@@ -1961,9 +1984,15 @@ void CBasePlayer::PreThink()
 	// message off a +0x754 throttle — not yet transcribed.)
 	if (m_flRespawnHoldTime != 0.0f && m_flRespawnHoldTime < gpGlobals->time)
 	{
+		// @0x81458 expiry (decompile-exact): window 0, gate -4.0 (wait-next-round sentinel),
+		// award 1 (out-of-round), the red wait line, and a deads recount (a lockout can end
+		// the round). V11 CLOSED — the per-second window line is painted in TSSpectateThink.
 		m_flRespawnHoldTime = 0;
-		m_flTSRespawnTime = -1.0f;
+		m_flTSRespawnTime = -4.0f;
 		m_iAward = 1;
+		TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
+		if (TSGameRules())
+			TSGameRules()->CallCheckDeads();
 	}
 
 	// TS (cont.65): while held in free-look spectate, run the countdown + fire-to-play
@@ -3689,6 +3718,13 @@ void CBasePlayer::ForceClientDllUpdate()
 	m_fWeapon = false;	   // Force weapon send
 	m_fKnownItem = false;  // Force weaponinit messages.
 	m_fInitHUD = true;	   // Force HUD gmsgResetHUD message
+
+	// @0x82594: the original also re-tells this client its own spectator state —
+	// MSG_ONE (idx, deadflag == DEAD_RESPAWNABLE).
+	MESSAGE_BEGIN(MSG_ONE, gmsgSpectator, NULL, pev);
+	WRITE_BYTE(ENTINDEX(edict()));
+	WRITE_BYTE(pev->deadflag == DEAD_RESPAWNABLE ? 1 : 0);
+	MESSAGE_END();
 
 	// Now force all the necessary messages
 	//  to be sent.
