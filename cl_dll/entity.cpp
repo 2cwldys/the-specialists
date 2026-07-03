@@ -325,7 +325,12 @@ void DLLEXPORT HUD_StudioEvent(const struct mstudioevent_s* event, const struct 
 {
 	//	RecClStudioEvent(event, entity);
 
-	bool iMuzzleFlash = true;
+	// TS: the weapon FIRE EVENTS draw the muzzle flare sprite at the fired barrel
+	// (EV_TSFire/EV_TSFireLinked -> EV_TSMuzzleFlare, like the original's fire core). The
+	// viewmodels ALSO embed 5001/5011/5021/5031 muzzle events on their shoot sequences — letting
+	// the engine R_MuzzleFlash render those DOUBLED the flash (and on the akimbos betrayed the
+	// per-gun positions). Suppressed: the event handlers own the flashes.
+	bool iMuzzleFlash = false;
 
 
 	switch (event->event)
