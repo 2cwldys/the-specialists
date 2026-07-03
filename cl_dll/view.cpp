@@ -411,10 +411,10 @@ void V_CalcViewRoll(struct ref_params_s* pparams)
 
 	pparams->viewangles[ROLL] += side;
 
-	if (pparams->health <= 0 && (pparams->viewheight[2] != 0))
+	if (pparams->health <= 0 && (pparams->viewheight[2] != 0) && g_iUser1 != 0)
 	{
-		// only roll the view if the player is dead and the viewheight[2] is nonzero
-		// this is so deadcam in multiplayer will work.
+		// stock dead ROLL tilt — observers only; the TS death cam (above) chases the body
+		// level instead of tilting (round 8).
 		pparams->viewangles[ROLL] = 80; // dead view angle
 		return;
 	}
@@ -790,6 +790,20 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 		{
 			pparams->vieworg[i] += -ofs[2] * camForward[i];
 		}
+	}
+	else if (pparams->health <= 0 && g_iUser1 == 0)
+	{
+		// TS DEATH CAM (round 8, user-verified vs the original): dying in first person pulls
+		// the camera out third-person to watch your own death anim ease into the death idle
+		// (already-third-person deaths looked right; first-person snapped to the corpse eye).
+		// Chase straight back along the view, slightly raised. VERIFY: the original's exact
+		// distance/lift + whether it wall-traces (the chase-cam RE item).
+		VectorCopy(pparams->cl_viewangles, camAngles);
+		camAngles[ROLL] = 0;
+		AngleVectors(camAngles, camForward, camRight, camUp);
+		pparams->vieworg[2] += 24.0f; // lift off the floor-level dead eye
+		for (i = 0; i < 3; i++)
+			pparams->vieworg[i] += -80.0f * camForward[i];
 	}
 
 	// Give gun our viewangles
