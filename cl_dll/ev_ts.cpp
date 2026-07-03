@@ -105,13 +105,20 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
 	cl_entity_t* ent = EV_IsLocal(idx) ? gEngfuncs.GetViewModel() : gEngfuncs.GetEntityByIndex(idx);
 	if (!ent)
 		return;
-	if (side < 0 || side > 3)
-		side = 0;
 	if (spr <= 0)
 		return;
 
+	// side -> ATTACHMENT mapping, proven by the models' embedded flash events: the akimbo
+	// viewmodels pair attachments 0/1 with the RIGHT gun (5001/5011 on the rightshoot seqs)
+	// and 2/3 with the LEFT (5021/5031 on leftshoot). side 1 = the left barrel -> attachment 2.
+	// (The old attachment[side] indexed 1 — a RIGHT-gun attachment — for the left barrel: the
+	// phantom right-side sprite on every left shot.)
+	const s_weapon_info* fwi = get_weapon_info((tsweapon_t)weaponType);
+	const bool akimbo = (fwi->iFireType == TSFT_AKIMBO || fwi->iFireType == TSFT_AKIMBO_ONLY);
+	const int att = (akimbo && side) ? 2 : 0;
+
 	float pos[3];
-	VectorCopy(ent->attachment[side], pos);
+	VectorCopy(ent->attachment[att], pos);
 	const float scale = 0.5f;
 	// A muzzle flash is a single brief pop — a very short life and NO frame-cycle (FTENT_SPRCYCLE
 	// kept it animating/visible far too long, "slow enough to walk around"). One frame, gone fast.
@@ -806,9 +813,15 @@ void EV_TSFire(event_args_t* args)
 
 	// Muzzle flash sprite at the barrel — ALWAYS shown; silenced fire just uses the dimmer gun_muzzle.spr
 	// (vs gun_muzzle2.spr). The bright dynamic light below is still skipped when silenced.
-	EV_TSMuzzleFlare(idx, weaponType, barrelSide, silenced); // the muzzle-flash sprite at the fired barrel
-	// (the both-barrels shot is a SEPARATE event now — events/firelinked.sc → EV_TSFireLinked)
+	if (!akimboClass || CL_IsThirdPerson() || !EV_IsLocal(idx))
+		EV_TSMuzzleFlare(idx, weaponType, barrelSide, silenced); // the flare at the fired barrel
+	// (the both-barrels shot is a SEPARATE event — events/firelinked.sc → EV_TSFireLinked; its
+	// linkedshoot sequences carry NO embedded events, so that path always draws both flares)
 
+	// FIRST-PERSON akimbo single-barrel flash: the viewmodel's OWN embedded events draw the
+	// per-gun flash (5001/5011 on the rightshoot seqs, 5021/5031 on leftshoot — HUD_StudioEvent
+	// handles them), so our explicit sprite is for REMOTE/third-person viewers only here.
+	// Non-akimbo guns keep the always-draw (their single attachment stacks invisibly).
 	// The AKIMBO single-barrel viewmodel anim comes from the EVENT (the fire core). The MODELS
 	// settle the side mapping (the dossier's labels were swapped): block[22/23] = the RIGHT-gun
 	// shoots (v_mk23_akimbo 1/2 = shoot_right1/2, v_berettas 3/5 = rightshoot), block[24/25] =
