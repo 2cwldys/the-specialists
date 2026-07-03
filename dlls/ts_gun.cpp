@@ -1659,14 +1659,27 @@ void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vec
 		for (int pen = 0; pen < 8; pen++)
 		{
 			TraceResult tr;
-			UTIL_TraceLine(start, start + dir * flDist, dont_ignore_monsters, ENT(pevAttacker), &tr);
+			// the TS bullet trace (player absboxes inflated +/-32u — UTIL_TraceLine_Expanded)
+			UTIL_TraceLine_Expanded(start, start + dir * flDist, dont_ignore_monsters, ENT(pevAttacker), &tr);
 			if (tr.flFraction == 1.0f)
 				break; // hit nothing
+
+			// range-damage falloff (@0x5f949/@0x5fdc8): kind 2 -> idx = dist/30; else
+			// idx = dist/rangeUnit; damage *= clamp(1/sqrt(0.1 idx), 0, 1). Distance from
+			// the current layer start (the original recursion re-bases per layer).
+			const float hitDist = (tr.vecEndPos - start).Length();
+			const s_ammo_info *ai = get_ammo_info(caliber);
+			int rIdx;
+			if (ai->iKind == 2)
+				rIdx = (int)(hitDist * (1.0f / 300.0f) * 10.0f + 0.5f);
+			else
+				rIdx = (ai->iRangeUnit > 0) ? (int)(10.0f * (hitDist / (10.0f * (float)ai->iRangeUnit)) + 0.5f) : 0;
+			const float hitDmg = dmg * get_range_multipler(rIdx);
 
 			CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
 			ClearMultiDamage();
 			gMultiDamage.type = DMG_BULLET | DMG_NEVERGIB;
-			pHit->TraceAttack(pevAttacker, dmg, dir, &tr, DMG_BULLET | DMG_NEVERGIB); // orig DMG bits 0x1002
+			pHit->TraceAttack(pevAttacker, hitDmg, dir, &tr, DMG_BULLET | DMG_NEVERGIB); // orig DMG bits 0x1002
 			// NB: the bullet ric impact SOUND is played CLIENT-side now (cl_dll/ev_ts.cpp EV_TSBulletImpact),
 			// not here. The old server EMIT_AMBIENT_SOUND on the WORLD entity spawned a PERSISTENT static
 			// sound at the impact point, so far-away wall hits were heard "as you walked up to them".

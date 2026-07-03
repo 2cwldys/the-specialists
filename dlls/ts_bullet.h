@@ -18,6 +18,8 @@ struct TSSlowBullet
 	Vector pos, start, dir;
 	float damage;
 	float fullSpeed; // per-caliber base flight speed, fixed at fire time
+	int caliber;     // rec caliber slot — get_ammo_info arg (falloff form B unit)
+	int kind;        // rec+0x3c — the ammo KIND copied at fire time (2 -> falloff form A, dist/30)
 };
 
 class CBulletManager
@@ -34,5 +36,11 @@ public:
 };
 
 extern CBulletManager g_BulletManager;
+
+// @0x5f4f4 UTIL_TraceLine_Expanded — the TS bullet trace: every player's absbox inflated
+// +/-32u (saved in vecBoxes[33]), stock trace, then ONLY absmax restored (original quirk;
+// the engine relink heals absmin next frame). Defined in ts_bullet.cpp.
+void UTIL_TraceLine_Expanded(const Vector &vecStart, const Vector &vecEnd,
+	IGNORE_MONSTERS igmon, edict_t *pentIgnore, TraceResult *ptr);
 
 #endif // TS_BULLET_H

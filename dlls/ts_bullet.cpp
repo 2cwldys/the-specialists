@@ -62,6 +62,36 @@ void CBulletManager::DestroyBullet(int slot)
 	b.flash = NULL;
 }
 
+// @0x5f4f4 UTIL_TraceLine_Expanded — inflate every live player's absbox by +/-32u so the
+// swept bullet can't thread a player hull between frames, run the stock trace, then restore
+// ONLY absmax (the original's literal behavior — absmin stays inflated until the engine
+// relinks the player next frame). vecBoxes[33] = the per-player saved absmax.
+Vector vecBoxes[33];
+
+void UTIL_TraceLine_Expanded(const Vector &vecStart, const Vector &vecEnd,
+	IGNORE_MONSTERS igmon, edict_t *pentIgnore, TraceResult *ptr)
+{
+	for (int i = 1; i <= gpGlobals->maxClients && i <= 32; i++)
+	{
+		CBaseEntity *p = UTIL_PlayerByIndex(i);
+		if (!p)
+			continue;
+		vecBoxes[i] = p->pev->absmax;
+		for (int a = 0; a < 3; a++)
+		{
+			p->pev->absmin[a] -= 32.0f;
+			p->pev->absmax[a] += 32.0f;
+		}
+	}
+	UTIL_TraceLine(vecStart, vecEnd, igmon, pentIgnore, ptr);
+	for (int i = 1; i <= gpGlobals->maxClients && i <= 32; i++)
+	{
+		CBaseEntity *p = UTIL_PlayerByIndex(i);
+		if (p)
+			p->pev->absmax = vecBoxes[i]; // absmax ONLY — the original never restores absmin
+	}
+}
+
 // @ FireBullet__14CBulletManager — register a shot as a flying bullet (called from the fire path when
 // the shooter is slowed). Spawns the trail beam anchored at the muzzle; UpdateBullet extends its end.
 void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage, int caliber)
@@ -78,6 +108,8 @@ void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vec
 			b.dir = dir.Normalize();
 			b.damage = damage;
 			b.fullSpeed = BulletFullSpeed(caliber);
+			b.caliber = caliber;
+			b.kind = get_ammo_info(caliber)->iKind; // rec+0x3c — the falloff form selector
 
 			// The visible flying bullet, RE-matched to the client renderer (FUN_10035010): a SHORT
 			// trail dash (bullet_trail.spr, ~5..25u, speed-scaled) that RIDES the bullet head — NOT a
@@ -167,8 +199,9 @@ void CBulletManager::UpdateBulletTimeSlice(int slot)
 	Vector newpos = b.pos + b.dir * (speed * gpGlobals->frametime);
 
 	TraceResult tr;
-	// dont_ignore_glass: slow-motion bullets HIT glass (so you see them break/embed it).
-	UTIL_TraceLine(b.pos, newpos, dont_ignore_monsters, dont_ignore_glass, owner->edict(), &tr);
+	// the TS bullet trace: player absboxes inflated so a fast bullet can't thread a hull
+	// (glass still hit — the plain 4-arg trace never ignores glass).
+	UTIL_TraceLine_Expanded(b.pos, newpos, dont_ignore_monsters, owner->edict(), &tr);
 
 	if (tr.flFraction >= 1.0f)
 	{
@@ -196,8 +229,21 @@ void CBulletManager::UpdateBulletTimeSlice(int slot)
 	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
 	if (pHit)
 	{
+		// range-damage falloff (@0x5f1ba/@0x5f24a): kind 2 (rifle/shotgun calibers) -> form A
+		// idx = dist/30 (full damage to 300u); else form B idx = dist/rangeUnit (full damage
+		// to 10x the caliber's range unit); damage *= clamp(1/sqrt(0.1 idx), 0, 1).
+		const float dist = (tr.vecEndPos - b.start).Length();
+		int idx;
+		if (b.kind == 2)
+			idx = (int)(dist * (1.0f / 300.0f) * 10.0f + 0.5f);
+		else
+		{
+			const s_ammo_info *ai = get_ammo_info(b.caliber);
+			idx = (ai->iRangeUnit > 0) ? (int)(10.0f * (dist / (10.0f * (float)ai->iRangeUnit)) + 0.5f) : 0;
+		}
+		const float dmg = b.damage * get_range_multipler(idx);
 		ClearMultiDamage();
-		pHit->TraceAttack(owner->pev, b.damage, b.dir, &tr, DMG_BULLET | DMG_NEVERGIB);
+		pHit->TraceAttack(owner->pev, dmg, b.dir, &tr, DMG_BULLET | DMG_NEVERGIB);
 		ApplyMultiDamage(owner->pev, owner->pev);
 	}
 	char ric[20];
