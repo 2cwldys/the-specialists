@@ -105,6 +105,7 @@ target_sources(hl PRIVATE
 	triggers.cpp
 	tripmine.cpp
 	ts_utils.cpp
+	TS_util.cpp
 	TS_gamerules.cpp
 	TS_gamerulesclass.cpp
 	ts_cvars.cpp

@@ -14,6 +14,7 @@
 #include "player.h"
 #include "ts_flag.h" // HaveFlag prototype + s_flag_status
 #include "ts_gamerules.h" // Victim*Hold prototypes
+#include "ts_weapons.h"   // TSPlayerFreeSlots (GetAccelBySlots)
 
 // @0x67148 HaveFlag — is this player carrying a CTF flag? (free fn). The carry
 // state is the inline s_flag_status on the player; the active byte is the answer.
@@ -115,4 +116,26 @@ bool VictimKungfuHold(CBasePlayer *pAttacker, CBaseEntity *pVictim, float flDama
 	pBlocker->m_flNextAttack = 0.25f;
 	pSwinger->UpdateMeleeBar(33.0f);   // the post-swap swinger pays
 	return true;
+}
+
+// @0x66c4c GetAccelBySlots — returns the player's free-slots count (the original reads the
+// cached int at player+0x548). DEAD in the .so; the live twin is GetSpeedBySlots. Ours derives
+// the value from the arsenal instead of a maintained cache (documented divergence).
+int GetAccelBySlots(CBasePlayer *pPlayer)
+{
+	return TSPlayerFreeSlots(pPlayer);
+}
+
+// @0x76b48 DoSpectacularNess — roll RANDOM_LONG(0,100) against the `spectacularness` cvar
+// (clamped 0..100, rounded; 0 disables, comparison INCLUSIVE). Callers land with the
+// TSExplosion/PlayerKilled passes.
+bool DoSpectacularNess(void)
+{
+	float v = CVAR_GET_FLOAT("spectacularness");
+	if (v < 0.0f)
+		v = 0.0f;
+	if (v > 100.0f)
+		v = 100.0f;
+	const int r = (int)(v + 0.5f);
+	return r != 0 && RANDOM_LONG(0, 100) <= r;
 }

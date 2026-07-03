@@ -171,6 +171,7 @@ target_sources(client PRIVATE
 	../dlls/tripmine.cpp
 	../dlls/weapons_shared.cpp
 	../dlls/glock.cpp
+	../dlls/ts_shared.cpp
 	../dlls/ts_weapon_info.cpp
 	../dlls/ts_gun.cpp
 

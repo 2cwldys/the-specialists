@@ -292,6 +292,10 @@ public:
 
 // @0x7c874 CreateGrenade — build + place + launch (the original sets the fuse + owner, calls Spawn,
 // then origin/velocity/owner + the slow-motion propagation).
+// @0x6c850 — the original EXPORTS an m61_grenade entity factory (engine dlsym + the
+// TSPrecache PrecacheOther). CreateGrenade's runtime classname stays "grenade" (V6-gated).
+LINK_ENTITY_TO_CLASS(m61_grenade, CM61Grenade);
+
 CM61Grenade *CM61Grenade::CreateGrenade(entvars_t *pevOwner, float fuse, const Vector &origin,
 	const Vector &velocity)
 {

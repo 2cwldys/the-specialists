@@ -26,6 +26,7 @@
 #include "ts_gamerules.h" // VictimKatanaHold/VictimKnifeHold (the melee block gates)
 #endif
 #include "ts_worldgun.h" // CTSWorldGun::CreateWeapon / CTSAmmoPack::CreateAmmoPack (drop side)
+#include "ts_shared.h"   // FixedSlowMul (DropKickback)
 
 // WEAPON TIMING: the build defines CLIENT_WEAPONS (both targets), so UTIL_WeaponTimeBase() == 0 — a
 // 0-based RELATIVE clock that gets DECREMENTED each frame by gpGlobals->frametime, on the CLIENT by
@@ -97,6 +98,69 @@ int TSRecordedSlowPitch(CBasePlayer *p)
 }
 
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
+
+// @ IsWeaponAkimbo__Fi @0x7019c — fire-type 4 (the combinable akimbo pairs).
+bool IsWeaponAkimbo(int type)
+{
+	return get_weapon_info((tsweapon_t)type)->iFireType == TSFT_AKIMBO;
+}
+
+// @ IsOnlyAkimbo__Fi @0x701d4 — fire-type 5 (akimbo-only, e.g. the golden colts).
+bool IsOnlyAkimbo(int type)
+{
+	return get_weapon_info((tsweapon_t)type)->iFireType == TSFT_AKIMBO_ONLY;
+}
+
+// @ CalcSpread__FRfP11CBasePlayerf @0x7020c — velocity-scaled spread multiplier:
+// spread *= clamp(|vel| / (100/f), 1, 3f). DEAD server-side in the original (ScaleSpread
+// superseded it); kept compiled-and-uncalled for source parity (VERIFY the client copy).
+void CalcSpread(float &spread, CBasePlayer *pPlayer, float f)
+{
+	float mul = pPlayer->pev->velocity.Length() / (100.0f / f);
+	if (mul < 1.0f)
+		mul = 1.0f;
+	if (mul > 3.0f * f)
+		mul = 3.0f * f;
+	spread *= mul;
+}
+
+// @ DropKickback__FPfT0ff @0x76ea0 — 2-axis kick decay toward the align vector, step
+// 15*amt/FixedSlowMul(slowFactor). DEAD server-side (the producer VKickback is live but
+// never calls it in the .so); source-parity only.
+void DropKickback(float *kick, float *align, float amt, float slowFactor)
+{
+	if (amt < 0.0f)
+		return;
+	const float klen = sqrtf(kick[0] * kick[0] + kick[1] * kick[1]);
+	if (klen <= 0.0f)
+		return;
+	const float d0 = kick[0] - align[0];
+	const float d1 = kick[1] - align[1];
+	const float dlen = sqrtf(d0 * d0 + d1 * d1);
+	const float step = 15.0f * (amt / FixedSlowMul(slowFactor));
+	// literal transcription: the align axes advance by d*step when the step fits inside the
+	// distance, else by d*dlen (the original's own asymmetric else-branch — kept as-is).
+	align[0] += (step <= dlen) ? d0 * step : d0 * dlen;
+	align[1] += (step <= dlen) ? d1 * step : d1 * dlen;
+	kick[0] /= klen;
+	kick[1] /= klen;
+	float rem = klen - step;
+	if (rem < 0.0f)
+		rem = 0.0f;
+	kick[0] *= rem;
+	kick[1] *= rem;
+}
+
+// @ GetCloseCombatVectors__FiR6VectorN31 @0x76e2c — out = src + 32*forward (first + last
+// args unused). DEAD in the original (the math re-inlined in KnifeFire); source parity.
+void GetCloseCombatVectors(int a0, Vector &vecSrc, Vector &vecOut, Vector &vecForward, Vector &a4)
+{
+	(void)a0;
+	(void)a4;
+	vecOut = vecSrc + vecForward * 32.0f;
+}
+
+
 
 // @ g_iWeaponPriority (filled in compile_weapons_info@0x6fe28) — the auto-select order
 // GetBetterWeapon walks after a drop (highest priority first). Last entry (kung-fu, 0)
@@ -383,7 +447,7 @@ bool CTSGun::MultiplyClips()
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	const int want = wi->iClip * 2; // double the MAX clip
 	TSItem &it = m_items[m_weaponType];
-	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY) // akimbo: split across the two barrels
+	if (IsWeaponAkimbo(m_weaponType) || IsOnlyAkimbo(m_weaponType)) // akimbo: split across the two barrels (orig calls the free-fn pair)
 	{
 		if (it.leftClip + it.rightClip >= want)
 			return false;

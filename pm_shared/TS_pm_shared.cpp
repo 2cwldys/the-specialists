@@ -23,6 +23,36 @@ void PM_CatagorizePosition();
 void PM_FixPlayerCrouchStuck(int direction);
 void PM_FixupGravityVelocity();
 
+// @0xe8fc4 FixVelocity — EMPTY in the shipped binary (a compiled-out hook). The original
+// calls it right after PM_FixupGravityVelocity in TSDive/TSWallJump/TSWallJumpClimb.
+void FixVelocity()
+{
+}
+
+// @0xf97cc CanJumpHigh — a 128u velocity-direction probe on the DUCKED hull, then a 164u
+// point-contents check. DEAD in the shipped binary (the superjump gate stayed stock —
+// hint REFUTED). QUIRK kept: usehull is NOT restored on the success path.
+int CanJumpHigh()
+{
+	const int savehull = pmove->usehull;
+	Vector dir, start, end;
+	VectorCopy(pmove->velocity, dir);
+	VectorNormalize(dir);
+	VectorCopy(pmove->origin, start);
+	VectorMA(start, 128, dir, end);
+	pmove->usehull = 1;
+	pmtrace_t tr = pmove->PM_PlayerTrace(start, end, PM_NORMAL, -1);
+	if (tr.fraction != 1.0f)
+	{
+		VectorMA(pmove->origin, 164, dir, end);
+		const int contents = pmove->PM_PointContents(end, nullptr);
+		if (contents != CONTENTS_SOLID && contents != CONTENTS_SKY)
+			return 1; // NB: original leaves usehull ducked here
+	}
+	pmove->usehull = savehull;
+	return 0;
+}
+
 // ===== TS STUNT PREDICTION HOOKS (RE reference/STUNT.md §4) ==================
 // pev->iuser4 stunt flags networked into pmove->iuser4 (mirror dlls/ts_stunt.h).
 // TSHandle() is called from PM_PlayerMove (before PM_Duck) on BOTH the server and
@@ -104,6 +134,7 @@ void TSDive()
 	pmove->onground = -1;
 	pmove->iuser4 &= ~TSPM_WALLDIVE;
 	PM_FixupGravityVelocity();
+	FixVelocity(); // @orig: called right after (empty)
 }
 
 // wall-jump (TSWallJump @0xe9444): kick back off the faced wall.
@@ -118,6 +149,7 @@ void TSWallJump()
 		pmove->iuser4 &= ~TSPM_WALLJUMP;
 	}
 	PM_FixupGravityVelocity();
+	FixVelocity(); // @orig: called right after (empty)
 }
 
 // wall-climb (TSWallJumpClimb @0xe94e0): a straight upward kick.
@@ -130,6 +162,7 @@ void TSWallJumpClimb()
 		pmove->iuser4 &= ~TSPM_WALLCLIMB;
 	}
 	PM_FixupGravityVelocity();
+	FixVelocity(); // @orig: called right after (empty)
 }
 
 // the pm_shared dispatcher (TSHandle @0xe96a0) — keyed on pmove->iuser4.
