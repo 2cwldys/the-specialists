@@ -659,6 +659,14 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 	// view is the weapon model (only visible from inside body )
 	view = gEngfuncs.GetViewModel();
 
+	// TS: the viewmodel BODY refreshes EVERY FRAME from the predicted weapon state (the
+	// original's DAT_10191d5c mechanism) — deploy/zoom-return anims otherwise show a stale
+	// body until the next anim tick (the ~1 s attachment blink, round 7j).
+	{
+		extern int TS_PredictedViewmodelBody();
+		view->curstate.body = TS_PredictedViewmodelBody();
+	}
+
 	// transform the view offset by the model's matrix to get the offset from
 	// model origin for the view
 	bob = V_CalcBob(pparams);

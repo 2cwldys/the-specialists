@@ -55,6 +55,19 @@ Vector previousorigin;
 CGlock g_Glock;
 CTSGun g_TSGun; // the client-predicted TS arsenal weapon (weapon_tsgun)
 
+// The local viewmodel's BODY, from the PREDICTED weapon state — the original refreshes it
+// EVERY FRAME (dossier-attachments §5, DAT_10191d5c): the deploy/zoom-return anims otherwise
+// run with a stale body until the next anim tick (the ~1 s attachment "blink", round 7j).
+int TS_PredictedViewmodelBody()
+{
+	const int t = g_TSGun.m_weaponType;
+	if (t < 0 || t >= TSW_COUNT)
+		return 0;
+	if (t == TSW_M61)
+		return 1; // the m61 viewmodel hardcodes body 1 (dossier §4, grenade.sc handler)
+	return GetBodyByItems(t, g_TSGun.m_items[t].attach);
+}
+
 // The event handlers' hold-stance probe (the original FUN_1003df60 reads its own client cache;
 // ours is the predicted weapon's synced m_bHoldPosition).
 bool TS_LocalHoldPosition()
