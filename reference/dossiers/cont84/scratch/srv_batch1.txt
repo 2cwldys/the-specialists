@@ -1,0 +1,230 @@
+// ===== FUN @ 00081030 size=346 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gun.cpp */
+
+undefined4 CTSGun::Deploy(CTSGun *this)
+
+{
+  undefined4 uVar1;
+  int iVar2;
+  char *pcVar3;
+  
+  if (this->m_weaponType == 0) {
+    HolsterWeapon(this);
+  }
+  else {
+    this->field_0x9e0 = 0;
+    iVar2 = this->m_weaponType;
+    this->m_pActiveItem = (s_weapon_status *)(&this->field_0x114 + iVar2 * 0x38);
+    this->m_pActiveInfo = (s_weapon_info *)(&global_weapon_info + iVar2 * 0xf7);
+    (&this->field_0x13c)[iVar2 * 0xe] = iVar2 * 0x3dc + 0x17dd92;
+    uVar1 = GetBodyByItems__Fii(this->m_weaponType,this->m_pActiveItem->attachEquipped);
+    *(undefined4 *)&this->m_pActiveItem->field_0x18 = uVar1;
+    this->pev->body = *(int *)&this->m_pActiveItem->field_0x18;
+    this->m_pActiveItem->burstOrPhase = 0;
+    this->m_pActiveItem->holdPosition = '\0';
+    if (*(int *)&this->m_pActiveItem->field_0x28 == 0) {
+      iVar2 = 0;
+    }
+    else {
+      iVar2 = (int)*(short *)(*(int *)&this->m_pActiveItem->field_0x28 + 4);
+    }
+    if ((this->m_pActiveItem->attachEquipped & 1) == 0) {
+      pcVar3 = &this->m_pActiveInfo->szPlayerModel;
+    }
+    else {
+      pcVar3 = &this->m_pActiveInfo->field_0x1b2;
+    }
+    CBasePlayerWeapon::DefaultDeploy
+              (this,&this->m_pActiveInfo->szViewModel,pcVar3,iVar2,&this->m_pActiveInfo->szAnimExt,0
+               ,this->pev->body);
+    (*PTR_g_engfuncs_001778b8->pfnPlaybackEvent)
+              (1,this->m_pPlayer->pev->pContainingEntity,(uint)*(ushort *)&this->field_0x976,0,
+               PTR_g_vecZero_00177698,PTR_g_vecZero_00177698,0,0,this->m_weaponType,
+               this->m_pActiveItem->attachEquipped,0,0);
+    CTSAnimation::Animate
+              ((CTSAnimation *)&this->m_pPlayer->field_0x28c,(CBasePlayer *)this->m_pPlayer,0x34);
+    if ((char)(&this->m_pPlayer->field_0x49a)[this->m_weaponType] < '\x01') {
+      (&this->m_pPlayer->field_0x49a)[this->m_weaponType] = this->m_pActiveItem->fireMode + '\x01';
+    }
+    else {
+      this->m_pActiveItem->fireMode = (&this->m_pPlayer->field_0x49a)[this->m_weaponType] + -1;
+    }
+  }
+  return 1;
+}
+
+
+// ===== FUN @ 000817a8 size=534 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gun.cpp */
+
+void CTSGun::SecondaryAttack(CTSGun *this)
+
+{
+  s_weapon_status *psVar1;
+  entvars_t *peVar2;
+  s_weapon_info *psVar3;
+  int iVar4;
+  longdouble lVar5;
+  
+  if (this->m_pActiveItem == (s_weapon_status *)0x0) {
+    CCombatAttack(this);
+    return;
+  }
+  if (this->m_pActiveInfo->iFireType == '\x02') {
+    this->m_pActiveItem->pumpToggle = '\x01';
+    GrenadeFire(this);
+    return;
+  }
+  if (this->m_pActiveInfo->iFireType == '\x03') {
+    this->m_pActiveItem->pumpToggle = '\x01';
+    KnifeFire(this);
+    return;
+  }
+  if (this->m_pActiveInfo->iFireType == '\n') {
+    KatanaThrow(this);
+    return;
+  }
+  if (this->m_pActiveInfo->iFireType == '\v') {
+    return;
+  }
+  if (this->m_pActiveItem->fireMode == '\x04') {
+    if (((((CBasePlayer *)this->m_pPlayer)->m_afButtonPressed & 0x800) == 0) &&
+       (iVar4 = DoubleFireRate__FP11CBasePlayer((CBasePlayer *)this->m_pPlayer), iVar4 == 0)) {
+      return;
+    }
+  }
+  else if (this->m_pActiveItem->fireMode != '\x05') {
+    psVar1 = this->m_pActiveItem;
+    if ((psVar1->attachEquipped & 8) == 0) {
+      if ((psVar1->holdPosition == '\0') && (*(short *)&this->m_pActiveInfo->field_0x28c != -1)) {
+        psVar1->holdPosition = '\x01';
+        if (*(int *)&this->m_pActiveItem->field_0x28 == 0) {
+          iVar4 = 0;
+        }
+        else {
+          iVar4 = (int)*(short *)(*(int *)&this->m_pActiveItem->field_0x28 + 0xe);
+        }
+        (*this->vtbl->SendWeaponAnim)((CBasePlayerWeapon *)this,iVar4,1,this->pev->body);
+        *(undefined1 **)&this->m_pActiveItem->field_0x28 = &this->m_pActiveInfo->field_0x28c;
+      }
+      else if (*(short *)&this->m_pActiveInfo->field_0x28c != -1) {
+        this->m_pActiveItem->holdPosition = '\0';
+        if (*(int *)&this->m_pActiveItem->field_0x28 == 0) {
+          iVar4 = 0;
+        }
+        else {
+          iVar4 = (int)*(short *)(*(int *)&this->m_pActiveItem->field_0x28 + 0xe);
+        }
+        (*this->vtbl->SendWeaponAnim)((CBasePlayerWeapon *)this,iVar4,1,this->pev->body);
+        *(undefined1 **)&this->m_pActiveItem->field_0x28 = &this->m_pActiveInfo->field_0x252;
+      }
+    }
+    else {
+      peVar2 = this->m_pPlayer->pev;
+      if (fc_0 == peVar2->fov) {
+        if (this->m_pActiveInfo->zoomFov1 == 0) goto LAB_000819f3;
+        iVar4 = this->m_pActiveInfo->zoomFov1;
+      }
+      else {
+        psVar3 = this->m_pActiveInfo;
+        if ((psVar3->zoomFov2 == 0) || ((float)psVar3->zoomFov2 == peVar2->fov)) {
+          Unzoom(this);
+          goto LAB_000819f3;
+        }
+        iVar4 = psVar3->zoomFov2;
+      }
+      Zoom(this,iVar4);
+    }
+LAB_000819f3:
+    lVar5 = (longdouble)UTIL_WeaponTimeBase__Fv();
+    this->field_0xa0 = (int)(float)((longdouble)dc_0_3 + lVar5);
+    lVar5 = (longdouble)UTIL_WeaponTimeBase__Fv();
+    this->field_0xa8 = (int)(float)((longdouble)dc_1 + lVar5);
+    return;
+  }
+  Fire(this);
+  return;
+}
+
+
+// ===== FUN @ 00081710 size=52 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gun.cpp */
+
+void CTSGun::Zoom(CTSGun *this,int a0)
+
+{
+  this->m_pPlayer->pev->fov = (float)a0;
+  if (this->m_pActiveInfo->zoomFov1 < 0x28) {
+    this->m_pPlayer->pev->viewmodel = 0;
+  }
+  return;
+}
+
+
+// ===== FUN @ 00081748 size=96 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gun.cpp */
+
+void CTSGun::Unzoom(CTSGun *this)
+
+{
+  entvars_t *peVar1;
+  
+  this->m_pPlayer->pev->fov = 0.0;
+  peVar1 = this->m_pPlayer->pev;
+  if ((peVar1->viewmodel == 0) && (this->m_pActiveInfo != (s_weapon_info *)0x0)) {
+    peVar1->viewmodel =
+         (int)this->m_pActiveInfo + (0x132 - (int)(*PTR_gpGlobals_00177410)->pStringBase);
+  }
+  return;
+}
+
+
+// ===== FUN @ 0007f0a4 size=234 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_gun.cpp */
+
+int GetBodyByItems__Fii(int a0,int a1)
+
+{
+  short sVar1;
+  int iVar2;
+  
+  iVar2 = 0;
+  if ((a1 & 1U) != 0) {
+    iVar2 = (int)*(short *)(&DAT_0017dc68 + a0 * 0x3dc);
+  }
+  if ((a1 & 6U) == 6) {
+    if (*(short *)(&DAT_0017dc70 + a0 * 0x3dc) == -1) goto LAB_0007f114;
+    sVar1 = *(short *)(&DAT_0017dc70 + a0 * 0x3dc);
+  }
+  else {
+LAB_0007f114:
+    if ((a1 & 2U) != 0) {
+      iVar2 = iVar2 + *(short *)(&DAT_0017dc6a + a0 * 0x3dc);
+    }
+    if ((a1 & 4U) == 0) goto LAB_0007f15c;
+    sVar1 = *(short *)(&DAT_0017dc6c + a0 * 0x3dc);
+  }
+  iVar2 = iVar2 + sVar1;
+LAB_0007f15c:
+  if ((a1 & 8U) == 0) {
+    if (a0 == 0x24) {
+      iVar2 = iVar2 + 1;
+    }
+  }
+  else {
+    iVar2 = iVar2 + *(short *)(&DAT_0017dc6e + a0 * 0x3dc);
+  }
+  return iVar2;
+}
+
+

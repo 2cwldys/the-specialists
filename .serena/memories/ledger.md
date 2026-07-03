@@ -5,6 +5,45 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 84, chunk 5) — ROUND 8: the DEATH CHAPTER complete + fixes batch (session close)
+
+All user-driven, each answered with binary RE (commits c1013a9..2e63e70):
+- **DOUBLE-FIRE = FULL-AUTO predicts** (c1013a9): the trigger override existed; the predicted player's
+  m_iPowerups was never synced — now rides clientdata iuser4 + a NEW delta.lst clientdata_t entry
+  (12 bits; clientdata had NO iuser4 line = the silent-drop trap AGAIN).
+- **SUPERJUMP launch ordering** (604ac3d): the lift ARMS only when leaving the ground with duck+jump
+  held (m_bSuperJumpArmed); jump-then-duck (the climb motion) stays a normal jump.
+- **GLASS PIERCE answered** (already correct): pane count = damage arithmetic — arrived dmg > 5 ->
+  step min(2*dmg,48) -> depth-1 continuation carrying dmg x ai->flFactor2 (x0.5 extra through a body);
+  pane 2 breaks iff carried dmg >= its health; hard ceiling two surfaces; glass falloff = the caliber
+  factor ON TOP of distance (applied again on the second leg).
+- **KICKS DECODED** (6d7c1b3/541d0bb, decompile at cont84/kick_ccombatattack.c): bVar9 = 2+movingBack
+  (<=100 u/s: IN_BACK; else fwd-dot <= -0.5). STUNT kick (iuser4&0x50c30) move 4 dmg 15 · DUCK-KICK
+  (ONGROUND+duck) move 6 dmg 45 + view_ofs(0,0,16)+stunt0x4=2.0 · BACKKICK move 7 dmg speed*0.303
+  clamp[15,80] (ours flat 55!) · FRONT KICK (air + speed3D>270 (a running jump clears via z!) + duck +
+  fwd>0.5) move 8 (ours sent 0x10 = WRONG anim) dmg speed*0.1538 clamp[15,45] + THE VIEW DIP
+  view_ofs=(0,0,16)+timer 2.0. IMPLEMENT the chain rebuild from the file (also retires the FLY-animIdx
+  VERIFY). respawntime confirmed correct (user).
+- **THE DEATH CHAPTER, complete + user-matched vs the live original**:
+  · the respawn gate anchors AT DEATH (6e72139, @0x7ef8c) — the death-cam eats ~2-3 s: first number
+    N-2/N-3 (user-measured: 10 -> 8; floor 5 shows 3) · corpse at the TRANSITION not kill time
+    (4bed51e, @0x7eaec) · the corpse = the DEAD-PLAYER FX (c6027ba, @0x70234 decompile-exact:
+    renderfx 17 + player INDEX in rendercolor.r + renderamt 255 = the fade alpha, rendermode 1, FULL
+    velocity, animtime carried, SetSize, EF_NODRAW gate; Spawn @0x7040c = think only) · our stock
+    renderer branch read renderamt-as-index and REFUSED it -> reads rendercolor.r first (5304b1e — the
+    vanishing-body root cause) · first-person deaths now RENDER the body: the exported CL_IsThirdPerson
+    reports third person while dead-not-observer + the view.cpp death-chase branch runs FIRST (cam_ofs
+    unmaintained there; 80 back / 24 up = VERIFY vs the original camera RE) + the stock 80-degree dead
+    ROLL confined to observers (c6027ba) · the 3.0 s DEATH-CAM LINGER (338518f, decompile-exact: Killed
+    arms +0x768 = time+3.0 (const @0xf7f78); deadflag 2->3 staging tick; transition on deadline OR any
+    button != IN_SCORE) · the body does NOT mouse-rotate: server pin insufficient (prediction owns the
+    local body) -> CLIENT-side latch in StudioDrawPlayer (2e63e70; entity+curstate+latched+gait yaw
+    frozen; VERIFY the original's pm mechanism).
+- Round-8 items RECORDED for RE: viewmodel anim BLENDING (idle<->fire<->reload snap; the vm analogue of
+  the cont.81 blend work) · 3RD-PERSON floating reticle (world-projected aim point, WorldToScreen, lags
+  by design) + head-clearing chase cam + the death-cam constants — one camera-RE pass covers all three.
+- Scratch captures preserved: reference/dossiers/cont84/scratch/ (subagent batch decodes); client.dis/
+  nm_sorted are regenerable (objdump/nm).
 ## 2026-07-03 (cont. 84, chunk 4) — THE ATTACHMENT SAGA CLOSED (user: "perfect") — rounds 7i..7m
 
 The full silencer/scope system landed through a chain of SIX root causes, each found by evidence
