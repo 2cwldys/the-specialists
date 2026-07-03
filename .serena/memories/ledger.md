@@ -61,8 +61,33 @@ methods · 41 → 33 invented · CTSKnife 9/9 · CTSGun 42/47**. Commits `d80d29
 
 REMAINING melee tail: the closecombat.sc/coldcock.sc event swaps (client handlers fully RE'd in
 dossier-ev-melee.md; needs per-gun block[28] extraction) · CTSGun missing: EmptySound, GrenadeIdle,
-ReloadWeapon, StopReload (+CBasePlayer CheckForWires/PickUpWeapon/ShootBulletsPlayer/TSInit). NEXT: gmsg
-U0–U5 per HANDOFF, then freefuncs F1–F10.
+ReloadWeapon, StopReload (+CBasePlayer CheckForWires/PickUpWeapon/ShootBulletsPlayer/TSInit).
+
+### gmsg U-units applied (cont.82 continued; commits b57fe1c..9cd2a5d)
+- **U0 (b57fe1c)** registration-set parity: SelAmmo(4) FIRST + the linked guard; ClipInfo(1) registered
+  (+ client CHudTSWeaponBar::MsgFunc_ClipInfo); DELETED StatusText/StatusValue (UpdateStatusBar neutered),
+  Weapons (HLU 64-bit weapon bits — PLAYTEST-GATED; client hook+MsgFunc gone, m_iWeaponBits stays 0),
+  Flashlight/FlashBat (regs+sends+client hooks; battery logic kept wire-less); gmsgTSKickAlign dead-global
+  parity. Coverage extras 8→5.
+- **U1 (96a7e68)** TSState (0x498/0x499, posture wire now drives the client figure — g_iTSProne + usehull
+  derivation DELETED) · TSSpace (free slots recompute) · TSBTime (m_bSlowBullets IS the 0x175 byte —
+  star-settled; client g_bBulletTime now feeds TS_AddViewRecoil's bullet-time reduction, closing that VERIFY).
+- **U1d (8be3cda)** TSPAward: m_iAward 0x74c + 0x74d cache, MSG_ALL entindex+byte on-change; producers wired
+  where hosts exist (spawn clear, The One=10, RestartRound=11, Killed=11); out-of-round 1 + kill tiers 2/3/4
+  await SetPlayerRespawnTime/PlayerKilled-tier passes. Client per-player g_iTSPlayerAward[] table.
+- **U2 (693c5c5)** PlInfo: client announces cl_lasercolor changes via the lasclr_<n> PREFIX server cmd;
+  server rebroadcasts MSG_ALL (idx, 0, raw byte); client colors OTHER players' lasers from it (default-red
+  SLICE closed). PLAYTEST: two-client laser colors.
+- **U4a (9cd2a5d)** PTakeDam(13) disasm-verbatim: TraceAttack throttled (0.3s, +0x750) MSG_PVS hit point +
+  dir + encoded byte (dmg*0.5, x8 under bit25, cap 127, +128 upper body); stock Damage stays REGISTERED but
+  its send is REMOVED (original never sends); client CHudHealth hooks PTakeDam (Damage hook kept) → pain
+  direction. VERIFY tail: client FUN_10048840 bit7 decode/hit effect.
+- **PENDING gmsg**: U3 SrvSett (star-SETTLED: id0=realbullet cache 0x578, id1=dmcashbased/usecash bool,
+  id2=ammocount + Set_ammo_count BEFORE the MSG_ALL send, id3=weaponrestriction bitmask 0x5870&0x586c;
+  InitHUD sends ALL FOUR MSG_ONE; needs Set_ammo_count = freefuncs F2 first) · U3b Wires (needs
+  CBasePlayer::CheckForWires) · U4b TSFade (decompile UTIL_ScreenFadeWrite @0xdcc54 first) · U5 CustomWP
+  (needs iPrice extraction + the TS_util SendWeaponParams family — freefuncs F2/util). NEXT: freefuncs
+  F1/F2, then back for U3/U5.
 
 ---
 
