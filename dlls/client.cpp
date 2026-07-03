@@ -658,6 +658,7 @@ void ClientCommand(edict_t* pEntity)
 		{
 			const char *a = CMD_ARGV(i);
 			const char *u = strchr(a, '_');
+			ALERT(at_console, "TSBUY tkw token '%s' -> type %d val %d\n", a, atoi(a), u ? atoi(u + 1) : 0); // round-7i diagnostic
 			player->AddItemToArmament(atoi(a), u ? atoi(u + 1) : 0, false);
 		}
 	}
