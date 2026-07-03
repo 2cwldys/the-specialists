@@ -105,6 +105,19 @@ gmsgSetCurWeap/objects/roundtime) · 3 invented globals (g_TSGun/g_tsActive/g_ts
   the wi+0x306 rack sound at ent-1 CHAN_WEAPON (the no-cutoff trick); grenade.sc = our path already right;
   firelinked.sc bparam1=barrel bparam2=SEED (collides with our akimbo bparam2 extension!). Wiring = next.
 
+### Playtest round 5 (the ammo-economy mismatch, user-caught: m16 18/58 vs original 18/120; bef399c)
+- TakeWeapon @0x70a04 grants NO reserve (our iClip*3 was invented); its 3rd arg = the ATTACHMENT
+  MASK (BuyWeapon @0x845bc prices silencer 900/laser 800/flash 500/scope 1800 and passes the bits;
+  the PickUpWeapon reshape had mislabeled it iClip). Fresh attach = mask|builtin & supported,
+  laser/flash start active; akimbo combine unions attach/active both slots; a single REFUSES while
+  its akimbo is owned. STACK MODEL: iPellets(+0x24) = the CARRY CAP (knife 5/seal 10/m61 2); the
+  merge is +1 per take, cap-gated; the knife/seal table clips reverted to Write_ truth (iClip=1) —
+  the old x5/x10 overrides compensated for BuyArmament ignoring the queued count (now loops
+  BuyWeapon per unit; 2 identical pistols combine into the akimbo through the same path).
+- BuyAmmo @0x841e8 = FILL TO CAP one mag at a time (per-mag charge when cash; free -> iMaxCarry =
+  the 120); -2 = every owned caliber. Ground weapon tops only an EMPTY reserve (@0x925ec).
+- Sparta cross-checked: only spread/viewkick/recoil/damage — clips/caps are Write_-stage truth.
+
 NEW VERIFY items this session: TraceAttack spawn-grace refusal (@0x801eb) + the 0x10c10 stunt dmg mult ·
 PlayerKilled kill-tier/slow-mo-reward tail · the "Spectator" wire (ours state+seconds vs original idx+flag) ·
 TSItem::hOwner consumer (sell-zone?) · the V11 LMS countdown HUD · ResetRestartRound still reads the dead
