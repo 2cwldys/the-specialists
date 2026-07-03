@@ -1046,11 +1046,12 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;
 #ifndef CLIENT_DLL
-	// Server: penetrating fire (glass/thin walls let the round through to what's behind, decalling
-	// both faces) — the original ShootBulletsPlayer path.
-	TSFireBulletsPenetrate(m_pPlayer, cPellets, vecSrc, vecAiming,
-		Vector(flSpread, flSpread, flSpread), 8192,
-		(int)(wi->flDamage * TSDamageMult()), m_pPlayer->random_seed, wi->iCaliber);
+	// @0x72759 (the StandardFire call site): (iPellets, src, aim, (s,s,s), flDamage,
+	// wi->iKnifeType (0 for firearms), iCaliber, random_seed). damagemult applies INSIDE
+	// (cheat-gated) — the old outer TSDamageMult was double-applying it.
+	m_pPlayer->ShootBulletsPlayer((unsigned char)cPellets, vecSrc, vecAiming,
+		Vector(flSpread, flSpread, flSpread), wi->flDamage, wi->iKnifeType,
+		wi->iCaliber, m_pPlayer->random_seed);
 #else
 	// Client prediction: spread/recoil only (damage + decals are server-authoritative).
 	m_pPlayer->FireBulletsPlayer(cPellets, vecSrc, vecAiming,
@@ -1699,111 +1700,6 @@ void CTSGun::ColdCock()
 
 #ifndef CLIENT_DLL
 
-// @ ShootBulletsPlayer (@0x6f69c) — the TS bullet path's PENETRATION (the original's pierce
-// recursion). Fires cShots pellets (player-synced spread, mirroring FireBulletsPlayer), and on each
-// brush/world hit lets the bullet PUNCH THROUGH a thin surface to damage what's behind: after a hit,
-// step `min(damage*2, 48)` forward; if that point is NOT inside world solid (the slice is thinner
-// than the bullet can pierce, OR it's an entity brush like glass), the bullet continues — decalling
-// BOTH the entry face and the exit (back) face, and re-tracing onward. So firing at glass breaks it
-// AND the round hits the wall beyond, with bullet-holes punched in each surface it crossed. Server
-// only: the client's prediction FireBulletsPlayer (hl_weapons.cpp) just does the spread/recoil.
-// (still inside the #ifndef CLIENT_DLL opened above — these are server-only)
-void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vector vecDir,
-	Vector vecSpread, float flDist, int iDamage, int seed, int caliber)
-{
-	entvars_t *pevAttacker = pPlayer->pev;
-	const Vector vecRight = gpGlobals->v_right;
-	const Vector vecUp = gpGlobals->v_up;
-
-	// Per-pierce damage multiplier, RE-matched to ShootBulletsPlayer: damage_adjust = the `damagemult`
-	// cvar VALUE (read raw as *(damagemult+0xc)), NOT a fixed 0.75. It defaults to 0, so a penetrating
-	// round does ZERO damage to layers beyond the first — they get a bullet DECAL but do NOT break
-	// (this is why shooting two glass panes breaks only the first and just decals the one behind it).
-	const float damageAdjust = CVAR_GET_FLOAT("damagemult");
-
-	// RE ShootBulletsPlayer `rbullet` gate: when the shooter is in slow-motion (slow factor < 0.99),
-	// each pellet becomes a flying bullet (CBulletManager) instead of an instant hitscan — it crosses
-	// the map and damages where it actually arrives (dodgeable in slow-pause). See ts_bullet.cpp.
-	float shooterSlow = pPlayer->pev->fuser1;
-	if (shooterSlow < 0.01f)
-		shooterSlow = 0.01f;
-	const bool slowBullets = shooterSlow < 0.99f;
-
-	for (int iShot = 1; iShot <= cShots; iShot++)
-	{
-		// player-synced gaussian spread (same formula as FireBulletsPlayer)
-		float x = UTIL_SharedRandomFloat(seed + iShot, -0.5, 0.5) +
-			UTIL_SharedRandomFloat(seed + (1 + iShot), -0.5, 0.5);
-		float y = UTIL_SharedRandomFloat(seed + (2 + iShot), -0.5, 0.5) +
-			UTIL_SharedRandomFloat(seed + (3 + iShot), -0.5, 0.5);
-		Vector dir = vecDir + x * vecSpread.x * vecRight + y * vecSpread.y * vecUp;
-
-		if (slowBullets)
-		{
-			g_BulletManager.FireBullet(pPlayer, vecSrc, dir, (float)iDamage, caliber); // flies as a tracked bullet
-			continue;
-		}
-
-		Vector start = vecSrc;
-		float dmg = (float)iDamage;
-
-		// Penetration chain, RE-matched to CBasePlayer::ShootBulletsPlayer (@0x5f69c): one UNIFORM loop —
-		// no glass-specific branch. Each layer takes the damage (ApplyMultiDamage shatters glass iff dmg >=
-		// its health), then the round penetrates iff the surface is thinner than min(dmg*2, 48): we step
-		// `beyond` that far along the ray and continue when UTIL_PointContents(beyond) != CONTENTS_SOLID.
-		// Because PointContents only tests WORLD brushes, entity brushes (glass/doors) always read non-solid,
-		// so the bullet always passes through them (leaving a hole) whether or not they shattered — exactly
-		// the original. (cap = runaway backstop; the original recurses with mode=2.)
-		for (int pen = 0; pen < 8; pen++)
-		{
-			TraceResult tr;
-			// the TS bullet trace (player absboxes inflated +/-32u — UTIL_TraceLine_Expanded)
-			UTIL_TraceLine_Expanded(start, start + dir * flDist, dont_ignore_monsters, ENT(pevAttacker), &tr);
-			if (tr.flFraction == 1.0f)
-				break; // hit nothing
-
-			// range-damage falloff (@0x5f949/@0x5fdc8): kind 2 -> idx = dist/30; else
-			// idx = dist/rangeUnit; damage *= clamp(1/sqrt(0.1 idx), 0, 1). Distance from
-			// the current layer start (the original recursion re-bases per layer).
-			const float hitDist = (tr.vecEndPos - start).Length();
-			const s_ammo_info *ai = get_ammo_info(caliber);
-			int rIdx;
-			if (ai->iKind == 2)
-				rIdx = (int)(hitDist * (1.0f / 300.0f) * 10.0f + 0.5f);
-			else
-				rIdx = (ai->iRangeUnit > 0) ? (int)(10.0f * (hitDist / (10.0f * (float)ai->iRangeUnit)) + 0.5f) : 0;
-			const float hitDmg = dmg * get_range_multipler(rIdx);
-
-			CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
-			ClearMultiDamage();
-			gMultiDamage.type = DMG_BULLET | DMG_NEVERGIB;
-			pHit->TraceAttack(pevAttacker, hitDmg, dir, &tr, DMG_BULLET | DMG_NEVERGIB); // orig DMG bits 0x1002
-			// NB: the bullet ric impact SOUND is played CLIENT-side now (cl_dll/ev_ts.cpp EV_TSBulletImpact),
-			// not here. The old server EMIT_AMBIENT_SOUND on the WORLD entity spawned a PERSISTENT static
-			// sound at the impact point, so far-away wall hits were heard "as you walked up to them".
-			// NO server-side bullet decal — the original lays it CLIENT-side (cl_dll/ev_ts.cpp
-			// EV_TSBulletImpact -> R_DecalShoot "{shot"); its server ShootBulletsPlayer lays none. Doing
-			// it server-side broke drop-in compat (double decal vs the original client; none vs the
-			// original server). The client decals only the FIRST hit (one trace), so there's no exit hole.
-			ApplyMultiDamage(pevAttacker, pevAttacker); // shatters glass iff dmg >= pane health (20)
-
-			if (dmg <= 5.0f) // orig: damage > 5.0 to keep piercing
-				break;
-			float penDepth = dmg * 2.0f; // orig: min(dmg*2, 48)
-			if (penDepth > 48.0f)
-				penDepth = 48.0f;
-			Vector beyond = tr.vecEndPos + dir * penDepth;
-			if (UTIL_PointContents(beyond) == CONTENTS_SOLID)
-				break; // world surface thicker than the round can pierce — stop here
-
-			// (No exit-hole decal — the original lays decals client-side on the first hit only, so there
-			// is no back-face mark. Penetration still steps past this layer for the damage pass below.)
-			start = beyond; // continue past this layer
-			dmg *= damageAdjust; // orig damage_adjust = damagemult cvar value (default 0 → 0 dmg beyond layer 1)
-		}
-	}
-}
-
 // @ CTSStunt::CheckForBreakables (@0x9bd9c) — the dive/run-THROUGH-breakables barge, called every
 // PreThink. When moving fast (speed ≥ 64), trace a hull forward ALONG THE VELOCITY direction (64u)
 // and damage whatever is there (damage = speed), so flying/running into glass shatters it (a clean
@@ -2234,9 +2130,10 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 		// Muzzle offset to the firing gun's side (+5u right / -5u left), like the original.
 		Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_right * (leftSide ? -5.0f : 5.0f);
 #ifndef CLIENT_DLL
-		TSFireBulletsPenetrate(m_pPlayer, 1, vecSrc, vecAiming,
-			Vector(flSpread, flSpread, flSpread), 8192,
-			(int)(wi->flDamage * TSDamageMult()), m_pPlayer->random_seed, wi->iCaliber);
+		// @0x72e62/0x72fff/0x73133: one pellet per fired barrel through the TS bullet path.
+		m_pPlayer->ShootBulletsPlayer(1, vecSrc, vecAiming,
+			Vector(flSpread, flSpread, flSpread), wi->flDamage, wi->iKnifeType,
+			wi->iCaliber, m_pPlayer->random_seed);
 #else
 		m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
 			Vector(flSpread, flSpread, flSpread), 8192, BULLET_PLAYER_9MM,

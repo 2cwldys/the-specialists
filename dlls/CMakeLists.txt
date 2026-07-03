@@ -121,6 +121,7 @@ target_sources(hl PRIVATE
 	ts_func_break.cpp
 	ts_gun.cpp
 	ts_deadcorpse.cpp
+	TS_combat.cpp
 	TS_entities.cpp
 	TS_objectives.cpp
 	ts_powerup.cpp

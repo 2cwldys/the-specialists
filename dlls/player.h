@@ -499,6 +499,10 @@ public:
 		int iAnim, bool bDisarm, bool bPlayersOnly, bool bKnockback, bool bForceTeamSafe);
 	CBaseEntity *ColdCockAttack(Vector vecSrc, Vector vecEnd, Vector vecDir, int iHull, float flDamage,
 		int iAnim, bool bDisarm, bool bPlayersOnly, bool bKnockback, bool bForceTeamSafe);
+	// @0x5f69c (TS_combat.cpp) — the TS bullet path: polar cubic spread, range falloff,
+	// one MultiDamage batch per volley, depth-1 pierce (iMode 2), rbullet -> CBulletManager.
+	Vector ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vector vecDirShooting,
+		Vector vecSpread, float flDamage, int iMode, int iCaliber, int shared_rand);
 	void DropArmor();                                     // @0x83a3c — drop armorvalue as a CTSAmmoPack
 	void DropAmmo();                                      // @0x846f0 — drop the gun's reserve as a CTSAmmoPack
 	void UpdatePlayerState();                             // @0x82a08 — derive m_iPlayerState (locked/frozen/normal)

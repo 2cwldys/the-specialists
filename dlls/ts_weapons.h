@@ -39,11 +39,6 @@ void TSLastInv(CBasePlayer *pPlayer);
 // no active weapon — no viewmodel + ItemPostFrame (firing) never runs. See dlls/ts_gun.cpp.
 void TSDeployArsenal(CBasePlayer *pPlayer);
 
-// The TS bullet path with PENETRATION (orig ShootBulletsPlayer @0x6f69c): fire cShots pellets;
-// bullets punch through thin surfaces (glass/thin walls) to hit + decal what's behind. Server only.
-void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vector vecDir,
-	Vector vecSpread, float flDist, int iDamage, int seed, int caliber);
-
 // Slow-world sound pitch (1..100 = 100*perceivedSlow); pitches NORMAL-recorded combat sounds DOWN in
 // slow-motion. Defined in ts_gun.cpp; shared by ts_knife.cpp / ts_bullet.cpp. See its definition.
 int TSSlowPitch(CBasePlayer *p);
