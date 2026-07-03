@@ -45,3 +45,7 @@ CTSStunt	0x30	FLOAT	float	m_flSlideTime	4
 CTSStunt	0x34	FLOAT	float	m_flBulletTimeEnd	1
 CTSStunt	0x38	FLOAT	float	m_flWallClimbFuel	4
 CTSStunt	0x3c	INTEGER	int	m_iWallClimbCount	2
+CTSKnife	0x88	FLOAT	float	m_flExpire	1
+CTSKnife	0x90	INTEGER	byte	m_bInFlight	1
+CTSKnife	0x91	INTEGER	byte	m_iKatanaFlag	1
+CTSKnife	0xa0	INTEGER	int	m_knifeType	1

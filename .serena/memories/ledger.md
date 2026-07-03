@@ -5,6 +5,67 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-02 (cont. 82) — melee S7a/b/c + S8 + HolsterWeapon + S10 applied (the blade split, both sides)
+
+Continued `restructure-source-parity` (NOT merged; GPG off). Applied the rest of the cont.81 melee dossier
+centrally, every commit build-green (`build.sh amd64 all`) + nm-T-gated. Headline moved **13 → 8 missing
+methods · 41 → 33 invented · CTSKnife 9/9 · CTSGun 42/47**. Commits `d80d29a..`:
+
+- **S7a (d80d29a)**: `CTSGun::SecondaryAttack` extracted decompile-exact (@0x717a8, fresh dc.sh decompile —
+  scratch secondaryattack.c): grenade/knife write item+0x24 (new `TSItem.altMode`) then share the primary
+  fire fn; katana → new `KatanaThrow` (@0x73b68 verbatim: 32u wall-clipped eye trace, 1000 u/s, roll 90 /
+  spin -700, TSA_CC_KNIFELAUNCH gated, katana/miss.wav 95+rand31, !InfiniteClips → DropWeapon + speed);
+  fire-type 11 no-op; **akimbo modes 4/5 route right-click to Fire() (the other hand) — replaced our
+  invented SwitchBarrel right-click**; scope-vs-hold branch on attach&8; **timer tail fixed to the
+  original's secondary +0.3 / idle +1.0** (ours had primary+0.3/secondary+1.0 swapped); DELETED the
+  invented kungfu-powerup armed-kick fallback (not in the original — where the original grants it is a
+  task-#5 question). CreateKnife/TSThrowKnife contract → `(player, pos, vel, knifeType 6/7/8)`, damage
+  stays inside CTSKnife, orientation moved to the THROWERS. PLAYTEST-GATED: akimbo right-click now fires.
+- **S8 + S7b server (a941f0b)**: CTSKnife re-transcribed from a fresh BounceTouch decompile — **the old
+  settle machinery was materially wrong**: in-flight (+0x90) clears on any sub-700 u/s touch; katana flag
+  (+0x91) re-derived EVERY touch; worldspawn EMBED = SOLID_NOT + **MOVETYPE_FLY** + back-off 6 + roll 90
+  for BOTH fast head-on AND slow (<100) touches; fast+glancing deflects with NO settle; all blades use the
+  knife_* wavs; the common tail installs **WaitTouch** (@0x6dce8 verbatim: ONGROUND ×0.5 damp, <32 →
+  flat+stop) + WaitThink + gravity .75 + expire +10 (settled knife lives ~10 s, NO glow). Use @0x6dda4
+  exact gates: in-flight refusal, **katana +USE only for KungFu() players** (L13 — playtest flag: binary
+  unambiguous, user recollection said otherwise), expired → silent remove, failed pickup keeps the knife
+  (TSPickUpWeapon now returns success). DELETED StartSettle/SettleThink/BecomePickup/PickupTouch/StickAt/
+  Classify. + `KatanaFire` server (@0x733f0): the 5-stance table (stunt/back -75/duck/normal-alternating/
+  air speed-scaled), signed-damage reverse CheckHull, VictimKatanaHold, bloody blade (item+0x8+pev->body),
+  whiff-lunge, STOP root, **katana.sc every swing** (FEV_NOTHOST, iparam1=vmAnim 15/16/17, iparam2=bloody).
+- **S7b client (4fb5a39)**: a fresh subagent RE'd ALL FIVE client.dll melee/draw handlers →
+  `reference/dossiers/cont81/dossier-ev-melee.md` (+ev_*.c). Key contract: melee pitch = **25 +
+  75*timescale + rand(-5,5)** (bullet-time scaled), vol RandomFloat(.92,1), anim = the **wi+0x252
+  short block** (draw [2], swings [15..17], coldcock [28]; hold twin +0x28c; closecombat.sc iparam2 =
+  raw block index, fparam1 = weaponType float; draw.sc anim = in-eye spectators ONLY). Implemented
+  `EV_TSKatana` (LAB_10044230 faithful: id-15 traces 55 BEHIND, miss/miss1 50/50, texture-note classifier,
+  12 glints, flesh silent + forces bloody, anim remapped via the block) + the shared kit
+  (TS_MeleeSoundPitch/Volume, TS_MeleePlayTextureSound = FUN_10045df0 clone, TS_InEyeSpectating).
+  **iSwingAnims[3] recovered from the Write_* disasm** (knife 3/4/5 · seal 2/3/4 · katana 4/3/2).
+- **S7c (f1d69c4)**: `KnifeFire` @0x74044 — slash+throw on altMode; MeleeAttack/ThrowKnife/m_slashStep
+  DELETED. Slash: CheckHull hull-3 @35u (was a 48/64 point trace), **DMG_SLASH|NEVERGIB 0x1004** (was
+  CLUB), props take NO slash damage, VictimKnifeHold gate, bloody state, victim-edict hitbody, whiff-arm;
+  **knife.sc now plays EVERY slash (FEV_NOTHOST, iparam1=weaponType, iparam2=bloody)** — the old
+  surface-hit-only+coords wire was original-client-incompatible. Throw: wall-clipped spawn, consume
+  !InfiniteClips, DropWeapon at 0, model-derived redraw + draw.sc + idle 2.0. Client `EV_TSKnife`
+  (LAB_10043c90 faithful; client picks the swing RandomLong(0,2)); per-swing view shake kept on both.
+- **S7-fold (7bf4d68)**: `HolsterWeapon` @0x85698 extracted from SelectWeapon — holster TO BARE HANDS
+  (whiff-clear-on-switch, m_flNextAttack +0.5 = player+0x12c, anim-override clear, kungfu viewmodel +
+  draw.sc(0) on every switch, combo resets). GrenadeIdle(1) put-away noted (method still missing).
+- **S10**: stock-HL client event hooks DELETED from Game_HookEvents (registration parity; the 19 REPORT
+  "extra events" remain as binary strings until the stock weapon sources leave the client build — #5).
+  members_re.tsv += CTSKnife 0x88/0x90/0x91/0xa0. coverage.py: katana.sc/knife.sc matched; events still
+  missing = closecombat/coldcock/empty/firelinked/grenade/pump (the gun-event tail + the S5/S6-deferred
+  closecombat.sc/coldcock.sc swaps — the anim-block data for GUNS (block[28] etc.) needs a bulk Write_*
+  extraction pass first).
+
+REMAINING melee tail: the closecombat.sc/coldcock.sc event swaps (client handlers fully RE'd in
+dossier-ev-melee.md; needs per-gun block[28] extraction) · CTSGun missing: EmptySound, GrenadeIdle,
+ReloadWeapon, StopReload (+CBasePlayer CheckForWires/PickUpWeapon/ShootBulletsPlayer/TSInit). NEXT: gmsg
+U0–U5 per HANDOFF, then freefuncs F1–F10.
+
+---
+
 ## 2026-07-02 (cont. 81) — workflow-orchestrated RE fan-out + the file-consolidation plan applied (C1–C20)
 
 Continued `restructure-source-parity` (NOT merged; GPG off). NEW METHOD this session (user-directed): **multi-agent

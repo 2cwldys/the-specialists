@@ -107,11 +107,11 @@ globals → free functions**. Driver = `scripts/coverage/audit.py [<Class>]`. Cu
 ### ⭐ WHERE TO GO (the queue, in order — the RE for ALL of it is DONE; only application remains)
 **The dossiers + plans + typed decompiles are COMMITTED at `reference/dossiers/cont81/` (see its README —
 regenerate anything else via re.sh).** Do NOT redo the RE fan-out; apply:
-1. **Melee S7a/b/c + S8 + S10** (`dossier-melee.md` §3): the knife/katana split — KatanaThrow+SecondaryAttack,
-   KatanaFire (5-stance), KnifeFire (absorbs MeleeAttack/ThrowKnife); S8 CTSKnife WaitTouch + settle/pickup
-   rewire (absorbs StartSettle/SettleThink/BecomePickup/PickupTouch/Classify); S10 audit close-out. ⚠ S7's
-   knife.sc/katana.sc/draw.sc WIRE-FORMAT swaps need the CLIENT event handlers updated simultaneously.
-   HolsterWeapon is now fully decompiled (`holster.c`) — it's one of the 13 missing; fold it in during S7.
+1. ✅ **DONE (cont.82, d80d29a..): Melee S7a/b/c + S8 + S10 + HolsterWeapon** — the blade split landed BOTH
+   sides (headline 13→8 missing · 41→33 invented; CTSKnife 9/9; ledger cont.82 entry has the detail). The
+   client handler contract for ALL FIVE melee/draw events is now RE'd at `dossier-ev-melee.md` (+ev_*.c).
+   LEFT OVER: the closecombat.sc/coldcock.sc event swaps (handlers RE'd; need a bulk Write_* extraction of
+   the per-GUN anim block [28] first) + CTSGun EmptySound/GrenadeIdle/ReloadWeapon/StopReload.
 2. **gmsg U0–U5** (`dossier-gmsg.md` + `star_*.md`): U0 registration-set parity FIRST (add SelAmmo/ClipInfo,
    DELETE our invented gmsgStatusText/StatusValue/Weapons/Flashlight/FlashBat regs — gmsgWeapons removal is
    playtest-gated vs HLU weapon-bits), then TSState/TSSpace/TSBTime/TSPAward/PlInfo/SrvSett/Wires/PTakeDam/

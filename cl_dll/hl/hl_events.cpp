@@ -41,24 +41,8 @@ void Game_HookEvents()
 	gEngfuncs.pfnHookEvent("events/draw.sc", EV_TSDraw); // TS: weapon_tsgun Deploy (param-cache seed)
 	gEngfuncs.pfnHookEvent("events/knife.sc", EV_TSKnife); // TS: knife slash (whoosh/impact/vm anim)
 	gEngfuncs.pfnHookEvent("events/katana.sc", EV_TSKatana); // TS: katana swing (whoosh/impact/vm anim)
-	gEngfuncs.pfnHookEvent("events/glock1.sc", EV_FireGlock1);
-	gEngfuncs.pfnHookEvent("events/glock2.sc", EV_FireGlock2);
-	gEngfuncs.pfnHookEvent("events/shotgun1.sc", EV_FireShotGunSingle);
-	gEngfuncs.pfnHookEvent("events/shotgun2.sc", EV_FireShotGunDouble);
-	gEngfuncs.pfnHookEvent("events/mp5.sc", EV_FireMP5);
-	gEngfuncs.pfnHookEvent("events/mp52.sc", EV_FireMP52);
-	gEngfuncs.pfnHookEvent("events/python.sc", EV_FirePython);
-	gEngfuncs.pfnHookEvent("events/gauss.sc", EV_FireGauss);
-	gEngfuncs.pfnHookEvent("events/gaussspin.sc", EV_SpinGauss);
-	gEngfuncs.pfnHookEvent("events/train.sc", EV_TrainPitchAdjust);
-	gEngfuncs.pfnHookEvent("events/vehicle.sc", EV_VehiclePitchAdjust);
-	gEngfuncs.pfnHookEvent("events/crowbar.sc", EV_Crowbar);
-	gEngfuncs.pfnHookEvent("events/crossbow1.sc", EV_FireCrossbow);
-	gEngfuncs.pfnHookEvent("events/crossbow2.sc", EV_FireCrossbow2);
-	gEngfuncs.pfnHookEvent("events/rpg.sc", EV_FireRpg);
-	gEngfuncs.pfnHookEvent("events/egon_fire.sc", EV_EgonFire);
-	gEngfuncs.pfnHookEvent("events/egon_stop.sc", EV_EgonStop);
-	gEngfuncs.pfnHookEvent("events/firehornet.sc", EV_HornetGunFire);
-	gEngfuncs.pfnHookEvent("events/tripfire.sc", EV_TripmineFire);
-	gEngfuncs.pfnHookEvent("events/snarkfire.sc", EV_SnarkFire);
+	// The stock-HL weapon event hooks (glock/shotgun/mp5/python/gauss/crowbar/crossbow/rpg/egon/
+	// hornet/tripmine/snark) are DELETED — the original TS client hooks only its own 11 events
+	// (registration parity; the stock weapons aren't playable in TS). train.sc/vehicle.sc are
+	// engine-func pitch adjust, also absent from the original's hook set.
 }
