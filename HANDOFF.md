@@ -97,6 +97,25 @@ Spectator wire, the gmsg central registration, the cvar renames, the door-helper
 6. Deferred playtest confirms: bots (telefrag/kill-feed/spawn-scorer), two-client laser colors,
    door respawn on a breakable-door map, the LMS window, TSFrags shatter regression.
 
+### ROUND 8 (user findings, recorded verbatim — RE each before coding)
+- **Viewmodel anim BLENDING**: idle->fire, fire->idle, reload->idle, fire->reload all SNAP; "most
+  animations should blend into others, if not all". GoldSrc vm sequences hard-switch by default ->
+  the original client must blend viewmodel transitions (its StudioModelRenderer / weaponanim path).
+  RE the original client's vm draw for a blend window (cf. the cont.81 gait/blend work — the
+  server-side player blend re-latch shim exists; this is the VIEWMODEL analogue).
+- **Melee KICKS**: jump+duck+RIGHT-CLICK on melee = FRONT KICK moving forward / BACK KICK moving
+  backward. We have GoWheel dir==3 backkick (cont.81) — this is a SEPARATE airborne-duck kick pair;
+  check CCombatAttack/CloseAttack move gating + the FLY-family animIdx VERIFY (task #8 item).
+- **DOUBLE-FIRE powerup = FULL-AUTO**: with the doubletap-E double-fire-rate powerup active, SEMI
+  weapons fire full-auto while held. Our semi gate requires trigger release — find the original's
+  DoubleFireRate bypass in the ItemPostFrame/Fire semi leg (we already call DoubleFireRate() for
+  the x0.5 cadence).
+- **GLASS PENETRATION depth**: beretta 92f breaks TWO panes per shot; others break one — what gates
+  pane count (caliber? damage? iMode?) and does glass add damage falloff beyond distance? RE
+  ShootBulletsPlayer's pierce recursion (depth-1, iMode 2, the /30 falloff leg) + CheckForBreakables
+  vs per-weapon fields. (cont.83: "pierce = DEPTH-1 recursion... flFactor2 decay x0.5 through a
+  body" — glass may consume depth differently.)
+
 ### Tooling notes added this session
 - `test.sh`: `GDB=1` = interactive gdb attach (catch segfaults/hangs; `NOBUILD=1` preserves a debug
   build); `BUILDTYPE=RelWithDebInfo scripts/build.sh` = line numbers.
