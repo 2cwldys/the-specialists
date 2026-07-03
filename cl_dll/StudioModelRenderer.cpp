@@ -1222,17 +1222,16 @@ bool CStudioModelRenderer::StudioDrawModel(int flags)
 	}
 	StudioSaveBones();
 
+	// TS: attachments computed every draw (see StudioDrawPlayer note).
+	StudioCalcAttachments();
+	if (m_pCurrentEntity->index > 0)
+	{
+		cl_entity_t* ent = gEngfuncs.GetEntityByIndex(m_pCurrentEntity->index);
+		memcpy(ent->attachment, m_pCurrentEntity->attachment, sizeof(Vector) * 4);
+	}
 	if ((flags & STUDIO_EVENTS) != 0)
 	{
-		StudioCalcAttachments();
 		IEngineStudio.StudioClientEvents();
-		// copy attachments into global entity array
-		if (m_pCurrentEntity->index > 0)
-		{
-			cl_entity_t* ent = gEngfuncs.GetEntityByIndex(m_pCurrentEntity->index);
-
-			memcpy(ent->attachment, m_pCurrentEntity->attachment, sizeof(Vector) * 4);
-		}
 	}
 
 	if ((flags & STUDIO_RENDER) != 0)
@@ -1515,17 +1514,20 @@ bool CStudioModelRenderer::StudioDrawPlayer(int flags, entity_state_t* pplayer)
 
 	m_pPlayerInfo = NULL;
 
+	// TS: compute + publish the player's gun attachments EVERY frame — not only when the
+	// engine passes STUDIO_EVENTS (the pelvis-flare root cause: without the flag the
+	// attachment array stayed at the entity origin). The original's client refreshes its
+	// per-player anchor cache from these every frame (dossier-attachments §4a); the muzzle
+	// flare / brass / laser all anchor here.
+	StudioCalcAttachments();
+	if (m_pCurrentEntity->index > 0)
+	{
+		cl_entity_t* ent = gEngfuncs.GetEntityByIndex(m_pCurrentEntity->index);
+		memcpy(ent->attachment, m_pCurrentEntity->attachment, sizeof(Vector) * 4);
+	}
 	if ((flags & STUDIO_EVENTS) != 0)
 	{
-		StudioCalcAttachments();
 		IEngineStudio.StudioClientEvents();
-		// copy attachments into global entity array
-		if (m_pCurrentEntity->index > 0)
-		{
-			cl_entity_t* ent = gEngfuncs.GetEntityByIndex(m_pCurrentEntity->index);
-
-			memcpy(ent->attachment, m_pCurrentEntity->attachment, sizeof(Vector) * 4);
-		}
 	}
 
 	if ((flags & STUDIO_RENDER) != 0)
