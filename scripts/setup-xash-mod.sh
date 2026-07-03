@@ -56,6 +56,9 @@ done
 # client_amd64.so) — without it, it silently falls back to valve/dlls/hl_amd64.so.
 # Provide the suffixed name as primary + the bare name as an alias (GoldSrc compat).
 cp -f "$HL_SO" "$TS/dlls/hl_amd64.so"
+# delta.lst MUST track the repo's (round-7i-b: a stale deployed delta silently TRUNCATES
+# prediction fields — m_iWeaponState 2-bit dropped the scope attach bit on the wire)
+cp -f "$MODTS/network/delta.lst" "$TS/delta.lst"
 ln -sfn hl_amd64.so "$TS/dlls/hl.so"
 cp -f "$CLIENT_SO" "$TS/cl_dlls/client_amd64.so"
 ln -sfn client_amd64.so "$TS/cl_dlls/client.so"
