@@ -144,6 +144,23 @@ Akimbo vm anims moved onto the events (EV_TSFire block[22..25] off bparam1; link
 AkimboFire's SendWeaponAnim retired; the right trigger shares the cadence. default_fov -> 80 +
 the two stock 90-floor clamps removed (hud_redraw).
 
+### Playtest round 6c/6d + the VERIFY RE (5397c2c, 0306b68, 1770cf1)
+- The akimbo per-barrel ANIM sides were swapped (the guntail dossier's labels wrong; the MODELS
+  settle it: block[22/23]=rightshoot, [24/25]=leftshoot) — bparam1 1 -> [24/25].
+- The muzzle-sprite doubling: the akimbo viewmodels EMBED their per-gun flashes as sequence
+  events (5001/5011 rightshoot, 5021/5031 leftshoot) which HUD_StudioEvent renders — our flare
+  drew a second sprite at attachment[1] (still a right-gun attachment). Local akimbo singles now
+  defer to the model events; side->attachment mapping fixed (left=2); linked keeps both explicit
+  flares (linkedshoot carries NO events — verified).
+- 6b: the REAL barrel clips now ride weapon_data fuser2/3 (the balanced SetWeaponData
+  reconstruction fed prediction half-full barrels: infinite free-fire, no dry-click, stuck flare).
+- THE VERIFY RE (AkimboFire @0x729c0 + StandardFire @0x724a4 re-read): the user's model CONFIRMED
+  + 5 corrections folded: both-buttons-in-free-mode = a LINKED shot (mode 5 held / mode 4 the
+  pressed cache +0x814); **ScaleSpread's 4th arg = the SILENCED flag** (not ducking — mislabeled;
+  sil tightens x0.875 base / x0.775 growth); recoil increment x5 when MOVING > 175 u/s + x2 on a
+  linked shot; the akimbos run ScaleSpread at all; a non-integral SILENCER costs x0.775 damage;
+  the ft-4 akimbo mirrors a barrel into its single's parked clip after every shot.
+
 NEW VERIFY items this session: TraceAttack spawn-grace refusal (@0x801eb) + the 0x10c10 stunt dmg mult ·
 PlayerKilled kill-tier/slow-mo-reward tail · the "Spectator" wire (ours state+seconds vs original idx+flag) ·
 TSItem::hOwner consumer (sell-zone?) · the V11 LMS countdown HUD · ResetRestartRound still reads the dead
