@@ -38,6 +38,7 @@ public:
 	bool MsgFunc_TSState(const char* pszName, int iSize, void* pbuf); // posture byte (0 stand/1 duck/2 prone)
 	bool MsgFunc_TSSpace(const char* pszName, int iSize, void* pbuf); // free carry slots
 	bool MsgFunc_TSPAward(const char* pszName, int iSize, void* pbuf); // per-player award/status byte
+	bool MsgFunc_SrvSett(const char* pszName, int iSize, void* pbuf); // server settings sync (id + short)
 
 private:
 	int m_iHealth; // last TSHealth byte received

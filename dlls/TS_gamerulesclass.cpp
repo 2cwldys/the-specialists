@@ -16,6 +16,7 @@
 #include "ts_groundweapon.h" // CTSGroundWeapon::Fall (RespawnEntities)
 #include "ts_flag.h"       // CTSFlag::RespawnFlag, HaveFlag (CTF)
 #include "ts_weapons.h" // TSDeployArsenal (team-mode arsenal on team switch)
+#include "ts_weapon_info.h" // Set_ammo_count (the SrvSett id-2 pair)
 #include "UserMessages.h"
 
 // Defined in ts_objectives.cpp — fire the objective manager's targetontimeleft on round timeout.
@@ -700,6 +701,39 @@ void CTSGameRules::Think()
 	int type = GetRandomPowerup(TS_PWUP_ALL);
 	bool spawned = type != 0 && PutPowerUp(type);
 	m_flNextPowerupSpawn = gpGlobals->time + (spawned ? 20.0f : 1.0f);
+
+	// --- SrvSett on-change broadcasts (the tail of the original Think; star_SrvSett.md) ---
+	if (gmsgTSServerSetting != 0)
+	{
+		int v = (int)(CVAR_GET_FLOAT("realbullet") + 0.5f);
+		if (v != m_iSrvRealBullet)
+		{
+			m_iSrvRealBullet = v;
+			MESSAGE_BEGIN(MSG_ALL, gmsgTSServerSetting);
+			WRITE_BYTE(0);
+			WRITE_SHORT(v);
+			MESSAGE_END();
+		}
+		v = (int)(CVAR_GET_FLOAT("usecash") + 0.5f);
+		if (v != m_iSrvUseCash)
+		{
+			m_iSrvUseCash = v;
+			MESSAGE_BEGIN(MSG_ALL, gmsgTSServerSetting);
+			WRITE_BYTE(1);
+			WRITE_SHORT(v != 0 ? 1 : 0); // cached rounded, WIRED as a bool
+			MESSAGE_END();
+		}
+		v = (int)(CVAR_GET_FLOAT("ammocount") + 0.5f);
+		if (v != m_iSrvAmmoCount)
+		{
+			m_iSrvAmmoCount = v;
+			Set_ammo_count(v); // the shared max-carry column update, BEFORE the send
+			MESSAGE_BEGIN(MSG_ALL, gmsgTSServerSetting);
+			WRITE_BYTE(2);
+			WRITE_SHORT(v);
+			MESSAGE_END();
+		}
+	}
 }
 
 // @ GlobalSlowMotion2__12CTSGameRulesfb — apply (or clear, scale 0) a global slow-
@@ -1022,9 +1056,36 @@ void CTSGameRules::PlayerSpawn(CBasePlayer *pPlayer)
 
 // @ InitHUD — send the team roster to a connecting client (so a real HUD can colour the
 // scoreboard). The MP base does the rest of the HUD setup.
+// "SrvSett" (3) — BYTE setting id + SHORT value. Ids: 0 realbullet, 1 usecash (bool on the
+// wire), 2 ammocount, 3 weaponrestriction bitmask. InitHUD pushes ALL FOUR to a joiner
+// (MSG_ONE); Think broadcasts ids 0-2 on cvar change (MSG_ALL); cmd_weaponrestriction
+// broadcasts id 3 on change. star_SrvSett.md (decompile-settled).
+int gmsgTSServerSetting = 0;
+
 void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 {
 	CHalfLifeMultiplay::InitHUD(pPlayer);
+
+	// SrvSett catch-up: the joiner gets all four settings (no late-joiner hole).
+	if (gmsgTSServerSetting == 0)
+		gmsgTSServerSetting = REG_USER_MSG("SrvSett", 3);
+	m_iSrvRealBullet = (int)(CVAR_GET_FLOAT("realbullet") + 0.5f);
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSServerSetting, NULL, pPlayer->edict());
+	WRITE_BYTE(0);
+	WRITE_SHORT(m_iSrvRealBullet);
+	MESSAGE_END();
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSServerSetting, NULL, pPlayer->edict());
+	WRITE_BYTE(1);
+	WRITE_SHORT(CVAR_GET_FLOAT("usecash") != 0.0f ? 1 : 0); // read DIRECT, sent as a bool
+	MESSAGE_END();
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSServerSetting, NULL, pPlayer->edict());
+	WRITE_BYTE(2);
+	WRITE_SHORT((int)(CVAR_GET_FLOAT("ammocount") + 0.5f)); // read DIRECT (no Set_ammo_count here)
+	MESSAGE_END();
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSServerSetting, NULL, pPlayer->edict());
+	WRITE_BYTE(3);
+	WRITE_SHORT(m_iWeaponRestriction);
+	MESSAGE_END();
 
 	if (!IsTeamMode())
 		return;

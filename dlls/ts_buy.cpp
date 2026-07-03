@@ -146,6 +146,12 @@ void CBasePlayer::AddAmmoToArmament(int caliber, int rounds)
 // grenades are team-mode only and capped at 2 per life. Returns true if given.
 bool CBasePlayer::BuyWeapon(int type)
 {
+	// the restriction gate (@0x84606): the category-bitmask filter over the server's
+	// weaponrestriction mask (default 0x1f allows everything — stock behavior unchanged).
+	extern bool IsRestrictedWeapon(tsweapon_t w, int mask);
+	if (TSGameRules() && IsRestrictedWeapon((tsweapon_t)type, TSGameRules()->m_iWeaponRestriction))
+		return false;
+
 	if (type == TSW_M61)
 	{
 		if (!TSGameRules()->IsTeamMode()) // grenades are team-mode only

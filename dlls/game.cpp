@@ -18,6 +18,8 @@
 #include "client.h"
 #include "game.h"
 #include "filesystem_utils.h"
+#include "cbase.h"
+#include "ts_gamerules.h" // TSGameRules/WeaponRestrictionByID (cmd_weaponrestriction)
 
 cvar_t displaysoundlist = {"displaysoundlist", "0"};
 
@@ -470,6 +472,55 @@ static bool SV_InitServer()
 
 // Register your console variables here
 // This gets called one time when the game is initialied
+// --- the `weaponrestriction` server command (@0xb58a0 cmd_weaponrestriction +
+// @0xb5770 display_weaponrestriction; star_SrvSett.md). Presets via WeaponRestrictionByID,
+// AND-masked by the map's allowed categories; broadcasts SrvSett id 3 ONLY on change.
+static const char *const g_szRestrictions[6] = {
+	"Kung Fu ", "Knives ", "Pistols ", "SMGs ", "Rifles ", "Shotguns "}; // [0] never printed
+
+static void display_weaponrestriction()
+{
+	CTSGameRules *rules = TSGameRules();
+	if (!rules)
+		return;
+	if (rules->m_iWeaponRestriction == 0)
+	{
+		ALERT(at_console, "All weapons are restricted.\n");
+		return;
+	}
+	char buf[128];
+	buf[0] = 0;
+	for (int bit = 0; bit < 5; bit++)
+		if (rules->m_iWeaponRestriction & (1 << bit))
+			strcat(buf, g_szRestrictions[bit + 1]);
+	ALERT(at_console, "Weapons allowed: %s\n", buf);
+}
+
+static void cmd_weaponrestriction()
+{
+	CTSGameRules *rules = TSGameRules();
+	if (!rules)
+		return;
+	if (CMD_ARGC() < 2)
+	{
+		display_weaponrestriction();
+		return;
+	}
+	const int old = rules->m_iWeaponRestriction;
+	if (atoi(CMD_ARGV(1)) == 5)
+		rules->m_iWeaponRestriction = InitWeaponRestriction();
+	else
+		rules->m_iWeaponRestriction = WeaponRestrictionByID(atoi(CMD_ARGV(1))) & rules->m_iAllowedCategories;
+	if (rules->m_iWeaponRestriction != old && gmsgTSServerSetting != 0)
+	{
+		MESSAGE_BEGIN(MSG_ALL, gmsgTSServerSetting);
+		WRITE_BYTE(3);
+		WRITE_SHORT(rules->m_iWeaponRestriction);
+		MESSAGE_END();
+	}
+	display_weaponrestriction();
+}
+
 void GameDLLInit()
 {
 	// Register cvars here:
@@ -519,6 +570,8 @@ void GameDLLInit()
 	// The Specialists game cvars (mp_teammodels, roundtime, slowmatch, cash economy, …)
 	extern void TSRegisterCvars();
 	TSRegisterCvars();
+
+	g_engfuncs.pfnAddServerCommand("weaponrestriction", cmd_weaponrestriction); // swap-contract command name
 
 	// REGISTER CVARS FOR SKILL LEVEL STUFF
 	// Agrunt

@@ -25,6 +25,7 @@
 #include "hud.h"
 #include "cl_util.h"
 #include "parsemsg.h"
+#include "ts_weapon_info.h" // Set_ammo_count (the SrvSett id-2 shared call)
 #include "ts_hud.h"
 #include "player_info.h" // g_PlayerExtraInfo (team name)
 
@@ -36,6 +37,7 @@ DECLARE_MESSAGE(m_TSStatus, TSCash)
 DECLARE_MESSAGE(m_TSStatus, TSState)
 DECLARE_MESSAGE(m_TSStatus, TSSpace)
 DECLARE_MESSAGE(m_TSStatus, TSPAward)
+DECLARE_MESSAGE(m_TSStatus, SrvSett)
 
 bool CHudTSStatus::Init()
 {
@@ -49,6 +51,7 @@ bool CHudTSStatus::Init()
 	HOOK_MESSAGE(TSState); // posture byte (0 stand / 1 duck / 2 stunt-prone) — server-authoritative
 	HOOK_MESSAGE(TSSpace); // free carry slots
 	HOOK_MESSAGE(TSPAward); // per-player award/status byte (MSG_ALL broadcast)
+	HOOK_MESSAGE(SrvSett); // server settings: realbullet/usecash/ammocount/weaponrestriction
 
 	TSHud_RegisterCvars();
 
@@ -145,6 +148,30 @@ bool CHudTSStatus::MsgFunc_TSPAward(const char* pszName, int iSize, void* pbuf)
 	const int val = READ_BYTE();
 	if (idx >= 1 && idx <= MAX_PLAYERS)
 		g_iTSPlayerAward[idx] = val;
+	m_iFlags |= HUD_ACTIVE;
+	return true;
+}
+
+// SrvSett — the server-settings sync (BYTE id + SHORT value; star_SrvSett.md). Case 2 runs
+// the SHARED Set_ammo_count so the client's purchase/ammo bookkeeping matches the server's;
+// the other ids land in globals (cash-HUD hide / buy-menu filter consumers are a VERIFY tail).
+int g_iTSRealBullet = 0;         // id 0 — bullets-are-projectiles mode
+int g_iTSUseCash = 0;            // id 1 — the cash economy toggle (bool on the wire)
+int g_iTSWeaponRestriction = 0x1f; // id 3 — the allowed-categories bitmask
+
+bool CHudTSStatus::MsgFunc_SrvSett(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	const int id = READ_BYTE();
+	const int val = READ_SHORT();
+	switch (id)
+	{
+	case 0: g_iTSRealBullet = val; break;
+	case 1: g_iTSUseCash = val; break;
+	case 2: Set_ammo_count(val); break; // the shared max-carry column (both libs, like the original)
+	case 3: g_iTSWeaponRestriction = val; break;
+	default: break; // unknown ids tolerated (the original's switch falls through)
+	}
 	m_iFlags |= HUD_ACTIVE;
 	return true;
 }

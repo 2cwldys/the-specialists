@@ -99,6 +99,47 @@ int TSRecordedSlowPitch(CBasePlayer *p)
 
 LINK_ENTITY_TO_CLASS(weapon_tsgun, CTSGun);
 
+// @ GetWeaponType__F10tsweapon_t @0x7705c — the weapon's restriction CATEGORY code:
+// the fire type, with the special cases 34 katana -> 3 (knife cat), 33 sawed-off -> 1
+// (shotgun), 16/37 akimbo SMGs -> 9, 10/30/8/21 akimbo pistols -> 8.
+char GetWeaponType(tsweapon_t w)
+{
+	switch (w)
+	{
+	case TSW_KATANA: return 3;
+	case TSW_SAWEDOFF: return 1;
+	case TSW_UZI_AKIMBO:
+	case TSW_SKORPION_AKIMBO: return 9;
+	case TSW_MK23_AKIMBO:
+	case TSW_FNH_AKIMBO:
+	case TSW_BERETTA_AKIMBO:
+	case TSW_GOLD: return 8;
+	default: return (char)get_weapon_info(w)->iFireType;
+	}
+}
+
+// @ IsRestrictedWeapon__F10tsweapon_ti @0x770c8 — true = the weapon is NOT purchasable
+// under the allowed-categories mask (mask 0 = everything restricted; categories:
+// knives 0x1, pistols 0x2, SMGs 0x4, rifles 0x8, shotguns 0x10; anything uncategorized
+// is never restricted).
+bool IsRestrictedWeapon(tsweapon_t w, int mask)
+{
+	if (w < 1 || w > 37)
+		return false;
+	if (mask == 0)
+		return true;
+	switch (GetWeaponType(w))
+	{
+	case 1: return (mask & 0x10) == 0; // shotguns
+	case 3: return (mask & 0x1) == 0;  // knives
+	case 6:
+	case 7: return (mask & 0x8) == 0;  // rifles
+	case 8: return (mask & 0x2) == 0;  // pistols
+	case 9: return (mask & 0x4) == 0;  // SMGs
+	default: return false;
+	}
+}
+
 // @ IsWeaponAkimbo__Fi @0x7019c — fire-type 4 (the combinable akimbo pairs).
 bool IsWeaponAkimbo(int type)
 {

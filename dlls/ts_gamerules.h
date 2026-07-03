@@ -47,6 +47,13 @@ public:
 	// Pick a random permitted powerup bit out of `mask`, or 0 if none qualify.
 	int GetRandomPowerup(int mask);
 
+	// --- SrvSett server-settings sync (star_SrvSett.md; dossier-gmsg U3) ---
+	int m_iSrvRealBullet = 0;        // 0x578 — cached (int)round(realbullet.value)
+	int m_iSrvUseCash = 0;           // 0x558 — cached (int)round(usecash.value) (orig var dmcashbased)
+	int m_iSrvAmmoCount = 0;         // 0x55c — cached (int)round(ammocount.value)
+	int m_iWeaponRestriction = 0x1f; // 0x5870 — ALLOWED-categories bitmask (knife 1/pistol 2/smg 4/rifle 8/shotgun 0x10)
+	int m_iAllowedCategories = 0x1f; // 0x586c — the map's allowed mask (cmd args are AND-masked by it)
+
 	// --- Team subsystem (cont.35) ---
 	// The map is a team-mode map. Faithful gate is the TS game-mode member (@+0 == 2/3),
 	// not reconstructed; functional proxy = a ts_objective_manager is present. Lazily
@@ -204,6 +211,9 @@ inline CTSGameRules* TSGameRules()
 
 // ---- melee deflect gates (free functions, TS_gamerules.cpp; RE dossier-melee §1.3) ----
 // true = the swing was blocked (caller aborts damage); the attacker pays 33 stamina.
+int WeaponRestrictionByID(int id); // @0x66ad8 — 1->0x0, 2->0x1, 3->0x3, 4->0x13, else InitWeaponRestriction()
+int InitWeaponRestriction(void);   // @TS_gamerules.cpp — 0x1f (all five categories)
+extern int gmsgTSServerSetting;    // "SrvSett" 3 — TS_gamerulesclass.cpp
 bool VictimKatanaHold(CBasePlayer *pAttacker, CBaseEntity *pVictim, float flDamage);
 bool VictimKnifeHold(CBasePlayer *pAttacker, CBaseEntity *pVictim, float flDamage);
 bool VictimKungfuHold(CBasePlayer *pAttacker, CBaseEntity *pVictim, float flDamage, TraceResult *ptr);

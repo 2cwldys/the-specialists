@@ -31,6 +31,21 @@ int InitWeaponRestriction(void)
 	return 0x1f;
 }
 
+// @0x66ad8 WeaponRestrictionByID — the weaponrestriction command's preset masks:
+// 1 -> nothing (0x0), 2 -> knives (0x1), 3 -> knives+pistols (0x3), 4 -> +rifles (0x13),
+// anything else -> everything (InitWeaponRestriction).
+int WeaponRestrictionByID(int id)
+{
+	switch (id)
+	{
+	case 1: return 0x0;
+	case 2: return 0x1;
+	case 3: return 0x3;
+	case 4: return 0x13;
+	default: return InitWeaponRestriction();
+	}
+}
+
 // ---- melee deflect gates (RE dossier-melee.md §1.3 + analysis_ff_gamerules.md §6-8) ----
 // Each returns true = the swing was BLOCKED (the caller aborts its damage). Getting blocked
 // drains the ATTACKER 33 stamina (UpdateMeleeBar handles depletion + the KFuPower send) and
