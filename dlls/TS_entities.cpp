@@ -638,10 +638,14 @@ void CTSMapGlobals::Spawn(void)
 	SetThink(&CTSMapGlobals::WaitThink);
 	pev->nextthink = gpGlobals->time + 10.0f;
 
-	// SLICE: the original Spawn also pushes the spawnflags into CTSGameRules — round-timer enable
-	// (!(SF & 0x20)), superjump (SF & 0x40), and the weapon-restriction mask (get_weapon_restriction()
-	// stored into the rules' restriction fields @+0x586c/0x5870). Those CTSGameRules members aren't
-	// reconstructed yet, so the wiring is deferred (the entity itself is now method/member-faithful).
+	// The original Spawn pushes the spawnflags into CTSGameRules: SUPERJUMP (SF & 0x40) ->
+	// rules+0x5885 (TSInit gives every spawn low-gravity + the "mj" physinfo). Still deferred:
+	// the round-timer enable (!(SF & 0x20)) and the weapon-restriction push (the restriction
+	// fields @+0x586c/0x5870 init from InitWeaponRestriction; get_weapon_restriction() XORs the
+	// "No <weapon>" spawnflags in).
+	CTSGameRules *pRules = dynamic_cast<CTSGameRules *>(g_pGameRules);
+	if (pRules)
+		pRules->m_bSrvSuperJump = (pev->spawnflags & 0x40) ? 1 : 0;
 }
 
 

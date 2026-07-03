@@ -506,6 +506,7 @@ public:
 	void DropArmor();                                     // @0x83a3c — drop armorvalue as a CTSAmmoPack
 	void DropAmmo();                                      // @0x846f0 — drop the gun's reserve as a CTSAmmoPack
 	void UpdatePlayerState();                             // @0x82a08 — derive m_iPlayerState (locked/frozen/normal)
+	void TSInit();                                        // @0x82a4c — the TS per-life reset (first call in Spawn)
 	int m_iPlayerState = 0;                               // 0x498 — pose: 0 normal, 1 ducking, 2 stunt/locked
 	int m_iClientTSState = 0;                             // 0x499 — last-sent TSState byte (plain on-change; the
 	                                                      // original's InitHUD memset deliberately skips this cache)

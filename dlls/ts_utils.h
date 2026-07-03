@@ -17,4 +17,9 @@ void TSHudMessageAll(byte r, byte g, byte b, int effect, int holdtime, const cha
 // sent MSG_ONE to a single player (pPlayer = that player's pev).
 void TSHudMessageOne(byte r, byte g, byte b, int effect, int holdtime, const char *text, entvars_t *pPlayer);
 
+// @0x8fae0 PlayerIsCheating — bots never cheat; a human cheats iff their cl_lw != "1"
+// (TS_util.cpp; called from TSInit with the player's info key buffer).
+class CBasePlayer;
+bool PlayerIsCheating(CBasePlayer *pPlayer, char *infobuffer);
+
 #endif // TS_UTILS_H

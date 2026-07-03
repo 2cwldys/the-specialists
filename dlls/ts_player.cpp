@@ -625,6 +625,114 @@ void CBasePlayer::UpdatePlayerState()
 		m_iPlayerState = 0;
 }
 
+// @ TSInit__11CBasePlayer (@0x82a4c, decompile-exact) — the TS per-life reset, the FIRST call in
+// the original's Spawn (@0x7f586). Everything TS about a player resets here: the anim/stunt
+// machines, slow-motion, posture + the client change-detect caches (0xff = force the first
+// resend), speed, SPAWN PROTECTION (a 1-second grace: the renderfx shimmer + the (200,200,250)
+// screen fade + the m_flDisarmTime deadline that TraceAttack, the melee disarm twins and
+// PreThink's shimmer-clear all consume, @0x801eb/@0x81458), powerups, the map-global superjump
+// mode, the spectate clear, the whole melee/whiff/block/wires/flag block, and the anim state.
+void CBasePlayer::TSInit()
+{
+	m_TSAnim.Init();      // player+0x28c
+	m_TSStunt.Init(this); // player+0x4f0
+	pev->fuser1 = 1.0f;
+	m_flSlowMotionGo = 1.0f;
+	m_flSlowMotionTarget = 1.0f;
+	m_flClientSlowAmt = -1.0f;
+	m_bSlowBullets = 0;         // 0x175
+	m_iClientBulletTime = 0xff; // 0x174 — force the first TSBTime send
+	m_iPlayerState = 0;         // 0x498
+	m_iClientTSState = 0xff;    // 0x499 — force the first TSState send
+	// player+0x9e0 = -1 (unnamed transient; no reconstructed state)
+	pev->iuser4 = 0;
+	SetPlayerSpeed(330.0f);
+	// free-slot counter reset (the original's player+0x548 = 81; ours derives from the arsenal)
+	m_iClientTSSpace = -1; // 0x54c — force the first TSSpace send
+	// player+0x544 = -1 / +0x534 = 0 (unnamed transients)
+	m_flDisarmTime = gpGlobals->time + 1.0f; // 0x71c — the SPAWN-PROTECTION deadline
+	m_flNextAttack = UTIL_WeaponTimeBase() + 1.0f; // 0x12c (the stock Spawn tail re-arms it later)
+	// the spawn-protection shimmer — PreThink clears it once the deadline passes (@0x81458)
+	pev->renderamt = 125.0f;
+	pev->rendermode = kRenderTransColor;
+	pev->rendercolor = Vector(0, 0, 0);
+	pev->renderfx = kRenderFxDistort; // 0xe
+	UTIL_ScreenFade(this, Vector(200, 200, 250), 0.2f, m_flDisarmTime - gpGlobals->time, 25, 0);
+	m_flUseDoubleTap = 0; // 0x164
+	// player+0x720 = 0 (unnamed)
+	m_iPowerups = 0;
+	m_iHeldPowerup = 0;
+	m_flPowerupExpireTime = 0;
+	m_flPowerupTime = 0;
+	m_iClientHeldDur = 0;
+	m_iClientHeldType = 0xff;
+	// player+0x740/0x744/0x748 = 0 (unnamed transients)
+	m_iAward = 0;          // 0x74c
+	m_iClientAward = 0xff; // 0x74d — force the first TSPAward send
+	m_iKungFu = 0;         // 0x74e
+	// the map-global superjump mode (rules+0x5885, ts_mapglobals SF & 0x40): everyone spawns
+	// with the low-gravity/superjump physinfo ("mj")
+	CTSGameRules *pRules = dynamic_cast<CTSGameRules *>(g_pGameRules);
+	if (pRules && pRules->m_bSrvSuperJump)
+	{
+		m_bLowGravity = 1;
+		g_engfuncs.pfnSetPhysicsKeyValue(edict(), "mj", "1");
+	}
+	else
+	{
+		m_bLowGravity = 0;
+		g_engfuncs.pfnSetPhysicsKeyValue(edict(), "mj", "0");
+	}
+	// player+0x754 = 0 (unnamed)
+	if (pev->iuser1 != 0 || pev->iuser2 != 0)
+	{
+		// the original broadcasts gmsgSpectator (playerIdx, 0) here. Our "Spectator" message
+		// carries a DIFFERENT payload (state, seconds — the spectate-wait HUD; an INVENTED wire
+		// vs the original's stock spectator-panel broadcast, flagged for the invented review),
+		// so only the observer state clears here. VERIFY: reconcile the Spectator wire.
+		pev->iuser1 = 0;
+		pev->iuser2 = 0;
+	}
+	m_flBlockTime = 0;     // 0x4dc
+	m_flGravityValue = 0;  // 0x4ec
+	m_bHasKevlar = false;  // 0x718
+	m_flTSRespawnTime = 0; // 0x770
+	// player+0x7bc = 0 (unnamed)
+	m_hRunThroughLast = NULL; // 0x788 region
+	m_iWires[0] = m_iWires[1] = m_iWires[2] = 0;                   // 0x78c-0x78e
+	m_iClientWires[0] = m_iClientWires[1] = m_iClientWires[2] = 0; // 0x78f-0x791
+	m_flNextWiresCheck = 0; // 0x794
+	m_flMeleeBar = 100.0f;  // 0x774 (0x42c80000)
+	// player+0x798 = 0 (unnamed)
+	m_flWhiffLungeTime = 0;  // 0x79c
+	m_flWhiffLungeForce = 0; // 0x7a0
+	m_iWhiffLungeType = 0;   // 0x7a4
+	m_flKungFuBlock = 0;     // 0x7a8
+	m_flKnifeBlock = 0;      // 0x7ac
+	m_flKatanaBlock = 0;     // 0x7b0
+	m_flDisarmPressure = 0;  // 0x7b4
+	if (m_bTheOne && pRules)
+		pRules->m_bTheOneActive = false; // rules+0x5878 — the One left the field
+	m_bTheOne = 0; // 0x7b9
+	m_flHealthRegen = 0;
+	// player+0x184[33] = 0 (an unreconstructed transient block)
+	m_flSlowMotionScale = 0;
+	m_flSlowMotionRamp = 0;
+	m_flNextSlowFlow = 0;
+	// player+0x208[32] + the 0x288 byte — the packed SLOWED array is cleared here
+	// (lands with RemoveEntityFromSlowedArray, the freefuncs task)
+	// player+0x77c/0x780/0x784 = 0 (unnamed)
+	m_flSpreadAccum = 0;
+	// player+0x7c0 = 0 (unnamed)
+	memset(&m_flagStatus, 0, sizeof(m_flagStatus)); // 0x7d0
+	PlayerIsCheating(this, g_engfuncs.pfnGetInfoKeyBuffer(edict()));
+	pev->gaitsequence = 0;
+	pev->sequence = 0;
+	pev->frame = 0;
+	ResetSequenceInfo();
+	// player+0x84c = 0 (unnamed)
+}
+
 // @0x865d0 GetMeleeMultiplier — melee damage scales with the block-bar stamina: full (100) -> 1.0,
 // empty (0) -> 0.5. (The block bar is field_0x774 on the original player; we keep it on the TS gun.)
 float CBasePlayer::GetMeleeMultiplier()

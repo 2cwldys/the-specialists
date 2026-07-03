@@ -54,6 +54,8 @@ public:
 
 	// --- SrvSett server-settings sync (star_SrvSett.md; dossier-gmsg U3) ---
 	int m_iSrvRealBullet = 0;        // 0x578 — cached (int)round(realbullet.value)
+	byte m_bSrvSuperJump = 0;        // 0x5885 — map-global SUPERJUMP mode (ts_mapglobals SF & 0x40):
+	                                 // TSInit gives every spawn low-gravity + the "mj" physinfo key
 	int m_iSrvUseCash = 0;           // 0x558 — cached (int)round(usecash.value) (orig var dmcashbased)
 	int m_iSrvAmmoCount = 0;         // 0x55c — cached (int)round(ammocount.value)
 	int m_iWeaponRestriction = 0x1f; // 0x5870 — ALLOWED-categories bitmask (knife 1/pistol 2/smg 4/rifle 8/shotgun 0x10)

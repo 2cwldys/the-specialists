@@ -1914,6 +1914,16 @@ void CBasePlayer::PreThink()
 		CheckForWires();
 	}
 
+	// @0x81458 (TSInit's counterpart): once the spawn-protection deadline passes, drop the
+	// translucent shimmer TSInit applied.
+	if (m_flDisarmTime < gpGlobals->time && pev->rendermode != kRenderNormal)
+	{
+		pev->rendermode = kRenderNormal;
+		pev->renderfx = kRenderFxNone;
+		pev->renderamt = 0;
+		pev->rendercolor = Vector(0, 0, 0);
+	}
+
 	// TS dynamic-accuracy recovery (RE PreThink @0x808cc): the spread accumulator decays back toward 0 each
 	// frame (scaled by the slow-mo factor, so it recovers in game-time during bullet-time), so accuracy
 	// returns when you stop spraying. Growth is in CTSGun::ScaleSpread on each shot.
@@ -3175,19 +3185,7 @@ void CBasePlayer::Spawn()
 			m_bIsSpawning = false;
 		}};
 
-	m_TSAnim.Init(); // TS: reset the 3rd-person gait state for this life
-	m_TSStunt.Init(this); // TS: reset the stunt state machine for this life
-
-	// TS per-life melee state reset (RE TSInit @0x82a4c: bar=100 @+0x357, block windows +
-	// whiff cluster zeroed @+0x386..). TSInit itself is still a missing method; these lines
-	// migrate into it when it lands.
-	m_flMeleeBar = 100.0f;
-	m_flKungFuBlock = m_flKnifeBlock = m_flKatanaBlock = 0.0f;
-	m_flWhiffLungeTime = m_flWhiffLungeForce = 0.0f;
-	m_iWhiffLungeType = 0;
-	m_flBlockTime = 0.0f;
-	m_flDisarmPressure = 0.0f;
-	m_iAward = 0; // TSInit +0x1e9 — spawn-init clear of the broadcast award/status byte
+	TSInit(); // @0x7f586 — the TS per-life reset, the FIRST call in the original's Spawn
 
 	pev->classname = MAKE_STRING("player");
 	pev->health = 100;
@@ -3207,10 +3205,8 @@ void CBasePlayer::Spawn()
 	pev->dmg_save = 0;
 	pev->friction = 1.0;
 	pev->gravity = 1.0;
-	// TS per-life powerups (independent of the held slot) clear on respawn: super-jump (low-gravity)
-	// and kung-fu. (pev->gravity reset to 1.0 just above covers the super-jump restore.)
-	m_bLowGravity = 0;
-	m_iKungFu = 0;
+	// (super-jump/kung-fu per-life clears live in TSInit now — pev->gravity 1.0 above
+	// covers the super-jump restore; TSInit also re-grants map-global superjump.)
 	m_bitsHUDDamage = -1;
 	m_bitsDamageType = 0;
 	m_afPhysicsFlags = 0;
