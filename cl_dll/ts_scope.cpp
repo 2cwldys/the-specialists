@@ -9,6 +9,7 @@
 ***/
 #include "hud.h"
 #include "cl_util.h"
+#include "triangleapi.h"
 
 extern "C" int CL_IsThirdPerson();
 extern int g_iUser1;
@@ -33,7 +34,12 @@ void TS_DrawScopeOverlayHUD()
 		return;
 	const int side = ScreenHeight;
 	const int x = ScreenWidth / 2 - side / 2;
+	// xash's pfnSPR_DrawGeneric IGNORES its blendsrc/blenddst args (#if 0 in cl_game.c) and
+	// inherits the CURRENT render mode — set TransAlpha via the TriAPI around the draw (the
+	// shared clgame.ds.renderMode), else the INDEXALPHA mask renders fully OPAQUE (the
+	// round-7m black screen).
+	gEngfuncs.pTriAPI->RenderMode(kRenderTransAlpha);
 	SPR_Set(s_hFull, 255, 255, 255);
-	// 0x0302 = GL_SRC_ALPHA, 0x0303 = GL_ONE_MINUS_SRC_ALPHA (the INDEXALPHA mask blend)
-	gEngfuncs.pfnSPR_DrawGeneric(0, x, 0, NULL, 0x0302, 0x0303, side, side);
+	gEngfuncs.pfnSPR_DrawGeneric(0, x, 0, NULL, 0, 0, side, side);
+	gEngfuncs.pTriAPI->RenderMode(kRenderNormal);
 }
