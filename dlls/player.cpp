@@ -914,6 +914,8 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 		if (rt > 30) rt = 30;
 		SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
 	}
+	// @0x7eea7 (Killed): the death-cam hold — watch the body for 3.0 s (any button skips).
+	m_flDeathCamTime = gpGlobals->time + 3.0f;
 
 	// TSPAward: the original's Killed re-runs SetPlayerRespawnTime's +0x770<0 test and writes
 	// 1 (out of round) or 11 (will respawn). Our respawn gate is round-driven; default to 11 —
@@ -1224,17 +1226,29 @@ void CBasePlayer::PlayerDeathThink()
 	// a loadout before pressing fire. (Replaces the stock button/forcerespawn-timer respawn + deathcam.)
 	if (pev->deadflag == DEAD_DEAD)
 	{
-		// @0x7eaec: the corpse spawns HERE — the death anim has fully eased into its idle
-		// pose, so the copy holds the settled body (lifetime 10.0); the player entity then
-		// vanishes into observer and the corpse takes its place seamlessly.
-		{
-			extern CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime);
-			TSCreateDeadCorpse(this, 10.0f);
-		}
+		// @0x7eaec staging tick: 2 -> 3; the transition test runs on the NEXT think.
 		pev->deadflag = DEAD_RESPAWNABLE;
-		m_fInSpectateWait = true;
-		TSEnterSpectate();   // free-look observer + buy menu; fire-to-respawn via PreThink/TSSpectateThink
-		pev->nextthink = -1; // hand off to PlayerPreThink (the death think is done)
+		pev->nextthink = gpGlobals->time + 0.1f;
+		return;
+	}
+	if (pev->deadflag == DEAD_RESPAWNABLE)
+	{
+		// @0x7eaec: LINGER on the body until the 3 s death-cam deadline elapses OR any
+		// button (except IN_SCORE) is pressed — THEN the corpse spawns (the settled pose,
+		// lifetime 10.0) and the player vanishes into observer (the original's later snap).
+		if ((m_flDeathCamTime < gpGlobals->time || (pev->button & ~IN_SCORE) != 0) &&
+			pev->iuser1 == 0)
+		{
+			{
+				extern CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime);
+				TSCreateDeadCorpse(this, 10.0f);
+			}
+			m_fInSpectateWait = true;
+			TSEnterSpectate();   // free-look observer + buy menu; fire-to-respawn via the respawn cmd
+			pev->nextthink = -1; // hand off to PlayerPreThink (the death think is done)
+			return;
+		}
+		pev->nextthink = gpGlobals->time + 0.1f; // keep lingering
 	}
 }
 

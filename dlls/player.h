@@ -580,6 +580,7 @@ public:
 	void TSSpectateThink();         // per-frame while waiting: countdown msg + fire check
 	void TSTryRespawn();            // `respawn` cmd: leave spectate if the gate elapsed; wait line only when gate < 0
 	float m_flSpecMsgTime = 0;      // +0x754 — the 1 Hz spectate HUD-line throttle clock (countdown + wait line)
+	float m_flDeathCamTime = 0;     // +0x768 — the death-cam hold deadline (Killed: time+3.0; any button skips)
 	void TSSendScoreInfo();         // broadcast this player's scoreboard row (class=WAITING while spectating)
 };
 
