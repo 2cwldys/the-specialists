@@ -60,15 +60,15 @@ _Commands the client registers. Many are stock HL (shared); focus on TS-specific
 
 _Original = names hooked in client.dll (pfnHookUserMsg); ours = HOOK_MESSAGE in cl_dll. These are the client↔server message NAMES (the wire contract). MISSING = a message the original client reads that ours doesn't; EXTRA = ours-only (invented or inherited-HL)._
 
-- matched: **56**  |  missing (orig→not ours): **20**  |  extra (ours→not orig): **8**
+- matched: **57**  |  missing (orig→not ours): **19**  |  extra (ours→not orig): **5**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `ActItems`, `ClipInfo`, `CustomWP`, `NextStunt`, `Objective`, `PTakeDam`, `PlInfo`, `ShowObj`, `SrvSett`, `TSBTime`, `TSFade`, `TSFlag`, `TSFrags`, `TSHVoice`, `TSMBlur`, `TSPAward`, `TSPSys`, `TSSpace`, `TSState`, `Wires`
+  `ActItems`, `CustomWP`, `NextStunt`, `Objective`, `PTakeDam`, `PlInfo`, `ShowObj`, `SrvSett`, `TSBTime`, `TSFade`, `TSFlag`, `TSFrags`, `TSHVoice`, `TSMBlur`, `TSPAward`, `TSPSys`, `TSSpace`, `TSState`, `Wires`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `FlashBat`, `Flashlight`, `ResetFade`, `SpecFade`, `TSCreateDebris`, `ViewMode`, `Weapons`, `x`
+  `ResetFade`, `SpecFade`, `TSCreateDebris`, `ViewMode`, `x`
 
 ### Entity keyvalue coverage (FGD keys vs our KeyValue handlers)
 
@@ -80,7 +80,7 @@ _For entities we implement: FGD-declared map keys that no `KeyValue()` in our DL
 
 _The registered byte-size per message (−1 = variable). A MISMATCH silently corrupts the wire format = a drop-in breaker. Compared for messages present in both with a literal size._
 
-- original messages with a recovered size: **64**  |  ours (literal sizes): **56**  |  size mismatches: **0**
+- original messages with a recovered size: **64**  |  ours (literal sizes): **53**  |  size mismatches: **0**
 
 ### Events (events/*.sc)
 

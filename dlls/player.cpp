@@ -1854,92 +1854,9 @@ void CBasePlayer::InitStatusBar()
 
 void CBasePlayer::UpdateStatusBar()
 {
-	int newSBarState[SBAR_END];
-	char sbuf0[SBAR_STRING_SIZE];
-	char sbuf1[SBAR_STRING_SIZE];
-
-	memset(newSBarState, 0, sizeof(newSBarState));
-	strcpy(sbuf0, m_SbarString0);
-	strcpy(sbuf1, m_SbarString1);
-
-	// Find an ID Target
-	TraceResult tr;
-	UTIL_MakeVectors(pev->v_angle + pev->punchangle);
-	Vector vecSrc = EyePosition();
-	Vector vecEnd = vecSrc + (gpGlobals->v_forward * MAX_ID_RANGE);
-	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, edict(), &tr);
-
-	if (tr.flFraction != 1.0)
-	{
-		if (!FNullEnt(tr.pHit))
-		{
-			CBaseEntity* pEntity = CBaseEntity::Instance(tr.pHit);
-
-			if (pEntity->Classify() == CLASS_PLAYER)
-			{
-				newSBarState[SBAR_ID_TARGETNAME] = ENTINDEX(pEntity->edict());
-				strcpy(sbuf1, "1 %p1\n2 Health: %i2%%\n3 Armor: %i3%%");
-
-				// allies and medics get to see the targets health
-				if (g_pGameRules->PlayerRelationship(this, pEntity) == GR_TEAMMATE)
-				{
-					newSBarState[SBAR_ID_TARGETHEALTH] = 100 * (pEntity->pev->health / pEntity->pev->max_health);
-					newSBarState[SBAR_ID_TARGETARMOR] = pEntity->pev->armorvalue; //No need to get it % based since 100 it's the max.
-				}
-
-				m_flStatusBarDisappearDelay = gpGlobals->time + 1.0;
-			}
-		}
-		else if (m_flStatusBarDisappearDelay > gpGlobals->time)
-		{
-			// hold the values for a short amount of time after viewing the object
-			newSBarState[SBAR_ID_TARGETNAME] = m_izSBarState[SBAR_ID_TARGETNAME];
-			newSBarState[SBAR_ID_TARGETHEALTH] = m_izSBarState[SBAR_ID_TARGETHEALTH];
-			newSBarState[SBAR_ID_TARGETARMOR] = m_izSBarState[SBAR_ID_TARGETARMOR];
-		}
-	}
-
-	bool bForceResend = false;
-
-	if (0 != strcmp(sbuf0, m_SbarString0))
-	{
-		MESSAGE_BEGIN(MSG_ONE, gmsgStatusText, NULL, pev);
-		WRITE_BYTE(0);
-		WRITE_STRING(sbuf0);
-		MESSAGE_END();
-
-		strcpy(m_SbarString0, sbuf0);
-
-		// make sure everything's resent
-		bForceResend = true;
-	}
-
-	if (0 != strcmp(sbuf1, m_SbarString1))
-	{
-		MESSAGE_BEGIN(MSG_ONE, gmsgStatusText, NULL, pev);
-		WRITE_BYTE(1);
-		WRITE_STRING(sbuf1);
-		MESSAGE_END();
-
-		strcpy(m_SbarString1, sbuf1);
-
-		// make sure everything's resent
-		bForceResend = true;
-	}
-
-	// Check values and send if they don't match
-	for (int i = 1; i < SBAR_END; i++)
-	{
-		if (newSBarState[i] != m_izSBarState[i] || bForceResend)
-		{
-			MESSAGE_BEGIN(MSG_ONE, gmsgStatusValue, NULL, pev);
-			WRITE_BYTE(i);
-			WRITE_SHORT(newSBarState[i]);
-			MESSAGE_END();
-
-			m_izSBarState[i] = newSBarState[i];
-		}
-	}
+	// NEUTERED (dossier-gmsg U0): the HLU player-ID status bar rode the StatusText/StatusValue
+	// user messages, which the original TS never registers — the registrations are removed for
+	// registration-set parity, so this stock method sends nothing. (TS has no aim-ID bar.)
 }
 
 
@@ -3752,11 +3669,8 @@ void CBasePlayer::FlashlightTurnOn()
 	{
 		EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, SOUND_FLASHLIGHT_ON, 1.0, ATTN_NORM, 0, PITCH_NORM);
 		SetBits(pev->effects, EF_DIMLIGHT);
-		MESSAGE_BEGIN(MSG_ONE, gmsgFlashlight, NULL, pev);
-		WRITE_BYTE(1);
-		WRITE_BYTE(m_iFlashBattery);
-		MESSAGE_END();
-
+		// (no Flashlight user message — the original TS never registers one; the flashlight
+		// ATTACHMENT state rides ActItems. Registration-set parity, dossier-gmsg U0.)
 		m_flFlashLightTime = FLASH_DRAIN_TIME + gpGlobals->time;
 	}
 }
@@ -3766,11 +3680,7 @@ void CBasePlayer::FlashlightTurnOff()
 {
 	EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, SOUND_FLASHLIGHT_OFF, 1.0, ATTN_NORM, 0, PITCH_NORM);
 	ClearBits(pev->effects, EF_DIMLIGHT);
-	MESSAGE_BEGIN(MSG_ONE, gmsgFlashlight, NULL, pev);
-	WRITE_BYTE(0);
-	WRITE_BYTE(m_iFlashBattery);
-	MESSAGE_END();
-
+	// (no Flashlight user message — see FlashlightTurnOn.)
 	m_flFlashLightTime = FLASH_CHARGE_TIME + gpGlobals->time;
 }
 
@@ -4476,18 +4386,9 @@ void CBasePlayer::UpdateClientData()
 		MESSAGE_END();
 	}
 
-	if (m_WeaponBits != m_ClientWeaponBits)
-	{
-		m_ClientWeaponBits = m_WeaponBits;
-
-		const int lowerBits = m_WeaponBits & 0xFFFFFFFF;
-		const int upperBits = (m_WeaponBits >> 32) & 0xFFFFFFFF;
-
-		MESSAGE_BEGIN(MSG_ONE, gmsgWeapons, nullptr, pev);
-		WRITE_LONG(lowerBits);
-		WRITE_LONG(upperBits);
-		MESSAGE_END();
-	}
+	// (no Weapons message — the HLU 64-bit weapon-bits sync was an invented registration the
+	// original TS lacks; removed for registration-set parity (dossier-gmsg U0, PLAYTEST-GATED:
+	// the TS weapon HUD rides WeaponInfo/WStatus, and the single weapon_tsgun is auto-known.)
 
 	if (0 != pev->dmg_take || 0 != pev->dmg_save || m_bitsHUDDamage != m_bitsDamageType)
 	{
@@ -4523,24 +4424,8 @@ void CBasePlayer::UpdateClientData()
 		m_bitsDamageType &= DMG_TIMEBASED;
 	}
 
-	if (m_bRestored)
-	{
-		//Always tell client about battery state
-		MESSAGE_BEGIN(MSG_ONE, gmsgFlashBattery, NULL, pev);
-		WRITE_BYTE(m_iFlashBattery);
-		MESSAGE_END();
-
-		//Tell client the flashlight is on
-		if (FlashlightIsOn())
-		{
-			MESSAGE_BEGIN(MSG_ONE, gmsgFlashlight, NULL, pev);
-			WRITE_BYTE(1);
-			WRITE_BYTE(m_iFlashBattery);
-			MESSAGE_END();
-		}
-	}
-
-	// Update Flashlight
+	// Update Flashlight (battery drain/charge only — the Flashlight/FlashBat user messages are
+	// NOT registered by the original TS; removed for registration-set parity, dossier-gmsg U0.)
 	if ((0 != m_flFlashLightTime) && (m_flFlashLightTime <= gpGlobals->time))
 	{
 		if (FlashlightIsOn())
@@ -4564,10 +4449,6 @@ void CBasePlayer::UpdateClientData()
 			else
 				m_flFlashLightTime = 0;
 		}
-
-		MESSAGE_BEGIN(MSG_ONE, gmsgFlashBattery, NULL, pev);
-		WRITE_BYTE(m_iFlashBattery);
-		MESSAGE_END();
 	}
 
 

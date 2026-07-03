@@ -17,8 +17,6 @@
 
 inline int gmsgShake = 0;
 inline int gmsgFade = 0;
-inline int gmsgFlashlight = 0;
-inline int gmsgFlashBattery = 0;
 inline int gmsgResetHUD = 0;
 inline int gmsgInitHUD = 0;
 inline int gmsgShowGameTitle = 0;
@@ -55,9 +53,8 @@ inline int gmsgTeamNames = 0;
 inline int gmsgSpectator = 0;
 inline int gmsgVGUIMenu = 0;
 
-inline int gmsgStatusText = 0;
-inline int gmsgStatusValue = 0;
-
-inline int gmsgWeapons = 0;
+// Registered-but-never-sent originals (registration-set parity — dossier-gmsg U0):
+inline int gmsgSelAmmo = 0;  // "SelAmmo" 4 — the FIRST registration + the already-linked guard
+inline int gmsgClipInfo = 0; // "ClipInfo" 1 — original registers it; the grid rides WStatus
 
 void LinkUserMessages();

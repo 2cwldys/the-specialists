@@ -145,14 +145,6 @@ bool CHud::MsgFunc_Concuss(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
-bool CHud::MsgFunc_Weapons(const char* pszName, int iSize, void* pbuf)
-{
-	BEGIN_READ(pbuf, iSize);
-
-	const std::uint64_t lowerBits = READ_LONG();
-	const std::uint64_t upperBits = READ_LONG();
-
-	m_iWeaponBits = (lowerBits & 0XFFFFFFFF) | ((upperBits & 0XFFFFFFFF) << 32ULL);
-
-	return true;
-}
+// (MsgFunc_Weapons removed — the HLU 64-bit weapon-bits message is not part of the original
+// TS wire; registration-set parity, dossier-gmsg U0. m_iWeaponBits stays 0: the stock ammo
+// HUD it gated is suppressed in TS anyway, and the TS HUD rides WeaponInfo/WStatus.)

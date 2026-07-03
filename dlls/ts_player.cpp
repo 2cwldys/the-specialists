@@ -34,6 +34,8 @@ int gmsgTSMotionBlur = 0;   // "TSMBlur"  2 — entindex + 1/2 (UsePowerUp)
 int gmsgTSPowerUp = 0;      // "PwUp"     3 — held type (short) + duration (byte) — the held-powerup HUD (UpdateClientData)
 int gmsgTSSlowAmt = 0;      // "TSSlowMo" 2 — coord(100*applied slow) — drives the client green slow-mo overlay
 int gmsgKFuPower = 0;       // "KFuPower" 1 — the melee stamina bar (CHAR, 0..100); sent ONLY by UpdateMeleeBar
+int gmsgTSKickAlign = 0;    // "TSKickAlign" — DEAD in the original: the global exists but is never
+                            // registered or sent (star addendum). Kept for symbol parity only.
 // SLICE: gmsgTSBulletTime "TSBTime" (byte 0x175) drives the bullet-time render variant; deferred.
 
 // Lazily-registered TS custom-HUD user messages. Names + fixed sizes are byte-faithful

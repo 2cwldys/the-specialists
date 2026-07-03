@@ -31,6 +31,7 @@
 #include <stdio.h>
 
 DECLARE_MESSAGE(m_TSWeaponBar, WStatus)
+DECLARE_MESSAGE(m_TSWeaponBar, ClipInfo)
 
 // Per-tsweapon_t select-bar column (1..5), recovered from each weapon's s_weapon_info
 // +0x84 byte. Index = tsweapon_t.
@@ -88,6 +89,7 @@ bool CHudTSWeaponBar::Init()
 		m_iClip[i] = -1;
 
 	HOOK_MESSAGE(WStatus);
+	HOOK_MESSAGE(ClipInfo); // 1 byte: the ACTIVE weapon's clip cell (original client hooks it)
 	TSHud_RegisterCvars();
 	gHUD.AddHudElem(this);
 	m_iFlags |= HUD_ACTIVE; // always active so Think() runs (FIRE-commit); Draw() self-gates on m_selecting
@@ -160,6 +162,21 @@ bool CHudTSWeaponBar::MsgFunc_WStatus(const char* pszName, int iSize, void* pbuf
 		m_iClip[type] = owned ? clip : -1;
 		if (owned)
 			m_iFlags |= HUD_ACTIVE;
+	}
+	return true;
+}
+
+// "ClipInfo" (1 byte) — the ACTIVE weapon's clip cell in the select grid. The original client
+// hooks it (registration parity); its server registers-but-never-sends it, so this only fires
+// against a server that actually uses it. Ours keeps the grid fresh through WStatus.
+bool CHudTSWeaponBar::MsgFunc_ClipInfo(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	const int clip = READ_BYTE();
+	if (g_iTSActiveWeapon >= 0 && g_iTSActiveWeapon < TSW_COUNT)
+	{
+		m_iClip[g_iTSActiveWeapon] = clip;
+		m_iFlags |= HUD_ACTIVE;
 	}
 	return true;
 }

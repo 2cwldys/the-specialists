@@ -22,15 +22,18 @@
 void LinkUserMessages()
 {
 	// Already taken care of?
-	if (0 != gmsgCurWeapon)
+	if (0 != gmsgSelAmmo)
 	{
 		return;
 	}
 
+	// SelAmmo is the original's FIRST registration (star_LinkUserMessages.md) and doubles as
+	// the already-linked guard. Registered, never sent (original parity).
+	gmsgSelAmmo = REG_USER_MSG("SelAmmo", 4);
 	gmsgCurWeapon = REG_USER_MSG("CurWeapon", 3);
 	gmsgGeigerRange = REG_USER_MSG("Geiger", 1);
-	gmsgFlashlight = REG_USER_MSG("Flashlight", 2);
-	gmsgFlashBattery = REG_USER_MSG("FlashBat", 1);
+	// (Flashlight/FlashBat NOT registered — the original TS has no flashlight messages; the
+	// flashlight attachment rides ActItems. Registration-set parity, dossier-gmsg U0.)
 	gmsgHealth = REG_USER_MSG("Health", 1); // original TS wire size = 1 byte (health byte-capped)
 	gmsgDamage = REG_USER_MSG("Damage", 12);
 	gmsgBattery = REG_USER_MSG("Battery", 2);
@@ -65,8 +68,10 @@ void LinkUserMessages()
 	gmsgSpectator = REG_USER_MSG("Spectator", 2); // BYTE state(0 off/1 countdown/2 press-fire), BYTE secondsLeft
 	gmsgVGUIMenu = REG_USER_MSG("VGUIMenu", 1);   // BYTE menuCode (open a client menu)
 
-	gmsgStatusText = REG_USER_MSG("StatusText", -1);
-	gmsgStatusValue = REG_USER_MSG("StatusValue", 3);
+	// ClipInfo: registered, never sent (original parity — the arsenal grid rides WStatus).
+	gmsgClipInfo = REG_USER_MSG("ClipInfo", 1);
 
-	gmsgWeapons = REG_USER_MSG("Weapons", 8);
+	// (StatusText/StatusValue/Weapons NOT registered — invented HLU-leftover registrations
+	// removed for registration-set parity, dossier-gmsg U0. The stock sends are neutered in
+	// player.cpp; the HLU 64-bit weapon-bits message removal is PLAYTEST-GATED.)
 }

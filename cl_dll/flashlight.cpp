@@ -37,8 +37,8 @@ bool CHudFlashlight::Init()
 	m_fFade = 0;
 	m_fOn = false;
 
-	HOOK_MESSAGE(Flashlight);
-	HOOK_MESSAGE(FlashBat);
+	// (Flashlight/FlashBat hooks removed — the original TS client hooks neither; the flashlight
+	// attachment state rides ActItems. Registration-set parity, dossier-gmsg U0.)
 
 	m_iFlags |= HUD_ACTIVE;
 

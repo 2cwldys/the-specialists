@@ -33,6 +33,7 @@ public:
 	void Think() override; // FIRE-commits the highlighted weapon while the select menu is open
 	void Reset() override;
 	bool MsgFunc_WStatus(const char* pszName, int iSize, void* pbuf);
+	bool MsgFunc_ClipInfo(const char* pszName, int iSize, void* pbuf); // 1 byte: active weapon's clip cell
 
 	// The weapon-select menu (the original's hud_fastswitch-0 model — reference/WEAPON_SELECT.md):
 	// the bar is HIDDEN until the player presses invnext/invprev or slot1-5, which OPEN it and move
