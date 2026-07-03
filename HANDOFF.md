@@ -51,79 +51,143 @@ touching that area):**
 
 **You ARE the orchestrator and the previous agent (cont.83) — continue as if you never stopped.** Branch
 `restructure-source-parity` (NOT merged to `main`; GPG signing OFF — keep `git config --local commit.gpgsign
-false`). 8 commits this session (`f67c6eb..75d9289`), every one build-green (`scripts/build.sh amd64 all`) +
+false`). ~25 commits this session (`f67c6eb..`), every one build-green (`scripts/build.sh amd64 all`) +
 nm-T-gated — REGENERATE the baseline first thing:
 `nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}' | sort > /tmp/nm_T_baseline.txt`.
 
 ⚠ **SERENA GOTCHA:** read the ledger with the **Read tool on `.serena/memories/ledger.md`** (never
-`read_memory("ledger")` — one giant JSON line that overflows the read limit).
+`read_memory("ledger")` — one giant single-line `{"result":"…"}` JSON that overflows the read limit).
 
-### THE MISSION (unchanged — the cont.79 long form far below) + CURRENT HEADLINE
-1:1 drop-in at every level; driver = `scripts/coverage/audit.py [<Class>]`; names match the original's;
-a missing/extra symbol SIGNALS logic (paid off ALL session: the 3 missing CTSGun methods were hiding the
-entire base-ItemPostFrame frame machine; the missing MultiplyClips branch was hiding the knife-stack slot
-economy; PickUpWeapon's call sites were hiding no-switch-on-knife-recovery). MOVE, don't rewrite. MIMIC
-THEIRS. The user drives all playtests. Suspect the base SDK + calloc'd entity data when verbatim misbehaves.
-**HEADLINE: 0 missing methods · 32 invented methods · 0 missing free funcs · 0 missing members ·
-0 file mismatches · 6 missing globals · 3 invented globals.** The 6+6 work-lists from cont.83's brief are
-CLEARED — what remains is tasks #5-#8 (below) + the VERIFY queue.
+### THE MISSION (the user's directives — the law; the cont.79 section far below has the long form)
+Make OUR code a **1:1 drop-in** for the original at EVERY level — **file → class → methods → variables →
+globals → free functions**: nothing the original has that we lack, nothing we have that it lacks. Driver =
+`scripts/coverage/audit.py [<Class>]`; it matches BY NAME, so **names must match the original's**
+(FGD/save/wire names) — a faithful-but-misnamed symbol reads as missing+invented.
+1. **A missing/extra symbol SIGNALS a logic mismatch → re-RE it.** Paid off the WHOLE session: the 3
+   missing CTSGun methods were hiding the entire base-ItemPostFrame frame machine; the "missing"
+   MultiplyClips branch was hiding the knife-stack slot economy; the invented ammo grant was hiding the
+   fill-to-cap BuyAmmo (the user's 18/58-vs-18/120 catch); the mislabeled ScaleSpread arg was hiding the
+   SILENCER accuracy/damage system.
+2. **The logic often EXISTS already — moved/renamed/inlined — MOVE it, don't rewrite.** Grep OUR code
+   first (TSFireBulletsPenetrate WAS ShootBulletsPlayer; TSPickUpWeapon WAS PickUpWeapon; the invented
+   m_flSpawnGateTime was the original's +0x770).
+3. **MIMIC THEIRS (the drop-in cardinal rule):** our client must swap against the original server and
+   vice-versa — wire names/formats byte-exact (bparam2 = the FireBullets SEED, not our side extension;
+   the reload.sc fparam1 phases; +alt2 is the IN_CANCEL BUTTON, not a command), mechanisms exact.
+4. **The USER drives all playtests** (numbered protocols; never launch xash yourself) and their live-game
+   knowledge caught ~15 real divergences this session — but ANSWER each report with binary RE before
+   coding (the round-6 akimbo model: user-specified, then VERIFIED against AkimboFire @0x729c0, which
+   confirmed it AND added 5 corrections). When you implement from user spec without RE, SAY SO and verify
+   after.
+5. **When verbatim code STILL misbehaves, suspect the BASE SDK** ([[base-sdk-divergence-check]]) and the
+   gcc2 world (calloc'd entity data = absent keyvalues are 0). And **presentation disputes are settled by
+   the MODELS** (sequence names/embedded events/bone names/attachments — python struct reads).
 
-### ⭐ WHAT cont.83 DID (detail: the ledger cont.83 entry, top of `.serena/memories/ledger.md`)
-- **The gun FRAME MACHINE**: the TS-rewritten BASE `CBasePlayerWeapon::ItemPostFrame` (weapons_shared.cpp,
-  m_iId==0x10) replaces our invented CTSGun override; EmptySound/StopReload/ReloadWeapon landed; Reload/
-  ShotgunReload/WeaponIdle/Fire/MultiplyClips/ColdCock re-transcribed decompile-exact (reload.sc fparam1
-  0/8/9/10 wire; the pump machine is phase-driven via WeaponIdle; the BURST machine; auto-reload lives in
-  WeaponIdle; the STACKABLE slot economy; akimbo 3rd-person anim was inverted). **+alt2 = IN_CANCEL (0x40)**
-  — server command removed, client sets in_cancel, m_flNextAlternateAttack (gun+0xa4) predicted via fuser4.
-  m_burstOrPhase + m_fInSpecialReload(=pumpToggle, parked per item) member merges.
-- **ShootBulletsPlayer** (its own TS_combat.cpp TU): polar cubic spread; ONE MultiDamage batch/volley;
-  depth-1 pierce (mode 2); flFactor2 per-layer decay x0.5 through bodies; cheat-gated damagemult; the
-  REALBULLET gate. **TSInit** (Spawn's first call): spawn protection (shimmer+fade+m_flDisarmTime deadline,
-  PreThink clear), map-global superjump (rules m_bSrvSuperJump + "mj"), 0xff client-cache force-sends.
-  **PickUpWeapon**: all five call-site contracts (knife recovery does NOT switch; buy records TSItem::hOwner;
-  the KNIFE-STACK merge; TakeWeapon(type,status,clip) reshape, auto-wield moved out).
-- **The 6 free funcs**: SetPlayerRespawnTime (m_flSpawnGateTime MERGED into m_flTSRespawnTime; +0x7ba/+0x7bc
-  members; clamp floor 5 — PLAYTEST) · RemoveEntityFromSlowedArray + m_pSlowedEnts[32]/+0x288 + 8 scrub
-  sites · TSPlayerDisconnect (vote-rejoin + The-One leak + CallCheckDeads-on-leave) · PseudoClimb (TSHandle
-  head, both libs) · TSGetPointsForFrag + glast_weaponid (ts_bullet.cpp, init -1; captured at fire time) ·
-  TSSelectSpawnSpot + EntSelectSpawnPoint replaced (bands + crowd telefrag — PLAYTEST).
-- **reference/dossiers/cont83/animblocks.md**: flReloadTime/iStackable/hold-idle/[8]/**the coldcock [28]
-  column** — the gun-event tail's data blocker is GONE.
+**HEADLINE:** 0 missing/0 invented classes · 0 missing methods · **32 invented methods** · 0 missing
+members · 0 missing free funcs · 0 file mismatches · **6 missing globals · 3 invented globals** ·
+**12/12 TS events wired (19 extra = stock-HL leftovers)** · server commands 0 missing/16 extra.
 
-### ⭐ WHERE TO GO (the queue)
-1. **AWAIT/fold the user's playtest** — now covering: cont.82 round-2 (drop glow, explosion pitch, blast
-   shards, breakable respawn, m61 flight, grenade.sc precache) PLUS cont.83's surface: reload feel (per-
-   weapon times + the pump machine + auto-reload on idle), +alt2 coldcock via the button, dry-fire click,
-   akimbo 3rd-person pose, knife re-pickup (stack merge, NO weapon switch), spawn protection shimmer/fade,
-   spawn-point feel + the crowd telefrag, the 5s respawn floor, PseudoClimb crate scramble, stylish-kill
-   feed lines (kungfu/thrown-blade/stunt/slide). Rebuild BOTH libs + setup-xash-mod.sh first.
-2. **Task #5 the gun-event tail** (UNBLOCKED): ev_reload/ev_empty/ev_pump handlers (the reload.sc fparam1
-   0/8/9/10 contract is documented in cont83/animblocks.md + ShotgunReload) + closecombat/coldcock.sc swaps
-   (handlers RE'd in dossier-ev-melee.md; block[28] extracted) + firelinked/grenade.sc handlers. Retire the
-   STAND-INS marked in ts_gun.cpp (SendWeaponAnims, insert-shell.wav, 357_cock1, the coldcock miss whoosh)
-   + the ColdCock coldcock.sc playback (gun+0x966, gated item.bOwned).
-3. **Task #6 invented review**: 32 invented methods (SwitchBarrel now-uncalled; CBaseDoor::RespawnThink;
-   the CBasePlayer TS* helpers; CTSGameRules helpers; CTSGun Sync/Load/UpdateActivePointers accepted-or-
-   refactor decisions) + 6 missing globals (TSGameRules-the-INSTANCE @0x1681a0 = the big one; gmsgFlashlight/
-   gmsgFlashBattery/gmsgSetCurWeap regs; objects; roundtime) + 3 invented globals (g_TSGun/g_tsActive/
-   g_tsPool) + the "Spectator" wire reconcile + IsSpawnPointValid (stock, now uncalled).
-4. **Task #7 stunt/pm tail**: PM_Jump/PM_Duck diffs, morfy anim, directional death, +0x78 consumer,
-   getup-anim divergence question for the user. (PseudoClimb DONE.)
-5. **Task #8 VERIFY batch** (grown this session): the cont.82 items (gun+0xa0c consumer, CBreakable+0x110
-   factor, SrvSett client consumers, TSFade coexistence, L13 katana, +0x94/98/9c triple) PLUS: TraceAttack's
-   spawn-grace refusal + 0x10c10 damage mult (@0x801eb) · PlayerKilled's kill-TIER/slow-mo-reward tail
-   (@0x7a908.. — m_iAward 2/3/4, The One's 10 preserved, the grant) · the V11 LMS countdown HUD ·
-   TSItem::hOwner consumer · ResetRestartRound's dead "lms" cvar read · burstOrPhase prediction packing.
+### ⭐ WHAT cont.83 DID (detail: the ledger cont.83 entry — LONG; the dossier README indexes the decompiles)
+- **0 missing methods**: the gun FRAME MACHINE (the TS-rewritten BASE CBasePlayerWeapon::ItemPostFrame in
+  weapons_shared.cpp replaces our invented CTSGun override; EmptySound/StopReload/ReloadWeapon; Reload/
+  ShotgunReload/WeaponIdle/Fire/MultiplyClips/ColdCock decompile-exact; +alt2 = IN_CANCEL predicted via
+  fuser4; m_burstOrPhase + pumpToggle member merges) · ShootBulletsPlayer (its own TS_combat.cpp TU;
+  polar cubic spread, ONE MultiDamage batch/volley, depth-1 pierce, flFactor2 decay, REALBULLET gate) ·
+  TSInit (Spawn's first call; SPAWN PROTECTION + map-global superjump + 0xff cache force-sends) ·
+  PickUpWeapon (all five call-site contracts; the knife-stack merge; no-switch-on-recovery; TakeWeapon
+  reshape — arg3 = ATTACH MASK, no ammo grant).
+- **0 missing free funcs**: SetPlayerRespawnTime (m_flSpawnGateTime MERGED into m_flTSRespawnTime;
+  +0x7ba/+0x7bc; clamp floor 5) · RemoveEntityFromSlowedArray + m_pSlowedEnts[32]/+0x288 + 8 scrub sites ·
+  TSPlayerDisconnect (vote-rejoin + The-One leak + CallCheckDeads) · PseudoClimb (TSHandle head, both
+  libs) · TSGetPointsForFrag + glast_weaponid (init -1, captured at fire) · TSSelectSpawnSpot +
+  EntSelectSpawnPoint replaced (bands + crowd telefrag).
+- **12/12 EVENTS**: coldcock/closecombat swapped (CCombatBlock four-gate; CCombatAttack per-move args by
+  disasm slot-tracking; the 3-jab vm cycling was invented) + the five-handler subagent dossier applied
+  (empty = pistol-empty.wav; reload fparam1 IS the block index + the brass theatre; pump = gun+0x96a with
+  the ENT-1 no-channel-cut rack — mossberg racks with m3-pump.wav; grenade = in-eye-only; firelinked =
+  gun+0x96e both-barrels). ALL presentation stand-ins retired. The FULL 29-short anim blocks (both
+  stances, movl-PAIR-aware) + pszAltSound(+0x306 triple-duty)/pszShellModel(+0xe8)/iShellSetback(+0x34c)
+  columns landed.
+- **The AMMO ECONOMY to the binary** (user-caught): NO TakeWeapon grant; BuyAmmo = FILL-TO-CAP per mag;
+  iPellets(+0x24) = the stackable CARRY CAP (knife 5/seal 10); +1 stack merges; BuyArmament loops the
+  queued count (2 identical pistols = the akimbo combine); the ground weapon tops only an EMPTY reserve.
+- **THE ITALIAN-BONE GAIT SPLIT** (the big renderer find): TS player skeletons name the spine "Bip01
+  Dorso" — the stock "Bip01 Spine" gait split matched nothing, so the run gait owned the whole skeleton
+  and NO fire/aim torso showed while moving. The original client.dll ships BOTH strings. + the
+  directional slide-fire (slide_<dir>_<grip>_shoot) re-enabled (+0x51c = m_bDirForward, not dead).
+- **The AKIMBO saga (user-driven, VERIFY-RE'd, closed "perfect")**: free modes = per-barrel triggers
+  (left click = LEFT barrel via item+0x24; each barrel drains ITS OWN clip + dry-clicks); plain SEMI
+  alternates; plain AUTO = both at once; both-buttons-in-free = LINKED; the hold stance for akimbos
+  (v_berettas 14/15, v_mk23_akimbo 11/12); the REAL barrel clips ride weapon_data fuser2/3 (the balanced
+  SetWeaponData reconstruction was feeding prediction half-full barrels); the anim sides + attachment
+  pairs proven by the MODELS ([22/23]=RIGHT [24/25]=LEFT; attachments 0/1 right 2/3 left); the flare =
+  the fire events ALWAYS + the model-event 5001-family SUPPRESSED in HUD_StudioEvent (round 6d/6e: defer
+  to R_MuzzleFlash and the visible flare vanishes — it's the faint engine flash). ScaleSpread's 4th arg =
+  SILENCED (sil tightens x0.875/x0.775 + costs x0.775 damage; recoil x5 moving >175 u/s, x2 linked).
+- **SPARTA tripwires** in-code everywhere (struct/table/Sparta()/extractor/CustomWP = the runtime THIRD
+  stage) + default_fov 80 (and the two stock 90-floor clamps removed).
 
-### ⭐ METHODS (unchanged + this session's lessons)
-dc.sh/re.sh typed decompiles BEFORE coding · the disasm caller/args decode (python push-sequence reads
-resolved every PickUpWeapon/SetPlayerRespawnTime call-site contract this session — cheap and definitive) ·
-the Write_* column one-liner (cont82 README; used for +0x14/+0xdc/blocks) · user-driven playtest loop ·
-Ghidra MCP for interactive xrefs · live.py/binmap.py on the running original. ⚠ python brace-matching
-edits: anchor on the FULL header comment, not rfind("/*") — that clobbered player.cpp once (git checkout
-saved it).
+### ⭐ WHERE TO GO (the queue — recreate these as the task list via TaskCreate)
+- `[in_progress]` **"Per-class 1:1 parity loop (audit→RE→reconcile→build→audit→commit)"** — the driver.
+- `[in_progress]` **"PLAYTEST gate before merging restructure-source-parity to main"** — rounds 1-6 all
+  PASSED (user: "perfect"); the still-unplaytested surface: the reload/pump/dry-click/firelinked event
+  presentation (round 7 protocol: dry click, 3rd-person reload brass, pump rack no-cutoff, linked bang,
+  silenced spread/damage feel, the x5 moving bloom), spawn protection, the spawn scorer + telefrag,
+  PseudoClimb, the stylish-kill feed, the 5s respawn floor.
+- `[pending]` **"Task #6 INVENTED REVIEW"** — the audit's remaining deltas, EVERY one dispositioned
+  (prove-inlined-and-MOVE / accept-as-infrastructure-with-a-comment / DELETE):
+  · 32 invented methods: CTSGun CanDeploy/GetWeaponData/SetWeaponData/LoadActiveFromItem/SyncActiveToItem/
+    UpdateActivePointers/OwnedCount/SlotsUsed/SendWeaponStatus/SwitchBarrel(NOW-UNCALLED — delete?) ·
+    CBasePlayer TSCloseMenu/TSEnterSpectate/TSMenuSelect/TSSendBuyMenu/TSSendScoreInfo/TSSpectateThink/
+    TSTryRespawn/TSUpdateClientData · CTSGameRules AssignToTeam/GetIndexedTeamName/GetTeamID/IsTeamMode/
+    IsTeamplay/PlayerKilled/PlayerSpawn/RecountTeams/SendRoundTime/StartRoundTimer/TeamWithFewestPlayers ·
+    CBaseDoor::RespawnThink (ride the info_breakable helper) · CBaseEntity::MyTogglePointer ·
+    CBasePlayerWeapon::CallDoRetireWeapon. For each: find the original's home (re.sh/dc.sh + vrefs) — the
+    logic is probably THEIRS under a different name/site.
+  · 6 missing globals: **TSGameRules the INSTANCE @0x1681a0** (the original's rules object is a GLOBAL,
+    not heap — dossier-freefuncs §0; big refactor, plan it) · gmsgFlashlight/gmsgFlashBattery/gmsgSetCurWeap
+    (registration-parity: the original REGISTERS them — find where; ours deleted the regs in U0, re-add
+    send-less) · objects · roundtime (TS_gamerulesclass.cpp — likely the round clock global).
+  · 3 invented globals: g_TSGun/g_tsActive (client infra — accept+comment?) · g_tsPool (review).
+  · 19 EXTRA events + 16 EXTRA server commands + the stock-HL weapon sources still in both builds —
+    the removal pass (careful: hl_weapons.cpp references g_Glock etc.; trim the registrations first).
+  · The "Spectator" WIRE reconcile (ours = state+seconds; the original = the stock (idx,flag) broadcast —
+    TSInit @0x92a4c sends it; our spectate-wait HUD needs a different carrier).
+  · IsSpawnPointValid now uncalled (stock — leave or trim).
+- `[pending]` **"Task #7 stunt/pm tail"**: PM_Jump/PM_Duck diffs vs the original, morfy anim, directional
+  death, the player+0x78 consumer, the getup-anim divergence question FOR THE USER. (PseudoClimb DONE.)
+- `[pending]` **"Task #8 VERIFY batch"** (grown): TraceAttack's spawn-grace refusal + the 0x10c10 stunt
+  dmg mult (@0x801eb) · PlayerKilled's kill-TIER/slow-mo-reward tail (@0x7a908.. — m_iAward 2/3/4 with
+  The One's 10 preserved + the reward grant off the out-bools/DoSpectacularNess — needs a typed pass) ·
+  the V11 LMS countdown HUD msg (PreThink +0x754 throttle) · TSItem::hOwner consumer (sell-zone?) ·
+  ResetRestartRound still reads the dead "lms" cvar · burstOrPhase/pump prediction packing · the
+  FLY-family closecombat animIdx (register-carried — disasm slot-track it) · gold/skorpion_akimbo's
+  EMPTY wi+0x306 in the linked bang (our fallback = the normal fire) · the reload.sc phase-0 brass
+  R_TempModel exact args · gun+0xa0c cook-timer consumer · CBreakable+0x110 shard factor · the SrvSett
+  client consumers · TSFade slow-mo-tint coexistence · L13 katana pickup · the +0x94/98/9c CTSKnife triple.
 
----
+### ⭐ THE METHODS THAT WORKED (keep using them — full recipes in reference/dossiers/cont83/README.md)
+- **dc.sh batch typed decompiles BEFORE coding** (multiple addrs per run; the `re` project stayed current
+  all session — no setup needed). **Disasm caller/arg push-sequence decode** when the decompiler garbles
+  stack slots (resolved every call-site contract this session). **re.sh vrefs** for virtual callers.
+- **The Write_ column extraction** — movl-PAIR-aware (a movl at a short-array offset = TWO shorts; the
+  single-value regex hid half the anim blocks). ⚠ SPARTA: +0x1c/+0x28/+0x30/+0x34 in Write_ bodies are
+  the DEAD stage. ⚠ loose lea-pairing BLEEDS — adjudicate strict-run agreement or hand-read.
+- **MODEL dumps settle presentation disputes** (python struct reads of .mdl): sequence NAMES, EMBEDDED
+  EVENTS (the 5001-family), BONE names, attachment pairings. This closed the gait split, the anim sides,
+  the flare doubling, and the akimbo hold sets.
+- **The dossier-SUBAGENT template** (kept ~195k tokens of client.dll RE out of my context — the gun-tail
+  dossier): spawn a `general-purpose` subagent on the SEPARATE clientdll/mpdll project lock while you
+  edit source centrally. Template in the cont.81 section below (adapt the target list); have it WRITE the
+  dossier + raw captures into `reference/dossiers/cont84/` so they survive the session. It's resumable
+  via SendMessage. ⚠ its LABELS can be wrong — cross-check against the models/disasm before trusting
+  side/index mappings (two guntail labels were swapped).
+- **User-driven playtest loop**: they report → you RE the exact original mechanism → apply → commit with
+  provenance. **Ghidra MCP** for interactive xrefs when the GUI holds `re` (CLAUDE.md §4a.3);
+  **live.py/binmap.py** on the always-running original hl.exe when static RE dead-ends (§4b).
+- ⚠ python brace/anchor edits: anchor on FULL unique text, never rfind("/*") (it clobbered player.cpp
+  once; git checkout saved it). ⚠ scratchpads are SESSION-LOCAL: copy anything durable into
+  `reference/dossiers/cont84/` before closing.
 
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.83) — pickup for the next orchestrator (cont.82 = me; available for consult)
 
