@@ -2607,9 +2607,8 @@ void CTSGun::Reload()
 		return; // mid-burst: the queued rounds finish first (@0x84e18)
 
 	// The vestigial anim arg: the original computes the stance block's [1] — or the sawed-off
-	// shell-retained [8] — and passes it to ReloadWeapon, where it is DEAD; the client anim
-	// rides reload.sc's fparam1 (0 -> block[1]). The sawed-off block[8] variant never actually
-	// plays in the original (its Reload sends fparam1=0 too — the data is a leftover).
+	// shell-retained [8] — and passes it to ReloadWeapon, where it is DEAD (ReloadWeapon ignores
+	// the anim). See the reloadPhase improvement below for the block[8] surfacing.
 	const int anim = (m_bHoldPosition && m_pActiveInfo->iHoldReloadAnim >= 0)
 		? m_pActiveInfo->iHoldReloadAnim : m_pActiveInfo->iReloadAnim;
 
@@ -2619,10 +2618,24 @@ void CTSGun::Reload()
 #ifndef CLIENT_DLL
 		Unzoom();
 #endif
-		// events/reload.sc — EV_TSReload owns the whole presentation (anim block[1], the
-		// non-local generic_reload + brass/mag toss).
+		// ★ USER-APPROVED IMPROVEMENT (intentional deviation from the original — NOT parity) ★
+		// The sawed-off double-barrel HAS a shell-retained reload animation (view-model block[8] =
+		// seq 9) that the ORIGINAL never plays: its Reload computes the block[8] index
+		// (m_weaponType==0x21 && clip>0) then discards it (ReloadWeapon ignores the anim arg; the
+		// event's fparam1 is always 0 -> block[1]). We surface it via the event phase: reloading
+		// with one shell still chambered (clip > 0) plays the ONE-shell reload (block[8]); both
+		// barrels fired (clip == 0) plays the normal TWO-shell reload (block[1]). Cosmetic
+		// LOCAL view-model only — reload timing/ammo/3rd-person unchanged. Drop-in-safe: the
+		// original client also maps event-phase -> block[phase], and an original server (fparam1=0)
+		// leaves our client on block[1] exactly as before. (Non-local brass/sound rides phase 0
+		// only, as in the original — unchanged here.)
+		const float reloadPhase =
+			(m_weaponType == TSW_SAWEDOFF && m_pActiveItem->clip > 0) ? 8.0f : 0.0f;
+
+		// events/reload.sc — EV_TSReload owns the presentation (view-model block[phase], the
+		// non-local generic_reload + brass/mag toss on phase 0).
 		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero, g_vecZero,
-			0.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
+			reloadPhase, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 0x33 — 3rd-person relo_<grip>
 	}
 }
