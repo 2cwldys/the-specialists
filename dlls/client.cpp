@@ -197,6 +197,13 @@ void ClientKill(edict_t* pEntity)
 
 	CBasePlayer* pl = (CBasePlayer*)CBasePlayer::Instance(pev);
 
+	// The original's ClientKill @0x9cec8 refuses while not in play (it also only ARMS a 1 s
+	// delayed-suicide timer rather than killing instantly — VERIFY the exact gate field
+	// (pev tail +0x244) + the delay consumer). A spectating/dead player cannot `kill`
+	// (round-7f: suicide from spectate fired game_playerdie/spawn).
+	if (pl->IsObserver() || pev->iuser1 != 0 || pev->deadflag != DEAD_NO)
+		return;
+
 	if (pl->m_fNextSuicideTime > gpGlobals->time)
 		return; // prevent suiciding too ofter
 

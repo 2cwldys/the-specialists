@@ -1565,25 +1565,32 @@ void CBasePlayer::TSSpectateThink()
 			pev->playerclass = TS_SCORE_WAITING;
 		TSSendScoreInfo();
 
-		// @0x81458 (PreThink iuser1-block, 1 Hz off the +0x754 throttle): the countdown rides
-		// TSHudMessageOne (gmsgTSMessage), NOT the Spectator message — Spectator carries only
-		// the stock (idx, flag) spectator state. Text/args decompile-exact:
-		// remaining >= 0.5s -> "%i" (clamped 30) at (0,0,0,16,20); else "Press Fire To Play!"
-		// at (0,0,0,16,30).
-		if (m_flTSRespawnTime > 0.0f && gpGlobals->time < m_flTSRespawnTime)
-		{
-			if (secs < 1)
-				TSHudMessageOne(0, 0, 0, 16, 30, "Press Fire To Play!", pev);
-			else
-				TSHudMessageOne(0, 0, 0, 16, 20, UTIL_VarArgs("%i", secs > 30 ? 30 : secs), pev);
-		}
-		// the LMS re-entry window paints its own line while it runs (expiry is handled in PreThink)
-		else if (m_flRespawnHoldTime != 0.0f && gpGlobals->time <= m_flRespawnHoldTime)
-		{
-			TSHudMessageOne(0, 0, 0, 16, 20,
-				UTIL_VarArgs("%i seconds left for respawn, press Fire to Play!",
-					(int)(m_flRespawnHoldTime - gpGlobals->time + 0.5f)), pev);
-		}
+	}
+
+	// @0x81458 (PreThink iuser1-block): the 1 Hz lines throttle on the +0x754 CLOCK
+	// (m_flSpecMsgTime), NOT on the displayed-second change — the original computes
+	// ROUND(gate−time), so its LAST tick inside the final half-second paints
+	// "Press Fire To Play!" (hold 30); a change-based throttle never reaches it
+	// (round-7f: the countdown stalled at 1).
+	if (m_flTSRespawnTime > 0.0f && gpGlobals->time < m_flTSRespawnTime &&
+		m_flSpecMsgTime < gpGlobals->time)
+	{
+		m_flSpecMsgTime = gpGlobals->time + 1.0f;
+		float rem = m_flTSRespawnTime - gpGlobals->time;
+		int r = (int)(rem + 0.5f);
+		if (r < 1)
+			TSHudMessageOne(0, 0, 0, 16, 30, "Press Fire To Play!", pev);
+		else
+			TSHudMessageOne(0, 0, 0, 16, 20, UTIL_VarArgs("%i", r > 30 ? 30 : r), pev);
+	}
+	// the LMS re-entry window paints its own 1 Hz line while it runs (expiry lives in PreThink)
+	else if (m_flRespawnHoldTime != 0.0f && gpGlobals->time <= m_flRespawnHoldTime &&
+		m_flSpecMsgTime < gpGlobals->time)
+	{
+		m_flSpecMsgTime = gpGlobals->time + 1.0f;
+		TSHudMessageOne(0, 0, 0, 16, 20,
+			UTIL_VarArgs("%i seconds left for respawn, press Fire to Play!",
+				(int)(m_flRespawnHoldTime - gpGlobals->time + 0.5f)), pev);
 	}
 }
 
