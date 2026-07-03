@@ -570,6 +570,7 @@
   "events/gaussspin.sc",
   "events/glock1.sc",
   "events/glock2.sc",
+  "events/grenade.sc",
   "events/katana.sc",
   "events/knife.sc",
   "events/mp5.sc",

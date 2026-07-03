@@ -218,6 +218,7 @@ inline CTSGameRules* TSGameRules()
 
 // ---- melee deflect gates (free functions, TS_gamerules.cpp; RE dossier-melee §1.3) ----
 // true = the swing was blocked (caller aborts damage); the attacker pays 33 stamina.
+bool DoSpectacularNess(void); // @0x76b48 — the `spectacularness` random roll (slow-mo bubbles)
 int DecideGamePlay(char *mapname, int def); // @0x667ac — teamplay decision + LMS/TheOne flags
 extern int g_gamemode;        // one-shot mode override (consumed by DecideGamePlay)
 extern int g_theOneMode;      // The One mode flag

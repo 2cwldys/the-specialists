@@ -112,6 +112,19 @@ bool CHudTSDebris::MsgFunc_TSCreateDebris(const char* pszName, int iSize, void* 
 		float velMag = READ_COORD();
 		SpawnGlassShatter(origin, size, dir, spriteModel, velMag);
 	}
+	else if (material == 1) // grenade explosion (TSExplosion): size.x = the blast magnitude
+	{
+		// the CLIENT owns the boom: the TS explosion sound (explo/explode1-4.wav — VERIFY
+		// whether explode.wav joins the pool) + the fireball, NOSOUND so the engine's stock
+		// explode never plays (the user-reported stock-HL-boom bug). Full debris VERIFY (#8).
+		char snd[24];
+		sprintf(snd, "explo/explode%d.wav", gEngfuncs.pfnRandomLong(1, 4));
+		gEngfuncs.pEventAPI->EV_PlaySound(0, origin, CHAN_STATIC, snd, VOL_NORM, 0.8f, 0, PITCH_NORM);
+		const int fireball = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/zerogxplode.spr");
+		if (fireball)
+			gEngfuncs.pEfxAPI->R_Explosion(origin, fireball, size.x * (1.0f / 44.0f), 15.0f,
+				TE_EXPLFLAG_NOSOUND); // scale ~ magnitude/44 -> the old TE's 2.5 at mag 110
+	}
 
 	return true;
 }

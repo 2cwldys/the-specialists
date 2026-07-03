@@ -546,8 +546,7 @@ void CTSGun::HolsterWeapon()
 	{
 		if (m_pActiveInfo->iFireType == TSFT_GRENADE)
 		{
-			// original: GrenadeIdle(this, 1) — the put-away half of the grenade pin machine
-			// (GrenadeIdle is still on the missing-method list; our grenade carries no pin state).
+			GrenadeIdle(1); // a cooked grenade is THROWN by the switch (the put-away force path)
 		}
 		else
 		{
@@ -627,6 +626,7 @@ void CTSGun::Precache()
 	m_usDraw = PRECACHE_EVENT(1, "events/draw.sc"); // deploy: seed the client active-weapon param cache
 	m_usMelee = PRECACHE_EVENT(1, "events/knife.sc"); // melee impact spark/decal on a hard surface
 	m_usKatana = PRECACHE_EVENT(1, "events/katana.sc"); // katana swing presentation (gun+0x974)
+	m_usGrenade = PRECACHE_EVENT(1, "events/grenade.sc"); // pin/throw presentation (gun+0x978)
 	PRECACHE_SOUND("player/kungfuhit.wav");   // kung-fu flesh hit (also the coldcock bash)
 	PRECACHE_SOUND("player/closecombat.wav"); // kung-fu swing whoosh (miss / surface)
 	PRECACHE_SOUND("player/block.wav");       // kung-fu block "hooah" (reload)
@@ -769,8 +769,8 @@ void CTSGun::SecondaryAttack()
 
 	if (wi->iFireType == TSFT_GRENADE)
 	{
-		it.altMode = 1; // item+0x24 = 1 (VERIFY: GrenadeFire's alt-toss reading of it is un-RE'd)
-		GrenadeFire(wi);
+		it.altMode = 1; // item+0x24 = 1 -> the UNDERHAND roll (GrenadeIdle's release branch)
+		GrenadeFire();
 		return;
 	}
 	if (wi->iFireType == TSFT_KNIFE)
@@ -861,8 +861,8 @@ void CTSGun::PrimaryAttack()
 	}
 	if (wi->iFireType == TSFT_GRENADE)
 	{
-		m_items[m_weaponType].altMode = 0; // @0x71a61: item+0x24 = 0 before GrenadeFire
-		GrenadeFire(wi);
+		m_items[m_weaponType].altMode = 0; // @0x71a61: item+0x24 = 0 (overhand) before GrenadeFire
+		GrenadeFire();
 		return;
 	}
 
@@ -1805,38 +1805,135 @@ void TSCheckRunThrough(CBasePlayer *pPlayer)
 
 // Reload the active weapon from its own per-slot reserve (the original draws from
 // the per-caliber armament; here each arsenal slot carries its own spare rounds).
-// @ GrenadeFire__6CTSGun — toss an M61 grenade (one per trigger pull).
-void CTSGun::GrenadeFire(const s_weapon_info *wi)
+// @ GrenadeFire__6CTSGun @0x732f0 — PULL THE PIN (decompile-exact): gated on an idle phase
+// (item+0x8 == 0) + a loaded grenade; plays the pin-pull viewmodel anim (anim block [19]) +
+// grenade.sc iparam1=19, arms the COOK phase (item+0x8 = 1), re-arms both attacks + idle at
+// +0.7, and stamps the cook member (gun+0xa0c = time+5; consumer VERIFY). NO fuse starts here
+// — the grenade is thrown (fuse 3.0 FROM THE THROW) by GrenadeIdle when the button releases.
+void CTSGun::GrenadeFire()
 {
-	if (!(m_pPlayer->m_afButtonPressed & IN_ATTACK))
-		return; // one throw per press
-
-	if (m_iClip <= 0)
-	{
-		PlayEmptySound();
-		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
+	if (m_weaponType == TSW_MELEE) // original: m_pActiveItem == NULL
 		return;
-	}
-	m_iClip--;
+	if (m_shotgunPhase != 0 || m_iClip <= 0) // item+0x8 phase busy / no grenade
+		return;
 
-	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
-	Vector vecSrc = m_pPlayer->GetGunPosition() + gpGlobals->v_forward * 16;
-	Vector vecVel = gpGlobals->v_forward * 800 + m_pPlayer->pev->velocity;
-	// The M61's blast damage/radius are fixed in CM61Grenade::WaitThink (the original carries no
-	// per-throw damage); just launch it with the 4s fuse.
-	TSThrowM61(m_pPlayer->pev, vecSrc, vecVel, 4.0f);
+	SendWeaponAnim(2); // m61 anim block [19] = seq 2 (pin pull; record+0x26)
+	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usGrenade, 0.0, g_vecZero, g_vecZero,
+		0.0, 0.0, 19, 0, 0, 0);
+	m_shotgunPhase = 1; // item+0x8 = COOKED (the pin is out)
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.7f;
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.7f;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.7f;
+	m_flGrenadeCook = gpGlobals->time + 5.0f; // gun+0xa0c (consumer VERIFY)
+}
 
-	SendWeaponAnim(3); // 1st-person "throw" (v_m61.mdl seq 3) — client-predicted
-	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_GRENADE); // 3rd-person "grenade" throw
-	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 1.0f;
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+// @ GrenadeIdle__6CTSGuni @0x74f18 — the cook machine (decompile-exact). Phase 1 (cooked):
+// while ATTACK or ATTACK2 is held (and not forced) keep cooking; on release THROW — pitch-shaped
+// force (90 - shapedPitch)*7 capped 750; overhand (altMode 0) from the eyes at full force with
+// avelocity.x=200; underhand (altMode 1) from the FEET at 2/3 force, friction 0.4,
+// avelocity=(-100,600); fuse 3.0 FROM THE THROW; throw anim (block [20]/[21]) + grenade.sc
+// iparam1 20/21 + body anim 0x35; timers +0.5; the last grenade strips the weaponmodel;
+// phase -> 2 (or a forced throw consumes immediately). Phase 2: the post-throw tick consumes —
+// slot refund + speed recompute, DropWeapon at 0 left, else redraw (block [2]) + idle 2.0.
+// Phase 0: idle +3.0.
+void CTSGun::GrenadeIdle(int fForce)
+{
+	if (m_weaponType == TSW_MELEE) // original: m_pActiveItem == NULL
+		return;
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	TSItem &it = m_items[m_weaponType];
+	bool consume = false;
 
-	// The grenade is have/don't-have (clip 1): throwing the last one drops the slot + auto-selects the
-	// next-best weapon — it vanishes from the arsenal exactly like the thrown knife (USER-DIRECTED).
-	if (m_iClip <= 0)
+	if (m_shotgunPhase == 1)
 	{
-		m_items[m_weaponType].owned = false;
-		GetBetterWeapon(m_weaponType);
+		if ((m_pPlayer->pev->button & (IN_ATTACK | IN_ATTACK2)) && fForce == 0)
+			return; // still cooking
+
+		// pitch-shaped throw force: shaped = pitch*(up 1.111 / down 0.888) - 10;
+		// force = (90 - shaped) * 7, capped 750 (aim up = harder throw).
+		Vector ang = m_pPlayer->pev->v_angle;
+		const float px = ang.x;
+		ang.x = px * ((px < 0.0f) ? (float)(10.0 / 9.0) : (float)(8.0 / 9.0)) - 10.0f;
+		float force = (90.0f - ang.x) * 7.0f;
+		if (force > 750.0f)
+			force = 750.0f;
+		UTIL_MakeVectors(ang);
+
+		Vector vecSrc, vecVel;
+		if (it.altMode == 0)
+		{
+			// OVERHAND: from the eyes, full force + the thrower's velocity.
+			vecSrc = m_pPlayer->pev->origin + m_pPlayer->pev->view_ofs + gpGlobals->v_forward * 16.0f;
+			vecVel = gpGlobals->v_forward * force + m_pPlayer->pev->velocity;
+		}
+		else
+		{
+			// UNDERHAND roll: from the FEET, 2/3 force.
+			vecSrc = m_pPlayer->pev->origin + gpGlobals->v_forward * 16.0f;
+			vecVel = gpGlobals->v_forward * (force * (2.0f / 3.0f)) + m_pPlayer->pev->velocity;
+		}
+
+		if (wi->iKnifeType == 4) // info+0x20 == 4 — the m61 projectile-type code
+		{
+			CBaseEntity *pGren = TSThrowM61(m_pPlayer->pev, vecSrc, vecVel, 3.0f); // FUSE 3.0 from the throw
+			if (pGren)
+			{
+				if (it.altMode == 0)
+				{
+					pGren->pev->avelocity.x = 200.0f; // overhand tumble
+				}
+				else
+				{
+					pGren->pev->friction = 0.4f;      // the roll
+					pGren->pev->avelocity.y = 600.0f;
+					pGren->pev->avelocity.x = -100.0f;
+				}
+			}
+		}
+
+		SendWeaponAnim(it.altMode == 0 ? 3 : 4); // m61 block [20]/[21] (record+0x28/+0x2a)
+		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usGrenade, 0.0, g_vecZero, g_vecZero,
+			0.0, 0.0, (it.altMode != 0) + 0x14, 0, 0, 0); // iparam1 = 20 overhand / 21 underhand
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x35); // 3rd-person grenade throw
+
+		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.5f;
+		m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.5f;
+		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.5f;
+		if (m_iClip == 1)
+			m_pPlayer->pev->weaponmodel = 0; // the last grenade leaves the hand
+		if (fForce == 0)
+			m_shotgunPhase = 2; // the next idle tick consumes
+		else
+		{
+			m_shotgunPhase = 0;
+			consume = true; // forced (holster) throw consumes NOW
+		}
+		m_iClip--;
+	}
+	else if (m_shotgunPhase == 2)
+	{
+		m_shotgunPhase = 0;
+		consume = true;
+	}
+	else
+	{
+		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
+	}
+
+	if (consume)
+	{
+		// the thrown grenade frees its slots + the speed recomputes (our slots derive from the
+		// arsenal, so the recompute shifts on the last one's DropWeapon).
+		m_pPlayer->SetPlayerSpeed(GetSpeedBySlots(m_pPlayer));
+		if (m_iClip < 1)
+		{
+			DropWeapon(m_weaponType, true);
+		}
+		else
+		{
+			SendWeaponAnim(s_drawSeq[m_weaponType]); // block [2] = 1 — redraw the next grenade
+			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
+		}
 	}
 }
 
@@ -2499,6 +2596,13 @@ void CTSGun::WeaponIdle()
 	if (!m_pActiveItem)
 	{
 		CCombatIdle();
+		return;
+	}
+	// @0x87xxx: the grenade runs its cook machine from the idle path (the pin sets idle +0.7,
+	// so the release check starts 0.7 s after the pull and reruns until thrown).
+	if (m_pActiveInfo && m_pActiveInfo->iFireType == TSFT_GRENADE)
+	{
+		GrenadeIdle(0);
 		return;
 	}
 	if (m_fireMode == TSFM_BURST && m_burstCount > 0 &&

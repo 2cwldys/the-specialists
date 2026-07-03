@@ -19,6 +19,8 @@
 #include "ts_weapons.h"
 #include "ts_player.h" // KungFu() — the thrown-katana pickup gate (CTSKnife::Use)
 #include "ts_physicobject.h"
+#include "ts_slowmotionpoint.h" // the spectacular-explosion slow bubble
+#include "ts_gamerules.h"       // DoSpectacularNess
 
 //============================================================================
 // CTSPhysicObject (@0x7ba54) — slow-motion-aware physics base for CTSGrenade + CTSWorldGun.
@@ -223,19 +225,17 @@ void TSExplosion(const Vector &origin, entvars_t *pevInflictor, entvars_t *pevAt
 
 	UTIL_ScreenShake(pos, magnitude, 80.0f, 1.0f, radius * 2.0f);
 
-	// Explosion visual: a TE_EXPLOSION (dynamic light + fireball sprite + the engine's explode sound).
-	// SLICE: the original sends gmsgTSCreateDebris material 1 for its own client fireball-debris effect;
-	// that client handler isn't reconstructed yet, so we use the standard TE fireball as a faithful-enough
-	// boom (the screen-shake / radius damage / screen-flash below ARE the faithful TSExplosion gameplay).
-	MESSAGE_BEGIN(MSG_PAS, SVC_TEMPENTITY, pos);
-	WRITE_BYTE(TE_EXPLOSION);
+	// The faithful explosion wire (@0x7d0xx decompile): gmsgTSCreateDebris MATERIAL 1 —
+	// origin coords + (round(magnitude), 0, 0) + byte 1. The CLIENT owns the fireball +
+	// the explo/explode*.wav boom (material-1 branch, cl_dll/ts_debris.cpp).
+	MESSAGE_BEGIN(MSG_ALL, gmsgTSCreateDebris);
 	WRITE_COORD(pos.x);
 	WRITE_COORD(pos.y);
 	WRITE_COORD(pos.z);
-	WRITE_SHORT(g_sModelIndexFireball);
-	WRITE_BYTE(25);              // sprite scale (×10)
-	WRITE_BYTE(15);              // framerate
-	WRITE_BYTE(TE_EXPLFLAG_NONE);
+	WRITE_COORD((float)(int)(magnitude + 0.5f));
+	WRITE_COORD(0);
+	WRITE_COORD(0);
+	WRITE_BYTE(1);
 	MESSAGE_END();
 
 	// Radius damage: full baseDamage at the centre, falling off linearly to 0 at `radius`. A wall in the
@@ -260,6 +260,12 @@ void TSExplosion(const Vector &origin, entvars_t *pevInflictor, entvars_t *pevAt
 		pEnt->TraceAttack(pevAttacker, dmg, (vecTgt - pos).Normalize(), &tr, DMG_BLAST);
 		ApplyMultiDamage(pevInflictor, pevAttacker);
 	}
+
+	// @0x7d957 (the sphere-loop exhaustion tail): the "spectacular" roll — DoSpectacularNess
+	// (RANDOM_LONG(0,100) <= round(`spectacularness` cvar), default 1 -> ~2%) drops a ONE-SECOND
+	// slow-motion bubble at the blast (scale 0.25): CreateSlowMotionPoint(pos, 0.25, 1.0, 0, false).
+	if (DoSpectacularNess())
+		CTSSlowMotionPoint::CreateSlowMotionPoint(pos, 0.25f, 1.0f, 0, nullptr);
 }
 
 //============================================================================

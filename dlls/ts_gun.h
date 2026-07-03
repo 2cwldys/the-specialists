@@ -101,7 +101,9 @@ public:
 	void CCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
 	void CCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
 	void CCombatIdle();                      // @0x85e54 — bare-hands viewmodel idle (WeaponIdle no-item branch)
-	void GrenadeFire(const s_weapon_info *wi);  // grenade fire-type
+	void GrenadeFire();                          // @GrenadeFire @0x732f0 — PULL THE PIN (cook; no fuse yet)
+	void GrenadeIdle(int fForce);                // @GrenadeIdle @0x74f18 — the cook machine: throw on release
+	                                             // (fForce=1 = holster put-away throw), post-throw consume
 	void KatanaFire();                           // @KatanaFire__6CTSGun @0x733f0 — the 5-stance katana slash
 	void KatanaThrow();                          // @KatanaThrow__6CTSGun @0x73b68 — right-click HURLS the katana
 	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
@@ -154,10 +156,12 @@ public:
 	int m_kickCombo = 0;        // kung-fu KICK combo counter (this+0xa00 in the .so): 3 kicks → spin finisher, reset on finisher/dive
 	int m_lastMeleeAnim = 0;    // last kung-fu attack id (this+0xa04): drives the no-repeat anim cycling per move
 	float m_lastCCTime = 0.0f;  // last close-combat attack time (combo only continues if rapid/held)
+	float m_flGrenadeCook = 0;  // gun+0xa0c — set to time+5 at pin-pull (consumer VERIFY: reads @0xbfe54/0xcb09d)
 	unsigned short m_usFire = 0; // events/fire.sc handle (predicted fire: sound/flash/anim)
 	unsigned short m_usDraw = 0; // events/draw.sc handle (deploy: seed the client param cache)
 	unsigned short m_usMelee = 0; // events/knife.sc handle (gun+0x972): every knife slash, iparam1=weaponType, iparam2=bloody
 	unsigned short m_usKatana = 0; // events/katana.sc handle (gun+0x974): every katana swing, iparam1=vmAnim, iparam2=bloody
+	unsigned short m_usGrenade = 0; // events/grenade.sc handle (gun+0x978): iparam1 = 19 pin / 20 overhand / 21 underhand
 
 	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends
 	// WeaponInfo on change from CTSGun::UpdateClientData @0x758c8; we mirror that.

@@ -696,6 +696,7 @@ void CWorld::Precache()
 	// error, and so ItemInfoArray[16] (pszName etc.) is populated for DeathNotice.
 	// (This spawns a weapon_tsgun whose Precache precaches the whole roster.)
 	UTIL_PrecacheOtherWeapon("weapon_tsgun");
+	{ extern void TSPrecache(void); TSPrecache(); } // @CWorld::Precache -> the whole TS asset set in the map window
 }
 
 

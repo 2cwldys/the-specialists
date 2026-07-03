@@ -57,6 +57,70 @@ CBaseEntity *TSFoundRandomEntity(char *pszClassname)
 	return arr[RANDOM_LONG(0, n - 1)];
 }
 
+// @0x8f320 TSPrecache — the map-window precache of the whole TS asset set (called from
+// CWorld::Precache; the original's exact list + order, analysis_ff_util §9). Fixes every
+// "late precache" console warning (grenbounce via PrecacheOther("m61_grenade"), the
+// explo/explode* boom, splat/die/misc sets). Our weapon-table loop covers the fields our
+// struct carries (v/p/w models + fire sound; the original also walks two more model slots
+// +0xe8/+0x1b2 our table doesn't have yet — VERIFY/extract later).
+void TSPrecache(void)
+{
+	// 1. the fixed sound block (order preserved)
+	static const char *const fixed1[] = {
+		"player/superjump-land.wav", "player/land.wav", "player/dive.wav", "player/airwheel.wav",
+		"player/headshot.wav", "player/headshot2.wav", "player/kevlarhit.wav", "player/block.wav",
+		"player/splat.wav", "player/bodyhit1.wav", "player/bodyhit2.wav", "player/bodyhit3.wav",
+		"player/bodyhit4.wav", "player/die.wav", "player/die1.wav", "player/die2.wav",
+		"player/die3.wav", "player/pain1.wav", "player/pain2.wav", "player/pain3.wav",
+		"player/pain4.wav", "misc/hacking.wav", "misc/hacked.wav", "misc/failed.wav",
+		"misc/successful.wav", "misc/gogogo.wav", "debris/ric1.wav", "debris/ric2.wav",
+		"debris/ric3.wav", "debris/ric4.wav", "debris/ric5.wav", "debris/cement.wav",
+		"debris/cement1.wav", "debris/cement2.wav", "debris/cement3.wav", "debris/cement4.wav",
+		"debris/cement5.wav", "debris/cement6.wav", "debris/gravel1.wav", "debris/gravel2.wav",
+		"debris/gravel3.wav", "debris/gravel4.wav", "debris/metal1.wav", "debris/metal2.wav",
+		"debris/metal3.wav", "debris/metal4.wav", "debris/metal5.wav", "weapons/shell.wav",
+		"weapons/sshell.wav"};
+	for (unsigned i = 0; i < sizeof(fixed1) / sizeof(fixed1[0]); i++)
+		PRECACHE_SOUND((char *)fixed1[i]);
+
+	// 2. the weapon-table loop (models + fire sound per weapon)
+	for (int i = 0; i < 0x26; i++)
+	{
+		const s_weapon_info *wi = get_weapon_info((tsweapon_t)i);
+		if (wi->pszViewModel && wi->pszViewModel[0])
+			PRECACHE_MODEL((char *)wi->pszViewModel);
+		if (wi->pszPlayerModel && wi->pszPlayerModel[0])
+			PRECACHE_MODEL((char *)wi->pszPlayerModel);
+		if (wi->pszWorldModel && wi->pszWorldModel[0])
+			PRECACHE_MODEL((char *)wi->pszWorldModel);
+		if (wi->pszFireSound && wi->pszFireSound[0])
+			PRECACHE_SOUND((char *)wi->pszFireSound);
+	}
+
+	// 3. the post-loop fixed set
+	static const char *const fixed2[] = {
+		"weapons/pistol-empty.wav", "weapons/insert-shell.wav", "weapons/goslow.wav",
+		"weapons/whizz1.wav", "weapons/whizz2.wav", "weapons/whizz3.wav", "weapons/whizz4.wav",
+		"weapons/whizz5.wav", "player/closecombat.wav", "player/kungfuhit.wav",
+		"weapons/weapondrop.wav", "weapons/items.wav", "weapons/draw.wav", "weapons/switch.wav",
+		"items/9mmclip1.wav", "weapons/generic_reload.wav", "explo/explode.wav",
+		"explo/explode1.wav", "explo/explode2.wav", "explo/explode3.wav", "explo/explode4.wav",
+		"weapons/knife/knife_miss.wav", "weapons/knife/knife_hit.wav",
+		"weapons/knife/knife_hitbody.wav", "weapons/katana/hit-body.wav",
+		"weapons/katana/miss1.wav", "weapons/katana/miss.wav", "weapons/katana/hit.wav",
+		"weapons/katana/hit1.wav"};
+	for (unsigned i = 0; i < sizeof(fixed2) / sizeof(fixed2[0]); i++)
+		PRECACHE_SOUND((char *)fixed2[i]);
+	PRECACHE_MODEL("models/generic_clip.mdl");
+	PRECACHE_MODEL("models/ammopack.mdl");
+	PRECACHE_MODEL("models/bullet.mdl");
+	PRECACHE_MODEL("models/long_bullet.mdl");
+	PRECACHE_MODEL("models/pellet.mdl");
+	UTIL_PrecacheOther("m61_grenade"); // pulls the grenade's own Precache (grenbounce*.wav) into the window
+	UTIL_PrecacheOther("shrapnel");
+	UTIL_PrecacheOther("ts_flag");
+}
+
 // @0x8fae0 PlayerIsCheating — bots never cheat; a human cheats iff their cl_lw != "1"
 // (the forced-client-side-weapons check). Callers: ClientUserInfoChanged (which then forces
 // cl_lw "1") and TSInit (result discarded — the original's quirk).
