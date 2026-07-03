@@ -365,3 +365,19 @@ reuse the field (shotgun rack via pump.sc's direct EV_PlaySound, cont83 §3, sti
   read as .rodata floats — values not extracted.
 - Buy-menu slot-field provenance (slot+4 attach vs slot+0x30 count) inferred from the Apply
   disasm only; the menu code that FILLS the slots was not decompiled.
+
+---
+
+## ADDENDUM (round 7g) — the SCOPE presentation, user-observed vs the live original
+
+- **Pistols / small weapons with a scope** (zoomFov1 >= 40, e.g. deagle 60): right-click zooms
+  the FOV only — the viewmodel STAYS.
+- **Scoped rifles** (zoomFov1 < 40, e.g. m4 26): FOV zoom + viewmodel HIDDEN + a SCOPE OVERLAY:
+  a black screen with a circular HOLE cut out of it + "+" crosshair lines through the centre
+  (black side bars; the classic sniper-scope mask).
+- **While scoped**: the LASER TRAIL (beam) is disabled but the laser HUD DOT remains (traced
+  from the view); the FLASHLIGHT stays toggled/on.
+- Implementation notes: the overlay = a client HUD element gated on (zoomed && zoomFov1 < 40);
+  the beam gate must distinguish beam-off/dot-on (laser) from fully-on (flashlight) while the
+  local viewmodel is hidden — refine the round-7g stale-anchor gate accordingly (dot from a
+  view-forward trace, not the vm attachment).
