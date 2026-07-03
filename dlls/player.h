@@ -506,6 +506,9 @@ public:
 	int m_iClientTSState = 0;                             // 0x499 — last-sent TSState byte (plain on-change; the
 	                                                      // original's InitHUD memset deliberately skips this cache)
 	int m_iClientTSSpace = 0;                             // 0x54c — last-sent TSSpace free-slots value
+	byte m_iAward = 0;                                    // 0x74c — the broadcast award/status byte: 0 clear,
+	                                                      // 1 out-of-round, 2/3/4 kill tiers, 10 The One, 11 respawning
+	byte m_iClientAward = 0;                              // 0x74d — last TSPAward value broadcast
 	void TSUse();                                         // @0x856e0 — server-side double-tap +use -> UsePowerUp
 	float m_flUseDoubleTap = 0;                           // 0x164 — the double-tap +use window deadline
 	float m_flSetMaxSpeed = 0;                            // 0x550 — the last SetPlayerSpeed value (clamped)

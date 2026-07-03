@@ -36,7 +36,6 @@ int gmsgTSSlowAmt = 0;      // "TSSlowMo" 2 — coord(100*applied slow) — driv
 int gmsgKFuPower = 0;       // "KFuPower" 1 — the melee stamina bar (CHAR, 0..100); sent ONLY by UpdateMeleeBar
 int gmsgTSKickAlign = 0;    // "TSKickAlign" — DEAD in the original: the global exists but is never
                             // registered or sent (star addendum). Kept for symbol parity only.
-// SLICE: gmsgTSBulletTime "TSBTime" (byte 0x175) drives the bullet-time render variant; deferred.
 
 // Lazily-registered TS custom-HUD user messages. Names + fixed sizes are byte-faithful
 // to the original LinkUserMessages (reference/HUD_MESSAGES.md): TSHealth/TSArmor are a
@@ -48,6 +47,7 @@ static int gmsgTSCash = 0;
 static int gmsgTSState = 0;      // "TSState" 1 — posture byte 0x498 (star_TSState_TSSpace_TSBTime.md)
 static int gmsgTSSpace = 0;      // "TSSpace" 1 — free carry slots (int 0x548)
 static int gmsgTSBulletTime = 0; // "TSBTime" 1 — the bullet-time variant flag (byte 0x175 = m_bSlowBullets)
+static int gmsgTSPlayerAward = 0; // "TSPAward" 2 — MSG_ALL: entindex + award byte 0x74c (star_TSPAward.md)
 
 // @ part of CBasePlayer::UpdateClientData @0x81d00 — the TS per-frame HUD sends. Each
 // message is throttled-by-change (only sent when the cached value differs) exactly as
@@ -167,6 +167,20 @@ void CBasePlayer::TSUpdateClientData()
 		m_iClientBulletTime = m_bSlowBullets;
 		MESSAGE_BEGIN(MSG_ONE, gmsgTSBulletTime, NULL, ENT(pev));
 		WRITE_BYTE(m_bSlowBullets);
+		MESSAGE_END();
+	}
+
+	// TSPAward — the broadcast award/status byte (source 0x74c, cache 0x74d): MSG_ALL keyed by
+	// entindex so every client tracks all players' status (scoreboard/observer UI). On-change
+	// only, no forced resend (star_TSPAward.md — the sole send site in the original).
+	if (gmsgTSPlayerAward == 0)
+		gmsgTSPlayerAward = REG_USER_MSG("TSPAward", 2);
+	if (m_iAward != m_iClientAward)
+	{
+		m_iClientAward = m_iAward;
+		MESSAGE_BEGIN(MSG_ALL, gmsgTSPlayerAward);
+		WRITE_BYTE(entindex());
+		WRITE_BYTE(m_iAward);
 		MESSAGE_END();
 	}
 }

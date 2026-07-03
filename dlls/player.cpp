@@ -878,6 +878,12 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 
 	m_TSAnim.Animate(this, TSA_DIE);
 
+	// TSPAward: the original's Killed re-runs SetPlayerRespawnTime's +0x770<0 test and writes
+	// 1 (out of round) or 11 (will respawn). Our respawn gate is round-driven; default to 11 —
+	// the out-of-round (1) + kill-tier (2/3/4) producers land with SetPlayerRespawnTime /
+	// the PlayerKilled tier pass (F-gamerules).
+	m_iAward = 11;
+
 	m_flRespawnTimer = 0.0f;
 
 	pev->modelindex = g_ulModelIndexPlayer; // don't use eyes
@@ -3142,6 +3148,7 @@ void CBasePlayer::Spawn()
 	m_iWhiffLungeType = 0;
 	m_flBlockTime = 0.0f;
 	m_flDisarmPressure = 0.0f;
+	m_iAward = 0; // TSInit +0x1e9 — spawn-init clear of the broadcast award/status byte
 
 	pev->classname = MAKE_STRING("player");
 	pev->health = 100;

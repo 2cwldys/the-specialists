@@ -37,6 +37,7 @@ public:
 	bool MsgFunc_TSCash(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_TSState(const char* pszName, int iSize, void* pbuf); // posture byte (0 stand/1 duck/2 prone)
 	bool MsgFunc_TSSpace(const char* pszName, int iSize, void* pbuf); // free carry slots
+	bool MsgFunc_TSPAward(const char* pszName, int iSize, void* pbuf); // per-player award/status byte
 
 private:
 	int m_iHealth; // last TSHealth byte received

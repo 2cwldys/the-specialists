@@ -398,6 +398,7 @@ void CTSGameRules::RestartRound()
 			if (p)
 			{
 				p->DropFlag(true); // clear any carried flag (the briefcases re-seed fresh ones below)
+				p->m_iAward = 11;  // TSPAward: respawning into the fresh round (@RestartRound +0x200)
 				respawn(p->pev, false);
 			}
 		}
@@ -481,6 +482,7 @@ void CTSGameRules::SetPlayerTheOne(CBasePlayer *pPlayer)
 	if (!pPlayer || !pPlayer->IsAlive() || pPlayer->pev->iuser1 != 0)
 		return;
 	pPlayer->m_bTheOne = 1;
+	pPlayer->m_iAward = 10; // TSPAward: The One (0xa) — never overwritten by kill tiers
 	pPlayer->pev->health = 150.0f;
 	pPlayer->m_flHealthRegen = gpGlobals->time + 1.0f;
 	pPlayer->m_iKungFu = 1;

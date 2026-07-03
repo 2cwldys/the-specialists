@@ -35,6 +35,7 @@ DECLARE_MESSAGE(m_TSStatus, TSArmor)
 DECLARE_MESSAGE(m_TSStatus, TSCash)
 DECLARE_MESSAGE(m_TSStatus, TSState)
 DECLARE_MESSAGE(m_TSStatus, TSSpace)
+DECLARE_MESSAGE(m_TSStatus, TSPAward)
 
 bool CHudTSStatus::Init()
 {
@@ -47,6 +48,7 @@ bool CHudTSStatus::Init()
 	HOOK_MESSAGE(TSCash);
 	HOOK_MESSAGE(TSState); // posture byte (0 stand / 1 duck / 2 stunt-prone) — server-authoritative
 	HOOK_MESSAGE(TSSpace); // free carry slots
+	HOOK_MESSAGE(TSPAward); // per-player award/status byte (MSG_ALL broadcast)
 
 	TSHud_RegisterCvars();
 
@@ -127,6 +129,22 @@ bool CHudTSStatus::MsgFunc_TSSpace(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
 	m_iSpace = READ_BYTE(); // free carry slots (panel styling VERIFY — stored, drawn later)
+	m_iFlags |= HUD_ACTIVE;
+	return true;
+}
+
+// TSPAward — every player's broadcast award/status byte (0 clear / 1 out-of-round / 2-4 kill
+// tiers / 10 The One / 11 respawning), keyed by entindex. Stored per-player (the original keeps
+// a stride-8 per-player table); the popup/scoreboard presentation is a client-RE VERIFY.
+int g_iTSPlayerAward[MAX_PLAYERS + 1] = {};
+
+bool CHudTSStatus::MsgFunc_TSPAward(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	const int idx = READ_BYTE();
+	const int val = READ_BYTE();
+	if (idx >= 1 && idx <= MAX_PLAYERS)
+		g_iTSPlayerAward[idx] = val;
 	m_iFlags |= HUD_ACTIVE;
 	return true;
 }
