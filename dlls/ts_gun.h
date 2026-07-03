@@ -109,7 +109,7 @@ public:
 	void ShotgunFire(const s_weapon_info *wi);   // @ ShotgunFire__6CTSGun @0x72108 — pump shotgun: ALTERNATES
 	                                             // fire-step / pump(rack)-step per trigger-frame (see .cpp)
 	void VKickback(float magnitude, int firetype); // @VKickback @0x70414 — recoil view-punch (punchangle)
-	void ScaleSpread(float &spread, float increment, bool ducking); // @ScaleSpread @0x702a8 — dynamic accuracy
+	void ScaleSpread(float &spread, float increment, bool silenced); // @ScaleSpread @0x702a8 — dynamic accuracy (4th arg = the SILENCED flag, round-6 RE; sil tightens x0.875/x0.775)
 	void KnifeFire();                            // @KnifeFire__6CTSGun @0x74044 — knife slash AND throw (item+0x24)
 	void CCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
 	void CCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina

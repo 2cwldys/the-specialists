@@ -1077,8 +1077,15 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	// TS dynamic accuracy (RE StandardFire @0x824a4): for weapons flagged bUsesSpread (s_weapon_info+0x2c —
 	// the firearms; shotguns/melee fire at the static base cone), grow the per-player spread accumulator and
 	// fold it into this shot's cone, so sustained fire walks the spread out (it recovers in PreThink).
+	// silenced = attach bit0 present and NOT integral (an MP5SD's built-in silencer doesn't count)
+	const bool sfSilenced = (m_items[m_weaponType].attach & 1) != 0 && (wi->attachBuiltin & 1) == 0;
 	if (wi->bUsesSpread)
-		ScaleSpread(flSpread, wi->flRecoil, (m_pPlayer->pev->flags & FL_DUCKING) != 0);
+	{
+		// @0x82638/0x82674: the recoil increment is x5 while MOVING faster than 175 u/s
+		const float recoil = (m_pPlayer->pev->velocity.Length() > 175.0f) ? 5.0f * wi->flRecoil
+		                                                                  : wi->flRecoil;
+		ScaleSpread(flSpread, recoil, sfSilenced);
+	}
 
 	m_iClip--;
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH; // 3rd-person muzzleflash on the player model
@@ -1122,8 +1129,10 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	// @0x72759 (the StandardFire call site): (iPellets, src, aim, (s,s,s), flDamage,
 	// wi->iKnifeType (0 for firearms), iCaliber, random_seed). damagemult applies INSIDE
 	// (cheat-gated) — the old outer TSDamageMult was double-applying it.
+	// @0x8256c: a (non-integral) silencer costs damage — x0.775
 	m_pPlayer->ShootBulletsPlayer((unsigned char)cPellets, vecSrc, vecAiming,
-		Vector(flSpread, flSpread, flSpread), wi->flDamage, wi->iKnifeType,
+		Vector(flSpread, flSpread, flSpread),
+		sfSilenced ? wi->flDamage * 0.775f : wi->flDamage, wi->iKnifeType,
 		wi->iCaliber, m_pPlayer->random_seed);
 #else
 	// Client prediction: spread/recoil only (damage + decals are server-authoritative).
@@ -1210,17 +1219,20 @@ void CTSGun::ShotgunFire(const s_weapon_info *wi)
 // @ ScaleSpread__6CTSGun (@0x802a8) — TS dynamic accuracy. Folds the per-player spread accumulator
 // (CBasePlayer::m_flSpreadAccum, the .so's player+0x778) into THIS shot's cone, then grows the accumulator
 // for the next shot — so sustained fire walks the spread out. The accumulator recovers over time in
-// CBasePlayer::PreThink. `increment` = the weapon's flRecoil (s_weapon_info+0x34). Growth is faster when
-// firing rapidly (small gap → low recovery) and capped at 0.1; ducking + bullet-time tighten it.
-void CTSGun::ScaleSpread(float &spread, float increment, bool ducking)
+// CBasePlayer::PreThink. `increment` = the weapon's flRecoil (s_weapon_info+0x34) — x5 while MOVING
+// faster than 175 u/s, x2 for the akimbo LINKED shot (the callers fold those in).
+// ⚠ ARG IDENTITY (round-6 RE): the 4th arg is the SILENCED flag (attach bit0 present and NOT
+// integral — both original call sites @0x82674/@0x82ad4 compute exactly that), NOT ducking as we
+// had mislabeled — a SILENCER tightens the base cone x0.875 and the growth x0.775.
+void CTSGun::ScaleSpread(float &spread, float increment, bool silenced)
 {
-	if (ducking)
-		spread *= 0.875f;                 // ducked → tighter base cone
+	if (silenced)
+		spread *= 0.875f;                 // silenced -> tighter base cone
 	if (increment <= 0.0f)
 		return;                           // weapon has no dynamic recoil
 	float factor = 2.0f;
 	if (DoubleFireRate(m_pPlayer)) factor *= 0.5f;    // bullet-time fires softer
-	if (ducking)                   factor *= 0.775f;
+	if (silenced)                  factor *= 0.775f;
 	const float dt = gpGlobals->time - m_flLastShotTime; // time since this gun last fired
 	if (dt >= 0.001f)
 	{
@@ -2155,8 +2167,16 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 	//  - the FREE modes (4 "Free Semi" / 5 "Free Full"): the CLICKED barrel only — item+0x24
 	//    (0 = left click = LEFT barrel, 1 = right click = RIGHT), each draining ITS OWN clip
 	//    and dry-clicking when THAT barrel is empty even if the other still has rounds.
+	// @0x829e5 (round-6 verify RE): in the FREE modes, BOTH buttons together = a LINKED
+	// both-barrels shot — "Free Full" (5) checks the HELD buttons, "Free Semi" (4) the
+	// PRESSED cache (player+0x814).
+	const unsigned int ccBtns = (m_fireMode == TSFM_AKIMBO_BOTH)
+		? (unsigned int)m_pPlayer->pev->button : (unsigned int)m_pPlayer->m_afButtonPressed;
+	const bool freeLinked = (m_fireMode == TSFM_AKIMBO_ALT || m_fireMode == TSFM_AKIMBO_BOTH) &&
+		(ccBtns & IN_ATTACK) != 0 && (ccBtns & IN_ATTACK2) != 0;
+
 	int sides[2], nSides = 0; // 0 = right, 1 = left
-	if (m_fireMode == TSFM_AUTO)
+	if (m_fireMode == TSFM_AUTO || freeLinked)
 	{
 		if (it.rightClip > 0) sides[nSides++] = 0;
 		if (it.leftClip  > 0) sides[nSides++] = 1;
@@ -2169,7 +2189,7 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 	}
 	else if (m_fireMode == TSFM_AKIMBO_ALT || m_fireMode == TSFM_AKIMBO_BOTH)
 	{
-		const int fireLeft = it.altMode ? 0 : 1; // primary=LEFT, secondary=RIGHT
+		const int fireLeft = it.altMode ? 0 : 1; // primary(left click)=LEFT, secondary=RIGHT
 		const int barrelClip = fireLeft ? it.leftClip : it.rightClip;
 		if (barrelClip <= 0)
 		{
@@ -2202,7 +2222,14 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 
 	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	Vector vecAiming = gpGlobals->v_forward;
-	const float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.02f;
+	float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.02f;
+	// @0x82bf8 (round-6 verify RE): the akimbos run the dynamic-accuracy growth too — recoil
+	// DOUBLED on a linked both-barrels shot; the (non-integral) silencer flag tightens.
+	const bool akSilenced = (it.attach & 1) != 0 && (wi->attachBuiltin & 1) == 0;
+	if (wi->bUsesSpread)
+		ScaleSpread(flSpread, (nSides == 2) ? wi->flRecoil * 2.0f : wi->flRecoil, akSilenced);
+	// @0x82c65: the silencer damage penalty (x0.775)
+	const float akDamage = akSilenced ? wi->flDamage * 0.775f : wi->flDamage;
 
 	for (int s = 0; s < nSides; s++)
 	{
@@ -2213,7 +2240,7 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 #ifndef CLIENT_DLL
 		// @0x72e62/0x72fff/0x73133: one pellet per fired barrel through the TS bullet path.
 		m_pPlayer->ShootBulletsPlayer(1, vecSrc, vecAiming,
-			Vector(flSpread, flSpread, flSpread), wi->flDamage, wi->iKnifeType,
+			Vector(flSpread, flSpread, flSpread), akDamage, wi->iKnifeType,
 			wi->iCaliber, m_pPlayer->random_seed);
 #else
 		m_pPlayer->FireBulletsPlayer(1, vecSrc, vecAiming,
@@ -2222,6 +2249,11 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 #endif
 	}
 	m_iClip = it.leftClip + it.rightClip; // total clip mirrors the two barrels
+	// @0x82c3a: a fire-type-4 akimbo mirrors one barrel into its SINGLE's parked clip after
+	// every shot (the same mirror the reload completion keeps).
+	if (wi->iFireType == TSFT_AKIMBO && wi->iSingleType >= 0 && wi->iSingleType < TSW_COUNT &&
+		wi->iSingleType != m_weaponType)
+		m_items[wi->iSingleType].clip = it.leftClip;
 
 	// (the viewmodel anim rides the EVENT now — EV_TSFireLinked plays block[3+RL(0,2)] for the
 	// both-barrels shot; EV_TSFire plays block[22/23] left / [24/25] right off bparam1)
