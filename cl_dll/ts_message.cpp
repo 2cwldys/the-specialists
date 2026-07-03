@@ -38,6 +38,26 @@ void CHudTSMessage::Add(const char* text, int r, int g, int b, int holdtime, int
 {
 	if (!text || !text[0])
 		return;
+	// flags 0x10 (the spectate countdown class) = a SINGLE-SLOT message: a new one REPLACES the
+	// live one in place instead of stacking (the 1 Hz "%i" lines otherwise pile up and bump the
+	// queue down — round-7c). VERIFY vs FUN_1004b520's exact flag semantics when it gets RE'd.
+	if ((flags & 0x10) != 0)
+	{
+		for (int i = 0; i < MAX_MSG; i++)
+		{
+			if (m_msgs[i].die > gHUD.m_flTime && (m_msgs[i].flags & 0x10) != 0)
+			{
+				Msg& mm = m_msgs[i];
+				strncpy(mm.text, text, sizeof(mm.text) - 1);
+				mm.text[sizeof(mm.text) - 1] = '\0';
+				mm.r = r; mm.g = g; mm.b = b; mm.flags = flags;
+				int h = holdtime < 0 ? -holdtime : holdtime;
+				if (h <= 0 || h > 100) h = 30;
+				mm.die = gHUD.m_flTime + h * 0.1f + 1.0f;
+				return;
+			}
+		}
+	}
 	// find a free (or the oldest) slot
 	int slot = -1;
 	float oldest = 1e9f;

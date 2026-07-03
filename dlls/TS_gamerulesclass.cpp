@@ -1075,6 +1075,19 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 
 	pPlayer->m_iRespawnsUsed = 0; // @0x694d1 — a joiner starts with a fresh respawn budget
 
+	// @0x69134: the joiner catches up on EVERY player's spectator state — MSG_ONE per
+	// connected player: (BYTE idx, BYTE iuser1 != 0).
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBaseEntity *p = UTIL_PlayerByIndex(i);
+		if (!p)
+			continue;
+		MESSAGE_BEGIN(MSG_ONE, gmsgSpectator, NULL, pPlayer->edict());
+		WRITE_BYTE(i);
+		WRITE_BYTE(p->pev->iuser1 != 0 ? 1 : 0);
+		MESSAGE_END();
+	}
+
 	// SrvSett catch-up: the joiner gets all four settings (no late-joiner hole).
 	m_iSrvRealBullet = (int)(CVAR_GET_FLOAT("realbullet") + 0.5f);
 	MESSAGE_BEGIN(MSG_ONE, gmsgTSServerSetting, NULL, pPlayer->edict());

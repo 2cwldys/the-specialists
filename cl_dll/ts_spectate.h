@@ -18,7 +18,8 @@ public:
 	void Reset() override;
 	int MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf);
 
-	bool IsActive() const { return m_iState != 0; }
+	bool IsActive() const; // computed from the (idx,flag) table + the LIVE local index (lazy —
+	                       // the first Spectator broadcast can arrive before GetLocalPlayer works)
 
 private:
 	int m_iState;   // TSSPEC_OFF/COUNTDOWN/READY (matches dlls/player.h)

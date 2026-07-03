@@ -24,6 +24,7 @@ bool CHudSpectate::Init()
 	// NB: the "Spectator" message is hooked in CHud::Init (routes to this element);
 	// we do not HOOK_MESSAGE here to avoid double-registering the callback.
 	gHUD.AddHudElem(this);
+	m_iFlags |= HUD_ACTIVE; // always eligible; Draw self-gates on the live local state
 	return true;
 }
 
@@ -39,9 +40,27 @@ void CHudSpectate::Reset()
 	memset(s_bPlayerSpectating, 0, sizeof(s_bPlayerSpectating));
 }
 
+// Is the LOCAL player spectating per the (idx,flag) table? Computed lazily — during connect
+// the first Spectator broadcast arrives BEFORE GetLocalPlayer() is valid, so latching local
+// state at parse time misses it (the round-7c "buy menu gone" regression).
+static bool TS_LocalSpectating()
+{
+	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
+	if (!local || local->index < 1 || local->index > MAX_PLAYERS)
+		return false;
+	return s_bPlayerSpectating[local->index];
+}
+
+bool CHudSpectate::IsActive() const
+{
+	return TS_LocalSpectating();
+}
+
 // The ORIGINAL wire: BYTE playerIndex (1..32), BYTE flag (1 = spectating, 0 = playing).
 // (The old state+seconds payload was an invented wire — refuted by the cont.84 dossier;
 // the respawn countdown/"Press Fire To Play!" lines arrive as TSMessage texts instead.)
+// Parse ONLY stores the table — all local-state consequences (menu open/close, the HUD) are
+// derived per-frame where the local index is reliable.
 int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
@@ -49,25 +68,6 @@ int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 	const int flag = READ_BYTE();
 	if (idx >= 1 && idx <= MAX_PLAYERS)
 		s_bPlayerSpectating[idx] = (flag != 0);
-
-	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
-	if (!local || idx != local->index)
-		return 1;
-
-	const int oldState = m_iState;
-	m_iState = flag;
-	if (m_iState != 0)
-		m_iFlags |= HUD_ACTIVE;
-	else
-		m_iFlags &= ~HUD_ACTIVE;
-
-	// Open the TS buy/config menu ONCE, on entering the spectate-wait phase; close it on
-	// entering play. (Unchanged behavior — only the trigger byte moved to the (idx,flag) wire.)
-	if (m_iState != 0 && oldState == 0)
-		gHUD.m_TSBuyMenu.Open();
-	else if (m_iState == 0)
-		gHUD.m_TSBuyMenu.Close();
-
 	return 1;
 }
 
@@ -96,7 +96,14 @@ static void DrawCentered(int y, const char* str, int r, int g, int b)
 
 bool CHudSpectate::Draw(float flTime)
 {
-	if (m_iState == 0)
+	// Per-frame local-state derivation + edge detection (parse time is too early — see above).
+	const bool spec = TS_LocalSpectating();
+	if (spec && m_iState == 0)
+		gHUD.m_TSBuyMenu.Open(); // entering spectate-wait: the buy/config menu comes up once
+	else if (!spec && m_iState != 0)
+		gHUD.m_TSBuyMenu.Close(); // entering play
+	m_iState = spec ? 1 : 0;
+	if (!spec)
 		return true;
 
 	TS_SpectateFireCheck(); // fire-to-play -> the "respawn" console command (original mechanism)
