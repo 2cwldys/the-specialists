@@ -29,6 +29,52 @@ void FixVelocity()
 {
 }
 
+// @0xe8fc8 PseudoClimb — the hold-jump WALL SCRAMBLE (decompile-exact): while airborne with
+// JUMP held (the TSHandle head gate), if the view pitch is within +-60deg — looking UP past
+// -30deg raises the head probe +40u — probe 64u forward at EYE level on the POINT hull (2);
+// clear there AND 32u forward at FEET level (mins[savehull].z) blocked AND moving slower than
+// half maxspeed => scrambling up a climbable lip: onground = -1, velocity.z += 100*frametime*16
+// (a per-frame upward crawl), PM_FixupGravityVelocity. ALWAYS restores usehull +
+// PM_FixPlayerCrouchStuck(STUCK_MOVEUP) + PM_CatagorizePosition on the way out.
+void PseudoClimb()
+{
+	const float pitch = pmove->angles[0];
+	if (pitch < -60.0f || pitch > 60.0f)
+		return;
+	const bool climb = pitch < -30.0f; // looking up: probe from higher (the ledge above)
+	const int savehull = pmove->usehull;
+	pmove->usehull = 2; // the point hull for both probes
+
+	Vector start, end;
+	VectorCopy(pmove->origin, start);
+	start.z += pmove->view_ofs[2];
+	if (climb)
+		start.z += 40.0f;
+	VectorMA(start, 64, pmove->forward, end);
+	end.z = start.z; // horizontal probe
+	pmtrace_t tr = pmove->PM_PlayerTrace(start, end, PM_NORMAL, -1);
+	if (tr.fraction == 1.0f) // the EYE line is clear...
+	{
+		start.z = pmove->origin[2] + pmove->player_mins[savehull][2]; // ...down at the FEET
+		VectorMA(start, 32, pmove->forward, end);
+		end.z = start.z;
+		pmove->usehull = 2;
+		tr = pmove->PM_PlayerTrace(start, end, PM_NORMAL, -1);
+		if (tr.fraction != 1.0f) // ...and the feet are against something
+		{
+			if (Length(pmove->velocity) < 0.5f * pmove->maxspeed)
+			{
+				pmove->onground = -1;
+				pmove->velocity[2] += 100.0f * pmove->frametime * 16.0f;
+				PM_FixupGravityVelocity();
+			}
+		}
+	}
+	pmove->usehull = savehull;
+	PM_FixPlayerCrouchStuck(STUCK_MOVEUP);
+	PM_CatagorizePosition();
+}
+
 // @0xf97cc CanJumpHigh — a 128u velocity-direction probe on the DUCKED hull, then a 164u
 // point-contents check. DEAD in the shipped binary (the superjump gate stayed stock —
 // hint REFUTED). QUIRK kept: usehull is NOT restored on the success path.
@@ -168,6 +214,11 @@ void TSWallJumpClimb()
 // the pm_shared dispatcher (TSHandle @0xe96a0) — keyed on pmove->iuser4.
 void TSHandle()
 {
+	// @0xe96ca (the TSHandle HEAD, BEFORE the STOP damp — order load-bearing): holding JUMP
+	// while airborne runs the wall-scramble probe every frame.
+	if ((pmove->cmd.buttons & IN_JUMP) != 0 && pmove->onground == -1)
+		PseudoClimb();
+
 	// STOP / SLIDE damp the MOVE COMMAND (not velocity) — your launch/landing velocity carries
 	// you (that IS the slide); you only get reduced input control. RE TSHandle @0xe96a0: these
 	// touch cmd.forwardmove/sidemove/upmove (the same fields PM_Duck's 0.333 multiplier scales).
