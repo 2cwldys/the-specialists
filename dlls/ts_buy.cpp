@@ -169,13 +169,51 @@ bool CBasePlayer::BuyWeapon(int type)
 	return PickUpWeapon(type, NULL, 0, true, true);
 }
 
-// @ BuyAmmo — give the player ammo for a caliber (free). Tops up the shared per-caliber
-// reserve via TSAddAmmo (capped at the caliber max).
-bool CBasePlayer::BuyAmmo(int caliber, int rounds)
+// @0x841e8 BuyAmmo(caliber) (decompile-exact shape) — FILL the caliber's reserve to its cap,
+// one magazine (roundsPerMag) at a time, charging the per-mag price each step when the cash
+// economy is on (free in the shipped game -> fills straight to iMaxCarry — the original's
+// "18/120 m16 on buy"). caliber == -2 fills EVERY owned weapon's caliber. Plays the clip
+// sound once per call.
+bool CBasePlayer::BuyAmmo(int caliber)
 {
-	if (caliber <= 0 || caliber >= 16 || rounds <= 0)
+	CTSGun *pGun = GetPlayerTSGun(this);
+	if (!pGun)
 		return false;
-	return TSAddAmmo(this, caliber, rounds);
+
+	bool any = false;
+	auto fill = [&](int cal)
+	{
+		if (cal <= 0 || cal >= 16)
+			return;
+		const s_ammo_info *ai = get_ammo_info(cal);
+		while (pGun->AddAmmo(cal, ai->iRoundsPerMag))
+		{
+			if (CashBased())
+			{
+				m_iCash -= ai->iPrice; // per-mag charge (@0x84284)
+				if (m_iCash - ai->iPrice < 0)
+					break;
+			}
+			any = true;
+		}
+	};
+
+	if (caliber == -2)
+	{
+		for (int t = 1; t < TSW_COUNT; t++)
+			if (pGun->IsOwned(t))
+				fill(get_weapon_info((tsweapon_t)t)->iCaliber);
+	}
+	else
+	{
+		if (CashBased() && m_iCash - get_ammo_info(caliber)->iPrice < 0)
+			return false;
+		fill(caliber);
+	}
+
+	if (any)
+		EMIT_SOUND_DYN(ENT(pev), CHAN_ITEM, "items/9mmclip1.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
+	return any;
 }
 
 // @ BuyArmament — apply the player's loadout: buy (or free-give) each queued weapon, then
@@ -195,12 +233,20 @@ void CBasePlayer::BuyArmament()
 		if (m_armament[i].isItem) // kevlar/grenade/attachment bitmask -> AddItem
 			AddItem(m_armament[i].type);
 		else
-			BuyWeapon(m_armament[i].type);
+		{
+			// one BuyWeapon per queued unit: a STACKABLE gains +1 per buy (TakeWeapon's merge,
+			// capped at iPellets — 5 knives / 10 seals), a duplicate single COMBINES into its
+			// akimbo, further duplicates refuse. (count was ignored before — the reason the
+			// knife table clip carried a x5 hack.)
+			const int n = (m_armament[i].count > 1) ? m_armament[i].count : 1;
+			for (int k = 0; k < n; k++)
+				BuyWeapon(m_armament[i].type);
+		}
 	}
 	for (int cal = 1; cal < 16; cal++)
 	{
 		if (m_armamentAmmo[cal] > 0)
-			BuyAmmo(cal, m_armamentAmmo[cal]);
+			BuyAmmo(cal); // @0x840e3 — per queued caliber; fills to the cap in free mode
 	}
 	// NB: NO ResetArmament here — the loadout persists across spawns (the original keeps it),
 	// so a round restart / respawn re-equips the same config. rst_cfg clears it on a rebuy.

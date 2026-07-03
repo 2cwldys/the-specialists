@@ -130,11 +130,12 @@ public:
 	// arsenal (the items-by-tsweapon_t array). @ TakeWeapon/SelectWeapon/DropWeapon__6CTSGun.
 	bool IsOwned(int type) const { return type >= 0 && type < TSW_COUNT && m_items[type].owned; }
 	int  OwnedCount() const;          // number of owned weapon types
-	// @TakeWeapon @0x80a04 — install into the arsenal: akimbo combine, the STACKABLE merge
-	// (an owned knife stack ADDS the picked units), or a fresh slot (pStatus = the dropped
-	// gun's full carried state; else iClip>0 = the loaded rounds, 0 = a full clip). NO
-	// auto-wield — the caller (PickUpWeapon) selects per its bSelect arg, like the original.
-	bool TakeWeapon(tsweapon_t type, const TSItem *pStatus = nullptr, int iClip = 0);
+	// @TakeWeapon @0x70a04 — install into the arsenal: akimbo combine (attach/active unions),
+	// the STACKABLE merge (+1 per take, capped at wi->iPellets — knife 5 / sealknife 10), or a
+	// fresh slot (pStatus = the dropped gun's full carried state). iAttach = the BOUGHT
+	// attachment mask (ORed with the integral ones, clamped to the mountable set). NO ammo
+	// grant and NO auto-wield — reserve comes from BuyAmmo/packs; PickUpWeapon selects.
+	bool TakeWeapon(tsweapon_t type, const TSItem *pStatus = nullptr, int iAttach = 0);
 	int  SlotsUsed() const;           // sum of slotCost over owned items (CBasePlayer+0x548 = 81 - this)
 	void HolsterWeapon();         // @HolsterWeapon @0x85698 — park state + reset to bare hands (kungfu draw)
 	void SelectWeapon(int type);  // @SelectWeapon — wield an owned type (HolsterWeapon->deploy)

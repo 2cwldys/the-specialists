@@ -585,11 +585,21 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 		pPlayer->GiveCash(-price);
 	}
 
-	// @0x924ff: PickUpWeapon(type, NULL, clip, type != FLAG, no owner record) — the pickup
-	// sound + speed recompute live inside. (The original's clip arg is a local; map-placed
-	// guns load full — iClip 0.)
-	if (!pPlayer->PickUpWeapon(tsweaponid, NULL, 0, tsweaponid != TSW_FLAG, false))
+	// @0x924ff: PickUpWeapon(type, NULL, ATTACH mask, type != FLAG, no owner record) — the
+	// pickup sound + speed recompute live inside. The mask = the entity's attachment
+	// spawnflags (silencer 1 / lasersight 2 / flashlight 4 / scope 8 — the priced bits above).
+	if (!pPlayer->PickUpWeapon(tsweaponid, NULL, pev->spawnflags & 0xF, tsweaponid != TSW_FLAG, false))
 		return; // won't fit -> leave it on the floor
+
+	// @0x925ec: an EMPTY caliber reserve gets one weapon-clip of rounds with the gun (the map
+	// pickup isn't useless when you're dry); a non-empty reserve gets NOTHING.
+	{
+		const s_weapon_info *gwi = get_weapon_info((tsweapon_t)tsweaponid);
+		CTSGun *pGun = GetPlayerTSGun(pPlayer);
+		if (pGun && gwi->iCaliber > 0 && gwi->iCaliber < TS_NUM_CALIBERS &&
+			pGun->m_ammoReserve[gwi->iCaliber] <= 0)
+			pGun->AddAmmo(gwi->iCaliber, gwi->iClip);
+	}
 
 	if (!FStringNull(pev->message))
 		UTIL_ShowMessage(STRING(pev->message), pPlayer);

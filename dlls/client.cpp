@@ -637,10 +637,10 @@ void ClientCommand(edict_t* pEntity)
 		if (CMD_ARGC() > 1)
 			player->BuyWeapon(atoi(CMD_ARGV(1)));
 	}
-	else if (FStrEq(pcmd, "tsbuyammo")) // TS: buy ammo for a caliber. `tsbuyammo <caliber> <rounds>`
+	else if (FStrEq(pcmd, "tsbuyammo")) // TS: buy ammo for a caliber (fills to the cap). `tsbuyammo <caliber>`
 	{
-		if (CMD_ARGC() > 2)
-			player->BuyAmmo(atoi(CMD_ARGV(1)), atoi(CMD_ARGV(2)));
+		if (CMD_ARGC() > 1)
+			player->BuyAmmo(atoi(CMD_ARGV(1)));
 	}
 	else if (FStrEq(pcmd, "tkw")) // TS "take weapon": queue weapons into the armament. The original
 	{                             // client (apply FUN_10039400) batches ALL weapons into ONE command,

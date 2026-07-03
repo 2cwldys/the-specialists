@@ -513,7 +513,7 @@ public:
 	void DropAmmo();                                      // @0x846f0 — drop the gun's reserve as a CTSAmmoPack
 	void UpdatePlayerState();                             // @0x82a08 — derive m_iPlayerState (locked/frozen/normal)
 	void TSInit();                                        // @0x82a4c — the TS per-life reset (first call in Spawn)
-	bool PickUpWeapon(int type, struct TSItem *pStatus, int iClip, bool bSelect, bool bRecordOwner); // @0x8314c
+	bool PickUpWeapon(int type, struct TSItem *pStatus, int iAttach, bool bSelect, bool bRecordOwner); // @0x8314c
 	int m_iPlayerState = 0;                               // 0x498 — pose: 0 normal, 1 ducking, 2 stunt/locked
 	int m_iClientTSState = 0;                             // 0x499 — last-sent TSState byte (plain on-change; the
 	                                                      // original's InitHUD memset deliberately skips this cache)
@@ -539,7 +539,9 @@ public:
 	void AddItemToArmament(int type, int count, bool isItem); // queue a weapon/item into the loadout
 	void AddAmmoToArmament(int caliber, int rounds);      // queue ammo into the loadout
 	bool BuyWeapon(int type);                             // give a weapon (free; restriction-gated)
-	bool BuyAmmo(int caliber, int rounds);               // give ammo (free)
+	bool BuyAmmo(int caliber);                           // @0x841e8 — FILL the caliber to its cap, one
+	                                                     // mag at a time (charging per mag when cash);
+	                                                     // -2 = every owned weapon's caliber
 	void BuyArmament();                                   // apply the pending loadout
 	void AddItem(int itemBits);                           // @0x8440c — grant a loadout item (kevlar/grenade/attachment)
 	void TakeArmor(int amount);                           // @0x83da4 — grant/remove kevlar (binary flag + armorvalue)

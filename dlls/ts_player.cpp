@@ -627,17 +627,18 @@ void CBasePlayer::UpdatePlayerState()
 
 // @ PickUpWeapon__11CBasePlayer10tsweapon_tPvibT4 (@0x8314c, decompile-exact) — the ONE gate
 // every weapon acquisition goes through. Callers + args recovered from the call sites:
-//   CTSWorldGun::GetWeapon   (type, &status, 0,    type != FLAG, false)  @0x91224
-//   CTSGroundWeapon::GetWeapon(type, NULL,   clip, type != FLAG, false)  @0x924ff
-//   CTSKnife::Use            (type, NULL,    0,    false,        false)  @0x6de93 — NO switch!
-//   CBasePlayer::BuyWeapon   (type, NULL,    clip, true,         true)   @0x846ca — the sole owner-record
-//   PlayerAddPowerUp / give  (M61,  NULL,    0,    true,         false)  @0x87d4e/@0x9dbdf
-// Flow: refuse a direct akimbo-class pickup (its SINGLE merges instead); the slot gate
-// (stackables charge per unit); TakeWeapon (stack merge / akimbo combine / fresh install with
-// the carried status); record the owner EHANDLE(s) if asked; speed recompute; gunpickup2
-// (CHAN_ITEM, attn 0.8); select the picked type — or its AKIMBO if that is owned — when asked
-// OR when bare-handed.
-bool CBasePlayer::PickUpWeapon(int type, TSItem *pStatus, int iClip, bool bSelect, bool bRecordOwner)
+//   CTSWorldGun::GetWeapon   (type, &status, 0,      type != FLAG, false)  @0x91224
+//   CTSGroundWeapon::GetWeapon(type, NULL,   attach,  type != FLAG, false)  @0x924ff
+//   CTSKnife::Use            (type, NULL,    0,       false,        false)  @0x6de93 — NO switch!
+//   CBasePlayer::BuyWeapon   (type, NULL,    attach,  true,         true)   @0x846ca — the sole owner-record
+//   PlayerAddPowerUp / give  (M61,  NULL,    0,       true,         false)  @0x87d4e/@0x9dbdf
+// The int param is the BOUGHT ATTACHMENT MASK (silencer 1/laser 2/flash 4/scope 8 — BuyWeapon
+// prices exactly those bits), passed through to TakeWeapon — NOT a clip. Flow: refuse a direct
+// akimbo-class pickup (its SINGLE merges instead); the slot gate (a carried STACK charges
+// slotCost per unit); TakeWeapon (stack merge / akimbo combine / fresh install with the carried
+// status); record the owner EHANDLE(s) if asked; speed recompute; gunpickup2 (CHAN_ITEM,
+// attn 0.8); select the picked type — or its AKIMBO if that is owned — when asked OR bare-handed.
+bool CBasePlayer::PickUpWeapon(int type, TSItem *pStatus, int iAttach, bool bSelect, bool bRecordOwner)
 {
 	CTSGun *pGun = GetPlayerTSGun(this); // orig: this->m_pActiveItem gated on m_iId == 0x10
 	if (!pGun || type < 0 || type >= TSW_COUNT)
@@ -646,15 +647,14 @@ bool CBasePlayer::PickUpWeapon(int type, TSItem *pStatus, int iClip, bool bSelec
 	if (wi->iFireType == TSFT_AKIMBO && wi->iSingleType != -1)
 		return false; // @0x83197 — pick the single up; it merges into the akimbo
 
-	// the slot gate (@0x831bd): stackables charge slotCost per carried unit
+	// the slot gate (@0x831bd): a dropped STACK charges slotCost per carried unit
 	float weight = (float)wi->slotCost;
-	const int nUnits = pStatus ? pStatus->clip : iClip;
-	if (wi->iStackable && nUnits > 0)
-		weight *= (float)nUnits;
+	if (wi->iStackable && pStatus && pStatus->clip > 0)
+		weight *= (float)pStatus->clip;
 	if ((float)TSPlayerFreeSlots(this) - weight < 0.0f)
 		return false;
 
-	if (!pGun->TakeWeapon((tsweapon_t)type, pStatus, iClip))
+	if (!pGun->TakeWeapon((tsweapon_t)type, pStatus, iAttach))
 		return false;
 
 	if (bRecordOwner)

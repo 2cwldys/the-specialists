@@ -402,13 +402,20 @@ int CTSGun::SlotsUsed() const
 	return used;
 }
 
-bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iClip)
+bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iAttach)
 {
 	if (type < 0 || type >= TSW_COUNT)
 		return false;
 	const s_weapon_info *wi = get_weapon_info(type);
 	if (!wi->pszViewModel)
 		return false; // invalid weapon (e.g. the unused flag slot 29)
+
+	// NB (@0x70a04, decompile-exact): the third arg is an ATTACHMENT MASK (BuyWeapon passes the
+	// bought silencer/laser/flash/scope bits; the ground weapon its spawnflag attachments) —
+	// and TakeWeapon grants NO reserve ammo AT ALL. The reserve comes ONLY from BuyAmmo (the
+	// loadout, fill-to-cap in free mode), ammo packs, ground ammo, and the ground weapon's
+	// empty-reserve top-up. Our old iClip*3 grant here was an invention (the "18/58 vs the
+	// original 18/120" mismatch).
 
 	// The active item's live clip lives in m_iClip; park it so the combine/merge reads the
 	// current rounds when the affected slot is the one we're holding.
@@ -417,16 +424,15 @@ bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iClip)
 	int fill = type; // the item slot we will fill
 	if (m_items[type].owned)
 	{
-		// The STACKABLE merge (knife/sealknife/m61): picking more of an owned stack ADDS the
-		// units (the dropped stack's clip; a bare re-pickup = one). Slot cost is charged per
-		// unit through SlotsUsed.
+		// The STACKABLE merge (knife/sealknife/m61): an owned stack gains exactly ONE unit per
+		// take (@0x70b9b -> +1), gated on the carry cap — wi->iPellets (+0x24: knife 5,
+		// sealknife 10, m61 2) (@0x70a8e). Slot cost charges per unit through SlotsUsed.
 		if (wi->iStackable)
 		{
 			TSItem &it = m_items[type];
-			int add = pStatus ? pStatus->clip : iClip;
-			if (add <= 0)
-				add = 1;
-			it.clip += add;
+			if (it.clip >= wi->iPellets)
+				return false; // the stack is at its carry cap
+			it.clip += 1;
 			if (type == m_weaponType)
 				m_iClip = it.clip;
 			return true;
@@ -446,8 +452,11 @@ bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iClip)
 	}
 	else
 	{
-		// A fresh (un-owned) weapon — the encumbrance gate: refuse it if it won't fit the 81 slots
-		// (GetSpeedBySlots capacity). Akimbo COMBINES above bypass this (you already carry the single).
+		// A fresh single REFUSES while its akimbo is already owned (@0x70a41 — no third copy).
+		if (wi->iAkimboType >= 0 && wi->iAkimboType < TSW_COUNT && m_items[wi->iAkimboType].owned)
+			return false;
+		// The encumbrance gate: refuse it if it won't fit the 81 slots (GetSpeedBySlots
+		// capacity). Akimbo COMBINES above bypass this (you already carry the single).
 		if (SlotsUsed() + wi->slotCost > 81)
 			return false;
 	}
@@ -461,40 +470,51 @@ bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iClip)
 		// a world pickup carrying its full parked state (clip/mode/attach/barrels/hold)
 		it = *pStatus;
 		it.owned = true;
-		AddAmmo(fwi->iCaliber, fwi->iClip); // the pickup still tops the shared caliber reserve
+		it.attach &= fwi->attachSupported; // @0x70d43 — clamp to what the gun can mount
 		return true;
 	}
 
 	it.owned = true;
 	it.mode = TSDefaultFireMode(fwi->iFireModes);
-	it.attach = fwi->attachBuiltin; // integral attachments ship with the gun (AUG/Barrett scope, MP5SD/Ruger silencer)
+	it.attach = iAttach | fwi->attachBuiltin; // bought bits + the integral ones (@0x70c41)
+	it.active = 0;
 	it.barrelMask = 0;
 
 	if (fwi->iFireType == TSFT_AKIMBO && fwi->iSingleType >= 0 && fwi->iSingleType < TSW_COUNT)
 	{
-		// combinable akimbo: right barrel = a fresh single; left barrel = the single you already hold
-		// (its current clip), or — when bought directly as the akimbo (single not owned) — a full clip,
-		// so a freshly-bought akimbo comes with BOTH barrels loaded (not one empty).
+		// combinable akimbo: right barrel = a fresh single's full clip; left barrel = the single
+		// you already hold (its current clip), or a full clip when bought directly.
 		const int single = fwi->iSingleType;
 		const int singleClip = get_weapon_info((tsweapon_t)single)->iClip;
 		it.leftClip = m_items[single].owned ? m_items[single].clip : singleClip;
 		it.rightClip = singleClip;
 		it.clip = it.leftClip + it.rightClip;
-		AddAmmo(get_weapon_info((tsweapon_t)single)->iCaliber, singleClip);
+		// the combine UNIONS the attach/active masks across BOTH slots (@0x70c52-0x70c89)
+		const int attachUnion = iAttach | it.attach | m_items[single].attach | fwi->attachBuiltin;
+		it.attach = attachUnion;
+		m_items[single].attach = attachUnion;
+		const int activeUnion = it.active | m_items[single].active;
+		it.active = activeUnion;
+		m_items[single].active = activeUnion;
 	}
 	else if (fwi->iFireType == TSFT_AKIMBO_ONLY)
 	{
 		// gold colts: two barrels, each half the full clip.
 		it.leftClip = fwi->iClip / 2;
-		it.rightClip = fwi->iClip - it.leftClip;
+		it.rightClip = fwi->iClip / 2;
 		it.clip = fwi->iClip;
-		AddAmmo(fwi->iCaliber, fwi->iClip * 3);
 	}
 	else
 	{
-		it.clip = (iClip > 0) ? iClip : fwi->iClip; // map-placed guns can carry a set load
-		AddAmmo(fwi->iCaliber, fwi->iClip * 3); // give/refill the caliber's shared reserve
+		it.clip = fwi->iClip; // a fresh gun comes with one full clip — nothing else
 	}
+
+	it.attach &= fwi->attachSupported; // @0x70d43 — clamp to the mountable set
+	// attached laser/flash start ACTIVE (@0x70d55-0x70d76)
+	if (it.attach & 2)
+		it.active |= 2;
+	if (it.attach & 4)
+		it.active |= 4;
 
 	// NO auto-wield here — PickUpWeapon selects per its bSelect arg (@0x83318), so e.g.
 	// recovering a thrown knife does NOT switch you off your gun.
