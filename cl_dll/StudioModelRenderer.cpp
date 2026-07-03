@@ -1471,6 +1471,34 @@ bool CStudioModelRenderer::StudioDrawPlayer(int flags, entity_state_t* pplayer)
 	if (m_nPlayerIndex < 0 || m_nPlayerIndex >= gEngfuncs.GetMaxClients())
 		return false;
 
+	// TS DEATH CAM: the LOCAL player's body is built from PREDICTION (the live view angles),
+	// so a server-side angle pin can't stop the dead body swiveling with the mouse — freeze
+	// the drawn angles CLIENT-side at the death pose until the observer snap (round 8).
+	{
+		static Vector s_vDeadAngles;
+		static bool s_bDeadLatch;
+		cl_entity_t* local = gEngfuncs.GetLocalPlayer();
+		extern int g_iUser1;
+		if (local && pplayer->number == local->index)
+		{
+			if (gHUD.m_Health.m_iHealth <= 0 && g_iUser1 == 0)
+			{
+				if (!s_bDeadLatch)
+				{
+					s_vDeadAngles = m_pCurrentEntity->angles;
+					s_bDeadLatch = true;
+				}
+				m_pCurrentEntity->angles = s_vDeadAngles;
+				m_pCurrentEntity->curstate.angles = s_vDeadAngles;
+				m_pCurrentEntity->latched.prevangles = s_vDeadAngles;
+				pplayer->angles = s_vDeadAngles;
+				pplayer->gaitsequence = 0;
+			}
+			else
+				s_bDeadLatch = false;
+		}
+	}
+
 
 	m_pRenderModel = IEngineStudio.SetupPlayerModel(m_nPlayerIndex);
 
