@@ -88,6 +88,34 @@ ReloadWeapon, StopReload (+CBasePlayer CheckForWires/PickUpWeapon/ShootBulletsPl
   CBasePlayer::CheckForWires) · U4b TSFade (decompile UTIL_ScreenFadeWrite @0xdcc54 first) · U5 CustomWP
   (needs iPrice extraction + the TS_util SendWeaponParams family — F2b).
 
+### The live-playtest loop (cont.82 continued; user driving; commits 3c4c848..e8592ad)
+User feedback answered with binary RE, applied same-session:
+- **U3+F4 (b4f464c)** SrvSett + weaponrestriction · **U4b (a49bc21)** TSFade (slow-stretched, engine-exact
+  client parse) · **U5+F2b (f9667b7)** CustomWP pipeline + iPrice column (disasm-corrected: M60 8000,
+  skorpion 1100) + live buy prices + loadweapons/saveweapons · **Wires+DecideGamePlay (a0781dd)** —
+  the MODE BYTE decoded: rules+0 = DecideGamePlay 0/1, InitObjectives promotes team maps 2/3
+  (ts_objective_manager presence); Wires gates on 3; the dead "lms" cvar reads fixed to g_lastManStanding.
+- **F5 singles + powerup fixes (3c4c848)**: GetRandomPosition/PlayerIsCheating/TSCountPlayers/
+  GetBodyByItems(+5 body columns extracted, wired into Deploy); POWERUP: EF_DIMLIGHT was invented (orig
+  ORs EF_MUZZLEFLASH), landed bbox = (-16,-16,0)..(16,16,64) — origin AT the floor (ours floated 16u).
+- **M61 grenade cluster (e8592ad)**: GrenadeFire = PIN-PULL only (no fuse!); GrenadeIdle = the cook
+  machine (throw on release, pitch-shaped force cap 750, overhand eyes/underhand FEET 2/3 force + roll
+  physics, FUSE 3.0 FROM THE THROW, holster force-throws, post-throw consume tick); TSExplosion sends
+  the faithful TSCreateDebris material-1 (client owns the boom: explo/explode1-4.wav + NOSOUND fireball);
+  the "sometimes slow-mo on explosion" = DoSpectacularNess roll (spectacularness cvar default 1 ≈ 2%) →
+  a 1-second scale-0.25 CTSSlowMotionPoint — wired; TSPrecache @0x8f320 full map-window list (kills the
+  grenbounce/explode late-precache warnings).
+- **Breakable respawn (user question, ANSWERED — already reconstructed)**: break ≠ delete — hidden +
+  DEAD_DEAD; an info_breakable helper (spawned when the map sets `respawntime` ≥ 0) rearms after
+  respawntime (0 → DEFAULT 30 s; negative → permanent); BreakableRespawn(false) box-clear check →
+  restore+re-Spawn, blocked → 5 s retry; virtuals on CBreakable + CBaseDoor + CRotDoor (angles-only) =
+  breakables AND doors AND rotating doors; RestartRound force-respawns all. Parity nit: our
+  CBaseDoor::RespawnThink trampoline is audit-INVENTED (doors should ride the helper) — #5 review.
+Headline now: **6 missing methods · 33 invented · 6 missing free funcs** (methods left: EmptySound/
+ReloadWeapon/StopReload (CTSGun) + PickUpWeapon/ShootBulletsPlayer/TSInit (CBasePlayer); free funcs left:
+SetPlayerRespawnTime, TSSelectSpawnSpot, TSGetPointsForFrag, PseudoClimb, TSPlayerDisconnect,
+RemoveEntityFromSlowedArray).
+
 ### freefuncs F1 + F2a + F3 applied (cont.82 continued; commits bec9d0f..189f11f)
 - **F1 (bec9d0f)** the dead/trivial batch: CalcSpread/DropKickback/GetCloseCombatVectors/IsWeaponAkimbo/
   IsOnlyAkimbo (ts_gun) · GetAccelBySlots/DoSpectacularNess (TS_gamerules) · UTIL_EntInArray/
