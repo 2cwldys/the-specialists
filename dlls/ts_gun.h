@@ -117,7 +117,8 @@ public:
 	int  OwnedCount() const;          // number of owned weapon types
 	bool TakeWeapon(tsweapon_t type);  // @TakeWeapon — add/combine into the arsenal + wield it (false = won't fit)
 	int  SlotsUsed() const;           // sum of slotCost over owned items (CBasePlayer+0x548 = 81 - this)
-	void SelectWeapon(int type);  // @SelectWeapon — wield an owned type (holster->deploy)
+	void HolsterWeapon();         // @HolsterWeapon @0x85698 — park state + reset to bare hands (kungfu draw)
+	void SelectWeapon(int type);  // @SelectWeapon — wield an owned type (HolsterWeapon->deploy)
 	void GetBetterWeapon(int exclude);// @GetBetterWeapon — auto-select next owned by priority
 	void DropWeapon(int type, bool fThrow); // @DropWeapon__6CTSGun — drop an owned item from the arsenal
 	bool MultiplyClips();             // infinite-clip powerup: multiply the held reserve

@@ -399,10 +399,75 @@ bool CTSGun::MultiplyClips()
 	return true;
 }
 
+// Per-tsweapon_t draw sequence in the v_*.mdl (the anim block entry [2], baked from the model
+// sequence names — the original looks it up at init into the weapon anim set, item+0x28 +4).
+static const int s_drawSeq[TSW_COUNT] = {
+	1, 2, 4, 2, 5, 2, 4, 2, 2, 4, 5, 2, 2, 2, 2, 1, 2, 1, 2, 2,
+	5, 2, 2, 1, 1, 2, 7, 2, 3, 2, 1, 3, 1, 1, 1, 1, 1, 1};
+
+// @ HolsterWeapon__6CTSGun (@0x85698, decompile-exact: dossiers/cont81/holster.c) — holster the
+// wielded weapon TO BARE HANDS: strip the view/weapon models, leave any zoom, drop the blade
+// 3rd-person idle override, stamp the switch delay (m_flNextAttack +0.5) + idle +3.0, KILL any
+// armed knife/katana whiff-lunge (the whiff-clear-on-switch), park the active item's transient
+// state (grenade -> GrenadeIdle(1) put-away; else the burst/phase + reload bytes), reset to
+// kung-fu (type 0, active pointers cleared), present the kung-fu viewmodel (draw anim + draw.sc
+// FEV_NOTHOST iparam1=0), and zero the kung-fu combo counters. SelectWeapon calls this, then the
+// caller Deploy()s the incoming weapon (so every switch carries the kungfu draw on the wire,
+// exactly like the original).
+void CTSGun::HolsterWeapon()
+{
+	SyncActiveToItem(); // park the live clip/fire-mode (the original mutates the item in place)
+	m_pPlayer->pev->viewmodel = 0;
+	m_pPlayer->pev->weaponmodel = 0;
+#ifndef CLIENT_DLL
+	Unzoom();
+#endif
+	m_pPlayer->m_szAnimOverride[0] = 0; // player+0x478 (+0xb58 twin byte) — drop the blade idle override
+	m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.5f; // player+0x12c — the switch delay
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
+
+	// an armed whiff-lunge dies with the switch (only the knife/katana flavors, +0x7a4 != 0).
+	if (m_pPlayer->m_flWhiffLungeTime != 0.0f && m_pPlayer->m_iWhiffLungeType != 0)
+	{
+		m_pPlayer->m_flWhiffLungeTime = 0;
+		m_pPlayer->m_flWhiffLungeForce = 0;
+		m_pPlayer->m_iWhiffLungeType = 0;
+	}
+
+	if (m_pPlayer && !m_pPlayer->IsAlive())
+		return;
+
+	if (m_pActiveItem && m_pActiveInfo)
+	{
+		if (m_pActiveInfo->iFireType == TSFT_GRENADE)
+		{
+			// original: GrenadeIdle(this, 1) — the put-away half of the grenade pin machine
+			// (GrenadeIdle is still on the missing-method list; our grenade carries no pin state).
+		}
+		else
+		{
+			m_fInReload = false; // item+0xc
+			m_burstCount = 0;    // item+0x8
+			m_shotgunPhase = 0;  // item+0x8 (the pump-phase share of the same slot)
+		}
+	}
+
+	m_weaponType = TSW_MELEE; // bare hands
+	UpdateActivePointers();
+	LoadActiveFromItem();
+	const s_weapon_info *kf = get_weapon_info(TSW_MELEE);
+	m_pPlayer->pev->viewmodel = MAKE_STRING(kf->pszViewModel); // v_melee
+	SendWeaponAnim(s_drawSeq[TSW_MELEE]);                      // kungfu anim block [2] (draw)
+	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usDraw, 0.0, g_vecZero, g_vecZero,
+		0.0, 0.0, m_weaponType, 0, 0, 0);
+	m_kickCombo = 0;
+	m_comboStep = 0;
+	m_lastMeleeAnim = 0;
+}
+
 // @ SelectWeapon__6CTSGun (@0x80fb8) + the ClientCommand commit (@0xae433): holster the
-// current weapon, set the new active type, then deploy. Faithful flow = holster -> deploy
-// (the original's SelectWeapon calls HolsterWeapon then the caller Deploy()s if it changed);
-// switching therefore cancels a reload and re-plays the draw animation/delay. Type 0 (kung-fu)
+// current weapon (HolsterWeapon — resets to bare hands), set the new active type, then deploy.
+// Switching therefore cancels a reload and re-plays the draw animation/delay. Type 0 (kung-fu)
 // is always selectable; any other type must be owned (the .so gates on items[type].owned).
 void CTSGun::SelectWeapon(int type)
 {
@@ -411,15 +476,9 @@ void CTSGun::SelectWeapon(int type)
 	if (type != TSW_MELEE && !m_items[type].owned)
 		return;
 
-	// --- HolsterWeapon (@0x85698): park the outgoing weapon's per-item state. ---
-	SyncActiveToItem();                // save the wielded weapon's clip + fire-mode
-#ifndef CLIENT_DLL
-	if (m_pPlayer && m_pPlayer->pev->fov != 0.0f) // leave any scope zoom when switching away (HolsterWeapon unzooms)
-		Unzoom();
-#endif
-	m_fInReload = false;               // a switch cancels an in-progress reload
-	m_burstCount = 0;
-	m_lastType = m_weaponType;         // remember the outgoing type (for `lastinv`)
+	const int outgoing = m_weaponType;
+	HolsterWeapon();           // @0x85698 — park state + reset to bare hands (kungfu draw on the wire)
+	m_lastType = outgoing;     // remember the outgoing type (for `lastinv`)
 
 	m_weaponType = type;
 	UpdateActivePointers();
@@ -535,9 +594,7 @@ void CTSGun::SetWeaponData(const weapon_data_t &data)
 // sequence names (the "draw"/"drawb" sequence). The original looks this up at init into the weapon
 // anim set (item+0x28 +4); we bake the result. Passed to DefaultDeploy so switching to a weapon plays
 // its unholster animation. Index = tsweapon_t.
-static const int s_drawSeq[TSW_COUNT] = {
-	1, 2, 4, 2, 5, 2, 4, 2, 2, 4, 5, 2, 2, 2, 2, 1, 2, 1, 2, 2,
-	5, 2, 2, 1, 1, 2, 7, 2, 3, 2, 1, 3, 1, 1, 1, 1, 1, 1};
+// (s_drawSeq moved above HolsterWeapon — the anim block entry [2] per weapon.)
 
 bool CTSGun::Deploy()
 {
