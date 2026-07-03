@@ -1511,31 +1511,40 @@ void CTSGun::CCombatAttack(bool fSecondary)
 	m_lastMeleeAnim = oa;
 	m_lastCCTime = gpGlobals->time;
 
-	// remap the original anim id → v_melee.mdl 1st-person seq + the 3rd-person close-combat
-	// ACTIVITY CODE (CTSAnimation::HandleCloseCombat maps the code to the body sequence name).
-	int vseq, bodyAct;
+	// The closecombat.sc wire args per original anim id (disasm slot-tracking @0x76078:
+	// [esp+0x28] = the MOVE id iparam1, [esp+0x8] = the ANIM-BLOCK index iparam2 — the client
+	// plays animBlock[idx] raw; block[3]=2, [4]=10, [5]=3, [6]=5, [7]=9, [8]=6, [9]=5, [10]=8,
+	// [11]=7 on v_melee.mdl). The 3rd-person ACTIVITY code stays server-side (the [esp+0x18]
+	// writes: punch 0x23, kicks 0x2d, backkick 0x37 families -> our TSA_CC_* codes).
+	// NB the original sends anim 3 for EVERY basic punch — the 3-jab cycling was our invention.
+	int ccMove, ccAnimIdx, bodyAct;
 	switch (oa)
 	{
-	case A_PUNCH:     { static const int jv[3]={2,3,10}; static const int jb[3]={TSA_CC_PUNCHLEFT,TSA_CC_PUNCHRIGHT,TSA_CC_PUNCHAIR};
-	                    int j = (jabIdx >= 0 && jabIdx < 3) ? jabIdx : 0; vseq = jv[j]; bodyAct = jb[j]; break; }
-	case A_PUNCH2:    vseq = 10; bodyAct = TSA_CC_PUNCHAIR;  break; // special punch
-	case A_AIRPUNCH:  vseq = 10; bodyAct = TSA_CC_PUNCHAIR;  break;
-	case A_UPPERCUT:  vseq = 7;  bodyAct = TSA_CC_UPPERCUT;  break;
-	case A_HANDSTAND: vseq = 6;  bodyAct = TSA_CC_SIDEKICK;  break;
-	case A_BACKKICK:  vseq = 9;  bodyAct = TSA_CC_BACKKICK;  break;
-	case A_DROPKICK:  vseq = 8;  bodyAct = TSA_CC_CIRCSPIN;  break;
-	case A_SPIN_A: case A_SPIN_D: case A_SPIN_E: case A_SPIN_F:
-	                  vseq = 8;  bodyAct = TSA_CC_CIRCSPIN;  break; // spin finisher
+	case A_PUNCH:     ccMove = 1; ccAnimIdx = 3;  bodyAct = TSA_CC_PUNCHLEFT; break; // @0x763e9
+	case A_PUNCH2:    ccMove = 1; ccAnimIdx = 4;  bodyAct = TSA_CC_PUNCHAIR;  break; // @0x76436
+	case A_AIRPUNCH:  ccMove = 1; ccAnimIdx = 5;  bodyAct = TSA_CC_PUNCHAIR;  break; // @0x76344
+	case A_UPPERCUT:  ccMove = 1; ccAnimIdx = 11; bodyAct = TSA_CC_UPPERCUT;  break; // @0x76393
+	case A_HANDSTAND: ccMove = 2; ccAnimIdx = 6;  bodyAct = TSA_CC_SIDEKICK;  break; // @0x764a3
+	case A_BACKKICK:  ccMove = 3; ccAnimIdx = 7;  bodyAct = TSA_CC_BACKKICK;  break; // @0x76565
+	case A_DROPKICK:  ccMove = 2; ccAnimIdx = 8;  bodyAct = TSA_CC_CIRCSPIN;  break; // @0x766b5
+	case A_SPIN_A: case A_SPIN_D: case A_SPIN_E:
+	                  ccMove = 2; ccAnimIdx = 10; bodyAct = TSA_CC_CIRCSPIN;  break; // @0x76912
 	case A_GKICK_A: case A_GKICK_B:
-	case A_FLY_12: case A_FLY_13:
-	default:          vseq = 5;  bodyAct = TSA_CC_CIRCKICK;  break; // ground / flying kick
+	                  ccMove = 2; ccAnimIdx = 9;  bodyAct = TSA_CC_CIRCKICK;  break; // @0x76997
+	case A_SPIN_F: case A_FLY_12: case A_FLY_13:
+	default:          ccMove = 2; ccAnimIdx = 10; bodyAct = TSA_CC_CIRCSPIN;  break; // VERIFY: the
+	                  // fly family's [esp+0x8] write is register-carried (not an immediate) —
+	                  // 10 (the spin-kick anim) pending a focused pass
 	}
 
 	UTIL_MakeVectors(ppev->v_angle);
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecEnd = vecSrc + gpGlobals->v_forward * range;
 
-	SendWeaponAnim(vseq);                        // the v_melee.mdl punch/kick (1st-person fists)
+	// events/closecombat.sc — the client owns the 1st-person anim (animBlock[iparam2]), the
+	// ALWAYS-whoosh, and the miss/surface presentation (texture note + smoke puff).
+	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usCloseCombat, 0.0, g_vecZero,
+		g_vecZero, (float)m_weaponType, 0.0, ccMove, ccAnimIdx, 0, 0);
 #ifdef CLIENT_DLL
 	// Kung-fu "bounce-back" screen-shake, per punch/kick — ALWAYS fires on attack (RE client FUN_1000af10
 	// @0xb5e5: Shake_Setup(amp = min(power, 45) * 0.35, 0.2, 10)). The original derives `power` from the
@@ -1568,30 +1577,8 @@ void CTSGun::CCombatAttack(bool fSecondary)
 	m_pPlayer->m_flKungFuBlock = 0.0f;
 	m_pPlayer->m_flLastMeleeRate = refire;
 
-	if (!pHit)
-	{
-		// miss/surface presentation KEPT until the closecombat.sc event swap (S7b): the original
-		// carries all of this in the event; without the client handler a miss would be silent.
-		TraceResult trMiss;
-		UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, ENT(m_pPlayer->pev), &trMiss);
-		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-		if (trMiss.flFraction < 1.0f)
-		{
-			char step[24];
-			sprintf(step, "player/pl_step%d.wav", RANDOM_LONG(1, 4));
-			EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_ITEM, step, VOL_NORM, ATTN_NORM);
-			Vector pos = trMiss.vecEndPos + trMiss.vecPlaneNormal * 2.0f;
-			MESSAGE_BEGIN(MSG_PVS, SVC_TEMPENTITY, pos);
-			WRITE_BYTE(TE_SPRITE);
-			WRITE_COORD(pos.x);
-			WRITE_COORD(pos.y);
-			WRITE_COORD(pos.z);
-			WRITE_SHORT(MODEL_INDEX("sprites/gun_smoke_add.spr"));
-			WRITE_BYTE(4);
-			WRITE_BYTE(150);
-			MESSAGE_END();
-		}
-	}
+	// (the miss/surface presentation — whoosh + texture note + smoke puff — now rides
+	// events/closecombat.sc; EV_TSCloseCombat owns it)
 #endif
 }
 
