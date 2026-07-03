@@ -759,35 +759,41 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	// full-body pose instead of stamping run2/walk2 legs on it. @orig (iuser4 & 0x30c30)==0.
 	if ((pev->iuser4 & 0x30c30) == 0)
 	{
+		const char *legName;
 		if (ducking)
 		{
 			m_iDuckLatch = 0; // reset goduck latch once grounded+ducked
-			SetAnim(pPlayer, (speed == 0.0f) ? "crouch_idle" : "crawl", TSSA_LEGS, 0);
+			legName = (speed == 0.0f) ? "crouch_idle" : "crawl";
 		}
 		else if (speed > TSA_RUN_SPEED)
 		{
 			m_iDirection = GetDirection(TS_DirNormalize(pev->velocity), pev->v_angle, 0.6f, 0.3f);
-			SetAnim(pPlayer, "run2", TSSA_LEGS, 0);
+			legName = "run2";
 		}
 		else if (speed > 0.0f)
 		{
 			m_iDirection = GetDirection(TS_DirNormalize(pev->velocity), pev->v_angle, 0.6f, 0.3f);
-			SetAnim(pPlayer, "walk2", TSSA_LEGS, 0);
+			legName = "walk2";
 		}
 		else
 		{
 			// standing still — the idle LEG leaf (also the source of the kungfu body-sync torso).
 			if (pPlayer->m_szAnimOverride[0] != 0)
-				SetAnim(pPlayer, pPlayer->m_szAnimOverride, TSSA_LEGS, 0);
+				legName = pPlayer->m_szAnimOverride;
 			else if (kungfu)
-				SetAnim(pPlayer, (m_flAimTimer >= 0.01f) ? "combat_idle" : "combat_idle_low", TSSA_LEGS, 0);
+				legName = (m_flAimTimer >= 0.01f) ? "combat_idle" : "combat_idle_low";
 			else
 			{
 				strcpy(name, "idle_");
 				strcat(name, grip);
-				SetAnim(pPlayer, name, TSSA_LEGS, 0);
+				legName = name;
 			}
 		}
+		// @orig (Animate bottom): pev->gaitsequence = LookupSequence(leg) — set the GAIT sequence
+		// DIRECTLY, never via SetAnim(TSSA_LEGS): that flag has no INTERP bit, so SetAnim would run
+		// `pev->effects |= EF_NOINTERP` EVERY grounded frame and kill the model's interpolation (the
+		// "snapping"/no-blend). Direct assignment leaves EF_NOINTERP as the torso SetAnim set it.
+		pPlayer->pev->gaitsequence = pPlayer->LookupSequence(legName);
 	}
 
 	// Kungfu body-sync: the TORSO follows the leg gait (run2/walk2 while moving, combat_idle standing),
