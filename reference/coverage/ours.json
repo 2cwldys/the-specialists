@@ -1237,7 +1237,8 @@
   "WStatus",
   "WeapPickup",
   "WeaponInfo",
-  "WeaponList"
+  "WeaponList",
+  "Wires"
  ],
  "usermsg_sizes": {
   "ActItems": 2,
@@ -1299,7 +1300,8 @@
   "WStatus": 3,
   "WeapPickup": 1,
   "WeaponInfo": 6,
-  "WeaponList": -1
+  "WeaponList": -1,
+  "Wires": 3
  },
  "usermsgs": [
   "AllowSpec",
@@ -1369,6 +1371,7 @@
   "WeapPickup",
   "WeaponInfo",
   "WeaponList",
+  "Wires",
   "x"
  ]
 }

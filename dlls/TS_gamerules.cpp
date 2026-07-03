@@ -15,6 +15,7 @@
 #include "ts_flag.h" // HaveFlag prototype + s_flag_status
 #include "ts_gamerules.h" // Victim*Hold prototypes
 #include "ts_weapons.h"   // TSPlayerFreeSlots (GetAccelBySlots)
+#include <string.h>
 
 // @0x67148 HaveFlag — is this player carrying a CTF flag? (free fn). The carry
 // state is the inline s_flag_status on the player; the active byte is the answer.
@@ -34,6 +35,57 @@ int InitWeaponRestriction(void)
 // @0x66ad8 WeaponRestrictionByID — the weaponrestriction command's preset masks:
 // 1 -> nothing (0x0), 2 -> knives (0x1), 3 -> knives+pistols (0x3), 4 -> +rifles (0x13),
 // anything else -> everything (InitWeaponRestriction).
+// Mode-decision globals (@.data 0x1a6c/0x12cc/0x152c GOT disps): g_gamemode is a ONE-SHOT
+// override (1 DM / 2 Team / 3 LMS / 4 TheOne), consumed (zeroed) by EVERY DecideGamePlay call;
+// the two flags carry LMS/TheOne into the rules.
+int g_gamemode = 0;
+int g_theOneMode = 0;
+int g_lastManStanding = 0;
+
+// @0x667ac DecideGamePlay — returns the TEAMPLAY decision (1 = team-style rules, 0 = not) and
+// sets the mode flags (disasm-exact: the jumptable cases resolve 1->0, 2->1, 3->LMS+0,
+// 4->TheOne+1, out-of-range->0; the cvar path prioritizes mp_theonemode > lastmanstanding >
+// teamplay > the caller default). The 3-char mapname copy is DEAD in the original — kept.
+int DecideGamePlay(char *mapname, int def)
+{
+	g_theOneMode = 0;
+	g_lastManStanding = 0;
+	int ret = def;
+	if (g_gamemode >= 1)
+	{
+		switch (g_gamemode)
+		{
+		case 1: ret = 0; break;                        // deathmatch
+		case 2: ret = 1; break;                        // teamplay
+		case 3: g_lastManStanding = 1; ret = 0; break; // last man standing
+		case 4: g_theOneMode = 1; ret = 1; break;      // The One
+		default: ret = 0; break;                       // out of range
+		}
+	}
+	else
+	{
+		char buf[68]; // the original's dead mapname prefix copy (source parity)
+		buf[0] = 0;
+		strncpy(buf, mapname, 3);
+		buf[3] = 0;
+		if (CVAR_GET_FLOAT("mp_theonemode") != 0.0f)
+		{
+			g_theOneMode = 1;
+			ret = 1;
+		}
+		else if (CVAR_GET_FLOAT("lastmanstanding") != 0.0f)
+		{
+			g_lastManStanding = 1;
+			ret = 0;
+		}
+		else if (CVAR_GET_FLOAT("teamplay") != 0.0f)
+			ret = 1;
+		// else: keep the caller's default
+	}
+	g_gamemode = 0; // the override is one-shot
+	return ret;
+}
+
 int WeaponRestrictionByID(int id)
 {
 	switch (id)

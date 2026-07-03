@@ -392,10 +392,13 @@ CGameRules* InstallGameRules()
 	}
 	else
 	{
-		// mod-ts: The Specialists is multiplayer-only and always uses its own
-		// rules (CTSGameRules handles teams itself; for now it derives team/round
-		// behaviour from CHalfLifeMultiplay until that logic is reconstructed).
-		g_teamplay = (teamplay.value > 0);
-		return new CTSGameRules;
+		// mod-ts: The Specialists is multiplayer-only and always uses its own rules.
+		// @0xb6100: g_teamplay = DecideGamePlay(mapname, default) — the teamplay decision +
+		// the LMS/TheOne mode flags; rules+0 is seeded from it (Init @0x67d83) and
+		// InitObjectives later promotes team maps to 2 (plain) / 3 (objectives).
+		g_teamplay = DecideGamePlay((char *)STRING(gpGlobals->mapname), teamplay.value > 0 ? 1 : 0) != 0;
+		CTSGameRules *pRules = new CTSGameRules;
+		pRules->m_iGameMode = g_teamplay ? 1 : 0;
+		return pRules;
 	}
 }

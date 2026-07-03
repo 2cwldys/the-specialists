@@ -34,6 +34,9 @@ public:
 	void Reset() override;
 	bool MsgFunc_WStatus(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_ClipInfo(const char* pszName, int iSize, void* pbuf); // 1 byte: active weapon's clip cell
+	bool MsgFunc_Wires(const char* pszName, int iSize, void* pbuf); // 3 bytes: nearby-bomb wire roles
+
+	unsigned char m_wires[3] = {}; // +0x36fc-0x36fe — the wire ROLE codes (0 = no bomb nearby)
 
 	// The weapon-select menu (the original's hud_fastswitch-0 model — reference/WEAPON_SELECT.md):
 	// the bar is HIDDEN until the player presses invnext/invprev or slot1-5, which OPEN it and move

@@ -510,6 +510,11 @@ public:
 	                                                      // 1 out-of-round, 2/3/4 kill tiers, 10 The One, 11 respawning
 	byte m_iClientAward = 0;                              // 0x74d — last TSPAward value broadcast
 	float m_flNextPTakeDamTime = 0;                       // 0x750 (invented name) — PTakeDam send throttle (+0.3 s)
+	byte m_iWires[3] = {};                                // 0x78c-0x78e — the nearby armed bomb's wire ROLE codes
+	                                                      // (0 cut / 1 defuse / 2 boobytrap / 3 intact)
+	byte m_iClientWires[3] = {};                          // 0x78f-0x791 — the last-sent Wires triple
+	float m_flNextWiresCheck = 0;                         // 0x794 — the 0.5 s CheckForWires throttle
+	void CheckForWires();                                 // @0x82f08 — sphere-64 armed-ts_bomb wire scan
 	void TSUse();                                         // @0x856e0 — server-side double-tap +use -> UsePowerUp
 	float m_flUseDoubleTap = 0;                           // 0x164 — the double-tap +use window deadline
 	float m_flSetMaxSpeed = 0;                            // 0x550 — the last SetPlayerSpeed value (clamped)

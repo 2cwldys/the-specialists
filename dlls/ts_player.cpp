@@ -48,6 +48,7 @@ static int gmsgTSState = 0;      // "TSState" 1 — posture byte 0x498 (star_TSS
 static int gmsgTSSpace = 0;      // "TSSpace" 1 — free carry slots (int 0x548)
 static int gmsgTSBulletTime = 0; // "TSBTime" 1 — the bullet-time variant flag (byte 0x175 = m_bSlowBullets)
 static int gmsgTSPlayerAward = 0; // "TSPAward" 2 — MSG_ALL: entindex + award byte 0x74c (star_TSPAward.md)
+static int gmsgTSWires = 0;       // "Wires" 3 — the nearby-bomb wire triple, MSG_ONE on change (star_Wires.md)
 
 // @ part of CBasePlayer::UpdateClientData @0x81d00 — the TS per-frame HUD sends. Each
 // message is throttled-by-change (only sent when the cached value differs) exactly as
@@ -182,6 +183,45 @@ void CBasePlayer::TSUpdateClientData()
 		WRITE_BYTE(entindex());
 		WRITE_BYTE(m_iAward);
 		MESSAGE_END();
+	}
+
+	// Wires — the nearby-bomb wire ROLE triple (source 0x78c-0x78e, cache 0x78f-0x791):
+	// MSG_ONE on any change of the three bytes (star_Wires.md). CheckForWires (PreThink,
+	// mode-3 maps, 0.5 s throttle) maintains the source; zeros = walked away.
+	if (gmsgTSWires == 0)
+		gmsgTSWires = REG_USER_MSG("Wires", 3);
+	if (m_iWires[0] != m_iClientWires[0] || m_iWires[1] != m_iClientWires[1] ||
+		m_iWires[2] != m_iClientWires[2])
+	{
+		m_iClientWires[0] = m_iWires[0];
+		m_iClientWires[1] = m_iWires[1];
+		m_iClientWires[2] = m_iWires[2];
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSWires, NULL, ENT(pev));
+		WRITE_BYTE(m_iWires[0]);
+		WRITE_BYTE(m_iWires[1]);
+		WRITE_BYTE(m_iWires[2]);
+		MESSAGE_END();
+	}
+}
+
+// @0x82f08 CheckForWires — clear the wire triple, then sphere-64 scan for an ACTIVE ts_bomb
+// this player CanInteract with; the LAST match in the sphere wins (no break). The copied bytes
+// are the bomb's wire ROLE codes (0 cut / 1 defuse / 2 boobytrap / 3 intact) — SetRandomWires
+// deals {3,3,3} then one 1 and one 2. Caller: PreThink, mode-3 maps only, throttled 0.5 s.
+void CBasePlayer::CheckForWires()
+{
+	m_iWires[0] = m_iWires[1] = m_iWires[2] = 0;
+	CBaseEntity *e = nullptr;
+	while ((e = UTIL_FindEntityInSphere(e, pev->origin, 64.0f)) != nullptr)
+	{
+		if (!FClassnameIs(e->pev, "ts_bomb"))
+			continue;
+		CTSBomb *pBomb = (CTSBomb *)e;
+		if (!pBomb->m_bActive || !pBomb->CanInteract(this))
+			continue;
+		m_iWires[0] = (byte)pBomb->m_wires[0];
+		m_iWires[1] = (byte)pBomb->m_wires[1];
+		m_iWires[2] = (byte)pBomb->m_wires[2];
 	}
 }
 

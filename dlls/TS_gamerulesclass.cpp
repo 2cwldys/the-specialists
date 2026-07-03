@@ -142,7 +142,14 @@ void CTSGameRules::InitObjectives()
 		if (m_iManagerCount < 32)
 			m_managers[m_iManagerCount++] = (CTSObjectiveManager *)pEnt;
 
-	// objective mode iff at least one manager is present (the original sets g_teamplay 2/3).
+	// rules+0 promotion (@0x68693): a team map becomes mode 3 with objectives present, 2 without
+	// (the original gates the scan on the byte already being 2/3; our team detect is
+	// entity-driven, so the equivalent gate is IsTeamMode()). g_teamplay mirrors it.
+	if (IsTeamMode())
+	{
+		m_iGameMode = (m_iManagerCount != 0) ? 3 : 2;
+		g_teamplay = true;
+	}
 	if (m_iManagerCount == 0)
 		return;
 
@@ -339,7 +346,7 @@ int CTSGameRules::CountPlayers()
 // always; ground weapons in team/last-man mode; powerups in last-man mode.
 void CTSGameRules::RespawnEntities(bool bFirst)
 {
-	const bool lms = CVAR_GET_FLOAT("lms") != 0.0f;
+	const bool lms = g_lastManStanding != 0; // DecideGamePlay's flag (the old "lms" cvar read was dead — never registered)
 	CBaseEntity *e;
 
 	for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "info_breakable")) != nullptr;)
@@ -371,7 +378,7 @@ void CTSGameRules::RestartRound()
 	// can't be detected there (IsTeamMode keys off a ts_objective_manager entity). By the time this runs the
 	// entities exist, so gate here: in plain deathmatch there are no rounds, and respawning/teleporting every
 	// player 5s into the map (the old unconditional behaviour) was the "~5s teleport + redeploy" bug.
-	const bool roundBased = IsTeamMode() || CVAR_GET_FLOAT("lms") != 0.0f;
+	const bool roundBased = IsTeamMode() || g_lastManStanding != 0;
 
 	// (c) reset the objective subsystem — a no-op on a map with no objective entities (e.g. plain DM).
 	InitObjectives();

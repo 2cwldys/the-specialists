@@ -47,6 +47,10 @@ public:
 	// Pick a random permitted powerup bit out of `mask`, or 0 if none qualify.
 	int GetRandomPowerup(int mask);
 
+	// rules+0 (the original's first byte): 0/1 = non-team (DecideGamePlay return), 2 = team,
+	// 3 = team WITH objectives (InitObjectives promotes 2/3; the Wires system gates on 3).
+	int m_iGameMode = 0;
+
 	// --- SrvSett server-settings sync (star_SrvSett.md; dossier-gmsg U3) ---
 	int m_iSrvRealBullet = 0;        // 0x578 — cached (int)round(realbullet.value)
 	int m_iSrvUseCash = 0;           // 0x558 — cached (int)round(usecash.value) (orig var dmcashbased)
@@ -211,6 +215,10 @@ inline CTSGameRules* TSGameRules()
 
 // ---- melee deflect gates (free functions, TS_gamerules.cpp; RE dossier-melee §1.3) ----
 // true = the swing was blocked (caller aborts damage); the attacker pays 33 stamina.
+int DecideGamePlay(char *mapname, int def); // @0x667ac — teamplay decision + LMS/TheOne flags
+extern int g_gamemode;        // one-shot mode override (consumed by DecideGamePlay)
+extern int g_theOneMode;      // The One mode flag
+extern int g_lastManStanding; // last-man-standing mode flag
 int WeaponRestrictionByID(int id); // @0x66ad8 — 1->0x0, 2->0x1, 3->0x3, 4->0x13, else InitWeaponRestriction()
 int InitWeaponRestriction(void);   // @TS_gamerules.cpp — 0x1f (all five categories)
 extern int gmsgTSServerSetting;    // "SrvSett" 3 — TS_gamerulesclass.cpp

@@ -1906,6 +1906,14 @@ void CBasePlayer::PreThink()
 {
 	UpdatePlayerState(); // @0x82a08 — refresh the networked pose state each frame
 
+	// @0x81412 (right after UpdatePlayerState): on mode-3 (objective team) maps, refresh the
+	// nearby-bomb wire triple every 0.5 s (player+0x794 throttle) — the Wires HUD source.
+	if (TSGameRules() && TSGameRules()->m_iGameMode == 3 && m_flNextWiresCheck < gpGlobals->time)
+	{
+		m_flNextWiresCheck = gpGlobals->time + 0.5f;
+		CheckForWires();
+	}
+
 	// TS dynamic-accuracy recovery (RE PreThink @0x808cc): the spread accumulator decays back toward 0 each
 	// frame (scaled by the slow-mo factor, so it recovers in game-time during bullet-time), so accuracy
 	// returns when you stop spraying. Growth is in CTSGun::ScaleSpread on each shot.

@@ -32,6 +32,7 @@
 
 DECLARE_MESSAGE(m_TSWeaponBar, WStatus)
 DECLARE_MESSAGE(m_TSWeaponBar, ClipInfo)
+DECLARE_MESSAGE(m_TSWeaponBar, Wires)
 
 // Per-tsweapon_t select-bar column (1..5), recovered from each weapon's s_weapon_info
 // +0x84 byte. Index = tsweapon_t.
@@ -90,6 +91,7 @@ bool CHudTSWeaponBar::Init()
 
 	HOOK_MESSAGE(WStatus);
 	HOOK_MESSAGE(ClipInfo); // 1 byte: the ACTIVE weapon's clip cell (original client hooks it)
+	HOOK_MESSAGE(Wires); // 3 bytes: the nearby-bomb wire ROLE codes (0 = away from any bomb)
 	TSHud_RegisterCvars();
 	gHUD.AddHudElem(this);
 	m_iFlags |= HUD_ACTIVE; // always active so Think() runs (FIRE-commit); Draw() self-gates on m_selecting
@@ -163,6 +165,19 @@ bool CHudTSWeaponBar::MsgFunc_WStatus(const char* pszName, int iSize, void* pbuf
 		if (owned)
 			m_iFlags |= HUD_ACTIVE;
 	}
+	return true;
+}
+
+// "Wires" (3 bytes) — the nearby armed bomb's wire ROLE codes (0 cut / 1 defuse / 2 boobytrap /
+// 3 intact; all-zero = walked away). Stored at the original's provenance (+0x36fc..fe on the
+// weapon-bar object); the wires-UI crosshair swap (FUN_1004d550) is a VERIFY draw tail.
+bool CHudTSWeaponBar::MsgFunc_Wires(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	m_wires[0] = (unsigned char)READ_BYTE();
+	m_wires[1] = (unsigned char)READ_BYTE();
+	m_wires[2] = (unsigned char)READ_BYTE();
+	m_iFlags |= HUD_ACTIVE;
 	return true;
 }
 
