@@ -1613,28 +1613,15 @@ void CTSGun::CCombatAttack()
 		}
 	}
 
+	// DEFERRED provenance (see the tail note): these drive the stunt overlay we can't yet complete.
+	(void)iuserSet; (void)setDuckView; (void)blockEnable; (void)unstunt;
+
 	if (evCat != 0)
 	{
 		m_lastMeleeAnim = moveId;
 
 #ifndef CLIENT_DLL
 		// --- shared hit tail (@LAB_000869a3) — game-state + the hull sweep are server-authoritative ---
-		// un-stunt: a queued dive/roll ends here (side-kick already cleared `unstunt`).
-		if (unstunt && (ppev->iuser4 & 0x20000))
-		{
-			ppev->iuser4 &= ~0x20000;
-			ppev->iuser4 &= ~4;
-			ppev->view_ofs = (ppev->flags & FL_DUCKING) ? Vector(0, 0, 16) : Vector(0, 0, 28);
-			ppev->friction = 1.0f;
-			ppev->gravity = 1.0f;
-		}
-		if (iuserSet)
-			ppev->iuser4 |= iuserSet;
-		if (setDuckView)
-		{
-			ppev->view_ofs = Vector(0, 0, 16);
-			m_pPlayer->m_flDuckSlashAux = 2.0f; // stunt+0x4 (player+0x4f4)
-		}
 
 		// damage/lunge scaling: melee-bar multiplier, doubled by the KungFu powerup.
 		lunge *= m_pPlayer->GetMeleeMultiplier();
@@ -1655,7 +1642,7 @@ void CTSGun::CCombatAttack()
 		CBaseEntity *pHit = m_pPlayer->CloseCombatAttack(vecSrc, vecEnd, gpGlobals->v_forward,
 			iHull, lunge, moveId, true, false, true, false);
 
-		// on a MISS, arm the forward whiff-lunge (PreThink consumes it); the backkick lunges backward.
+		// on a MISS, arm the forward whiff-lunge (PreThink consumes +0x79c/0x7a0/0x7a4); backkick reverses.
 		if (pHit == nullptr && whiffT > 0.001f)
 		{
 			m_pPlayer->m_flWhiffLungeTime = whiffT;
@@ -1663,9 +1650,15 @@ void CTSGun::CCombatAttack()
 			m_pPlayer->m_iWhiffLungeType = 0;
 		}
 
-		// on-ground kicks self-root the attacker briefly (gated on iuser4&1 clear).
-		if (blockEnable && ((ppev->iuser4 ^ 1) & 1) != 0)
-			m_pPlayer->BlockPlayer(whiffT * 0.75f); // OPEN Q (cont85): whiff-t vs refire slot — mirror cont84; live-trace to settle
+		// DEFERRED — the original also applies a coupled STUNT overlay here that we can't yet drive
+		// end-to-end because its consumer side is un-RE'd (task #7 stunt cluster):
+		//   • un-stunt view restore  : if (iuser4 & 0x20000) clear 0x20000|4, view_ofs reset, friction/gravity=1
+		//   • duck/side-kick crouch-lunge : iuser4 |= iuserSet(4|1); view_ofs=(0,0,16); m_flDuckSlashAux=2.0
+		//   • on-ground-kick self-root : if (blockEnable && !(iuser4&1)) BlockPlayer(whiffT*0.75)  [sets TSSTUNT_STOP]
+		// Enabling only the setters (no wired m_flDuckSlashAux countdown / STOP-bit animation) left the
+		// player STUCK IN THE FLOOR after a duck/side kick (playtest #5/#7) and rendered a BLOCK pose on
+		// the on-ground backkick (playtest #6). iuserSet/setDuckView/blockEnable/unstunt are computed
+		// above as the provenance for that pass — re-enable once the consumer + STOP-bit anim reconcile.
 #endif
 
 		// events/closecombat.sc — the client owns the 1st-person anim + whoosh + surface presentation.
