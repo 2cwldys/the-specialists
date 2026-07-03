@@ -267,6 +267,158 @@ void EV_TSMelee(event_args_t* args)
 	TS_MeleeImpact(pos, normal, chType); // glint + sparks only (no smoke/debris) — FUN_10043c90
 }
 
+// ---- The faithful TS melee-event presentation kit (dossier-ev-melee.md §0.4–0.7) ----
+
+// §0.6 — every melee EV_PlaySound in the original: pitch = 25 + 75*timescale + rand(-5,5)
+// (100 ± 5 at normal time; deepens under bullet-time), volume = RandomFloat(0.92, 1.0),
+// attenuation 0.8, CHAN_WEAPON. Our timescale equivalent is the smoothed client slow factor.
+extern float g_flClientSlow; // cl_dll/ts_powerup_hud.cpp — smoothed slow factor (1.0 normal)
+extern "C" int CL_IsThirdPerson(); // cl_dll/in_camera.cpp (C-linkage engine export)
+static int TS_MeleeSoundPitch()
+{
+	return gEngfuncs.pfnRandomLong(-5, 5) + 25 + (int)(75.0f * g_flClientSlow);
+}
+static float TS_MeleeVolume()
+{
+	return gEngfuncs.pfnRandomFloat(0.92f, 1.0f);
+}
+
+// §0.4 — the original's IsLocalOrSpectated locality gate: the local player, or the player an
+// in-eye spectator is riding (TS first-person spectate).
+static bool TS_InEyeSpectating(int idx)
+{
+	return g_iUser1 == OBS_IN_EYE && g_iUser2 == idx;
+}
+
+// §0.7 — FUN_10045df0, the melee texture-impact classifier + sound. Returns the material char:
+// 0 = sky (silent), CHAR_TEX_FLESH for a player hit (silent — the server owns flesh sounds),
+// else the pm_materials char after playing ONE random surface note at the impact point
+// (CHAN_STATIC, per-material volume, melee pitch).
+static char TS_MeleePlayTextureSound(pmtrace_t* tr, const float* start, const float* end)
+{
+	int truecontents;
+	if (gEngfuncs.PM_PointContents(tr->endpos, &truecontents) == CONTENTS_SKY)
+		return 0;
+	const int hitIdx = gEngfuncs.pEventAPI->EV_IndexFromTrace(tr);
+	if (hitIdx >= 1 && hitIdx <= gEngfuncs.GetMaxClients())
+		return CHAR_TEX_FLESH;
+
+	char chType = CHAR_TEX_CONCRETE;
+	const char* texName = gEngfuncs.pEventAPI->EV_TraceTexture(tr->ent, (float*)start, (float*)end);
+	if (texName && texName[0])
+	{
+		if (*texName == '-' || *texName == '+')
+			texName += 2;
+		if (*texName == '{' || *texName == '!' || *texName == '~' || *texName == ' ')
+			texName++;
+		char buf[64];
+		strncpy(buf, texName, sizeof(buf) - 1);
+		buf[sizeof(buf) - 1] = 0;
+		chType = PM_FindTextureType(buf);
+	}
+
+	// one random surface note per material (the original's exact sets + volumes).
+	char snd[32];
+	float vol = 0.9f;
+	switch (chType)
+	{
+	case CHAR_TEX_DIRT:
+		sprintf(snd, "player/pl_dirt%d.wav", gEngfuncs.pfnRandomLong(1, 3));
+		break;
+	case CHAR_TEX_GRATE:
+		sprintf(snd, "player/pl_grate%d.wav", gEngfuncs.pfnRandomLong(0, 1) ? 1 : 4);
+		break;
+	case CHAR_TEX_METAL:
+		sprintf(snd, "player/pl_metal%d.wav", gEngfuncs.pfnRandomLong(1, 2));
+		break;
+	case CHAR_TEX_COMPUTER:
+	case CHAR_TEX_GLASS:
+		sprintf(snd, "debris/glass%d.wav", gEngfuncs.pfnRandomLong(1, 3));
+		vol = 0.8f;
+		break;
+	case CHAR_TEX_SLOSH:
+		sprintf(snd, "player/pl_slosh%d.wav", gEngfuncs.pfnRandomLong(1, 4));
+		break;
+	case CHAR_TEX_TILE:
+		sprintf(snd, "player/pl_tile%d.wav", gEngfuncs.pfnRandomLong(1, 4));
+		vol = 0.8f;
+		break;
+	case CHAR_TEX_VENT:
+		strcpy(snd, "player/pl_duct1.wav");
+		vol = 0.5f;
+		break;
+	case CHAR_TEX_WOOD:
+		sprintf(snd, "debris/wood%d.wav", gEngfuncs.pfnRandomLong(1, 3));
+		break;
+	default:
+		sprintf(snd, "player/pl_step%d.wav", gEngfuncs.pfnRandomLong(1, 2));
+		break;
+	}
+	gEngfuncs.pEventAPI->EV_PlaySound(0, tr->endpos, CHAN_STATIC, snd, vol, 0.8f, 0, TS_MeleeSoundPitch());
+	return chType;
+}
+
+// events/katana.sc → EV_TSKatana — the original LAB_10044230 (dossier-ev-melee.md §2). The server
+// (CTSGun::KatanaFire) plays it EVERY swing with iparam1 = the logical swing id (15 = the reverse
+// back-slash / 16 / 17) and iparam2 = the bloody-blade flag. ALL swing presentation is client-side:
+// the whoosh on a miss (miss/miss1.wav 50/50), the surface impact (texture note + 12 metal glints +
+// sparks + hit/hit1.wav 50/50 on hard surfaces; silent on flesh, which forces the blade bloody),
+// and the viewmodel anim — the swing id REMAPPED through the katana's anim block (body = bloody).
+void EV_TSKatana(event_args_t* args)
+{
+	const int idx = args->entindex;
+	const int animId = args->iparam1;
+	int bloody = args->iparam2;
+
+	Vector fwd, right, up;
+	AngleVectors(args->angles, fwd, right, up);
+	Vector gun;
+	EV_GetGunPosition(args, gun, args->origin);
+
+	// the trace follows the server's swing table: 15 sweeps 55u BEHIND, 16/17 50u forward.
+	const float reach = (animId == 15) ? -55.0f : 50.0f;
+	Vector end;
+	for (int i = 0; i < 3; i++)
+		end[i] = gun[i] + fwd[i] * reach;
+
+	gEngfuncs.pEventAPI->EV_SetUpPlayerPrediction(0, 1);
+	gEngfuncs.pEventAPI->EV_PushPMStates();
+	gEngfuncs.pEventAPI->EV_SetSolidPlayers(idx - 1);
+	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
+	pmtrace_t tr;
+	gEngfuncs.pEventAPI->EV_PlayerTrace(gun, end, PM_STUDIO_BOX, -1, &tr);
+
+	if (tr.fraction >= 1.0f)
+	{
+		gEngfuncs.pEventAPI->EV_PlaySound(idx, args->origin, CHAN_WEAPON,
+			gEngfuncs.pfnRandomLong(0, 1) ? "weapons/katana/miss.wav" : "weapons/katana/miss1.wav",
+			TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+	}
+	else
+	{
+		const char chType = TS_MeleePlayTextureSound(&tr, gun, end);
+		if (chType == CHAR_TEX_FLESH)
+			bloody = 1; // a flesh hit blooms the blade immediately (silent — the server owns it)
+		else if (chType != 0 && chType != CHAR_TEX_DIRT && chType != CHAR_TEX_WOOD)
+		{
+			TS_MeleeImpact(tr.endpos, tr.plane.normal, chType, 12); // katana: 12 glints + sparks
+			gEngfuncs.pEventAPI->EV_PlaySound(idx, args->origin, CHAN_WEAPON,
+				gEngfuncs.pfnRandomLong(0, 1) ? "weapons/katana/hit.wav" : "weapons/katana/hit1.wav",
+				TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+		}
+	}
+
+	if ((EV_IsLocal(idx) || TS_InEyeSpectating(idx)) && 0 == CL_IsThirdPerson())
+	{
+		const s_weapon_info* wi = get_weapon_info(TSW_KATANA); // hardcoded katana row, like the original
+		const int swing = animId - 15;
+		if (swing >= 0 && swing < 3)
+			gEngfuncs.pEventAPI->EV_WeaponAnimation(wi->iSwingAnims[swing], bloody);
+	}
+
+	gEngfuncs.pEventAPI->EV_PopPMStates();
+}
+
 // Bullet-flyby "whizz" (RE client.dll FUN_100450c0 tracer path): when a round fired by SOMEONE ELSE
 // passes within a glaze radius of the LOCAL player, a random weapons/whizz1-5.wav cracks past your ear.
 // The original gates it on the perpendicular distance from the local view origin to the bullet line

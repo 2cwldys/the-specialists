@@ -53,6 +53,7 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iColdCockDamage = 0;  // default: can't coldcock (overridden per weapon below)
 	w->iKnifeType = 0;       // default: not a throwable blade
 	w->iIdleAnim = 0;        // shipped data: 0 for all rows (CCombatIdle table read)
+	w->iSwingAnims[0] = w->iSwingAnims[1] = w->iSwingAnims[2] = 0; // blades override below
 }
 
 // SetSpartaWeapon (ts_i386.so @0x6fa34): the combat-param override applied after the Write_<weapon> stage.
@@ -416,6 +417,20 @@ static void compile_weapons_info()
   g_weaponInfo[TSW_KNIFE].iKnifeType = 6;
   g_weaponInfo[TSW_SEALKNIFE].iKnifeType = 7;
   g_weaponInfo[TSW_KATANA].iKnifeType = 8;
+
+  // Blade swing viewmodel sequences — the original anim block entries [15..17] (shorts at
+  // wi+0x270/0x272/0x274, disasm-read from Write_knife/Write_sealknife/Write_katana). The
+  // knife.sc/katana.sc client handlers remap the wire's logical swing id 15/16/17 through
+  // this table (EV_WeaponAnimation body = the bloody flag).
+  g_weaponInfo[TSW_KNIFE].iSwingAnims[0] = 3;
+  g_weaponInfo[TSW_KNIFE].iSwingAnims[1] = 4;
+  g_weaponInfo[TSW_KNIFE].iSwingAnims[2] = 5;
+  g_weaponInfo[TSW_SEALKNIFE].iSwingAnims[0] = 2;
+  g_weaponInfo[TSW_SEALKNIFE].iSwingAnims[1] = 3;
+  g_weaponInfo[TSW_SEALKNIFE].iSwingAnims[2] = 4;
+  g_weaponInfo[TSW_KATANA].iSwingAnims[0] = 4; // [15] = the reverse back-slash
+  g_weaponInfo[TSW_KATANA].iSwingAnims[1] = 3;
+  g_weaponInfo[TSW_KATANA].iSwingAnims[2] = 2;
 
   g_weaponInfoCompiled = true;
 }

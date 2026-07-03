@@ -547,13 +547,14 @@ void TS_SurfaceImpact(const float* origin, const float* normal, char texChar, in
 	TS_ImpactEffect(origin, normal, mode, texChar);
 }
 
-// MELEE impact — original client FUN_10043c90 (EV_TSMelee). Just the scintille_metal glint
-// (count 6) + sparks.spr shower (count 7); NO smoke, NO debris. Skips dirt/wood/flesh (the
-// original switch breaks with no spark on 'D'/'W'/'F' / untextured); everything else sparks.
-void TS_MeleeImpact(const float* origin, const float* normal, char texChar)
+// MELEE impact — original client blade handlers (knife LAB_10043c90 / katana LAB_10044230).
+// Just the scintille_metal glint (knife 6 / katana 12) + sparks.spr shower (count 7); NO smoke,
+// NO debris. Skips dirt/wood/flesh (the original switch breaks with no spark on 'D'/'W'/'F' /
+// untextured); everything else sparks.
+void TS_MeleeImpact(const float* origin, const float* normal, char texChar, int glints)
 {
 	if (texChar == 'D' || texChar == 'W' || texChar == 'F' || texChar == 0)
 		return;
-	TSP_Scintille(origin, normal, "sprites/scintille_metal.spr", 5, 6);
+	TSP_Scintille(origin, normal, "sprites/scintille_metal.spr", 5, glints);
 	TSP_SparkShower(origin, normal, 7, 1.15f, 25.0f);
 }

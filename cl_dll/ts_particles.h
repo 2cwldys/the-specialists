@@ -63,10 +63,10 @@ void TSParticles_Reset();  // drop cached sprite handles + particles on a map ch
 // material class (pm_materials.h). mode: 0 = normal, 1/2 = forced (skip throttle).
 void TS_ImpactEffect(const float* origin, const float* normal, int mode, char texChar);
 
-// The MELEE impact effect (original client FUN_10043c90 = EV_TSMelee). NOT the bullet
-// dispatcher — just the scintille_metal glint + sparks.spr shower (no smoke, no debris),
-// and only on hard surfaces (skips dirt/wood/flesh).
-void TS_MeleeImpact(const float* origin, const float* normal, char texChar);
+// The MELEE impact effect (original client blade handlers). NOT the bullet dispatcher —
+// just the scintille_metal glint (knife 6 / katana 12) + sparks.spr shower (no smoke, no
+// debris), and only on hard surfaces (skips dirt/wood/flesh).
+void TS_MeleeImpact(const float* origin, const float* normal, char texChar, int glints = 6);
 
 // Convenience: trace the surface at `pos` and run TS_ImpactEffect with its material.
 // (original wrapper FUN_10044bf0, minus the sound/decal which our server path owns.)

@@ -104,6 +104,10 @@ struct s_weapon_info
 	// Kung-fu idle viewmodel sequence (s_weapon_info+0x252; 0 in the shipped data — kept as a
 	// table read because CTSGun::CCombatIdle reads it from the TSW_MELEE row).
 	int   iIdleAnim;       // +0x252 — bare-hands idle anim (0 in shipped data)
+	// Blade swing viewmodel sequences — the anim block entries [15..17] (shorts at wi+0x270/
+	// 0x272/0x274, disasm-read from Write_knife/sealknife/katana): the logical swing ids the
+	// knife.sc/katana.sc events carry, remapped client-side to v_*.mdl sequences.
+	int   iSwingAnims[3];  // +0x270/0x272/0x274 — swing ids 15/16/17 -> viewmodel sequence
 	// Fire-mode mask (s_weapon_info+0xc): bitset of the trigger modes this weapon offers,
 	// cycled by CTSGun::SwitchFireMode. Bit N set => mode N (tsfiremode_mode_t) available.
 	int   iFireModes;  // +0xc — available fire-modes bitmask
