@@ -689,8 +689,10 @@ void ClientCommand(edict_t* pEntity)
 	// selected by number key (menuselect N) or "click anywhere" (+attack -> slot 1). ---
 	else if (FStrEq(pcmd, "menuselect"))
 	{
+		// dossier-invented B3: the original PARSES the slot and DISCARDS it (a stock-SDK
+		// leftover shape in the gamerules ClientCommand) — the buy menu is client-side.
 		if (CMD_ARGC() > 1)
-			player->TSMenuSelect(atoi(CMD_ARGV(1)));
+			(void)atoi(CMD_ARGV(1));
 	}
 	else if (!strncmp(pcmd, "cutwire_", 8) && pcmd[8] >= '0' && pcmd[8] <= '9')
 	{
@@ -779,13 +781,6 @@ void ClientCommand(edict_t* pEntity)
 	{
 		if (player->IsObserver())
 			player->Observer_FindNextPlayer(atoi(CMD_ARGV(1)) != 0);
-	}
-	else if (FStrEq(pcmd, "buy")) // TS: (re)open the buy/config menu — only while spectating
-	{
-		// The buy/config menu belongs to the spectate-wait (press-fire-to-play) phase;
-		// when alive it does nothing.
-		if (player->m_fInSpectateWait)
-			player->TSSendBuyMenu();
 	}
 	else if (FStrEq(pcmd, "+alt1") || FStrEq(pcmd, "-alt1") ||
 			 FStrEq(pcmd, "+break") || FStrEq(pcmd, "-break") ||

@@ -2448,16 +2448,10 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	WRITE_BYTE(equipped);         // EQUIPPED attachment mask (silencer 1 / laser 2 / flash 4 / scope 8)
 	MESSAGE_END();
 
-	SendWeaponStatus(pPlayer);
-	return true;
-}
-
-// @ the WStatus block of CTSGun::UpdateClientData — drive the weapon-select bar. The
-// original sends one WStatus per arsenal slot on change; we diff each weapon type's
-// owned/clip against the cached mirror and send only what changed. Wire (byte-faithful
-// to the original handler): BYTE type, BYTE owned(0/1), BYTE clip.
-void CTSGun::SendWeaponStatus(CBasePlayer *pPlayer)
-{
+	// @ the WStatus block of CTSGun::UpdateClientData @0x758c8 — the original owns the whole
+	// weapon-bar loop INSIDE UpdateClientData (dossier-invented A2; our SendWeaponStatus split
+	// was invented — merged back). One WStatus per arsenal slot on change: BYTE type,
+	// BYTE owned(0/1), BYTE clip.
 
 	if (!m_bWStatusInit)
 	{
@@ -2481,6 +2475,8 @@ void CTSGun::SendWeaponStatus(CBasePlayer *pPlayer)
 		WRITE_BYTE(clip);  // loaded rounds
 		MESSAGE_END();
 	}
+
+	return true;
 }
 
 // @ ReloadWeapon__6CTSGuniif (@0x74a14, decompile-exact) — ARM a whole-clip reload: gate on a

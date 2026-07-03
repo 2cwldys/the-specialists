@@ -1388,7 +1388,6 @@ void CBasePlayer::TSEnterSpectate()
 
 	ResetArmament(); // no weapons until they pick a loadout + press fire
 	m_fInSpectateWait = true;
-	m_fConfigChosen = false;
 	m_iClientSpecSecs = -1;
 
 	// scoreboard "class" column shows WAITING while spectate-waiting (class value 11 — the
@@ -1405,8 +1404,6 @@ void CBasePlayer::TSEnterSpectate()
 	if (rt > 30)
 		rt = 30;
 	SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
-
-	TSSendBuyMenu();   // open the TS buy/config menu (gmsgShowMenu, compact list)
 
 	// @0x89634 (StartObserver): the original broadcasts TSActiveItems{idx, 0} — every client
 	// stops rendering this player's laser/flashlight beams (round-7g: dead players' beams
@@ -1426,110 +1423,10 @@ void CBasePlayer::TSEnterSpectate()
 	TSSpectateThink(); // paint the initial countdown line
 }
 
-// The TS buy/config menu — the compact gmsgShowMenu list (CHudMenu draws it; matches
-// the original client menu in reference/client.dll FUN_10011160: item 1 toggles the
-// config, items green when available). Selected by number key, or "click anywhere"
-// (+attack) = item 1. menuselect N -> TSMenuSelect on the server.
-void CBasePlayer::TSSendBuyMenu()
-{
-	// The buy/config menu is now the faithful CLIENT-side vgui menu (cl_dll/vgui_TSBuyMenu.cpp,
-	// CTSBuyMenuPanel), shown by the client during spectate-wait — see reference/MENUS.md. The
-	// client opens it itself; the server does NOT send a gmsgShowMenu (the original doesn't
-	// either). The menu's buttons fire `menuselect N`, still handled by TSMenuSelect below.
-	// (The old server-side gmsgShowMenu text menu was a stand-in; retired in cont.69e.)
-	return;
-
-	// \g green / \w white colour codes (cl_dll/menu.cpp). Item 1 = Use New Config
-	// (the loadout the player will spawn with); 7 Random + 1 highlighted as available.
-	const char* menu =
-		"\\g1 Use New Config\n"
-		"\\w2 Buy\n"
-		"\\w3 Remove Item\n"
-		"\\w4 Reset Config\n"
-		"\\w5 Save Config\n"
-		"\\w6 Load Config\n"
-		"\\g7 Buy Random\n"
-		"\\w0 Cancel\n";
-	// valid slots: 1-7 and 0 (the "0" key = slot 10 -> bit 9). Matches the recovered
-	// config-menu layout (reference/MENUS.md). The original buy menu is a CLIENT-built
-	// TEXT HUD menu (CHudMenu/ShowMenu style — numbered, key-selected; NOT VGUI), with
-	// nested submenus: "2 Buy" -> weapon categories (Handguns/SMGs/Rifles/Shotguns/Other)
-	// -> "6 Player Accessory" -> Kevlar/Lasersight/Silencer. Our server-side gmsgShowMenu
-	// config menu is a stand-in for that top level; the submenus are deferred.
-	const int slots = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 9);
-
-	MESSAGE_BEGIN(MSG_ONE, gmsgShowMenu, NULL, pev);
-	WRITE_SHORT(slots);
-	WRITE_CHAR(-1); // stay up until something is chosen
-	WRITE_BYTE(0);  // no more text follows
-	WRITE_STRING(menu);
-	MESSAGE_END();
-}
-
-void CBasePlayer::TSCloseMenu()
-{
-	MESSAGE_BEGIN(MSG_ONE, gmsgShowMenu, NULL, pev);
-	WRITE_SHORT(0); // 0 valid slots = turn the menu off
-	WRITE_CHAR(0);
-	WRITE_BYTE(0);
-	WRITE_STRING("");
-	MESSAGE_END();
-}
-
-// Handle a buy/config menu selection (slot from menuselect, or 1 from a click).
-void CBasePlayer::TSMenuSelect(int slot)
-{
-	if (!m_fInSpectateWait)
-		return;
-
-	switch (slot)
-	{
-	case 1: // Use New/Last Config — confirm the queued loadout (applied at spawn); now press fire.
-		// The client menu shows the "Using new/last config." notice itself (CHudTSMessage), so don't
-		// also center-print it here (that double-printed). The armament is the client's queued tkw set.
-		m_fConfigChosen = true;
-		TSCloseMenu();
-		break;
-	case 2: // Buy — the weapon-category submenu (Phase 4)
-		// (handled in Phase 4; for now keep the menu up)
-		break;
-	case 3: // Remove Item — drop the last queued weapon, redraw
-		for (int i = 31; i >= 0; i--)
-		{
-			if (m_armament[i].type != 0)
-			{
-				m_armament[i].type = 0;
-				m_armament[i].count = 0;
-				break;
-			}
-		}
-		TSSendBuyMenu();
-		break;
-	case 4: // Reset Config
-		ResetArmament();
-		TSSendBuyMenu();
-		break;
-	case 5: // Save Config (SLICE: client-local store deferred)
-	case 6: // Load Config (SLICE)
-		TSSendBuyMenu();
-		break;
-	case 7: // Buy Random
-	{
-		ResetArmament();
-		int n = RANDOM_LONG(1, 3);
-		for (int i = 0; i < n; i++)
-			AddItemToArmament(RANDOM_LONG(1, 38), 1, false);
-		m_fConfigChosen = true;
-		ClientPrint(pev, HUD_PRINTCENTER, "Using new config.\n");
-		TSCloseMenu();
-		break;
-	}
-	case 10: // 0 Cancel — keep the (empty/default) loadout, close the menu
-		m_fConfigChosen = true;
-		TSCloseMenu();
-		break;
-	}
-}
+// (TSSendBuyMenu/TSCloseMenu/TSMenuSelect DELETED, dossier-invented B3: the original has NO
+// server-side buy menu — the buy/config menu is entirely client-side (cl_dll/ts_buymenu.cpp);
+// purchases arrive as tkw/tki/tka console commands and the server's "menuselect" is a dead
+// swallow in the gamerules ClientCommand. Fire-to-play is the client's "respawn" command.)
 
 // Per-frame while held in spectate-wait: drive the countdown + the fire-to-play.
 void CBasePlayer::TSSpectateThink()
@@ -1543,31 +1440,13 @@ void CBasePlayer::TSSpectateThink()
 		secs = 0;
 	int state = (secs > 0) ? TSSPEC_COUNTDOWN : TSSPEC_READY;
 
-	// The menu is selected by number key (menuselect N -> TSMenuSelect) or by a click:
-	// while the menu is up, +attack = "click anywhere" = select item 1 (Use New Config),
-	// matching the original. Once a config is chosen (menu closed), the next +attack
-	// (after the countdown) spawns into play.
-	if ((m_afButtonPressed & IN_ATTACK) != 0)
-	{
-		if (!m_fConfigChosen)
-		{
-			TSMenuSelect(1); // click anywhere -> Use New Config
-		}
-		else if (state == TSSPEC_READY)
-		{
-			StopObserver();
-			return;
-		}
-	}
+	// Fire-to-play is the CLIENT's "respawn" console command (the original mechanism —
+	// TSTryRespawn gates it); the server watches no buttons here.
 
 	// once per second: the menu/scoreboard upkeep + the ORIGINAL's countdown HUD texts.
 	if (secs != m_iClientSpecSecs)
 	{
 		m_iClientSpecSecs = secs;
-		// Re-send the buy menu each tick until a config is chosen — the first send
-		// (at spectate-enter) can arrive before the client HUD is ready to draw it.
-		if (!m_fConfigChosen)
-			TSSendBuyMenu();
 		// Re-assert the WAITING scoreboard row (a connect-time ScoreInfo can land after the
 		// spectate-enter send and reset the class to 0).
 		if (pev->playerclass != TS_SCORE_WAITING)

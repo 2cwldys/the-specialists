@@ -565,7 +565,6 @@ public:
 	// their chosen loadout. Mirrors the original StartObserver/SetPlayerRespawnTime/
 	// "Press Fire To Play!" path. The buy/config menu (VGUIMenu) opens on entry.
 	bool m_fInSpectateWait = false; // held in free-look, waiting to press fire
-	bool m_fConfigChosen = false;   // the player confirmed a loadout (first +attack)
 	// (m_flSpawnGateTime merged into m_flTSRespawnTime — one 0x770 carrier, set ONLY via
 	// SetPlayerRespawnTime; negative = locked out until the round restarts)
 	char m_iRespawnsUsed = 0;       // 0x7ba — deaths this round (Killed++); LMS gates respawns
@@ -580,9 +579,6 @@ public:
 	void TSTryRespawn();            // `respawn` cmd: leave spectate if the gate elapsed; wait line only when gate < 0
 	float m_flSpecMsgTime = 0;      // +0x754 — the 1 Hz spectate HUD-line throttle clock (countdown + wait line)
 	void TSSendScoreInfo();         // broadcast this player's scoreboard row (class=WAITING while spectating)
-	void TSSendBuyMenu();           // send the buy/config menu (gmsgShowMenu, compact list)
-	void TSCloseMenu();             // turn the menu off (ShowMenu with 0 valid slots)
-	void TSMenuSelect(int slot);    // handle a buy/config menu selection (menuselect / click)
 };
 
 inline void CBasePlayer::SetWeaponBit(int id)

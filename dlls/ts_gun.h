@@ -64,7 +64,6 @@ public:
 	bool CanDeploy() override { return true; }
 	bool Deploy() override;
 	bool UpdateClientData(CBasePlayer *pPlayer) override; // sends the TS WeaponInfo HUD message
-	void SendWeaponStatus(CBasePlayer *pPlayer);          // sends the WStatus weapon-bar messages
 	// NB: the per-frame driver is the BASE CBasePlayerWeapon::ItemPostFrame (weapons_shared.cpp) —
 	// the original TS rewrote the base method for its single arsenal weapon (@0x903d4, m_iId==0x10
 	// gate); CTSGun does NOT override it.

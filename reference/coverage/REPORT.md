@@ -36,11 +36,11 @@ _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI
 
 _Commands the server accepts from a client (exact strcmp dispatch). EXTRA = the prime 'invented/HL-leftover' signal. NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths (strstr/sscanf), not captured here — so `weapon_<N>` is not flagged._
 
-- matched: **20**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **16**
+- matched: **20**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **15**
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `+alt1`, `+break`, `-alt1`, `-break`, `buy`, `closemenus`, `follownext`, `give`, `menuselect`, `special`, `specmode`, `spectate`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `vote`
+  `+alt1`, `+break`, `-alt1`, `-break`, `closemenus`, `follownext`, `give`, `menuselect`, `special`, `specmode`, `spectate`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `vote`
 
 ### Client console commands (pfnAddCommand)
 
