@@ -47,6 +47,84 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.84) — pickup for the next orchestrator (cont.83 = me; available for consult)
+
+**You ARE the orchestrator and the previous agent (cont.83) — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF — keep `git config --local commit.gpgsign
+false`). 8 commits this session (`f67c6eb..75d9289`), every one build-green (`scripts/build.sh amd64 all`) +
+nm-T-gated — REGENERATE the baseline first thing:
+`nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}' | sort > /tmp/nm_T_baseline.txt`.
+
+⚠ **SERENA GOTCHA:** read the ledger with the **Read tool on `.serena/memories/ledger.md`** (never
+`read_memory("ledger")` — one giant JSON line that overflows the read limit).
+
+### THE MISSION (unchanged — the cont.79 long form far below) + CURRENT HEADLINE
+1:1 drop-in at every level; driver = `scripts/coverage/audit.py [<Class>]`; names match the original's;
+a missing/extra symbol SIGNALS logic (paid off ALL session: the 3 missing CTSGun methods were hiding the
+entire base-ItemPostFrame frame machine; the missing MultiplyClips branch was hiding the knife-stack slot
+economy; PickUpWeapon's call sites were hiding no-switch-on-knife-recovery). MOVE, don't rewrite. MIMIC
+THEIRS. The user drives all playtests. Suspect the base SDK + calloc'd entity data when verbatim misbehaves.
+**HEADLINE: 0 missing methods · 32 invented methods · 0 missing free funcs · 0 missing members ·
+0 file mismatches · 6 missing globals · 3 invented globals.** The 6+6 work-lists from cont.83's brief are
+CLEARED — what remains is tasks #5-#8 (below) + the VERIFY queue.
+
+### ⭐ WHAT cont.83 DID (detail: the ledger cont.83 entry, top of `.serena/memories/ledger.md`)
+- **The gun FRAME MACHINE**: the TS-rewritten BASE `CBasePlayerWeapon::ItemPostFrame` (weapons_shared.cpp,
+  m_iId==0x10) replaces our invented CTSGun override; EmptySound/StopReload/ReloadWeapon landed; Reload/
+  ShotgunReload/WeaponIdle/Fire/MultiplyClips/ColdCock re-transcribed decompile-exact (reload.sc fparam1
+  0/8/9/10 wire; the pump machine is phase-driven via WeaponIdle; the BURST machine; auto-reload lives in
+  WeaponIdle; the STACKABLE slot economy; akimbo 3rd-person anim was inverted). **+alt2 = IN_CANCEL (0x40)**
+  — server command removed, client sets in_cancel, m_flNextAlternateAttack (gun+0xa4) predicted via fuser4.
+  m_burstOrPhase + m_fInSpecialReload(=pumpToggle, parked per item) member merges.
+- **ShootBulletsPlayer** (its own TS_combat.cpp TU): polar cubic spread; ONE MultiDamage batch/volley;
+  depth-1 pierce (mode 2); flFactor2 per-layer decay x0.5 through bodies; cheat-gated damagemult; the
+  REALBULLET gate. **TSInit** (Spawn's first call): spawn protection (shimmer+fade+m_flDisarmTime deadline,
+  PreThink clear), map-global superjump (rules m_bSrvSuperJump + "mj"), 0xff client-cache force-sends.
+  **PickUpWeapon**: all five call-site contracts (knife recovery does NOT switch; buy records TSItem::hOwner;
+  the KNIFE-STACK merge; TakeWeapon(type,status,clip) reshape, auto-wield moved out).
+- **The 6 free funcs**: SetPlayerRespawnTime (m_flSpawnGateTime MERGED into m_flTSRespawnTime; +0x7ba/+0x7bc
+  members; clamp floor 5 — PLAYTEST) · RemoveEntityFromSlowedArray + m_pSlowedEnts[32]/+0x288 + 8 scrub
+  sites · TSPlayerDisconnect (vote-rejoin + The-One leak + CallCheckDeads-on-leave) · PseudoClimb (TSHandle
+  head, both libs) · TSGetPointsForFrag + glast_weaponid (ts_bullet.cpp, init -1; captured at fire time) ·
+  TSSelectSpawnSpot + EntSelectSpawnPoint replaced (bands + crowd telefrag — PLAYTEST).
+- **reference/dossiers/cont83/animblocks.md**: flReloadTime/iStackable/hold-idle/[8]/**the coldcock [28]
+  column** — the gun-event tail's data blocker is GONE.
+
+### ⭐ WHERE TO GO (the queue)
+1. **AWAIT/fold the user's playtest** — now covering: cont.82 round-2 (drop glow, explosion pitch, blast
+   shards, breakable respawn, m61 flight, grenade.sc precache) PLUS cont.83's surface: reload feel (per-
+   weapon times + the pump machine + auto-reload on idle), +alt2 coldcock via the button, dry-fire click,
+   akimbo 3rd-person pose, knife re-pickup (stack merge, NO weapon switch), spawn protection shimmer/fade,
+   spawn-point feel + the crowd telefrag, the 5s respawn floor, PseudoClimb crate scramble, stylish-kill
+   feed lines (kungfu/thrown-blade/stunt/slide). Rebuild BOTH libs + setup-xash-mod.sh first.
+2. **Task #5 the gun-event tail** (UNBLOCKED): ev_reload/ev_empty/ev_pump handlers (the reload.sc fparam1
+   0/8/9/10 contract is documented in cont83/animblocks.md + ShotgunReload) + closecombat/coldcock.sc swaps
+   (handlers RE'd in dossier-ev-melee.md; block[28] extracted) + firelinked/grenade.sc handlers. Retire the
+   STAND-INS marked in ts_gun.cpp (SendWeaponAnims, insert-shell.wav, 357_cock1, the coldcock miss whoosh)
+   + the ColdCock coldcock.sc playback (gun+0x966, gated item.bOwned).
+3. **Task #6 invented review**: 32 invented methods (SwitchBarrel now-uncalled; CBaseDoor::RespawnThink;
+   the CBasePlayer TS* helpers; CTSGameRules helpers; CTSGun Sync/Load/UpdateActivePointers accepted-or-
+   refactor decisions) + 6 missing globals (TSGameRules-the-INSTANCE @0x1681a0 = the big one; gmsgFlashlight/
+   gmsgFlashBattery/gmsgSetCurWeap regs; objects; roundtime) + 3 invented globals (g_TSGun/g_tsActive/
+   g_tsPool) + the "Spectator" wire reconcile + IsSpawnPointValid (stock, now uncalled).
+4. **Task #7 stunt/pm tail**: PM_Jump/PM_Duck diffs, morfy anim, directional death, +0x78 consumer,
+   getup-anim divergence question for the user. (PseudoClimb DONE.)
+5. **Task #8 VERIFY batch** (grown this session): the cont.82 items (gun+0xa0c consumer, CBreakable+0x110
+   factor, SrvSett client consumers, TSFade coexistence, L13 katana, +0x94/98/9c triple) PLUS: TraceAttack's
+   spawn-grace refusal + 0x10c10 damage mult (@0x801eb) · PlayerKilled's kill-TIER/slow-mo-reward tail
+   (@0x7a908.. — m_iAward 2/3/4, The One's 10 preserved, the grant) · the V11 LMS countdown HUD ·
+   TSItem::hOwner consumer · ResetRestartRound's dead "lms" cvar read · burstOrPhase prediction packing.
+
+### ⭐ METHODS (unchanged + this session's lessons)
+dc.sh/re.sh typed decompiles BEFORE coding · the disasm caller/args decode (python push-sequence reads
+resolved every PickUpWeapon/SetPlayerRespawnTime call-site contract this session — cheap and definitive) ·
+the Write_* column one-liner (cont82 README; used for +0x14/+0xdc/blocks) · user-driven playtest loop ·
+Ghidra MCP for interactive xrefs · live.py/binmap.py on the running original. ⚠ python brace-matching
+edits: anchor on the FULL header comment, not rfind("/*") — that clobbered player.cpp once (git checkout
+saved it).
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.83) — pickup for the next orchestrator (cont.82 = me; available for consult)
 
 **You ARE the orchestrator and the previous agent (cont.82) — continue as if you never stopped.** Branch

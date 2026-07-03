@@ -5,6 +5,84 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-02 (cont. 83) — ZERO missing methods + ZERO missing free funcs (the 6+6 queue cleared)
+
+Continued `restructure-source-parity` (NOT merged; GPG off). Every commit build-green (`build.sh amd64 all`)
++ nm-T-gated. Headline moved **6 -> 0 missing methods · 33 -> 32 invented · 6 -> 0 missing free funcs**.
+Commits `f67c6eb..75d9289`:
+
+### The 6 missing methods (all landed)
+- **The gun FRAME MACHINE (f67c6eb)** — the three CTSGun methods were hiding the whole per-frame shape:
+  the original's driver is the REWRITTEN BASE `CBasePlayerWeapon::ItemPostFrame` (@0x903d4, m_iId==0x10
+  gate) — ours moved into weapons_shared.cpp, CTSGun::ItemPostFrame DELETED. EmptySound @0x71be4 (contender
+  silent; empty.sc; ±0.1/idle 0.5) · StopReload @0x71288 (ColdCock+MultiplyClips callers; the pump machine
+  NEVER arms item+0xc) · ReloadWeapon @0x74a14 (arm-only; player m_flNextAttack = the clock; refill in the
+  base ItemPostFrame w/ akimbo pair mirroring). Reload @0x74d5c decompile-exact (blades->CCombatBlock,
+  sawed-off shell-retained anim block[8], reload.sc iparam1=type iparam2=attach fparam1=0, idle+5, Unzoom);
+  ShotgunReload @0x74aac (phase machine in item+0x8; reload.sc fparam1 8/9/10; insert period = wi+0x14;
+  driver = WeaponIdle->Reload); WeaponIdle @0x754dc (every frame: pump continuation, the BURST machine on
+  the primary timer, idle-tick = grenade cook / AUTO-RELOAD dry / stance idle anim); Fire @0x71c78
+  (waterlevel-3 click, InfiniteClips gate, akimbo 3rd-person 8+side vs pump TSA_FIRE — we had it INVERTED);
+  MultiplyClips @0x71308 (m61 refused; the MISSING STACKABLE branch — knives add units funded by free
+  slots; SlotsUsed now charges per-unit); ColdCock alignment (GrenadeIdle(1)+StopReload, all four timers
+  +0.725, idle+2, kevlarhit CHAN_BODY attn .8). **+alt2 is the IN_CANCEL BUTTON (0x40)** — the original
+  server has NO ±alt2 command (ours removed; client sets in_cancel; the new m_flNextAlternateAttack
+  gun+0xa4 is predicted via fuser4 + both decrement loops). Member merges: m_burstCount+m_shotgunPhase ->
+  m_burstOrPhase (ONE item+0x8 slot: burst/pump-phase/cook); m_akimboSide -> m_fInSpecialReload (the ONE
+  pumpToggle byte, PARKED per item — holster clears reloading+phase but NOT it). Data columns extracted
+  (dossier cont83/animblocks.md): flReloadTime(+0x14) all 38, iStackable(+0xdc = knife/seal/m61),
+  hold-idle block[0](+0x28c), shell-retained block[8](+0x262/0x29c), and **the COLDCOCK block[28] column —
+  the gun-event tail is now UNBLOCKED on data**. STAND-INS kept + documented: predicted reload/pump
+  SendWeaponAnims, insert-shell.wav, 357_cock1 click, coldcock miss whoosh (until the ev handlers land).
+- **ShootBulletsPlayer (TS_combat.cpp, its own original TU)** — TSFireBulletsPenetrate WAS the original
+  under an invented name. Corrections forced by the decompile: POLAR cubic spread (not gaussian);
+  ONE MultiDamage batch per volley; pierce = DEPTH-1 recursion (iMode 2, /30 falloff leg) not an 8-layer
+  loop; damagemult is CHEAT-GATED global (not per-layer decay — the real decay = ai->flFactor2 (+0x18
+  consumer FOUND) x0.5 through a body); rbullet gate includes REALBULLET; BubbleTrail per pellet.
+  Signature: (uchar cShots, src, dir, spread, float dmg, iMode=wi->iKnifeType, iCaliber, seed) -> Vector.
+- **TSInit (first call in Spawn @0x7f586)** — absorbed the Spawn-top inline block + surfaced SPAWN
+  PROTECTION (1s: +0x71c deadline == m_flDisarmTime, renderfx Distort shimmer, (200,200,250) fade;
+  PreThink clears @0x81458; TraceAttack's refusal @0x801eb = VERIFY) + the map-global SUPERJUMP
+  (rules+0x5885 = new m_bSrvSuperJump <- ts_mapglobals SF&0x40; "mj" physinfo) + the client caches init
+  0xff (FORCE the first TSState/TSBTime/TSPAward sends) + The-One rules-flag clear. Our "Spectator" wire
+  flagged INVENTED (the original broadcasts (idx,0) stock-style; ours carries state+seconds).
+- **PickUpWeapon @0x8314c** — ALL FIVE call sites decoded (worldgun/groundweapon: bSelect = type!=FLAG;
+  knife Use: NO SWITCH; buy: the sole bRecordOwner -> TSItem::hOwner item+0x30; powerup/give m61: select).
+  THE KNIFE-STACK MERGE (the S8 gap): owned stackable ADDS units (slot-charged per unit). TakeWeapon
+  reshaped (type, status, clip; auto-wield REMOVED — PickUpWeapon's bSelect owns it; world pickups restore
+  the FULL parked status). TSPickUpWeapon deleted.
+
+### The 6 missing free funcs (all landed)
+- **SetPlayerRespawnTime @0x65ff4** — the respawn funnel; m_flSpawnGateTime MERGED into m_flTSRespawnTime
+  (ONE +0x770 carrier; negative = locked out). New: m_iRespawnsUsed (+0x7ba, Killed++ , InitHUD/RestartRound
+  reset) + m_flRespawnHoldTime (+0x7bc LMS re-entry hold; PreThink expiry -> gate -1 + award 1; V11 = the
+  countdown HUD msg untranscribed). Caller clamp = round(clamp(respawntime,5,30)) — the original FLOOR IS 5
+  (ours was 3; default cvar 3 -> real wait 5s, PLAYTEST note). The TSPAward 1/11 producers complete.
+- **RemoveEntityFromSlowedArray @0x8fb4c** — the packed slowed-projectile array (RAW ptrs m_pSlowedEnts[32]
+  +0x208 / count +0x288, HOLES KEPT) + all EIGHT scrub sites (shrapnel/m61/knife x2/flag/worldgun x3).
+  Empty until the projectile-GoSlow feature populates it.
+- **TSPlayerDisconnect @0x8f94c** — ClientDisconnected's TS hook: vote-block clear (the vote-rejoin bug),
+  edict park (FL_DORMANT/EF_NODRAW/...), gate -4, The-One clear, CallCheckDeads (a leave can end a round).
+- **PseudoClimb @0xe8fc8** — the hold-jump wall scramble, TSHandle HEAD (IN_JUMP && onground==-1, BEFORE
+  the STOP damp). Both libs (predicted). PLAYTEST: crate scramble / look-up probe raise / half-maxspeed cut.
+- **TSGetPointsForFrag @0x79140** — the stylish-kill scorer wired into PlayerKilled (frags += ...): The-One
+  gate, kung-fu 2 ("#TS_KungFu"), thrown-blade 2 (GetDescription), stunt/slide +1, the green feed line.
+  **glast_weaponid** lands (ts_bullet.cpp, init -1 — V21 RESOLVED); the bullet record captures the firing
+  weapon at fire time (rec+0x30), UpdateBullet publishes on hit. VERIFY: PlayerKilled's kill-TIER tail
+  (@0x7a908.. m_iAward 2/3/4 + a slow-mo reward grant off the out-bools/DoSpectacularNess) needs typed RE.
+- **TSSelectSpawnSpot @0x66244** + EntSelectSpawnPoint REPLACED with the original's 4-call body: the
+  teammate-cover band (0x1801-0x2000) / unseen band (0x1001-0x1800) / nearest-distance scorer + the
+  crowded-winner 128u TELEFRAG (300 NEVERGIB) + fallbacks + g_pLastSpawn. PLAYTEST-GATED (spawn feel).
+
+AUDIT: **0 missing/0 invented classes · 0 missing methods · 32 invented methods · 0 missing members ·
+0 missing free funcs · 0 file mismatches · 6 missing globals (TSGameRules/gmsgFlashBattery/gmsgFlashlight/
+gmsgSetCurWeap/objects/roundtime) · 3 invented globals (g_TSGun/g_tsActive/g_tsPool)**.
+
+NEW VERIFY items this session: TraceAttack spawn-grace refusal (@0x801eb) + the 0x10c10 stunt dmg mult ·
+PlayerKilled kill-tier/slow-mo-reward tail · the "Spectator" wire (ours state+seconds vs original idx+flag) ·
+TSItem::hOwner consumer (sell-zone?) · the V11 LMS countdown HUD · ResetRestartRound still reads the dead
+"lms" cvar (TS_gamerulesclass.cpp:~425) · burstOrPhase/pump prediction packing (not in weapon_data).
+
 ## 2026-07-02 (cont. 82) — melee S7a/b/c + S8 + HolsterWeapon + S10 applied (the blade split, both sides)
 
 Continued `restructure-source-parity` (NOT merged; GPG off). Applied the rest of the cont.81 melee dossier
