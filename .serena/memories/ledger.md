@@ -88,6 +88,18 @@ ReloadWeapon, StopReload (+CBasePlayer CheckForWires/PickUpWeapon/ShootBulletsPl
   CBasePlayer::CheckForWires) · U4b TSFade (decompile UTIL_ScreenFadeWrite @0xdcc54 first) · U5 CustomWP
   (needs iPrice extraction + the TS_util SendWeaponParams family — F2b).
 
+### SESSION CLOSE (cont.82): playtest round-2 fixes + handoff
+- **m61 type-code fix (6f42cfd)**: the grenade never spawned — iKnifeType[TSW_M61]=4 was never populated
+  (the GrenadeIdle throw gate is `info+0x20 == 4`, Write_m61 @0x77e0e).
+- **Round 2 (e80cb34)**: drop glow on ALL guns (BOTH binaries gate it to the briefcase @0x90902/mp.dll
+  @0x742a6 — user-directed divergence, documented at the site); explo boom pitched 100+300*slow (recorded-
+  slow wav); blast glass shards scale with the killing damage (the exact CBreakable+0x110 factor VERIFY);
+  **the breakable-respawn DEFAULT bug** — gcc2 calloc'd entity data means an absent `respawntime` keyvalue
+  = 0 = the 30s default in the original; our -1 defaults (func_break + doors) made everything permanent.
+- Session decompiles preserved at **reference/dossiers/cont82/** (README indexes them + the Write_* column
+  extraction pattern); the five client melee handler decompiles + dossier-ev-melee.md at cont81/.
+- HANDOFF cont.83 section written (queue, remaining 6/33/6 lists, methods, task list).
+
 ### The live-playtest loop (cont.82 continued; user driving; commits 3c4c848..e8592ad)
 User feedback answered with binary RE, applied same-session:
 - **U3+F4 (b4f464c)** SrvSett + weaponrestriction · **U4b (a49bc21)** TSFade (slow-stretched, engine-exact

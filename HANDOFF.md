@@ -47,6 +47,130 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.83) — pickup for the next orchestrator (cont.82 = me; available for consult)
+
+**You ARE the orchestrator and the previous agent (cont.82) — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF — keep `git config --local commit.gpgsign
+false`). ~30 commits this session (`d80d29a..`), every one builds `scripts/build.sh amd64 all` clean + gated on
+`nm -D` T-export identity — REGENERATE the baseline first thing:
+`nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}' | sort > /tmp/nm_T_baseline.txt`.
+
+⚠ **SERENA ONE-LINE-JSON GOTCHA:** read the ledger with the **Read tool on `.serena/memories/ledger.md`**, NOT
+`read_memory("ledger")` — the MCP returns one giant single-line `{"result":"…"}` (~400 KB) that overflows the
+read limit. Same for any large memory.
+
+### THE MISSION + the user's directives (the law — the cont.79 section far below has the long form)
+Make OUR code a **1:1 drop-in** for the original at EVERY level — **file → class → methods → variables →
+globals → free functions**. Driver = `scripts/coverage/audit.py [<Class>]`. Current headline:
+**6 missing methods · 33 invented methods · 6 missing free funcs · 9 missing globals · 3 invented globals ·
+0 file mismatches · 0 missing files · 0 class/member gaps.** The exact remaining lists:
+- **Missing methods (6)**: CTSGun EmptySound/ReloadWeapon/StopReload · CBasePlayer PickUpWeapon/
+  ShootBulletsPlayer/TSInit. Most are MOVES: our PlayEmptySound/Reload-tail/pump-interrupt/
+  TSPickUpWeapon/TSFireBulletsPenetrate/the-spawn-reset-block already hold the logic — rename/reshape
+  onto the original names+signatures (grep OUR code first, always).
+- **Missing free funcs (6)**: SetPlayerRespawnTime (completes the TSPAward 1/11 producers!),
+  TSSelectSpawnSpot, TSGetPointsForFrag, TSPlayerDisconnect (the vote-rejoin fix),
+  RemoveEntityFromSlowedArray (+ the packed slowed array player+0x208[32]/+0x288 model — completes
+  CTSKnife::Use), PseudoClimb (pm). ALL have condensed facts in `dossier-freefuncs.md` §2 + ff_*.c decompiles.
+- **Missing globals (9) / invented (3)**: see AUDIT.md GLOBALS sections (TSGameRules the global instance
+  @0x1681a0 among them — task #5 scope).
+1. **Names must match the original's** (FGD/save/wire names) — audit matches BY NAME; a faithful-but-misnamed
+   symbol reads as missing+invented.
+2. **A missing/extra symbol SIGNALS a logic mismatch → re-RE it.** Paid off ALL session: the "wrong-column
+   kAmmoMax" was hiding the whole ammo-cap system; the missing GrenadeIdle was hiding the entire grenade
+   COOK machine; the missing DecideGamePlay was hiding the rules+0 gamemode byte the Wires system gates on.
+3. **The logic often EXISTS already — moved/renamed/inlined — so MOVE it, don't rewrite.** This session:
+   SecondaryAttack was inlined in ItemPostFrame; HolsterWeapon was inlined in SelectWeapon; the knife
+   settle machinery existed under invented names. Grep OUR code first.
+4. **MIMIC THEIRS (the drop-in cardinal rule):** our client must swap against the original server and
+   vice-versa — wire names/formats byte-exact, mechanisms exact (knife.sc's format swap, the CustomWP
+   ASCII line, PTakeDam's encoding).
+5. **Don't guess vs the RE; the USER drives all playtests** (numbered protocols; never launch xash yourself).
+   The user's live-original knowledge OUTRANKS a static read twice removed — but get the binary evidence
+   first: this session BOTH binaries said dropped guns don't glow, the user's live game says they do →
+   implemented user-directed + documented at the site (ts_worldgun.cpp). When they conflict, say so, tag it.
+6. **When verbatim code STILL misbehaves, suspect the BASE SDK** (halflife-updated ≠ 2003 stock) — see
+   [[base-sdk-divergence-check]]. AND the gcc2 world: **entity data is CALLOC'D — absent keyvalues = 0**
+   (the breakable-respawn default bug: our -1 default vs the original's implicit 0 = 30s respawn).
+
+### ⭐ WHAT cont.82 DID (full detail: ledger cont.82 entries, top of `.serena/memories/ledger.md`)
+- **Melee S7a/b/c + S8 + S10 + HolsterWeapon** — the whole blade split, BOTH sides (SecondaryAttack/
+  KatanaThrow/KatanaFire/KnifeFire decompile-exact; CTSKnife lifecycle re-transcribed — embed =
+  SOLID_NOT+MOVETYPE_FLY, in-flight clears <700 u/s, katana +USE gated on KungFu (L13 playtest flag);
+  the client EV_TSKnife/EV_TSKatana against the five-handler dossier).
+- **ALL gmsg units U0–U5**: registration parity (StatusText/StatusValue/Weapons/Flashlight/FlashBat
+  deleted, PLAYTEST-GATED), TSState/TSSpace/TSBTime, TSPAward (+partial producers), PlInfo, PTakeDam
+  (stock Damage send removed), SrvSett (+the weaponrestriction command), Wires (+CheckForWires + the
+  gamemode byte), TSFade (slow-stretched, engine-exact client parse), CustomWP (+iPrice + live buy prices
+  + loadweapons/saveweapons).
+- **Freefuncs F1–F4 + most F5**: the dead batch + m61_grenade factory; the s_ammo_info table (TWO live
+  bug fixes: reserve caps + slow-mo bullet speeds); ★ the range-damage falloff WIRED (both bullet paths +
+  UTIL_TraceLine_Expanded); the restriction system; DecideGamePlay + the mode globals; GetRandomPosition/
+  PlayerIsCheating/TSCountPlayers/GetBodyByItems(+Deploy body); TSPrecache (kills every late-precache).
+- **The USER-DRIVEN live-playtest loop** (the second half of the session — KEEP THIS WORKING MODE):
+  powerup fixes (EF_MUZZLEFLASH not DIMLIGHT; origin-at-floor bbox), the M61 GRENADE COOK MACHINE
+  (GrenadeFire = pin only, GrenadeIdle = throw-on-release, fuse 3.0 FROM THE THROW, underhand roll,
+  holster force-throw) + the TS explosion (TSCreateDebris material-1 + client explo/explode1-4 pitched
+  100+300*slow) + the ~2% DoSpectacularNess slow-mo bubble, the m61 type-code fix (iKnifeType=4),
+  drop glow on ALL guns (user-directed divergence — both binaries gate it to the briefcase; documented),
+  blast glass shards scale with the killing damage (VERIFY the +0x110 factor), and the
+  BREAKABLE-RESPAWN DEFAULT fix (0 not -1 → every unmarked breakable/door respawns in 30s).
+
+### ⭐ WHERE TO GO (the queue; the RE for most of it is DONE — dossiers/decompiles first)
+**Typed decompiles: `reference/dossiers/cont81/` (the big dossiers + ev_* client handlers) and
+`reference/dossiers/cont82/` (this session's — see its README, incl. the Write_* column-extraction
+one-liner pattern). Do NOT re-decompile what's there.**
+1. **AWAIT the user's playtest** of the round-2 fixes (drop glow, explosion pitch, blast shards,
+   breakable respawn, m61 flight, grenade.sc precache after a fresh setup-xash-mod.sh run of BOTH libs).
+   Fold results in first — the user feeds corrections live; answer each with binary RE before coding.
+2. **The 6 missing methods** (mostly moves — see the lists above). ShootBulletsPlayer = rename/reshape
+   TSFireBulletsPenetrate onto CBasePlayer (it IS the original's method); TSInit absorbs the spawn-reset
+   block (player.cpp ~3136 comment names it); PickUpWeapon absorbs TSPickUpWeapon (mind the knife-stack
+   merge gap noted in S8); EmptySound/StopReload/ReloadWeapon = CTSGun tail (grep the inline logic).
+3. **The 6 missing free funcs** (facts in dossier-freefuncs §2): SetPlayerRespawnTime FIRST (it completes
+   the TSPAward out-of-round/kill-tier producers + the +0x770 semantics TSCountPlayers already reads).
+4. **Task #8 the gun-event tail**: empty/pump/firelinked/grenade/closecombat/coldcock.sc client handlers —
+   closecombat/coldcock are FULLY RE'd in dossier-ev-melee.md; the blocker is extracting each GUN's anim
+   block [28] (+ the kungfu block indices) from the Write_* disasm (the README one-liner).
+5. **Task #5 invented review** (33 methods incl. SwitchBarrel now-uncalled, CBaseDoor::RespawnThink →
+   should ride the info_breakable helper; 9 missing globals incl. TSGameRules-the-instance) and
+   **task #6 stunt/pm tail** (PseudoClimb, PM_Jump/PM_Duck diffs, morfy anim, directional death,
+   +0x78 consumer, the getup-anim divergence question for the user).
+6. **VERIFY ledger items**: gun+0xa0c cook-timer consumer (reads @0xbfe54/0xcb09d), CBreakable+0x110
+   shard factor, the SrvSett client consumers (cash-HUD hide/buy filter), the TSFade slow-mo-tint
+   coexistence, L13 katana pickup, the +0x94/98/9c CTSKnife triple.
+
+### ⭐ THE METHODS THAT WORKED (keep using them)
+- **dc.sh/re.sh typed decompiles BEFORE coding** — every unit this session started with a fresh decompile
+  (`scripts/ghidra/dc.sh server 0x<nm-addr>`; re project single-writer; clientdll/mpdll separate locks).
+  Raw-disasm cross-check via `recovered/scratch-cont81/ts.dis` (regenerate: `objdump -d reference/ts_i386.so`)
+  — jumptables/FPU consts the decompiler mangles are hand-decoded from there (DecideGamePlay's mapping,
+  the OnGround bbox floats via `dd`+struct.unpack at GOT-relative offsets).
+- **The dossier-subagent template** (kept ~200k tokens of client.dll RE out of my context this session —
+  the five-handler dossier). Template in the cont.81 section below; clientdll project = a separate lock,
+  safe to run while you edit source.
+- **The Write_* column extraction** (cont82 README) for any missing s_weapon_info column.
+- **User-driven playtest loop**: they report → you RE the exact original mechanism → apply → commit with
+  the provenance. Their game knowledge caught 6 real divergences this session.
+- **Ghidra MCP** for interactive xrefs when the GUI holds the `re` project (CLAUDE.md §4a.3);
+  **live.py/binmap.py** on the running original when static RE dead-ends (CLAUDE.md §4b).
+
+### Task-list entries to recreate (via TaskCreate) — the cont.83 tracker
+- `[in_progress]` **"Per-class 1:1 parity loop (audit→RE→reconcile→build→audit→commit)"** — the driver.
+- `[in_progress]` **"PLAYTEST gate before merging restructure-source-parity to main"** — round-2 fixes +
+  the whole gmsg/gunfeel/blade surface still need the user's pass.
+- `[pending]` **"6 missing methods (mostly MOVES): EmptySound/ReloadWeapon/StopReload +
+  PickUpWeapon/ShootBulletsPlayer/TSInit"**.
+- `[pending]` **"6 missing free funcs: SetPlayerRespawnTime (TSPAward producers) first, then
+  TSSelectSpawnSpot/TSGetPointsForFrag/TSPlayerDisconnect/RemoveEntityFromSlowedArray(+packed array)/
+  PseudoClimb"**.
+- `[pending]` **"Gun-event tail (#8): empty/pump/firelinked/grenade + closecombat/coldcock.sc swaps —
+  per-gun anim block extraction first"**.
+- `[pending]` **"Invented review (#5): 33 methods + 9 missing globals + TSGameRules instance"**.
+- `[pending]` **"Stunt/pm tail (#6)"**.
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.82) — pickup for the next orchestrator (cont.81 = me; available for consult)
 
 **You ARE the orchestrator and the previous agent (cont.81) — continue as if you never stopped.** Branch
