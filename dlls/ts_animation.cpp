@@ -484,13 +484,22 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		else if (activity == TSA_FIRE_SLIDEL) strcat(name, "_left");
 		SetAnim(pPlayer, name, fflags, 0);
 		m_iLastActivity = activity;
-		return;
+		break; // @orig case 0/8/9 FALLS THROUGH to the gait block (run-and-gun legs); the aim-timer
+		       // hold below preserves this shoot torso. Sliding-fire is skipped by the leg iuser4 guard.
 	}
 
-	// ---- Jump (full body) --------------------------------------------------
+	// ---- Jump (full body). RE case 4: keyed on GRIP (not speed); bare hands = standard_jump ----
 	case TSA_JUMP:
 	{
-		if (speed > 16.0f)
+		if (pev->iuser4 & 0x20) // TSSTUNT_SLIDE — no jump anim mid-slide
+			return;
+		if (pev->iuser4 & 0x04) // TSSTUNT_PRONE — no jump anim mid-prone
+			return;
+		if (kungfu)
+		{
+			SetAnim(pPlayer, "standard_jump", 0x94, 0); // bare hands: non-directional, no akimbo-substitute
+		}
+		else
 		{
 			int dir = GetDirection(TS_DirNormalize(pev->velocity), pev->v_angle, 0.6f, 0.3f);
 			m_iDirection = dir;
@@ -498,10 +507,6 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 			strcpy(name, jd);
 			strcat(name, grip);
 			SetAnim(pPlayer, name, 0x94, 0);
-		}
-		else
-		{
-			SetAnim(pPlayer, "standard_jump", 0x94, 0);
 		}
 		m_iLastActivity = activity;
 		return;
@@ -546,7 +551,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		m_flAimTimer = 2.0f;
 		m_flGrenadeFlag = 1.0f;
 		m_iLastActivity = activity;
-		return;
+		break; // fall through to the gait block (legs keep moving); aim-timer holds this torso
 
 	// ---- Reload / draw (upper body, keep legs) -----------------------------
 	case TSA_RELOAD:
@@ -558,7 +563,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		SetAnim(pPlayer, name, 0x92, 0);
 		m_flAimTimer = 2.0f;
 		m_iLastActivity = activity;
-		return;
+		break; // fall through to the gait block (legs keep moving); aim-timer holds this torso
 
 	// ---- STUNT poses (CTSStunt drives these) -------------------------------
 	case TSA_DIVE:
@@ -715,74 +720,85 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		return;
 	}
 
-	// ---- Move / idle (handled by Phase D) ----------------------------------
+	// ---- RUN / IDLE: the ARMED idle/aim TORSO (RE Animate@0x5b470 case 1/6). Kungfu sets NO torso
+	// here — its torso is copied from the leg gait by the body-sync at the very bottom. Fire/reload/
+	// grenade already set their torso and fall through to the shared LEG block only. ------------------
 	case TSA_RUN:
 	case TSA_IDLE:
 	default:
+		if (onground && pPlayer->m_szAnimOverride[0] != 0)
+		{
+			// (1) a dedicated melee idle (knife_idle/katana_idle) the weapon set on deploy.
+			SetAnim(pPlayer, pPlayer->m_szAnimOverride, 0x12, 0);
+		}
+		else if (onground && !kungfu &&
+			!(m_flAimTimer >= 0.01f && pPlayer->m_fSequenceFinished == 0)) // (2) not holding a fresh shoot pose
+		{
+			// (4) aim_ vs idle_ by (m_flAimTimer recently-raised OR fov zoomed) — state, not the button.
+			const bool aiming = (m_flAimTimer >= 0.01f || pev->fov != 0);
+			if (ducking)
+				strcpy(name, aiming ? "crouch_aim_" : "duck_idle_");
+			else
+				strcpy(name, aiming ? "aim_" : "idle_");
+			strcat(name, grip);
+			SetAnim(pPlayer, name, 0x12, 0);
+		}
 		break;
 	}
 
-	// ---- Phase D: record + legs/gait + idle/aim torso ------------------------
+	// ---- Phase D: the shared LEG (gait) block + the kungfu body-sync (RE Animate bottom, lines 977+).
+	// Reached by fall-through from RUN/IDLE and from fire/reload/grenade, so the legs keep animating
+	// during firing (run-and-gun). Legs are a SEPARATE sequence (pev->gaitsequence) from the torso. ----
 	if (!ccHandled)
 		m_iLastActivity = activity;
 
 	if (!onground)
 		return; // airborne non-jump: keep whatever's playing
 
-	m_iDuckLatch = 0; // reset goduck latch once grounded
-
-	// Legs: crawl when ducking+moving, run2/walk2 by speed, none when still.
-	if (speed > 1.0f)
+	// Skip the gait during an active stunt (dive/slide/roll/wheel set iuser4 bits) so it keeps its
+	// full-body pose instead of stamping run2/walk2 legs on it. @orig (iuser4 & 0x30c30)==0.
+	if ((pev->iuser4 & 0x30c30) == 0)
 	{
-		m_iDirection = GetDirection(TS_DirNormalize(pev->velocity), pev->v_angle, 0.6f, 0.3f);
 		if (ducking)
-			SetAnim(pPlayer, "crawl", TSSA_LEGS, 0);
+		{
+			m_iDuckLatch = 0; // reset goduck latch once grounded+ducked
+			SetAnim(pPlayer, (speed == 0.0f) ? "crouch_idle" : "crawl", TSSA_LEGS, 0);
+		}
+		else if (speed > TSA_RUN_SPEED)
+		{
+			m_iDirection = GetDirection(TS_DirNormalize(pev->velocity), pev->v_angle, 0.6f, 0.3f);
+			SetAnim(pPlayer, "run2", TSSA_LEGS, 0);
+		}
+		else if (speed > 0.0f)
+		{
+			m_iDirection = GetDirection(TS_DirNormalize(pev->velocity), pev->v_angle, 0.6f, 0.3f);
+			SetAnim(pPlayer, "walk2", TSSA_LEGS, 0);
+		}
 		else
-			SetAnim(pPlayer, (speed > TSA_RUN_SPEED) ? "run2" : "walk2", TSSA_LEGS, 0);
+		{
+			// standing still — the idle LEG leaf (also the source of the kungfu body-sync torso).
+			if (pPlayer->m_szAnimOverride[0] != 0)
+				SetAnim(pPlayer, pPlayer->m_szAnimOverride, TSSA_LEGS, 0);
+			else if (kungfu)
+				SetAnim(pPlayer, (m_flAimTimer >= 0.01f) ? "combat_idle" : "combat_idle_low", TSSA_LEGS, 0);
+			else
+			{
+				strcpy(name, "idle_");
+				strcat(name, grip);
+				SetAnim(pPlayer, name, TSSA_LEGS, 0);
+			}
+		}
 	}
-	else
+
+	// Kungfu body-sync: the TORSO follows the leg gait (run2/walk2 while moving, combat_idle standing),
+	// so bare hands NEVER freezes in the fighting stance while running. Gated exactly like @orig: bare
+	// hands, no override, not holding a fresh attack (aim-timer AND sequence not finished), torso != legs.
+	if (!ccHandled && kungfu && pPlayer->m_szAnimOverride[0] == 0 &&
+		!(m_flAimTimer >= 0.01f && pPlayer->m_fSequenceFinished == 0) &&
+		pPlayer->pev->sequence != pPlayer->pev->gaitsequence)
 	{
-		SetAnim(pPlayer, "", TSSA_LEGS, 0); // clear legs
+		pPlayer->pev->sequence = pPlayer->pev->gaitsequence;
+		pPlayer->pev->frame = 0;
+		pPlayer->ResetSequenceInfo();
 	}
-
-	// ---- The per-frame STATE-DRIVEN torso pose (RE Animate@0x5b470 case 1/6). Everything below reads
-	// PLAYER STATE this frame to choose the body sequence — there is no activity argument here; the weapon's
-	// fire/reload/deploy calls only SET state (m_szAnimOverride, m_flAimTimer, m_iLastActivity), and THIS
-	// reads it every frame. State consulted, in the original's order: m_szAnimOverride(player+0x478) >
-	// "weapon pose still playing" (m_flAimTimer; the orig uses m_fSequenceFinished which isn't advanced for
-	// the server-side player, so we gate on the timer) > grip-empty(kungfu) > aim/idle by (m_flAimTimer||fov).
-	if (ccHandled)
-		return;
-
-	// (1) player+0x478 anim-OVERRIDE — a dedicated melee idle (knife_idle/katana_idle/briefcase_idle) the
-	// weapon set on deploy. Non-empty => play it directly as the body. (knife/katana dedicated 3rd-person idle.)
-	if (pPlayer->m_szAnimOverride[0] != 0)
-	{
-		SetAnim(pPlayer, pPlayer->m_szAnimOverride, 0x12, 0);
-		return;
-	}
-
-	// (2) a weapon pose (shoot_/relo_/draw_, set when the weapon last called Animate) is still "raised":
-	// hold it. The original gates this on the sequence not being finished (m_fSequenceFinished); that field
-	// isn't advanced for the server-side player, so we read the m_flAimTimer state the fire/reload set.
-	if (m_flAimTimer >= 0.01f)
-		return;
-
-	// (3) bare-hands kung-fu (empty grip) => the combat_idle stance (state: grip).
-	if (kungfu)
-	{
-		SetAnim(pPlayer, ducking ? "combat_idle_low" : "combat_idle", 0x12, 0);
-		return;
-	}
-
-	// (4) aim_ vs idle_ — read per-frame from state (m_flAimTimer recently-raised OR fov zoomed), per the
-	// decompile's `(m_flAimTimer>=0.01 || fov!=0)` (NOT the attack button). With (2) holding the timer window,
-	// this resolves the fov (scoped) case; both are state, not an activity arg.
-	const bool aiming = (m_flAimTimer >= 0.01f || pev->fov != 0);
-	if (ducking)
-		strcpy(name, aiming ? "crouch_aim_" : "duck_idle_");
-	else
-		strcpy(name, aiming ? "aim_" : "idle_");
-	strcat(name, grip);
-	SetAnim(pPlayer, name, 0x12, 0);
 }
