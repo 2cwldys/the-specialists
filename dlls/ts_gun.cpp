@@ -754,6 +754,15 @@ void CTSGun::GetWeaponData(weapon_data_t &data)
 	data.iuser3 = m_fireMode;
 	data.iuser4 = m_bHoldPosition ? 1 : 0; // hold-position stance, so the client predicts the held-stance fire anim
 	data.fuser4 = m_flNextAlternateAttack; // gun+0xa4 — the +alt2 gate rides the spare fuser4
+	// The REAL per-barrel clips ride the spare fuser2/3 (CTSGun never uses the stock
+	// m_flStartThrow/m_flReleaseThrow they normally carry; our GetWeaponData runs AFTER the
+	// generic loop, so these win). Without them the client rebuilt the barrels BALANCED from
+	// the combined clip every frame — so the predicted gun never saw a dry barrel: free-mode
+	// fire kept flaring/banging client-side while the server refused, the predicted dry-click
+	// never fired, and the plain-semi alternation desynced (the round-6 playtest bug).
+	const TSItem &it = m_items[m_weaponType];
+	data.fuser2 = (float)it.leftClip;
+	data.fuser3 = (float)it.rightClip;
 }
 
 void CTSGun::SetWeaponData(const weapon_data_t &data)
@@ -777,16 +786,13 @@ void CTSGun::SetWeaponData(const weapon_data_t &data)
 	// The wielded item is by definition OWNED:
 	if (m_pActiveItem)
 		m_pActiveItem->owned = true;
-	// The akimbo PER-BARREL clips: a client-predicted AkimboFire saw leftClip+rightClip == 0 and
-	// EMPTY-returned — no fire event = no predicted SOUND/CASING — until a client reload
-	// repopulated the barrels (the "akimbo/gold is silent until I reload" bug). Reconstruct from
-	// the synced combined m_iClip (the server keeps m_iClip = left + right); the right barrel
-	// fires first, so it carries the odd round.
-	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+	// The REAL per-barrel clips (fuser2/3 — packed by our GetWeaponData). The old balanced
+	// reconstruction from m_iClip is GONE: it fed the prediction half-full barrels every frame,
+	// which is exactly why free-mode fire never dry-clicked and the alternation desynced.
 	{
 		TSItem &it = m_items[m_weaponType];
-		it.rightClip = (m_iClip + 1) / 2;
-		it.leftClip = m_iClip - it.rightClip;
+		it.leftClip = (int)data.fuser2;
+		it.rightClip = (int)data.fuser3;
 	}
 #endif
 }
