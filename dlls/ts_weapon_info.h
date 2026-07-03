@@ -74,7 +74,8 @@ struct s_weapon_info
 {
 	const char *pszName;        // display name        "Beretta 92F"
 	const char *pszViewModel;   // models/v_*.mdl
-	const char *pszPlayerModel; // models/p_*.mdl
+	const char *pszPlayerModel;    // models/p_*.mdl
+	const char *pszPlayerModelSil; // +0x1b2 — the silenced p_ variant (Deploy picks it iff attach&1)
 	const char *pszWorldModel;  // models/w_*.mdl
 	const char *pszAnimExt;     // DefaultDeploy anim ext: onehanded/twohanded/akimbo
 	const char *pszFireSound;   // weapons/*/fire.wav

@@ -20,6 +20,7 @@ void PrecacheAllTSWeapons()
 		const s_weapon_info *wi = get_weapon_info((tsweapon_t)i);
 		if (wi->pszViewModel)   PRECACHE_MODEL((char *)wi->pszViewModel);
 		if (wi->pszPlayerModel) PRECACHE_MODEL((char *)wi->pszPlayerModel);
+		if (wi->pszPlayerModelSil) PRECACHE_MODEL((char *)wi->pszPlayerModelSil);
 		if (wi->pszWorldModel)  PRECACHE_MODEL((char *)wi->pszWorldModel);
 		if (wi->pszFireSound)   PRECACHE_SOUND((char *)wi->pszFireSound);
 	}

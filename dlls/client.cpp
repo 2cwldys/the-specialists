@@ -649,15 +649,16 @@ void ClientCommand(edict_t* pEntity)
 		if (CMD_ARGC() > 1)
 			player->BuyAmmo(atoi(CMD_ARGV(1)));
 	}
-	else if (FStrEq(pcmd, "tkw")) // TS "take weapon": queue weapons into the armament. The original
-	{                             // client (apply FUN_10039400) batches ALL weapons into ONE command,
-		// space-separated "%i_%i" tokens: `tkw 2_1 5_1 9_1` — so loop over every argv token, not just
-		// argv(1) (the bug that dropped all but the first weapon). reference/BUY.md.
+	else if (FStrEq(pcmd, "tkw")) // TS "take weapon": queue weapons into the armament. ONE batched
+	{                             // command of "%i_%i" tokens (apply FUN_10039400). The second number
+		// is the ATTACH MASK for a gun / the COUNT for a stackable (wi+0xdc) — BuyArmament
+		// disambiguates by the weapon's stackable flag (dossier-attachments §2). An akimbo
+		// bought-double arrives as an extra bare `type_0` token.
 		for (int i = 1; i < CMD_ARGC(); i++)
 		{
 			const char *a = CMD_ARGV(i);
 			const char *u = strchr(a, '_');
-			player->AddItemToArmament(atoi(a), u ? atoi(u + 1) : 1, false);
+			player->AddItemToArmament(atoi(a), u ? atoi(u + 1) : 0, false);
 		}
 	}
 	else if (FStrEq(pcmd, "tki")) // TS "take item": queue loadout ITEMS (kevlar 0x10 / grenade 0x20 /

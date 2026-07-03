@@ -23,7 +23,8 @@
 #include "gamerules.h"
 #include "ts_gamerules.h"
 #include "ts_weapons.h"   // tsweapon_t, get_weapon_info, GiveTSWeapon, TSAddAmmo
-#include "ts_gun.h"       // CTSGun + TSGUN_WEAPON_ID — attachment routing (AddItem)
+#include "ts_gun.h"
+#include "ts_weapon_info.h"       // CTSGun + TSGUN_WEAPON_ID — attachment routing (AddItem)
 
 // M61 grenade weapon index (tsweapon_t) — special-cased in BuyWeapon (team-mode only, cap 2).
 #define TSW_M61 24
@@ -144,7 +145,7 @@ void CBasePlayer::AddAmmoToArmament(int caliber, int rounds)
 // CTSMapGlobals restriction isn't wired — the default restriction 0x1f allows every
 // category, so an allow-all stub is faithful for stock maps) and the M61 special rule:
 // grenades are team-mode only and capped at 2 per life. Returns true if given.
-bool CBasePlayer::BuyWeapon(int type)
+bool CBasePlayer::BuyWeapon(int type, int iAttach)
 {
 	// the restriction gate (@0x84606): the category-bitmask filter over the server's
 	// weaponrestriction mask (default 0x1f allows everything — stock behavior unchanged).
@@ -165,8 +166,8 @@ bool CBasePlayer::BuyWeapon(int type)
 	// on, this is where the price (get_weapon_info(type)->price, s_weapon_info+0xd8) would
 	// be checked against m_iCash and deducted.
 	// @0x846ca: the buy path selects the purchase AND records the buyer (the sole
-	// bRecordOwner caller — item+0x30).
-	return PickUpWeapon(type, NULL, 0, true, true);
+	// bRecordOwner caller — item+0x30). iAttach = the tkw token's attach mask.
+	return PickUpWeapon(type, NULL, iAttach, true, true);
 }
 
 // @0x841e8 BuyAmmo(caliber) (decompile-exact shape) — FILL the caliber's reserve to its cap,
@@ -234,13 +235,20 @@ void CBasePlayer::BuyArmament()
 			AddItem(m_armament[i].type);
 		else
 		{
-			// one BuyWeapon per queued unit: a STACKABLE gains +1 per buy (TakeWeapon's merge,
-			// capped at iPellets — 5 knives / 10 seals), a duplicate single COMBINES into its
-			// akimbo, further duplicates refuse. (count was ignored before — the reason the
-			// knife table clip carried a x5 hack.)
-			const int n = (m_armament[i].count > 1) ? m_armament[i].count : 1;
-			for (int k = 0; k < n; k++)
-				BuyWeapon(m_armament[i].type);
+			// The queued second number is dual-meaning (dossier-attachments §2): for a
+			// STACKABLE (knife/m61) it is the COUNT (one BuyWeapon per unit — TakeWeapon's
+			// +1 merge, cap iPellets); for a GUN it is the ATTACH MASK, carried into
+			// BuyWeapon -> PickUpWeapon -> TakeWeapon (which clamps to the supported set,
+			// starts laser/flash ACTIVE, and mirrors onto an akimbo pair).
+			const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_armament[i].type);
+			if (wi && wi->iStackable)
+			{
+				const int n = (m_armament[i].count > 1) ? m_armament[i].count : 1;
+				for (int k = 0; k < n; k++)
+					BuyWeapon(m_armament[i].type);
+			}
+			else
+				BuyWeapon(m_armament[i].type, m_armament[i].count & 0xF);
 		}
 	}
 	for (int cal = 1; cal < 16; cal++)

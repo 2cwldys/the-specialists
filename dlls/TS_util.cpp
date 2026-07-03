@@ -91,6 +91,8 @@ void TSPrecache(void)
 			PRECACHE_MODEL((char *)wi->pszViewModel);
 		if (wi->pszPlayerModel && wi->pszPlayerModel[0])
 			PRECACHE_MODEL((char *)wi->pszPlayerModel);
+		if (wi->pszPlayerModelSil && wi->pszPlayerModelSil[0])
+			PRECACHE_MODEL((char *)wi->pszPlayerModelSil); // @0x8f637 — the original precaches BOTH p_ variants
 		if (wi->pszWorldModel && wi->pszWorldModel[0])
 			PRECACHE_MODEL((char *)wi->pszWorldModel);
 		if (wi->pszFireSound && wi->pszFireSound[0])

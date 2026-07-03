@@ -819,7 +819,10 @@ bool CTSGun::Deploy()
 	// hold NOTHING (empty weaponmodel) and just play the kung-fu body animations. Falling back to
 	// the VIEW model here put v_melee on the player's back/hands (a phantom held weapon). For any
 	// real weapon with no p_model we likewise show nothing rather than the viewmodel.
+	// @0x71030: the p_ model = the SILENCED variant iff the silencer is attached (wi+0x1b2).
 	const char *pmodel = wi->pszPlayerModel ? wi->pszPlayerModel : "";
+	if ((m_items[m_weaponType].attach & 1) != 0 && wi->pszPlayerModelSil)
+		pmodel = wi->pszPlayerModelSil;
 	const int drawSeq = (m_weaponType >= 0 && m_weaponType < TSW_COUNT) ? s_drawSeq[m_weaponType] : 0;
 	// Kung-fu (TSW_MELEE) uses an EMPTY anim-ext (grip) — the original keys the bare-hands
 	// combat_idle stance + the close-combat attack set off m_szAnimExtention being empty

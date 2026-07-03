@@ -538,7 +538,7 @@ public:
 	void ResetArmament();                                 // clear the pending loadout
 	void AddItemToArmament(int type, int count, bool isItem); // queue a weapon/item into the loadout
 	void AddAmmoToArmament(int caliber, int rounds);      // queue ammo into the loadout
-	bool BuyWeapon(int type);                             // give a weapon (free; restriction-gated)
+	bool BuyWeapon(int type, int iAttach = 0);            // give a weapon (free; restriction-gated); iAttach = the tkw token's attach mask
 	bool BuyAmmo(int caliber);                           // @0x841e8 — FILL the caliber to its cap, one
 	                                                     // mag at a time (charging per mag when cash);
 	                                                     // -2 = every owned weapon's caliber

@@ -910,9 +910,12 @@ void EV_TSFire(event_args_t* args)
 		TS_BulletWhizz(idx, vecSrc, fwd); // a near-miss flyby "whizz" if this round grazes the local player
 	}
 
-	const char* snd = (silenced && get_weapon_info((tsweapon_t)weaponType)->pszAltSound)
-		? get_weapon_info((tsweapon_t)weaponType)->pszAltSound // wi+0x306 — the -sil sample
-		: s_fireSound[weaponType];
+	// The silenced flag = iparam2 & 1 (dossier-attachments §1b/§5 — the fire-sound alt branch
+	// keys on the SILENCER bit, not on linked): silenced -> wi+0x306 (the -sil sample) at vol
+	// RF(0.84,0.92) and DOUBLED attenuation; unsilenced -> the normal sample.
+	const s_weapon_info* swi = get_weapon_info((tsweapon_t)weaponType);
+	const bool silShot = silenced && swi->pszAltSound;
+	const char* snd = silShot ? swi->pszAltSound : s_fireSound[weaponType];
 	if (snd)
 	{
 		// RE (scratchpad/SLOWMO_PRESENTATION_RE.md): the original pitches ALL weapon-fire sounds UP —
@@ -923,7 +926,9 @@ void EV_TSFire(event_args_t* args)
 		int pitch = 100 + (int)(300.0f * g_flClientSlow);
 		if (pitch > 255) pitch = 255;
 		if (pitch < 1) pitch = 1;
-		gEngfuncs.pEventAPI->EV_PlaySound(idx, origin, CHAN_WEAPON, snd, VOL_NORM, ATTN_NORM, 0, pitch);
+		gEngfuncs.pEventAPI->EV_PlaySound(idx, origin, CHAN_WEAPON, snd,
+			silShot ? gEngfuncs.pfnRandomFloat(0.84f, 0.92f) : VOL_NORM,
+			silShot ? ATTN_NORM * 2.0f : ATTN_NORM, 0, pitch);
 	}
 }
 
@@ -1004,16 +1009,20 @@ void EV_TSFireLinked(event_args_t* args)
 		TS_BulletWhizz(idx, vecSrc, fwd);
 	}
 
-	// ONE bang for both barrels — the linked sample (falls back to the normal fire when the
-	// weapon ships no wi+0x306: gold/skorpion_akimbo — VERIFY the original's empty-sample path)
-	const char* snd = wi->pszAltSound ? wi->pszAltSound : s_fireSound[weaponType];
+	// ONE bang for both barrels. The alt-sample branch keys on the SILENCER bit (iparam2&1),
+	// NOT on linked (dossier-attachments §1b corrects cont83 §5.4): silenced -> wi+0x306 at
+	// RF(0.84,0.92) + attn x2; unsilenced linked -> the NORMAL sample at normal vol/attn
+	// (the round-7b "akimbo double-fire sounds silenced" report was this).
+	const bool silShot = silenced && wi->pszAltSound;
+	const char* snd = silShot ? wi->pszAltSound : s_fireSound[weaponType];
 	if (snd)
 	{
 		extern float g_flClientSlow;
 		int pitch = 100 + (int)(300.0f * g_flClientSlow);
 		if (pitch > 255) pitch = 255;
 		gEngfuncs.pEventAPI->EV_PlaySound(idx, origin, CHAN_WEAPON, snd,
-			gEngfuncs.pfnRandomFloat(0.84f, 0.92f), ATTN_NORM * 2.0f, 0, pitch);
+			silShot ? gEngfuncs.pfnRandomFloat(0.84f, 0.92f) : VOL_NORM,
+			silShot ? ATTN_NORM * 2.0f : ATTN_NORM, 0, pitch);
 	}
 }
 

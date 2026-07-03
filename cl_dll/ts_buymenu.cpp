@@ -482,16 +482,15 @@ void CHudTSBuyMenu::Apply()
 
 	gEngfuncs.pfnClientCmd("rst_cfg\n");
 
-	// Emit each weapon and ITS attachments INTERLEAVED, in slot order: `tkw <id>_<n>` immediately
-	// followed by that weapon's `tki <bit>` items. The server appends to its armament queue in
-	// command-arrival order and BuyArmament applies the queue in that order via AddItem → the ACTIVE
-	// weapon, so an attachment must directly follow the weapon it belongs to — otherwise (the old
-	// "all weapons, then all attachments" batching) every attachment lands on the LAST weapon bought
-	// (this is why a SOCOM+laser put the laser on the shotgun). This mirrors the original client's
-	// sort-then-emit pass (FUN_10039400), which sequences each accessory after its weapon. Each
-	// attachment bit is a separate `tki` so CTSGun::AddItem validates it against that weapon's
-	// supported/built-in mask individually. See reference/BUY.md.
+	// THE ORIGINAL GRAMMAR (FUN_10039400, dossier-attachments §2): ONE batched `tkw` where each
+	// gun token is `<type>_<attachMask>` (the attach bits ride INSIDE the tkw token — there is
+	// no per-attachment tki); a stackable (knife/m61) token is `<type>_<count>`; a bought-double
+	// (akimbo) appends an EXTRA `<type>_0` token (the pair carries no attach bits — the server's
+	// AddItem/TakeWeapon mirrors them). `tki` carries only EQUIPMENT items (kevlar). Send order:
+	// rst_cfg -> tkw -> tki -> tka.
 	bool kevlar = false;
+	char tkw[512] = "tkw";
+	bool anyWeapon = false;
 	for (const auto& s : m_slots)
 	{
 		if (!s.used)
@@ -502,24 +501,31 @@ void CHudTSBuyMenu::Apply()
 				kevlar = true;
 			continue;
 		}
-		// An akimbo slot ships the akimbo VARIANT type (w->akimbo) directly — GiveTSWeapon gives the
-		// dual-wield (the single it derives from is loaded into both barrels). Non-akimbo emits its own id.
 		const TSWeapon* sw = WeaponInfo(s.weaponId);
-		const int emitId = (s.akimbo && sw && sw->akimbo >= 0) ? sw->akimbo : s.weaponId;
-		char buf[64];
-		sprintf(buf, "tkw %d_%d\n", emitId, s.count < 1 ? 1 : s.count);
-		gEngfuncs.pfnClientCmd(buf);
-
-		// gun attachments (silencer/laser/flashlight/scope = bits 1/2/4/8) for THIS weapon — sent right
-		// after its tkw so BuyArmament's active-weapon AddItem binds them to this weapon.
-		for (int bit = 0; bit < 4; bit++)
+		const s_weapon_info* wi = get_weapon_info((tsweapon_t)s.weaponId);
+		char buf[32];
+		if (wi && wi->iStackable)
 		{
-			const int v = s.attachMask & (1 << bit);
-			if (v == 0)
-				continue;
-			sprintf(buf, "tki %d\n", v);
-			gEngfuncs.pfnClientCmd(buf);
+			sprintf(buf, " %d_%d", s.weaponId, s.count < 1 ? 1 : s.count);
+			strncat(tkw, buf, sizeof(tkw) - strlen(tkw) - 1);
 		}
+		else
+		{
+			sprintf(buf, " %d_%d", s.weaponId, s.attachMask & 0xF);
+			strncat(tkw, buf, sizeof(tkw) - strlen(tkw) - 1);
+			if (s.akimbo && sw && sw->akimbo >= 0)
+			{
+				// the bought-double: a second bare token; the two singles COMBINE server-side
+				sprintf(buf, " %d_0", s.weaponId);
+				strncat(tkw, buf, sizeof(tkw) - strlen(tkw) - 1);
+			}
+		}
+		anyWeapon = true;
+	}
+	if (anyWeapon)
+	{
+		strncat(tkw, "\n", sizeof(tkw) - strlen(tkw) - 1);
+		gEngfuncs.pfnClientCmd(tkw);
 	}
 
 	// the auto-bought ammo: one `tka <caliber>_<units>` batch (FUN_10039400's tka loop).
@@ -539,6 +545,8 @@ void CHudTSBuyMenu::Apply()
 		strncat(tka, "\n", sizeof(tka) - strlen(tka) - 1);
 		gEngfuncs.pfnClientCmd(tka);
 	}
+	if (kevlar)
+		gEngfuncs.pfnClientCmd("tki 16\n"); // equipment items ride tki (kevlar = 0x10)
 	gEngfuncs.Cvar_SetValue("cl_buykevlar", kevlar ? 1.0f : 0.0f);
 
 	// the centred notice (FUN_10039400's "Using new/last config." via the TSMessage queue) + save
