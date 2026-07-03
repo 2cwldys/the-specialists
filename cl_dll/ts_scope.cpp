@@ -32,14 +32,25 @@ void TS_DrawScopeOverlayHUD()
 		s_hFull = SPR_Load("sprites/ts_scopefull.spr");
 	if (!s_hFull)
 		return;
-	const int side = ScreenHeight;
+	// The mask square scales PAST the screen height so the circle (a fraction of the sprite)
+	// takes up more of the view — the black border crops harmlessly top/bottom. Round-7m
+	// user tune: "it should be a bigger hole".
+	const float TS_SCOPE_SCALE = 1.45f;
+	const int side = (int)(ScreenHeight * TS_SCOPE_SCALE);
 	const int x = ScreenWidth / 2 - side / 2;
+	const int y = (ScreenHeight - side) / 2;
 	// xash's pfnSPR_DrawGeneric IGNORES its blendsrc/blenddst args (#if 0 in cl_game.c) and
 	// inherits the CURRENT render mode — set TransAlpha via the TriAPI around the draw (the
 	// shared clgame.ds.renderMode), else the INDEXALPHA mask renders fully OPAQUE (the
 	// round-7m black screen).
 	gEngfuncs.pTriAPI->RenderMode(kRenderTransAlpha);
 	SPR_Set(s_hFull, 255, 255, 255);
-	gEngfuncs.pfnSPR_DrawGeneric(0, x, 0, NULL, 0, 0, side, side);
+	gEngfuncs.pfnSPR_DrawGeneric(0, x, y, NULL, 0, 0, side, side);
 	gEngfuncs.pTriAPI->RenderMode(kRenderNormal);
+	// the black SIDE BARS beyond the mask square (one owner for the whole geometry)
+	if (x > 0)
+	{
+		gEngfuncs.pfnFillRGBABlend(0, 0, x, ScreenHeight, 0, 0, 0, 255);
+		gEngfuncs.pfnFillRGBABlend(x + side, 0, ScreenWidth - (x + side), ScreenHeight, 0, 0, 0, 255);
+	}
 }

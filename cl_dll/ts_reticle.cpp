@@ -65,13 +65,7 @@ bool CHudTSReticle::Draw(float flTime)
 		extern void TS_DrawScopeOverlayHUD();
 		if (TS_ScopedIn())
 		{
-			TS_DrawScopeOverlayHUD(); // the fullscreen mask (screen-space, under the bars/dot)
-			const int cx2 = ScreenWidth / 2, half = ScreenHeight / 2;
-			if (cx2 - half > 0)
-			{
-				gEngfuncs.pfnFillRGBABlend(0, 0, cx2 - half, ScreenHeight, 0, 0, 0, 255);
-				gEngfuncs.pfnFillRGBABlend(cx2 + half, 0, ScreenWidth - (cx2 + half), ScreenHeight, 0, 0, 0, 255);
-			}
+			TS_DrawScopeOverlayHUD(); // the mask + its side bars (one geometry owner)
 			int lx, ly, lr2, lg2, lb2;
 			extern bool TS_LocalLaserDot(int&, int&, int&, int&, int&);
 			if (TS_LocalHasLaser() && TS_LocalLaserDot(lx, ly, lr2, lg2, lb2))
