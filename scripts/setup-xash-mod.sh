@@ -59,6 +59,9 @@ cp -f "$HL_SO" "$TS/dlls/hl_amd64.so"
 # delta.lst MUST track the repo's (round-7i-b: a stale deployed delta silently TRUNCATES
 # prediction fields — m_iWeaponState 2-bit dropped the scope attach bit on the wire)
 cp -f "$MODTS/network/delta.lst" "$TS/delta.lst"
+# generated mod assets (e.g. sprites/ts_scopefull.spr — the composed scope mask)
+mkdir -p "$TS/sprites"
+cp -f "$MODTS"/game/ts/sprites/*.spr "$TS/sprites/" 2>/dev/null || true
 ln -sfn hl_amd64.so "$TS/dlls/hl.so"
 cp -f "$CLIENT_SO" "$TS/cl_dlls/client_amd64.so"
 ln -sfn client_amd64.so "$TS/cl_dlls/client.so"

@@ -62,8 +62,10 @@ bool CHudTSReticle::Draw(float flTime)
 	// laser dot. No crosshair, no dive arc (round-7h/7j user spec).
 	{
 		extern bool TS_ScopedIn();
+		extern void TS_DrawScopeOverlayHUD();
 		if (TS_ScopedIn())
 		{
+			TS_DrawScopeOverlayHUD(); // the fullscreen mask (screen-space, under the bars/dot)
 			const int cx2 = ScreenWidth / 2, half = ScreenHeight / 2;
 			if (cx2 - half > 0)
 			{
