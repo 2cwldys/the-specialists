@@ -38,6 +38,8 @@ extern Vector v_origin, v_angles; // view origin/angles (cl_dll/view.cpp) — fo
 // the original's DAT_1018d128 array (one byte per player; the original packs a colour byte too which
 // it networks separately — we colour by cl_lasercolor, see GetLaserColor).
 static unsigned char g_playerAttach[TS_MAXPLAYERS];
+// PlInfo type 0 — each player's announced laser color byte (0/def red, 1 green, 2 blue).
+static unsigned char g_playerLaserColor[TS_MAXPLAYERS];
 
 static int s_laserBeamSpr = 0; // SPR_Load handles (lazy)
 static int s_laserDotSpr = 0;
@@ -55,10 +57,25 @@ int MsgFunc_ActItems(const char* pszName, int iSize, void* pbuf)
 	return 1;
 }
 
+// PlInfo — the per-player info broadcast: BYTE playerIndex, BYTE type, BYTE value.
+// Type 0 = laser color (the only type the original sends). Raw byte, no clamp.
+int MsgFunc_PlInfo(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	const int idx = READ_BYTE();
+	const int type = READ_BYTE();
+	const int val = READ_BYTE();
+	if (idx >= 1 && idx < TS_MAXPLAYERS && type == 0)
+		g_playerLaserColor[idx] = (unsigned char)val;
+	return 1;
+}
+
 void TS_Attachments_Init()
 {
 	memset(g_playerAttach, 0, sizeof(g_playerAttach));
+	memset(g_playerLaserColor, 0, sizeof(g_playerLaserColor));
 	gEngfuncs.pfnHookUserMsg("ActItems", MsgFunc_ActItems);
+	gEngfuncs.pfnHookUserMsg("PlInfo", MsgFunc_PlInfo);
 }
 
 // Map change (HUD VidInit): the cached SPR_Load handles index the per-map sprite list, so they go
@@ -255,6 +272,20 @@ static bool LocalLaserEndpoint(Vector& muzzle, Vector& endpoint)
 
 void TS_Attachments_Draw()
 {
+	// The lasclr_ announcer (dossier-gmsg U2): on a cl_lasercolor change, tell the server via
+	// the PREFIX COMMAND `lasclr_<n>` (pfnServerCmd — the original client sends a server cmd,
+	// not a ClientCmd). The server rebroadcasts it as PlInfo to everyone. No late-joiner
+	// resend — the original has none (a joiner sees red until the owner next changes it).
+	static int s_lastLaserColor = -1;
+	const int lc = (int)gEngfuncs.pfnGetCvarFloat("cl_lasercolor");
+	if (lc != s_lastLaserColor)
+	{
+		s_lastLaserColor = lc;
+		char cmd[32];
+		sprintf(cmd, "lasclr_%i", lc);
+		gEngfuncs.pfnServerCmd(cmd);
+	}
+
 	const int maxClients = gEngfuncs.GetMaxClients();
 	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
 
@@ -282,9 +313,10 @@ void TS_Attachments_Draw()
 		const bool isLocal = local && local->index == i;
 		if (attach & TS_ATT_LASER)
 		{
-			// local laser uses cl_lasercolor; others default red (their colour byte is a SLICE).
+			// local laser uses cl_lasercolor; others use their PlInfo-announced color byte.
 			float r, g, b;
-			GetLaserColor(isLocal ? (int)gEngfuncs.pfnGetCvarFloat("cl_lasercolor") : 0, r, g, b);
+			GetLaserColor(isLocal ? (int)gEngfuncs.pfnGetCvarFloat("cl_lasercolor")
+			                      : (int)g_playerLaserColor[i], r, g, b);
 			// The lasersight mounts UNDER the barrel — start the beam below the muzzle (it was emitting
 			// from the barrel top). Offset along the gun's down (perpendicular to the aim).
 			Vector right = CrossProduct(forward, Vector(0, 0, 1));

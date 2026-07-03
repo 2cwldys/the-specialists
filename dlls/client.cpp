@@ -47,6 +47,10 @@
 #include "customentity.h"
 #include "weapons.h"
 #include "weaponinfo.h"
+
+// "PlInfo" (3) — the per-player info broadcast (type 0 = laser color). Registered lazily at
+// the first lasclr_ command; MSG_ALL so every client tracks every player's color.
+int gmsgTSPlayerInfo = 0;
 #include "usercmd.h"
 #include "netadr.h"
 #include "pm_shared.h"
@@ -684,6 +688,20 @@ void ClientCommand(edict_t* pEntity)
 		// TS bomb: cut a wire — the original is the prefix command `cutwire_<n>` (ClientCommand
 		// strstr "cutwire_" + sscanf "%i"), not a stand-in. cl_dll wire UI still a SLICE.
 		player->CutWire(atoi(pcmd + 8));
+	}
+	else if (!strncmp(pcmd, "lasclr_", 7))
+	{
+		// TS laser color — the client announces its cl_lasercolor via the prefix command
+		// `lasclr_<n>` (original strstr idiom); the server rebroadcasts it to EVERYONE as
+		// PlInfo: BYTE entindex, BYTE type 0 (laser color), BYTE value — raw, no clamp
+		// (the client stores the byte as-is). dossier-gmsg U2 / analysis_gmsg_TSPlayerInfo.
+		if (gmsgTSPlayerInfo == 0)
+			gmsgTSPlayerInfo = REG_USER_MSG("PlInfo", 3);
+		MESSAGE_BEGIN(MSG_ALL, gmsgTSPlayerInfo);
+		WRITE_BYTE(ENTINDEX(pEntity));
+		WRITE_BYTE(0);
+		WRITE_BYTE(atoi(pcmd + 7));
+		MESSAGE_END();
 	}
 	else if (FStrEq(pcmd, "fullupdate"))
 	{
