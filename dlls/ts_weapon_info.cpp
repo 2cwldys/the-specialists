@@ -605,6 +605,10 @@ static void compile_weapons_info()
     { TSW_UZI,      8,  9, 10, 14 }, // idle/shoot_1  -> idle2/shoot_2;  reload(1)->reloadb(14)
     { TSW_MOSSBERG, 11, 12, 4, 13 }, // idle/shoot    -> idleb/shootb;   reload1/2/3(8/9/10)->reload1b/2b/3b(13/14/15)
     { TSW_SAWEDOFF, 11, 12, 7,  6 }, // idle/shoot1   -> idleb/shoot1b;  reload(2)->reloadb(6)
+    // the AKIMBO hold stances (right-click in the plain fire modes orients the guns facing
+    // each other — user-confirmed; hold blocks exist in the binary: h[0]=13/6):
+    { TSW_BERETTA_AKIMBO, 14, 15, -1, 28 }, // idle_1 -> idle_2 (change/rechange 14/15); reload2(28)
+    { TSW_MK23_AKIMBO,    11, 12, -1, 16 }, // idle -> idleb (change/rechange 11/12); reloadb(16)
   };
   for (const HoldAnim &h : kHold)
   {

@@ -883,13 +883,14 @@ void CTSGun::SecondaryAttack()
 	if (wi->iFireType == TSFT_FLAG)
 		return; // @0x717e6: fire-type 11 has no secondary
 
-	if (m_fireMode == TSFM_AKIMBO_ALT)
+	if (m_fireMode == TSFM_AKIMBO_ALT) // "Free Semi": right click = the RIGHT barrel, per press
 	{
-		// alternating akimbo: one other-hand shot per fresh right-click press (auto under double-fire).
 		if (!(m_pPlayer->m_afButtonPressed & IN_ATTACK2) && !DoubleFireRate(m_pPlayer))
 			return;
 	}
-	else if (m_fireMode != TSFM_AKIMBO_BOTH)
+	else if (m_fireMode != TSFM_AKIMBO_BOTH) // plain modes: an akimbo right-click is the HOLD
+	                                          // toggle below (guns oriented facing each other),
+	                                          // exactly like the singles
 	{
 		if (it.attach & 8)
 		{
@@ -920,7 +921,9 @@ void CTSGun::SecondaryAttack()
 		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 1.0f;      // dc_1
 		return;
 	}
-	Fire(); // akimbo modes 4/5: right-click fires the other hand
+	// the FREE modes (4 "Free Semi" / 5 "Free Full"): right click fires the RIGHT barrel
+	m_items[m_weaponType].altMode = 1;
+	Fire();
 }
 
 // @ PrimaryAttack__6CTSGun -> Fire -> {Standard,Shotgun,Knife,Katana,Grenade,Akimbo}Fire.
@@ -978,15 +981,17 @@ void CTSGun::PrimaryAttack()
 	else
 	switch (m_fireMode)
 	{
-	case TSFM_AUTO:
+	case TSFM_AUTO:        // full-auto (an akimbo in plain AUTO fires BOTH barrels at once — the uzis)
 	case TSFM_PUMP:        // pump shotgun: fire while HELD (orig PrimaryAttack mode 3 = `button & 1`) — but
 	                       // ShotgunFire ALTERNATES shot/rack per held frame, so you don't full-auto bullets.
-	case TSFM_AKIMBO_BOTH:
-		fire = held; // full-auto / pump / akimbo-both: fire while held
+	case TSFM_AKIMBO_BOTH: // "Free Full" — primary = the LEFT barrel, full-auto while held
+		fire = held;
 		break;
 	case TSFM_SEMI:
-	case TSFM_AKIMBO_ALT:
-		// one round per pull (semi).
+		// one round per pull (semi; an akimbo in plain SEMI ALTERNATES barrels per pull).
+		fire = pressed;
+		break;
+	case TSFM_AKIMBO_ALT: // "Free Semi" — primary = the LEFT barrel, one round per pull
 		fire = pressed;
 		break;
 	case TSFM_BURST:
@@ -1003,7 +1008,13 @@ void CTSGun::PrimaryAttack()
 	}
 
 	if (fire)
+	{
+		// the FREE akimbo modes route the trigger to a BARREL: primary (left click) = the LEFT
+		// barrel (item+0x24 = 0); SecondaryAttack sets 1 for the right (user-confirmed model).
+		if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+			m_items[m_weaponType].altMode = 0;
 		Fire();
+	}
 }
 
 // @ Fire__6CTSGun (@0x71c78, decompile-exact) — fire ONE shot, dispatching by fire-type (the
@@ -2132,35 +2143,48 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 {
 	TSItem &it = m_items[m_weaponType];
 
-	if (it.leftClip + it.rightClip <= 0)
-	{
-		m_iClip = 0;
-		EmptySound(); // @0x72adc — the original's in-akimbo dry click (0.1s re-arm inside)
-		return false;
-	}
-
-	// RE AkimboFire (@0x729c0): `fireBoth = bothButtonsHeld || mode==AUTO`. In AUTO mode (the default
-	// for the full-auto akimbos — uzi_akimbo's fire-mode mask is 0x21, AUTO bit set), BOTH guns fire
-	// every shot (this is why our uzi looked like it "switched hands" — it was stuck alternating).
-	// The SEMI/AKIMBO_ALT modes fire one alternating barrel per pull (pistol akimbos like the gold/
-	// berettas default to that). SLICE: the mode-4/5 L-click-one/R-click-other split is the secondary-
-	// attack work (task #15 part 2).
-	const bool fireBoth = (m_fireMode == TSFM_AUTO || m_fireMode == TSFM_AKIMBO_BOTH)
-		|| ((m_pPlayer->pev->button & (IN_ATTACK | IN_ATTACK2)) == (IN_ATTACK | IN_ATTACK2));
-
-	// Which barrel(s) fire this shot (0 = right, 1 = left).
-	int sides[2], nSides = 0;
-	if (fireBoth)
+	// The USER-CONFIRMED akimbo trigger model:
+	//  - plain AUTO (the uzis' default): BOTH barrels fire AT ONCE while held;
+	//  - plain SEMI: ALTERNATE barrels per pull (skipping a dry one);
+	//  - the FREE modes (4 "Free Semi" / 5 "Free Full"): the CLICKED barrel only — item+0x24
+	//    (0 = left click = LEFT barrel, 1 = right click = RIGHT), each draining ITS OWN clip
+	//    and dry-clicking when THAT barrel is empty even if the other still has rounds.
+	int sides[2], nSides = 0; // 0 = right, 1 = left
+	if (m_fireMode == TSFM_AUTO)
 	{
 		if (it.rightClip > 0) sides[nSides++] = 0;
 		if (it.leftClip  > 0) sides[nSides++] = 1;
+		if (nSides == 0)
+		{
+			m_iClip = 0;
+			EmptySound(); // @0x72adc — the in-akimbo dry click (0.1s re-arm inside)
+			return false;
+		}
 	}
-	else
+	else if (m_fireMode == TSFM_AKIMBO_ALT || m_fireMode == TSFM_AKIMBO_BOTH)
 	{
+		const int fireLeft = it.altMode ? 0 : 1; // primary=LEFT, secondary=RIGHT
+		const int barrelClip = fireLeft ? it.leftClip : it.rightClip;
+		if (barrelClip <= 0)
+		{
+			EmptySound(); // THIS barrel is dry — the other may still be loaded
+			return false;
+		}
+		sides[nSides++] = fireLeft;
+		m_fInSpecialReload = fireLeft; // the last-fired side (the item's pumpToggle byte)
+	}
+	else // plain SEMI: alternate (the useitems barrelMask override honored)
+	{
+		if (it.leftClip + it.rightClip <= 0)
+		{
+			m_iClip = 0;
+			EmptySound();
+			return false;
+		}
 		int fireLeft;
 		if ((it.barrelMask & 6) == 2)      fireLeft = 1;          // left only
 		else if ((it.barrelMask & 6) == 4) fireLeft = 0;          // right only
-		else                               fireLeft = (m_fInSpecialReload ^ 1) & 1; // alternate (item pumpToggle)
+		else                               fireLeft = (m_fInSpecialReload ^ 1) & 1; // alternate
 		if (fireLeft && it.leftClip <= 0 && it.rightClip > 0) fireLeft = 0;
 		else if (!fireLeft && it.rightClip <= 0 && it.leftClip > 0) fireLeft = 1;
 		sides[nSides++] = fireLeft;
@@ -2193,28 +2217,8 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 	}
 	m_iClip = it.leftClip + it.rightClip; // total clip mirrors the two barrels
 
-	// viewmodel fire anim. For the AUTO-both shot, play the model's "both fire" sequence (BOTH guns
-	// recoil TOGETHER) — recovered from the akimbo viewmodels: uzi_akimbo akimbo_shoot1=12, beretta
-	// linkedshoot=26, gold linkedshoot=7. (Fixes "switches hands"/"only one gun" — the single-gun fire
-	// anims animate one gun at a time. Akimbos without a linked anim fall back to alternating.)
-	int akAnim;
-	if (nSides == 2)
-	{
-		int bothAnim = -1;
-		switch (m_weaponType)
-		{
-		case 16: bothAnim = 12; break; // uzi_akimbo: akimbo_shoot1 (both guns)
-		case 8:  bothAnim = 26; break; // beretta_akimbo: linkedshoot
-		case 21: bothAnim = 7;  break; // gold: linkedshoot
-		}
-		if (bothAnim >= 0)
-			akAnim = bothAnim;
-		else { m_fInSpecialReload ^= 1; akAnim = m_fInSpecialReload ? wi->iFireAnim : wi->iFireAnimL; } // fallback
-	}
-	else
-		akAnim = sides[0] ? wi->iFireAnimL : wi->iFireAnim;
-	if (akAnim >= 0)
-		SendWeaponAnim(akAnim);
+	// (the viewmodel anim rides the EVENT now — EV_TSFireLinked plays block[3+RL(0,2)] for the
+	// both-barrels shot; EV_TSFire plays block[22/23] left / [24/25] right off bparam1)
 
 	// The ORIGINAL wire (guntail dossier §5): the BOTH-barrel shot is its OWN EVENT —
 	// events/firelinked.sc (one bang = wi+0x306, two flares/shells, two volleys) — while a
@@ -2234,6 +2238,7 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 	if (DoubleFireRate(m_pPlayer))
 		flRate *= 0.5f;
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
+	m_flNextSecondaryAttack = m_flNextPrimaryAttack; // the right-barrel trigger shares the cadence
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 	return true;
 }

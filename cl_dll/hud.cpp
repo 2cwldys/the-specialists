@@ -331,7 +331,7 @@ void CHud::Init()
 
 	CVAR_CREATE("zoom_sensitivity_ratio", "1.2", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_autowepswitch", "1", FCVAR_ARCHIVE | FCVAR_USERINFO);
-	default_fov = CVAR_CREATE("default_fov", "90", FCVAR_ARCHIVE);
+	default_fov = CVAR_CREATE("default_fov", "80", FCVAR_ARCHIVE); // TS default FOV is 80 (user-confirmed vs the original)
 	m_pCvarStealMouse = CVAR_CREATE("hud_capturemouse", "1", FCVAR_ARCHIVE);
 	m_pCvarDraw = CVAR_CREATE("hud_draw", "1", FCVAR_ARCHIVE);
 	cl_lw = gEngfuncs.pfnGetCvarPointer("cl_lw");
