@@ -23,7 +23,10 @@ bool TS_ScopedIn()
 {
 	if (g_iUser1 != 0 || CL_IsThirdPerson() != 0)
 		return false;
-	const int fov = (int)gHUD.m_iFOV;
+	// pev->fov rides CLIENTDATA (g_tsLocalFov), not the SetFOV message — gHUD.m_iFOV never
+	// updates on the TS zoom path (round-7k: the reticle never swapped).
+	extern float g_tsLocalFov;
+	const int fov = (int)(g_tsLocalFov > 0.0f ? g_tsLocalFov : (float)gHUD.m_iFOV);
 	return fov > 0 && fov < 40;
 }
 

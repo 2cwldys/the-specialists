@@ -70,8 +70,12 @@ playerstate update in entity_state_t.  In order for these overrides to eventuall
 structure, we need to copy them into the state structure at this point.
 =========================
 */
+float g_tsLocalFov = 0.0f; // the LIVE local fov from clientdata (pev->fov travels here, NOT via
+                           // the SetFOV msg — gHUD.m_iFOV never sees the TS scope zoom)
+
 void DLLEXPORT HUD_TxferLocalOverrides(struct entity_state_s* state, const struct clientdata_s* client)
 {
+	g_tsLocalFov = client->fov;
 	//	RecClTxferLocalOverrides(state, client);
 
 	VectorCopy(client->origin, state->origin);
