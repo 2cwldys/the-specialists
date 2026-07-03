@@ -739,10 +739,13 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		((CRpg*)player.m_pActiveItem)->m_cActiveRockets = (int)from->client.vuser2[2];
 	}
 
-	// Don't go firing anything if we have died or are spectating
-	// Or if we don't have a weapon model deployed
+	// Don't go firing anything if we have died or are spectating.
+	// NB the stock '0 != player.pev->viewmodel' gate is GONE: the TS scope zoom HIDES the
+	// viewmodel while still firing — the gate silently skipped the predicted ItemPostFrame,
+	// so a zoomed shot had no client event at all (no sound/flash/impacts, round-7k). The
+	// deployed-weapon check rides m_iId/m_pActiveItem instead.
 	if ((player.pev->deadflag != (DEAD_DISCARDBODY + 1)) &&
-		!CL_IsDead() && 0 != player.pev->viewmodel && 0 == g_iUser1)
+		!CL_IsDead() && 0 == g_iUser1 && WEAPON_NONE != from->client.m_iId)
 	{
 		if (player.m_flNextAttack <= 0)
 		{
