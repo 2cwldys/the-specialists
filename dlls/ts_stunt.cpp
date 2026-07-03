@@ -19,7 +19,7 @@
 #include "ts_weapons.h" // TSPlayerFreeSlots
 #include "ts_player.h"  // KungFu()
 
-int gmsgTSNextStunt = 0; // "TSNextStunt" 1 — stunt-meter byte (HUD; client handler deferred)
+int gmsgTSNextStunt = 0; // "NextStunt" 1 (registered centrally in LinkUserMessages) — stunt-meter byte (HUD; client handler deferred)
 extern int gmsgTSMotionBlur;
 
 // ---- helpers --------------------------------------------------------------
@@ -58,8 +58,6 @@ static void TS_MotionBlur(CBasePlayer *pl, int chance)
 	extern int gmsgTSMotionBlur;
 	if (RANDOM_LONG(0, 10) + 10.0f * TS_TimeScale(pl) <= (float)chance)
 		return;
-	if (gmsgTSMotionBlur == 0)
-		gmsgTSMotionBlur = REG_USER_MSG("TSMBlur", 2);
 	MESSAGE_BEGIN(MSG_PVS, gmsgTSMotionBlur, pl->pev->origin);
 	WRITE_BYTE(ENTINDEX(pl->edict()));
 	WRITE_BYTE(2);

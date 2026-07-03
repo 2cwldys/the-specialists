@@ -60,15 +60,15 @@ _Commands the client registers. Many are stock HL (shared); focus on TS-specific
 
 _Original = names hooked in client.dll (pfnHookUserMsg); ours = HOOK_MESSAGE in cl_dll. These are the client↔server message NAMES (the wire contract). MISSING = a message the original client reads that ours doesn't; EXTRA = ours-only (invented or inherited-HL)._
 
-- matched: **65**  |  missing (orig→not ours): **11**  |  extra (ours→not orig): **5**
+- matched: **69**  |  missing (orig→not ours): **7**  |  extra (ours→not orig): **4**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `ActItems`, `CustomWP`, `NextStunt`, `Objective`, `PlInfo`, `ShowObj`, `TSFlag`, `TSFrags`, `TSHVoice`, `TSMBlur`, `TSPSys`
+  `NextStunt`, `Objective`, `ShowObj`, `TSFlag`, `TSHVoice`, `TSMBlur`, `TSPSys`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `ResetFade`, `SpecFade`, `TSCreateDebris`, `ViewMode`, `x`
+  `ResetFade`, `SpecFade`, `ViewMode`, `x`
 
 ### Entity keyvalue coverage (FGD keys vs our KeyValue handlers)
 
@@ -80,7 +80,7 @@ _For entities we implement: FGD-declared map keys that no `KeyValue()` in our DL
 
 _The registered byte-size per message (−1 = variable). A MISMATCH silently corrupts the wire format = a drop-in breaker. Compared for messages present in both with a literal size._
 
-- original messages with a recovered size: **64**  |  ours (literal sizes): **63**  |  size mismatches: **0**
+- original messages with a recovered size: **64**  |  ours (literal sizes): **64**  |  size mismatches: **0**
 
 ### Events (events/*.sc)
 

@@ -154,7 +154,8 @@ def events_in(path):
 
 def our_client_usermsgs():
     return grep_set(r'HOOK_MESSAGE\(\s*\w+\s*,\s*(\w+)\s*\)', "cl_dll", group=1) | \
-           grep_set(r'HOOK_MESSAGE\(\s*(\w+)\s*\)', "cl_dll", group=1)
+           grep_set(r'HOOK_MESSAGE\(\s*(\w+)\s*\)', "cl_dll", group=1) | \
+           grep_set(r'pfnHookUserMsg\(\s*"([^"]+)"', "cl_dll", group=1)
 
 def our_server_usermsgs():
     return grep_set(r'REG_USER_MSG\(\s*"([^"]+)"', "dlls")

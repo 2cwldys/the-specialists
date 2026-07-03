@@ -358,8 +358,6 @@ void CBreakable::Precache()
 		PRECACHE_SOUND("debris/bustglass1.wav");
 		PRECACHE_SOUND("debris/bustglass2.wav");
 		g_idGlassFrag = PRECACHE_MODEL("sprites/glassfrag.spr"); // the TS glass-shatter fragment
-		if (gmsgTSCreateDebris == 0)
-			gmsgTSCreateDebris = REG_USER_MSG("TSCreateDebris", -1);
 		break;
 	case matMetal:
 		pGibName = "models/metalplategibs.mdl";

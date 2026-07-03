@@ -7,7 +7,7 @@
 *  gravity and a 2-5s fade life. Constants RE'd from client.dll (file = VA-0x10000000): grid
 *  centre 0.5, step 1/9, velocity spread "+15", gravity 0.05, life RANDOM(2,5).
 *
-*  Payload (gmsgTSCreateDebris, sent by CBreakable::Die for matGlass): origin[3], size[3],
+*  Payload ("TSFrags" = gmsgTSCreateDebris, sent by CBreakable::Die for matGlass): origin[3], size[3],
 *  material byte(0=glass), shatterDir[3], refPoint[3], spriteModelIndex(short), velMag(coord).
 ***/
 #include "hud.h"
@@ -19,11 +19,11 @@
 #include "r_efx.h"
 #include "com_model.h"
 
-DECLARE_MESSAGE(m_TSDebris, TSCreateDebris)
+DECLARE_MESSAGE(m_TSDebris, TSFrags)
 
 bool CHudTSDebris::Init()
 {
-	HOOK_MESSAGE(TSCreateDebris);
+	HOOK_MESSAGE(TSFrags); // the original wire name is "TSFrags" (star_LinkUserMessages.md #62)
 	gHUD.AddHudElem(this);
 	m_iFlags |= HUD_ACTIVE; // no Draw of its own; the temp-sprites it spawns render via the engine
 	return true;
@@ -95,7 +95,7 @@ static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Ve
 	}
 }
 
-bool CHudTSDebris::MsgFunc_TSCreateDebris(const char* pszName, int iSize, void* pbuf)
+bool CHudTSDebris::MsgFunc_TSFrags(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
 

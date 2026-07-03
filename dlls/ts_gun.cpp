@@ -55,12 +55,12 @@
 #include "../cl_dll/ts_recoil.h" // TS_TriggerMeleeShake — the per-swing melee "bounce-back" (client only)
 #endif
 
-// Lazily-registered TS weapon-info HUD message (the ammo readout). Name + fixed size
-// are byte-faithful to LinkUserMessages (reference/HUD_MESSAGES.md): "WeaponInfo", 6.
-static int gmsgWeaponInfo = 0;
+// TS weapon-info HUD message (the ammo readout) — registered centrally in LinkUserMessages
+// (UserMessages.cpp): "WeaponInfo", 6. GLOBALS like the original's (TS_gun.cpp home).
+int gmsgWeaponInfo = 0;
 // The weapon-select bar message: "WStatus", size 3 = BYTE type, BYTE owned, BYTE clip.
-static int gmsgTSWeaponStatus = 0;
-static int gmsgTSActiveItems = 0; // per-player attach broadcast (laser/flashlight visible to all clients)
+int gmsgTSWeaponStatus = 0;
+int gmsgTSActiveItems = 0; // per-player attach broadcast (laser/flashlight visible to all clients)
 // gmsgKFuPower moved to ts_player.cpp — sent ONLY from CBasePlayer::UpdateMeleeBar (extern via ts_player.h)
 
 // `damagemult` cvar (default 0.0 = off → 1x). A value > 0 scales all TS weapon damage.
@@ -2344,8 +2344,6 @@ void CTSGun::Unzoom()
 //   send 0 — it doesn't affect the ammo numbers. See reference/HUD_MESSAGES.md.
 bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 {
-	if (gmsgWeaponInfo == 0)
-		gmsgWeaponInfo = REG_USER_MSG("WeaponInfo", 6);
 
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	const int caliber = wi->iCaliber;
@@ -2360,8 +2358,6 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	const int activeAttach = m_items[m_weaponType].active;
 	if (activeAttach != m_iClientAttach)
 	{
-		if (gmsgTSActiveItems == 0)
-			gmsgTSActiveItems = REG_USER_MSG("ActItems", 2);
 		m_iClientAttach = activeAttach;
 		MESSAGE_BEGIN(MSG_ALL, gmsgTSActiveItems);
 		WRITE_BYTE(ENTINDEX(pPlayer->edict())); // player entity index
@@ -2404,8 +2400,6 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 // to the original handler): BYTE type, BYTE owned(0/1), BYTE clip.
 void CTSGun::SendWeaponStatus(CBasePlayer *pPlayer)
 {
-	if (gmsgTSWeaponStatus == 0)
-		gmsgTSWeaponStatus = REG_USER_MSG("WStatus", 3);
 
 	if (!m_bWStatusInit)
 	{

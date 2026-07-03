@@ -22,13 +22,7 @@ void TSHudMessageAll(byte r, byte g, byte b, int effect, int holdtime, const cha
 	strncpy(buf, text, sizeof(buf));
 	buf[sizeof(buf) - 1] = '\0';
 
-	// Lazily register the user message (the original registers "TSMessage" at
-	// startup; do it on first use so this helper is self-contained). VERIFY:
-	// original message name/size when the client side is reconstructed.
-	if (gmsgTSMessage == 0)
-		gmsgTSMessage = REG_USER_MSG("TSMessage", -1);
-
-	MESSAGE_BEGIN(MSG_ALL, gmsgTSMessage);
+	MESSAGE_BEGIN(MSG_ALL, gmsgTSMessage); // registered centrally in LinkUserMessages ("TSMessage", -1)
 		WRITE_BYTE(r);
 		WRITE_BYTE(g);
 		WRITE_BYTE(b);
@@ -48,8 +42,6 @@ void TSHudMessageOne(byte r, byte g, byte b, int effect, int holdtime, const cha
 	strncpy(buf, text, sizeof(buf));
 	buf[sizeof(buf) - 1] = '\0';
 
-	if (gmsgTSMessage == 0)
-		gmsgTSMessage = REG_USER_MSG("TSMessage", -1);
 
 	MESSAGE_BEGIN(MSG_ONE, gmsgTSMessage, NULL, ENT(pPlayer));
 		WRITE_BYTE(r);

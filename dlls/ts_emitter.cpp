@@ -13,12 +13,6 @@
 #include "ts_sharedemitter.h"
 #include <string.h>
 
-static void RegisterParticleMsg()
-{
-	if (gmsgTSParticleSystem == 0)
-		gmsgTSParticleSystem = REG_USER_MSG("TSPSys", -1);
-}
-
 //============================================================================
 // CTSEmitter (ts_emitter) — validates its `particle` target, then self-removes (dead pipeline).
 //============================================================================
@@ -158,7 +152,6 @@ bool CTSWind::KeyValue(KeyValueData *pkvd)
 void CTSWind::Spawn()
 {
 	pev->classname = MAKE_STRING("ts_wind");
-	RegisterParticleMsg();
 	SetThink(&CTSWind::BlowThink);
 	pev->nextthink = gpGlobals->time + 0.01f;
 }

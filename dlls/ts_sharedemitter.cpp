@@ -14,7 +14,7 @@
 #include <string.h>
 
 CTSSharedEmitter s_Emitter;          // .bss singleton (orig _16CTSSharedEmitter.s_Emitter)
-int gmsgTSParticleSystem = 0;        // "TSPSys" (size -1) — registered in GameDLLInit/Precache path
+int gmsgTSParticleSystem = 0;        // "TSPSys" (size -1) — registered centrally in LinkUserMessages
 
 int CTSSharedEmitter::NextEmitter()
 {

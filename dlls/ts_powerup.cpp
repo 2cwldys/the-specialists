@@ -391,10 +391,8 @@ bool CTSGameRules::PutPowerUp(int type)
 // + WriteByte(0) for these (the dur-0 grant), distinct from the held timed-powerup slot (top-left).
 static void TSSendPowerupNotify(CBasePlayer *pPlayer, int bit)
 {
-	static int s_gmsgPwUp = 0;
-	if (s_gmsgPwUp == 0)
-		s_gmsgPwUp = REG_USER_MSG("PwUp", 3);
-	MESSAGE_BEGIN(MSG_ONE, s_gmsgPwUp, NULL, pPlayer->pev);
+	extern int gmsgTSPowerUp; // ts_player.cpp — registered centrally in LinkUserMessages
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, pPlayer->pev);
 	WRITE_SHORT(bit); // 4 = kung-fu, 0x100 = super-jump (low-gravity)
 	WRITE_BYTE(0);    // dur 0 -> persistent independent powerup (not the held countdown slot)
 	MESSAGE_END();

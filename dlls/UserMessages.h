@@ -40,7 +40,7 @@ inline int gmsgAmmoPickup = 0;
 inline int gmsgWeapPickup = 0;
 inline int gmsgItemPickup = 0;
 inline int gmsgHideWeapon = 0;
-inline int gmsgSetCurWeap = 0;
+extern int gmsgSetCurWeap; // DEAD in the original (declared-only, never registered/referenced) — defined in UserMessages.cpp for symbol parity
 inline int gmsgSayText = 0;
 inline int gmsgTextMsg = 0;
 inline int gmsgSetFOV = 0;

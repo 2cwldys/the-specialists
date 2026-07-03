@@ -24,6 +24,8 @@ void TSFireTimeLeftTarget();
 
 // Round-time HUD message (remaining seconds); registered lazily on first send.
 int gmsgTSRoundTime = 0;
+int gmsgTSVoiceMessage = 0;   // "TSHVoice" (1): per-player capture taunt (sent from TS_objectives.cpp;
+                              // DEFINED here — the original homes this global in TS_gamerulesclass.cpp)
 int gmsgTSObjective = 0;      // "Objective" (-1, variable): one HUD objective entry (coord+idx+label)
 int gmsgTSShowObjective = 0;  // "ShowObj" (2): toggle a HUD objective entry's visibility
 
@@ -36,9 +38,7 @@ void CTSGameRules::StartRoundTimer()
 	if (t > 180.0f) t = 180.0f;
 	m_flRoundEnd = gpGlobals->time + t;
 
-	if (gmsgTSRoundTime == 0)
-		gmsgTSRoundTime = REG_USER_MSG("RoundTime", 2); // original "RoundTime", fixed size 2 (two bytes)
-	MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
+	MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime); // "RoundTime" 2 — registered centrally in LinkUserMessages
 	WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
 	WRITE_BYTE(0);                                     // flag: 0 = round start/restart
 	MESSAGE_END();
@@ -96,8 +96,6 @@ void CTSGameRules::SendObjectiveToHud(int idx, CBasePlayer *pPlayer)
 		strncpy(label, STRING((string_t)slot.teamStr[teamIdx]), sizeof(label) - 1);
 
 	Vector c = slot.obj ? slot.obj->Center() : g_vecZero;
-	if (gmsgTSObjective == 0)
-		gmsgTSObjective = REG_USER_MSG("Objective", -1);
 	MESSAGE_BEGIN(MSG_ONE, gmsgTSObjective, NULL, pPlayer->edict());
 	WRITE_COORD(c.x);
 	WRITE_COORD(c.y);
@@ -120,8 +118,6 @@ void CTSGameRules::SendObjectiveList(CBasePlayer *pPlayer)
 void CTSGameRules::ShowObjectiveOnHud(CTSObjective *pObj, bool show)
 {
 	int idx = FindIndexByObjective(pObj);
-	if (gmsgTSShowObjective == 0)
-		gmsgTSShowObjective = REG_USER_MSG("ShowObj", 2);
 	MESSAGE_BEGIN(MSG_ALL, gmsgTSShowObjective);
 	WRITE_BYTE(idx);
 	WRITE_BYTE(show ? 1 : 0);
@@ -386,11 +382,10 @@ void CTSGameRules::RestartRound()
 
 	if (roundBased)
 	{
-		// (a)+(b) arm the round timer + tell clients the new clock. MUST go through StartRoundTimer:
-		// it's the ONLY site that REG_USER_MSG("RoundTime") registers the message. Arming m_flRoundEnd
-		// inline here (the old code) left gmsgTSRoundTime==0 — so the inline clock-send was skipped AND
-		// Think's `if (m_flRoundEnd==0) StartRoundTimer()` never fired (m_flRoundEnd was already set) —
-		// the message stayed unregistered and the round clock never appeared. (playtest bug #1.)
+		// (a)+(b) arm the round timer + tell clients the new clock. MUST go through StartRoundTimer —
+		// it owns the clock-send; arming m_flRoundEnd inline here (the old code) skipped the send AND
+		// kept Think's `if (m_flRoundEnd==0) StartRoundTimer()` from ever firing (playtest bug #1).
+		// (Registration is central in LinkUserMessages now, so the old registered-too-late leg is gone.)
 		if (m_bRoundTimerEnabled)
 			StartRoundTimer();
 
@@ -1081,8 +1076,6 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	pPlayer->m_iRespawnsUsed = 0; // @0x694d1 — a joiner starts with a fresh respawn budget
 
 	// SrvSett catch-up: the joiner gets all four settings (no late-joiner hole).
-	if (gmsgTSServerSetting == 0)
-		gmsgTSServerSetting = REG_USER_MSG("SrvSett", 3);
 	m_iSrvRealBullet = (int)(CVAR_GET_FLOAT("realbullet") + 0.5f);
 	MESSAGE_BEGIN(MSG_ONE, gmsgTSServerSetting, NULL, pPlayer->edict());
 	WRITE_BYTE(0);

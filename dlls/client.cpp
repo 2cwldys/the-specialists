@@ -696,8 +696,6 @@ void ClientCommand(edict_t* pEntity)
 		// `lasclr_<n>` (original strstr idiom); the server rebroadcasts it to EVERYONE as
 		// PlInfo: BYTE entindex, BYTE type 0 (laser color), BYTE value — raw, no clamp
 		// (the client stores the byte as-is). dossier-gmsg U2 / analysis_gmsg_TSPlayerInfo.
-		if (gmsgTSPlayerInfo == 0)
-			gmsgTSPlayerInfo = REG_USER_MSG("PlInfo", 3);
 		MESSAGE_BEGIN(MSG_ALL, gmsgTSPlayerInfo);
 		WRITE_BYTE(ENTINDEX(pEntity));
 		WRITE_BYTE(0);

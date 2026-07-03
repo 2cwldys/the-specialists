@@ -19,6 +19,25 @@
 #include "shake.h"
 #include "UserMessages.h"
 
+// The TS gmsg globals are DEFINED in their original-file homes; they are all REGISTERED here,
+// centrally, exactly like the original's LinkUserMessages @0xc7db0 (star_LinkUserMessages.md):
+// one block, fixed order (message IDs are assigned in registration order), NO lazy first-use
+// registrations anywhere else (the sole exception is the stock impulse-99 "Logo" toggle in
+// player.cpp, which the original also keeps lazy — gmsgLogo is absent from its block).
+extern int gmsgWeaponInfo, gmsgTSWeaponStatus, gmsgTSActiveItems;               // ts_gun.cpp
+extern int gmsgKFuPower, gmsgTSHealth, gmsgTSArmor, gmsgTSState, gmsgTSCash,    // ts_player.cpp
+	gmsgTSSpace, gmsgTSPowerUp, gmsgTSPowerUpTime, gmsgTSWires, gmsgTSPlayerAward,
+	gmsgTSBulletTime, gmsgTSMotionBlur, gmsgTSSlowAmt;
+extern int gmsgTSHaveFlag;                                                      // ts_flag.cpp
+extern int gmsgTSNextStunt;                                                     // ts_stunt.cpp
+extern int gmsgTSRoundTime, gmsgTSObjective, gmsgTSShowObjective,               // TS_gamerulesclass.cpp
+	gmsgTSServerSetting, gmsgTSVoiceMessage;
+extern int gmsgTSCustomWeaponParams;                                            // TS_util.cpp
+extern int gmsgTSMessage;                                                       // ts_utils.cpp
+extern int gmsgTSCreateDebris;                                                  // func_break.cpp
+extern int gmsgTSPlayerInfo;                                                    // client.cpp
+extern int gmsgTSParticleSystem;                                                // ts_sharedemitter.cpp
+
 void LinkUserMessages()
 {
 	// Already taken care of?
@@ -59,26 +78,52 @@ void LinkUserMessages()
 	gmsgHideWeapon = REG_USER_MSG("HideWeapon", 1);
 	gmsgSetFOV = REG_USER_MSG("SetFOV", 1);
 	gmsgShowMenu = REG_USER_MSG("ShowMenu", -1);
-	gmsgShake = REG_USER_MSG("ScreenShake", sizeof(ScreenShake));
-	gmsgFade = REG_USER_MSG("ScreenFade", sizeof(ScreenFade));
-	gmsgAmmoX = REG_USER_MSG("AmmoX", 2);
-	gmsgTeamNames = REG_USER_MSG("TeamNames", -1);
+	gmsgShake = REG_USER_MSG("ScreenShake", sizeof(ScreenShake));               // 28
+	gmsgFade = REG_USER_MSG("ScreenFade", sizeof(ScreenFade));                  // 29 (registered-but-never-sent; TSFade carries the fades)
+	gmsgTSFade = REG_USER_MSG("TSFade", -1);                                    // 30
+	gmsgAmmoX = REG_USER_MSG("AmmoX", 2);                                       // 31
+	gmsgTeamNames = REG_USER_MSG("TeamNames", -1);                              // 32
+	gmsgVGUIMenu = REG_USER_MSG("VGUIMenu", 1);                                 // 33 BYTE menuCode (open a client menu)
+	gmsgWeaponInfo = REG_USER_MSG("WeaponInfo", 6);                             // 34
+	gmsgClipInfo = REG_USER_MSG("ClipInfo", 1);                                 // 35 registered, never sent (the arsenal grid rides WStatus)
+	gmsgTSWeaponStatus = REG_USER_MSG("WStatus", 3);                            // 36
+	gmsgTSActiveItems = REG_USER_MSG("ActItems", 2);                            // 37
+	gmsgKFuPower = REG_USER_MSG("KFuPower", 1);                                 // 38
+	gmsgTSHealth = REG_USER_MSG("TSHealth", 1);                                 // 39
+	gmsgTSArmor = REG_USER_MSG("TSArmor", 1);                                   // 40
+	gmsgTSState = REG_USER_MSG("TSState", 1);                                   // 41
+	gmsgTSCash = REG_USER_MSG("TSCash", 2);                                     // 42
+	gmsgTSSpace = REG_USER_MSG("TSSpace", 1);                                   // 43
+	gmsgTSNextStunt = REG_USER_MSG("NextStunt", 1);                             // 44
+	gmsgTSPowerUp = REG_USER_MSG("PwUp", 3);                                    // 45
+	gmsgTSPowerUpTime = REG_USER_MSG("PwUpTime", 1);                            // 46
+	gmsgTSRoundTime = REG_USER_MSG("RoundTime", 2);                             // 47
+	gmsgTSObjective = REG_USER_MSG("Objective", -1);                            // 48
+	gmsgTSShowObjective = REG_USER_MSG("ShowObj", 2);                           // 49
+	gmsgTSWires = REG_USER_MSG("Wires", 3);                                     // 50
+	gmsgTSServerSetting = REG_USER_MSG("SrvSett", 3);                           // 51
+	gmsgTSPlayerAward = REG_USER_MSG("TSPAward", 2);                            // 52
+	gmsgTSBulletTime = REG_USER_MSG("TSBTime", 1);                              // 53
+	gmsgTSVoiceMessage = REG_USER_MSG("TSHVoice", 1);                           // 54 (the wire name IS "TSHVoice")
+	gmsgTSHaveFlag = REG_USER_MSG("TSFlag", 4);                                 // 55
+	gmsgTSCustomWeaponParams = REG_USER_MSG("CustomWP", -1);                    // 56
+	gmsgSpectator = REG_USER_MSG("Spectator", 2);                               // 57 BYTE state, BYTE secondsLeft (VERIFY: original = stock (idx,flag))
+	gmsgTSMotionBlur = REG_USER_MSG("TSMBlur", 2);                              // 58
+	gmsgTSMessage = REG_USER_MSG("TSMessage", -1);                              // 59
+	gmsgTSSlowAmt = REG_USER_MSG("TSSlowMo", 2);                                // 60
+	gmsgTSTakeDamage = REG_USER_MSG("PTakeDam", 13);                            // 61 (the stock Damage message above stays registered-but-never-sent)
+	gmsgTSCreateDebris = REG_USER_MSG("TSFrags", -1);                           // 62 (the wire name IS "TSFrags", not "TSCreateDebris")
+	gmsgTSPlayerInfo = REG_USER_MSG("PlInfo", 3);                               // 63
+	gmsgTSParticleSystem = REG_USER_MSG("TSPSys", -1);                          // 64
 
-	// TS join/spectate flow (cont.65). Names byte-faithful to ts_i386.so.
-	gmsgSpectator = REG_USER_MSG("Spectator", 2); // BYTE state(0 off/1 countdown/2 press-fire), BYTE secondsLeft
-	gmsgVGUIMenu = REG_USER_MSG("VGUIMenu", 1);   // BYTE menuCode (open a client menu)
-
-	// ClipInfo: registered, never sent (original parity — the arsenal grid rides WStatus).
-	gmsgClipInfo = REG_USER_MSG("ClipInfo", 1);
-
-	// PTakeDam: the TS pain/hit-feedback wire (the stock Damage message stays REGISTERED for
-	// parity but is never sent — the original never sends it either).
-	gmsgTSTakeDamage = REG_USER_MSG("PTakeDam", 13);
-
-	// TSFade: the TS screen fade (the stock ScreenFade stays registered-but-never-sent).
-	gmsgTSFade = REG_USER_MSG("TSFade", -1);
-
-	// (StatusText/StatusValue/Weapons NOT registered — invented HLU-leftover registrations
-	// removed for registration-set parity, dossier-gmsg U0. The stock sends are neutered in
-	// player.cpp; the HLU 64-bit weapon-bits message removal is PLAYTEST-GATED.)
+	// (StatusText/StatusValue/Weapons/Flashlight/FlashBat NOT registered — proven absent from
+	// the original's registration block, dossier-gmsg U0 + star_LinkUserMessages.md. The stock
+	// sends are neutered in player.cpp; the HLU 64-bit weapon-bits message removal is
+	// PLAYTEST-GATED.)
 }
+
+// Declared-only DEAD globals in the original (present in .data, ZERO references — no relocs,
+// absent from the registration block): symbol parity only, never registered, never sent.
+int gmsgFlashlight = 0;
+int gmsgFlashBattery = 0;
+int gmsgSetCurWeap = 0;

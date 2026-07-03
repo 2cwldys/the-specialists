@@ -771,7 +771,9 @@ int CTSBriefcase::s_nextFlagID = 0;
 extern int gmsgTSHaveFlag;
 
 // @ gmsgTSVoiceMessage — MSG_ONE(1): a per-player capture taunt (1 = an enemy captured, 0 = yours).
-static int gmsgTSVoiceMessage = 0;
+// Wire name "TSHVoice" (star_LinkUserMessages.md #54); defined in TS_gamerulesclass.cpp (the
+// original's home), registered centrally in LinkUserMessages.
+extern int gmsgTSVoiceMessage;
 
 LINK_ENTITY_TO_CLASS(ts_briefcase, CTSBriefcase)
 
@@ -841,8 +843,6 @@ void CTSBriefcase::FlagFall()
 	}
 	m_bFlagOut = true;
 
-	if (gmsgTSHaveFlag == 0)
-		gmsgTSHaveFlag = REG_USER_MSG("TSFlag", 4);
 	MESSAGE_BEGIN(MSG_ALL, gmsgTSHaveFlag);
 	WRITE_BYTE(0); // type 0 = base spawn
 	WRITE_BYTE(m_flagStatus.flagID);
@@ -937,8 +937,6 @@ void CTSBriefcase::CaptureTouch(CBaseEntity *pOther)
 	}
 
 	// Per-player capture taunt (1 = an enemy team captured, 0 = your team).
-	if (gmsgTSVoiceMessage == 0)
-		gmsgTSVoiceMessage = REG_USER_MSG("TSVoiceMessage", 1);
 	for (int i = 1; i <= gpGlobals->maxClients; i++)
 	{
 		CBaseEntity *p = UTIL_PlayerByIndex(i);

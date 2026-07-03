@@ -222,8 +222,6 @@ void SendWeaponParams(tsweapon_t id, CBaseEntity *pOnly)
 	const s_weapon_info *wi = get_weapon_info(id);
 	if (!wi->pszName || !wi->pszName[0])
 		return;
-	if (gmsgTSCustomWeaponParams == 0)
-		gmsgTSCustomWeaponParams = REG_USER_MSG("CustomWP", -1);
 	char buf[64];
 	sprintf(buf, "%i %f %f %f %f %i", id, wi->flSpread, wi->flViewKick, wi->flRecoil,
 		wi->flDamage, wi->iPrice);
