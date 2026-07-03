@@ -86,6 +86,25 @@ gmsgSetCurWeap/objects/roundtime) · 3 invented globals (g_TSGun/g_tsActive/g_ts
   +hold, the 11 coldcock guns) + a PREDICTED SendWeaponAnim stand-in in ColdCock until the
   coldcock.sc ev swap (task #5) replaces it.
 
+### Playtest round 4 (coldcock silent + no fire-torso while moving; 3 fixes + the coldcock/closecombat event swaps)
+- **THE ITALIAN-BONE GAIT SPLIT** — the root cause of "no fire anim while moving, any state": TS player
+  skeletons name the spine "Bip01 Dorso" / pelvis "Bip01 Bacino"; the stock client gait split keys on
+  "Bip01 Spine" -> matched nothing -> the gait owned the whole skeleton -> no upper-body composites while
+  moving. The ORIGINAL client.dll ships BOTH strings (definitive). StudioModelRenderer now stops at either.
+- Coldcock went silent post-swap: the playback gated on item->owned (server-only) — the predicted host
+  event vanished under FEV_NOTHOST. SetWeaponData marks the wielded item owned client-side.
+- The directional slide-fire (slide_<l/r/f/b>_<grip>_shoot) re-enabled — the "dead code +0x51c" note was
+  wrong (+0x51c = m_bDirForward, cont.81); mirrors the TSA_SLIDE direction selection per @case 0/8/9.
+- coldcock.sc + closecombat.sc SWAPPED both sides (server gun+0x966/0x96c + EV_TSColdCock/EV_TSCloseCombat
+  per dossier-ev-melee §4/§5); CCombatBlock decompile-exact (four-timer gate, iparam2 1 bare/0x12 armed);
+  CCombatAttack's per-move (move,animIdx) pairs disasm-slot-tracked (the 3-jab vm cycling was invented —
+  the original sends anim 3 for every punch; the FLY family's animIdx is a VERIFY). The FULL 29-short
+  anim blocks (both stances, all 38 weapons) landed in s_weapon_info (movl-PAIR-aware extraction).
+- The five-handler gun-tail dossier (subagent) at cont83/dossier-ev-guntail.md: reload.sc fparam1 IS the
+  anim-block index; empty.sc = weapons/pistol-empty.wav universal; pump.sc anim block[13+rand(0,1)] +
+  the wi+0x306 rack sound at ent-1 CHAN_WEAPON (the no-cutoff trick); grenade.sc = our path already right;
+  firelinked.sc bparam1=barrel bparam2=SEED (collides with our akimbo bparam2 extension!). Wiring = next.
+
 NEW VERIFY items this session: TraceAttack spawn-grace refusal (@0x801eb) + the 0x10c10 stunt dmg mult ·
 PlayerKilled kill-tier/slow-mo-reward tail · the "Spectator" wire (ours state+seconds vs original idx+flag) ·
 TSItem::hOwner consumer (sell-zone?) · the V11 LMS countdown HUD · ResetRestartRound still reads the dead
