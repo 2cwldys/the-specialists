@@ -43,6 +43,7 @@
 #include "ts_playeramount.h"
 #include "ts_sharedemitter.h" // CTSPlayerAmount connect/disconnect relays
 #include "ts_gamerules.h" // TSGameRules() (the `motd` re-send passthrough)
+#include "ts_utils.h"     // TSPlayerDisconnect (ClientDisconnected)
 #include "game.h"
 #include "customentity.h"
 #include "weapons.h"
@@ -149,7 +150,7 @@ void ClientDisconnect(edict_t* pEntity)
 
 	if (pPlayer)
 	{
-		pPlayer->DropFlag(false); // CTF: a disconnecting carrier drops the flag (TSPlayerDisconnect)
+		TSPlayerDisconnect(pPlayer); // @0x8f94c — flag drop + vote-block clear + edict park + CheckDeads
 		if (pPlayer->m_pTank != NULL)
 		{
 			pPlayer->m_pTank->Use(pPlayer, pPlayer, USE_OFF, 0);

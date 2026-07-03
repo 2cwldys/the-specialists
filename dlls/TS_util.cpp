@@ -145,6 +145,39 @@ void RemoveEntityFromSlowedArray(CBaseEntity *pEnt)
 	}
 }
 
+// @0x8f94c TSPlayerDisconnect(player) — the leaver teardown (called from ClientDisconnected):
+// drop a carried flag; CLEAR THE PLAYER'S VOTE BLOCK (rules+0x684+idx*0x48 — a rejoiner into
+// the same slot no longer inherits the leaver's votes: the vote-rejoin bug); park the edict
+// (non-solid, DEAD_DEAD, no damage, FL_FAKECLIENT off, FL_DORMANT on, EF_NODRAW, frags/health
+// zeroed, respawn gate -4); clear the The-One flag (the leaver-stays-the-One leak); then
+// CallCheckDeads — a disconnect can END a team round (the last enemy left).
+void TSPlayerDisconnect(CBasePlayer *pPlayer)
+{
+	pPlayer->DropFlag(false);
+	CTSGameRules *pRules = dynamic_cast<CTSGameRules *>(g_pGameRules);
+	const int idx = ENTINDEX(pPlayer->edict());
+	if (pRules && idx >= 0 && idx < 32)
+	{
+		memset(pRules->m_voteMap[idx], 0, sizeof(pRules->m_voteMap[idx]));
+		pRules->m_voteFF[idx] = 0;
+		pRules->m_voteTP[idx] = 0;
+	}
+	pPlayer->pev->solid = SOLID_NOT;
+	pPlayer->pev->deadflag = DEAD_DEAD;
+	pPlayer->pev->takedamage = DAMAGE_NO;
+	pPlayer->pev->flags &= ~FL_FAKECLIENT;
+	pPlayer->pev->flags |= FL_DORMANT;
+	// player+0x160 = 0 (unnamed transient)
+	pPlayer->pev->frags = 0;
+	// player+0xb30 = 0 / +0xb48 byte = 0 / +0x9b8 = 0 / +0x534 = -4.0f (unnamed transients)
+	pPlayer->m_flTSRespawnTime = -4.0f; // 0x770
+	pPlayer->pev->effects = EF_NODRAW;
+	pPlayer->pev->health = 0;
+	pPlayer->m_bTheOne = 0; // 0x7b9
+	if (pRules)
+		pRules->CallCheckDeads();
+}
+
 // @0x8fae0 PlayerIsCheating — bots never cheat; a human cheats iff their cl_lw != "1"
 // (the forced-client-side-weapons check). Callers: ClientUserInfoChanged (which then forces
 // cl_lw "1") and TSInit (result discarded — the original's quirk).

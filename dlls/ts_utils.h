@@ -28,5 +28,8 @@ int UTIL_EntInArray(CBaseEntity **pArray, int n, CBaseEntity *pEnt);
 // @0x8fb4c — scrub a dying entity out of every player's packed slowed array (+0x208/+0x288).
 // Call before UTIL_Remove on any slowable projectile (flag/worldgun/knife/grenade/shrapnel).
 void RemoveEntityFromSlowedArray(CBaseEntity *pEnt);
+// @0x8f94c — the leaver teardown (vote-block clear + edict park + CallCheckDeads); the sole
+// caller is ClientDisconnected (TS_util.cpp).
+void TSPlayerDisconnect(CBasePlayer *pPlayer);
 
 #endif // TS_UTILS_H
