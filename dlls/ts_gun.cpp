@@ -765,6 +765,12 @@ void CTSGun::GetWeaponData(weapon_data_t &data)
 	const TSItem &it = m_items[m_weaponType];
 	data.fuser2 = (float)it.leftClip;
 	data.fuser3 = (float)it.rightClip;
+	// The ATTACH MASK rides the spare m_iWeaponState (unused by CTSGun):
+	// the PREDICTED weapon's anims carry the attachment BODY and its predicted fire event
+	// carries iparam2 — without this the client instance ran attach 0 (round-7i: the mask
+	// landed server-side, yet no submodels and no silenced sound — both were the HOST's
+	// predicted copies).
+	data.m_iWeaponState = it.attach;
 }
 
 void CTSGun::SetWeaponData(const weapon_data_t &data)
@@ -795,6 +801,7 @@ void CTSGun::SetWeaponData(const weapon_data_t &data)
 		TSItem &it = m_items[m_weaponType];
 		it.leftClip = (int)data.fuser2;
 		it.rightClip = (int)data.fuser3;
+		it.attach = data.m_iWeaponState; // the wielded item's attachment mask (see GetWeaponData)
 	}
 #endif
 }
