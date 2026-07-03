@@ -47,6 +47,70 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.85) — pickup for the next orchestrator (cont.84 = me)
+
+**You ARE the orchestrator and the previous agent (cont.84) — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged; GPG off). Regenerate the nm-T baseline first:
+`nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}' | sort > /tmp/nm_T_baseline.txt`.
+Read the ledger cont.84 chunks 1-4 (top of `.serena/memories/ledger.md`, Read tool NOT read_memory) —
+they carry EVERYTHING: the attachment saga's six root causes, the spectate stock-patch inversion, the
+Spectator wire, the gmsg central registration, the cvar renames, the door-helper respawn.
+
+**HEADLINE:** 0 missing methods/free funcs/members/files · **25 invented methods** · 1 missing global
+(**TSGameRules the singleton @0x1681a0** — THE remaining refactor) · 3 invented globals · server cvars
+0 missing · the whole silencer/scope/laser/spectate surface user-confirmed ("perfect"/"flawless").
+
+### The queue (in order)
+1. **dossier-invented remaining folds** (reference/dossiers/cont84/dossier-invented.md — read A2/A3/B1/
+   B4/C5 before coding):
+   - `TSSendScoreInfo` -> DELETE + inline sends; canonical payload = CBasePlayer::AddPoints @0xc9e18
+     {BYTE idx, SHORT frags, SHORT deaths, SHORT 0, SHORT teamIdx+1}. ⚠ FIRST check what our client
+     scoreboard's WAITING row (playerclass 11/case 0xb) reads — our TSSendScoreInfo carries playerclass,
+     the original's AddPoints writes 0 there; find the original's waiting-row producer before deleting.
+   - `OwnedCount/SlotsUsed` -> DELETE: the original keeps a MAINTAINED free-slots counter player+0x548
+     (TSSpace; init 81 in TSInit, weight decrements inline in PickUpWeapon @0x8314c ×clip for stacks,
+     increments at the drop sites; GetSpeedBySlots @0x66bd4 = the only helper). Ours recomputes
+     (TSPlayerFreeSlots) — converting = add the maintained member + mutate at every pickup/drop/stack
+     site. ⚠ drift risk: the slot economy is heavily playtested (knife stacks ×clip!) — diff carefully.
+   - `IsTeamMode` -> DELETE-ish: the original compares the GAMEMODE BYTE (rules+0, DecideGamePlay's
+     output; IsCTB @0x67f08 = mode 3) inline. OURS carries real logic (lazy ts_objective_manager probe
+     + InitTeams seeding, 24 call sites) — the faithful shape: mode-byte comparisons + InitTeams moved
+     to DecideGamePlay/where the original seeds. NOT a rename; RE the mode-byte VALUES first (0/1/2/3).
+   - `TSUpdateClientData` -> MOVE into CBasePlayer::UpdateClientData (B1 has the EXACT original send
+     order: ResetHUD/InitHUD+rules InitHUD/RoundTime/PwUp -> HideWeapon, TSHealth, TSArmor, Train,
+     TSState, TSCash, TSSpace, TSPowerUp, TSSlowAmt, TSBulletTime, TSActiveItems, TSPAward, Wires, UCD).
+   - Team methods (AssignToTeam/GetIndexedTeamName/GetTeamID/IsTeamplay/RecountTeams/
+     TeamWithFewestPlayers/PlayerKilled/PlayerSpawn) -> the STOCK CHalfLifeMultiplay/Teamplay classes
+     (C2/C3/C5 have the addresses + TS patches) — pairs with #2.
+2. **THE TSGameRules SINGLETON SPLIT** (the architecture finding): the original runs stock g_pGameRules
+   (CHalfLifeMultiplay/CHalfLifeTeamplay, TS-patched in place) PLUS a separate NON-VIRTUAL CTSGameRules
+   singleton (`TSGameRules` global @0x1681a0, json-homed TS_player.cpp). Most of our CTSGameRules
+   belongs on the stock classes; the singleton keeps the TS round/objective machine. Plan it as its own
+   chunk; audit drives.
+3. **CTSGun prediction group** (A1/A4): GetWeaponData -> the free @0xa00ac shape (⚠ our fuser2/3 barrel
+   clips + m_iWeaponState attach are WORKING divergences the original lacks — document, don't break
+   prediction), CanDeploy/LoadActiveFromItem/SyncActiveToItem/UpdateActivePointers = ACCEPT-or-fold
+   (A4: state inline in TakeWeapon/SelectWeapon/DropWeapon).
+4. **The stock-HL purge**: 19 extra events + 16 extra server commands + the stock weapon sources in
+   both builds (hl_weapons.cpp refs g_Glock etc. — trim registrations first) + `IsSpawnPointValid`.
+5. **Tasks #7 (stunt/pm tail) + #8 (VERIFY batch)** — lists in the cont.84 section below + the ledger.
+6. Deferred playtest confirms: bots (telefrag/kill-feed/spawn-scorer), two-client laser colors,
+   door respawn on a breakable-door map, the LMS window, TSFrags shatter regression.
+
+### Tooling notes added this session
+- `test.sh`: `GDB=1` = interactive gdb attach (catch segfaults/hangs; `NOBUILD=1` preserves a debug
+  build); `BUILDTYPE=RelWithDebInfo scripts/build.sh` = line numbers.
+- `setup-xash-mod.sh` now syncs `network/delta.lst` (⚠ delta bit-widths TRUNCATE prediction fields
+  silently — m_iWeaponState needed 2->4 bits for the attach mask) + `game/ts/sprites/*.spr` (generated
+  assets: ts_scopefull.spr — composed at cont.84 from quarterscope.spr, arc corner = quarter's BR).
+- xash gotchas learned: pfnSPR_DrawGeneric IGNORES its blend args (#if 0 — set kRenderTransAlpha via
+  TriRenderMode around it); HUD_WeaponsPostThink's stock viewmodel gate blocks prediction while the
+  scope hides the vm (narrowed exception, sub-40 fov); cl_entity.attachment is engine-owned — the
+  renderer-fed g_tsPlayerGunAtt cache is the anchor source; gHUD.m_iFOV only updates via SetFOV
+  (m_iFOV member), clientdata fov is overridden by the client's own report.
+- ⚠ bulk sed renames can SELF-CAPTURE the replacement inside a new helper (the TS_EvWeaponAnim
+  tail-recursion hang) — grep the helper body after any bulk rename.
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.84) — pickup for the next orchestrator (cont.83 = me; available for consult)
 
 **You ARE the orchestrator and the previous agent (cont.83) — continue as if you never stopped.** Branch
