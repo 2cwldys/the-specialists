@@ -1273,6 +1273,10 @@ void TeamFortressViewport::UpdateSpectatorPanel()
 
 		m_pSpectatorPanel->m_BottomMainLabel->setText("%s", pBottomText);
 		m_pSpectatorPanel->m_BottomMainButton->setText(pBottomText);
+		// TS: render the per-mode help line under the mode label (the original draws the
+		// helpString2 the stock panel builds and never shows).
+		m_pSpectatorPanel->m_BottomHelpLabel->setText("%s",
+			CHudTextMessage::BufferedLocaliseTextString(helpString2));
 
 
 		// update extra info field

@@ -72,6 +72,8 @@ public:
 	DropDownButton* m_BottomMainButton;
 	CImageLabel* m_TimerImage;
 	Label* m_BottomMainLabel;
+	Label* m_BottomHelpLabel; // TS: the per-mode help line under the mode label (#Spec_TSHelp%d —
+	                          // the original renders helpString2, which stock builds but never draws)
 	Label* m_CurrentTime;
 	Label* m_ExtraInfo;
 	Panel* m_Separator;

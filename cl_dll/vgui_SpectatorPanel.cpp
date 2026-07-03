@@ -228,6 +228,17 @@ void SpectatorPanel::Initialize()
 	m_BottomMainLabel->setBorder(NULL);
 	m_BottomMainLabel->setVisible(false);
 
+	// TS: the per-mode help line ("JUMP - Change Camera modes, ...") drawn UNDER the mode label —
+	// the original renders the helpString2 the stock panel builds and drops.
+	m_BottomHelpLabel = new Label("Spectator Help",
+		XRES_HD((15 + OPTIONS_BUTTON_X + 15) + 31), YRES_HD(6) + YRES_HD(20), flLabelSize, YRES_HD(20));
+	m_BottomHelpLabel->setParent(m_BottomBorder);
+	m_BottomHelpLabel->setPaintBackgroundEnabled(false);
+	m_BottomHelpLabel->setFgColor(Scheme::sc_primary1);
+	m_BottomHelpLabel->setContentAlignment(vgui::Label::a_center);
+	m_BottomHelpLabel->setBorder(NULL);
+	m_BottomHelpLabel->setVisible(false);
+
 	m_InsetViewButton = new ColorButton("", XRES_HD(2), YRES_HD(2), XRES_HD(240), YRES_HD(180), false, false);
 	m_InsetViewButton->setParent(this);
 	m_InsetViewButton->setBoundKey((char)255);
@@ -267,6 +278,7 @@ void SpectatorPanel::ShowMenu(bool isVisible)
 	{
 		int iLabelSizeX, iLabelSizeY;
 		m_BottomMainLabel->setVisible(true);
+		m_BottomHelpLabel->setVisible(true); // TS: the help line shows with the plain (menu-less) bar
 		m_BottomMainButton->setVisible(false);
 
 		m_BottomMainLabel->getSize(iLabelSizeX, iLabelSizeY);
@@ -276,6 +288,7 @@ void SpectatorPanel::ShowMenu(bool isVisible)
 	{
 		m_BottomMainButton->setPos(XRES_HD((15 + OPTIONS_BUTTON_X + 15) + 31), YRES_HD(6));
 		m_BottomMainLabel->setVisible(false);
+		m_BottomHelpLabel->setVisible(false);
 		m_BottomMainButton->setVisible(true);
 	}
 
