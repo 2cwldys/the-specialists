@@ -524,7 +524,6 @@ void CHudTSBuyMenu::Apply()
 	}
 	if (anyWeapon)
 	{
-		gEngfuncs.Con_DPrintf("TSBUY emit: %s\n", tkw); // round-7i diagnostic (dev mode)
 		strncat(tkw, "\n", sizeof(tkw) - strlen(tkw) - 1);
 		gEngfuncs.pfnClientCmd(tkw);
 	}

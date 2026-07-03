@@ -5,6 +5,50 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 84, chunk 4) — THE ATTACHMENT SAGA CLOSED (user: "perfect") — rounds 7i..7m
+
+The full silencer/scope system landed through a chain of SIX root causes, each found by evidence
+(diagnostics, gdb, xash source), all committed (84d4cbd..c99c278):
+1. **tkw type_attach grammar** (84d4cbd): attach rides INSIDE the tkw token (menu -> queue -> BuyWeapon
+   (iAttach) -> TakeWeapon); tki = equipment only; akimbo double = extra type_0. + p_ SIL swap
+   (pszPlayerModelSil column, Deploy attach&1, both precached) + the silenced-sound flag (iparam2&1,
+   vol .84-.92, attn x2 — NOT linked; unsilenced linked = the normal sample).
+2. **The viewmodel BODY ships in the weaponanim message** (65a36cc): DefaultDeploy's 5th arg + a CTSGun
+   SendWeaponAnim SHADOW carrying GetBodyByItems on every anim (pev->body alone never reaches the vm).
+3. **The PREDICTED weapon needs the mask** (54717ea): GetWeaponData packs it.attach into the spare
+   m_iWeaponState; SetWeaponData unpacks (the host's predicted anims/events ran attach 0).
+4. **delta.lst m_iWeaponState was 2 BITS** (b2b512e): attach 15 -> 3 on the wire (the scope bit died).
+   4 bits now + setup-xash-mod.sh SYNCS network/delta.lst (the stale-delta trap, 5d6bb31).
+5. **The blink** (80f2ddf): the vm body refreshes EVERY FRAME from prediction (view->curstate.body =
+   TS_PredictedViewmodelBody(); the original's DAT_10191d5c mechanism; m61 body-1 quirk kept).
+6. **THE ZOOM/SCOPE**: Zoom drives m_iFOV (SetFOV loop — pev->fov via clientdata is OVERRIDDEN by the
+   client's own gHUD.m_iFOV report, 01b29fe+5903f39); the prediction gate allows fire while the scope
+   hides the vm (narrowed to sub-40 fov after the wholesale removal destabilized, 570837b); EV anims
+   guarded on a real vm model — and the SED SELF-CAPTURE hang (fea3cb3): TS_EvWeaponAnim tail-called
+   ITSELF (bulk rename rewrote the helper's own inner call; optimizer -> literal infinite loop; caught
+   by the user's gdb double-sample at the SAME PC + disasm). test.sh gained GDB=1 attach mode (2ad2f61).
+7. **The overlay** (93aa390..c99c278): sprites/quarterscope.spr (referenced by the original client.dll)
+   DECODED (arc corner = quarter's BR, palette-index alpha) and pre-composed 4x-mirrored into
+   game/ts/sprites/ts_scopefull.spr at build time; drawn SCREEN-SPACE scaled (pfnSPR_DrawGeneric —
+   whose blend args xash IGNORES (#if 0): kRenderTransAlpha via TriRenderMode around the draw, 1a680de);
+   TS_SCOPE_SCALE 1.45 (user-tuned hole size); full reticle swap + pinned laser dot + side bars; the
+   fov-40 threshold drives vm-hide/overlay/reticle as ONE bundle (deagle 60 = bare fov). The world-quad
+   TriAPI version was DEPTH-SLICED + sorted under transparent props in xash — screen-space is the way.
+   Zoomed beams: flashlight stays, laser beam off, dot pinned (view-aim fallback in GetMuzzleAim).
+Round-7 fixes along the way: kill refused while spectating (ClientKill gate; the original only ARMS a
+1s delayed-suicide timer — VERIFY the +0x244 gate field + the delay consumer) · press-fire prompt
+post-gate on the 1 Hz clock (the sub-second decompile window can't survive tick drift — VERIFY the
+original's carrier) · TSActiveItems{idx,0} on StartObserver (dead players' beams off) · stale-anchor
+beam gate (no drawn source = no beam) · attachments spawn maximal-ACTIVE (laser/flash ON; AddItem +
+pair mirror) · spectate bar = TS-patched STOCK (orange 255,160,0, per-mode #Spec_TSHelp%d help line
+rendered — stock builds-and-drops helpString2, no Auto prefix outside HLTV, small font, centred).
+TSBUY diagnostics stripped after the confirm. BUILDTYPE=RelWithDebInfo supported for symbolized builds.
+
+NEXT QUEUE: un-zoom hooks (Reload/ShotgunReload/ColdCock/Holster -> Unzoom, dossier §3) + verify the
+fov2 second zoom step · the p_ sil THIRD-PERSON confirm + silenced-sound confirm · dossier-invented
+remaining folds (SendWeaponStatus->UCD merge, OwnedCount/SlotsUsed->stored counter +0x548, TSSendBuyMenu/
+TSCloseMenu/TSSendScoreInfo/IsTeamMode deletes, menuselect dead-swallow, team methods -> stock classes) ·
+THE TSGameRules-singleton split (the last missing global) · tasks #7/#8 · the extra events/commands purge.
 ## 2026-07-03 (cont. 84, chunk 3) — spectate = TS-patched STOCK (user-guided) + dossier-attachments LANDED
 
 - **THE SPECTATE ARCHITECTURE INVERSION (user's question was the key)**: the original KEEPS the stock

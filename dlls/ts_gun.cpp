@@ -510,8 +510,6 @@ bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iAttach)
 	}
 
 	it.attach &= fwi->attachSupported; // @0x70d43 — clamp to the mountable set
-	ALERT(at_console, "TSBUY TakeWeapon type %d iAttach %d -> attach %d (supported %d)\n",
-		(int)type, iAttach, it.attach, fwi->attachSupported); // round-7i diagnostic
 	// attached laser/flash start ACTIVE (@0x70d55-0x70d76)
 	if (it.attach & 2)
 		it.active |= 2;
