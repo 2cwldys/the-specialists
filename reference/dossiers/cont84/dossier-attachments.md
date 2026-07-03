@@ -384,3 +384,6 @@ reuse the field (shotgun rack via pump.sc's direct EV_PlaySound, cont83 §3, sti
 - ADDENDUM 2 (round 7h): the scope OVERLAY applies to EVERY sub-40 zoom (mp5k included, not
   just rifles): the whole reticle swaps to the scoped one (black mask + cross); with a
   lasersight the laser DOT stays pinned static at the centre, exactly like unzoomed.
+- ADDENDUM 3 (round 7h): zooms AT/ABOVE fov 40 (deagle 60) = FOV change ONLY — normal
+  reticle, viewmodel stays, NO scope overlay. The overlay/reticle-swap/model-hide bundle is
+  strictly the sub-40 class (m4 26, mp5k 32, aug 26, m82 …). One threshold drives all three.
