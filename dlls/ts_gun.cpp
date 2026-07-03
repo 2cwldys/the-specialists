@@ -1664,9 +1664,13 @@ void CTSGun::CCombatAttack()
 			ppev->iuser4 |= iuserSet; // duck-kick: PRONE|STOP; side-kick: PRONE
 		if (setDuckView)
 		{
-			// "land low, then get up": drop the view + arm the roll-getup timer (Play recovers it).
+			// "land low, then get up": drop the view + arm the roll-getup timer (CTSStunt::Play recovers).
 			ppev->view_ofs = Vector(0, 0, 16);
-			m_pPlayer->m_TSStunt.m_flRollTime = 2.0f; // stunt+0x4 (orig player+0x4f4)
+			// FEEL STOPGAP (user): the original arms 2.0 BUT the getup ALSO fires early on the un-RE'd
+			// stand-up latch (player+0x78, CTSStunt::Play @0x8a014: `m_flRollTime<0.01 || player+0x78`),
+			// so the effective recover is ~1s. We lack that latch (flagged for a live trace), so shorten
+			// the fallback timer to ~1s to match the feel. Restore 2.0 + wire player+0x78 when RE'd.
+			m_pPlayer->m_TSStunt.m_flRollTime = 1.0f; // stunt+0x4 (orig player+0x4f4)
 		}
 
 		// on-ground kicks self-root the attacker briefly after the swing (gated on the STOP bit clear).
