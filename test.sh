@@ -27,9 +27,16 @@ fi
 cd "$XASH"
 # GDB=<script.gdb> launches xash UNDER gdb in batch mode (gdb becomes the parent, which
 # satisfies ptrace_scope=1 with no sudo) so a watch/trace script can drive the live build
-# and log to a file. Default (GDB unset) launches normally.
+# and log to a file. GDB=1 (or GDB=attach) launches under PLAIN gdb — no script: it runs
+# the game and CATCHES a segfault/hang at the gdb prompt (`bt` for the backtrace; `c` to
+# continue). NB with the mouse grabbed, reach the prompt from ANOTHER terminal or a TTY —
+# or use `kill -TRAP <xash pid>` to break in. Default (GDB unset) launches normally.
 if [ -n "$GDB" ]; then
 	export LD_LIBRARY_PATH=.   # gdb passes its env to the inferior
+	if [ "$GDB" = "1" ] || [ "$GDB" = "attach" ]; then
+		# plain interactive gdb: auto-run, stay attached; on crash you get the prompt.
+		exec gdb -nx -ex run --args ./xash3d -dev 2 -game ts +deathmatch 1 +maxplayers 8 +map "$MAP"
+	fi
 	exec gdb -batch -nx -x "$GDB" --args ./xash3d -dev 2 -game ts +deathmatch 1 +maxplayers 8 +map "$MAP"
 fi
 LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +deathmatch 1 +maxplayers 8 +map "$MAP"
