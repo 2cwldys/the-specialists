@@ -356,6 +356,29 @@ void CBasePlayer::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vec
 				sprintf(snd, "player/bodyhit%d.wav", RANDOM_LONG(1, 4));
 			EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, snd, VOL_NORM, ATTN_NORM, 0, PITCH_NORM);
 		}
+
+		// PTakeDam — the TS pain/hit-feedback wire (disassembled verbatim, dossier-gmsg U4a):
+		// throttled to one send per 0.3 s; damage encoded as dmg*0.5 (x8 first when damage bit 25
+		// is set), capped at 127, +128 marks an upper-body hit (chest..right arm). MSG_PVS at the
+		// victim's origin: hit point (3 COORDs) + hit direction (3 COORDs) + the encoded byte.
+		if (m_flNextPTakeDamTime <= gpGlobals->time)
+		{
+			m_flNextPTakeDamTime = gpGlobals->time + 0.3f;
+			float enc = flDamage * (((bitsDamageType & (1 << 25)) != 0) ? 8.0f : 1.0f) * 0.5f;
+			if (enc > 127.0f)
+				enc = 127.0f;
+			if (m_LastHitGroup >= HITGROUP_CHEST && m_LastHitGroup <= HITGROUP_RIGHTARM)
+				enc += 128.0f;
+			MESSAGE_BEGIN(MSG_PVS, gmsgTSTakeDamage, pev->origin);
+			WRITE_COORD(ptr->vecEndPos.x);
+			WRITE_COORD(ptr->vecEndPos.y);
+			WRITE_COORD(ptr->vecEndPos.z);
+			WRITE_COORD(vecDir.x);
+			WRITE_COORD(vecDir.y);
+			WRITE_COORD(vecDir.z);
+			WRITE_BYTE((int)enc);
+			MESSAGE_END();
+		}
 #endif
 	}
 }
@@ -4414,14 +4437,8 @@ void CBasePlayer::UpdateClientData()
 		// only send down damage type that have hud art
 		int visibleDamageBits = m_bitsDamageType & DMG_SHOWNHUD;
 
-		MESSAGE_BEGIN(MSG_ONE, gmsgDamage, NULL, pev);
-		WRITE_BYTE(pev->dmg_save);
-		WRITE_BYTE(pev->dmg_take);
-		WRITE_LONG(visibleDamageBits);
-		WRITE_COORD(damageOrigin.x);
-		WRITE_COORD(damageOrigin.y);
-		WRITE_COORD(damageOrigin.z);
-		MESSAGE_END();
+		// (no Damage send — the original registers the stock Damage message but NEVER sends it;
+		// the pain feedback rides PTakeDam from TraceAttack. dossier-gmsg U4a.)
 
 		pev->dmg_take = 0;
 		pev->dmg_save = 0;

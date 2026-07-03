@@ -509,6 +509,7 @@ public:
 	byte m_iAward = 0;                                    // 0x74c — the broadcast award/status byte: 0 clear,
 	                                                      // 1 out-of-round, 2/3/4 kill tiers, 10 The One, 11 respawning
 	byte m_iClientAward = 0;                              // 0x74d — last TSPAward value broadcast
+	float m_flNextPTakeDamTime = 0;                       // 0x750 (invented name) — PTakeDam send throttle (+0.3 s)
 	void TSUse();                                         // @0x856e0 — server-side double-tap +use -> UsePowerUp
 	float m_flUseDoubleTap = 0;                           // 0x164 — the double-tap +use window deadline
 	float m_flSetMaxSpeed = 0;                            // 0x550 — the last SetPlayerSpeed value (clamped)

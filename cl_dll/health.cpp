@@ -29,6 +29,7 @@
 
 DECLARE_MESSAGE(m_Health, Health)
 DECLARE_MESSAGE(m_Health, Damage)
+DECLARE_MESSAGE(m_Health, PTakeDam)
 
 #define PAIN_NAME "sprites/%d_pain.spr"
 #define DAMAGE_NAME "sprites/%d_dmg.spr"
@@ -54,6 +55,7 @@ bool CHudHealth::Init()
 {
 	HOOK_MESSAGE(Health);
 	HOOK_MESSAGE(Damage);
+	HOOK_MESSAGE(PTakeDam); // the TS pain wire (the stock Damage stays hooked — the original client hooks BOTH)
 	m_iHealth = 100;
 	m_fFade = 0;
 	m_iFlags = 0;
@@ -136,6 +138,25 @@ bool CHudHealth::MsgFunc_Damage(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
+
+// PTakeDam — the TS pain/hit-feedback wire (dossier-gmsg U4a): hit point (3 COORDs), hit
+// direction (3 COORDs), encoded damage byte (bit7 = upper-body hit, low 7 bits = dmg*0.5,
+// x8 pre-scale under damage bit 25). Feeds the directional pain indicator from the hit
+// point; the bit7 decode + the hit-point client effect are a VERIFY tail (FUN_10048840).
+bool CHudHealth::MsgFunc_PTakeDam(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	Vector vecPoint, vecDir;
+	for (int i = 0; i < 3; i++)
+		vecPoint[i] = READ_COORD();
+	for (int i = 0; i < 3; i++)
+		vecDir[i] = READ_COORD();
+	const int enc = READ_BYTE();
+	if (enc != 0)
+		CalcDamageDirection(vecPoint);
+	m_iFlags |= HUD_ACTIVE;
+	return true;
+}
 
 // Returns back a color from the
 // Green <-> Yellow <-> Red ramp

@@ -57,4 +57,8 @@ inline int gmsgVGUIMenu = 0;
 inline int gmsgSelAmmo = 0;  // "SelAmmo" 4 — the FIRST registration + the already-linked guard
 inline int gmsgClipInfo = 0; // "ClipInfo" 1 — original registers it; the grid rides WStatus
 
+// "PTakeDam" 13 — the pain-direction/hit-feedback message (6 COORDs + BYTE encoded damage),
+// sent MSG_PVS from CBasePlayer::TraceAttack (throttled 0.3 s). dossier-gmsg U4a.
+inline int gmsgTSTakeDamage = 0;
+
 void LinkUserMessages();

@@ -71,6 +71,10 @@ void LinkUserMessages()
 	// ClipInfo: registered, never sent (original parity — the arsenal grid rides WStatus).
 	gmsgClipInfo = REG_USER_MSG("ClipInfo", 1);
 
+	// PTakeDam: the TS pain/hit-feedback wire (the stock Damage message stays REGISTERED for
+	// parity but is never sent — the original never sends it either).
+	gmsgTSTakeDamage = REG_USER_MSG("PTakeDam", 13);
+
 	// (StatusText/StatusValue/Weapons NOT registered — invented HLU-leftover registrations
 	// removed for registration-set parity, dossier-gmsg U0. The stock sends are neutered in
 	// player.cpp; the HLU 64-bit weapon-bits message removal is PLAYTEST-GATED.)
