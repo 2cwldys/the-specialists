@@ -59,6 +59,11 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iPrice = 0;           // set from the price table below
 	w->iBodySilencer = w->iBodyLaser = w->iBodyFlash = w->iBodyScope = 0;
 	w->iBodyLaserFlash = -1;
+	w->flReloadTime = 0;         // +0x14 — set from the kReloadTime column below
+	w->iStackable = 0;           // +0xdc — knife/sealknife/m61 override below
+	w->iIdleAnimHold = -1;       // +0x28c hold block [0] — set from kHoldIdle below
+	w->iReloadKeepAnim = -1;     // +0x262 block [8] — shell-retained reload (sawed-off)
+	w->iReloadKeepAnimHold = -1; // +0x29c hold twin
 }
 
 // SetSpartaWeapon (ts_i386.so @0x6fa34): the combat-param override applied after the Write_<weapon> stage.
@@ -494,6 +499,52 @@ static void compile_weapons_info()
   };
   for (int i = 0; i < TSW_COUNT; i++)
     g_weaponInfo[i].slotCost = kSlotCost[i];
+
+  // Reload duration per weapon (s_weapon_info+0x14), disasm-read from every Write_<weapon>
+  // (movl $<float bits>,0x14). Whole-clip reload delay (ReloadWeapon's flDuration via Reload);
+  // for the pump shotguns (0.3) it's ShotgunReload's per-SHELL insert period. melee = unset (0).
+  static const float kReloadTime[TSW_COUNT] = {
+    /* 0*/ 0.0f,  /* 1*/ 1.5f,  /* 2*/ 1.2f,  /* 3*/ 2.2f,  /* 4*/ 0.3f,  /* 5*/ 2.8f,
+    /* 6*/ 2.3f,  /* 7*/ 2.3f,  /* 8*/ 2.4f,  /* 9*/ 1.5f,  /*10*/ 2.5f,  /*11*/ 3.0f,
+    /*12*/ 2.1f,  /*13*/ 2.5f,  /*14*/ 1.5f,  /*15*/ 2.4f,  /*16*/ 3.0f,  /*17*/ 1.0f,
+    /*18*/ 2.0f,  /*19*/ 2.5f,  /*20*/ 0.3f,  /*21*/ 2.3f,  /*22*/ 2.0f,  /*23*/ 2.5f,
+    /*24*/ 1.0f,  /*25*/ 1.0f,  /*26*/ 0.3f,  /*27*/ 2.8f,  /*28*/ 1.3f,  /*29*/ 1.0f,
+    /*30*/ 3.0f,  /*31*/ 2.0f,  /*32*/ 3.0f,  /*33*/ 1.7f,  /*34*/ 1.0f,  /*35*/ 1.0f,
+    /*36*/ 1.35f, /*37*/ 2.0f,
+  };
+  for (int i = 0; i < TSW_COUNT; i++)
+    g_weaponInfo[i].flReloadTime = kReloadTime[i];
+
+  // Stackable flag (s_weapon_info+0xdc, movb $1,0xdc in Write_knife/sealknife/m61): the clip is
+  // a COUNT of carried units — slot cost charged per unit, MultiplyClips adds units.
+  g_weaponInfo[TSW_KNIFE].iStackable = 1;
+  g_weaponInfo[TSW_SEALKNIFE].iStackable = 1;
+  g_weaponInfo[TSW_M61].iStackable = 1;
+
+  // Hold-stance idle anims — the HOLD anim block's [0] (short at wi+0x28c, disasm-read;
+  // 0xffff = no hold block, left -1). The normal block's [0] is 0 for every weapon (idle).
+  {
+    static const int kHoldIdle[TSW_COUNT] = {
+      /* 0*/-1, /* 1*/-1, /* 2*/-1, /* 3*/ 7, /* 4*/-1, /* 5*/ 7, /* 6*/-1, /* 7*/ 7,
+      /* 8*/13, /* 9*/ 5, /*10*/ 6, /*11*/-1, /*12*/ 6, /*13*/ 4, /*14*/-1, /*15*/-1,
+      /*16*/-1, /*17*/-1, /*18*/-1, /*19*/-1, /*20*/-1, /*21*/-1, /*22*/-1, /*23*/-1,
+      /*24*/-1, /*25*/-1, /*26*/ 3, /*27*/ 7, /*28*/-1, /*29*/-1, /*30*/-1, /*31*/-1,
+      /*32*/-1, /*33*/ 5, /*34*/-1, /*35*/-1, /*36*/-1, /*37*/-1,
+    };
+    for (int i = 0; i < TSW_COUNT; i++)
+      g_weaponInfo[i].iIdleAnimHold = kHoldIdle[i];
+  }
+
+  // Shell-retained reload — anim block [8] (wi+0x262 / hold +0x29c, disasm-read). Reload only
+  // consults it for the SAWED-OFF with a shell chambered (@0x74d5c); the pump shotguns' [8] is
+  // their reload1 (the ShotgunReload open), melee's 6 is unused by the reload path.
+  g_weaponInfo[TSW_BENELLIM3].iReloadKeepAnim = 2;
+  g_weaponInfo[TSW_SPAS12].iReloadKeepAnim = 2;
+  g_weaponInfo[TSW_MOSSBERG].iReloadKeepAnim = 8;
+  g_weaponInfo[TSW_MOSSBERG].iReloadKeepAnimHold = 13;
+  g_weaponInfo[TSW_SAWEDOFF].iReloadKeepAnim = 9;
+  g_weaponInfo[TSW_SAWEDOFF].iReloadKeepAnimHold = 10;
+  g_weaponInfo[TSW_MELEE].iReloadKeepAnim = 6;
 
   // Hold-position (alternate stance) toggle per weapon — RE: CTSGun::SecondaryAttack@0x717a8 toggles
   // the stance on any non-akimbo, non-scoped gun whose hold anim-block idle (wi+0x28c) is set. Each

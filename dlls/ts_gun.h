@@ -40,6 +40,10 @@ struct TSItem
 	// item+0x8 for the blades — BLOODY-BLADE state, set on a player hit: drives the gun's pev->body = 1
 	// (bloody w_/p_ submodel) and rides the knife.sc/katana.sc events as iparam2 (bloody viewmodel).
 	int  bloody = 0;
+	// item pumpToggle byte — the pump fire/rack alternation AND the akimbo barrel side (one byte in
+	// the original). PARKED per item: HolsterWeapon clears reloading+burstOrPhase but NOT this
+	// (@0x85698), so the rack/barrel step survives a weapon switch. Live mirror = m_fInSpecialReload.
+	int  pumpToggle = 0;
 };
 
 class CTSGun : public CBasePlayerWeapon
@@ -57,12 +61,17 @@ public:
 	bool Deploy() override;
 	bool UpdateClientData(CBasePlayer *pPlayer) override; // sends the TS WeaponInfo HUD message
 	void SendWeaponStatus(CBasePlayer *pPlayer);          // sends the WStatus weapon-bar messages
-	void ItemPostFrame() override;
+	// NB: the per-frame driver is the BASE CBasePlayerWeapon::ItemPostFrame (weapons_shared.cpp) —
+	// the original TS rewrote the base method for its single arsenal weapon (@0x903d4, m_iId==0x10
+	// gate); CTSGun does NOT override it.
 	bool ShouldWeaponIdle() override { return true; } // @0x87274 — always allow idle (the original returns 1)
 	void PrimaryAttack() override;
 	void SecondaryAttack() override;             // @SecondaryAttack__6CTSGun @0x717a8 — the right-click dispatcher
 	void Reload() override;
-	void ShotgunReload(); // @ ShotgunReload__6CTSGun @0x84aac — pump shell-by-shell 3-phase machine
+	int  ReloadWeapon(int iClipSize, int iAnim, float flDuration); // @ ReloadWeapon__6CTSGuniif @0x74a14 — arm a whole-clip reload
+	void StopReload();    // @ StopReload__6CTSGun @0x71288 — abort an in-progress reload (ColdCock/MultiplyClips)
+	void EmptySound();    // @ EmptySound__6CTSGun @0x71be4 — dry-fire click via events/empty.sc + 0.1s re-arm
+	void ShotgunReload(); // @ ShotgunReload__6CTSGun @0x74aac — pump shell-by-shell 3-phase machine
 	void WeaponIdle() override;
 	int  AddItem(int bits); // @ AddItem__6CTSGuni @0x80794 — attach a gun item (silencer/laser/.. bits 1/2/4/8) to the active weapon
 #ifndef CLIENT_DLL
@@ -89,7 +98,7 @@ public:
 	void GetWeaponData(weapon_data_t &data) override; // server: pack the TS-specific active state (3c)
 	void SetWeaponData(const weapon_data_t &data) override; // client: unpack it before ItemPostFrame (3c)
 
-	void AlternateAttack();                      // @AlternateAttack — +alt2: coldcock if a round is loaded
+	void AlternateAttack() override;             // @AlternateAttack @0x71ba8 — +alt2 (IN_CANCEL): ColdCock if the weapon can
 	void ColdCock();                             // @ColdCock — a quick pistol-whip melee bash
 	void Fire();                                 // dispatch one shot by fire-type
 	void StandardFire(const s_weapon_info *wi);  // bullet/pellet fire (StandardFire)
@@ -106,7 +115,7 @@ public:
 	                                             // (fForce=1 = holster put-away throw), post-throw consume
 	void KatanaFire();                           // @KatanaFire__6CTSGun @0x733f0 — the 5-stance katana slash
 	void KatanaThrow();                          // @KatanaThrow__6CTSGun @0x73b68 — right-click HURLS the katana
-	void AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5)
+	bool AkimboFire(const s_weapon_info *wi);    // dual-wield fire-types (4/5); false = dry (Fire skips the anim)
 	void SwitchFireMode();                       // cycle the held weapon's fire-mode
 	void SwitchItems();                          // @SwitchItems__6CTSGun (useitems) — toggle ACTIVE attachments (laser/flash)
 	int  GetActiveItems() const;                 // @GetActiveItems__6CTSGun — active attach mask (+0x40 if akimbo)
@@ -141,16 +150,21 @@ public:
 	const s_weapon_info *m_pActiveInfo = nullptr; // +0xd0 — the active weapon's static template
 	int m_ammoReserve[TS_NUM_CALIBERS] = {};   // spare rounds PER CALIBER (gun+0xd4 in the .so)
 	int m_lastType = TSW_MELEE; // previously-wielded type (for the `lastinv` toggle, player+0xa1c)
-	int m_akimboSide = 0; // which barrel fired last (alternates muzzle L/R for akimbo)
 	int m_fireMode = TSFM_SEMI; // ACTIVE fire-mode (= m_arsenalMode[m_active])
 	bool m_bHoldPosition = false; // ACTIVE weapon's hold-position stance (= m_pActiveItem+0x2c); see SecondaryAttack
-	int m_shotgunPhase = 0;       // pump-shotgun reload phase (= m_pActiveItem+8): 0 open, 1 insert-per-shell, 2 close
-	// Pump-shotgun fire/rack alternation toggle (= m_pActiveItem+0x24 in ShotgunFire). We store it in the
-	// INHERITED CBasePlayerWeapon::m_fInSpecialReload (CTSGun doesn't otherwise use it) because that member is
-	// already mirrored BOTH ways in the client-prediction code (cl_dll/hl/hl_weapons.cpp) — so the toggle is
-	// predicted for free and the host stays in sync with the server (a non-predicted toggle desyncs → the
-	// host fires every step = infinite-fire; the hard lesson, see [[predicted-weapon-gotchas]]).
-	int m_burstCount = 0;       // rounds left in the current burst (m_pActiveItem+8)
+	// item+0x8 burstOrPhase — ONE per-item slot in the original serving three machines by context:
+	// burst rounds-left (WeaponIdle's burst continuation), the pump-reload phase (ShotgunReload
+	// 0 open / 1 insert / 2 close), and the grenade cook phase (GrenadeFire/GrenadeIdle). Cleared
+	// on holster (@0x85698). Live mirror of the active item's slot.
+	int m_burstOrPhase = 0;
+	// item pumpToggle — the pump fire/rack alternation AND the akimbo barrel side (one item byte in
+	// the original; Fire's akimbo 3rd-person anim reads it as 8+(toggle!=0)). We keep the live copy in
+	// the INHERITED CBasePlayerWeapon::m_fInSpecialReload (CTSGun doesn't otherwise use it) because that
+	// member is already mirrored BOTH ways in the client-prediction code (cl_dll/hl/hl_weapons.cpp) — so
+	// the toggle is predicted for free and the host stays in sync with the server (a non-predicted toggle
+	// desyncs → the host fires every step = infinite-fire; see [[predicted-weapon-gotchas]]). Parked to
+	// TSItem::pumpToggle on holster (it survives switches, unlike burstOrPhase/reloading).
+	float m_flNextAlternateAttack = 0; // gun+0xa4 — the +alt2 (IN_CANCEL) gate, armed by ColdCock (+0.725)
 	float m_flLastShotTime = 0; // gun+0x9e8 — last bullet-fire time, for ScaleSpread's per-shot recovery
 	int m_comboStep = 0;        // kung-fu PUNCH combo counter (this+0x9fc in the .so): 3 jabs → uppercut, reset on finisher
 	int m_kickCombo = 0;        // kung-fu KICK combo counter (this+0xa00 in the .so): 3 kicks → spin finisher, reset on finisher/dive
@@ -162,6 +176,9 @@ public:
 	unsigned short m_usMelee = 0; // events/knife.sc handle (gun+0x972): every knife slash, iparam1=weaponType, iparam2=bloody
 	unsigned short m_usKatana = 0; // events/katana.sc handle (gun+0x974): every katana swing, iparam1=vmAnim, iparam2=bloody
 	unsigned short m_usGrenade = 0; // events/grenade.sc handle (gun+0x978): iparam1 = 19 pin / 20 overhand / 21 underhand
+	unsigned short m_usEmpty = 0;  // events/empty.sc handle (gun+0x968): the dry-fire click (all params 0)
+	unsigned short m_usReload = 0; // events/reload.sc handle (gun+0x970): iparam1=type, iparam2=attach,
+	                               // fparam1 = 0 whole-clip / 8 pump-open / 9 shell-insert / 10 pump-close
 
 	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends
 	// WeaponInfo on change from CTSGun::UpdateClientData @0x758c8; we mirror that.

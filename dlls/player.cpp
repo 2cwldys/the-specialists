@@ -2986,6 +2986,14 @@ pt_end:
 
 					gun->DecrementTimers();
 
+					// TS: the alternate-attack gate (gun+0xa4) decrements like the other
+					// predicted timers (the base ItemPostFrame CanAttack()s it for IN_CANCEL).
+					if (gun->m_iId == TSGUN_WEAPON_ID)
+					{
+						CTSGun* ts = static_cast<CTSGun*>(gun);
+						ts->m_flNextAlternateAttack = V_max(ts->m_flNextAlternateAttack - slowFrametime, -0.001f);
+					}
+
 					// Only decrement if not flagged as NO_DECREMENT
 					//					if ( gun->m_flPumpTime != 1000 )
 					//	{

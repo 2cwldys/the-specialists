@@ -773,11 +773,6 @@ void ClientCommand(edict_t* pEntity)
 		if (player->IsObserver())
 			player->Observer_FindNextPlayer(atoi(CMD_ARGV(1)) != 0);
 	}
-	else if (FStrEq(pcmd, "+alt2"))
-	{
-		// +alt2 = coldcock (pistol-whip) the held TS weapon.
-		TSAlternateAttack(player);
-	}
 	else if (FStrEq(pcmd, "buy")) // TS: (re)open the buy/config menu — only while spectating
 	{
 		// The buy/config menu belongs to the spectate-wait (press-fire-to-play) phase;
@@ -785,7 +780,7 @@ void ClientCommand(edict_t* pEntity)
 		if (player->m_fInSpectateWait)
 			player->TSSendBuyMenu();
 	}
-	else if (FStrEq(pcmd, "+alt1") || FStrEq(pcmd, "-alt1") || FStrEq(pcmd, "-alt2") ||
+	else if (FStrEq(pcmd, "+alt1") || FStrEq(pcmd, "-alt1") ||
 			 FStrEq(pcmd, "+break") || FStrEq(pcmd, "-break") ||
 			 FStrEq(pcmd, "special"))
 	{

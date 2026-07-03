@@ -18,6 +18,8 @@
 #include "player.h"
 #include "weapons.h"
 #include "gamerules.h"
+#include "ts_gun.h" // TS: the base ItemPostFrame IS the tsgun's per-frame driver (@0x903d4)
+#include "in_buttons.h"
 
 // Precaches the ammo and queues the ammo info for sending to clients
 void AddAmmoNameToAmmoRegistry(const char* szAmmoname, const char* weaponName)
@@ -117,89 +119,109 @@ bool CanAttack(float attack_time, float curtime, bool isPredicted)
 	}
 }
 
+// @ ItemPostFrame__17CBasePlayerWeapon (@0x903d4, original TU TS_weapons.cpp, decompile-exact) —
+// TS REWROTE the stock per-frame driver for its single arsenal weapon: anything that isn't the
+// tsgun (m_iId != 0x10) returns immediately (the original mod ships no stock weapons).
+//
+// BARE HANDS (no active item): attack2 / attack through their CanAttack gates, +reload ->
+// Reload() (which routes to the kung-fu block), then WeaponIdle() unconditionally.
+//
+// WIELDED ITEM:
+//  1. RELOAD COMPLETION — the item's reloading flag (item+0xc, our m_fInReload) was armed by
+//     ReloadWeapon with the player's m_flNextAttack as the clock; when it elapses: refill the
+//     clip from the caliber reserve, split the left/right barrel mirrors, and sync the AKIMBO
+//     pairing (reloading an akimbo mirrors half into its single's parked clip; reloading a
+//     single tops up its akimbo's parked pool).
+//  2. DISPATCH — attack2 -> SecondaryAttack; attack -> PrimaryAttack (the CONTENDER refuses on
+//     an empty chamber); IN_CANCEL (the original client's +alt2 button bit, 0x40) ->
+//     AlternateAttack through the m_flNextAlternateAttack gate; +reload (not mid-reload, not
+//     the contender) -> Reload.
+//  3. WeaponIdle() EVERY frame (ShouldWeaponIdle-gated after an action; direct when no attack
+//     buttons are down) — WeaponIdle self-paces on its timers and drives the pump/burst/cook
+//     machines.
 void CBasePlayerWeapon::ItemPostFrame()
 {
-	if ((m_fInReload) && (m_pPlayer->m_flNextAttack <= UTIL_WeaponTimeBase()))
+	if (m_iId != TSGUN_WEAPON_ID)
+		return; // the original mod runs NO stock weapons through this
+	CTSGun *gun = static_cast<CTSGun *>(this);
+
+	if (!gun->m_pActiveItem)
 	{
-		// complete the reload.
-		int j = V_min(iMaxClip() - m_iClip, m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType]);
-
-		// Add them to the clip
-		m_iClip += j;
-		m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType] -= j;
-
-		m_pPlayer->TabulateAmmo();
-
-		m_fInReload = false;
-	}
-
-	if ((m_pPlayer->pev->button & IN_ATTACK) == 0)
-	{
-		m_flLastFireTime = 0.0f;
-	}
-
-	if ((m_pPlayer->pev->button & IN_ATTACK2) != 0 && CanAttack(m_flNextSecondaryAttack, gpGlobals->time, UseDecrement()))
-	{
-		if (pszAmmo2() && 0 == m_pPlayer->m_rgAmmo[SecondaryAmmoIndex()])
-		{
-			m_fFireOnEmpty = true;
-		}
-
-		m_pPlayer->TabulateAmmo();
-		SecondaryAttack();
-		m_pPlayer->pev->button &= ~IN_ATTACK2;
-	}
-	else if ((m_pPlayer->pev->button & IN_ATTACK) != 0 && CanAttack(m_flNextPrimaryAttack, gpGlobals->time, UseDecrement()))
-	{
-		if ((m_iClip == 0 && pszAmmo1()) || (iMaxClip() == -1 && 0 == m_pPlayer->m_rgAmmo[PrimaryAmmoIndex()]))
-		{
-			m_fFireOnEmpty = true;
-		}
-
-		m_pPlayer->TabulateAmmo();
-		PrimaryAttack();
-	}
-	else if ((m_pPlayer->pev->button & IN_RELOAD) != 0 && iMaxClip() != WEAPON_NOCLIP && !m_fInReload)
-	{
-		// reload when reload is pressed, or if no buttons are down and weapon is empty.
-		Reload();
-	}
-	else if ((m_pPlayer->pev->button & (IN_ATTACK | IN_ATTACK2)) == 0)
-	{
-		// no fire buttons down
-
-		m_fFireOnEmpty = false;
-
-		if (!IsUseable() && m_flNextPrimaryAttack < (UseDecrement() ? 0.0 : gpGlobals->time))
-		{
-#ifndef CLIENT_DLL
-			// weapon isn't useable, switch.
-			if ((iFlags() & ITEM_FLAG_NOAUTOSWITCHEMPTY) == 0 && g_pGameRules->GetNextBestWeapon(m_pPlayer, this))
-			{
-				m_flNextPrimaryAttack = (UseDecrement() ? 0.0 : gpGlobals->time) + 0.3;
-				return;
-			}
-#endif
-		}
-		else
-		{
-			// weapon is useable. Reload if empty and weapon has waited as long as it has to after firing
-			if (m_iClip == 0 && (iFlags() & ITEM_FLAG_NOAUTORELOAD) == 0 && m_flNextPrimaryAttack < (UseDecrement() ? 0.0 : gpGlobals->time))
-			{
-				Reload();
-				return;
-			}
-		}
-
+		// KUNG-FU (bare hands).
+		if ((m_pPlayer->pev->button & IN_ATTACK2) != 0 &&
+			CanAttack(m_flNextSecondaryAttack, gpGlobals->time, UseDecrement()))
+			SecondaryAttack();
+		else if ((m_pPlayer->pev->button & IN_ATTACK) != 0 &&
+			CanAttack(m_flNextPrimaryAttack, gpGlobals->time, UseDecrement()))
+			PrimaryAttack();
+		else if ((m_pPlayer->pev->button & IN_RELOAD) != 0)
+			Reload(); // -> CCombatBlock
 		WeaponIdle();
 		return;
 	}
 
-	// catch all
-	if (ShouldWeaponIdle())
+	// 1. RELOAD COMPLETION (@0xa0455).
+	if (gun->m_fInReload && m_pPlayer->m_flNextAttack <= UTIL_WeaponTimeBase())
 	{
-		WeaponIdle();
+		const s_weapon_info *wi = gun->m_pActiveInfo;
+		TSItem &it = *gun->m_pActiveItem;
+		const int caliber = wi->iCaliber;
+		const int reserve = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? gun->m_ammoReserve[caliber] : 0;
+		const int need = wi->iClip - gun->m_iClip;
+		const int take = (need < reserve) ? need : reserve;
+		gun->m_iClip += take;
+		it.clip = gun->m_iClip;
+		it.leftClip = it.clip / 2; // the barrel split is unconditional in the original
+		it.rightClip = it.clip - it.leftClip;
+		if (wi->iFireType == TSFT_AKIMBO)
+		{
+			// reloading the AKIMBO mirrors one barrel into the single's parked clip
+			if (wi->iSingleType >= 0 && wi->iSingleType < TSW_COUNT && wi->iSingleType != gun->m_weaponType)
+				gun->m_items[wi->iSingleType].clip = it.leftClip;
+		}
+		else if (wi->iAkimboType != -1)
+		{
+			// reloading the SINGLE tops up its akimbo's parked pool
+			gun->m_items[wi->iAkimboType].clip += take;
+			gun->m_items[wi->iAkimboType].leftClip = it.clip;
+		}
+		if (caliber > 0 && caliber < TS_NUM_CALIBERS)
+			gun->m_ammoReserve[caliber] -= take;
+		gun->m_fInReload = false; // item+0xc
 	}
+
+	// 2. DISPATCH.
+	bool idleDirect = false;
+	if ((m_pPlayer->pev->button & IN_ATTACK2) != 0 &&
+		CanAttack(m_flNextSecondaryAttack, gpGlobals->time, UseDecrement()))
+	{
+		SecondaryAttack();
+	}
+	else if ((m_pPlayer->pev->button & IN_ATTACK) != 0 &&
+		CanAttack(m_flNextPrimaryAttack, gpGlobals->time, UseDecrement()) &&
+		(gun->m_weaponType != TSW_CONTENDER || gun->m_iClip != 0))
+	{
+		PrimaryAttack();
+	}
+	else if ((m_pPlayer->pev->button & IN_CANCEL) != 0 &&
+		CanAttack(gun->m_flNextAlternateAttack, gpGlobals->time, UseDecrement()))
+	{
+		gun->AlternateAttack(); // +alt2 = the IN_CANCEL bit (0x40); ColdCock re-arms the gate
+	}
+	else if ((m_pPlayer->pev->button & IN_RELOAD) != 0 && !gun->m_fInReload &&
+		gun->m_weaponType != TSW_CONTENDER)
+	{
+		Reload();
+	}
+	else if ((m_pPlayer->pev->button & (IN_ATTACK | IN_ATTACK2)) == 0)
+	{
+		idleDirect = true; // no fire buttons: straight to WeaponIdle (skips ShouldWeaponIdle)
+	}
+
+	// 3. IDLE (every frame — WeaponIdle self-paces).
+	if (!idleDirect && !ShouldWeaponIdle())
+		return;
+	WeaponIdle();
 }
 
 void CBasePlayer::SelectLastItem()

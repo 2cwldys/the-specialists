@@ -25,17 +25,14 @@
 #include "hud.h"
 #include "cl_util.h"
 
-// Forward a bare command to the server (the gameplay handler is server-side).
-static void Fwd(const char* cmd)
-{
-	char buf[64];
-	sprintf(buf, "%s\n", cmd);
-	ServerCmd(buf);
-}
-
-// TS alt-fire / action inputs — forwarded to the server.
-static void IN_Alt2Down() { Fwd("+alt2"); }
-static void IN_Alt2Up() { Fwd("-alt2"); }
+// +alt2 (coldcock) is a BUTTON, not a server command: the original client's +alt2 sets the
+// IN_CANCEL bit (0x40) in the usercmd, and the SERVER's base ItemPostFrame dispatches
+// AlternateAttack off `pev->button & IN_CANCEL` (@0x903d4 — the original server has no
+// "+alt2" ClientCommand at all; ours was removed for parity). input.cpp already maps the
+// `in_cancel` state to the IN_CANCEL bit in CL_ButtonBits.
+extern bool in_cancel; // cl_dll/input.cpp
+static void IN_Alt2Down() { in_cancel = true; }
+static void IN_Alt2Up() { in_cancel = false; }
 
 // `buy` (bound to `b` in the original) opens/closes the buy/config menu — the REAL HUD-drawn cascade
 // (CHudTSBuyMenu), driven by number keys. Only in the spectate-wait (buy) phase, so it can't be

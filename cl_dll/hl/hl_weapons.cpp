@@ -856,6 +856,10 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 
 		pCurrent->DecrementTimers();
 
+		// TS: the alternate-attack gate decrements like the other predicted timers
+		if (pCurrent == &g_TSGun)
+			g_TSGun.m_flNextAlternateAttack = V_max((float)(g_TSGun.m_flNextAlternateAttack - slowMsec), -0.001f);
+
 		pCurrent->GetWeaponData(*pto);
 
 		/*		if ( pto->m_flPumpTime != -9999 )

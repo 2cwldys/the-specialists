@@ -39,9 +39,6 @@ void TSLastInv(CBasePlayer *pPlayer);
 // no active weapon — no viewmodel + ItemPostFrame (firing) never runs. See dlls/ts_gun.cpp.
 void TSDeployArsenal(CBasePlayer *pPlayer);
 
-// Trigger the held TS gun's alternate attack (+alt2 → coldcock pistol-whip).
-void TSAlternateAttack(CBasePlayer *pPlayer);
-
 // The TS bullet path with PENETRATION (orig ShootBulletsPlayer @0x6f69c): fire cShots pellets;
 // bullets punch through thin surfaces (glass/thin walls) to hit + decal what's behind. Server only.
 void TSFireBulletsPenetrate(CBasePlayer *pPlayer, int cShots, Vector vecSrc, Vector vecDir,

@@ -175,11 +175,23 @@ struct s_weapon_info
 	// (GetSpeedBySlots: maxspeed = 210 + (120/81)*remaining) — more/heavier weapons => slower. Also gates
 	// floor pickups (can't pick up what won't fit). Recovered from each Write_<weapon> (+0xd0).
 	int   slotCost;
+	// Reload duration in seconds (s_weapon_info+0x14, disasm-read from every Write_<weapon>):
+	// CTSGun::Reload passes it to ReloadWeapon as the whole-clip delay; for the pump shotguns
+	// (0.3) it's the per-SHELL insert period in ShotgunReload phase 1.
+	float flReloadTime;
+	// STACKABLE flag (s_weapon_info+0xdc): the clip is a COUNT of carried units (knife/
+	// sealknife/m61 grenade = 1). Slot cost is charged PER UNIT (PickUpWeapon multiplies
+	// slotCost by the world item's clip), and MultiplyClips adds units funded by free slots.
+	int   iStackable;
+	// Hold-stance idle anim — the HOLD anim block's entry [0] (short at wi+0x28c); -1 = the
+	// weapon has no hold stance block (65535 in the disasm). Normal-stance idle = iIdleAnim.
+	int   iIdleAnimHold;
+	// Shell-retained reload anim — anim block entry [8] (short at wi+0x262 / hold +0x29c):
+	// Reload uses it ONLY for the sawed-off with a shell still chambered (@0x74d5c weapon 33,
+	// clip > 0). -1 = none.
+	int   iReloadKeepAnim;
+	int   iReloadKeepAnimHold;
 };
-
-// Reload duration (seconds) — // VERIFY against the .so per-weapon reload time (the
-// original reads s_weapon_info+0x14); a single value for now.
-#define TS_RELOAD_TIME 2.0f
 
 // Per-caliber ammo: the 16 calibers, the mag/magazine size, and the max reserve (rounds),
 // from compile_ammo_info (@0x6f51c). Indices match the weapon iCaliber + the FGD ts_groundammo

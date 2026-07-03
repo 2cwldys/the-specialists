@@ -277,9 +277,9 @@ void CTSGun::Reset()
 	m_lastCCTime = 0.0f;
 
 	// per-fire transient timers
-	m_burstCount = 0;
-	m_shotgunPhase = 0;
-	m_akimboSide = 0;
+	m_burstOrPhase = 0;      // item+0x8 (burst/pump-phase/cook)
+	m_fInSpecialReload = 0;  // item pumpToggle (rack step / akimbo side)
+	m_flNextAlternateAttack = 0;
 	m_flLastShotTime = 0.0f;
 
 	// change-detect cache → force a fresh HUD resend next frame
@@ -345,6 +345,8 @@ void CTSGun::SyncActiveToItem()
 	it.clip = m_iClip;
 	it.mode = m_fireMode;
 	it.holdPosition = m_bHoldPosition;
+	it.pumpToggle = m_fInSpecialReload; // the rack/barrel step SURVIVES a switch (holster clears
+	                                    // reloading+burstOrPhase but NOT this byte, @0x85698)
 }
 
 // Load the active item's clip/mode into the live state (Deploy side).
@@ -356,9 +358,8 @@ void CTSGun::LoadActiveFromItem()
 	m_iClip = it.clip;
 	m_fireMode = it.mode;
 	m_bHoldPosition = it.holdPosition;
-	m_burstCount = 0;
-	m_shotgunPhase = 0; // a weapon switch cancels any in-progress pump reload
-	m_fInSpecialReload = 0; // start on a FIRE-step (the pump fire/rack toggle; see ShotgunFire)
+	m_burstOrPhase = 0; // holster cleared the item's burst/pump-phase slot (@0x85698)
+	m_fInSpecialReload = it.pumpToggle; // restore the parked rack/barrel step
 }
 
 // Refresh the cached active-weapon pointers (the original's gun+0xcc/0xd0) from m_weaponType. Call
@@ -385,7 +386,19 @@ int CTSGun::SlotsUsed() const
 	int used = 0;
 	for (int t = 0; t < TSW_COUNT; t++)
 		if (m_items[t].owned)
-			used += get_weapon_info((tsweapon_t)t)->slotCost;
+		{
+			const s_weapon_info *wi = get_weapon_info((tsweapon_t)t);
+			// STACKABLES (knife/sealknife/m61) charge slotCost PER UNIT — the original's
+			// PickUpWeapon multiplies the deduction by the stack's clip (@0x8314c) and
+			// MultiplyClips funds added units from free slots (@0x71308).
+			int units = 1;
+			if (wi->iStackable)
+			{
+				const int count = (t == m_weaponType) ? m_iClip : m_items[t].clip;
+				units = (count > 1) ? count : 1;
+			}
+			used += wi->slotCost * units;
+		}
 	return used;
 }
 
@@ -480,27 +493,54 @@ bool CTSGun::AddAmmo(int caliber, int count)
 	return true;
 }
 
-// @ MultiplyClips__6CTSGun — the ammo (infinite-clip) powerup. USER-DIRECTED: it instantly sets the
-// active weapon's LOADED CLIP to DOUBLE the weapon's max clip (not double the current load), so you can
-// fire 2x before reloading. Returns true if it raised the clip.
+// @ MultiplyClips__6CTSGun (@0x71308, decompile-exact) — the ammo (infinite-clip) powerup.
+// Gates: a wielded item that isn't the m61. Interrupts any reload (StopReload), then:
+//  - STACKABLE (knife/sealknife — wi+0xdc): ADD units up to 2x the default carry (wi->iPellets),
+//    FUNDED by the player's free inventory slots (slotCost per unit; speed recomputed);
+//  - normal: clip = 2x the max; an AKIMBO splits it across the barrels and mirrors HALF into its
+//    single base's parked clip; a SINGLE with an akimbo variant adds half into the akimbo's parked
+//    clip (leftClip = the single's clip).
 bool CTSGun::MultiplyClips()
 {
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	const int want = wi->iClip * 2; // double the MAX clip
-	TSItem &it = m_items[m_weaponType];
-	if (IsWeaponAkimbo(m_weaponType) || IsOnlyAkimbo(m_weaponType)) // akimbo: split across the two barrels (orig calls the free-fn pair)
-	{
-		if (it.leftClip + it.rightClip >= want)
-			return false;
-		it.leftClip = wi->iClip;
-		it.rightClip = wi->iClip;
-		m_iClip = it.leftClip + it.rightClip;
-		return true;
-	}
-	if (m_iClip >= want)
+	if (!m_pActiveItem || !m_pActiveInfo)
 		return false;
-	m_iClip = want;
-	it.clip = want;
+	if (m_weaponType == TSW_M61)
+		return false;
+	StopReload();
+	const s_weapon_info *wi = m_pActiveInfo;
+	TSItem &it = *m_pActiveItem;
+	if (wi->iStackable)
+	{
+		const int wantSlots = (wi->iPellets * 2 - m_iClip) * wi->slotCost;
+		const int freeSlots = TSPlayerFreeSlots(m_pPlayer);
+		const int take = (wantSlots < freeSlots) ? wantSlots : freeSlots;
+		if (wi->slotCost > 0 && take > 0)
+		{
+			m_iClip += take / wi->slotCost; // the free-slot deduction is implicit: stackables
+			it.clip = m_iClip;              // charge slotCost PER UNIT in SlotsUsed
+			m_pPlayer->SetPlayerSpeed(GetSpeedBySlots(m_pPlayer));
+		}
+	}
+	else
+	{
+		it.clip = wi->iClip * 2;
+		if (wi->iAkimboType == -1)
+		{
+			if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+			{
+				it.leftClip = (int)(0.5f * it.clip + 0.5f);
+				it.rightClip = (int)(0.5f * it.clip + 0.5f);
+				if (wi->iSingleType != -1 && wi->iSingleType != m_weaponType)
+					m_items[wi->iSingleType].clip = (int)(0.5f * it.clip + 0.5f);
+			}
+		}
+		else
+		{
+			m_items[wi->iAkimboType].clip += (int)(0.5f * it.clip + 0.5f);
+			m_items[wi->iAkimboType].leftClip = it.clip;
+		}
+		m_iClip = it.clip;
+	}
 	return true;
 }
 
@@ -550,9 +590,8 @@ void CTSGun::HolsterWeapon()
 		}
 		else
 		{
-			m_fInReload = false; // item+0xc
-			m_burstCount = 0;    // item+0x8
-			m_shotgunPhase = 0;  // item+0x8 (the pump-phase share of the same slot)
+			m_fInReload = false;  // item+0xc
+			m_burstOrPhase = 0;   // item+0x8 (burst / pump-phase / cook — one slot)
 		}
 	}
 
@@ -627,6 +666,8 @@ void CTSGun::Precache()
 	m_usMelee = PRECACHE_EVENT(1, "events/knife.sc"); // melee impact spark/decal on a hard surface
 	m_usKatana = PRECACHE_EVENT(1, "events/katana.sc"); // katana swing presentation (gun+0x974)
 	m_usGrenade = PRECACHE_EVENT(1, "events/grenade.sc"); // pin/throw presentation (gun+0x978)
+	m_usEmpty = PRECACHE_EVENT(1, "events/empty.sc");   // dry-fire click (gun+0x968)
+	m_usReload = PRECACHE_EVENT(1, "events/reload.sc"); // reload presentation (gun+0x970)
 	PRECACHE_SOUND("player/kungfuhit.wav");   // kung-fu flesh hit (also the coldcock bash)
 	PRECACHE_SOUND("player/closecombat.wav"); // kung-fu swing whoosh (miss / surface)
 	PRECACHE_SOUND("player/block.wav");       // kung-fu block "hooah" (reload)
@@ -665,6 +706,7 @@ void CTSGun::GetWeaponData(weapon_data_t &data)
 	data.iuser2 = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
 	data.iuser3 = m_fireMode;
 	data.iuser4 = m_bHoldPosition ? 1 : 0; // hold-position stance, so the client predicts the held-stance fire anim
+	data.fuser4 = m_flNextAlternateAttack; // gun+0xa4 — the +alt2 gate rides the spare fuser4
 }
 
 void CTSGun::SetWeaponData(const weapon_data_t &data)
@@ -673,6 +715,7 @@ void CTSGun::SetWeaponData(const weapon_data_t &data)
 	UpdateActivePointers();
 	m_fireMode = data.iuser3;
 	m_bHoldPosition = (data.iuser4 != 0);
+	m_flNextAlternateAttack = data.fuser4;
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	const int caliber = wi->iCaliber;
 	if (caliber > 0 && caliber < TS_NUM_CALIBERS)
@@ -896,11 +939,11 @@ void CTSGun::PrimaryAttack()
 	case TSFM_BURST:
 		// 3-round burst (2 for the MAC-10): start on a fresh pull, then run the queue
 		// down (here + in WeaponIdle) so a tap fires the whole burst.
-		if (m_burstCount > 0)
+		if (m_burstOrPhase > 0)
 			fire = true;
 		else if (pressed)
 		{
-			m_burstCount = (m_weaponType == TSW_MAC10) ? 2 : 3;
+			m_burstOrPhase = (m_weaponType == TSW_MAC10) ? 2 : 3;
 			fire = true;
 		}
 		break;
@@ -910,46 +953,48 @@ void CTSGun::PrimaryAttack()
 		Fire();
 }
 
-// @ Fire__6CTSGun — fire ONE shot, dispatching by fire-type (the trigger gating happens
-// in PrimaryAttack/WeaponIdle). Akimbo alternates barrels; everything else fires bullets.
+// @ Fire__6CTSGun (@0x71c78, decompile-exact) — fire ONE shot, dispatching by fire-type (the
+// trigger gating happens in PrimaryAttack/WeaponIdle). Fully underwater = the dry click; an empty
+// clip clicks too UNLESS the InfiniteClips powerup or the pump's non-firing RACK half (toggle set,
+// pump mode, pump gun — it must run even empty, to rack on the last shell). 3rd-person body pose:
+// the AKIMBO plays 8+(barrel side) and only if it actually fired; pump/standard play TSA_FIRE(0).
+// (cont.83: the 8/9 pose was on the PUMP here and TSA_FIRE on the akimbo — the binary has it the
+// other way around.)
 void CTSGun::Fire()
 {
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-
-	// Pump-shotgun RACK step (orig Fire@0x71c78): a pump shotgun in pump mode whose toggle is set is the
-	// non-firing RACK half of the cycle — it must run even on an empty clip (to rack on the last shell).
-	const bool pumpRackStep = (wi->iFireType == TSFT_PUMP && m_fireMode == TSFM_PUMP &&
-		m_fInSpecialReload != 0);
-
-	if (m_iClip <= 0 && !pumpRackStep)
+	if (!m_pActiveItem)
+		return;
+	if (m_pPlayer->pev->waterlevel == 3)
 	{
-		PlayEmptySound();
-		m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + 0.2f);
-		m_burstCount = 0;
+		EmptySound(); // @0x71caf — guns don't fire underwater
+		return;
+	}
+	const s_weapon_info *wi = m_pActiveInfo;
+	const bool pumpRackStep = (m_fInSpecialReload != 0 && m_fireMode == TSFM_PUMP &&
+		wi->iFireType == TSFT_PUMP);
+	if (!InfiniteClips(m_pPlayer) && m_iClip < 1 && !pumpRackStep)
+	{
+		EmptySound(); // @0x71cfc — the 0.1s re-arm happens inside
 		return;
 	}
 
-	// 3rd-person body fire activity. RE Fire@0x71c78: the original calls CTSAnimation::Animate DIRECTLY
-	// here (NOT via SetAnimation, which is an empty stub in TS) — standard/akimbo = TSA_FIRE(0); a pump
-	// shotgun = 8 + the rack toggle (the slide-fire activity 8/9). Each fire fn no longer routes through
-	// SetAnimation (removed there); this is the single faithful per-fire Animate call.
-	int shootanim;
+	int shootanim = -1;
+	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
 	{
-		AkimboFire(wi);
-		shootanim = TSA_FIRE;
-	}
-	else if (wi->iFireType == TSFT_PUMP)
-	{
-		ShotgunFire(wi);
-		shootanim = 8 + (m_fInSpecialReload != 0 ? 1 : 0);
+		if (AkimboFire(wi))
+			shootanim = 8 + (m_fInSpecialReload != 0 ? 1 : 0); // the fired barrel's shoot pose
 	}
 	else
 	{
-		StandardFire(wi);
+		if (wi->iFireType == TSFT_PUMP)
+			ShotgunFire(wi);
+		else
+			StandardFire(wi);
 		shootanim = TSA_FIRE;
 	}
-	m_pPlayer->m_TSAnim.Animate(m_pPlayer, shootanim); // the 3rd-person shoot_ body pose
+	if (shootanim >= 0)
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, shootanim); // direct Animate (SetAnimation is a TS stub)
 }
 
 // @ StandardFire/ShotgunFire — a single bullet (or a pump-shotgun pellet spread), with the
@@ -1022,9 +1067,9 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	if (m_fireMode == TSFM_BURST)
 	{
 		// one burst round consumed; fast cadence between rounds, slow after the last.
-		if (m_burstCount > 0)
-			m_burstCount--;
-		flRate = (m_burstCount <= 0) ? 0.2f : 0.03f;
+		if (m_burstOrPhase > 0)
+			m_burstOrPhase--;
+		flRate = (m_burstOrPhase <= 0) ? 0.2f : 0.03f;
 	}
 	else
 	{
@@ -1038,7 +1083,7 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
 	// Short idle during a burst so WeaponIdle drives the remaining rounds; else normal.
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() +
-		((m_fireMode == TSFM_BURST && m_burstCount > 0) ? flRate : 5.0f);
+		((m_fireMode == TSFM_BURST && m_burstOrPhase > 0) ? flRate : 5.0f);
 }
 
 // @ ShotgunFire__6CTSGun (@0x72108) — the pump shotgun's primary attack. Unlike StandardFire (one shot per
@@ -1055,9 +1100,9 @@ void CTSGun::ShotgunFire(const s_weapon_info *wi)
 {
 	// A shell-by-shell reload in progress: a fire press interrupts it — close the pump (phase 2), no shot.
 	// (orig: `if (item+8 != 0) { item+8 = 2; return; }`.) ItemPostFrame's ShotgunReload then plays the close.
-	if (m_shotgunPhase != 0)
+	if (m_burstOrPhase != 0)
 	{
-		m_shotgunPhase = 2;
+		m_burstOrPhase = 2;
 		return;
 	}
 
@@ -1568,13 +1613,12 @@ void CTSGun::CCombatBlock()
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
 }
 
-// @ AlternateAttack__6CTSGun @0x81ba8 — the +alt2 input: pistol-whip (ColdCock). RE: the
-// gate is `m_pActiveItem && iColdCockDamage > 0` (NOT the clip — dispatcher gates VERIFY L9;
-// our timer check kept meanwhile as the anti-spam floor).
+// @ AlternateAttack__6CTSGun (@0x71ba8, decompile-exact) — the +alt2 (IN_CANCEL) input:
+// `if (m_pActiveItem && iColdCockDamage > 0) ColdCock();`. NO timer gate here — the base
+// ItemPostFrame dispatches it through CanAttack(m_flNextAlternateAttack) (gun+0xa4), which
+// ColdCock re-arms (+0.725). (The old kept-VERIFY primary-timer gate is resolved: L9 closed.)
 void CTSGun::AlternateAttack()
 {
-	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
-		return; // KEPT until the dispatcher-gates VERIFY (L9)
 	if (!m_pActiveItem)
 		return;
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
@@ -1601,22 +1645,36 @@ void CTSGun::ColdCock()
 		return; // this weapon can't coldcock
 
 	const bool stunting = (m_pPlayer->pev->iuser4 & 0x70c30) != 0;
+
+	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
+
+	// @0x81e90: the bash INTERRUPTS what the weapon was doing — a cooked grenade is force-thrown
+	// (the put-away path), any in-progress reload aborts.
+	if (m_pActiveInfo)
+	{
+		if (m_pActiveInfo->iFireType == TSFT_GRENADE)
+			GrenadeIdle(1);
+		StopReload();
+	}
+
+	const float cadence = stunting ? 0.725f * 1.5f : 0.725f;
+#ifndef CLIENT_DLL
+	Unzoom();
+#endif
+	// ALL FOUR gates re-arm to the cadence (alternate/secondary/primary + the player's
+	// m_flNextAttack), idle +2.0 (@0x81f0c).
+	m_flNextAlternateAttack = UTIL_WeaponTimeBase() + cadence;
+	m_flNextSecondaryAttack = m_flNextAlternateAttack;
+	m_flNextPrimaryAttack = m_flNextAlternateAttack;
+	m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + cadence;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
+
 	float dmg = (float)wi->iColdCockDamage;
 	if (stunting)
 		dmg *= 2.0f / 3.0f;
 
-#ifndef CLIENT_DLL
-	Unzoom(); // the original interrupts zoom (+ StopReload/GrenadeIdle — those interrupts VERIFY placement)
-#endif
-
-	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecEnd = vecSrc + gpGlobals->v_forward * 35.0f;
-
-	const float cadence = stunting ? 0.725f * 1.5f : 0.725f;
-	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + cadence;
-	m_flNextSecondaryAttack = m_flNextPrimaryAttack;
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
 
 #ifndef CLIENT_DLL
 	CBaseEntity *pHit = m_pPlayer->ColdCockAttack(vecSrc, vecEnd, gpGlobals->v_forward,
@@ -1624,25 +1682,19 @@ void CTSGun::ColdCock()
 		false, false, false, false);
 	if (pHit && pHit->IsPlayer())
 	{
-		// attacker confirm — the kevlar "clonk" (RE: pitch 60 + rand(0,31))
-		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/kevlarhit.wav", VOL_NORM,
-			ATTN_NORM, 0, 60 + RANDOM_LONG(0, 31));
+		// attacker confirm — the kevlar "clonk" on CHAN_BODY, attn 0.8 (RE: pitch 60 + rand(0,31))
+		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_BODY, "player/kevlarhit.wav", VOL_NORM,
+			0.8f, 0, 60 + RANDOM_LONG(0, 31));
 	}
 	else if (!pHit)
 	{
-		// miss presentation kept until the coldcock.sc event swap (S7b)
+		// STAND-IN miss whoosh until the coldcock.sc event swap lands (the original plays
+		// events/coldcock.sc here — gun+0x966, gated on the item being owned — and the CLIENT
+		// handler owns the presentation; anim block [28] per gun is extracted, see the dossier).
 		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM,
 			ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
 	}
 #endif
-}
-
-// Trigger the active TS gun's alternate attack (+alt2 / coldcock) for a player.
-void TSAlternateAttack(CBasePlayer *pPlayer)
-{
-	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	if (pGun)
-		pGun->AlternateAttack();
 }
 
 #ifndef CLIENT_DLL
@@ -1814,13 +1866,13 @@ void CTSGun::GrenadeFire()
 {
 	if (m_weaponType == TSW_MELEE) // original: m_pActiveItem == NULL
 		return;
-	if (m_shotgunPhase != 0 || m_iClip <= 0) // item+0x8 phase busy / no grenade
+	if (m_burstOrPhase != 0 || m_iClip <= 0) // item+0x8 phase busy / no grenade
 		return;
 
 	SendWeaponAnim(2); // m61 anim block [19] = seq 2 (pin pull; record+0x26)
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usGrenade, 0.0, g_vecZero, g_vecZero,
 		0.0, 0.0, 19, 0, 0, 0);
-	m_shotgunPhase = 1; // item+0x8 = COOKED (the pin is out)
+	m_burstOrPhase = 1; // item+0x8 = COOKED (the pin is out)
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.7f;
 	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.7f;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.7f;
@@ -1844,7 +1896,7 @@ void CTSGun::GrenadeIdle(int fForce)
 	TSItem &it = m_items[m_weaponType];
 	bool consume = false;
 
-	if (m_shotgunPhase == 1)
+	if (m_burstOrPhase == 1)
 	{
 		if ((m_pPlayer->pev->button & (IN_ATTACK | IN_ATTACK2)) && fForce == 0)
 			return; // still cooking
@@ -1902,17 +1954,17 @@ void CTSGun::GrenadeIdle(int fForce)
 		if (m_iClip == 1)
 			m_pPlayer->pev->weaponmodel = 0; // the last grenade leaves the hand
 		if (fForce == 0)
-			m_shotgunPhase = 2; // the next idle tick consumes
+			m_burstOrPhase = 2; // the next idle tick consumes
 		else
 		{
-			m_shotgunPhase = 0;
+			m_burstOrPhase = 0;
 			consume = true; // forced (holster) throw consumes NOW
 		}
 		m_iClip--;
 	}
-	else if (m_shotgunPhase == 2)
+	else if (m_burstOrPhase == 2)
 	{
-		m_shotgunPhase = 0;
+		m_burstOrPhase = 0;
 		consume = true;
 	}
 	else
@@ -2129,16 +2181,15 @@ void CTSGun::KatanaThrow()
 // and, in alternating fire-mode, fires one barrel per trigger (IN_ATTACK vs IN_ATTACK2)
 // from a ±5u muzzle offset. FUNCTIONAL reconstruction on our single-clip arsenal: two
 // guns fire continuously while held, alternating the muzzle side each shot.
-void CTSGun::AkimboFire(const s_weapon_info *wi)
+bool CTSGun::AkimboFire(const s_weapon_info *wi)
 {
 	TSItem &it = m_items[m_weaponType];
 
 	if (it.leftClip + it.rightClip <= 0)
 	{
 		m_iClip = 0;
-		PlayEmptySound();
-		m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + 0.2f);
-		return;
+		EmptySound(); // @0x72adc — the original's in-akimbo dry click (0.1s re-arm inside)
+		return false;
 	}
 
 	// RE AkimboFire (@0x729c0): `fireBoth = bothButtonsHeld || mode==AUTO`. In AUTO mode (the default
@@ -2162,11 +2213,11 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 		int fireLeft;
 		if ((it.barrelMask & 6) == 2)      fireLeft = 1;          // left only
 		else if ((it.barrelMask & 6) == 4) fireLeft = 0;          // right only
-		else                               fireLeft = (m_akimboSide ^ 1) & 1; // alternate
+		else                               fireLeft = (m_fInSpecialReload ^ 1) & 1; // alternate (item pumpToggle)
 		if (fireLeft && it.leftClip <= 0 && it.rightClip > 0) fireLeft = 0;
 		else if (!fireLeft && it.rightClip <= 0 && it.leftClip > 0) fireLeft = 1;
 		sides[nSides++] = fireLeft;
-		m_akimboSide = fireLeft;
+		m_fInSpecialReload = fireLeft; // the barrel side lives in the item's pumpToggle byte
 	}
 
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
@@ -2210,7 +2261,7 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 		}
 		if (bothAnim >= 0)
 			akAnim = bothAnim;
-		else { m_akimboSide ^= 1; akAnim = m_akimboSide ? wi->iFireAnim : wi->iFireAnimL; } // fallback
+		else { m_fInSpecialReload ^= 1; akAnim = m_fInSpecialReload ? wi->iFireAnim : wi->iFireAnimL; } // fallback
 	}
 	else
 		akAnim = sides[0] ? wi->iFireAnimL : wi->iFireAnim;
@@ -2233,6 +2284,7 @@ void CTSGun::AkimboFire(const s_weapon_info *wi)
 		flRate *= 0.5f;
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+	return true;
 }
 
 // @ AddItem__6CTSGuni @0x80794 — attach a gun item (silencer/laser/flashlight/scope: bits 1/2/4/8) to
@@ -2385,198 +2437,210 @@ void CTSGun::SendWeaponStatus(CBasePlayer *pPlayer)
 	}
 }
 
-// @ Reload/ReloadWeapon — refill the clip from the weapon's CALIBER reserve: take =
-// min(clip-deficit, reserve[caliber]) (@0x84a14).
-// @ ItemPostFrame__6CTSGun — drive the TS ammo system per frame. The stock base
-// ItemPostFrame gates reload on the player's standard m_rgAmmo, which TS never uses
-// (ammo lives in our per-caliber m_ammoReserve), so reload never triggered -> "fire
-// til empty, no reload". This override reloads from m_ammoReserve instead: on +reload,
-// or automatically when the clip runs dry.
-void CTSGun::ItemPostFrame()
+// @ ReloadWeapon__6CTSGuniif (@0x74a14, decompile-exact) — ARM a whole-clip reload: gate on a
+// wielded item with caliber reserve; take = min(iClipSize - clip, reserve); if any, set the
+// item's reloading flag (item+0xc, our m_fInReload) and lock the player's m_flNextAttack for
+// flDuration (the weapon's flReloadTime). The REFILL happens in the base ItemPostFrame when that
+// lock elapses. iAnim is computed by the caller but DEAD in the original body — the reload
+// viewmodel anim rides the events/reload.sc playback client-side.
+int CTSGun::ReloadWeapon(int iClipSize, int iAnim, float flDuration)
 {
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	const int caliber = wi->iCaliber;
-	const bool hasReserve = (caliber > 0 && caliber < TS_NUM_CALIBERS && m_ammoReserve[caliber] > 0);
+	(void)iAnim;
+	if (!m_pActiveItem || !m_pActiveInfo)
+		return 0;
+	const int caliber = m_pActiveInfo->iCaliber;
+	if (caliber <= 0 || caliber >= TS_NUM_CALIBERS || m_ammoReserve[caliber] <= 0)
+		return 0;
+	const int need = iClipSize - m_iClip;
+	const int take = (need < m_ammoReserve[caliber]) ? need : m_ammoReserve[caliber];
+	if (take <= 0)
+		return 0;
+	m_fInReload = true; // item+0xc — the base ItemPostFrame completes the refill
+	m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + flDuration; // player+0x12c
+	return 1;
+}
 
-	const bool pumpShotgun = (wi->iFireType == TSFT_PUMP);
-
-	// Pump shotguns reload shell-by-shell via the 3-phase ShotgunReload state machine (open ->
-	// insert per shell -> close). It self-gates on m_flNextSecondaryAttack, so drive it every frame.
-	if (m_fInReload && pumpShotgun)
+// @ StopReload__6CTSGun (@0x71288, decompile-exact) — abort an ARMED whole-clip reload (the
+// item+0xc flag): clear it, and for a pump gun also reset the phase machine + the rack toggle;
+// idle + the player's attack lock snap to NOW. Callers: ColdCock + MultiplyClips (the pump's
+// shell-by-shell machine is phase-driven, never arms item+0xc, and is interrupted by
+// ShotgunFire's phase->close instead).
+void CTSGun::StopReload()
+{
+	if (m_pActiveItem && m_pActiveInfo && m_fInReload)
 	{
-		ShotgunReload();
-	}
-	// Every other weapon: finish a normal whole-clip reload once its delay elapses.
-	else if (m_fInReload && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
-	{
-		if (caliber > 0 && caliber < TS_NUM_CALIBERS)
+		m_fInReload = false; // item+0xc
+		if (m_pActiveInfo->iFireType == TSFT_PUMP)
 		{
-			int need = wi->iClip - m_iClip;
-			int take = (need < m_ammoReserve[caliber]) ? need : m_ammoReserve[caliber];
-			if (take > 0)
-			{
-				m_iClip += take;
-				m_ammoReserve[caliber] -= take;
-			}
+			m_burstOrPhase = 0;     // item+0x8 — the pump phase machine
+			m_fInSpecialReload = 0; // item pumpToggle — back to a FIRE step
 		}
-		// akimbo: redistribute the reloaded total across the two barrels.
-		if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
-		{
-			TSItem &it = m_items[m_weaponType];
-			it.leftClip = m_iClip / 2;
-			it.rightClip = m_iClip - it.leftClip;
-		}
-		m_fInReload = false;
-	}
-
-	if ((m_pPlayer->pev->button & IN_ATTACK2) && m_flNextSecondaryAttack <= UTIL_WeaponTimeBase())
-	{
-		SecondaryAttack(); // the original's virtual dispatch (stock ItemPostFrame -> SecondaryAttack@0x717a8)
-	}
-	else if ((m_pPlayer->pev->button & IN_ATTACK) && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
-	{
-		// @ StopReload__6CTSGun — a pump shot interrupts the shell-by-shell reload (resets item+8).
-		if (m_fInReload && pumpShotgun && m_iClip > 0)
-		{
-			m_fInReload = false;
-			m_shotgunPhase = 0;
-		}
-		PrimaryAttack();
-	}
-	else if ((m_pPlayer->pev->button & IN_RELOAD) &&
-		(m_weaponType == TSW_MELEE || wi->iFireType == TSFT_KNIFE || wi->iFireType == TSFT_KATANA))
-	{
-		CCombatBlock(); // ALL melee (kung-fu/knife/seal-knife/katana) block on RELOAD — RE CCombatBlock
-	}
-	else if ((m_pPlayer->pev->button & IN_RELOAD) && !m_fInReload && m_iClip < wi->iClip && hasReserve)
-	{
-		Reload();
-	}
-	else if (!(m_pPlayer->pev->button & (IN_ATTACK | IN_ATTACK2)))
-	{
-		// auto-reload a dry clip (melee/grenade have no caliber -> hasReserve is false)
-		if (!m_fInReload && m_iClip <= 0 && hasReserve)
-			Reload();
-		else if (m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
-			WeaponIdle();
+		m_flTimeWeaponIdle = UTIL_WeaponTimeBase();
+		m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase();
 	}
 }
 
-// @ Reload__6CTSGun — begin a reload: gate it, play the anim, and arm the delay; the
-// actual clip refill from the per-caliber reserve happens in ItemPostFrame when the
-// delay elapses (the original draws from the per-caliber armament reserve too).
+// @ EmptySound__6CTSGun (@0x71be4, decompile-exact) — the dry-fire click, via events/empty.sc
+// (all params zero; the CLIENT handler owns the click sound — ev swap pending, see the gun-event
+// tail task). The contender (weapon 0x24) is silent. Re-arms primary+secondary +0.1, idle +0.5.
+void CTSGun::EmptySound()
+{
+	if (m_weaponType == TSW_CONTENDER)
+		return;
+	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usEmpty, 0.0, g_vecZero, g_vecZero,
+		0.0, 0.0, 0, 0, 0, 0);
+#ifndef CLIENT_DLL
+	// STAND-IN dry click until the empty.sc client handler lands (our client doesn't hook the
+	// event yet; without this the dry fire would be silent for our own clients).
+	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, "weapons/357_cock1.wav", 0.8f, ATTN_NORM,
+		0, TSSlowPitch(m_pPlayer));
+#endif
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.1f;
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.1f;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.5f;
+}
+
+// @ Reload__6CTSGun (@0x74d5c, decompile-exact) — the +reload dispatch. Bare hands AND the
+// blades (fire-types 3/10) route to the kung-fu BLOCK; the grenade (fire-type 2) refuses; a pump
+// (fire-type 1) runs the shell-by-shell ShotgunReload machine. Otherwise gate on reserve + not
+// mid-burst, pick the reload anim from the ACTIVE STANCE's anim block [1] (the SAWED-OFF with a
+// shell still chambered uses block [8] — the shell-retained variant), arm it via ReloadWeapon
+// (duration = the weapon's flReloadTime), and on success: idle +5.0, Unzoom, play
+// events/reload.sc (iparam1=type, iparam2=equipped attach, fparam1=0), 3rd-person TSA_RELOAD.
 void CTSGun::Reload()
 {
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	int caliber = wi->iCaliber;
-	if (caliber <= 0 || caliber >= TS_NUM_CALIBERS)
-		return;
-	if (m_iClip >= wi->iClip || m_ammoReserve[caliber] <= 0)
-		return;
-
-	// @ Reload__6CTSGun routes pump shotguns (fire-type 1) to the shell-by-shell ShotgunReload
-	// machine. Begin it here (phase 0 = open); the ItemPostFrame driver advances it each frame.
-	if (wi->iFireType == TSFT_PUMP)
+	if (!m_pActiveItem)
 	{
-		m_fInReload = true;
-		m_shotgunPhase = 0;
-		ShotgunReload(); // do the open immediately (matches the original's Reload -> ShotgunReload)
+		CCombatBlock(); // bare hands: RELOAD = the kung-fu block
 		return;
 	}
+	if (m_pActiveInfo->iFireType == TSFT_GRENADE)
+		return;
+	if (m_pActiveInfo->iFireType == TSFT_KNIFE || m_pActiveInfo->iFireType == TSFT_KATANA)
+	{
+		CCombatBlock(); // the blades block on RELOAD too
+		return;
+	}
+	if (m_pActiveInfo->iFireType == TSFT_PUMP)
+	{
+		ShotgunReload();
+		return;
+	}
+	const int caliber = m_pActiveInfo->iCaliber;
+	if (caliber <= 0 || caliber >= TS_NUM_CALIBERS || m_ammoReserve[caliber] < 1)
+		return;
+	if (m_burstOrPhase != 0)
+		return; // mid-burst: the queued rounds finish first (@0x84e18)
 
-	// Viewmodel reload anim — now CLIENT-PREDICTED (CTSGun is a UseDecrement weapon, cont.69s 3d):
-	// SendWeaponAnim runs in the client's predicted ItemPostFrame, so the reload anim plays instantly
-	// (the model's embedded clipout/clipin sound events play with it). Verified in-engine.
-	// In the hold-position stance, play the held-grip reload variant (RE Reload__6CTSGun reads the
-	// reload seq from the active stance's anim block) so the gun ENDS back in the hold stance.
-	const int reloadAnim = (m_bHoldPosition && wi->iHoldReloadAnim >= 0) ? wi->iHoldReloadAnim : wi->iReloadAnim;
-	if (reloadAnim >= 0)
-		SendWeaponAnim(reloadAnim);
+	// The reload anim from the ACTIVE STANCE's block: [1] normally; the sawed-off with a shell
+	// still chambered plays block [8] (the shell-retained variant). Passed to ReloadWeapon for
+	// provenance (dead there — the client anim rides reload.sc).
+	int anim;
+	if (m_weaponType == TSW_SAWEDOFF && m_iClip > 0)
+		anim = (m_bHoldPosition && m_pActiveInfo->iReloadKeepAnimHold >= 0)
+			? m_pActiveInfo->iReloadKeepAnimHold : m_pActiveInfo->iReloadKeepAnim;
+	else
+		anim = (m_bHoldPosition && m_pActiveInfo->iHoldReloadAnim >= 0)
+			? m_pActiveInfo->iHoldReloadAnim : m_pActiveInfo->iReloadAnim;
 
-	m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 3rd-person relo_<grip>
-
-	m_fInReload = true;
-	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + TS_RELOAD_TIME;
-	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + TS_RELOAD_TIME;
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + TS_RELOAD_TIME + 0.5f;
+	if (ReloadWeapon(m_pActiveInfo->iClip, anim, 1.0f * m_pActiveInfo->flReloadTime))
+	{
+		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f; // dc_5
+#ifndef CLIENT_DLL
+		Unzoom();
+#endif
+		// events/reload.sc — the original client's handler plays the anim from ITS anim block.
+		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero, g_vecZero,
+			0.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
+		// STAND-IN predicted viewmodel anim until our reload.sc client handler lands (the
+		// gun-event tail task); FEV_NOTHOST keeps the two from doubling on the host.
+		if (anim >= 0)
+			SendWeaponAnim(anim);
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 0x33 — 3rd-person relo_<grip>
+	}
 }
 
-// @ ShotgunReload__6CTSGun (@0x84aac) — the pump shotgun's shell-by-shell reload, a 3-phase
-// state machine (m_shotgunPhase == item+8) advanced one step per ItemPostFrame while m_fInReload:
-//   phase 0 = open the tube (play reload1, lock 0.3s) -> phase 1
-//   phase 1 = insert one shell every 0.3s (wi+0x14), play reload2, until the tube is full or the
-//             reserve is dry -> phase 2
-//   phase 2 = close/pump (play reload3), end the reload, secondary cooldown +3.0 (dc_3)
-// reload1/2/3 are consecutive in every pump v_*.mdl, and iReloadAnim already points at reload1, so
-// the insert/close seqs are iReloadAnim+1 / iReloadAnim+2. Firing interrupts via the StopReload path.
+// @ ShotgunReload__6CTSGun (@0x74aac, decompile-exact) — the pump shell-by-shell reload, a
+// 3-phase machine in the item's burstOrPhase slot (item+0x8). NEVER arms item+0xc — the driver
+// is WeaponIdle (fire-type 1 + phase != 0 -> Reload -> here, every frame), and a fire press
+// interrupts via ShotgunFire's phase->2 (close). Each phase plays events/reload.sc with the
+// phase discriminator in fparam1: 8.0 open / 9.0 insert / 10.0 close (iparam1=type,
+// iparam2=attach).
+//   phase 0 (start, from +reload): if a shell fits — Unzoom, restore a scope-hidden viewmodel,
+//     phase=1, ALL FOUR locks +0.3 (primary/secondary/idle + the player's m_flNextAttack);
+//   phase 1 (insert): on the idle tick — dry/full -> phase 2; else reserve--, clip++, next
+//     shell after flReloadTime (0.3 for every pump);
+//   phase 2 (close): phase=0, rack toggle reset (next trigger = FIRE step), player lock +0.3,
+//     idle +3.0.
+// reload1/2/3 are consecutive in every pump v_*.mdl (iReloadAnim = reload1), so the stand-in
+// anims below are base/+1/+2 until the reload.sc client handler lands.
 void CTSGun::ShotgunReload()
 {
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+	const s_weapon_info *wi = m_pActiveInfo;
 	const int caliber = wi->iCaliber;
 	const bool haveShell = (caliber > 0 && caliber < TS_NUM_CALIBERS && m_ammoReserve[caliber] > 0);
-	// In the hold stance, use the held-grip reload set (e.g. mossberg reload1b/2b/3b at 13/14/15).
+	// In the hold stance, the held-grip reload set (e.g. mossberg reload1b/2b/3b at 13/14/15).
 	const int reloadBase = (m_bHoldPosition && wi->iHoldReloadAnim >= 0) ? wi->iHoldReloadAnim : wi->iReloadAnim;
-	const int openSeq = reloadBase;                          // reload1
-	const int insertSeq = (reloadBase >= 0) ? reloadBase + 1 : -1; // reload2
-	const int closeSeq = (reloadBase >= 0) ? reloadBase + 2 : -1;  // reload3
 
-	if (m_shotgunPhase == 0)
+	if (m_burstOrPhase == 0)
 	{
-		// Open the tube — only if there's a shell to chamber and room for it.
 		if (haveShell && m_iClip < wi->iClip)
 		{
-			m_shotgunPhase = 1;
-			if (openSeq >= 0)
-				SendWeaponAnim(openSeq);
+#ifndef CLIENT_DLL
+			Unzoom();
+			if (!m_pPlayer->pev->viewmodel && wi->pszViewModel)
+				m_pPlayer->pev->viewmodel = MAKE_STRING(wi->pszViewModel); // scope-hidden restore
+#endif
+			m_burstOrPhase = 1;
+			PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero,
+				g_vecZero, 8.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
+			if (reloadBase >= 0)
+				SendWeaponAnim(reloadBase); // STAND-IN open anim (reload1)
 			m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 3rd-person reload
-			const float t = UTIL_WeaponTimeBase() + 0.3f; // dc_0_3
-			m_flNextPrimaryAttack = t;   // can't fire until the tube is open (then a shot interrupts)
-			m_flNextSecondaryAttack = t; // first shell goes in after the open completes
-			m_flTimeWeaponIdle = t;
-		}
-		else
-		{
-			m_fInReload = false; // nothing to load
+			m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.3f; // dc_0_3
+			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.3f;
+			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;
+			m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.3f;
 		}
 	}
-	else if (m_shotgunPhase == 1)
+	else if (m_burstOrPhase == 1)
 	{
-		// Insert one shell per tick until the tube is full or the reserve is empty.
-		if (m_flNextSecondaryAttack <= UTIL_WeaponTimeBase())
+		if (m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
 		{
 			if (!haveShell || m_iClip >= wi->iClip)
 			{
-				m_shotgunPhase = 2;
+				m_burstOrPhase = 2;
 			}
 			else
 			{
 				m_ammoReserve[caliber]--;
 				m_iClip++;
-				if (insertSeq >= 0)
-					SendWeaponAnim(insertSeq);
-				// Individual racking sound per shell loaded (pitched DOWN in slow-motion like every
-				// other combat sound). weapons/insert-shell.wav is the TS per-shell shuck.
+				PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero,
+					g_vecZero, 9.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
+				if (reloadBase >= 0)
+					SendWeaponAnim(reloadBase + 1); // STAND-IN insert anim (reload2)
+#ifndef CLIENT_DLL
+				// STAND-IN per-shell shuck until the reload.sc handler lands.
 				EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, "weapons/insert-shell.wav",
 					VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-				m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.3f; // wi+0x14, per-shell cadence
+#endif
+				m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + wi->flReloadTime; // wi+0x14 (0.3)
 			}
 		}
 	}
-	else // phase 2 — close/pump and finish
+	else if (m_burstOrPhase == 2)
 	{
-		m_shotgunPhase = 0;
-		m_fInReload = false;
-		if (closeSeq >= 0)
-			SendWeaponAnim(closeSeq);
-		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;   // ready to fire after the pump
-		m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 3.0f; // dc_3 — no immediate re-reload
-		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.3f;
+		m_burstOrPhase = 0;
+		m_fInSpecialReload = 0; // item pumpToggle — next trigger is a FIRE step
+		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero,
+			g_vecZero, 10.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
+		if (reloadBase >= 0)
+			SendWeaponAnim(reloadBase + 2); // STAND-IN close anim (reload3)
+		m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.3f;
+		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f; // dc_3
 	}
 }
 
-// @ WeaponIdle__6CTSGun (@0x854dc) — drives the remaining burst rounds: while a burst is
-// queued and the idle timer has elapsed, fire the next round (this is how a tapped burst
-// completes after the trigger is released).
 // @0x85e54 CCombatIdle — the bare-hands (kung-fu) viewmodel idle: on the idle timer, re-arm
 // idle +3.0 and play the TSW_MELEE row's idle sequence from the table (+0x252 — 0 in the
 // shipped data; kept as a table read like the original). Sole caller: WeaponIdle's leading
@@ -2590,28 +2654,56 @@ void CTSGun::CCombatIdle()
 	SendWeaponAnim(wi ? wi->iIdleAnim : 0);
 }
 
+// @ WeaponIdle__6CTSGun (@0x754dc, decompile-exact) — runs EVERY frame (the base ItemPostFrame
+// tail), not just on the idle timer. Bare hands -> CCombatIdle. Then, for a wielded item:
+//  - the PUMP-RELOAD continuation: fire-type 1 with the phase machine armed -> Reload() (which
+//    routes back into ShotgunReload) — this is the machine's per-frame driver;
+//  - the BURST machine: fire-mode 2 with the primary timer clear — fire the next queued round
+//    and decrement (this is how a tapped burst completes after release);
+//  - on the idle timer: the grenade cook check (GrenadeIdle(0)), AUTO-RELOAD a dry clip (unless
+//    InfiniteClips), or the idle anim — the stance block's [0] — with idle re-armed +3.0.
+// (The original also mirrors item->clip into the client-clip cache and re-points item+0x28 at
+// the stance's anim block here; our stance selection resolves at each use site instead.)
 void CTSGun::WeaponIdle()
 {
-	// @0x75e54: bare hands idle through CCombatIdle (RE: the leading `if (!m_pActiveItem)`).
 	if (!m_pActiveItem)
 	{
 		CCombatIdle();
 		return;
 	}
-	// @0x87xxx: the grenade runs its cook machine from the idle path (the pin sets idle +0.7,
-	// so the release check starts 0.7 s after the pull and reruns until thrown).
-	if (m_pActiveInfo && m_pActiveInfo->iFireType == TSFT_GRENADE)
+	if (m_pActiveInfo->iFireType == TSFT_PUMP && m_burstOrPhase != 0)
 	{
-		GrenadeIdle(0);
+		Reload(); // the shell-by-shell continuation (-> ShotgunReload)
 		return;
 	}
-	if (m_fireMode == TSFM_BURST && m_burstCount > 0 &&
-		m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
+	if (m_fireMode == TSFM_BURST && m_flNextPrimaryAttack <= UTIL_WeaponTimeBase())
 	{
-		Fire();
-		return;
+		if (m_burstOrPhase < 1)
+			m_burstOrPhase = 0;
+		else
+		{
+			Fire();
+			m_burstOrPhase--;
+		}
 	}
-	ResetEmptySound();
+	if (m_flTimeWeaponIdle <= UTIL_WeaponTimeBase())
+	{
+		if (m_pActiveInfo->iFireType == TSFT_GRENADE)
+		{
+			GrenadeIdle(0); // the cook machine (the pin set idle +0.7, so this starts then)
+		}
+		else if (!InfiniteClips(m_pPlayer) && m_iClip < 1)
+		{
+			Reload(); // AUTO-RELOAD the dry clip
+		}
+		else if (m_iClip != 0)
+		{
+			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
+			const int idleAnim = (m_bHoldPosition && m_pActiveInfo->iIdleAnimHold >= 0)
+				? m_pActiveInfo->iIdleAnimHold : m_pActiveInfo->iIdleAnim; // stance block [0]
+			SendWeaponAnim(idleAnim, pev->body);
+		}
+	}
 }
 
 // @ SwitchFireMode__6CTSGun (@0x8169c) — cycle the held weapon's fire-mode to the next one
@@ -2626,7 +2718,7 @@ void CTSGun::SwitchFireMode()
 		{
 			m_fireMode = mode;
 			m_items[m_weaponType].mode = mode;
-			m_burstCount = 0;
+			m_burstOrPhase = 0;
 			return;
 		}
 	}
