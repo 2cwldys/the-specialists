@@ -5,6 +5,52 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 84) — invented review opened: gmsg central registration + wire fixes + door-helper respawn
+
+Continued `restructure-source-parity` (NOT merged; GPG off). Commits `3f7ff03..06c1075`, all build-green
+(amd64 all) + nm-T-gated (baseline regenerated once for the INTENDED CBaseDoor::RespawnThink export removal).
+Headline: **32 -> 28 invented methods · 6 -> 1 missing globals (TSGameRules instance only) · server cvars
+0 missing · 0 everything-else**.
+
+- **Central LinkUserMessages (3f7ff03)** — ALL user messages now register in LinkUserMessages in the
+  original's exact 64-slot order (star_LinkUserMessages.md @0xc7db0); every lazy first-use REG site
+  stripped (12 files; ts_powerup's duplicate s_gmsgPwUp gone; gmsg statics globalized to match the
+  original's D symbols). Message IDs now assign in the original's order. The impulse-99 Logo lazy reg
+  KEPT (the original keeps it lazy too — gmsgLogo absent from the block, reloc-proven). TWO WIRE BUGS:
+  "TSFrags" (not "TSCreateDebris" — server reg + client hook renamed) and "TSHVoice" (not
+  "TSVoiceMessage"); gmsgTSVoiceMessage moved to TS_gamerulesclass.cpp (the original's home).
+  gmsgFlashlight/gmsgFlashBattery/gmsgSetCurWeap = DEAD globals added (reloc-proven never referenced;
+  the HANDOFF's "the original registers them" was WRONG). teamlist default -> "hitman;gordon".
+  coverage.py client-hook scan fixed (raw pfnHookUserMsg) — REAL missing client hooks = 8:
+  NextStunt/Objective/ShowObj/TSFlag/TSFrags/TSHVoice/TSMBlur/TSPSys (deferred client-HUD features).
+- **cvar_t symbol parity (b243d56)** — ts_cvars.cpp structs renamed to the original's globals (defaults
+  verified @0x108d80..0x109028): + teammodels("mp_teammodels")/dmcashbased("usecash")/
+  cv_ammocount("ammocount")/weaponstay_time("weaponstay"). "deadstomach" cvar DELETED (false positive:
+  a CDeadHEV pose-string pair read as a cvar_t). audit.py excludes 'objects' (libgcc frame.c CRT).
+  coverage.py: pose-alias exclusion + game_shared scan (sv_alltalk/voice_serverdebug). 
+- **Door respawn = the info_breakable helper (de8a071)** — CBaseDoor::RespawnThink DELETED; decompiles
+  (dossiers/cont84/door_respawn_decomp.c): door Spawn @0xb60cc creates the helper into door+0x104
+  (back-linked helper+0x64), death @0xb57ac tail + both blocked-retry legs arm the HELPER's think;
+  CInfoBreakable::RespawnThink dispatches BreakableRespawn VIRTUALLY (@0x65da0 vtbl slot +8).
+  Exact-store corrections: effects = EF_NODRAW / = 0 (not |=/&=~), box-check maxCount 1, NO
+  SUB_UseTargets on shatter (ours was invented). CTSGun::SwitchBarrel DELETED (uncalled; the invented
+  barrel-cycle). VERIFY carried: the door's TSFrags payload sends ZEROS for dir/model/velmag (ours
+  sends real dir + glassfrag + 150) — client-handler RE needed before mimicking.
+- **stock_methods.py header-inline scan (06c1075)** — the .cpp-only scan missed class-body definitions;
+  MyTogglePointer + CallDoRetireWeapon auto-classify stock (verbatim upstream). 3621 pairs.
+- **Dossier subagent LAUNCHED** (background): reference/dossiers/cont84/dossier-invented.md — homes for
+  the remaining 28 invented methods (free GetWeaponData @0xa00ac = the true weapon_data packer!,
+  CTSGun::UpdateClientData @0x758c8, the spectate/menu/ScoreInfo/RoundTime senders, the CTSGameRules
+  team machinery, draw.sc iparam2 + "Spectator" wire verdicts). Do NOT run re.sh while it holds the
+  re project.
+
+REMAINING (task order): fold round-7 playtest results in (protocol handed to the user: dry-click/brass/
+pump/linked/silenced/spawn-protection/telefrag/PseudoClimb/kill-feed/respawn-floor + NEW door-respawn +
+TSFrags shatter regression + all-HUD smoke after the registration consolidation) · the subagent's verdicts
+-> MOVE/ACCEPT/DELETE each remaining invented method · TSGameRules-the-instance @0x1681a0 (plan) ·
+g_TSGun/g_tsActive/g_tsPool · 19 extra events + 16 extra server commands + stock weapon sources purge ·
+the Spectator wire reconcile.
+
 ## 2026-07-02 (cont. 83) — ZERO missing methods + ZERO missing free funcs (the 6+6 queue cleared)
 
 Continued `restructure-source-parity` (NOT merged; GPG off). Every commit build-green (`build.sh amd64 all`)
