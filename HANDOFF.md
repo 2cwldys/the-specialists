@@ -106,6 +106,14 @@ Spectator wire, the gmsg central registration, the cvar renames, the door-helper
 - **Melee KICKS**: jump+duck+RIGHT-CLICK on melee = FRONT KICK moving forward / BACK KICK moving
   backward. We have GoWheel dir==3 backkick (cont.81) — this is a SEPARATE airborne-duck kick pair;
   check CCombatAttack/CloseAttack move gating + the FLY-family animIdx VERIFY (task #8 item).
+- **Duck-jump kicks RECONCILE** (round 8): the user spec — jump+duck+right-click = FRONT kick
+  moving fwd / BACK kick moving back. Our HandleCloseCombat tree (ts_gun.cpp ~1495, decompile-
+  exact): movingBack -> A_BACKKICK (any speed, air ok ✓); airborne+duck+fwd -> A_DROPKICK only
+  when speed > 270 (a plain jump rarely clears it — walking/normal-run falls through to the
+  ground-combo/FLY branches instead). SUSPECTS: (a) the 270 gate vs the original's actual
+  constant/condition for the duck-fwd case — re-read HandleCloseCombat's 0x10 branch disasm;
+  (b) the FLY-family animIdx VERIFY (task #8) — wrong anims may read as "no front kick".
+  Settle with a live-original side-by-side (jump+duck+click fwd at walk speed) + the disasm.
 - **DOUBLE-FIRE powerup = FULL-AUTO**: with the doubletap-E double-fire-rate powerup active, SEMI
   weapons fire full-auto while held. Our semi gate requires trigger release — find the original's
   DoubleFireRate bypass in the ItemPostFrame/Fire semi leg (we already call DoubleFireRate() for
