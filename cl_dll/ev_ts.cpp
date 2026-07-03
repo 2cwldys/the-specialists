@@ -104,7 +104,7 @@ static void TS_EvWeaponAnim(int anim, int body)
 	cl_entity_t* vm = gEngfuncs.GetViewModel();
 	if (!vm || !vm->model)
 		return;
-	TS_EvWeaponAnim(anim, body);
+	gEngfuncs.pEventAPI->EV_WeaponAnimation(anim, body);
 }
 
 static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
