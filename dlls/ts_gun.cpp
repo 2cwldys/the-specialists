@@ -2305,7 +2305,25 @@ int CTSGun::AddItem(int bits)
 	if ((bits & wi->attachBuiltin) != 0)     return 0; // built-in / can't re-add
 	if ((bits & it.attach) != 0)             return 0; // already attached
 	it.attach |= bits;
-	it.active |= (bits & 6); // newly-added laser/flashlight start ACTIVE (on) — useitems toggles them
+	// NB: the original grants NO active state here (a bought laser/flash starts OFF; useitems
+	// turns it on) — TakeWeapon's fresh-attach path is where laser/flash start active.
+
+	// @0x80794: MIRROR the bits onto the akimbo pair — an akimbo shares its single's
+	// attachments (buy a silencer for the mk23 and the akimbo pair has it too, both ways).
+	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
+	{
+		if (wi->iSingleType >= 0 && wi->iSingleType < TSW_COUNT)
+			m_items[wi->iSingleType].attach |= bits;
+	}
+	else if (wi->iAkimboType != -1 && IsOwned(wi->iAkimboType))
+		m_items[wi->iAkimboType].attach |= bits;
+
+	// @0x80794 tail: the original zeroes m_weaponType and re-runs SelectWeapon + Deploy so the
+	// viewmodel body/draw refresh with the new attachment. Our SelectWeapon early-outs on the
+	// same type by design, so redeploy the active weapon directly — same effect (draw anim +
+	// pev->body recomputed via GetBodyByItems with the new attach mask).
+	if (m_pPlayer && m_pPlayer->m_pActiveItem == (CBasePlayerItem *)this)
+		Deploy();
 	return 1;
 }
 

@@ -93,6 +93,8 @@ static bool TSWeaponOneHanded(int w)
 // attachment (0 = right/primary barrel, 1 = left barrel for akimbo). RE: client.dll FUN_100474b0
 // spawns a short-lived additive sprite at the muzzle; we use the engine temp-sprite at the model's
 // attachment[side]. For the local player it's the viewmodel; otherwise the player's world model.
+extern "C" int CL_IsThirdPerson(); // cl_dll/in_camera.cpp (used before the later extern block)
+
 static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
 {
 	// ALL weapons use the same muzzle flash sprite at the gun's barrel attachment: gun_muzzle.spr when
@@ -102,7 +104,13 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
 	const int spr = gEngfuncs.pEventAPI->EV_FindModelIndex(
 		silenced ? "sprites/gun_muzzle.spr" : "sprites/gun_muzzle2.spr");
 
-	cl_entity_t* ent = EV_IsLocal(idx) ? gEngfuncs.GetViewModel() : gEngfuncs.GetEntityByIndex(idx);
+	// Local player in FIRST person -> the viewmodel's attachments. In THIRD person the viewmodel
+	// isn't drawn and its attachments FREEZE at the last first-person position (playtest round 7:
+	// the flares stuck at the spot where thirdperson was toggled) — use the player's world model,
+	// exactly like the brass/smoke paths (dossier §0.3: third-person effects ride the PLAYER
+	// attachments).
+	cl_entity_t* ent = (EV_IsLocal(idx) && 0 == CL_IsThirdPerson())
+		? gEngfuncs.GetViewModel() : gEngfuncs.GetEntityByIndex(idx);
 	if (!ent)
 		return;
 	if (spr <= 0)
