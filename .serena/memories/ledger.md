@@ -134,6 +134,16 @@ stock-HL leftovers (invented-review scope). NEW VERIFYs: the FLY-family closecom
 (register-carried) · gold/skorpion_akimbo's EMPTY wi+0x306 in the linked bang (our fallback =
 the normal fire) · the phase-0 brass recipes' exact R_TempModel arg mapping.
 
+### Playtest round 6 (2e512ec) — the AKIMBO trigger/barrel model (user-specified) + default_fov 80
+The user's model, implemented: plain AUTO = both barrels AT ONCE (uzis); plain SEMI = alternate
+per pull; the FREE modes (4 "Free Semi"/5 "Free Full") = LEFT CLICK -> LEFT barrel, RIGHT CLICK ->
+RIGHT (item+0x24 carries the clicked barrel), semi per-press / full while-held, EACH BARREL DRAINS
+ITS OWN CLIP + dry-clicks when THAT barrel empties. Plain-mode akimbo right-click = the HOLD toggle
+(guns facing each other; v_berettas change/rechange 14/15 + v_mk23_akimbo 11/12 added to kHold).
+Akimbo vm anims moved onto the events (EV_TSFire block[22..25] off bparam1; linked [3..5]);
+AkimboFire's SendWeaponAnim retired; the right trigger shares the cadence. default_fov -> 80 +
+the two stock 90-floor clamps removed (hud_redraw).
+
 NEW VERIFY items this session: TraceAttack spawn-grace refusal (@0x801eb) + the 0x10c10 stunt dmg mult ·
 PlayerKilled kill-tier/slow-mo-reward tail · the "Spectator" wire (ours state+seconds vs original idx+flag) ·
 TSItem::hOwner consumer (sell-zone?) · the V11 LMS countdown HUD · ResetRestartRound still reads the dead
