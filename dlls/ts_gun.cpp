@@ -2629,8 +2629,12 @@ void CTSGun::Reload()
 		// original client also maps event-phase -> block[phase], and an original server (fparam1=0)
 		// leaves our client on block[1] exactly as before. (Non-local brass/sound rides phase 0
 		// only, as in the original — unchanged here.)
+		// NB: use m_iClip (the LIVE loaded clip that fire decrements), NOT m_pActiveItem->clip —
+		// the latter is a slot-parked mirror only synced at deploy/holster, so it stays at 2 and
+		// the shell-retained anim would play even when both barrels are empty. In our reconstruction
+		// m_iClip == the original's m_pActiveItem->iClip (the live count).
 		const float reloadPhase =
-			(m_weaponType == TSW_SAWEDOFF && m_pActiveItem->clip > 0) ? 8.0f : 0.0f;
+			(m_weaponType == TSW_SAWEDOFF && m_iClip > 0) ? 8.0f : 0.0f;
 
 		// events/reload.sc — EV_TSReload owns the presentation (view-model block[phase], the
 		// non-local generic_reload + brass/mag toss on phase 0).
