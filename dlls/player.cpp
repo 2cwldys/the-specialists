@@ -903,6 +903,18 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 
 	m_TSAnim.Animate(this, TSA_DIE);
 
+	// @0x7ef8c (Killed): the respawn gate is set AT DEATH — round(clamp(respawntime,5,30)) —
+	// so the ~2 s of death-cam before StartObserver EAT INTO it: the first number the player
+	// sees is N-2 (observed floor 3 with the default 3 -> clamp 5 -> shows 3; set 10 -> shows
+	// 8). Round 8, user-verified vs the live original; ours anchored at spectate ENTRY and
+	// showed the full N.
+	{
+		float rt = CVAR_GET_FLOAT("respawntime");
+		if (rt < 5) rt = 5;
+		if (rt > 30) rt = 30;
+		SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
+	}
+
 	// TSPAward: the original's Killed re-runs SetPlayerRespawnTime's +0x770<0 test and writes
 	// 1 (out of round) or 11 (will respawn). Our respawn gate is round-driven; default to 11 —
 	// the out-of-round (1) + kill-tier (2/3/4) producers land with SetPlayerRespawnTime /
@@ -1395,15 +1407,18 @@ void CBasePlayer::TSEnterSpectate()
 	pev->playerclass = TS_SCORE_WAITING;
 	TSSendScoreInfo();
 
-	// @0x69511/@0x7ef8c (InitHUD/Killed): sec = round(clamp(respawntime.value, 5, 30)) — the
-	// original floor is 5 (ours was 3), and the gate is set ONLY through SetPlayerRespawnTime
-	// (which also handles the LMS respawn budget + stamps the award byte).
-	float rt = CVAR_GET_FLOAT("respawntime");
-	if (rt < 5)
-		rt = 5;
-	if (rt > 30)
-		rt = 30;
-	SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
+	// @0x69511 (InitHUD): the JOIN/none-running path sets the gate here; a DEATH gate is set
+	// in Killed (@0x7ef8c) BEFORE the death-cam and must NOT be re-anchored at spectate entry
+	// (the death-cam seconds eat into it — the original's observed N-2 first number).
+	if (m_flTSRespawnTime <= 0.0f || m_flTSRespawnTime <= gpGlobals->time)
+	{
+		float rt = CVAR_GET_FLOAT("respawntime");
+		if (rt < 5)
+			rt = 5;
+		if (rt > 30)
+			rt = 30;
+		SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
+	}
 
 	// @0x89634 (StartObserver): the original broadcasts TSActiveItems{idx, 0} — every client
 	// stops rendering this player's laser/flashlight beams (round-7g: dead players' beams
