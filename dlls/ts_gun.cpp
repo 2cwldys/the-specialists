@@ -1499,7 +1499,7 @@ void CTSGun::CCombatAttack()
 	bool  blockEnable = false; // on-ground kicks self-root the attacker after the swing
 	bool  unstunt = true;      // the side-kick clears this (skips the un-stunt view reset)
 	int   iuserSet = 0;        // iuser4 bits to OR in (duck/side kick)
-	bool  setDuckView = false; // view_ofs=(0,0,16) + m_flDuckSlashAux=2.0 (duck/side kick)
+	bool  setDuckView = false; // view_ofs=(0,0,16) + m_TSStunt.m_flRollTime=2.0 (duck/side kick "land low, get up")
 
 	if (stunting)
 	{
@@ -1613,9 +1613,6 @@ void CTSGun::CCombatAttack()
 		}
 	}
 
-	// DEFERRED provenance (see the tail note): these drive the stunt overlay we can't yet complete.
-	(void)iuserSet; (void)setDuckView; (void)blockEnable; (void)unstunt;
-
 	if (evCat != 0)
 	{
 		m_lastMeleeAnim = moveId;
@@ -1650,15 +1647,31 @@ void CTSGun::CCombatAttack()
 			m_pPlayer->m_iWhiffLungeType = 0;
 		}
 
-		// DEFERRED — the original also applies a coupled STUNT overlay here that we can't yet drive
-		// end-to-end because its consumer side is un-RE'd (task #7 stunt cluster):
-		//   • un-stunt view restore  : if (iuser4 & 0x20000) clear 0x20000|4, view_ofs reset, friction/gravity=1
-		//   • duck/side-kick crouch-lunge : iuser4 |= iuserSet(4|1); view_ofs=(0,0,16); m_flDuckSlashAux=2.0
-		//   • on-ground-kick self-root : if (blockEnable && !(iuser4&1)) BlockPlayer(whiffT*0.75)  [sets TSSTUNT_STOP]
-		// Enabling only the setters (no wired m_flDuckSlashAux countdown / STOP-bit animation) left the
-		// player STUCK IN THE FLOOR after a duck/side kick (playtest #5/#7) and rendered a BLOCK pose on
-		// the on-ground backkick (playtest #6). iuserSet/setDuckView/blockEnable/unstunt are computed
-		// above as the provenance for that pass — re-enable once the consumer + STOP-bit anim reconcile.
+		// The coupled STUNT overlay (@LAB_000869a3 head). CONSUMER WIRED: the "land low, get up" recovery
+		// is CTSStunt::Play's getup (fires when m_flRollTime < 0.01 → clears PRONE|STOP|ROLL, restores
+		// view_ofs). The timer is m_TSStunt.m_flRollTime (stunt+0x4 == the original's player+0x4f4) — the
+		// earlier bug armed a SEPARATE standalone member (m_flDuckSlashAux), so the getup never saw it and
+		// the player stayed prone/low ("stuck in the floor"). [[embedded-object-offset-blindness]]
+		if (unstunt && (ppev->iuser4 & TSSTUNT_WALLCLIMB_A))
+		{
+			// a queued wall-climb ends here: drop it + restore the standing/ducking view.
+			ppev->iuser4 &= ~(TSSTUNT_WALLCLIMB_A | TSSTUNT_PRONE);
+			ppev->view_ofs = (ppev->flags & FL_DUCKING) ? Vector(0, 0, 16) : Vector(0, 0, 28);
+			ppev->friction = 1.0f;
+			ppev->gravity = 1.0f;
+		}
+		if (iuserSet)
+			ppev->iuser4 |= iuserSet; // duck-kick: PRONE|STOP; side-kick: PRONE
+		if (setDuckView)
+		{
+			// "land low, then get up": drop the view + arm the roll-getup timer (Play recovers it).
+			ppev->view_ofs = Vector(0, 0, 16);
+			m_pPlayer->m_TSStunt.m_flRollTime = 2.0f; // stunt+0x4 (orig player+0x4f4)
+		}
+
+		// on-ground kicks self-root the attacker briefly after the swing (gated on the STOP bit clear).
+		if (blockEnable && ((ppev->iuser4 ^ 1) & 1) != 0)
+			m_pPlayer->BlockPlayer(whiffT * 0.75f);
 #endif
 
 		// events/closecombat.sc — the client owns the 1st-person anim + whoosh + surface presentation.
@@ -2067,7 +2080,7 @@ void CTSGun::KatanaFire()
 		lock = true;
 		ppev->iuser4 |= TSSTUNT_PRONE | TSSTUNT_STOP; // drop into the ducking hull + damp velocity
 		ppev->view_ofs = Vector(0, 0, 16);
-		m_pPlayer->m_flDuckSlashAux = 2.0f; // player+0x4f4 (consumer VERIFY)
+		m_pPlayer->m_TSStunt.m_flRollTime = 2.0f; // stunt+0x4 (orig player+0x4f4) — arms Play's getup ("land low, get up")
 	}
 	else if (onGround)
 	{

@@ -431,7 +431,6 @@ public:
 	float m_flKatanaBlock = 0;        // 0x7b0 — katana block window (also deflects a knife); same decay law
 	float m_flBlockTime = 0;          // 0x4dc — BlockPlayer() self-root timer (pairs w/ iuser4 STOP bit); PreThink-decayed
 	float m_flLastMeleeRate = 0;      // 0x4f8 — last melee refire interval (written by every melee fire; consumer VERIFY)
-	float m_flDuckSlashAux = 0;       // 0x4f4 — katana duck-slash aux (=2.0; consumer VERIFY)
 	float m_flDisarmTime = 0;         // 0x71c — disarm-immunity gate for DropWeapon(-2) in the melee twins
 	float m_flDisarmPressure = 0;     // 0x7b4 — accumulated melee disarm pressure; PreThink decays x5; DropWeapon(-2) threshold
 	int m_iStandUpLatch = 0;          // 0x78 — set 1 by HandleSlide's deliberate standup (consumer VERIFY)
