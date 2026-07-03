@@ -61,4 +61,9 @@ inline int gmsgClipInfo = 0; // "ClipInfo" 1 — original registers it; the grid
 // sent MSG_PVS from CBasePlayer::TraceAttack (throttled 0.3 s). dossier-gmsg U4a.
 inline int gmsgTSTakeDamage = 0;
 
+// "TSFade" -1 — the TS screen fade: the stock ScreenFade layout but with duration+holdTime
+// divided by the RECIPIENT's GiveSlowMul() (fades stretch for slowed players). The stock
+// ScreenFade message stays registered-but-never-sent. dossier-gmsg U4b.
+inline int gmsgTSFade = 0;
+
 void LinkUserMessages();

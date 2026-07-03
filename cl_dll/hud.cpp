@@ -125,6 +125,11 @@ int __MsgFunc_Concuss(const char* pszName, int iSize, void* pbuf)
 	return static_cast<int>(gHUD.MsgFunc_Concuss(pszName, iSize, pbuf));
 }
 
+int __MsgFunc_TSFade(const char* pszName, int iSize, void* pbuf)
+{
+	return static_cast<int>(gHUD.MsgFunc_TSFade(pszName, iSize, pbuf));
+}
+
 int __MsgFunc_GameMode(const char* pszName, int iSize, void* pbuf)
 {
 	return static_cast<int>(gHUD.MsgFunc_GameMode(pszName, iSize, pbuf));
@@ -287,6 +292,7 @@ void CHud::Init()
 	HOOK_MESSAGE(ViewMode);
 	HOOK_MESSAGE(SetFOV);
 	HOOK_MESSAGE(Concuss);
+	HOOK_MESSAGE(TSFade); // the TS screen fade (slow-time-stretched ScreenFade)
 	// (Weapons hook removed — not in the original client's pfnHookUserMsg set; U0 parity.)
 
 	// TFFree CommandMenu

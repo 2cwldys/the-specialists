@@ -19,6 +19,8 @@
 #include "hud.h"
 #include "cl_util.h"
 #include "parsemsg.h"
+#include "screenfade.h"
+#include "shake.h" // FFADE_* flags (shared with the server ScreenFade)
 #include "r_efx.h"
 
 #include "particleman.h"
@@ -148,3 +150,51 @@ bool CHud::MsgFunc_Concuss(const char* pszName, int iSize, void* pbuf)
 // (MsgFunc_Weapons removed — the HLU 64-bit weapon-bits message is not part of the original
 // TS wire; registration-set parity, dossier-gmsg U0. m_iWeaponBits stays 0: the stock ammo
 // HUD it gated is suppressed in TS anyway, and the TS HUD rides WeaponInfo/WStatus.)
+
+// "TSFade" — the TS screen fade (same layout as the stock ScreenFade; the server already
+// stretched duration/holdTime by the recipient's slow factor). The engine never sees this
+// message name, so we replicate its ScreenFade parse math exactly (xash CL_ParseScreenFade)
+// and hand the result to pfnSetScreenFade. NB: while slow-mo is active, the view.cpp tint
+// rewrites the engine fade each frame — coexistence is the documented VERIFY tail.
+bool CHud::MsgFunc_TSFade(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	const float duration = (float)READ_SHORT();
+	const float holdTime = (float)READ_SHORT();
+	const int flags = READ_SHORT();
+	const int r = READ_BYTE(), g = READ_BYTE(), b = READ_BYTE(), a = READ_BYTE();
+
+	const float flScale = (flags & FFADE_LONGFADE) ? (1.0f / 256.0f) : (1.0f / 4096.0f);
+	const float now = gEngfuncs.GetClientTime();
+
+	screenfade_t sf;
+	memset(&sf, 0, sizeof(sf));
+	sf.fadeFlags = flags;
+	sf.fader = r;
+	sf.fadeg = g;
+	sf.fadeb = b;
+	sf.fadealpha = a;
+	sf.fadeSpeed = 0.0f;
+	sf.fadeEnd = duration * flScale;
+	sf.fadeReset = holdTime * flScale;
+	if (duration > 0.0f)
+	{
+		if (flags & FFADE_OUT)
+		{
+			if (sf.fadeEnd != 0.0f)
+				sf.fadeSpeed = -(float)sf.fadealpha / sf.fadeEnd;
+			sf.fadeEnd += now;
+			sf.fadeTotalEnd = sf.fadeEnd;
+			sf.fadeReset += sf.fadeEnd;
+		}
+		else
+		{
+			if (sf.fadeEnd != 0.0f)
+				sf.fadeSpeed = (float)sf.fadealpha / sf.fadeEnd;
+			sf.fadeReset += now;
+			sf.fadeEnd += sf.fadeReset;
+		}
+	}
+	gEngfuncs.pfnSetScreenFade(&sf);
+	return true;
+}

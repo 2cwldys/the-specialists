@@ -755,20 +755,26 @@ void UTIL_ScreenFadeBuild(ScreenFade& fade, const Vector& color, float fadeTime,
 }
 
 
+// @0xdcc54 (decompile-exact) — TS sends fades on its OWN "TSFade" message, with the
+// fixed-point duration + holdTime divided by the RECIPIENT's GiveSlowMul() at write time:
+// a slowed player's fades stretch to match their perceived time (ScreenFadeAll therefore
+// scales per player). The stock ScreenFade message is registered but never sent.
 void UTIL_ScreenFadeWrite(const ScreenFade& fade, CBaseEntity* pEntity)
 {
 	if (!pEntity || !pEntity->IsNetClient())
 		return;
 
-	MESSAGE_BEGIN(MSG_ONE, gmsgFade, NULL, pEntity->edict()); // use the magic #1 for "one client"
+	const float slowMul = pEntity->GiveSlowMul();
 
-	WRITE_SHORT(fade.duration);	 // fade lasts this long
-	WRITE_SHORT(fade.holdTime);	 // fade lasts this long
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSFade, NULL, pEntity->edict());
+
+	WRITE_SHORT((int)((float)fade.duration / slowMul + 0.5f)); // 4.12 fixed, per-recipient stretch
+	WRITE_SHORT((int)((float)fade.holdTime / slowMul + 0.5f));
 	WRITE_SHORT(fade.fadeFlags); // fade type (in / out)
-	WRITE_BYTE(fade.r);			 // fade red
-	WRITE_BYTE(fade.g);			 // fade green
-	WRITE_BYTE(fade.b);			 // fade blue
-	WRITE_BYTE(fade.a);			 // fade blue
+	WRITE_BYTE(fade.r);
+	WRITE_BYTE(fade.g);
+	WRITE_BYTE(fade.b);
+	WRITE_BYTE(fade.a);
 
 	MESSAGE_END();
 }

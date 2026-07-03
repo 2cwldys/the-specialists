@@ -611,6 +611,7 @@ public:
 	void MsgFunc_ViewMode(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_SetFOV(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_Concuss(const char* pszName, int iSize, void* pbuf);
+	bool MsgFunc_TSFade(const char* pszName, int iSize, void* pbuf); // TS slow-stretched screen fade
 
 	// Screen information
 	SCREENINFO m_scrinfo;

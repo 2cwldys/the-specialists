@@ -75,6 +75,9 @@ void LinkUserMessages()
 	// parity but is never sent — the original never sends it either).
 	gmsgTSTakeDamage = REG_USER_MSG("PTakeDam", 13);
 
+	// TSFade: the TS screen fade (the stock ScreenFade stays registered-but-never-sent).
+	gmsgTSFade = REG_USER_MSG("TSFade", -1);
+
 	// (StatusText/StatusValue/Weapons NOT registered — invented HLU-leftover registrations
 	// removed for registration-set parity, dossier-gmsg U0. The stock sends are neutered in
 	// player.cpp; the HLU 64-bit weapon-bits message removal is PLAYTEST-GATED.)
