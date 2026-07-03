@@ -144,6 +144,12 @@ Akimbo vm anims moved onto the events (EV_TSFire block[22..25] off bparam1; link
 AkimboFire's SendWeaponAnim retired; the right trigger shares the cadence. default_fov -> 80 +
 the two stock 90-floor clamps removed (hud_redraw).
 
+### Round 6e (e2cfb1b) — the flare-vanished inversion, akimbo saga CLOSED (user: "perfect")
+6d deferred the local akimbo flash to the models' 5001-family events — but those trigger
+R_MuzzleFlash (the FAINT engine flash), not the bright flare: it vanished. Inverted like the
+original: the fire events ALWAYS draw the explicit flare at the fired barrel; HUD_StudioEvent
+suppresses the 5001/5011/5021/5031 engine doubles (iMuzzleFlash=false).
+
 ### Playtest round 6c/6d + the VERIFY RE (5397c2c, 0306b68, 1770cf1)
 - The akimbo per-barrel ANIM sides were swapped (the guntail dossier's labels wrong; the MODELS
   settle it: block[22/23]=rightshoot, [24/25]=leftshoot) — bparam1 1 -> [24/25].
