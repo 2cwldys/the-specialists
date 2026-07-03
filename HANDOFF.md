@@ -142,6 +142,12 @@ Spectator wire, the gmsg central registration, the cvar renames, the door-helper
   weapons fire full-auto while held. Our semi gate requires trigger release — find the original's
   DoubleFireRate bypass in the ItemPostFrame/Fire semi leg (we already call DoubleFireRate() for
   the x0.5 cadence).
+- **THIRD-PERSON DEATH CAM** (round 8, user): on death the original goes THIRD PERSON watching
+  YOUR body play the death anim easing into the death-idle, and STAYS until the spectate
+  transition. The corpse-at-transition fix (4bed51e) gives the body/pose half; the CAMERA is
+  client-side — while CL_IsDead && g_iUser1==0, the original's V_CalcRefdef chases the own
+  body (find its dead-view branch; pairs with the floating-reticle/chase-cam RE below — same
+  camera code region).
 - **THIRD-PERSON floating reticle + chase cam** (round 8, user): in 3rd person the original's
   aiming reticle "FLOATS" — it lags behind the view position when the mouse moves — and the
   chase camera offsets so the aim point is NOT occluded by the player model's head. Suspected
