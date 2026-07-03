@@ -809,11 +809,13 @@ void EV_TSFire(event_args_t* args)
 	EV_TSMuzzleFlare(idx, weaponType, barrelSide, silenced); // the muzzle-flash sprite at the fired barrel
 	// (the both-barrels shot is a SEPARATE event now — events/firelinked.sc → EV_TSFireLinked)
 
-	// The AKIMBO single-barrel viewmodel anim comes from the EVENT (the fire core, dossier §5):
-	// block[22/23] for the LEFT barrel (bparam1=1), block[24/25] for the RIGHT.
+	// The AKIMBO single-barrel viewmodel anim comes from the EVENT (the fire core). The MODELS
+	// settle the side mapping (the dossier's labels were swapped): block[22/23] = the RIGHT-gun
+	// shoots (v_mk23_akimbo 1/2 = shoot_right1/2, v_berettas 3/5 = rightshoot), block[24/25] =
+	// the LEFT (3/4 = shoot_left1/2, 4/6 = leftshoot). bparam1: 1 = the LEFT barrel.
 	if (akimboClass && (EV_IsLocal(idx) || TS_InEyeSpectating(idx)))
 		gEngfuncs.pEventAPI->EV_WeaponAnimation(
-			TS_BlockAnim(wiClass, (barrelSide ? 22 : 24) + gEngfuncs.pfnRandomLong(0, 1)),
+			TS_BlockAnim(wiClass, (barrelSide ? 24 : 22) + gEngfuncs.pfnRandomLong(0, 1)),
 			GetBodyByItems(weaponType, attachMask));
 
 	if (EV_IsLocal(idx))
