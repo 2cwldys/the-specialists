@@ -113,7 +113,13 @@ Spectator wire, the gmsg central registration, the cvar renames, the door-helper
   ground-combo/FLY branches instead). SUSPECTS: (a) the 270 gate vs the original's actual
   constant/condition for the duck-fwd case — re-read HandleCloseCombat's 0x10 branch disasm;
   (b) the FLY-family animIdx VERIFY (task #8) — wrong anims may read as "no front kick".
-  Settle with a live-original side-by-side (jump+duck+click fwd at walk speed) + the disasm.
+  SETTLED partially (cont.84 close): the user's spec is FRONT kick = jump+duck+fwd (any speed),
+  BACK kick = moving back alone. CCombatAttack @0x76078 decompiled: the 270 gate is REAL but it
+  is a SUB-VARIANT inside one case of a move SWITCH keyed on a code (bVar9) computed UPSTREAM —
+  the actual move selector is a separate helper (likely CTSStunt::CloseAttack @0x8c630 or
+  GetCloseCombatVectors @0x76e2c). Next: decompile the SELECTOR — the front kick should be its
+  own case (airborne+duck+fwd, no speed term); our tree collapsed the selector + variants into
+  one first-match chain and mis-homed the 270. re.sh 0x9c630 / 0x86e2c.
 - **DOUBLE-FIRE powerup = FULL-AUTO**: with the doubletap-E double-fire-rate powerup active, SEMI
   weapons fire full-auto while held. Our semi gate requires trigger release — find the original's
   DoubleFireRate bypass in the ItemPostFrame/Fire semi leg (we already call DoubleFireRate() for
