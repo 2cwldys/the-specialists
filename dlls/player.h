@@ -408,6 +408,12 @@ public:
 	float m_flSlowMotionRamp = 0;     // 0x180 — OTHERS slow scale (0.35 slowmo / 0.225 pause) applied to LOS victims
 	float m_flNextSlowFlow = 0;       // 0x178 — next SlowMotionFlow tick (runs every 0.5s while active)
 	EHANDLE m_hSlowPlayers[32];       // 0x188 — per-player cache of who THIS player is slowing (for restore)
+	// the packed SLOWED-ENTITY array (+0x208 raw pointers / +0x288 count byte): projectiles this
+	// player's slow-mo bubble GoSlow'd. RAW pointers with HOLES KEPT (count never shrinks) — which
+	// is exactly why every projectile removal path must scrub itself out first
+	// (RemoveEntityFromSlowedArray) or the array dangles. Mimic-the-mechanism (drop-in rule).
+	CBaseEntity *m_pSlowedEnts[32] = {}; // 0x208
+	char m_iSlowedEntCount = 0;          // 0x288
 	int m_iClientHeldType = -1;       // 0x738 — last-sent held powerup type (gmsgTSPowerUp change-detect)
 	int m_iClientHeldDur = -1;        // 0x734 — last-sent held powerup duration
 	float m_flClientSlowAmt = -1;     // 0x16c — last-sent slow amount (gmsgTSSlowAmt change-detect)

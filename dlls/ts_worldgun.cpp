@@ -20,7 +20,8 @@
 #include "cbase.h"
 #include "player.h"
 #include "weapons.h"
-#include "ts_weapons.h"   // get_weapon_info, GiveTSWeapon
+#include "ts_weapons.h"
+#include "ts_utils.h"   // RemoveEntityFromSlowedArray (the pre-remove scrub)   // get_weapon_info, GiveTSWeapon
 #include "ts_physicobject.h"
 #include "ts_worldgun.h"
 #include "ts_gamerules.h"    // CTSGroundWeapon respawn rules
@@ -182,6 +183,7 @@ void CTSWorldGun::Fall()
 	}
 	else
 	{
+		RemoveEntityFromSlowedArray(this); // Fall__11CTSWorldGun @0x90e6a — scrub the packed slowed array before removal
 		UTIL_Remove(this);
 	}
 }
@@ -191,6 +193,7 @@ void CTSWorldGun::WaitThink()
 {
 	pev->nextthink = gpGlobals->time + 0.1f;
 	if (m_flExpire < gpGlobals->time)
+		RemoveEntityFromSlowedArray(this); // WaitThink__11CTSWorldGun @0x9108c — scrub the packed slowed array before removal
 		UTIL_Remove(this);
 }
 
@@ -230,6 +233,7 @@ void CTSWorldGun::GetWeapon(CBaseEntity *pOther)
 		return;
 
 	m_bTaken = true;
+	RemoveEntityFromSlowedArray(this); // GetWeapon__11CTSWorldGun @0x9123b — scrub the packed slowed array before removal
 	UTIL_Remove(this);
 }
 

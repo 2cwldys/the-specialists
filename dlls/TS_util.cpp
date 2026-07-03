@@ -121,6 +121,30 @@ void TSPrecache(void)
 	UTIL_PrecacheOther("ts_flag");
 }
 
+// @0x8fb4c RemoveEntityFromSlowedArray(ent) — scrub a dying entity out of EVERY player's
+// packed slowed array (+0x208, count +0x288): NULL each found slot (all occurrences; holes
+// kept, the count never shrinks). Every slowed-projectile removal path (flag / worldgun x3 /
+// knife x2 / grenade / shrapnel) calls this right before UTIL_Remove — the array holds RAW
+// pointers, so a missed scrub dangles.
+void RemoveEntityFromSlowedArray(CBaseEntity *pEnt)
+{
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBaseEntity *p = UTIL_PlayerByIndex(i);
+		if (!p || !p->IsPlayer())
+			continue;
+		CBasePlayer *pl = (CBasePlayer *)p;
+		if (pl->m_iSlowedEntCount <= 0)
+			continue;
+		for (int k = 0; k < pl->m_iSlowedEntCount; k++)
+		{
+			int found = UTIL_EntInArray(pl->m_pSlowedEnts, pl->m_iSlowedEntCount, pEnt);
+			if (found >= 0)
+				pl->m_pSlowedEnts[found] = NULL;
+		}
+	}
+}
+
 // @0x8fae0 PlayerIsCheating — bots never cheat; a human cheats iff their cl_lw != "1"
 // (the forced-client-side-weapons check). Callers: ClientUserInfoChanged (which then forces
 // cl_lw "1") and TSInit (result discarded — the original's quirk).

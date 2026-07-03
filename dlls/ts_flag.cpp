@@ -143,6 +143,7 @@ void CTSFlag::BounceTouch(CBaseEntity *pOther)
 void CTSFlag::Destroy()
 {
 	m_bRemoved = true;
+	RemoveEntityFromSlowedArray(this); // Destroy__7CTSFlag @0x8de44 — scrub the packed slowed array before removal
 	UTIL_Remove(this);
 }
 

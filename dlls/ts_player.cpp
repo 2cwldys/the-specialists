@@ -773,8 +773,8 @@ void CBasePlayer::TSInit()
 	m_flSlowMotionScale = 0;
 	m_flSlowMotionRamp = 0;
 	m_flNextSlowFlow = 0;
-	// player+0x208[32] + the 0x288 byte — the packed SLOWED array is cleared here
-	// (lands with RemoveEntityFromSlowedArray, the freefuncs task)
+	memset(m_pSlowedEnts, 0, sizeof(m_pSlowedEnts)); // 0x208[32] — the packed slowed array
+	m_iSlowedEntCount = 0;                           // 0x288
 	// player+0x77c/0x780/0x784 = 0 (unnamed)
 	m_flSpreadAccum = 0;
 	// player+0x7c0 = 0 (unnamed)

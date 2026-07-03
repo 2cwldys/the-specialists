@@ -17,6 +17,7 @@
 #include "weapons.h"
 #include "player.h" // CBasePlayer::m_flSlowMotionGo (slow-mo propagation in CreateGrenade)
 #include "ts_weapons.h"
+#include "ts_utils.h"   // RemoveEntityFromSlowedArray (the pre-remove scrub)
 #include "ts_player.h" // KungFu() — the thrown-katana pickup gate (CTSKnife::Use)
 #include "ts_physicobject.h"
 #include "ts_slowmotionpoint.h" // the spectacular-explosion slow bubble
@@ -190,6 +191,7 @@ void CTSShrapnel::BounceTouch(CBaseEntity *pOther)
 
 void CTSShrapnel::WaitThink()
 {
+	RemoveEntityFromSlowedArray(this); // WaitThink__11CTSShrapnel @0x6c81e — scrub the packed slowed array before removal
 	UTIL_Remove(this);
 }
 
@@ -384,6 +386,7 @@ void CM61Grenade::WaitThink()
 		if (IsInWorld())
 			TSExplosion(pev->origin, pev, pev->owner ? VARS(pev->owner) : pev,
 				M61_SHAKE_MAG, M61_BLAST_DAMAGE, M61_BLAST_RADIUS);
+		RemoveEntityFromSlowedArray(this); // WaitThink__11CM61Grenade @0x6cb9f — scrub the packed slowed array before removal
 		UTIL_Remove(this);
 	}
 }
@@ -521,6 +524,7 @@ void CTSKnife::WaitThink()
 {
 	if (m_flExpire != 0 && gpGlobals->time > m_flExpire)
 	{
+		RemoveEntityFromSlowedArray(this); // WaitThink__8CTSKnife @0x6ea8a — scrub the packed slowed array before removal
 		UTIL_Remove(this);
 		return;
 	}
@@ -711,6 +715,7 @@ void CTSKnife::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useTy
 			return; // won't fit — the knife stays
 	}
 	SetTouch(nullptr);
+	RemoveEntityFromSlowedArray(this); // Use__8CTSKnife @0x6deb5 — scrub the packed slowed array before removal
 	UTIL_Remove(this);
 }
 
