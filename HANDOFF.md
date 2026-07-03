@@ -110,6 +110,15 @@ Spectator wire, the gmsg central registration, the cvar renames, the door-helper
   weapons fire full-auto while held. Our semi gate requires trigger release — find the original's
   DoubleFireRate bypass in the ItemPostFrame/Fire semi leg (we already call DoubleFireRate() for
   the x0.5 cadence).
+- **THIRD-PERSON floating reticle + chase cam** (round 8, user): in 3rd person the original's
+  aiming reticle "FLOATS" — it lags behind the view position when the mouse moves — and the
+  chase camera offsets so the aim point is NOT occluded by the player model's head. Suspected
+  mechanism: the reticle = a WORLD-PROJECTED aim point (a gun/eye-forward trace endpoint pushed
+  through WorldToScreen, drawn as a sprite — trails because the endpoint moves through the world
+  while the camera smooths), NOT a fixed centre crosshair; the cam = a raised/side offset. RE the
+  original client's thirdperson path: the cam offset (in_camera analogue / CL_CameraOffset) + who
+  draws a crosshair sprite from a projected point (cf. the laser-dot draw FUN_1003d600 §4b — same
+  projection kit). Our TS_PlayerGunAtt cache gives the gun anchor for the trace.
 - **GLASS PENETRATION depth**: beretta 92f breaks TWO panes per shot; others break one — what gates
   pane count (caliber? damage? iMode?) and does glass add damage falloff beyond distance? RE
   ShootBulletsPlayer's pierce recursion (depth-1, iMode 2, the /30 falloff leg) + CheckForBreakables
