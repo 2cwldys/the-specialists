@@ -689,6 +689,15 @@ char *CTSKnife::GetDescription()
 	}
 }
 
+// Header-visible bridge for TSGetPointsForFrag (CTSKnife lives in this TU): the thrown-blade
+// kill-feed name, or "Throwing" for a non-knife entity (the original's NULL fallback).
+const char *TSKnifeGetDescription(CBaseEntity *pEnt)
+{
+	if (pEnt && FClassnameIs(pEnt->pev, "knife"))
+		return ((CTSKnife *)pEnt)->GetDescription();
+	return "Throwing";
+}
+
 // @0x6dda4 Use — the ONLY pickup path (+USE via FCAP_CONTINUOUS_USE), decompile-exact gates:
 // no pickup while in flight (+0x90); player/alive/!EF_NODRAW; a flagged katana (+0x91) only for a
 // KungFu() player; an EXPIRED knife is silently cleaned up on use; a failed pickup (arsenal full /

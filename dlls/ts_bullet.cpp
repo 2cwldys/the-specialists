@@ -26,9 +26,11 @@
 #include "ts_weapons.h"
 #include "ts_weapon_info.h" // get_ammo_info (the caliber speed unit) // TSSlowPitch (slow-world sound pitch)
 #include "ts_bullet.h"
+#include "ts_gun.h" // GetPlayerTSGun (the fire-time weapon-id capture)
 #include "ts_shared.h"   // GetBulletVelocityMult (the slow-motion bullet math, original TS_shared.cpp)
 
 CBulletManager g_BulletManager; // the original embeds this in CTSGameRules (+0x1864); one instance.
+int glast_weaponid = -1; // @0x10100c (this TU, static-init -1 — V21 resolved from the .data image)
 
 // GetBulletVelocityMult (@0x89160) now lives in its original home, ts_shared.cpp (the TS slow-motion
 // math). A slow-mo bullet's speed as a fraction of full speed, from the shooter's slow factor + the
@@ -110,6 +112,10 @@ void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vec
 			b.fullSpeed = BulletFullSpeed(caliber);
 			b.caliber = caliber;
 			b.kind = get_ammo_info(caliber)->iKind; // rec+0x3c — the falloff form selector
+			{
+				CTSGun *pGun = GetPlayerTSGun(owner);
+				b.weaponId = pGun ? pGun->m_weaponType : -1; // rec+0x30 — captured at fire time
+			}
 
 			// The visible flying bullet, RE-matched to the client renderer (FUN_10035010): a SHORT
 			// trail dash (bullet_trail.spr, ~5..25u, speed-scaled) that RIDES the bullet head — NOT a
@@ -242,6 +248,7 @@ void CBulletManager::UpdateBulletTimeSlice(int slot)
 			idx = (ai->iRangeUnit > 0) ? (int)(10.0f * (dist / (10.0f * (float)ai->iRangeUnit)) + 0.5f) : 0;
 		}
 		const float dmg = b.damage * get_range_multipler(idx);
+		glast_weaponid = b.weaponId; // @0x5f2a4 — publish what fired, for the kill feed / scoring
 		ClearMultiDamage();
 		pHit->TraceAttack(owner->pev, dmg, b.dir, &tr, DMG_BULLET | DMG_NEVERGIB);
 		ApplyMultiDamage(owner->pev, owner->pev);

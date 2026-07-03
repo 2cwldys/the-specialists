@@ -20,6 +20,9 @@ struct TSSlowBullet
 	float fullSpeed; // per-caliber base flight speed, fixed at fire time
 	int caliber;     // rec caliber slot — get_ammo_info arg (falloff form B unit)
 	int kind;        // rec+0x3c — the ammo KIND copied at fire time (2 -> falloff form A, dist/30)
+	int weaponId;    // rec+0x30 — the FIRING weapon's tsweapon_t, captured at fire time: a
+	                 // slow-bullet HIT publishes it into glast_weaponid so the kill feed /
+	                 // TSGetPointsForFrag know what fired even if the shooter switched since
 };
 
 class CBulletManager
@@ -36,6 +39,11 @@ public:
 };
 
 extern CBulletManager g_BulletManager;
+
+// glast_weaponid (D 0x10100c, this TU; static-init -1): the tsweapon id of the last
+// slow-bullet HIT (-1 = the kill wasn't a tracked bullet). Written by UpdateBullet
+// (@0x5f2a4); read by PlayerKilled + TSGetPointsForFrag (the kung-fu kill gate).
+extern int glast_weaponid;
 
 // @0x5f4f4 UTIL_TraceLine_Expanded — the TS bullet trace: every player's absbox inflated
 // +/-32u (saved in vecBoxes[33]), stock trace, then ONLY absmax restored (original quirk;

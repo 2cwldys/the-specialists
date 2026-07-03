@@ -31,6 +31,10 @@
 #include "UserMessages.h"
 #include "ts_player.h" // glast_* kill-flavor globals
 #include "ts_utils.h"  // TSHudMessageAll
+#include "ts_gun.h"    // TSGUN_WEAPON_ID / CTSGun (the kung-fu kill gate)
+#include "ts_bullet.h" // glast_weaponid (the tracked slow-bullet id)
+#include "ts_player.h" // glast_closecombat
+#include "ts_gamerules.h" // g_theOneMode
 
 #define ITEM_RESPAWN_TIME 30
 #define WEAPON_RESPAWN_TIME 20
@@ -550,6 +554,112 @@ bool CHalfLifeMultiplay::AllowAutoTargetCrosshair()
 }
 
 //=========================================================
+// @0x79140 TSGetPointsForFrag (TS_multiplay_gamerules.cpp, decompile-exact) — the stylish-kill
+// scorer, called by PlayerKilled with the base points (IPointsForKill): negative passes through;
+// THE-ONE mode: only the One scores (everyone else gets 0). For a client killer:
+//  - KUNG-FU kill (2 pts, "#TS_KungFu"): inflictor==killer, glast_weaponid==-1 (not a tracked
+//    slow-bullet), and bare hands — no active item, or the tsgun with NO wielded item — or the
+//    kill came through the close-combat path (glast_closecombat);
+//  - THROWN-BLADE kill (2 pts): inflictor is a "knife" classname — desc = its GetDescription()
+//    ("Throwing ..." names); any OTHER foreign inflictor returns the base points unchanged;
+//  - STUNT kill (+1, "#TS_StStl", *pStunt): killer stunting (iuser4 & 0x10c10) moving > 80 u/s
+//    (the +1 skipped for close-combat kills);
+//  - else SLIDE kill (+1, "#TS_SlStl", *pSlide): iuser4 & 0x20, friction < 1, speed > 80;
+//  - else a styled kill gets the plain " #TS_Stl" suffix.
+// pts > 1 broadcasts the green feed line: "%i #TS_Frg #TS_FrgFr %s, %s" (name, style desc).
+int TSGetPointsForFrag(CBasePlayer *pUnused, entvars_t *pevKiller, entvars_t *pevInflictor,
+	int pts, bool *pSlide, bool *pStunt)
+{
+	(void)pUnused;
+	if (pts < 0)
+		return pts;
+	CBaseEntity *pKillerEnt = CBaseEntity::Instance(pevKiller);
+	CBasePlayer *pKiller = (pKillerEnt && pKillerEnt->IsPlayer()) ? (CBasePlayer *)pKillerEnt : NULL;
+
+	char szDesc[64] = "";
+	char szName[64] = "";
+
+	if (g_theOneMode && pKiller && !pKiller->m_bTheOne)
+		return 0; // only the One scores in The-One mode
+
+	if ((pevKiller->flags & FL_CLIENT) != 0)
+	{
+		strncpy(szName, STRING(pevKiller->netname), sizeof(szName) - 1);
+		szName[sizeof(szName) - 1] = 0;
+		if (pevInflictor)
+		{
+			if (pevInflictor == pevKiller)
+			{
+				// direct kill: the KUNG-FU check (bare hands, not a tracked slow-bullet)
+				if (glast_weaponid == -1 && pKiller)
+				{
+					CBasePlayerItem *pItem = pKiller->m_pActiveItem; // player+0xa10
+					bool kungfu = false;
+					if (!pItem)
+						kungfu = glast_closecombat;
+					else if (pItem->m_iId == TSGUN_WEAPON_ID)
+					{
+						CTSGun *pGun = (CTSGun *)pItem;
+						kungfu = (pGun->m_pActiveItem == NULL) || glast_closecombat;
+					}
+					if (kungfu)
+					{
+						strcpy(szDesc, "#TS_KungFu");
+						pts = 2;
+					}
+				}
+			}
+			else
+			{
+				// a foreign inflictor: ONLY the thrown blade ("knife" classname) is styled
+				if (strcmp(STRING(pevInflictor->classname), "knife") != 0)
+					return pts & 0xff;
+				CBaseEntity *pInf = CBaseEntity::Instance(pevInflictor);
+				strncpy(szDesc, TSKnifeGetDescription(pInf), sizeof(szDesc) - 1);
+				szDesc[sizeof(szDesc) - 1] = 0;
+				pts = 2;
+			}
+		}
+		const float speed = pevKiller->velocity.Length();
+		if ((pevKiller->iuser4 & 0x10c10) != 0 && speed > 80.0f)
+		{
+			// STUNT kill
+			if (!glast_closecombat && pKiller)
+				pts = pts + 1;
+			if (pts > 1)
+			{
+				if (szDesc[0])
+					strcat(szDesc, " & #TS_StStl");
+				else
+					strcpy(szDesc, "#TS_StStl");
+			}
+			*pStunt = true;
+		}
+		else if ((pevKiller->iuser4 & 0x20) != 0 && pevKiller->friction < 1.0f && speed > 80.0f)
+		{
+			// SLIDE kill
+			if (!glast_closecombat && pKiller)
+				pts = pts + 1;
+			if (pts > 1)
+			{
+				if (szDesc[0])
+					strcat(szDesc, " & #TS_SlStl");
+				else
+					strcpy(szDesc, "#TS_SlStl");
+			}
+			*pSlide = true;
+		}
+		else if (szDesc[0])
+		{
+			strcat(szDesc, " #TS_Stl");
+		}
+	}
+
+	if (pts > 1)
+		TSHudMessageAll(0, 0xff, 0, 1, 30, UTIL_VarArgs("%i #TS_Frg #TS_FrgFr %s, %s", pts, szName, szDesc));
+	return pts & 0xff;
+}
+
 // IPointsForKill - how many points awarded to anyone
 // that kills this player?
 //=========================================================
@@ -591,8 +701,15 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 	}
 	else if (ktmp && ktmp->IsPlayer())
 	{
-		// if a player dies in a deathmatch game and the killer is a client, award the killer some points
-		pKiller->frags += IPointsForKill(peKiller, pVictim);
+		// @0x7970d: the stylish-kill scorer wraps the base points (kung-fu/thrown-blade = 2,
+		// stunt/slide +1, the green feed broadcast). VERIFY tail: the original then converts
+		// the out-bools + DoSpectacularNess into the kill-tier award bytes (m_iAward 2/3/4,
+		// The One's 10 preserved) AND a slow-motion reward grant (@0x7a908..0x7a9d7) — that
+		// reward machine needs its own typed pass before landing.
+		bool bSlideKill = false, bStuntKill = false;
+		pKiller->frags += TSGetPointsForFrag(NULL, pKiller, pInflictor,
+			IPointsForKill(peKiller, pVictim), &bSlideKill, &bStuntKill);
+		glast_weaponid = -1; // consumed — re-arm for the next tracked-bullet hit
 
 		FireTargets("game_playerkill", ktmp, ktmp, USE_TOGGLE, 0);
 	}
