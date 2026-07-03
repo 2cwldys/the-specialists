@@ -2821,31 +2821,6 @@ int CTSGun::GetActiveItems() const
 	return active;
 }
 
-// Akimbo dual-wield barrel swap (right-click / SecondaryAttack on an akimbo weapon). Cycles the
-// active item's barrel mask (bits 2/4 = left/right): both(0) -> left(2) -> right(4) -> both(6) ->
-// both(0). AkimboFire reads the mask to gate which barrel(s) fire. (SLICE vs the original, whose
-// SecondaryAttack@0x817a8 routes akimbo right-click to Fire() — fire-the-other-hand; deferred.)
-void CTSGun::SwitchBarrel()
-{
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	if (wi->iFireType != TSFT_AKIMBO && wi->iFireType != TSFT_AKIMBO_ONLY)
-		return; // not dual-wielding — nothing to swap
-
-	TSItem &it = m_items[m_weaponType];
-	const int m = it.barrelMask & 6;
-	if (m == 6)
-		it.barrelMask = 0;        // both -> default (both)
-	else if (m & 2)
-		it.barrelMask = 4;        // left -> right
-	else if (m & 4)
-		it.barrelMask = 6;        // right -> both
-	else
-		it.barrelMask = 2;        // default -> left
-
-	if (m_pPlayer)
-		EMIT_SOUND(ENT(m_pPlayer->pev), CHAN_WEAPON, "weapons/switch.wav", VOL_NORM, ATTN_NORM);
-}
-
 // Toggle the held weapon's active attachments (the `useitems` command -> CTSGun::SwitchItems).
 void TSSwitchItems(CBasePlayer *pPlayer)
 {

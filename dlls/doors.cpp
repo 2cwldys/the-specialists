@@ -23,6 +23,7 @@
 #include "cbase.h"
 #include "doors.h"
 #include "func_break.h" // TS breakable-door reuse: Materials + MaterialSound{Precache,Random}
+#include "ts_func_break.h" // CInfoBreakable — the shared respawn retry-helper (doors ride it too)
 
 extern int gmsgTSCreateDebris; // func_break.cpp — the TS glass-shatter sprite shower
 
@@ -81,8 +82,11 @@ public:
 	// TS breakable-door system (@0xb57ac TraceAttack / @0xb5604 BreakableRespawn). A door with a
 	// "maxdamage" keyvalue takes damage and shatters like a func_breakable, then respawns.
 	void TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vecDir, TraceResult* ptr, int bitsDamageType) override;
-	virtual void BreakableRespawn(bool forceRespawn);  // @0xb5604 — box-clear retry + restore
-	void EXPORT RespawnThink();                        // drives the post-shatter respawn
+	void BreakableRespawn(bool forceRespawn) override; // @0xb5604 — box-clear retry + restore
+
+	EHANDLE m_hRespawner; // +0x104 — the info_breakable retry-helper (created in Spawn @0xb60cc
+	                      // tail; its RespawnThink drives the respawn — the door has NO think of
+	                      // its own for this, exactly like CBreakable)
 
 	float m_flBreakHealth = 0;   // +0x118 — "maxdamage": damage to shatter (<=0 = unbreakable)
 	int   m_iAccumDamage = 0;    // +0x110 — accumulated damage toward the threshold
@@ -363,6 +367,16 @@ void CBaseDoor::Spawn()
 	m_iAccumDamage = 0;
 	m_flDoorNextAttack = 0;
 	pev->takedamage = (m_flBreakHealth > 0) ? DAMAGE_YES : DAMAGE_NO;
+
+	// @0xb60cc tail: a respawn-capable door creates its info_breakable retry-helper once
+	// (cross-linked by EHANDLE both ways), exactly like CBreakable::Spawn.
+	if (m_flRespawnTime >= 0)
+	{
+		if (!(CBaseEntity*)m_hRespawner)
+			m_hRespawner = CBaseEntity::Create("info_breakable", VecBModelOrigin(pev), pev->angles, edict());
+		if ((CBaseEntity*)m_hRespawner)
+			((CInfoBreakable*)(CBaseEntity*)m_hRespawner)->m_hBreakable = this;
+	}
 }
 
 // @0xb57ac TraceAttack — a breakable door accumulates damage and shatters (debris + material sound)
@@ -419,41 +433,38 @@ void CBaseDoor::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vecDi
 		MESSAGE_END();
 	}
 
-	// kill the door (it disappears), fire its targets, then schedule a respawn.
+	// kill the door (@0xb57ac tail: exact stores — effects = EF_NODRAW, no SUB_UseTargets;
+	// the original fires NO targets on shatter) and arm the retry-HELPER's think (the door
+	// itself never thinks for respawn).
 	pev->solid = SOLID_NOT;
-	pev->effects |= EF_NODRAW;
+	pev->effects = EF_NODRAW;
 	pev->takedamage = DAMAGE_NO;
 	pev->deadflag = DEAD_DEAD;
 	SetTouch(NULL);
 	SetThink(NULL);
-	SUB_UseTargets(NULL, USE_TOGGLE, 0);
 
-	if (m_flRespawnTime >= 0)
+	if (m_flRespawnTime >= 0 && (CBaseEntity*)m_hRespawner)
 	{
-		SetThink(&CBaseDoor::RespawnThink);
-		pev->nextthink = gpGlobals->time + (m_flRespawnTime > 0 ? m_flRespawnTime : 30.0f);
+		CInfoBreakable* pHelper = (CInfoBreakable*)(CBaseEntity*)m_hRespawner;
+		pHelper->SetThink(&CInfoBreakable::RespawnThink);
+		pHelper->pev->nextthink = gpGlobals->time + (m_flRespawnTime != 0 ? m_flRespawnTime : 30.0f);
 	}
-}
-
-// Drive the post-shatter respawn (the door persists NODRAW + thinking until its box is clear).
-void CBaseDoor::RespawnThink()
-{
-	BreakableRespawn(false);
 }
 
 // @0xb5604 BreakableRespawn — if the door's box is clear, restore it to the spawn pose and re-Spawn;
 // else retry in 5s. // UNPLAYTESTED.
 void CBaseDoor::BreakableRespawn(bool forceRespawn)
 {
-	if (pev->deadflag != DEAD_DEAD && (pev->effects & EF_NODRAW) == 0 && !forceRespawn)
+	// @0xb5604 gate: proceed if dead OR exactly hidden (effects == EF_NODRAW) OR forced.
+	if (!(pev->deadflag == DEAD_DEAD || pev->effects == EF_NODRAW || forceRespawn))
 		return;
 
-	CBaseEntity* pList[8];
-	int count = UTIL_EntitiesInBox(pList, 8, pev->absmin, pev->absmax, FL_CLIENT | FL_MONSTER);
+	CBaseEntity* pList[1];
+	int count = UTIL_EntitiesInBox(pList, 1, pev->absmin, pev->absmax, FL_CLIENT | FL_MONSTER);
 	if (count == 0)
 	{
 		pev->deadflag = DEAD_NO;
-		pev->effects &= ~EF_NODRAW;
+		pev->effects = 0; // exact store (the original zeroes ALL effects)
 		pev->origin = m_vecSpawnOrigin;
 		UTIL_SetOrigin(pev, pev->origin);
 		pev->angles = m_vecSpawnAngles;
@@ -463,10 +474,12 @@ void CBaseDoor::BreakableRespawn(bool forceRespawn)
 		SetThink(NULL);
 		Spawn();
 	}
-	else
+	else if ((CBaseEntity*)m_hRespawner)
 	{
-		SetThink(&CBaseDoor::RespawnThink);
-		pev->nextthink = gpGlobals->time + 5.0f; // blocked — retry
+		// blocked — re-arm the HELPER to retry in 5s (the original never thinks on the door)
+		CInfoBreakable* pHelper = (CInfoBreakable*)(CBaseEntity*)m_hRespawner;
+		pHelper->SetThink(&CInfoBreakable::RespawnThink);
+		pHelper->pev->nextthink = gpGlobals->time + 5.0f;
 	}
 }
 
@@ -1018,15 +1031,15 @@ public:
 // @0xb7838 — like CBaseDoor's, but a rotating door keeps its position (restore angles, not origin).
 void CRotDoor::BreakableRespawn(bool forceRespawn)
 {
-	if (pev->deadflag != DEAD_DEAD && (pev->effects & EF_NODRAW) == 0 && !forceRespawn)
+	if (!(pev->deadflag == DEAD_DEAD || pev->effects == EF_NODRAW || forceRespawn))
 		return;
 
-	CBaseEntity* pList[8];
-	int count = UTIL_EntitiesInBox(pList, 8, pev->absmin, pev->absmax, FL_CLIENT | FL_MONSTER);
+	CBaseEntity* pList[1];
+	int count = UTIL_EntitiesInBox(pList, 1, pev->absmin, pev->absmax, FL_CLIENT | FL_MONSTER);
 	if (count == 0)
 	{
 		pev->deadflag = DEAD_NO;
-		pev->effects &= ~EF_NODRAW;
+		pev->effects = 0;
 		pev->angles = m_vecSpawnAngles;
 		pev->avelocity = g_vecZero;
 		pev->velocity = g_vecZero;
@@ -1034,10 +1047,11 @@ void CRotDoor::BreakableRespawn(bool forceRespawn)
 		SetThink(NULL);
 		Spawn();
 	}
-	else
+	else if ((CBaseEntity*)m_hRespawner)
 	{
-		SetThink(&CBaseDoor::RespawnThink);
-		pev->nextthink = gpGlobals->time + 5.0f;
+		CInfoBreakable* pHelper = (CInfoBreakable*)(CBaseEntity*)m_hRespawner;
+		pHelper->SetThink(&CInfoBreakable::RespawnThink);
+		pHelper->pev->nextthink = gpGlobals->time + 5.0f;
 	}
 }
 

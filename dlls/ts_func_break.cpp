@@ -22,5 +22,6 @@ void CInfoBreakable::RespawnThink()
 	SetThink(NULL);
 	CBaseEntity *pBreak = m_hBreakable;
 	if (pBreak)
-		((CBreakable *)pBreak)->BreakableRespawn(false);
+		pBreak->BreakableRespawn(false); // VIRTUAL (@0x65da0 calls vtbl slot +8) — the held
+		                                 // entity is a CBreakable OR a CBaseDoor/CRotDoor
 }

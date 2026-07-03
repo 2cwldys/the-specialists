@@ -123,7 +123,6 @@ public:
 	void SwitchFireMode();                       // cycle the held weapon's fire-mode
 	void SwitchItems();                          // @SwitchItems__6CTSGun (useitems) — toggle ACTIVE attachments (laser/flash)
 	int  GetActiveItems() const;                 // @GetActiveItems__6CTSGun — active attach mask (+0x40 if akimbo)
-	void SwitchBarrel();                         // akimbo dual-wield barrel swap (right-click / secondary)
 
 	void Reset();                     // @0x705e0 — wipe the whole arsenal + active state to bare kung-fu
 
