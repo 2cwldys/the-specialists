@@ -2366,7 +2366,13 @@ int CTSGun::AddItem(int bits)
 // the original (you look through the scope, not at the gun).
 void CTSGun::Zoom(int fov)
 {
+	// BOTH carriers: pev->fov (the server-side cycle state) AND m_iFOV — the client's refdef
+	// only honors gHUD.m_iFOV (HUD_UpdateClientData reports it back to the engine), which the
+	// stock SetFOV message feeds from m_iFOV (round-7k: the zoom never changed the view).
 	m_pPlayer->pev->fov = (float)fov;
+#ifndef CLIENT_DLL
+	m_pPlayer->m_iFOV = fov;
+#endif
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	if (wi->zoomFov1 < 40)
 		m_pPlayer->pev->viewmodel = 0;
@@ -2377,6 +2383,9 @@ void CTSGun::Zoom(int fov)
 void CTSGun::Unzoom()
 {
 	m_pPlayer->pev->fov = 0;
+#ifndef CLIENT_DLL
+	m_pPlayer->m_iFOV = 0;
+#endif
 	if (m_pPlayer->pev->viewmodel == 0)
 	{
 		const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);

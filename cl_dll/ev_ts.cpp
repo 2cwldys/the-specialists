@@ -96,6 +96,17 @@ static bool TSWeaponOneHanded(int w)
 // attachment[side]. For the local player it's the viewmodel; otherwise the player's world model.
 extern "C" int CL_IsThirdPerson(); // cl_dll/in_camera.cpp (used before the later extern block)
 
+// EV_WeaponAnimation only when the viewmodel actually has a model — while scope-zoomed the
+// viewmodel is HIDDEN (model NULL) and an anim call there can abort the rest of the handler
+// (round-7k: gunshot sound + impact effects vanished while zoomed).
+static void TS_EvWeaponAnim(int anim, int body)
+{
+	cl_entity_t* vm = gEngfuncs.GetViewModel();
+	if (!vm || !vm->model)
+		return;
+	TS_EvWeaponAnim(anim, body);
+}
+
 static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
 {
 	// ALL weapons use the same muzzle flash sprite at the gun's barrel attachment: gun_muzzle.spr when
@@ -382,7 +393,7 @@ void EV_TSKnife(event_args_t* args)
 	{
 		const s_weapon_info* wi = get_weapon_info((tsweapon_t)weaponType);
 		const int swing = gEngfuncs.pfnRandomLong(0, 2); // the client picks the swing (ids 15/16/17)
-		gEngfuncs.pEventAPI->EV_WeaponAnimation(wi->iSwingAnims[swing], bloody);
+		TS_EvWeaponAnim(wi->iSwingAnims[swing], bloody);
 	}
 	if (EV_IsLocal(idx))
 	{
@@ -449,7 +460,7 @@ void EV_TSKatana(event_args_t* args)
 		const s_weapon_info* wi = get_weapon_info(TSW_KATANA); // hardcoded katana row, like the original
 		const int swing = animId - 15;
 		if (swing >= 0 && swing < 3)
-			gEngfuncs.pEventAPI->EV_WeaponAnimation(wi->iSwingAnims[swing], bloody);
+			TS_EvWeaponAnim(wi->iSwingAnims[swing], bloody);
 	}
 	if (EV_IsLocal(idx))
 	{
@@ -500,7 +511,7 @@ void EV_TSCloseCombat(event_args_t* args)
 	{
 		const int anim = (animIdx >= 0 && animIdx < 29 && wi->animBlock[animIdx] >= 0)
 			? wi->animBlock[animIdx] : 0;
-		gEngfuncs.pEventAPI->EV_WeaponAnimation(anim, 0);
+		TS_EvWeaponAnim(anim, 0);
 	}
 
 	if (move == 0)
@@ -557,7 +568,7 @@ void EV_TSColdCock(event_args_t* args)
 	if (EV_IsLocal(idx) || TS_InEyeSpectating(idx)) // NO CL_IsThirdPerson gate (dossier §4.1)
 	{
 		const int anim = (wi->iColdCockAnim >= 0) ? wi->iColdCockAnim : 0;
-		gEngfuncs.pEventAPI->EV_WeaponAnimation(anim, GetBodyByItems(weaponType, attach));
+		TS_EvWeaponAnim(anim, GetBodyByItems(weaponType, attach));
 	}
 
 	Vector fwd, right, up;
@@ -661,7 +672,7 @@ void EV_TSReload(event_args_t* args)
 	const bool localish = EV_IsLocal(idx) || TS_InEyeSpectating(idx);
 
 	if (localish) // viewmodel anim FIRST (no 3rd-person gate in the original)
-		gEngfuncs.pEventAPI->EV_WeaponAnimation(TS_BlockAnim(wi, phase == 0 ? 1 : phase),
+		TS_EvWeaponAnim(TS_BlockAnim(wi, phase == 0 ? 1 : phase),
 			GetBodyByItems(weaponType, attach));
 
 	if (phase == 9)
@@ -759,7 +770,7 @@ void EV_TSPump(event_args_t* args)
 
 	if (localish)
 	{
-		gEngfuncs.pEventAPI->EV_WeaponAnimation(
+		TS_EvWeaponAnim(
 			TS_BlockAnim(wi, 13 + gEngfuncs.pfnRandomLong(0, 1)), GetBodyByItems(weaponType, attach));
 		if (0 == CL_IsThirdPerson() && shell)
 		{
@@ -800,7 +811,7 @@ void EV_TSPump(event_args_t* args)
 void EV_TSGrenadeEv(event_args_t* args)
 {
 	if (TS_InEyeSpectating(args->entindex) && !EV_IsLocal(args->entindex))
-		gEngfuncs.pEventAPI->EV_WeaponAnimation(
+		TS_EvWeaponAnim(
 			TS_BlockAnim(get_weapon_info(TSW_M61), args->iparam1), 1);
 }
 
@@ -843,7 +854,7 @@ void EV_TSFire(event_args_t* args)
 	// shoots (v_mk23_akimbo 1/2 = shoot_right1/2, v_berettas 3/5 = rightshoot), block[24/25] =
 	// the LEFT (3/4 = shoot_left1/2, 4/6 = leftshoot). bparam1: 1 = the LEFT barrel.
 	if (akimboClass && (EV_IsLocal(idx) || TS_InEyeSpectating(idx)))
-		gEngfuncs.pEventAPI->EV_WeaponAnimation(
+		TS_EvWeaponAnim(
 			TS_BlockAnim(wiClass, (barrelSide ? 24 : 22) + gEngfuncs.pfnRandomLong(0, 1)),
 			GetBodyByItems(weaponType, attachMask));
 
@@ -960,7 +971,7 @@ void EV_TSFireLinked(event_args_t* args)
 
 	if (EV_IsLocal(idx) || TS_InEyeSpectating(idx))
 	{
-		gEngfuncs.pEventAPI->EV_WeaponAnimation(
+		TS_EvWeaponAnim(
 			TS_BlockAnim(wi, 3 + gEngfuncs.pfnRandomLong(0, 2)), GetBodyByItems(weaponType, attachMask));
 		if (EV_IsLocal(idx))
 		{
