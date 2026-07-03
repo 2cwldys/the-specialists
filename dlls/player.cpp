@@ -916,6 +916,7 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	}
 	// @0x7eea7 (Killed): the death-cam hold — watch the body for 3.0 s (any button skips).
 	m_flDeathCamTime = gpGlobals->time + 3.0f;
+	m_vecDeathBodyAngles = pev->angles; // freeze the body yaw at the death pose
 
 	// TSPAward: the original's Killed re-runs SetPlayerRespawnTime's +0x770<0 test and writes
 	// 1 (out of round) or 11 (will respawn). Our respawn gate is round-driven; default to 11 —
@@ -1248,6 +1249,9 @@ void CBasePlayer::PlayerDeathThink()
 			pev->nextthink = -1; // hand off to PlayerPreThink (the death think is done)
 			return;
 		}
+		// the body must NOT mouse-rotate while lingering (round 8, user vs the original) —
+		// the view keeps flowing into v_angle/angles via the movement code; re-pin the yaw.
+		pev->angles = m_vecDeathBodyAngles;
 		pev->nextthink = gpGlobals->time + 0.1f; // keep lingering
 	}
 }

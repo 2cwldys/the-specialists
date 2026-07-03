@@ -581,6 +581,8 @@ public:
 	void TSTryRespawn();            // `respawn` cmd: leave spectate if the gate elapsed; wait line only when gate < 0
 	float m_flSpecMsgTime = 0;      // +0x754 — the 1 Hz spectate HUD-line throttle clock (countdown + wait line)
 	float m_flDeathCamTime = 0;     // +0x768 — the death-cam hold deadline (Killed: time+3.0; any button skips)
+	Vector m_vecDeathBodyAngles;    // the body yaw frozen at death (the original's body doesn't mouse-rotate
+	                                // during the death cam — VERIFY its mechanism, likely a dead gate in pm)
 	void TSSendScoreInfo();         // broadcast this player's scoreboard row (class=WAITING while spectating)
 };
 
