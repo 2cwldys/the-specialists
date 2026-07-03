@@ -5,6 +5,38 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 84, chunk 2) — round-7 folds + the Spectator wire + the attachment RE opened
+
+- **Round 7 results folded**: dry-click/brass/pump/linked/FOV/HUD/glass PASS. Fixes: the third-person
+  muzzle FLARE anchored to the frozen viewmodel (5e663cd; now player model when thirdperson) — but
+  round 7b shows it at the PELVIS: player attachment[] is UNFILLED because **TS player models AND p_
+  models have ZERO attachments** (struct-read proven) — the original anchors gun effects (flare, brass,
+  LASER + its direction) via a per-frame BONE cache (client DAT_1018caf8, FUN_10056be0) its renderer
+  fills. **p_<gun>_sil.mdl variants exist and BOTH binaries carry the strings — the silencer on other
+  players = a whole p_-model swap (server-side pev->weaponmodel pick).** Linked-bang "pitch" question
+  answered: NO pitch difference (vol .84-.92 + attn x2 only; protocol text was wrong, code was right).
+- **CTSGun::AddItem completed** (5e663cd, @0x70794 decompile): akimbo-pair attach MIRRORING + the
+  reselect/DEPLOY refresh tail (the viewmodel body never updated before); the invented bought-laser-
+  starts-active grant removed. **Buys apply at NEXT SPAWN in the original** (BuyArmament's only caller
+  = PlayerSpawn @0x790ac; tkw/tki/tka handlers queue-only via AddItemToArmament @0x83ea4).
+- **dossier-invented.md LANDED** (subagent, reference/dossiers/cont84/ + inv_*.c): verdicts for all 28
+  invented methods (summary table in the dossier): GetWeaponData -> the FREE @0xa00ac (fuser2/3-barrel-
+  clips REFUTED — but ours is a working prediction divergence, hold); SendWeaponStatus -> CTSGun::UCD
+  @0x758c8; OwnedCount/SlotsUsed -> DELETE (TSSpace = stored counter +0x548); TS spectate trio -> Start/
+  StopObserver + the PreThink iuser1-block + the "respawn" cmd; TSSendBuyMenu/TSCloseMenu/TSSendScoreInfo/
+  IsTeamMode -> DELETE; menuselect = a dead swallow in gamerules ClientCommand; PlayerKilled/PlayerSpawn/
+  team methods -> the STOCK CHalfLifeMultiplay/Teamplay (TS-patched) — **the original runs stock
+  g_pGameRules + a SEPARATE non-virtual TSGameRules singleton** (the missing global @0x1681a0).
+- **The Spectator wire FOLDED (55f85a0)**: (idx,flag) broadcasts at all senders (TSEnterSpectate/
+  StopObserver/TSInit/ForceClientDllUpdate); countdown/"Press Fire To Play!" moved onto 1 Hz
+  TSHudMessageOne lines (decompile-exact @0x81458); hold-window expiry corrected (gate -4.0f, award 1,
+  red line + CallCheckDeads — V11 closed); client parses (idx,flag) + sends "respawn" on +attack
+  (0.2 s ratelimit, menu-closed gated) = the original fire-to-play. PLAYTEST: the whole join loop.
+- **dossier-attachments subagent RUNNING** (background): the p_ _sil swap rule, the buy/apply grammar
+  (original client FUN_10039400 + live cfg files), SecondaryAttack's full right-click tree (scope vs
+  hold vs deagle tilt), the bone/gun-anchor cache writer + the laser beam source/direction, WeaponInfo
+  attachFlags + ActItems consumers, draw-anim offsets by active mask.
+
 ## 2026-07-03 (cont. 84) — invented review opened: gmsg central registration + wire fixes + door-helper respawn
 
 Continued `restructure-source-parity` (NOT merged; GPG off). Commits `3f7ff03..06c1075`, all build-green
