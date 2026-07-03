@@ -542,6 +542,8 @@ static void compile_weapons_info()
   g_weaponInfo[TSW_KNIFE].iKnifeType = 6;
   g_weaponInfo[TSW_SEALKNIFE].iKnifeType = 7;
   g_weaponInfo[TSW_KATANA].iKnifeType = 8;
+  g_weaponInfo[TSW_M61].iKnifeType = 4; // Write_m61 @0x77e0e: info+0x20 = 4 — the GrenadeIdle
+                                        // throw gate (the grenade never spawned without it)
 
   // Blade swing viewmodel sequences — the original anim block entries [15..17] (shorts at
   // wi+0x270/0x272/0x274, disasm-read from Write_knife/Write_sealknife/Write_katana). The
