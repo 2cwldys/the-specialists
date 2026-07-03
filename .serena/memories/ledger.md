@@ -144,6 +144,14 @@ Akimbo vm anims moved onto the events (EV_TSFire block[22..25] off bparam1; link
 AkimboFire's SendWeaponAnim retired; the right trigger shares the cadence. default_fov -> 80 +
 the two stock 90-floor clamps removed (hud_redraw).
 
+### SESSION CLOSE (cont.83)
+- Working set preserved at reference/dossiers/cont83/ (8 server decompiles + the guntail client
+  dossier + animblocks + a README indexing every technique incl. the movl-pair and model-dump
+  recipes and the two guntail label corrections). HANDOFF cont.84 rewritten end-of-session
+  (queue = the invented review #6 with the full disposition work-list, the stunt/pm tail #7,
+  the VERIFY batch #8, the round-7 playtest surface). Audit at close: 0 missing methods/free
+  funcs/members/files · 32 invented methods · 6 missing + 3 invented globals · 12/12 events.
+
 ### Round 6e (e2cfb1b) — the flare-vanished inversion, akimbo saga CLOSED (user: "perfect")
 6d deferred the local akimbo flash to the models' 5001-family events — but those trigger
 R_MuzzleFlash (the FAINT engine flash), not the bright flare: it vanished. Inverted like the
