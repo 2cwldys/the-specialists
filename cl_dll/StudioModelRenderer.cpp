@@ -1181,14 +1181,20 @@ bool CStudioModelRenderer::StudioDrawModel(int flags)
 		bool result;
 		bool save_interp;
 
-		if (m_pCurrentEntity->curstate.renderamt <= 0 || m_pCurrentEntity->curstate.renderamt > gEngfuncs.GetMaxClients())
+		// TS contract (@0x70234): the dead player's INDEX rides rendercolor.r (renderamt is
+		// the fade alpha 255 — the stock renderamt-as-index read returned false on it and the
+		// corpse never drew: the round-8 vanishing body). Stock renderamt kept as a fallback.
+		int deadIdx = m_pCurrentEntity->curstate.rendercolor.r;
+		if (deadIdx <= 0 || deadIdx > gEngfuncs.GetMaxClients())
+			deadIdx = m_pCurrentEntity->curstate.renderamt;
+		if (deadIdx <= 0 || deadIdx > gEngfuncs.GetMaxClients())
 			return false;
 
 		// get copy of player
-		deadplayer = *(IEngineStudio.GetPlayerState(m_pCurrentEntity->curstate.renderamt - 1)); //cl.frames[cl.parsecount & CL_UPDATE_MASK].playerstate[m_pCurrentEntity->curstate.renderamt-1];
+		deadplayer = *(IEngineStudio.GetPlayerState(deadIdx - 1));
 
 		// clear weapon, movement state
-		deadplayer.number = m_pCurrentEntity->curstate.renderamt;
+		deadplayer.number = deadIdx;
 		deadplayer.weaponmodel = 0;
 		deadplayer.gaitsequence = 0;
 
