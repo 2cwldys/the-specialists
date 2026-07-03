@@ -406,7 +406,12 @@ void CTSGameRules::RestartRound()
 			if (p)
 			{
 				p->DropFlag(true); // clear any carried flag (the briefcases re-seed fresh ones below)
-				p->m_iAward = 11;  // TSPAward: respawning into the fresh round (@RestartRound +0x200)
+				// @0x67ae8/@0x67b1a: fresh round — hold re-armed +10, gate +3, award 11, the
+				// death counter cleared (the LMS respawn budget resets each round).
+				p->m_flRespawnHoldTime = gpGlobals->time + 10.0f;
+				p->m_flTSRespawnTime = gpGlobals->time + 3.0f;
+				p->m_iAward = 11;
+				p->m_iRespawnsUsed = 0; // @0x67b2e
 				respawn(p->pev, false);
 			}
 		}
@@ -1072,6 +1077,8 @@ int gmsgTSServerSetting = 0;
 void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 {
 	CHalfLifeMultiplay::InitHUD(pPlayer);
+
+	pPlayer->m_iRespawnsUsed = 0; // @0x694d1 — a joiner starts with a fresh respawn budget
 
 	// SrvSett catch-up: the joiner gets all four settings (no late-joiner hole).
 	if (gmsgTSServerSetting == 0)

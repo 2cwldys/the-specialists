@@ -42,6 +42,47 @@ int g_gamemode = 0;
 int g_theOneMode = 0;
 int g_lastManStanding = 0;
 
+// @0x65ff4 SetPlayerRespawnTime(player, seconds, bool) — EVERY respawn-wait path funnels here
+// (InitHUD join / Killed death / ChangePlayerTeam(5s)). The bool arg is dead in the original.
+// Plain modes: the gate (+0x770) = now + seconds. LAST-MAN-STANDING (mode 0 + lms): respawns
+// are BUDGETED — past the respawnnumber cvar (floor 1) the gate goes NEGATIVE (-4 = out for
+// the round); otherwise the wait clamps to the round's remaining time and the re-entry HOLD
+// (+0x7bc) arms at min(roundLeft, 10)s. Always stamps the broadcast award byte: 1 out-of-round
+// / 11 respawning (the TSPAward producers).
+void SetPlayerRespawnTime(CBasePlayer *pPlayer, int sec, bool bUnused)
+{
+	(void)bUnused;
+	CTSGameRules *pRules = dynamic_cast<CTSGameRules *>(g_pGameRules);
+	const int mode = pRules ? pRules->m_iGameMode : 0;
+	if (mode != 0 || g_lastManStanding == 0) // @0x66004: modes 2/3, non-LMS, or any non-0 mode
+	{
+		pPlayer->m_flTSRespawnTime = gpGlobals->time + (float)sec;
+	}
+	else
+	{
+		float maxRespawns = CVAR_GET_FLOAT("respawnnumber");
+		if (maxRespawns < 1.0f)
+			maxRespawns = 1.0f;
+		if (maxRespawns <= (float)pPlayer->m_iRespawnsUsed)
+		{
+			pPlayer->m_flTSRespawnTime = -4.0f; // out of respawns this round
+		}
+		else
+		{
+			const float roundLeft = (pRules ? pRules->m_flRoundEnd : 0.0f) - gpGlobals->time;
+			float wait = (float)sec;
+			if (roundLeft < wait)
+				wait = roundLeft;
+			pPlayer->m_flTSRespawnTime = gpGlobals->time + wait;
+			float hold = roundLeft;
+			if (hold > 10.0f)
+				hold = 10.0f;
+			pPlayer->m_flRespawnHoldTime = gpGlobals->time + hold;
+		}
+	}
+	pPlayer->m_iAward = (pPlayer->m_flTSRespawnTime < 0.0f) ? 1 : 11;
+}
+
 // @0x667ac DecideGamePlay — returns the TEAMPLAY decision (1 = team-style rules, 0 = not) and
 // sets the mode flags (disasm-exact: the jumptable cases resolve 1->0, 2->1, 3->LMS+0,
 // 4->TheOne+1, out-of-range->0; the cvar path prioritizes mp_theonemode > lastmanstanding >

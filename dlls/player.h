@@ -558,7 +558,13 @@ public:
 	// "Press Fire To Play!" path. The buy/config menu (VGUIMenu) opens on entry.
 	bool m_fInSpectateWait = false; // held in free-look, waiting to press fire
 	bool m_fConfigChosen = false;   // the player confirmed a loadout (first +attack)
-	float m_flSpawnGateTime = 0;    // gpGlobals->time at which fire-to-play is allowed
+	// (m_flSpawnGateTime merged into m_flTSRespawnTime — one 0x770 carrier, set ONLY via
+	// SetPlayerRespawnTime; negative = locked out until the round restarts)
+	char m_iRespawnsUsed = 0;       // 0x7ba — deaths this round (Killed++); LMS gates respawns
+	                                // against the respawnnumber cvar; reset by InitHUD/RestartRound
+	float m_flRespawnHoldTime = 0;  // 0x7bc — the LMS re-entry HOLD deadline (min(roundLeft,10));
+	                                // PreThink expiry -> locked out (gate -1, award 1). V11: the
+	                                // countdown HUD message in PreThink's else-branch not yet transcribed
 	int m_iClientSpecSecs = -1;     // last Spectator countdown byte sent (resend on change)
 	void TSEnterSpectate();         // enter free-look spectate-wait (called at end of Spawn)
 	void StopObserver();         // press-fire: leave spectate -> respawn into play

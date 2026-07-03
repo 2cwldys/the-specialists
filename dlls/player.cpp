@@ -884,6 +884,8 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 
 	g_pGameRules->PlayerKilled(this, pevAttacker, g_pevLastInflictor);
 
+	m_iRespawnsUsed++; // @0x7eee5 — deaths this round; LMS budgets respawns against it
+
 	if (m_pTank != NULL)
 	{
 		m_pTank->Use(this, this, USE_OFF, 0);
@@ -1394,12 +1396,15 @@ void CBasePlayer::TSEnterSpectate()
 	pev->playerclass = TS_SCORE_WAITING;
 	TSSendScoreInfo();
 
+	// @0x69511/@0x7ef8c (InitHUD/Killed): sec = round(clamp(respawntime.value, 5, 30)) — the
+	// original floor is 5 (ours was 3), and the gate is set ONLY through SetPlayerRespawnTime
+	// (which also handles the LMS respawn budget + stamps the award byte).
 	float rt = CVAR_GET_FLOAT("respawntime");
-	if (rt < 3)
-		rt = 3;
+	if (rt < 5)
+		rt = 5;
 	if (rt > 30)
 		rt = 30;
-	m_flSpawnGateTime = gpGlobals->time + rt;
+	SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
 
 	TSSendBuyMenu();   // open the TS buy/config menu (gmsgShowMenu, compact list)
 	TSSpectateThink(); // send the initial countdown state
@@ -1513,7 +1518,11 @@ void CBasePlayer::TSMenuSelect(int slot)
 // Per-frame while held in spectate-wait: drive the countdown + the fire-to-play.
 void CBasePlayer::TSSpectateThink()
 {
-	int secs = (int)ceil(m_flSpawnGateTime - gpGlobals->time);
+	int secs;
+	if (m_flTSRespawnTime < 0)
+		secs = 1; // LMS: out of respawns — hold at COUNTDOWN until the round restarts
+	else
+		secs = (int)ceil(m_flTSRespawnTime - gpGlobals->time);
 	if (secs < 0)
 		secs = 0;
 	int state = (secs > 0) ? TSSPEC_COUNTDOWN : TSSPEC_READY;
@@ -1587,7 +1596,7 @@ void CBasePlayer::StopObserver()
 // (Original: GetClassPtr<CBasePlayer> -> TSHudMessageOne(...) "wait" / StopObserver respawn.)
 void CBasePlayer::TSTryRespawn()
 {
-	if (m_fInSpectateWait && gpGlobals->time >= m_flSpawnGateTime)
+	if (m_fInSpectateWait && m_flTSRespawnTime >= 0 && gpGlobals->time >= m_flTSRespawnTime)
 		StopObserver();
 	else
 		TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
@@ -1945,6 +1954,17 @@ void CBasePlayer::PreThink()
 
 	if (g_fGameOver)
 		return; // intermission or finale
+
+	// @0x80fb3 — the LMS re-entry HOLD: armed by SetPlayerRespawnTime with min(roundLeft,10)s;
+	// letting it EXPIRE without re-entering locks you out for the round (gate -1, award 1 =
+	// out-of-round). (V11: the original's else-branch also paints a per-second countdown HUD
+	// message off a +0x754 throttle — not yet transcribed.)
+	if (m_flRespawnHoldTime != 0.0f && m_flRespawnHoldTime < gpGlobals->time)
+	{
+		m_flRespawnHoldTime = 0;
+		m_flTSRespawnTime = -1.0f;
+		m_iAward = 1;
+	}
 
 	// TS (cont.65): while held in free-look spectate, run the countdown + fire-to-play
 	// check and skip the normal in-play think (no items/water/weapons yet).

@@ -225,6 +225,8 @@ int DecideGamePlay(char *mapname, int def); // @0x667ac — teamplay decision + 
 extern int g_gamemode;        // one-shot mode override (consumed by DecideGamePlay)
 extern int g_theOneMode;      // The One mode flag
 extern int g_lastManStanding; // last-man-standing mode flag
+// @0x65ff4 — every respawn-wait funnels here (TS_gamerules.cpp); the bool is dead in the original.
+void SetPlayerRespawnTime(CBasePlayer *pPlayer, int sec, bool bUnused);
 int WeaponRestrictionByID(int id); // @0x66ad8 — 1->0x0, 2->0x1, 3->0x3, 4->0x13, else InitWeaponRestriction()
 int InitWeaponRestriction(void);   // @TS_gamerules.cpp — 0x1f (all five categories)
 extern int gmsgTSServerSetting;    // "SrvSett" 3 — TS_gamerulesclass.cpp
