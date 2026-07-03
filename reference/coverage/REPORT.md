@@ -116,11 +116,7 @@ _Source = pfnRegisterVariable sites in client.dll (authoritative — NOT config.
 
 _Source = cvar_t structs in ts_i386.so .data (authoritative). MISSING = a gameplay/mp_ cvar the original registers that we don't; EXTRA = ours-only (invented or HL-leftover)._
 
-- matched: **42**  |  missing (orig→not ours): **4**  |  extra (ours→not orig): **258**
-
-**MISSING (in original, not in ours — implement / RE):**
-
-  `deadback`, `deadsitting`, `sv_alltalk`, `voice_serverdebug`
+- matched: **43**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **258**
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 

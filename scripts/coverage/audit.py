@@ -270,7 +270,11 @@ def analyze():
 
     # GLOBALS level: the json's recovered globals (TS-relevant) vs our build's data symbols.
     d = json.load(open(JSON))
-    orig_glob = {g["name"].replace("::", "."): g.get("file") for g in d.get("globals", [])}
+    # 'objects' is libgcc CRT (frame.c's EH-frame registry static — its only referencers are
+    # __register_frame_info/find_fde), not TS code: an inventory false positive, excluded.
+    CRT_GLOBALS = {"objects"}
+    orig_glob = {g["name"].replace("::", "."): g.get("file") for g in d.get("globals", [])
+                 if g["name"] not in CRT_GLOBALS}
     ourg = our_globals()
     missing_globals = sorted(n for n in orig_glob if n not in ourg)            # original global we don't define
     tsg = re.compile(r"^(gmsg|g_ts|g_TS|TS[A-Z]|g_pTS)")

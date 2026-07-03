@@ -888,7 +888,6 @@
   "cashforwin": "10000",
   "customweapons": "",
   "damagemult": "0.0",
-  "deadstomach": "deadtable",
   "decalfrequency": "30",
   "displaysoundlist": "0",
   "dmgreport": "0",
@@ -1174,9 +1173,11 @@
   "slowmatch": "1.0",
   "spectacularness": "1",
   "sv_allowbunnyhopping": "0",
+  "sv_alltalk": "0",
   "sv_busters": "0",
   "sv_pushable_fixed_tick_fudge": "15",
   "usecash": "0.0",
+  "voice_serverdebug": "0",
   "weaponstay": "15"
  },
  "server_usermsgs": [

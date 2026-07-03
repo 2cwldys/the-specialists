@@ -197,6 +197,10 @@ def server_cvars_orig(path):
         # cvar defaults are short values; drop the weapon/ammo classname-pair false positives.
         if len(dflt) > 12 or re.match(r"(weapon_|ammo_|item_|func_|info_)", dflt): continue
         if re.match(r"(weapon_|ammo_)", name): continue
+        # CDeadHEV/CDeadHGrunt::m_szPoses string ARRAYS alias as cvar_t pairs
+        # ({"deadback","deadsitting","deadstomach","deadtable"}, {"deadstomach","deadside",...}):
+        # consecutive char* entries scan as (name, default). Not cvars — excluded.
+        if name in ("deadback", "deadsitting", "deadstomach", "deadside", "deadtable"): continue
         cv[name] = dflt
     return cv
 
@@ -233,9 +237,10 @@ def our_usermsg_sizes():
     return sz
 
 def our_server_cvars():
-    """Our server cvars: cvar_t definitions in dlls/ ( cvar_t X = {"name", "default", ... } )."""
+    """Our server cvars: cvar_t definitions in dlls/ + game_shared/ (voice_gamemgr registers
+    sv_alltalk/voice_serverdebug there) ( cvar_t X = {"name", "default", ... } )."""
     cv = {}
-    for name, dflt in re_pairs(r'cvar_t\s+\w+\s*=\s*\{\s*"([^"]+)"\s*,\s*"([^"]*)"', "dlls"):
+    for name, dflt in re_pairs(r'cvar_t\s+\w+\s*=\s*\{\s*"([^"]+)"\s*,\s*"([^"]*)"', "dlls", "game_shared"):
         cv[name] = dflt
     return cv
 

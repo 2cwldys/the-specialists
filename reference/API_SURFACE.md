@@ -179,7 +179,8 @@ pairs). TS-specific game cvars our server lacked, now registered in `dlls/ts_cva
 `damagemult 0.0`, `slowmatch 1.0`, `nopowerup 0.0`, `botlearn 0.0`, `realbullet 0.0`,
 `usecash 0.0`, `ammocount 0`, `bottalk 1`, `mp_theonemode 0`, `mp_theone gordon`,
 `mp_theothers seal`, `lastmanstanding 0`, `spectacularness 1`, `respawnnumber 1`,
-`customweapons ""`, `banfortk 0`, `dmgreport 0`, `botarmor 0`, `deadstomach deadtable`.
+`customweapons ""`, `banfortk 0`, `dmgreport 0`, `botarmor 0`. (~~`deadstomach deadtable`~~ was an
+extraction FALSE POSITIVE — a CDeadHEV/CDeadHGrunt pose-string pair in .data, not a cvar_t.)
 (The standard mp_* — mp_teamplay/friendlyfire/… — the base SDK registers under bare
 names; the original uses the mp_ prefix. NOTE: a faithful pass could alias those.)
 Registration stops "Unknown command mp_teammodels" etc; most still need behaviour wiring
@@ -203,7 +204,7 @@ it changes gameplay. Most are R-only so far.
 | `initial_cash` | ✅ | ✅ | ★ | starting cash on spawn → cash HUD (cont.63c, verified "$5000") |
 | `cashforwin`/`cashforlose` | ✅ | — | — | round-end economy; `GiveCash`/`TeamWin` exist, not awarded yet |
 | `damagemult` | ✅ | ✅ | ★ | scales all TS weapon damage (cont.63; 0=off→1x) |
-| `respawntime`/`nopowerup`/`usecash`/`ammocount`/`bottalk`/`botlearn`/`realbullet`/`mp_theonemode`/`mp_theone`/`mp_theothers`/`lastmanstanding`/`spectacularness`/`respawnnumber`/`customweapons`/`banfortk`/`dmgreport`/`botarmor`/`deadstomach` | ✅ | — | — | server; registered only |
+| `respawntime`/`nopowerup`/`usecash`/`ammocount`/`bottalk`/`botlearn`/`realbullet`/`mp_theonemode`/`mp_theone`/`mp_theothers`/`lastmanstanding`/`spectacularness`/`respawnnumber`/`customweapons`/`banfortk`/`dmgreport`/`botarmor` | ✅ | — | — | server; registered only |
 
 ### TS-specific commands
 | command | R | forwarded | gameplay | notes |
