@@ -2305,18 +2305,28 @@ int CTSGun::AddItem(int bits)
 	if ((bits & wi->attachBuiltin) != 0)     return 0; // built-in / can't re-add
 	if ((bits & it.attach) != 0)             return 0; // already attached
 	it.attach |= bits;
-	// NB: the original grants NO active state here (a bought laser/flash starts OFF; useitems
-	// turns it on) — TakeWeapon's fresh-attach path is where laser/flash start active.
+	// Laser/flashlight start ON (maximal active — the player toggles them OFF as they play;
+	// user-verified vs the live original). In the original the spawn loadout carries the
+	// attach mask INSIDE tkw -> TakeWeapon's fresh-attach path grants active there; until our
+	// buy grammar moves onto that path, grant it here too so a tki-delivered attachment
+	// behaves identically.
+	it.active |= (bits & 6);
 
 	// @0x80794: MIRROR the bits onto the akimbo pair — an akimbo shares its single's
 	// attachments (buy a silencer for the mk23 and the akimbo pair has it too, both ways).
 	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
 	{
 		if (wi->iSingleType >= 0 && wi->iSingleType < TSW_COUNT)
+		{
 			m_items[wi->iSingleType].attach |= bits;
+			m_items[wi->iSingleType].active |= (bits & 6);
+		}
 	}
 	else if (wi->iAkimboType != -1 && IsOwned(wi->iAkimboType))
+	{
 		m_items[wi->iAkimboType].attach |= bits;
+		m_items[wi->iAkimboType].active |= (bits & 6);
+	}
 
 	// @0x80794 tail: the original zeroes m_weaponType and re-runs SelectWeapon + Deploy so the
 	// viewmodel body/draw refresh with the new attachment. Our SelectWeapon early-outs on the

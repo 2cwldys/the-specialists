@@ -285,6 +285,9 @@ void SpectatorPanel::ShowMenu(bool isVisible)
 
 		m_BottomMainLabel->getSize(iLabelSizeX, iLabelSizeY);
 		m_BottomMainLabel->setPos((ScreenWidth / 2) - (iLabelSizeX / 2), YRES_HD(6));
+		// centre the TS help line under the mode label the same way
+		m_BottomHelpLabel->getSize(iLabelSizeX, iLabelSizeY);
+		m_BottomHelpLabel->setPos((ScreenWidth / 2) - (iLabelSizeX / 2), YRES_HD(6) + YRES_HD(20));
 	}
 	else
 	{
