@@ -30,15 +30,11 @@ public:
 
 LINK_ENTITY_TO_CLASS(deadcorpse, CTSDeadCorpse); // orig classname "deadcorpse" (matches weapons.cpp precache)
 
-// @Spawn__13CTSDeadCorpse — MOVETYPE_TOSS so the body settles; poll to fade it out.
+// @Spawn__13CTSDeadCorpse (@0x7040c decompile-exact) — ONLY arms the think; every field
+// comes from TSCreateDeadCorpse.
 void CTSDeadCorpse::Spawn()
 {
 	Precache();
-	pev->movetype = MOVETYPE_TOSS;
-	pev->solid = SOLID_NOT;
-	pev->takedamage = DAMAGE_NO;
-	pev->rendermode = kRenderTransTexture; // so renderamt actually fades it
-	pev->renderamt = 255;
 	SetThink(&CTSDeadCorpse::WaitThink);
 	pev->nextthink = gpGlobals->time + 0.5f;
 }
@@ -66,6 +62,8 @@ void CTSDeadCorpse::WaitThink()
 // (model/origin/angles/sequence/frame/body/skin), fading over `lifetime` seconds.
 CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime)
 {
+	if ((pPlayer->pev->effects & EF_NODRAW) != 0)
+		return NULL; // @0x70234 gate: no corpse off an already-hidden player
 	CBaseEntity *pCorpse = CBaseEntity::Create("deadcorpse", pPlayer->pev->origin, pPlayer->pev->angles, NULL);
 	if (!pCorpse)
 		return NULL;
@@ -74,16 +72,29 @@ CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime)
 	pBody->m_flRemoveTime = gpGlobals->time + lifetime;
 	pBody->m_flLifetime = lifetime;
 
-	// Copy the player's appearance + frozen death pose.
-	if (!FStringNull(pPlayer->pev->model))
-		SET_MODEL(ENT(pBody->pev), STRING(pPlayer->pev->model));
-	pBody->pev->sequence = pPlayer->pev->sequence;
+	// @0x70234 decompile-exact: the corpse renders via the DEAD-PLAYER fx — renderfx 17
+	// (kRenderFxDeadPlayer) with the player INDEX in rendercolor.x: the client draws the
+	// body AS that player (the stock CopyToBodyQue mechanism; our plain model-copy corpse
+	// never rendered — the round-8 instantly-vanishing body).
+	pBody->pev->angles = pPlayer->pev->angles;
+	pBody->pev->model = pPlayer->pev->model;           // string copied directly
+	pBody->pev->modelindex = pPlayer->pev->modelindex; // copied directly (no SET_MODEL)
 	pBody->pev->frame = pPlayer->pev->frame;
-	pBody->pev->framerate = 0; // freeze the pose
-	pBody->pev->body = pPlayer->pev->body;
-	pBody->pev->skin = pPlayer->pev->skin;
-	pBody->pev->colormap = pPlayer->pev->colormap; // player team/skin colours
-	pBody->pev->velocity = pPlayer->pev->velocity * 0.5f;
+	pBody->pev->colormap = pPlayer->pev->colormap;
+	pBody->pev->movetype = MOVETYPE_TOSS;
+	pBody->pev->velocity = pPlayer->pev->velocity;     // FULL velocity (not halved)
+	pBody->pev->flags = 0;
+	pBody->pev->deadflag = pPlayer->pev->deadflag;
+	pBody->pev->rendermode = kRenderTransColor;        // 1
+	pBody->pev->rendercolor.x = (float)ENTINDEX(pPlayer->edict());
+	pBody->pev->rendercolor.y = 0;
+	pBody->pev->rendercolor.z = 0;
+	pBody->pev->renderfx = kRenderFxDeadPlayer;        // 0x11
+	pBody->pev->renderamt = 255.0f;
+	pBody->pev->effects = pPlayer->pev->effects | EF_NOINTERP;
+	pBody->pev->sequence = pPlayer->pev->sequence;
+	pBody->pev->animtime = pPlayer->pev->animtime;     // the anim state carries (no freeze)
 	UTIL_SetOrigin(pBody->pev, pPlayer->pev->origin);
+	UTIL_SetSize(pBody->pev, pPlayer->pev->mins, pPlayer->pev->maxs);
 	return pBody;
 }

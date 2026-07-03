@@ -616,6 +616,10 @@ int DLLEXPORT CL_IsThirdPerson()
 {
 	//	RecClCL_IsThirdPerson();
 
+	// TS DEATH CAM: while dead and not yet observing, report third person so the ENGINE
+	// renders the local player's body (first-person deaths never drew it — round 8).
+	if (gHUD.m_Health.m_iHealth <= 0 && 0 == g_iUser1 && gEngfuncs.GetLocalPlayer())
+		return 1;
 	return static_cast<int>(cam_thirdperson || (0 != g_iUser1 && (g_iUser2 == gEngfuncs.GetLocalPlayer()->index)));
 }
 
