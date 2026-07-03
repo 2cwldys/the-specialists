@@ -113,7 +113,7 @@ public:
 	void VKickback(float magnitude, int firetype); // @VKickback @0x70414 — recoil view-punch (punchangle)
 	void ScaleSpread(float &spread, float increment, bool silenced); // @ScaleSpread @0x702a8 — dynamic accuracy (4th arg = the SILENCED flag, round-6 RE; sil tightens x0.875/x0.775)
 	void KnifeFire();                            // @KnifeFire__6CTSGun @0x74044 — knife slash AND throw (item+0x24)
-	void CCombatAttack(bool fSecondary);     // @CCombatAttack — kung-fu contextual punch/kick
+	void CCombatAttack();                    // @CCombatAttack — kung-fu contextual punch/kick (reads IN_ATTACK/IN_ATTACK2)
 	void CCombatBlock();                     // @CCombatBlock — RELOAD melee block (all melee): "hooah" + stamina
 	void CCombatIdle();                      // @0x85e54 — bare-hands viewmodel idle (WeaponIdle no-item branch)
 	void GrenadeFire();                          // @GrenadeFire @0x732f0 — PULL THE PIN (cook; no fuse yet)

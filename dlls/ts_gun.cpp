@@ -877,7 +877,7 @@ void CTSGun::SecondaryAttack()
 {
 	if (m_weaponType == TSW_MELEE) // original: m_pActiveItem == NULL (bare-hands kung-fu)
 	{
-		CCombatAttack(true);
+		CCombatAttack();
 		return;
 	}
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
@@ -961,7 +961,7 @@ void CTSGun::PrimaryAttack()
 	// movement buttons + flags. Knife/katana are real weapon items (their own fire-types below).
 	if (m_weaponType == TSW_MELEE)
 	{
-		CCombatAttack(false);
+		CCombatAttack();
 		return;
 	}
 
@@ -1453,199 +1453,242 @@ void CTSGun::KnifeFire()
 // (0x50c30 → forced light attack) and the player+0x814/0x815 state bits (special-punch 0x17 / forced kick
 // finisher) default to "clear" — the common path. v_melee anims: 2 punch_left, 3 punch_right, 4 block_low,
 // 5 kick, 6 sidekick, 7 uppercut, 8 spinkick, 9 backkick, 10 punch_right2.
-void CTSGun::CCombatAttack(bool fSecondary)
+void CTSGun::CCombatAttack()
 {
-	if (m_flNextPrimaryAttack > UTIL_WeaponTimeBase())
-		return;
-
+	// RECONSTRUCTED decompile-exact from CCombatAttack (ts_i386.so @0x76078, TS_gun.cpp) — see
+	// reference/dossiers/cont85/kick_decode.md. The original reads IN_ATTACK / IN_ATTACK2 itself
+	// (single function, not a fSecondary split). Key facts: flDamage passed to CloseCombatAttack is
+	// the SPEED-SCALED lunge (also the whiff-lunge force on a miss), NOT a flat 35/45/55; the 35/45/55
+	// is the trace REACH; iAnim = the MOVE-ID (0x0a..0x19, == m_lastMeleeAnim, HandleCloseCombat's case).
 	entvars_t *ppev = m_pPlayer->pev;
-	const int btn = ppev->button;
-	const bool onGround = (ppev->flags & FL_ONGROUND) != 0;
-	const bool ducking  = (ppev->flags & FL_DUCKING) != 0;  // fully crouched (flags byte 0x1a5 & 0x40)
-	const bool duckBtn  = (btn & IN_DUCK) != 0;            // duck key held (button 0x180 & 4)
-	const float speed   = ppev->velocity.Length();
 
-	// forward/back of the current movement (orig local_118 = back?3:2). Slow → the +back key; fast →
-	// compare velocity to facing (dot <= -0.5 = running backward; > 0.5 = running forward).
-	bool movingBack, movingFwd = false;
+	// three early-return gates (@preamble): player m_flNextAttack, then the gun's two melee timers.
+	if (m_pPlayer->m_flNextAttack   > UTIL_WeaponTimeBase()) return;
+	if (m_flNextPrimaryAttack       > UTIL_WeaponTimeBase()) return;
+	if (m_flNextSecondaryAttack     > UTIL_WeaponTimeBase()) return;
+
+	const int   btn      = ppev->button;
+	const bool  onGround = (ppev->flags & FL_ONGROUND) != 0;
+	const bool  gunDuck  = (pev->flags & FL_DUCKING) != 0; // @orig this->pev->flags&0x4000 — the GUN's pev (normally clear)
+	const float speed    = ppev->velocity.Length();
+
+	// movingBack + the attack class bVar9 (2 = fwd/neutral, 3 = backward).
+	UTIL_MakeVectors(Vector(0.0f, ppev->v_angle.y, ppev->v_angle.z)); // orig builds from (0, yaw, roll)
+	bool movingBack;
+	float fwdDot = 0.0f;
 	if (speed <= 100.0f)
-	{
 		movingBack = (btn & IN_BACK) != 0;
-	}
 	else
 	{
-		UTIL_MakeVectors(Vector(0.0f, ppev->v_angle.y, ppev->v_angle.z)); // orig builds from (0, yaw, roll)
-		float fwdDot = DotProduct(gpGlobals->v_forward, ppev->velocity * (1.0f / speed));
+		Vector vn = (speed != 0.0f) ? ppev->velocity * (1.0f / speed) : Vector(0, 0, 1);
+		fwdDot = DotProduct(gpGlobals->v_forward, vn);
 		movingBack = fwdDot <= -0.5f;
-		movingFwd  = fwdDot >  0.5f;
 	}
+	int bVar9 = movingBack ? 3 : 2;
 
-	// original kung-fu viewmodel anim ids (0xa..0x19), remapped to v_melee seqs below.
-	enum { A_SPIN_A=0x0a, A_GKICK_A=0x0b, A_GKICK_B=0x0c, A_SPIN_D=0x0d, A_SPIN_E=0x0e, A_SPIN_F=0x0f,
-	       A_DROPKICK=0x10, A_BACKKICK=0x11, A_FLY_12=0x12, A_FLY_13=0x13, A_HANDSTAND=0x14,
-	       A_PUNCH=0x16, A_PUNCH2=0x17, A_AIRPUNCH=0x18, A_UPPERCUT=0x19 };
+	const bool stunting = (ppev->iuser4 & 0x50c30) != 0; // mid dive/roll/slowmo/duck-active
 
-	int oa;             // original attack id (drives m_lastMeleeAnim cycling)
-	int jabIdx = -1;    // for the normal-punch chain, which of the 3 jabs (0/1/2)
-	float dmg, range, refire;
+	// per-branch outputs (defaults @preamble).
+	int   moveId = -1;      // gun+0xa04 m_lastMeleeAnim / iAnim; -1 (0xffffffff) = no 3rd-person body anim
+	int   evAnim = 0;       // a3 (0x3..0xb) -> closecombat.sc iparam2 (1st-person view-anim index)
+	int   evCat  = 0;       // local_104 (1/2/3 category) -> iparam1; 0 = idle -> the whole hit tail is skipped
+	float reach  = 0.0f;    // trace reach (35 punch / 45 kick / 55 backkick)
+	float lunge  = 0.0f;    // speed-scaled: damage on a hit, forward push on a miss
+	float refire = 0.6f;    // primary + secondary re-arm
+	float whiffT = 0.0f;    // whiff-lunge window / self-block-stun scalar
+	bool  blockEnable = false; // on-ground kicks self-root the attacker after the swing
+	bool  unstunt = true;      // the side-kick clears this (skips the un-stunt view reset)
+	int   iuserSet = 0;        // iuser4 bits to OR in (duck/side kick)
+	bool  setDuckView = false; // view_ofs=(0,0,16) + m_flDuckSlashAux=2.0 (duck/side kick)
 
-	if (fSecondary)
+	if (stunting)
 	{
-		// ===== KICKS (orig IN_ATTACK2 branch). First match wins. =====
-		if (onGround && (duckBtn || ducking))
+		// A — STUNT KICK: a fixed light kick during a stunt, no body anim.
+		moveId = -1; evAnim = 4; evCat = 1; reach = 35; lunge = 15; refire = 0.55f; whiffT = 0.15f;
+		bVar9 = 2; m_comboStep = 0;
+	}
+	else if (!(btn & IN_ATTACK))
+	{
+		// ===== KICKS (need IN_ATTACK2; else idle) — first match wins. =====
+		if (!(btn & IN_ATTACK2))
 		{
-			// duck-kick (HandleCloseCombat 0x14 "duckkick") — duck on the ground
-			oa = A_HANDSTAND; dmg = 45; range = 64; refire = 1.0f; /*local_108; block-stun local_10c 0.35*/
+			evCat = 0; // idle: no attack this frame (only the re-arm timers below run)
 		}
-		else if (movingBack)
+		else if (onGround && ((btn & IN_DUCK) || gunDuck))
 		{
-			// back-kick — moving backward (the +back key when slow, velocity when fast)
-			oa = A_BACKKICK; dmg = 55; range = 72; refire = onGround ? 1.0f : 1.35f; /*block-stun 0.3*/
+			// B1 — DUCK KICK (0x14 "duckkick")
+			moveId = 0x14; evAnim = 6; evCat = 2; reach = 45; lunge = 35; refire = 1.0f; whiffT = 0.35f;
+			bVar9 = 2; blockEnable = true; iuserSet = 4 | 1; setDuckView = true;
 		}
-		else if (!onGround && speed > 270.0f && duckBtn && movingFwd)
+		else if (bVar9 == 3)
 		{
-			// side-kick dive (0x10 "sidekick") — a fast forward dive + duck in the air
-			oa = A_DROPKICK; dmg = 45; range = 72; refire = 1.0f; /*block-stun 0.25*/
-			m_kickCombo = 0;
+			// B2 — BACK / JUMP KICK (0x11 "backkick") — speed-scaled, reversed sweep
+			moveId = 0x11; evAnim = 7; evCat = 3; reach = 55;
+			lunge = speed * 0.303030303f; if (lunge > 80.0f) lunge = 80.0f; if (lunge < 15.0f) lunge = 15.0f;
+			refire = 1.35f; whiffT = 0.3f;
+			if (onGround) { refire = 1.0f; blockEnable = true; }
+		}
+		else if (!onGround && speed > 270.0f && (btn & IN_DUCK) && fwdDot > 0.5f)
+		{
+			// B3 — SIDE KICK (0x10 "sidekick") — fast forward air dive + duck
+			moveId = 0x10; evAnim = 8; evCat = 2; reach = 45;
+			lunge = speed * 0.153846154f; if (lunge > 45.0f) lunge = 45.0f; if (lunge < 15.0f) lunge = 15.0f;
+			refire = 1.0f; whiffT = 0.25f;
+			m_kickCombo = 0; unstunt = false; iuserSet = 4; setDuckView = true;
 		}
 		else if (onGround || speed <= 200.0f)
 		{
-			// ground kick combo: 3 basic kicks → a spin finisher (orig this+0xa00)
-			if (m_kickCombo > 2) // (orig also forces this on player+0x815&8 — defaulted clear)
+			// B4 — GROUND KICK: basic-kick combo -> a spin finisher
+			evCat = 2; reach = 45;
+			if (/* player+0x815 & 8 (producer un-RE'd -> clear) */ m_kickCombo > 2)
 			{
-				// spin finisher — cycle 0xa/0xe/0xd/0xf without repeating the last
+				// B4a — KICK FINISHER (spin) — cycle 0xa/0xe/0xd/0xf, no repeat
 				switch (m_lastMeleeAnim)
 				{
-				case A_SPIN_F: oa = A_SPIN_A; break;
-				case A_SPIN_A: oa = A_SPIN_E; break;
-				case A_SPIN_E: oa = A_SPIN_D; break;
-				case A_SPIN_D: oa = A_SPIN_F; break;
-				default: { int r = RANDOM_LONG(0, 3); oa = (r==0)?A_SPIN_E : (r==1)?A_SPIN_D : (r==2)?A_SPIN_A : A_SPIN_F; }
+				case 0x0f: moveId = 0x0a; break;
+				case 0x0a: moveId = 0x0e; break;
+				case 0x0e: moveId = 0x0d; break;
+				case 0x0d: moveId = 0x0f; break;
+				default: { int r = RANDOM_LONG(0, 3); moveId = (r==0)?0x0e : (r==1)?0x0d : (r==2)?0x0a : 0x0f; }
 				}
-				dmg = 45; range = 64; refire = 0.5f; /*block-stun 0.3*/
-				m_kickCombo = 0;
+				evAnim = 0x0a; lunge = 25; refire = 0.5f; whiffT = 0.3f;
+				m_kickCombo = 0; blockEnable = true;
 			}
 			else
 			{
-				// basic ground kick — alternate 0xb/0xc
-				oa = (m_lastMeleeAnim == A_GKICK_A) ? A_GKICK_B
-				   : (m_lastMeleeAnim == A_GKICK_B || RANDOM_LONG(0, 1) == 0) ? A_GKICK_A : A_GKICK_B;
-				dmg = 45; range = 64; refire = 0.3f; /*block-stun 0.2*/
-				m_kickCombo++;
+				// B4b — KICK COMBO STEP (circle kick) — alternate 0xb/0xc
+				switch (m_lastMeleeAnim)
+				{
+				case 0x0b: moveId = 0x0c; break;
+				case 0x0c: moveId = 0x0b; break;
+				default: moveId = (RANDOM_LONG(0, 1) == 1) ? 0x0c : 0x0b; break;
+				}
+				evAnim = 9; lunge = 15; refire = 0.3f; whiffT = 0.2f;
+				m_kickCombo++; blockEnable = true;
 			}
 		}
 		else
 		{
-			// flying / jump kick — fast + airborne, not the above. cycle 0x13/0x12/0xf
+			// B5 — AIR KICK (fast + airborne) — cycle 0xf/0x13/0x12, no repeat
 			switch (m_lastMeleeAnim)
 			{
-			case A_SPIN_F: oa = A_FLY_13; break;
-			case A_FLY_13: oa = A_FLY_12; break;
-			case A_FLY_12: oa = A_SPIN_F; break;
-			default: { int r = RANDOM_LONG(0, 2); oa = (r==1)?A_FLY_12 : (r==0)?A_FLY_13 : A_SPIN_F; }
+			case 0x0f: moveId = 0x13; break;
+			case 0x13: moveId = 0x12; break;
+			case 0x12: moveId = 0x0f; break;
+			default: { int r = RANDOM_LONG(0, 2); moveId = (r==0)?0x13 : (r==1)?0x12 : 0x0f; }
 			}
-			dmg = 45; range = 72; refire = 0.75f; /*block-stun 0.25*/
+			evAnim = 0x0a; evCat = 2; reach = 45;
+			lunge = speed * 0.1f; if (lunge > 30.0f) lunge = 30.0f; if (lunge < 15.0f) lunge = 15.0f;
+			refire = 0.75f; whiffT = 0.25f;
 			m_kickCombo = 0;
 		}
 	}
 	else
 	{
-		// ===== PUNCHES (orig IN_ATTACK branch). All deal 35. =====
+		// ===== PUNCHES (IN_ATTACK held). reach 35, class 1. =====
+		evCat = 1; reach = 35; bVar9 = 2;
 		if (!onGround)
 		{
-			// air punch
-			oa = A_AIRPUNCH; refire = 0.5f; /*block-stun 0.15*/
+			// C — AIR PUNCH (0x18 "punchair")
+			moveId = 0x18; evAnim = 5; lunge = 25; refire = 0.5f; whiffT = 0.15f;
 			m_comboStep = 0;
 		}
-		else if (m_comboStep > 2 || (duckBtn && !ducking))
+		else if (m_comboStep > 2 || ((btn & IN_DUCK) && !gunDuck))
 		{
-			// uppercut — combo finisher (3 punches thrown) OR a duck-TAP (key down, not yet crouched)
-			oa = A_UPPERCUT; refire = 0.65f; /*block-stun 0.15*/
+			// D1 — UPPERCUT (0x19) — 3-punch finisher OR a duck-tap
+			moveId = 0x19; evAnim = 0x0b; lunge = 30; refire = 0.65f; whiffT = 0.15f;
+			m_comboStep = 0;
+		}
+		else if (/* (player+0x814^1)&1 == 0 (producer un-RE'd -> clear) */ m_comboStep > 2)
+		{
+			// D2 — PUNCH (reset, 0x17 "punchright") — @orig also on the player+0x814 cadence bit
+			moveId = 0x17; evAnim = 4; lunge = 20; refire = 0.35f; whiffT = 0.15f;
 			m_comboStep = 0;
 		}
 		else
 		{
-			// normal punch combo — orig swaps to a "special punch" 0x17 on player+0x814&1 (defaulted
-			// clear → always the normal chain). The single orig id 0x16 is shown as 3 cycling jabs.
-			oa = A_PUNCH; refire = 0.25f; /*block-stun 0.1*/
-			jabIdx = m_comboStep;
+			// D3 — PUNCH COMBO STEP (jab, 0x16 "punchleft")
+			moveId = 0x16; evAnim = 3; lunge = 10; refire = 0.25f; whiffT = 0.10f;
 			m_comboStep++;
 		}
-		dmg = 35; range = 48;
 	}
 
-	m_lastMeleeAnim = oa;
-	m_lastCCTime = gpGlobals->time;
-
-	// The closecombat.sc wire args per original anim id (disasm slot-tracking @0x76078:
-	// [esp+0x28] = the MOVE id iparam1, [esp+0x8] = the ANIM-BLOCK index iparam2 — the client
-	// plays animBlock[idx] raw; block[3]=2, [4]=10, [5]=3, [6]=5, [7]=9, [8]=6, [9]=5, [10]=8,
-	// [11]=7 on v_melee.mdl). The 3rd-person ACTIVITY code stays server-side (the [esp+0x18]
-	// writes: punch 0x23, kicks 0x2d, backkick 0x37 families -> our TSA_CC_* codes).
-	// NB the original sends anim 3 for EVERY basic punch — the 3-jab cycling was our invention.
-	int ccMove, ccAnimIdx, bodyAct;
-	switch (oa)
+	if (evCat != 0)
 	{
-	case A_PUNCH:     ccMove = 1; ccAnimIdx = 3;  bodyAct = TSA_CC_PUNCHLEFT; break; // @0x763e9
-	case A_PUNCH2:    ccMove = 1; ccAnimIdx = 4;  bodyAct = TSA_CC_PUNCHAIR;  break; // @0x76436
-	case A_AIRPUNCH:  ccMove = 1; ccAnimIdx = 5;  bodyAct = TSA_CC_PUNCHAIR;  break; // @0x76344
-	case A_UPPERCUT:  ccMove = 1; ccAnimIdx = 11; bodyAct = TSA_CC_UPPERCUT;  break; // @0x76393
-	case A_HANDSTAND: ccMove = 2; ccAnimIdx = 6;  bodyAct = TSA_CC_SIDEKICK;  break; // @0x764a3
-	case A_BACKKICK:  ccMove = 3; ccAnimIdx = 7;  bodyAct = TSA_CC_BACKKICK;  break; // @0x76565
-	case A_DROPKICK:  ccMove = 2; ccAnimIdx = 8;  bodyAct = TSA_CC_CIRCSPIN;  break; // @0x766b5
-	case A_SPIN_A: case A_SPIN_D: case A_SPIN_E:
-	                  ccMove = 2; ccAnimIdx = 10; bodyAct = TSA_CC_CIRCSPIN;  break; // @0x76912
-	case A_GKICK_A: case A_GKICK_B:
-	                  ccMove = 2; ccAnimIdx = 9;  bodyAct = TSA_CC_CIRCKICK;  break; // @0x76997
-	case A_SPIN_F: case A_FLY_12: case A_FLY_13:
-	default:          ccMove = 2; ccAnimIdx = 10; bodyAct = TSA_CC_CIRCSPIN;  break; // VERIFY: the
-	                  // fly family's [esp+0x8] write is register-carried (not an immediate) —
-	                  // 10 (the spin-kick anim) pending a focused pass
-	}
-
-	UTIL_MakeVectors(ppev->v_angle);
-	Vector vecSrc = m_pPlayer->GetGunPosition();
-	Vector vecEnd = vecSrc + gpGlobals->v_forward * range;
-
-	// events/closecombat.sc — the client owns the 1st-person anim (animBlock[iparam2]), the
-	// ALWAYS-whoosh, and the miss/surface presentation (texture note + smoke puff).
-	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usCloseCombat, 0.0, g_vecZero,
-		g_vecZero, (float)m_weaponType, 0.0, ccMove, ccAnimIdx, 0, 0);
-#ifdef CLIENT_DLL
-	// Kung-fu "bounce-back" screen-shake, per punch/kick — ALWAYS fires on attack (RE client FUN_1000af10
-	// @0xb5e5: Shake_Setup(amp = min(power, 45) * 0.35, 0.2, 10)). The original derives `power` from the
-	// attack's velocity (a forward LUNGE the move imparts, *0.15385=1/6.5), so it's non-zero even standing
-	// still. Live-verified amps: punch~7.0 (power~20), kick~8.75 (power~25). Transient render-only.
-	// We don't model the per-move lunge → use the live-measured per-category power. fSecondary = the kicks.
-	{
-		float kfPower = fSecondary ? 25.0f : 20.0f;
-		TS_TriggerViewShake(kfPower * 0.35f); // 0x1007a8a8 = 0.35 -> punch 7.0, kick 8.75
-	}
-#endif
-	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + refire;   // orig: both timers = base + local_10c
-	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + refire;
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+		m_lastMeleeAnim = moveId;
 
 #ifndef CLIENT_DLL
-	// @0x76cf6: route the hit through the shared resolver CBasePlayer::CloseCombatAttack —
-	// it does the 3rd-person anim, the TSMBlur roll, the CheckHull trace, validity/teammate
-	// gates, the VictimKungfuHold deflect (incl. the counter role-swap), disarm-pressure,
-	// >30-dmg knockback and the glast-marked TraceAttack. Hull: the backkick family (attack
-	// class 3) uses the human hull (1), everything else the head hull (3).
-	const int ccHull = (oa == A_BACKKICK) ? 1 : 3;
-	CBaseEntity *pHit = m_pPlayer->CloseCombatAttack(vecSrc, vecEnd, gpGlobals->v_forward,
-		ccHull, dmg * TSDamageMult(), bodyAct, true, false, true, false);
+		// --- shared hit tail (@LAB_000869a3) — game-state + the hull sweep are server-authoritative ---
+		// un-stunt: a queued dive/roll ends here (side-kick already cleared `unstunt`).
+		if (unstunt && (ppev->iuser4 & 0x20000))
+		{
+			ppev->iuser4 &= ~0x20000;
+			ppev->iuser4 &= ~4;
+			ppev->view_ofs = (ppev->flags & FL_DUCKING) ? Vector(0, 0, 16) : Vector(0, 0, 28);
+			ppev->friction = 1.0f;
+			ppev->gravity = 1.0f;
+		}
+		if (iuserSet)
+			ppev->iuser4 |= iuserSet;
+		if (setDuckView)
+		{
+			ppev->view_ofs = Vector(0, 0, 16);
+			m_pPlayer->m_flDuckSlashAux = 2.0f; // stunt+0x4 (player+0x4f4)
+		}
 
-	// tail per @0x76c8c: attacking closes your own block window; the last melee refire is stored.
-	// DEFERRED (VERIFY L7): the per-move whiff-lunge arm on miss (+0x79c/0x7a0, negated for the
-	// backkick) and the rootFlag BlockPlayer(refire*0.75) self-lock — the per-move table is
-	// un-RE'd; the lunge consumer is stunt-cluster scope. closecombat.sc playback lands in S7b.
-	m_pPlayer->m_flKungFuBlock = 0.0f;
-	m_pPlayer->m_flLastMeleeRate = refire;
+		// damage/lunge scaling: melee-bar multiplier, doubled by the KungFu powerup.
+		lunge *= m_pPlayer->GetMeleeMultiplier();
+		if (KungFu(m_pPlayer))
+			lunge += lunge;
 
-	// (the miss/surface presentation — whoosh + texture note + smoke puff — now rides
-	// events/closecombat.sc; EV_TSCloseCombat owns it)
+		// build the swing: backkick reverses (v_angle z zeroed, reach negated) + uses the human hull.
+		Vector vecDir = ppev->v_angle;
+		if (bVar9 == 3)
+			vecDir.z = 0.0f;
+		UTIL_MakeVectors(vecDir);
+		Vector vecSrc = m_pPlayer->GetGunPosition();
+		Vector vecEnd = vecSrc + gpGlobals->v_forward * ((bVar9 == 3) ? -reach : reach);
+		const int iHull = (bVar9 != 3) ? 3 : 1;
+
+		// @0x76cf6: the shared resolver — TSMBlur roll, CheckHull trace, validity/teammate gates,
+		// VictimKungfuHold deflect (counter role-swap), disarm-pressure, >30-dmg knockback, TraceAttack.
+		CBaseEntity *pHit = m_pPlayer->CloseCombatAttack(vecSrc, vecEnd, gpGlobals->v_forward,
+			iHull, lunge, moveId, true, false, true, false);
+
+		// on a MISS, arm the forward whiff-lunge (PreThink consumes it); the backkick lunges backward.
+		if (pHit == nullptr && whiffT > 0.001f)
+		{
+			m_pPlayer->m_flWhiffLungeTime = whiffT;
+			m_pPlayer->m_flWhiffLungeForce = (bVar9 == 3) ? -lunge : lunge;
+			m_pPlayer->m_iWhiffLungeType = 0;
+		}
+
+		// on-ground kicks self-root the attacker briefly (gated on iuser4&1 clear).
+		if (blockEnable && ((ppev->iuser4 ^ 1) & 1) != 0)
+			m_pPlayer->BlockPlayer(whiffT * 0.75f); // OPEN Q (cont85): whiff-t vs refire slot — mirror cont84; live-trace to settle
 #endif
+
+		// events/closecombat.sc — the client owns the 1st-person anim + whoosh + surface presentation.
+		// iparam1 = the 1/2/3 category, iparam2 = the view-anim index (client reads both). fparam1 = 0
+		// (== (float)m_weaponType, which is TSW_MELEE=0 here).
+		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usCloseCombat, 0.0, g_vecZero,
+			g_vecZero, 0.0f, 0.0f, evCat, evAnim, 0, 0);
+#ifdef CLIENT_DLL
+		// Kung-fu "bounce-back" screen-shake (client-only presentation; RE client FUN_1000af10 @0xb5e5:
+		// Shake_Setup(amp = min(power,45)*0.35, 0.2, 10)). Live-measured power: punch~20, kick~25.
+		{
+			float kfPower = (evCat >= 2) ? 25.0f : 20.0f;
+			TS_TriggerViewShake(kfPower * 0.35f); // 0.35 -> punch 7.0, kick 8.75
+		}
+#endif
+	}
+
+	// re-arm timers ALWAYS (@orig gun+0x9c/0xa0 = t+refire, gun+0xa8 = t+2.0), even on an idle call.
+	m_flNextPrimaryAttack   = UTIL_WeaponTimeBase() + refire;
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + refire;
+	m_flTimeWeaponIdle      = UTIL_WeaponTimeBase() + 2.0f;
+	m_pPlayer->m_flKungFuBlock   = 0.0f;   // player+0x7a8
+	m_pPlayer->m_flLastMeleeRate = refire; // player+0x4f8
 }
 
 // @ CCombatBlock__6CTSGun (@0x85ebc) — kung-fu "reload" = the block taunt. Plays the "hooah"
