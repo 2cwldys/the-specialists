@@ -118,6 +118,22 @@ gmsgSetCurWeap/objects/roundtime) · 3 invented globals (g_TSGun/g_tsActive/g_ts
   the 120); -2 = every owned caliber. Ground weapon tops only an EMPTY reserve (@0x925ec).
 - Sparta cross-checked: only spread/viewkick/recoil/damage — clips/caps are Write_-stage truth.
 
+### The gun-event tail COMPLETE (6b8815b) — 12/12 TS events wired, 0 missing
+All five remaining handlers landed from the subagent dossier (cont83/dossier-ev-guntail.md):
+empty (pistol-empty.wav universal — 357_cock1 was wrong) · reload (fparam1 IS the block index;
+phase-9 shuck everyone, phase-10 wi+0x306 non-local, phase-0 generic_reload + brass/mag toss
+non-local; the sawed-off block[8] is a LEFTOVER — the original sends fparam1=0 too) · pump
+(server sender gun+0x96a; anim block[13/14] client-random; rack = wi+0x306 at ENT -1 — the
+no-channel-cut trick; MOSSBERG RACK IS m3-pump.wav, scock was wrong) · grenade (in-eye-spec-only
+anim; our predicted local half correct) · firelinked (server sender gun+0x96e; both flares/two
+casings/skorpion gentle brass/ONE wi+0x306 bang .84-.92 attn x2; AkimboFire splits both->linked,
+single->fire.sc bparam1=barrel; bparam2 = the FireBullets SEED everywhere — the old side
+extension collided). New columns (adjudicated): pszAltSound(+0x306 triple-duty), pszShellModel
+(+0xe8), iShellSetback(+0x34c). All server presentation stand-ins retired. 19 extra events =
+stock-HL leftovers (invented-review scope). NEW VERIFYs: the FLY-family closecombat animIdx
+(register-carried) · gold/skorpion_akimbo's EMPTY wi+0x306 in the linked bang (our fallback =
+the normal fire) · the phase-0 brass recipes' exact R_TempModel arg mapping.
+
 NEW VERIFY items this session: TraceAttack spawn-grace refusal (@0x801eb) + the 0x10c10 stunt dmg mult ·
 PlayerKilled kill-tier/slow-mo-reward tail · the "Spectator" wire (ours state+seconds vs original idx+flag) ·
 TSItem::hOwner consumer (sell-zone?) · the V11 LMS countdown HUD · ResetRestartRound still reads the dead
