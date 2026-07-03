@@ -191,6 +191,10 @@ public:
 	                                    // (0 block/1 punch/2 second/3 back), iparam2 = anim-block index,
 	                                    // fparam1 = (float)weaponType
 	unsigned short m_usEmpty = 0;  // events/empty.sc handle (gun+0x968): the dry-fire click (all params 0)
+	unsigned short m_usPump = 0;   // events/pump.sc handle (gun+0x96a): the rack half — iparam1=type,
+	                               // iparam2=attach (anim/shell/rack sound are all client-side)
+	unsigned short m_usFireLinked = 0; // events/firelinked.sc handle (gun+0x96e): the akimbo BOTH-barrels
+	                                   // shot — fparam1/2=spread, iparam1=type, iparam2=attach, bparam2=seed
 	unsigned short m_usReload = 0; // events/reload.sc handle (gun+0x970): iparam1=type, iparam2=attach,
 	                               // fparam1 = 0 whole-clip / 8 pump-open / 9 shell-insert / 10 pump-close
 

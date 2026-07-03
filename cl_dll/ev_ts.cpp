@@ -575,6 +575,7 @@ static void TS_BulletWhizz(int idx, const Vector& start, const Vector& dir)
 	if (!local || local->index == idx)
 		return;
 
+
 	Vector end = start + dir * 8192.0f;
 	Vector p(local->origin[0], local->origin[1], local->origin[2] + 20.0f); // ~head height
 	Vector seg = end - start;
@@ -594,14 +595,203 @@ static void TS_BulletWhizz(int idx, const Vector& start, const Vector& dir)
 	}
 }
 
+// ===================== the gun-tail event handlers (dossier-ev-guntail.md) =====================
+
+// The stance-aware anim block (the original FUN_1003df60: the ACTIVE stance's wi+0x252 normal /
+// +0x28c hold set). The hold state is the LOCAL predicted weapon's — the original reads its own
+// client cache the same way.
+bool TS_LocalHoldPosition(); // cl_dll/hl/hl_weapons.cpp — g_TSGun.m_bHoldPosition
+static int TS_BlockAnim(const s_weapon_info* wi, int idx)
+{
+	if (idx < 0 || idx >= 29)
+		return 0;
+	if (TS_LocalHoldPosition() && wi->animBlockHold[idx] >= 0)
+		return wi->animBlockHold[idx];
+	return (wi->animBlock[idx] >= 0) ? wi->animBlock[idx] : 0;
+}
+
+// events/empty.sc → EV_TSEmpty — FUN_100424e0 faithful (182 bytes): ONE universal dry-click for
+// every gun — weapons/pistol-empty.wav (HYPHENATED), CHAN_WEAPON, vol RF(0.92,1), attn 0.8,
+// the timescale melee pitch. No anim, no locality gate; the contender's silence is server-side.
+void EV_TSEmpty(event_args_t* args)
+{
+	gEngfuncs.pEventAPI->EV_PlaySound(args->entindex, args->origin, CHAN_WEAPON,
+		"weapons/pistol-empty.wav", TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+}
+
+// events/reload.sc → EV_TSReload — FUN_10042690 faithful. iparam1=weaponType, iparam2=attach
+// mask, fparam1 = the PHASE, which IS the anim-block index (0 whole-clip -> block[1]; 8 pump
+// open / 9 shell insert / 10 close play block[8/9/10]). Phase 9 shucks insert-shell.wav for
+// EVERYONE (the local player too); phase 10 plays the weapon's own rack/close sound (wi+0x306)
+// for NON-local viewers only; phase 0 plays generic_reload.wav + the spent brass/magazine toss
+// for NON-local viewers only (the local player's reload foley rides the viewmodel anim events).
+void EV_TSReload(event_args_t* args)
+{
+	const int idx = args->entindex;
+	const int weaponType = args->iparam1;
+	const int attach = args->iparam2;
+	const int phase = (int)args->fparam1;
+	if (weaponType < 0 || weaponType >= TSW_COUNT)
+		return;
+	const s_weapon_info* wi = get_weapon_info((tsweapon_t)weaponType);
+	const bool localish = EV_IsLocal(idx) || TS_InEyeSpectating(idx);
+
+	if (localish) // viewmodel anim FIRST (no 3rd-person gate in the original)
+		gEngfuncs.pEventAPI->EV_WeaponAnimation(TS_BlockAnim(wi, phase == 0 ? 1 : phase),
+			GetBodyByItems(weaponType, attach));
+
+	if (phase == 9)
+	{
+		// the per-shell shuck — heard by everyone, the loader included
+		gEngfuncs.pEventAPI->EV_PlaySound(idx, args->origin, CHAN_WEAPON,
+			"weapons/insert-shell.wav", TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+		return;
+	}
+	if (phase == 10)
+	{
+		if ((CL_IsThirdPerson() || !localish) && wi->pszAltSound)
+			gEngfuncs.pEventAPI->EV_PlaySound(idx, args->origin, CHAN_WEAPON,
+				wi->pszAltSound, TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+		return;
+	}
+	if (phase != 0)
+		return;
+
+	// phase 0 — the whole-clip reload, NON-local presentation only
+	if (!CL_IsThirdPerson() && localish)
+		return;
+	gEngfuncs.pEventAPI->EV_PlaySound(idx, args->origin, CHAN_WEAPON,
+		"weapons/generic_reload.wav", TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+
+	cl_entity_t* pl = gEngfuncs.GetEntityByIndex(idx);
+	if (!pl)
+		return;
+	Vector fwd, right, up, angles, vel;
+	VectorCopy(args->angles, angles);
+	VectorCopy(args->velocity, vel);
+	AngleVectors(angles, fwd, right, up);
+
+	// the spent brass / magazine toss (@dossier §2.4)
+	if (weaponType == TSW_SAWEDOFF || weaponType == TSW_BULL || weaponType == TSW_CONTENDER)
+	{
+		const char* mdl = (weaponType == TSW_SAWEDOFF) ? "models/shotgun_shell.mdl"
+			: (weaponType == TSW_BULL) ? "models/9mm_shell.mdl" : "models/556_shell.mdl";
+		const int n = (weaponType == TSW_SAWEDOFF) ? 2 : (weaponType == TSW_BULL) ? 5 : 1;
+		const int bounce = (weaponType == TSW_SAWEDOFF) ? TE_BOUNCE_SHOTSHELL : TE_BOUNCE_SHELL;
+		const int shell = gEngfuncs.pEventAPI->EV_FindModelIndex(mdl);
+		for (int k = 0; k < n && shell; k++)
+		{
+			Vector sv;
+			for (int c = 0; c < 3; c++)
+				sv[c] = vel[c] + right[c] * gEngfuncs.pfnRandomLong(-30, 30) + fwd[c] * 10.0f +
+					up[c] * gEngfuncs.pfnRandomLong(0, 30);
+			EV_EjectBrass(pl->attachment[0], sv, angles[1], shell, bounce);
+		}
+	}
+	else
+	{
+		// the magazine(s): akimbo classes drop one each side, silent bounce, 2s life
+		const int mag = gEngfuncs.pEventAPI->EV_FindModelIndex("models/generic_clip.mdl");
+		const int n = (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY) ? 2 : 1;
+		for (int k = 0; k < n && mag; k++)
+		{
+			Vector pos, mv, mang;
+			for (int c = 0; c < 3; c++)
+			{
+				pos[c] = pl->attachment[k == 0 ? 0 : 2][c] - fwd[c] * 8.0f;
+				mv[c] = vel[c] + right[c] * (k == 0 ? 60.0f : -60.0f);
+				mang[c] = gEngfuncs.pfnRandomFloat(-60.0f, 60.0f);
+			}
+			TEMPENTITY* te = gEngfuncs.pEfxAPI->R_TempModel(pos, mv, mang, 2.0f, mag, 0 /*silent*/);
+			(void)te;
+		}
+	}
+}
+
+// events/pump.sc → EV_TSPump — FUN_100419a0 faithful (the rack half of the pump cycle).
+// iparam1=weaponType, iparam2=attach. Anim = block[13+RandomLong(0,1)] (client-random) for the
+// local/spectated viewer; a shell ejects from the vm eject port (attachment 0 − fwd·setback)
+// first-person or player attachment 3 third-person; the RACK SOUND (wi+0x306 — m3-pump /
+// spas12-pump) plays for EVERYONE at ent −1 so it never channel-cuts the still-playing gunshot.
+void EV_TSPump(event_args_t* args)
+{
+	const int idx = args->entindex;
+	const int weaponType = args->iparam1;
+	const int attach = args->iparam2;
+	if (weaponType < 0 || weaponType >= TSW_COUNT)
+		return;
+	const s_weapon_info* wi = get_weapon_info((tsweapon_t)weaponType);
+	const bool localish = EV_IsLocal(idx) || TS_InEyeSpectating(idx);
+	const int shell = wi->pszShellModel ? gEngfuncs.pEventAPI->EV_FindModelIndex(wi->pszShellModel) : 0;
+	const float r1 = (float)gEngfuncs.pfnRandomLong(60, 80);
+	const float r2 = (float)gEngfuncs.pfnRandomLong(50, 100);
+
+	Vector fwd, right, up, angles, vel;
+	VectorCopy(args->angles, angles);
+	VectorCopy(args->velocity, vel);
+	AngleVectors(angles, fwd, right, up);
+
+	if (localish)
+	{
+		gEngfuncs.pEventAPI->EV_WeaponAnimation(
+			TS_BlockAnim(wi, 13 + gEngfuncs.pfnRandomLong(0, 1)), GetBodyByItems(weaponType, attach));
+		if (0 == CL_IsThirdPerson() && shell)
+		{
+			cl_entity_t* vm = gEngfuncs.GetViewModel();
+			Vector pos, sv;
+			for (int c = 0; c < 3; c++)
+			{
+				pos[c] = (vm ? vm->attachment[0][c] : args->origin[c]) - fwd[c] * (float)wi->iShellSetback;
+				sv[c] = vel[c] + fwd[c] * r1 + up[c] * r2 + right[c] * r1;
+			}
+			EV_EjectBrass(pos, sv, angles[1], shell, TE_BOUNCE_SHOTSHELL);
+		}
+	}
+	if ((CL_IsThirdPerson() || !localish) && shell)
+	{
+		cl_entity_t* pl = gEngfuncs.GetEntityByIndex(idx);
+		if (pl)
+		{
+			Vector pos, sv;
+			for (int c = 0; c < 3; c++)
+			{
+				pos[c] = pl->attachment[3][c] - fwd[c] * (float)wi->iShellSetback;
+				sv[c] = vel[c] + fwd[c] * r1 + up[c] * r2 + right[c] * r1;
+			}
+			EV_EjectBrass(pos, sv, angles[1], shell, TE_BOUNCE_SHOTSHELL);
+		}
+	}
+	// the rack — ent −1, EVERY viewer (the no-channel-cut trick; replaces our CHAN_ITEM hack)
+	if (wi->pszAltSound)
+		gEngfuncs.pEventAPI->EV_PlaySound(-1, args->origin, CHAN_WEAPON, wi->pszAltSound,
+			TS_MeleeVolume(), 0.8f, 0, TS_MeleeSoundPitch());
+}
+
+// events/grenade.sc → EV_TSGrenadeEv — FUN_10042630 faithful (91 bytes): the IN-EYE SPECTATOR's
+// view of the pin/throw ONLY (the thrower's own anim is the predicted SendWeaponAnim, like
+// draw.sc). iparam1 = the anim-block index (19 pin / 20 overhand / 21 underhand); wi hardcoded
+// to the m61; body hardcoded 1.
+void EV_TSGrenadeEv(event_args_t* args)
+{
+	if (TS_InEyeSpectating(args->entindex) && !EV_IsLocal(args->entindex))
+		gEngfuncs.pEventAPI->EV_WeaponAnimation(
+			TS_BlockAnim(get_weapon_info(TSW_M61), args->iparam1), 1);
+}
+
+
 void EV_TSFire(event_args_t* args)
 {
 	const int idx = args->entindex;
 	const int weaponType = args->iparam1;
 	const int attachMask = args->iparam2;  // RE StandardFire@0x824a4: iparam2 = active item attach mask
-	const int barrelSide = args->bparam2;  // our merged-akimbo extension: 0=right, 1=left, 2=both
 	if (weaponType < 0 || weaponType >= TSW_COUNT)
 		return;
+	// ORIGINAL wire: bparam1 = the barrel (0 right / 1 left) — but ONLY for the akimbo classes;
+	// the standard classes pack (clip==0) there. bparam2 = the FireBullets seed (the old
+	// bparam2=side extension collided with it — guntail dossier §5).
+	const s_weapon_info* wiClass = get_weapon_info((tsweapon_t)weaponType);
+	const bool akimboClass = (wiClass->iFireType == TSFT_AKIMBO || wiClass->iFireType == TSFT_AKIMBO_ONLY);
+	const int barrelSide = akimboClass ? args->bparam1 : 0;
 
 	// Silencer (attach bit0). The original client gates the muzzle flash on `iparam2 & 1` (FUN_1003dfa0:
 	// `(DAT_10189d10 & 1)`) and swaps the fire sound to the weapon's `-sil` variant. A weapon with no
@@ -616,13 +806,8 @@ void EV_TSFire(event_args_t* args)
 
 	// Muzzle flash sprite at the barrel — ALWAYS shown; silenced fire just uses the dimmer gun_muzzle.spr
 	// (vs gun_muzzle2.spr). The bright dynamic light below is still skipped when silenced.
-	if (barrelSide == 2) // akimbo AUTO-both: a muzzle flare at BOTH barrels
-	{
-		EV_TSMuzzleFlare(idx, weaponType, 0, silenced);
-		EV_TSMuzzleFlare(idx, weaponType, 1, silenced);
-	}
-	else
-		EV_TSMuzzleFlare(idx, weaponType, barrelSide, silenced); // the muzzle-flash sprite at the barrel
+	EV_TSMuzzleFlare(idx, weaponType, barrelSide, silenced); // the muzzle-flash sprite at the fired barrel
+	// (the both-barrels shot is a SEPARATE event now — events/firelinked.sc → EV_TSFireLinked)
 
 	if (EV_IsLocal(idx))
 	{
@@ -687,8 +872,9 @@ void EV_TSFire(event_args_t* args)
 		TS_BulletWhizz(idx, vecSrc, fwd); // a near-miss flyby "whizz" if this round grazes the local player
 	}
 
-	const char* snd = (silenced && s_fireSilSound[weaponType]) ? s_fireSilSound[weaponType]
-	                                                           : s_fireSound[weaponType];
+	const char* snd = (silenced && get_weapon_info((tsweapon_t)weaponType)->pszAltSound)
+		? get_weapon_info((tsweapon_t)weaponType)->pszAltSound // wi+0x306 — the -sil sample
+		: s_fireSound[weaponType];
 	if (snd)
 	{
 		// RE (scratchpad/SLOWMO_PRESENTATION_RE.md): the original pitches ALL weapon-fire sounds UP —
@@ -702,3 +888,92 @@ void EV_TSFire(event_args_t* args)
 		gEngfuncs.pEventAPI->EV_PlaySound(idx, origin, CHAN_WEAPON, snd, VOL_NORM, ATTN_NORM, 0, pitch);
 	}
 }
+
+// events/firelinked.sc → EV_TSFireLinked — FUN_1003de10 -> the fire core with linked=1 (guntail
+// dossier §5): the akimbo BOTH-BARRELS shot. iparam1=weaponType, iparam2=attach, fparam1/2 =
+// spread, bparam2 = the FireBullets seed. Divergences from fire.sc: anim = block[3+RL(0,2)]
+// (the both-barrel set); muzzle flare at BOTH attachments; TWO casings; ONE bang — wi+0x306
+// (the linked sample, vol RF(0.84,0.92), attn DOUBLED); two impact volleys at gunpos ± right·5.
+void EV_TSFireLinked(event_args_t* args)
+{
+	const int idx = args->entindex;
+	const int weaponType = args->iparam1;
+	const int attachMask = args->iparam2;
+	if (weaponType < 0 || weaponType >= TSW_COUNT)
+		return;
+	const s_weapon_info* wi = get_weapon_info((tsweapon_t)weaponType);
+	const bool silenced = (attachMask & 1) != 0;
+	g_tsActive.UpdateFromEvent(args);
+
+	Vector origin, angles, velocity, fwd, right, up;
+	VectorCopy(args->origin, origin);
+	VectorCopy(args->angles, angles);
+	VectorCopy(args->velocity, velocity);
+	AngleVectors(angles, fwd, right, up);
+
+	// BOTH muzzle flares
+	EV_TSMuzzleFlare(idx, weaponType, 0, silenced);
+	EV_TSMuzzleFlare(idx, weaponType, 1, silenced);
+
+	if (EV_IsLocal(idx) || TS_InEyeSpectating(idx))
+	{
+		gEngfuncs.pEventAPI->EV_WeaponAnimation(
+			TS_BlockAnim(wi, 3 + gEngfuncs.pfnRandomLong(0, 2)), GetBodyByItems(weaponType, attachMask));
+		if (EV_IsLocal(idx))
+		{
+			if (!silenced)
+				EV_MuzzleFlash();
+			extern bool g_bBulletTime;
+			TS_AddViewRecoil(args->fparam2, wi->iFireType, args->ducking != 0, g_bBulletTime);
+		}
+	}
+
+	// TWO casings — the skorpion family throws its brass gently sideways (RL(-40,40) vs 120..140)
+	const int shell = wi->pszShellModel ? gEngfuncs.pEventAPI->EV_FindModelIndex(wi->pszShellModel) : 0;
+	if (shell)
+	{
+		const float r2 = (float)gEngfuncs.pfnRandomLong(50, 100);
+		const bool skorp = (wi->iSingleType == TSW_SKORPION);
+		for (int b = 0; b < 2; b++)
+		{
+			const float r1 = skorp ? (float)gEngfuncs.pfnRandomLong(-40, 40)
+			                       : (float)gEngfuncs.pfnRandomLong(120, 140);
+			Vector pos, sv;
+			cl_entity_t* src = (EV_IsLocal(idx) && 0 == CL_IsThirdPerson())
+				? gEngfuncs.GetViewModel() : gEngfuncs.GetEntityByIndex(idx);
+			for (int c = 0; c < 3; c++)
+			{
+				pos[c] = (src ? src->attachment[b == 0 ? 0 : 2][c] : origin[c]) - fwd[c] * (float)wi->iShellSetback;
+				sv[c] = velocity[c] + fwd[c] * (r2 + 50.0f) + up[c] * r2 + right[c] * r1;
+			}
+			EV_EjectBrass(pos, sv, angles[1], shell, TE_BOUNCE_SHELL);
+		}
+	}
+
+	// two impact volleys at gunpos ± right·5 (the visual half; damage is server-side)
+	{
+		Vector vecSrc;
+		EV_GetGunPosition(args, vecSrc, origin);
+		for (int b = 0; b < 2; b++)
+		{
+			Vector src2;
+			for (int c = 0; c < 3; c++)
+				src2[c] = vecSrc[c] + right[c] * (b == 0 ? 5.0f : -5.0f);
+			EV_TSBulletImpact(idx, src2, fwd);
+		}
+		TS_BulletWhizz(idx, vecSrc, fwd);
+	}
+
+	// ONE bang for both barrels — the linked sample (falls back to the normal fire when the
+	// weapon ships no wi+0x306: gold/skorpion_akimbo — VERIFY the original's empty-sample path)
+	const char* snd = wi->pszAltSound ? wi->pszAltSound : s_fireSound[weaponType];
+	if (snd)
+	{
+		extern float g_flClientSlow;
+		int pitch = 100 + (int)(300.0f * g_flClientSlow);
+		if (pitch > 255) pitch = 255;
+		gEngfuncs.pEventAPI->EV_PlaySound(idx, origin, CHAN_WEAPON, snd,
+			gEngfuncs.pfnRandomFloat(0.84f, 0.92f), ATTN_NORM * 2.0f, 0, pitch);
+	}
+}
+

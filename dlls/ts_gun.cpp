@@ -712,6 +712,8 @@ void CTSGun::Precache()
 	m_usColdCock = PRECACHE_EVENT(1, "events/coldcock.sc"); // the bash presentation (gun+0x966)
 	m_usCloseCombat = PRECACHE_EVENT(1, "events/closecombat.sc"); // kung-fu/block presentation (gun+0x96c)
 	m_usEmpty = PRECACHE_EVENT(1, "events/empty.sc");   // dry-fire click (gun+0x968)
+	m_usPump = PRECACHE_EVENT(1, "events/pump.sc");     // the rack half (gun+0x96a)
+	m_usFireLinked = PRECACHE_EVENT(1, "events/firelinked.sc"); // akimbo both-barrels (gun+0x96e)
 	m_usReload = PRECACHE_EVENT(1, "events/reload.sc"); // reload presentation (gun+0x970)
 	PRECACHE_SOUND("player/kungfuhit.wav");   // kung-fu flesh hit (also the coldcock bash)
 	PRECACHE_SOUND("player/closecombat.wav"); // kung-fu swing whoosh (miss / surface)
@@ -1091,8 +1093,11 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	float flViewKick = wi->flViewKick;
 	if (wi->iFireType == TSFT_PUMP && (wi->iFireModes & 3) != 0 && m_fireMode != TSFM_SEMI)
 		flViewKick *= 0.35f;
+	// bparam1 = (clip==0) for the standard classes (the akimbo classes read it as the barrel);
+	// bparam2 = the FireBullets SEED (the original client's pellet pattern reads it).
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
-		flSpread, flViewKick, m_weaponType, m_items[m_weaponType].attach, (m_iClip == 0) ? 1 : 0, 0);
+		flSpread, flViewKick, m_weaponType, m_items[m_weaponType].attach, (m_iClip == 0) ? 1 : 0,
+		m_pPlayer->random_seed);
 
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;
@@ -1159,6 +1164,11 @@ void CTSGun::ShotgunFire(const s_weapon_info *wi)
 	}
 
 	// RACK half of the cycle: pump mode (3) with the toggle set. No bullet, no shell consumed.
+	// The WHOLE presentation rides events/pump.sc (EV_TSPump: the block[13/14] anim, the ejected
+	// shell, and the rack sound — wi+0x306, played at ent -1 so it never channel-cuts the still-
+	// playing gunshot; that's the original's trick our CHAN_ITEM hack approximated). RE: all 3
+	// pump shotguns DEFAULT to PUMP mode (TakeWeapon: AUTO>PUMP>BURST>SEMI) — held = auto
+	// fire/rack alternation, a tap = one step.
 	if (m_fireMode == TSFM_PUMP && m_fInSpecialReload != 0)
 	{
 		float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
@@ -1167,21 +1177,8 @@ void CTSGun::ShotgunFire(const s_weapon_info *wi)
 		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + flRate;
 		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
 
-		int pumpSeq = 8; // v_m3 / v_spas12 "pump"
-		const char *snd = "weapons/m3/m3-pump.wav";
-		if (m_weaponType == TSW_MOSSBERG) { pumpSeq = 2; snd = "weapons/mossberg/scock.wav"; }
-		else if (m_weaponType == TSW_SPAS12) { snd = "weapons/spas12/spas12-pump.wav"; }
-		SendWeaponAnim(pumpSeq); // predicted on the host (runs in the predicted ItemPostFrame)
-#ifndef CLIENT_DLL
-		// Rack sound server-only (the host already predicted the anim; emitting the sound client-side too
-		// would double it). All clients — incl. the host — hear it from the server. On CHAN_ITEM (NOT
-		// CHAN_WEAPON) so the rack does NOT cut off the still-playing gunshot — the fire sound (fire.sc/
-		// EV_TSFire) is on CHAN_WEAPON, so a same-channel rack 0.225s later truncates it. RE: all 3 pump
-		// shotguns DEFAULT to PUMP mode (TakeWeapon: AUTO>PUMP>BURST>SEMI; masks benelli/spas=SEMI+PUMP,
-		// mossberg=PUMP-only) — so held = auto fire/rack alternation, a tap = one step. Faithful.
-		if (m_pPlayer)
-			EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, snd, VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-#endif
+		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usPump, 0.0, g_vecZero, g_vecZero,
+			0.0, 0.0, m_weaponType, m_pActiveItem ? m_pActiveItem->attach : 0, 0, 0);
 		m_fInSpecialReload = 0; // next trigger-frame is a FIRE-step
 		return;
 	}
@@ -2219,16 +2216,19 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 	if (akAnim >= 0)
 		SendWeaponAnim(akAnim);
 
-	// events/fire.sc → EV_TSFire: sound + shell + muzzle flare(s). Faithful packing (StandardFire@0x824a4):
-	// iparam2 = ATTACH MASK (bit0 = silencer), bparam1 = (clip==0). The barrel side (0=right, 1=left,
-	// 2=BOTH — the client draws both flares for the AUTO-both shot) rides in bparam2: the original splits
-	// akimbo into a separate handler/event (firelinked.sc), a SLICE pending #15; bparam2 is our merged-path
-	// extension and is unread by the original client for non-akimbo.
-	const int eventSide = (nSides == 2) ? 2 : sides[0];
-	// fparam2 = the recoil magnitude (EV_TSFire's TS_AddViewRecoil reads it). Akimbo isn't a pump shotgun, so
-	// no 0.35x reduction — just the weapon's flViewKick.
-	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
-		flSpread, wi->flViewKick, m_weaponType, it.attach, (m_iClip == 0) ? 1 : 0, eventSide);
+	// The ORIGINAL wire (guntail dossier §5): the BOTH-barrel shot is its OWN EVENT —
+	// events/firelinked.sc (one bang = wi+0x306, two flares/shells, two volleys) — while a
+	// SINGLE akimbo shot rides fire.sc with bparam1 = the barrel (0 right / 1 left) and
+	// bparam2 = the FireBullets SEED (our old bparam2=side extension collided with the seed;
+	// fixed). fparam2 = the recoil magnitude (EV_TSFire/Linked's TS_AddViewRecoil reads it).
+	if (nSides == 2)
+		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFireLinked, 0.0, g_vecZero,
+			g_vecZero, flSpread, wi->flViewKick, m_weaponType, it.attach, 0,
+			m_pPlayer->random_seed);
+	else
+		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
+			flSpread, wi->flViewKick, m_weaponType, it.attach, sides[0],
+			m_pPlayer->random_seed);
 
 	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
 	if (DoubleFireRate(m_pPlayer))
@@ -2440,12 +2440,8 @@ void CTSGun::EmptySound()
 		return;
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usEmpty, 0.0, g_vecZero, g_vecZero,
 		0.0, 0.0, 0, 0, 0, 0);
-#ifndef CLIENT_DLL
-	// STAND-IN dry click until the empty.sc client handler lands (our client doesn't hook the
-	// event yet; without this the dry fire would be silent for our own clients).
-	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, "weapons/357_cock1.wav", 0.8f, ATTN_NORM,
-		0, TSSlowPitch(m_pPlayer));
-#endif
+	// (EV_TSEmpty owns the click now — weapons/pistol-empty.wav, universal; the old
+	// 357_cock1 server stand-in was the wrong sample anyway.)
 	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.1f;
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.1f;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.5f;
@@ -2483,16 +2479,12 @@ void CTSGun::Reload()
 	if (m_burstOrPhase != 0)
 		return; // mid-burst: the queued rounds finish first (@0x84e18)
 
-	// The reload anim from the ACTIVE STANCE's block: [1] normally; the sawed-off with a shell
-	// still chambered plays block [8] (the shell-retained variant). Passed to ReloadWeapon for
-	// provenance (dead there — the client anim rides reload.sc).
-	int anim;
-	if (m_weaponType == TSW_SAWEDOFF && m_iClip > 0)
-		anim = (m_bHoldPosition && m_pActiveInfo->iReloadKeepAnimHold >= 0)
-			? m_pActiveInfo->iReloadKeepAnimHold : m_pActiveInfo->iReloadKeepAnim;
-	else
-		anim = (m_bHoldPosition && m_pActiveInfo->iHoldReloadAnim >= 0)
-			? m_pActiveInfo->iHoldReloadAnim : m_pActiveInfo->iReloadAnim;
+	// The vestigial anim arg: the original computes the stance block's [1] — or the sawed-off
+	// shell-retained [8] — and passes it to ReloadWeapon, where it is DEAD; the client anim
+	// rides reload.sc's fparam1 (0 -> block[1]). The sawed-off block[8] variant never actually
+	// plays in the original (its Reload sends fparam1=0 too — the data is a leftover).
+	const int anim = (m_bHoldPosition && m_pActiveInfo->iHoldReloadAnim >= 0)
+		? m_pActiveInfo->iHoldReloadAnim : m_pActiveInfo->iReloadAnim;
 
 	if (ReloadWeapon(m_pActiveInfo->iClip, anim, 1.0f * m_pActiveInfo->flReloadTime))
 	{
@@ -2500,13 +2492,10 @@ void CTSGun::Reload()
 #ifndef CLIENT_DLL
 		Unzoom();
 #endif
-		// events/reload.sc — the original client's handler plays the anim from ITS anim block.
+		// events/reload.sc — EV_TSReload owns the whole presentation (anim block[1], the
+		// non-local generic_reload + brass/mag toss).
 		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero, g_vecZero,
 			0.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
-		// STAND-IN predicted viewmodel anim until our reload.sc client handler lands (the
-		// gun-event tail task); FEV_NOTHOST keeps the two from doubling on the host.
-		if (anim >= 0)
-			SendWeaponAnim(anim);
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 0x33 — 3rd-person relo_<grip>
 	}
 }
@@ -2530,8 +2519,6 @@ void CTSGun::ShotgunReload()
 	const s_weapon_info *wi = m_pActiveInfo;
 	const int caliber = wi->iCaliber;
 	const bool haveShell = (caliber > 0 && caliber < TS_NUM_CALIBERS && m_ammoReserve[caliber] > 0);
-	// In the hold stance, the held-grip reload set (e.g. mossberg reload1b/2b/3b at 13/14/15).
-	const int reloadBase = (m_bHoldPosition && wi->iHoldReloadAnim >= 0) ? wi->iHoldReloadAnim : wi->iReloadAnim;
 
 	if (m_burstOrPhase == 0)
 	{
@@ -2543,10 +2530,9 @@ void CTSGun::ShotgunReload()
 				m_pPlayer->pev->viewmodel = MAKE_STRING(wi->pszViewModel); // scope-hidden restore
 #endif
 			m_burstOrPhase = 1;
+			// EV_TSReload plays block[8] (the open) off fparam1=8
 			PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero,
 				g_vecZero, 8.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
-			if (reloadBase >= 0)
-				SendWeaponAnim(reloadBase); // STAND-IN open anim (reload1)
 			m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 3rd-person reload
 			m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.3f; // dc_0_3
 			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.3f;
@@ -2566,15 +2552,9 @@ void CTSGun::ShotgunReload()
 			{
 				m_ammoReserve[caliber]--;
 				m_iClip++;
+				// EV_TSReload plays block[9] + the insert-shell shuck (everyone) off fparam1=9
 				PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero,
 					g_vecZero, 9.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
-				if (reloadBase >= 0)
-					SendWeaponAnim(reloadBase + 1); // STAND-IN insert anim (reload2)
-#ifndef CLIENT_DLL
-				// STAND-IN per-shell shuck until the reload.sc handler lands.
-				EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, "weapons/insert-shell.wav",
-					VOL_NORM, ATTN_NORM, 0, TSSlowPitch(m_pPlayer));
-#endif
 				m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + wi->flReloadTime; // wi+0x14 (0.3)
 			}
 		}
@@ -2583,10 +2563,9 @@ void CTSGun::ShotgunReload()
 	{
 		m_burstOrPhase = 0;
 		m_fInSpecialReload = 0; // item pumpToggle — next trigger is a FIRE step
+		// EV_TSReload plays block[10] + the weapon's close/rack sound (non-local) off fparam1=10
 		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero,
 			g_vecZero, 10.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
-		if (reloadBase >= 0)
-			SendWeaponAnim(reloadBase + 2); // STAND-IN close anim (reload3)
 		m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.3f;
 		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f; // dc_3
 	}

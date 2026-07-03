@@ -211,6 +211,16 @@ struct s_weapon_info
 	// (item+0x28) re-points between the two per the hold stance (WeaponIdle).
 	short animBlock[29];
 	short animBlockHold[29];
+	// The ALT SOUND (wi+0x306, disasm-adjudicated per Write_): a triple-duty sample —
+	// the -sil FIRE for silencer-capable guns, the PUMP RACK for the pump shotguns
+	// (benelli AND mossberg both use m3-pump.wav; spas12 its own), and the akimbo LINKED
+	// both-barrel bang (the -sil sample reused; gold/skorpion_akimbo carry NONE — VERIFY
+	// what the original client does with an empty sample there). NULL = none.
+	const char *pszAltSound;   // +0x306
+	// The ejected SHELL model (wi+0xe8) + the eject-port setback along fwd (wi+0x34c, int
+	// units) — pump.sc / the fire core eject from attachment − fwd*setback.
+	const char *pszShellModel; // +0xe8
+	int iShellSetback;         // +0x34c
 };
 
 // Per-caliber ammo: the 16 calibers, the mag/magazine size, and the max reserve (rounds),

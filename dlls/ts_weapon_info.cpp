@@ -73,6 +73,9 @@ static void Write(s_weapon_info *w, const char *name, const char *v, const char 
 	w->iColdCockAnimHold = -1;   // +0x2c4 hold twin
 	for (int k = 0; k < 29; k++)
 		w->animBlock[k] = w->animBlockHold[k] = -1; // the full blocks fill in compile_weapons_info
+	w->pszAltSound = nullptr;   // +0x306 — set below (sil fire / pump rack / akimbo linked bang)
+	w->pszShellModel = nullptr; // +0xe8 — set below
+	w->iShellSetback = 0;       // +0x34c — set below
 }
 
 // SetSpartaWeapon (ts_i386.so @0x6fa34): the combat-param override applied after the Write_<weapon> stage.
@@ -779,6 +782,61 @@ static void compile_weapons_info()
         g_weaponInfo[r.idx].animBlock[k] = r.blk[k];
         g_weaponInfo[r.idx].animBlockHold[k] = r.hold[k];
       }
+  }
+
+
+  // ALT SOUND (+0x306), SHELL model (+0xe8), eject setback (+0x34c) — disasm-adjudicated per
+  // Write_ (the loose lea-pairing bleeds; every row below was verified strict or by hand).
+  // pszAltSound is triple-duty: -sil fire / pump RACK (mossberg reuses m3-pump.wav!) / akimbo
+  // LINKED bang (the -sil sample reused; gold + skorpion_akimbo ship none — VERIFY).
+  {
+    struct AltRow { int idx; const char *alt; const char *shell; int setback; };
+    static const AltRow kAlt[] = {
+      { 0, nullptr,                              "models/9mm_shell.mdl",          6 },
+      { 1, "weapons/glock/glock-fire-sil.wav",   "models/9mm_shell.mdl",          6 },
+      { 2, "weapons/beretta/fire-sil.wav",       "models/9mm_shell.mdl",          6 },
+      { 3, "weapons/uzi/uzi-fire-sil.wav",       "models/9mm_shell.mdl",          9 },
+      { 4, "weapons/m3/m3-pump.wav",             "models/shotgun_shell_blue.mdl", 28 },
+      { 5, "weapons/m4/m4-fire-sil.wav",         "models/556_shell.mdl",          23 },
+      { 6, nullptr,                              "models/9mm_shell.mdl",          16 },
+      { 7, "weapons/mp5k/mp5k-fire-sil.wav",     "models/9mm_shell.mdl",          6 },
+      { 8, "weapons/beretta/fire-sil.wav",       "models/9mm_shell.mdl",          6 },
+      { 9, "weapons/mk23/mk23-fire-sil.wav",     "models/9mm_shell.mdl",          6 },
+      {10, "weapons/mk23/mk23-fire-sil.wav",     "models/9mm_shell.mdl",          6 },
+      {11, nullptr,                              "models/shotgun_shell.mdl",      26 },
+      {12, "weapons/deagle/fire-sil.wav",        "models/9mm_shell.mdl",          6 },
+      {13, nullptr,                              "models/556_shell.mdl",          21 },
+      {14, "weapons/fnh/fnh-fire-sil.wav",       "models/56_shell.mdl",           6 },
+      {15, "weapons/aug/aug-fire-sil.wav",       "models/556_shell.mdl",          18 },
+      {16, "weapons/uzi/uzi-fire-sil.wav",       "models/9mm_shell.mdl",          9 },
+      {17, "weapons/tmp/fire-sil.wav",           "models/22_shell.mdl",           5 },
+      {18, nullptr,                              "models/556_shell.mdl",          40 },
+      {19, "weapons/pdw/fire-sil.wav",           "models/56_shell.mdl",           13 },
+      {20, "weapons/spas12/spas12-pump.wav",     "models/shotgun_shell.mdl",      23 },
+      {21, nullptr,                              "models/9mm_shell.mdl",          6 },
+      {22, "weapons/glock22/glock22-fire-sil.wav", "models/9mm_shell.mdl",        6 },
+      {23, "weapons/ump/ump-fire-sil.wav",       "models/9mm_shell.mdl",          15 },
+      {24, nullptr,                              nullptr,                         0 },
+      {25, nullptr,                              nullptr,                         0 },
+      {26, "weapons/m3/m3-pump.wav",             "models/shotgun_shell_gold.mdl", 17 },
+      {27, nullptr,                              "models/556_shell.mdl",          32 },
+      {28, nullptr,                              "models/22_shell.mdl",           7 },
+      {29, nullptr,                              nullptr,                         0 },
+      {30, "weapons/fnh/fnh-fire-sil.wav",       "models/56_shell.mdl",           6 },
+      {31, nullptr,                              nullptr,                         6 },
+      {32, nullptr,                              "models/556_shell.mdl",          0 },
+      {33, nullptr,                              nullptr,                         17 },
+      {34, nullptr,                              nullptr,                         0 },
+      {35, nullptr,                              nullptr,                         0 },
+      {36, nullptr,                              nullptr,                         23 },
+      {37, nullptr,                              "models/22_shell.mdl",           5 },
+    };
+    for (const AltRow &r : kAlt)
+    {
+      g_weaponInfo[r.idx].pszAltSound = r.alt;
+      g_weaponInfo[r.idx].pszShellModel = r.shell;
+      g_weaponInfo[r.idx].iShellSetback = r.setback;
+    }
   }
 
   // the original chains the ammo table + the falloff LUT off the weapon-table build:

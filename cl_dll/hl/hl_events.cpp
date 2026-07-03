@@ -36,6 +36,11 @@ void EV_TSKnife(struct event_args_s* args); // The Specialists knife slash prese
 void EV_TSKatana(struct event_args_s* args); // The Specialists katana swing presentation (ev_ts.cpp)
 void EV_TSColdCock(struct event_args_s* args); // The Specialists coldcock bash presentation (ev_ts.cpp)
 void EV_TSCloseCombat(struct event_args_s* args); // The Specialists kung-fu punch/kick/block presentation (ev_ts.cpp)
+void EV_TSEmpty(struct event_args_s* args);      // TS dry-fire click (ev_ts.cpp)
+void EV_TSReload(struct event_args_s* args);     // TS reload presentation: anim/shuck/brass (ev_ts.cpp)
+void EV_TSPump(struct event_args_s* args);       // TS pump rack: anim/shell/rack sound (ev_ts.cpp)
+void EV_TSGrenadeEv(struct event_args_s* args);  // TS grenade pin/throw for in-eye spectators (ev_ts.cpp)
+void EV_TSFireLinked(struct event_args_s* args); // TS akimbo both-barrels fire (ev_ts.cpp)
 
 void Game_HookEvents()
 {
@@ -45,6 +50,11 @@ void Game_HookEvents()
 	gEngfuncs.pfnHookEvent("events/katana.sc", EV_TSKatana); // TS: katana swing (whoosh/impact/vm anim)
 	gEngfuncs.pfnHookEvent("events/coldcock.sc", EV_TSColdCock); // TS: coldcock bash (vm anim/whoosh/puff)
 	gEngfuncs.pfnHookEvent("events/closecombat.sc", EV_TSCloseCombat); // TS: kung-fu punch/kick/block
+	gEngfuncs.pfnHookEvent("events/empty.sc", EV_TSEmpty); // TS: the universal dry click
+	gEngfuncs.pfnHookEvent("events/reload.sc", EV_TSReload); // TS: reload anim/shuck/brass (fparam1 = phase)
+	gEngfuncs.pfnHookEvent("events/pump.sc", EV_TSPump); // TS: the pump rack half
+	gEngfuncs.pfnHookEvent("events/grenade.sc", EV_TSGrenadeEv); // TS: pin/throw for in-eye spectators
+	gEngfuncs.pfnHookEvent("events/firelinked.sc", EV_TSFireLinked); // TS: akimbo both-barrels
 	// The stock-HL weapon event hooks (glock/shotgun/mp5/python/gauss/crowbar/crossbow/rpg/egon/
 	// hornet/tripmine/snark) are DELETED — the original TS client hooks only its own 11 events
 	// (registration parity; the stock weapons aren't playable in TS). train.sc/vehicle.sc are

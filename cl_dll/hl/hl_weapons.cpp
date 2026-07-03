@@ -54,6 +54,13 @@ Vector previousorigin;
 // HLDM Weapon placeholder entities.
 CGlock g_Glock;
 CTSGun g_TSGun; // the client-predicted TS arsenal weapon (weapon_tsgun)
+
+// The event handlers' hold-stance probe (the original FUN_1003df60 reads its own client cache;
+// ours is the predicted weapon's synced m_bHoldPosition).
+bool TS_LocalHoldPosition()
+{
+	return g_TSGun.m_bHoldPosition;
+}
 CCrowbar g_Crowbar;
 CPython g_Python;
 CMP5 g_Mp5;
