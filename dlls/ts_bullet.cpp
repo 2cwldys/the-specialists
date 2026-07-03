@@ -23,7 +23,8 @@
 #include "weapons.h"
 #include "effects.h" // CBeam — the extending bullet-trail
 #include "ts_player.h"
-#include "ts_weapons.h" // TSSlowPitch (slow-world sound pitch)
+#include "ts_weapons.h"
+#include "ts_weapon_info.h" // get_ammo_info (the caliber speed unit) // TSSlowPitch (slow-world sound pitch)
 #include "ts_bullet.h"
 #include "ts_shared.h"   // GetBulletVelocityMult (the slow-motion bullet math, original TS_shared.cpp)
 
@@ -39,12 +40,9 @@ CBulletManager g_BulletManager; // the original embeds this in CTSGameRules (+0x
 // the literal original 40 * this (≈13k–40k u/s) — the muzzle→bullet growing trail keeps the path
 // visible even at these speeds. Index = caliber (1..13; 0/14/15 = none). Calibers: 1 9x19, 2 .45,
 // 3 SHELLS, 4 5.56, 5 .50AE, 6 7.62, 7 5.7, 8 50BMG, 9 10mm, 10 .22, 11 .454, 12 .32, 13 .45LC.
-static const int kBulletSpeedUnit[16] = {
-	0, 330, 480, 730, 280, 450, 900, 790, 1000, 350, 350, 400, 300, 850, 0, 0,
-};
 static float BulletFullSpeed(int caliber)
 {
-	int unit = (caliber >= 0 && caliber < 16) ? kBulletSpeedUnit[caliber] : 0;
+	int unit = get_ammo_info(caliber)->iSpeedUnit; // +0x24, caliber-ordered (the old local table was in compile-WRITE order)
 	if (unit == 0)
 		unit = 350; // fallback (~10mm) for melee/grenade/unknown
 	return 40.0f * (float)unit; // RE-faithful 40 * ammo_info[+0x24]

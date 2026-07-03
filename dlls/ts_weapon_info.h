@@ -173,6 +173,29 @@ struct s_weapon_info
 // from compile_ammo_info (@0x6f51c). Indices match the weapon iCaliber + the FGD ts_groundammo
 // magsN keyvalues (magN -> caliber N).
 #define TS_NUM_CALIBERS 16
+// s_ammo_info — the per-caliber ammo table (original 0x38-byte struct; offsets are
+// provenance). Built by compile_ammo_info (chained from compile_weapons_info).
+struct s_ammo_info
+{
+	float flFactor;      // +0x00 — per-caliber factor (VERIFY consumer)
+	int   iPrice;        // +0x04 — cash per magazine (BuyAmmo)
+	int   iKind;         // +0x08 — 1 pistol / 2 rifle-shotgun (falloff form selector)
+	int   iMaxCarry;     // +0x0c — reserve cap; the ONLY Set_ammo_count-scaled column
+	int   iRoundsPerMag; // +0x10 — the buy/refill unit
+	int   iMaxTravel;    // +0x14 — 8192 for all calibers (VERIFY consumer)
+	float flFactor2;     // +0x18 (VERIFY consumer)
+	float flMult;        // +0x1c — 1.0 for all entries
+	int   iRangeUnit;    // +0x20 — full-damage range unit (falloff form B)
+	int   iSpeedUnit;    // +0x24 — slow-mo bullet flight speed unit (x40)
+	char  szName[16];    // +0x28 — caliber display name
+};
+extern s_ammo_info global_ammo_info[16];
+void compile_ammo_info(void);            // @0x6f51c
+s_ammo_info *get_ammo_info(int cal);     // @0x6f1c4 — out-of-range/0 -> the zero entry
+void Set_ammo_count(int mode);           // @0x6f2cc — the ammocount-mode max-carry column (SHARED)
+void compile_range_damage(void);         // @0x6f1f4 — the falloff LUT
+float get_range_multipler(int idx);      // @0x6f290 — clamped LUT read
+
 int TSAmmoMax(int caliber); // max reserve (rounds) for a caliber, 0 if none
 int TSRoundsPerMag(int caliber); // rounds per magazine for a caliber (CTSGroundAmmo magsN)
 

@@ -13,6 +13,8 @@
 *  helpers (PrecacheAllTSWeapons/GiveTSWeapon/…) live in ts_weapons.cpp / ts_gun.cpp.
 ***/
 #include "ts_weapon_info.h"
+#include <string.h>
+#include <math.h>
 
 static s_weapon_info g_weaponInfo[TSW_COUNT];
 static bool g_weaponInfoCompiled = false;
@@ -110,32 +112,126 @@ static void Sparta()
   SetSpartaWeapon(32, 0.015f, 1.5f, 0.005f, 33.0f);     // m60
 }
 
-// Max per-caliber reserve (rounds), s_ammo_info+0x20 from compile_ammo_info (@0x6f51c).
-// Index = caliber. 0 = none. Calibers: 1 9x19, 2 .45, 3 SHELLS, 4 5.56, 5 .50AE, 6 7.62,
-// 7 5.7, 8 50BMG, 9 10mm, 10 .22, 11 .454, 12 .32, 13 .45LC.
-static const int kAmmoMax[TS_NUM_CALIBERS] = {
-	0, 80, 90, 90, 150, 90, 170, 100, 200, 90, 70, 20, 40, 170, 0, 0,
-};
+//============================================================================
+// s_ammo_info — the per-caliber ammo table (original struct 0x38 bytes; offsets are
+// provenance comments). Recovered column-complete from compile_ammo_info @0x6f51c
+// (analysis_ff_gun.md; the old kAmmoMax table was the +0x20 RANGE column mislabeled as
+// the reserve cap, and kBulletSpeedUnit was in compile-WRITE order — both fixed here).
+// Calibers: 1 9x19, 2 .45Acp, 3 SHELLS, 4 5.56, 5 .50AE, 6 7.62x39, 7 5.7x28, 8 50BMG,
+// 9 10mm, 10 .22LR, 11 .454, 12 .32Acp, 13 7.62x51 (M60 belt — NOT .45LC).
+//============================================================================
+s_ammo_info global_ammo_info[16];
+static bool g_ammoInfoCompiled = false;
 
-int TSAmmoMax(int caliber)
+// the LUT for range-damage falloff (compile_range_damage @0x6f1f4): m[i] =
+// clamp(1/sqrt(0.1*max(i,1)), 0, 1) — 1.0 through i=10, 0.5 @40, 0.316 @100, 0.1 @1000.
+static float range_damage_multipler[10000];
+
+static void set_ammo(int cal, float f0, int price, int kind, int mag,
+	float f18, int range, int speed, const char *name)
 {
-	if (caliber < 0 || caliber >= TS_NUM_CALIBERS)
-		return 0;
-	return kAmmoMax[caliber];
+	s_ammo_info &a = global_ammo_info[cal];
+	a.flFactor = f0;        // +0x00 (VERIFY consumer)
+	a.iPrice = price;       // +0x04 — cash per magazine (BuyAmmo)
+	a.iKind = kind;         // +0x08 — 1 pistol / 2 rifle-shotgun (falloff form selector)
+	a.iRoundsPerMag = mag;  // +0x10 — the buy/refill unit
+	a.iMaxTravel = 8192;    // +0x14 — max bullet travel (all calibers)
+	a.flFactor2 = f18;      // +0x18 (VERIFY consumer)
+	a.iRangeUnit = range;   // +0x20 — full-damage range unit (falloff form B: idx = dist/this)
+	a.iSpeedUnit = speed;   // +0x24 — slow-mo bullet speed unit (bullets fly at 40x this)
+	strncpy(a.szName, name, sizeof(a.szName) - 1); // +0x28
 }
 
-// Rounds per magazine per caliber, s_ammo_info+0x10 from compile_ammo_info (@0x6f51c).
-// Used by CTSGroundAmmo: a `magsN` keyvalue gives magcount * roundsPerMag rounds of caliber N
-// (recovered: CTSGroundAmmo::KeyValue stores magcount * get_ammo_info(N)[+0x10]). Index=caliber.
-static const int kRoundsPerMag[TS_NUM_CALIBERS] = {
-	0, 30, 12, 8, 30, 10, 30, 20, 5, 15, 17, 5, 20, 5, 0, 0,
-};
+// @0x6f2cc Set_ammo_count — writes ONLY the +0xc max-carry column per server ammocount
+// mode (0 default / 1 low / 2 lower / 3 none; anything else = mode 0). SHARED with the
+// client (the SrvSett id-2 handler calls it so purchase/ammo bookkeeping matches).
+void Set_ammo_count(int mode)
+{
+	static const int mode0[13] = {210, 175, 60, 120, 70, 90, 160, 30, 90, 150, 50, 300, 35};
+	static const int mode1[13] = {90, 50, 32, 60, 21, 60, 40, 10, 30, 34, 15, 100, 15};
+	static const int mode2[13] = {30, 25, 16, 30, 7, 30, 20, 5, 15, 17, 5, 40, 5};
+	for (int cal = 1; cal <= 13; cal++)
+	{
+		int v;
+		switch (mode)
+		{
+		case 1: v = mode1[cal - 1]; break;
+		case 2: v = mode2[cal - 1]; break;
+		case 3: v = 0; break;
+		default: v = mode0[cal - 1]; break;
+		}
+		global_ammo_info[cal].iMaxCarry = v;
+	}
+}
+
+// @0x6f51c compile_ammo_info — fill the 13 caliber rows (entries 0/14/15 stay zero except
+// the 1.0 multiplier), then default the max-carry column. Assignments kept in the
+// original's source order (1,5,7,2,9,4,6,8,3,10,11,12,13 — the write-order trap the old
+// kBulletSpeedUnit fell into).
+void compile_ammo_info(void)
+{
+	memset(global_ammo_info, 0, sizeof(global_ammo_info));
+	for (int i = 0; i < 16; i++)
+		global_ammo_info[i].flMult = 1.0f; // +0x1c — 1.0 for ALL entries
+	set_ammo(1, 0.4f, 50, 1, 30, 0.2f, 80, 330, "9 x 19mm");
+	set_ammo(5, 0.3f, 70, 1, 10, 0.5f, 90, 480, ".50AE");
+	set_ammo(7, 0.5f, 120, 1, 20, 1.0f, 100, 730, "5.7 x 28");
+	set_ammo(2, 0.4f, 60, 1, 12, 0.2f, 90, 280, ".45Acp");
+	set_ammo(9, 0.3f, 70, 1, 15, 0.5f, 90, 450, "10mm AUTO");
+	set_ammo(4, 0.3f, 80, 2, 30, 0.9f, 150, 900, "5.56 Nato");
+	set_ammo(6, 0.2f, 100, 2, 30, 0.7f, 170, 790, "7.62 x 39mm");
+	set_ammo(8, 0.1f, 500, 2, 5, 1.0f, 200, 1000, "50BMG");
+	set_ammo(3, 0.3f, 120, 2, 8, 0.0f, 90, 350, "SHELLS");
+	set_ammo(10, 0.5f, 100, 1, 17, 0.9f, 70, 350, ".22 LR");
+	set_ammo(11, 0.3f, 150, 1, 5, 0.75f, 20, 400, ".454 Casull");
+	set_ammo(12, 0.5f, 30, 1, 20, 0.0f, 40, 300, ".32Acp");
+	set_ammo(13, 0.2f, 150, 2, 5, 0.7f, 170, 850, "7.62 x 51mm");
+	Set_ammo_count(0);
+	g_ammoInfoCompiled = true;
+}
+
+// @0x6f1c4 get_ammo_info — out-of-range and caliber 0 (melee) share the zero entry.
+s_ammo_info *get_ammo_info(int cal)
+{
+	if (!g_ammoInfoCompiled)
+		compile_ammo_info();
+	return ((unsigned)cal < 16) ? &global_ammo_info[cal] : &global_ammo_info[0];
+}
+
+// @0x6f1f4 compile_range_damage — fill the falloff LUT (called once from compile_weapons_info).
+void compile_range_damage(void)
+{
+	for (int i = 0; i < 10000; i++)
+	{
+		const int d = (i < 1) ? 1 : i;
+		float v = 1.0f / sqrtf(0.1f * (float)d);
+		if (v > 1.0f)
+			v = 1.0f;
+		if (v < 0.0f)
+			v = 0.0f;
+		range_damage_multipler[i] = v;
+	}
+}
+
+// @0x6f290 get_range_multipler — clamped LUT read (applied in the bullet damage paths, F3).
+float get_range_multipler(int idx)
+{
+	if (idx < 0)
+		idx = 0;
+	if (idx > 9999)
+		idx = 9999;
+	return range_damage_multipler[idx];
+}
+
+// Legacy accessors — now thin reads of the real table (the callers predate it).
+int TSAmmoMax(int caliber)
+{
+	return get_ammo_info(caliber)->iMaxCarry; // +0xc — the REAL reserve cap (9mm 210, not 80)
+}
 
 int TSRoundsPerMag(int caliber)
 {
-	if (caliber < 0 || caliber >= TS_NUM_CALIBERS)
-		return 0;
-	return kRoundsPerMag[caliber];
+	return get_ammo_info(caliber)->iRoundsPerMag; // +0x10
 }
 
 // @ TakeWeapon default-mode selection — auto if offered, else pump, else burst, else semi.
@@ -431,6 +527,12 @@ static void compile_weapons_info()
   g_weaponInfo[TSW_KATANA].iSwingAnims[0] = 4; // [15] = the reverse back-slash
   g_weaponInfo[TSW_KATANA].iSwingAnims[1] = 3;
   g_weaponInfo[TSW_KATANA].iSwingAnims[2] = 2;
+
+  // the original chains the ammo table + the falloff LUT off the weapon-table build:
+  // compile_weapons_info -> { Write_<weapon> x38, compile_ammo_info -> Set_ammo_count(0),
+  // compile_range_damage }.
+  compile_ammo_info();
+  compile_range_damage();
 
   g_weaponInfoCompiled = true;
 }
