@@ -119,7 +119,11 @@ Spectator wire, the gmsg central registration, the cvar renames, the door-helper
   the actual move selector is a separate helper (likely CTSStunt::CloseAttack @0x8c630 or
   GetCloseCombatVectors @0x76e2c). Next: decompile the SELECTOR — the front kick should be its
   own case (airborne+duck+fwd, no speed term); our tree collapsed the selector + variants into
-  one first-match chain and mis-homed the 270. re.sh 0x9c630 / 0x86e2c.
+  one first-match chain and mis-homed the 270. re.sh 0x9c630 / 0x86e2c. ALSO (round 8): the
+  front kick carries a DOWNWARD VIEW BOB (a duck-like dip) — the kick cases write view_ofs
+  directly in CCombatAttack (the duck-kick case visibly sets view_ofs=(0,0,16) + field_0x4f4=2.0
+  in the @0x76078 decompile); recover the front-kick case's view_ofs/timer pair with the
+  selector pass and wire the dip.
 - **DOUBLE-FIRE powerup = FULL-AUTO**: with the doubletap-E double-fire-rate powerup active, SEMI
   weapons fire full-auto while held. Our semi gate requires trigger release — find the original's
   DoubleFireRate bypass in the ItemPostFrame/Fire semi leg (we already call DoubleFireRate() for
