@@ -5,6 +5,8 @@
 // $NoKeywords: $
 //=============================================================================
 
+extern void TS_DrawScopeOverlay(); // ts_scope.cpp — the quarterscope mask (sub-40 zooms)
+
 // Triangle rendering, if any
 
 #include "hud.h"
@@ -39,6 +41,8 @@ void DLLEXPORT HUD_DrawNormalTriangles()
 	// the whole overview parser); the cont.69n suppression was part of the suppress-and-replace
 	// invention, removed cont.84. DrawOverview self-gates on the map camera modes.
 	gHUD.m_Spectator.DrawOverview();
+
+	TS_DrawScopeOverlay(); // the scope mask (drawn under the HUD: reticle/dot stay on top)
 }
 
 

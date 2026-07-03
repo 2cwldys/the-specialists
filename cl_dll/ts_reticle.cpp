@@ -57,6 +57,27 @@ bool CHudTSReticle::Draw(float flTime)
 	if (g_iUser1 != 0 || 0 != gEngfuncs.IsSpectateOnly())
 		return true;
 
+	// SCOPED (sub-40 zoom): the ENTIRE reticle swaps for the scope overlay (drawn in the tri
+	// pass) — here only the black SIDE BARS (screen-exact, beyond the circle) + the pinned
+	// laser dot. No crosshair, no dive arc (round-7h/7j user spec).
+	{
+		extern bool TS_ScopedIn();
+		if (TS_ScopedIn())
+		{
+			const int cx2 = ScreenWidth / 2, half = ScreenHeight / 2;
+			if (cx2 - half > 0)
+			{
+				gEngfuncs.pfnFillRGBABlend(0, 0, cx2 - half, ScreenHeight, 0, 0, 0, 255);
+				gEngfuncs.pfnFillRGBABlend(cx2 + half, 0, ScreenWidth - (cx2 + half), ScreenHeight, 0, 0, 0, 255);
+			}
+			int lx, ly, lr2, lg2, lb2;
+			extern bool TS_LocalLaserDot(int&, int&, int&, int&, int&);
+			if (TS_LocalHasLaser() && TS_LocalLaserDot(lx, ly, lr2, lg2, lb2))
+				FillRGBA(ScreenWidth / 2 - 1, ScreenHeight / 2 - 1, 3, 3, lr2, lg2, lb2, 235); // pinned centre
+			return true;
+		}
+	}
+
 	// --- dive readiness from the local player's maxspeed (slot weight) ------
 	// cont.69z: maxspeed = 210 + (120/81)*freeSlots  ->  freeSlots = (maxspeed-210)*81/120.
 	float maxspeed = gEngfuncs.GetClientMaxspeed();
