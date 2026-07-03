@@ -47,135 +47,145 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.85) — pickup for the next orchestrator (cont.84 = me)
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.85) — pickup for the next orchestrator (cont.84 = me; available for consult)
 
 **You ARE the orchestrator and the previous agent (cont.84) — continue as if you never stopped.** Branch
-`restructure-source-parity` (NOT merged; GPG off). Regenerate the nm-T baseline first:
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF — keep `git config --local
+commit.gpgsign false`). Every commit this session is build-green (`scripts/build.sh amd64 all`) +
+nm-T-gated. REGENERATE the baseline first thing (the T-set changed once, intentionally):
 `nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}' | sort > /tmp/nm_T_baseline.txt`.
-Read the ledger cont.84 chunks 1-4 (top of `.serena/memories/ledger.md`, Read tool NOT read_memory) —
-they carry EVERYTHING: the attachment saga's six root causes, the spectate stock-patch inversion, the
-Spectator wire, the gmsg central registration, the cvar renames, the door-helper respawn.
+
+⚠ **SERENA GOTCHA:** read the ledger with the **Read tool on `.serena/memories/ledger.md`** — NEVER
+`read_memory("ledger")`, which returns one giant single-line `{"result":"…"}` JSON (~500 KB) that
+overflows the read limit. The cont.84 chunks 1–5 (top) carry this whole session's forensics.
+
+### THE MISSION (the user's directives — the law)
+Make OUR code a **1:1 drop-in** for the original at EVERY level — **file → class → methods → variables →
+globals → free functions**: nothing the original has that we lack, nothing we have that it lacks.
+Driver = `scripts/coverage/audit.py [<Class>]` (+ `coverage.py all` for the external contract). It
+matches BY NAME, so **names must match the original's** (FGD/save/wire names; the cvar structs were
+renamed to the original's .data symbols this session for exactly this reason).
+1. **A missing/extra symbol SIGNALS a logic mismatch → re-RE it.** This session alone: the "invented"
+   Spectator wire hid a wrong payload; the "missing" gmsg globals were dead-symbol parity; the corpse
+   that wouldn't render hid a whole render-fx contract (index-in-rendercolor.r).
+2. **The logic often EXISTS already — moved/renamed/inlined. MOVE it, don't rewrite.** Grep OUR code
+   first (SendWeaponStatus was UpdateClientData's tail; the menu machinery was dead scaffolding).
+3. **MIMIC THEIRS (the drop-in cardinal rule):** our client must swap against the original server and
+   vice-versa — wire names/formats byte-exact, MECHANISMS exact (the tkw `type_attach` grammar; the
+   dead-player corpse fx; the stock-spectator re-skin — we deleted a whole parallel UI because the
+   original PATCHES stock instead of replacing it. When ours "works differently but fine", it is WRONG).
+4. **The USER drives all playtests** (numbered protocols; never launch xash yourself — but killing a
+   hung xash when asked is fine: `pgrep -x xash3d | xargs kill`). Their live-original knowledge is a
+   primary evidence source — this session it decoded the death-cam timing (N-2 countdown), the kick
+   spec, the superjump ordering, the scope presentation. ANSWER each report with binary RE before
+   coding; when you implement from user spec without RE, SAY SO and verify after.
+5. **When verbatim code STILL misbehaves, suspect the BASE SDK / the ENGINE** — this session's harvest:
+   the stock prediction viewmodel gate, the stock dead-roll, the stock renderer's renderamt-as-index
+   read, xash's unimplemented SPR_DrawGeneric blend args, delta.lst bit-widths (TWICE). See "Tooling
+   notes" below.
 
 **HEADLINE:** 0 missing methods/free funcs/members/files · **25 invented methods** · 1 missing global
-(**TSGameRules the singleton @0x1681a0** — THE remaining refactor) · 3 invented globals · server cvars
-0 missing · the whole silencer/scope/laser/spectate surface user-confirmed ("perfect"/"flawless").
+(**`TSGameRules` the singleton @0x1681a0** — THE remaining refactor) · 3 invented globals
+(g_TSGun/g_tsActive/g_tsPool) · server cvars/commands 0 missing · the silencer/scope/laser/spectate/
+death surfaces user-confirmed against the live original ("perfect"/"flawless").
 
-### The queue (in order)
-1. **dossier-invented remaining folds** (reference/dossiers/cont84/dossier-invented.md — read A2/A3/B1/
-   B4/C5 before coding):
-   - `TSSendScoreInfo` -> DELETE + inline sends; canonical payload = CBasePlayer::AddPoints @0xc9e18
-     {BYTE idx, SHORT frags, SHORT deaths, SHORT 0, SHORT teamIdx+1}. ⚠ FIRST check what our client
-     scoreboard's WAITING row (playerclass 11/case 0xb) reads — our TSSendScoreInfo carries playerclass,
-     the original's AddPoints writes 0 there; find the original's waiting-row producer before deleting.
-   - `OwnedCount/SlotsUsed` -> DELETE: the original keeps a MAINTAINED free-slots counter player+0x548
-     (TSSpace; init 81 in TSInit, weight decrements inline in PickUpWeapon @0x8314c ×clip for stacks,
-     increments at the drop sites; GetSpeedBySlots @0x66bd4 = the only helper). Ours recomputes
-     (TSPlayerFreeSlots) — converting = add the maintained member + mutate at every pickup/drop/stack
-     site. ⚠ drift risk: the slot economy is heavily playtested (knife stacks ×clip!) — diff carefully.
-   - `IsTeamMode` -> DELETE-ish: the original compares the GAMEMODE BYTE (rules+0, DecideGamePlay's
-     output; IsCTB @0x67f08 = mode 3) inline. OURS carries real logic (lazy ts_objective_manager probe
-     + InitTeams seeding, 24 call sites) — the faithful shape: mode-byte comparisons + InitTeams moved
-     to DecideGamePlay/where the original seeds. NOT a rename; RE the mode-byte VALUES first (0/1/2/3).
-   - `TSUpdateClientData` -> MOVE into CBasePlayer::UpdateClientData (B1 has the EXACT original send
-     order: ResetHUD/InitHUD+rules InitHUD/RoundTime/PwUp -> HideWeapon, TSHealth, TSArmor, Train,
-     TSState, TSCash, TSSpace, TSPowerUp, TSSlowAmt, TSBulletTime, TSActiveItems, TSPAward, Wires, UCD).
+### Task-list entries to recreate (via TaskCreate)
+- `[in_progress]` **"Per-class 1:1 parity loop (audit→RE→reconcile→build→audit→commit)"** — the driver.
+- `[in_progress]` **"PLAYTEST gate before merging restructure-source-parity to main"** — deferred
+  confirms: bots (telefrag/kill-feed/spawn-scorer), two-client laser colors (PlInfo), breakable-door
+  respawn, the LMS window, TSFrags shatter regression, the death-cam VERIFY constants (80/24).
+- `[in_progress]` **"Task #6 INVENTED REVIEW — disposition every audit delta"** (the remainder below).
+- `[pending]` **"Round-8 implementation: the kick chain rebuild"** (first — fully decoded, see below).
+- `[pending]` **"Round-8 RE: the camera pass (floating reticle + chase cam + death cam constants)"**.
+- `[pending]` **"Round-8 RE: viewmodel anim blending"**.
+- `[pending]` **"Task #7 stunt/pm tail"** (PM_Jump/PM_Duck diffs, morfy anim, directional death,
+  player+0x78 consumer, getup-anim question).
+- `[pending]` **"Task #8 VERIFY batch"** (list in the cont.84 section below + ledger; MINUS the
+  FLY-animIdx item — the kick rebuild retires it; PLUS: ClientKill's exact gate field pev+0x244 & its
+  1 s delayed-suicide consumer · the press-fire prompt's original carrier · WaitThink fade @0x70460
+  exactness · the original's dead-body angle mechanism (likely a pm dead gate)).
+
+### THE QUEUE (in order)
+1. **The KICK CHAIN rebuild** — fully decoded, implementation-ready: rebuild CTSGun's kick selection
+   from `reference/dossiers/cont84/kick_ccombatattack.c` (515 lines, typed). Decoded so far: bVar9 =
+   2 + movingBack (speed<=100: IN_BACK held; else velocity·v_forward dot <= -0.5) · STUNT kick
+   (iuser4 & 0x50c30) → move 4, dmg 15, refire .55 · DUCK-KICK (ONGROUND + (IN_DUCK||FL_DUCKING)) →
+   move 6, dmg 45, refire 1.0, blockstun .35, iuser4|=4|1, view_ofs=(0,0,16) + stunt+0x4 timer 2.0 ·
+   BACKKICK (bVar9==3) → move 7, **dmg = speed*0.303 clamp[15,80]** (ours flat 55), refire 1.35
+   (1.0 grounded) · **FRONT KICK** (airborne + speed3D>270 — a running jump CLEARS it via the z
+   component; ours has identical 3D math so the trigger fires — + IN_DUCK + fwd-dot>0.5) → **move 8**
+   (ours sent 0x10 = the wrong anim — THE "no front kick" feel) + **dmg = speed*0.1538 clamp[15,45]**
+   + THE VIEW DIP (view_ofs=(0,0,16), timer 2.0) · then the ground combo/fly region (moves 0x3-0x5,
+   0x8-0xb) — map the remaining cases from the file. Speed-scaled damages + view dips + iuser4 bits
+   throughout; retires the task-#8 FLY-animIdx VERIFY.
+2. **dossier-invented remaining folds** (`reference/dossiers/cont84/dossier-invented.md`, read A2/A3/
+   B1/B4/C5 + the inv_*.c raws before coding):
+   - `TSSendScoreInfo` → DELETE + inline sends; canonical payload = CBasePlayer::AddPoints @0xc9e18
+     {BYTE idx, SHORT frags, SHORT deaths, SHORT 0, SHORT teamIdx+1}. ⚠ FIRST find what feeds the
+     client scoreboard's WAITING row (playerclass 11/case 0xb) in the original — ours carries it in
+     ScoreInfo playerclass; AddPoints writes 0 there.
+   - `OwnedCount/SlotsUsed` → DELETE: the original keeps a MAINTAINED counter player+0x548 (TSSpace;
+     init 81 in TSInit; weight decrements inline in PickUpWeapon @0x8314c ×clip for stacks; increments
+     at drop sites; GetSpeedBySlots @0x66bd4 the only helper). ⚠ drift risk vs the playtested
+     knife-stack economy — diff every mutate site.
+   - `IsTeamMode` → the gamemode-byte comparisons (rules+0, DecideGamePlay's output; IsCTB @0x67f08 =
+     mode 3). OURS carries the lazy ts_objective_manager probe + InitTeams seeding across 24 sites —
+     NOT a rename; RE the mode-byte values (0/1/2/3) first, move InitTeams where the original seeds.
+   - `TSUpdateClientData` → MOVE into CBasePlayer::UpdateClientData (B1 has the EXACT send order).
    - Team methods (AssignToTeam/GetIndexedTeamName/GetTeamID/IsTeamplay/RecountTeams/
-     TeamWithFewestPlayers/PlayerKilled/PlayerSpawn) -> the STOCK CHalfLifeMultiplay/Teamplay classes
-     (C2/C3/C5 have the addresses + TS patches) — pairs with #2.
-2. **THE TSGameRules SINGLETON SPLIT** (the architecture finding): the original runs stock g_pGameRules
-   (CHalfLifeMultiplay/CHalfLifeTeamplay, TS-patched in place) PLUS a separate NON-VIRTUAL CTSGameRules
-   singleton (`TSGameRules` global @0x1681a0, json-homed TS_player.cpp). Most of our CTSGameRules
-   belongs on the stock classes; the singleton keeps the TS round/objective machine. Plan it as its own
-   chunk; audit drives.
-3. **CTSGun prediction group** (A1/A4): GetWeaponData -> the free @0xa00ac shape (⚠ our fuser2/3 barrel
-   clips + m_iWeaponState attach are WORKING divergences the original lacks — document, don't break
-   prediction), CanDeploy/LoadActiveFromItem/SyncActiveToItem/UpdateActivePointers = ACCEPT-or-fold
-   (A4: state inline in TakeWeapon/SelectWeapon/DropWeapon).
-4. **The stock-HL purge**: 19 extra events + 16 extra server commands + the stock weapon sources in
-   both builds (hl_weapons.cpp refs g_Glock etc. — trim registrations first) + `IsSpawnPointValid`.
-5. **Tasks #7 (stunt/pm tail) + #8 (VERIFY batch)** — lists in the cont.84 section below + the ledger.
-6. Deferred playtest confirms: bots (telefrag/kill-feed/spawn-scorer), two-client laser colors,
-   door respawn on a breakable-door map, the LMS window, TSFrags shatter regression.
+     TeamWithFewestPlayers/PlayerKilled/PlayerSpawn) → the STOCK CHalfLifeMultiplay/Teamplay
+     (C2/C3/C5 have addresses + the TS patches) — pairs with #3.
+3. **THE TSGameRules SINGLETON SPLIT** (the architecture finding, dossier-invented bottom): the
+   original runs stock g_pGameRules (CHalfLifeMultiplay/Teamplay, TS-patched in place) PLUS a separate
+   NON-VIRTUAL CTSGameRules singleton (`TSGameRules` global @0x1681a0, json-homed TS_player.cpp). Most
+   of our CTSGameRules belongs on the stock classes; the singleton keeps the TS round/objective
+   machine. Its own chunk; audit drives.
+4. **The camera RE pass** (client.dll): ONE pass covers three user specs — (a) the 3rd-person FLOATING
+   reticle = a world-projected aim point (gun-forward trace → WorldToScreen sprite; trails while the
+   camera smooths — same projection kit as the laser dot FUN_1003d600 §4b; our TS_PlayerGunAtt cache
+   gives the anchor); (b) the head-clearing CHASE-CAM offset; (c) the DEATH-CAM exact distance/lift
+   (ours: 80 back/24 up placeholders) + whether it wall-traces. Find the original V_CalcRefdef-analogue
+   + its dead-view branch.
+5. **Viewmodel anim BLENDING** (round 8): idle↔fire↔reload transitions BLEND in the original, snap in
+   ours. RE the original client's vm draw/weaponanim path for the blend window — the viewmodel analogue
+   of the cont.81 player blend re-latch.
+6. **CTSGun prediction group** (A1/A4): GetWeaponData → the free @0xa00ac shape. ⚠ our fuser2/3 barrel
+   clips + m_iWeaponState attach mask are WORKING divergences the original lacks — document, do NOT
+   break prediction. CanDeploy/LoadActiveFromItem/SyncActiveToItem/UpdateActivePointers = ACCEPT-or-fold
+   (A4: the state is inline in TakeWeapon/SelectWeapon/DropWeapon).
+7. **The stock-HL purge**: 19 extra events + 16 extra server commands + the stock weapon sources in
+   both builds (hl_weapons.cpp refs g_Glock etc. — trim registrations first) + IsSpawnPointValid +
+   sk_* cvar sweep + mp_flashlight/allow_spectators (absent from the original binary).
+8. Tasks #7/#8 (above).
 
-### ROUND 8 (user findings, recorded verbatim — RE each before coding)
-- **Viewmodel anim BLENDING**: idle->fire, fire->idle, reload->idle, fire->reload all SNAP; "most
-  animations should blend into others, if not all". GoldSrc vm sequences hard-switch by default ->
-  the original client must blend viewmodel transitions (its StudioModelRenderer / weaponanim path).
-  RE the original client's vm draw for a blend window (cf. the cont.81 gait/blend work — the
-  server-side player blend re-latch shim exists; this is the VIEWMODEL analogue).
-- **Melee KICKS**: jump+duck+RIGHT-CLICK on melee = FRONT KICK moving forward / BACK KICK moving
-  backward. We have GoWheel dir==3 backkick (cont.81) — this is a SEPARATE airborne-duck kick pair;
-  check CCombatAttack/CloseAttack move gating + the FLY-family animIdx VERIFY (task #8 item).
-- **Duck-jump kicks RECONCILE** (round 8): the user spec — jump+duck+right-click = FRONT kick
-  moving fwd / BACK kick moving back. Our HandleCloseCombat tree (ts_gun.cpp ~1495, decompile-
-  exact): movingBack -> A_BACKKICK (any speed, air ok ✓); airborne+duck+fwd -> A_DROPKICK only
-  when speed > 270 (a plain jump rarely clears it — walking/normal-run falls through to the
-  ground-combo/FLY branches instead). SUSPECTS: (a) the 270 gate vs the original's actual
-  constant/condition for the duck-fwd case — re-read HandleCloseCombat's 0x10 branch disasm;
-  (b) the FLY-family animIdx VERIFY (task #8) — wrong anims may read as "no front kick".
-  SETTLED partially (cont.84 close): the user's spec is FRONT kick = jump+duck+fwd (any speed),
-  BACK kick = moving back alone. CCombatAttack @0x76078 decompiled: the 270 gate is REAL but it
-  is a SUB-VARIANT inside one case of a move SWITCH keyed on a code (bVar9) computed UPSTREAM —
-  the actual move selector is a separate helper (likely CTSStunt::CloseAttack @0x8c630 or
-  GetCloseCombatVectors @0x76e2c). Next: decompile the SELECTOR — the front kick should be its
-  own case (airborne+duck+fwd, no speed term); our tree collapsed the selector + variants into
-  one first-match chain and mis-homed the 270. re.sh 0x9c630 / 0x86e2c. ALSO (round 8): the
-  front kick carries a DOWNWARD VIEW BOB (a duck-like dip) — the kick cases write view_ofs
-  directly in CCombatAttack (the duck-kick case visibly sets view_ofs=(0,0,16) + field_0x4f4=2.0
-  in the @0x76078 decompile); recover the front-kick case's view_ofs/timer pair with the
-  selector pass and wire the dip.
-  DECODED (cont.84 close, FULL decompile at reference/dossiers/cont84/kick_ccombatattack.c):
-  bVar9 = 2 + movingBack (speed<=100: button&IN_BACK; else velocity·v_forward dot <= -0.5).
-  Cases: STUNTING (iuser4&0x50c30) -> move 4, dmg 15, refire .55 · DUCK-KICK (ONGROUND +
-  (IN_DUCK || FL_DUCKING)) -> move 6, dmg 45(0x2d), refire 1.0, blockstun .35, iuser4|=4|1,
-  view_ofs=(0,0,16) + stunt+0x4 timer 2.0 · BACKKICK (bVar9==3) -> move 7, dmg = speed*0.303
-  clamp[15,80] (SPEED-SCALED, ours is flat 55!), refire 1.35 (1.0 grounded) · THE FRONT KICK
-  (airborne + speed3D>270 + IN_DUCK + fwd-dot>0.5 — a plain running jump+duck DOES clear 270
-  via the z component; ours has the same 3D math so the TRIGGER may already fire) -> move 8
-  (ours sent 0x10 DROPKICK — WRONG id), dmg = speed*0.1538 clamp[15,45] (speed-scaled), budget
-  45, refire 1.0, blockstun .25, iuser4|=4, view_ofs=(0,0,16) + timer 2.0 = THE DIP · then the
-  ground combo / fly family (moves 0x8..0xb / 0x3-0x5 region — map the rest from the file).
-  IMPLEMENT: rebuild our kick chain from kick_ccombatattack.c — move ids, SPEED-SCALED damages,
-  the view dips + the stunt+0x4 restore timer, iuser4 bits. The 'no front kick' feel = the
-  wrong move id (anim) + missing dip, NOT the trigger.
-- **DOUBLE-FIRE powerup = FULL-AUTO**: with the doubletap-E double-fire-rate powerup active, SEMI
-  weapons fire full-auto while held. Our semi gate requires trigger release — find the original's
-  DoubleFireRate bypass in the ItemPostFrame/Fire semi leg (we already call DoubleFireRate() for
-  the x0.5 cadence).
-- **THIRD-PERSON DEATH CAM** (round 8, user): on death the original goes THIRD PERSON watching
-  YOUR body play the death anim easing into the death-idle, and STAYS until the spectate
-  transition. The corpse-at-transition fix (4bed51e) gives the body/pose half; the CAMERA is
-  client-side — while CL_IsDead && g_iUser1==0, the original's V_CalcRefdef chases the own
-  body (find its dead-view branch; pairs with the floating-reticle/chase-cam RE below — same
-  camera code region).
-- **THIRD-PERSON floating reticle + chase cam** (round 8, user): in 3rd person the original's
-  aiming reticle "FLOATS" — it lags behind the view position when the mouse moves — and the
-  chase camera offsets so the aim point is NOT occluded by the player model's head. Suspected
-  mechanism: the reticle = a WORLD-PROJECTED aim point (a gun/eye-forward trace endpoint pushed
-  through WorldToScreen, drawn as a sprite — trails because the endpoint moves through the world
-  while the camera smooths), NOT a fixed centre crosshair; the cam = a raised/side offset. RE the
-  original client's thirdperson path: the cam offset (in_camera analogue / CL_CameraOffset) + who
-  draws a crosshair sprite from a projected point (cf. the laser-dot draw FUN_1003d600 §4b — same
-  projection kit). Our TS_PlayerGunAtt cache gives the gun anchor for the trace.
-- **GLASS PENETRATION depth**: beretta 92f breaks TWO panes per shot; others break one — what gates
-  pane count (caliber? damage? iMode?) and does glass add damage falloff beyond distance? RE
-  ShootBulletsPlayer's pierce recursion (depth-1, iMode 2, the /30 falloff leg) + CheckForBreakables
-  vs per-weapon fields. (cont.83: "pierce = DEPTH-1 recursion... flFactor2 decay x0.5 through a
-  body" — glass may consume depth differently.)
-
-### Tooling notes added this session
-- `test.sh`: `GDB=1` = interactive gdb attach (catch segfaults/hangs; `NOBUILD=1` preserves a debug
-  build); `BUILDTYPE=RelWithDebInfo scripts/build.sh` = line numbers.
-- `setup-xash-mod.sh` now syncs `network/delta.lst` (⚠ delta bit-widths TRUNCATE prediction fields
-  silently — m_iWeaponState needed 2->4 bits for the attach mask) + `game/ts/sprites/*.spr` (generated
-  assets: ts_scopefull.spr — composed at cont.84 from quarterscope.spr, arc corner = quarter's BR).
-- xash gotchas learned: pfnSPR_DrawGeneric IGNORES its blend args (#if 0 — set kRenderTransAlpha via
-  TriRenderMode around it); HUD_WeaponsPostThink's stock viewmodel gate blocks prediction while the
-  scope hides the vm (narrowed exception, sub-40 fov); cl_entity.attachment is engine-owned — the
-  renderer-fed g_tsPlayerGunAtt cache is the anchor source; gHUD.m_iFOV only updates via SetFOV
-  (m_iFOV member), clientdata fov is overridden by the client's own report.
-- ⚠ bulk sed renames can SELF-CAPTURE the replacement inside a new helper (the TS_EvWeaponAnim
-  tail-recursion hang) — grep the helper body after any bulk rename.
+### ⭐ THE METHODS THAT WORKED (keep using them)
+- **Decompile BEFORE coding, batched**: `scripts/ghidra/re.sh 0x<nm+0x10000> [more]` (server, typed by
+  ApplyInventory — the `re` project is CURRENT, do NOT run `re.sh setup`) · `scripts/ghidra/dc.sh
+  client|mp 0x<RVA>` (Windows side; client takes the raw RVA form — 0x5455d not 0x1005455d) ·
+  `re.sh refs/vrefs` for callers · the **Ghidra MCP** for interactive xrefs (CLAUDE.md §4a.3; single-
+  writer .lock — don't run re.sh while the GUI holds `re`).
+- **THE DOSSIER-SUBAGENT HINT (used twice this session, ~450k tokens kept out of context)**: spawn a
+  `general-purpose` subagent with a SELF-CONTAINED prompt (repo root, tool recipes incl. the addr-base
+  rules, known addresses, an explicit work-list with EVIDENCE/VERDICT/CONFIDENCE format, "do NOT edit
+  source", "write the dossier + every raw decompile to `reference/dossiers/cont85/`"). It runs in the
+  background on the clientdll/mpdll (or re) project lock while you keep editing centrally; its final
+  message = the orchestrator summary table. ⚠ its LABELS can be wrong — cross-check against models/
+  disasm (two cont.83 guntail labels were swapped; this session's "linked bang = alt sound" was
+  corrected to "silenced = iparam2&1"). Resume it via SendMessage if needed.
+- **Ground truth beats guessing**: model struct-reads (bodygroups settled the mp5k scope; header
+  offsets 204/212!), titles.txt/live-dir checks (the spectator help text), the xash SOURCE tree at
+  `~/Projects/goldsrc.net/xash3d-fwgs/engine/` (SPR_DrawGeneric's #if 0), and the USER's live hl.exe
+  (`live.py`/`binmap.py`, CLAUDE.md §4b) when static RE dead-ends.
+- **User debugging loop**: `GDB=1 ./test.sh` (interactive attach; `NOBUILD=1` preserves a debug build;
+  `BUILDTYPE=RelWithDebInfo scripts/build.sh` for line numbers) — the user's two identical-PC SIGINT
+  samples + our disasm of the deployed .so nailed the sed-self-capture hang.
+- **The per-fix cadence**: user report → RE the exact original mechanism → apply → build both libs →
+  nm-T gate → `setup-xash-mod.sh` (ALWAYS — it now syncs delta.lst + generated sprites) → commit with
+  provenance (addresses!) → hand a numbered retest.
+- ⚠ **Bulk sed renames SELF-CAPTURE** (the TS_EvWeaponAnim tail-recursion freeze): after any bulk
+  rename, grep the new helper's body for the replacement.
+- ⚠ **delta.lst is a silent truncator** (bit twice): any NEW prediction/clientdata field needs a
+  delta.lst entry with enough BITS (m_iWeaponState 2→4; clientdata iuser4 was ABSENT entirely).
 
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.84) — pickup for the next orchestrator (cont.83 = me; available for consult)
 
