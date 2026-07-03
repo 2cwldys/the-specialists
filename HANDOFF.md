@@ -112,15 +112,21 @@ regenerate anything else via re.sh).** Do NOT redo the RE fan-out; apply:
    client handler contract for ALL FIVE melee/draw events is now RE'd at `dossier-ev-melee.md` (+ev_*.c).
    LEFT OVER: the closecombat.sc/coldcock.sc event swaps (handlers RE'd; need a bulk Write_* extraction of
    the per-GUN anim block [28] first) + CTSGun EmptySound/GrenadeIdle/ReloadWeapon/StopReload.
-2. **gmsg U0–U5** (`dossier-gmsg.md` + `star_*.md`): U0 registration-set parity FIRST (add SelAmmo/ClipInfo,
-   DELETE our invented gmsgStatusText/StatusValue/Weapons/Flashlight/FlashBat regs — gmsgWeapons removal is
-   playtest-gated vs HLU weapon-bits), then TSState/TSSpace/TSBTime/TSPAward/PlInfo/SrvSett/Wires/PTakeDam/
-   TSFade/CustomWP. All wire formats + send sites are in the star addenda (id0=realbullet, TSBTime src =
-   m_bSlowBullets, etc.).
-3. **Freefuncs F1–F10** (`dossier-freefuncs.md`): F1 = 10 dead/trivial pure adds in one commit; F2 the
-   s_ammo_info/CustomWP pipeline (fixes the REAL kAmmoMax wrong-column + kBulletSpeedUnit wrong-order bugs);
-   F3 ★ the range-damage falloff (the biggest gameplay gap); F6 DecideGamePlay/game-mode globals; F8
-   TSPrecache/TSPlayerDisconnect (vote-rejoin bug) etc.
+2. **gmsg (PARTIAL — cont.82)**: ✅ U0 registration parity (b57fe1c) · ✅ U1 TSState/TSSpace/TSBTime
+   (96a7e68) · ✅ U1d TSPAward (8be3cda) · ✅ U2 PlInfo (693c5c5) · ✅ U4a PTakeDam (9cd2a5d).
+   REMAINING: **U3 SrvSett (UNBLOCKED — Set_ammo_count exists now; star_SrvSett.md is implementation-ready:
+   id0=realbullet, id1=usecash bool, id2=ammocount+Set_ammo_count, id3=weaponrestriction; InitHUD sends all
+   four; pairs with F4's cmd_weaponrestriction)** · U3b Wires (needs CBasePlayer::CheckForWires — decompile
+   first) · U4b TSFade (decompile UTIL_ScreenFadeWrite @0xdcc54 first) · U5 CustomWP (pairs with F2b).
+3. **Freefuncs (PARTIAL — cont.82)**: ✅ F1 dead/trivial batch + m61_grenade factory (bec9d0f) · ✅ F2a
+   s_ammo_info/Set_ammo_count/falloff-LUT + the two live table-bug fixes (d58efed) · ✅ F3 ★ the range
+   falloff WIRED both bullet paths + UTIL_TraceLine_Expanded (189f11f). REMAINING: **F2b CustomWP pipeline**
+   (iPrice extraction via the Write_* disasm + SendWeaponParams family in TS_util.cpp + client MsgFunc —
+   pairs with gmsg U5) · **F4 restriction** (GetWeaponType/IsRestrictedWeapon/WeaponRestrictionByID/
+   cmd_weaponrestriction — pairs with U3 id3) · F5+ per dossier-freefuncs §3 (GetBodyByItems→Deploy,
+   TSGetPointsForFrag, TSSelectSpawnSpot, SetPlayerRespawnTime→completes the TSPAward producers,
+   DecideGamePlay, TSPrecache, TSPlayerDisconnect, TSCountPlayers, PlayerIsCheating,
+   RemoveEntityFromSlowedArray→completes CTSKnife::Use, PseudoClimb).
 4. **Task #8**: the 41 invented methods review (CTSGameRules 11 + CBasePlayer TS* 8 + misc) + 17 missing
    globals tail (TSGameRules global instance @0x1681a0, objects, roundtime) + m61_grenade classname.
 5. **Stunt tail remainder** (small): superjump morfy anim (Animate 0x39), directional death (field_0x10c +

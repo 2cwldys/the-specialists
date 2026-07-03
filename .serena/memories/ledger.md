@@ -84,10 +84,34 @@ ReloadWeapon, StopReload (+CBasePlayer CheckForWires/PickUpWeapon/ShootBulletsPl
   direction. VERIFY tail: client FUN_10048840 bit7 decode/hit effect.
 - **PENDING gmsg**: U3 SrvSett (star-SETTLED: id0=realbullet cache 0x578, id1=dmcashbased/usecash bool,
   id2=ammocount + Set_ammo_count BEFORE the MSG_ALL send, id3=weaponrestriction bitmask 0x5870&0x586c;
-  InitHUD sends ALL FOUR MSG_ONE; needs Set_ammo_count = freefuncs F2 first) · U3b Wires (needs
+  InitHUD sends ALL FOUR MSG_ONE; **Set_ammo_count now EXISTS (F2a) — U3 is unblocked**) · U3b Wires (needs
   CBasePlayer::CheckForWires) · U4b TSFade (decompile UTIL_ScreenFadeWrite @0xdcc54 first) · U5 CustomWP
-  (needs iPrice extraction + the TS_util SendWeaponParams family — freefuncs F2/util). NEXT: freefuncs
-  F1/F2, then back for U3/U5.
+  (needs iPrice extraction + the TS_util SendWeaponParams family — F2b).
+
+### freefuncs F1 + F2a + F3 applied (cont.82 continued; commits bec9d0f..189f11f)
+- **F1 (bec9d0f)** the dead/trivial batch: CalcSpread/DropKickback/GetCloseCombatVectors/IsWeaponAkimbo/
+  IsOnlyAkimbo (ts_gun) · GetAccelBySlots/DoSpectacularNess (TS_gamerules) · UTIL_EntInArray/
+  WeaponIdFromString/TSFoundRandomEntity (**TS_util.cpp NEW**) · FixVelocity(+3 call sites)/CanJumpHigh
+  (TS_pm_shared; NOT wired into PM_Jump — superjump hint refuted) · **LINK_ENTITY_TO_CLASS(m61_grenade)**
+  (the missing factory; the ONE intended nm delta, baseline regen). ts_shared.cpp now in the client build.
+  39→26 missing free funcs.
+- **F2a (d58efed)** the s_ammo_info table: full 0x38-struct + global_ammo_info[16] + compile_ammo_info
+  (original write order) + get_ammo_info + **Set_ammo_count** (4 mode tables, SHARED) + compile_range_damage/
+  get_range_multipler LUT, chained from compile_weapons_info. **TWO LIVE BUGS FIXED**: kAmmoMax was the +0x20
+  RANGE column (9mm cap 80→real 210 — PLAYTEST-GATED buff, but it's the original); kBulletSpeedUnit was in
+  compile-WRITE order (slow-mo .45 flew at .50AE speed). cal13 = 7.62x51 (M60), not .45LC. 26→21.
+- **F3 ★ (189f11f)** the range-damage falloff WIRED (the gameplay headline): V1 gate resolved by a fresh
+  UpdateBullet decompile — rec+0x3c = the ammo KIND (2 → form A idx=dist/30; else form B idx=dist/rangeUnit),
+  damage *= clamp(1/sqrt(0.1·idx),0,1). Applied inline at BOTH damage sites (CBulletManager hit — record
+  gains caliber+kind; TSFireBulletsPenetrate — per-layer re-base). + **UTIL_TraceLine_Expanded @0x5f4f4** +
+  vecBoxes[33] (±32u player absbox inflate, absmax-only restore quirk) swapped into both traces.
+  PLAYTEST-GATED as one "TS gunfeel" gate. 21→20.
+- **REMAINING freefuncs**: F2b (iPrice extraction + CustomWP pipeline SendWeaponParams/InformClients/
+  adjust/save_weapon_value + cmd_load/saveweapons + client MsgFunc_CustomWP + CTSGameRules m_bWeaponParams
+  Custom/m_flHealthAbsorb — pairs with gmsg U5) · F4 (GetWeaponType/IsRestrictedWeapon/WeaponRestrictionByID/
+  cmd_weaponrestriction — pairs with gmsg U3 id3) · F5+ (see dossier-freefuncs §3: GetBodyByItems→Deploy,
+  TSGetPointsForFrag, TSSelectSpawnSpot, SetPlayerRespawnTime, DecideGamePlay, TSPrecache,
+  TSPlayerDisconnect, TSCountPlayers, PlayerIsCheating, RemoveEntityFromSlowedArray, PseudoClimb...).
 
 ---
 
