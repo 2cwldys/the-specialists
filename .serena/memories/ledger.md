@@ -78,6 +78,14 @@ AUDIT: **0 missing/0 invented classes · 0 missing methods · 32 invented method
 0 missing free funcs · 0 file mismatches · 6 missing globals (TSGameRules/gmsgFlashBattery/gmsgFlashlight/
 gmsgSetCurWeap/objects/roundtime) · 3 invented globals (g_TSGun/g_tsActive/g_tsPool)**.
 
+### Playtest round 3 (user PASS on rounds 1-2 + the cont.83 surface; 2 fixes, 021864a)
+- Settled thrown blades get the white PICKUPABLE glow shell — KATANA excluded (KungFu-gated
+  recovery). Same user-directed live-original divergence class as the dropped-gun glow (no render
+  writes in either binary's knife code). Applied at the BounceTouch settle tail.
+- Coldcock had no FIRST-person anim (m4): block[28] column added to the table (iColdCockAnim/
+  +hold, the 11 coldcock guns) + a PREDICTED SendWeaponAnim stand-in in ColdCock until the
+  coldcock.sc ev swap (task #5) replaces it.
+
 NEW VERIFY items this session: TraceAttack spawn-grace refusal (@0x801eb) + the 0x10c10 stunt dmg mult ·
 PlayerKilled kill-tier/slow-mo-reward tail · the "Spectator" wire (ours state+seconds vs original idx+flag) ·
 TSItem::hOwner consumer (sell-zone?) · the V11 LMS countdown HUD · ResetRestartRound still reads the dead
