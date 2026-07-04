@@ -138,6 +138,17 @@ image `hlds64-buildchain:debian10` is already built on this host.
 The **client** builds too: `scripts/build.sh <arch> client` (i386 → Valve `vgui.so`,
 amd64 → openvgui; see HANDOFF cont.46). `scripts/build.sh <arch> all` builds both.
 
+**Keep the 4 build source lists in sync.** We compile `hl.so`/`client.so` through four
+parallel build systems, each with its OWN explicit `.cpp` list: the CMake authority
+(`dlls/CMakeLists.txt` + `cl_dll/CMakeLists.txt`, used by the amd64/aarch64/win64 CI),
+the legacy i386 Makefiles (`linux/Makefile.hldll` + `Makefile.hl_cdll`, the `linux-i386`
+CI job), and the MSVC projects (`projects/vs2019/hldll.vcxproj` + `hl_cdll.vcxproj` +
+their `.filters`, the `win32` CI job). Adding a reconstructed file to CMake ONLY (the
+default habit) silently breaks the Makefile/MSBuild CI jobs. **Whenever you add/remove a
+source file, run `scripts/check-source-lists.py`** — it normalizes every `.cpp` each build
+compiles and set-compares the Makefile+vcxproj against the CMake authority, printing a
+per-file MISSING/EXTRA report and exiting non-zero on any drift (CI/pre-commit friendly).
+
 ### Running / testing (this box HAS a GPU + display — not headless)
 
 Two engines run the mod:
