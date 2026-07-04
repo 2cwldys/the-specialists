@@ -1546,6 +1546,16 @@ void CBasePlayer::StopObserver()
 	WRITE_BYTE(0);
 	MESSAGE_END();
 
+	// @0x99a14: CLEAN THE HELD BUTTONS before respawning into play. The fire-to-play click (IN_ATTACK)
+	// is still down here, and without this it carries into the freshly-deployed weapon and auto-fires
+	// on spawn. The original clears pev->button + player+0xb34 (an un-named transient int, cleared ONLY
+	// here in the .so with no recovered read site — almost certainly the fire/button-edge cache). We
+	// clear pev->button + m_afButtonPressed (the fire EDGE). We deliberately do NOT clear m_afButtonLast:
+	// zeroing "last buttons" would make the still-held trigger read as a FRESH press next frame and fire
+	// a semi weapon — the opposite of the fix. VERIFY the exact 0xb34 field if it resurfaces.
+	pev->button = 0;
+	m_afButtonPressed = 0;
+
 	// enter play: respawn -> Spawn -> CTSGameRules::PlayerSpawn equips (the flag is
 	// now clear, so the end-of-Spawn guard does not re-enter spectate).
 	respawn(pev, false);
