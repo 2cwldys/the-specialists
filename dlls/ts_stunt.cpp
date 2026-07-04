@@ -148,20 +148,23 @@ void CTSStunt::Play()
 	{
 		// GET UP (RE Play @0x8a014 disasm @0x8a2e0-0x8a3d0): a single STATE-cleanup block — NOT an
 		// animation. Fires when a roll timer is LIVE and it either expired (m_flRollTime < 0.01; the
-		// decrement floors at 0.001) OR the sticky slide-standup flag (player+0x78, m_iSlideStandUp)
-		// is set: `roll != 0 && (roll < 0.01 || player+0x78)`. Clears exactly ROLL|0x80000|PRONE|STOP|
-		// 0x2 (@0x8a316: five andl's; 0x2/0x80000 have un-RE'd producers), zeroes the roll timer +
-		// m_flBlockTime (player+0x4dc @0x8a35d), restores friction ONLY (pev+0x120 @0x8a36c — gravity
-		// is NOT touched here), and restores the view in ONE write (FL_DUCKING ? 16 : 28 @0x8a37b);
-		// PM_Duck independently re-ducks afterward if DUCK is held. The flag is NOT consumed — its
-		// sole writer in the whole binary is HandleSlide's deliberate-standup (=1, @0x8baa0) and NOTHING
-		// ever clears it, so after a player's first slide-standup of the map, EVERY armed roll timer
-		// (duck/side-kick land-low 2.0, dive-roll, …) stands up the next Play frame. Mimic that.
+		// decrement floors at 0.001) OR the current player ANIMATION SEQUENCE FINISHED:
+		// `roll != 0 && (roll < 0.01 || m_fSequenceFinished)`. player+0x78 (.so) / +0x68 (mp.dll) IS
+		// the stock CBaseAnimating::m_fSequenceFinished (live-trace cont.86: its writers are the
+		// inlined StudioFrameAdvance/ResetSequenceInfo/DispatchAnimEvents tails, it toggles with every
+		// sequence, and the getup fired at roll≈1.07/0.99 = exactly when the ~1s kick anim completed).
+		// So the duck/side-kick "land low" holds until the KICK SEQUENCE ends (~1s), the 2.0 roll timer
+		// is only the fallback, and fall height shortens the post-landing tail because the anim keeps
+		// playing during the fall. HandleSlide forces m_fSequenceFinished=1 on a slide-standup
+		// (@0x8baa0) to make that getup instant. Clears exactly ROLL|0x80000|PRONE|STOP|0x2 (@0x8a316;
+		// 0x2/0x80000 have un-RE'd producers), zeroes the roll timer + m_flBlockTime (player+0x4dc
+		// @0x8a35d), restores friction ONLY (pev+0x120 @0x8a36c — gravity is NOT touched), and restores
+		// the view in ONE write (FL_DUCKING ? 16 : 28 @0x8a37b); PM_Duck re-ducks if DUCK is held.
 		// The getup ANIMATION (0x2e) is played at LANDING time (Landing() roll branch / HandleSlide's
 		// deliberate-prone branch), NEVER here — dispatching 0x2e here while PRONE is still set is
 		// exactly what Region B of CTSAnimation::Animate swallows (the old invented two-stage getup =
 		// the stuck-prone bug).
-		if (m_flRollTime != 0.0f && (m_flRollTime < 0.01f || m_pPlayer->m_iSlideStandUp != 0))
+		if (m_flRollTime != 0.0f && (m_flRollTime < 0.01f || m_pPlayer->m_fSequenceFinished))
 		{
 			pev->iuser4 &= ~(TSSTUNT_ROLL | 0x80000 | TSSTUNT_PRONE | TSSTUNT_STOP | 0x2);
 			m_flRollTime = 0;
@@ -521,7 +524,7 @@ void CTSStunt::HandleSlide()
 		pev->iuser4 &= ~TSSTUNT_SLIDE;
 		pev->view_ofs = Vector(0, 0, 28);
 		m_flRollTime = 0.75f;
-		m_pPlayer->m_iSlideStandUp = 1; // player+0x78 @0x8baa0 — sticky (never cleared); Play's getup goes instant
+		m_pPlayer->m_fSequenceFinished = true; // player+0x78 @0x8baa0 — force sequence-finish => Play's getup fires now
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x29);
 		pev->friction = 1.0f;
 	}
