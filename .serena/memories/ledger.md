@@ -5,6 +5,29 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-04 (cont. 87 cont.) — melee 3rd-person fidelity: crosshair gun-gate + knife/katana block anim (both user-verified)
+
+Commits `05d2d3e` (crosshair) + `600328e` (block). Build-green, server nm-T unchanged, deployed, ✅ user-verified.
+- **Reticle crosshair only for guns** (`05d2d3e`): the reticle's aiming crosshair (donut "sight" sprite + NSEW
+  ticks, ts_reticle.cpp) drew for ALL weapons. Only firearms should show it; melee/grenade/flag show just the
+  dive/weight "(" arc. Added `TS_ActiveWeaponIsGun()` (ts_weaponbar.cpp, decl ts_hud.h) = active weaponType's
+  s_weaponColumn category >= 2 (the RE'd s_weapon_info +0x84 byte; 1=melee/grenade/flag, 2-5=guns). Gated
+  lines 104-117 on it, keeping the arc/laser/distance readout intact.
+- **3rd-person knife/katana block anim** (`600328e`): HandleCloseCombat's block case picked katana_block/
+  knife_block/kungfu_block off `m_szAnimExtention` — EMPTY for all melee (grip "") → both knife AND katana
+  fell through to the generic `kungfu_block`. RE-confirmed asm-exact (HandleCloseCombat @0x5d8d0 case 0x26):
+  the original keys off `m_szAnimOverride` (player+0x478, the blade idle override "katana_idle"/"knife_idle").
+  Swapped the field. NOTE: "block (+reload)" — the block is bound to IN_RELOAD (the reload key IS block); there
+  is no separate melee reload anim (no `_reload` string in the binary). FLAGGED (task): TSA_CC_STOCK case 0x27
+  appends `field_0xb58` in the original, we append m_szAnimExtention — un-RE'd twin field, low-pri edge case.
+
+Method: `re.sh 0x6d8d0` decompiled HandleCloseCombat typed → the exact field. Mission rule 1 in action (a wrong
+FIELD hid the bug: the selector was built against the empty grip instead of the blade override).
+
+Still OPEN (user-driven, 3rd-person subsystem, RE agent running): #3 reticle should FLOAT/LAG behind mouse in
+3rd person (original does, ours pins to center) — REOPENED after a wrong close; #4 3rd-person ORBIT camera
+(zoomed out more + orbit behavior). Both = client.dll camera/reticle RE (cont87 dossier agent in flight).
+
 ## 2026-07-03 (cont. 87) — 3rd-person spine twist (upper body looking left while moving w/ melee) FIXED — split-bone yaw re-base
 
 Commit `4a0b466` (fix) + `031bd75` (dossier `reference/dossiers/cont87/spine_blend.md`). Build-green, server
