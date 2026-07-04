@@ -126,11 +126,16 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 					if (CVAR_GET_FLOAT("sv_cheats") != 0 && CVAR_GET_FLOAT("dmgreport") > 1.0f)
 						UTIL_ClientPrintAll(HUD_PRINTNOTIFY,
 							UTIL_VarArgs("damage:%f\n", flDamageAmount * flDamageAdjust));
-					// the pierce carry-over: decay by the ammo factor, halve through a body
-					flDamageAmount *= ai->flFactor2; // +0x18 — the column's consumer
-					if (pEntity->IsPlayer())
-						flDamageAmount *= 0.5f;
 				}
+				// The pierce carry-over decays on ANY hit (flFraction != 1.0), UNCONDITIONALLY — RE
+				// ShootBulletsPlayer @0x5f69c applies `*= flFactor2` OUTSIDE the pEntity path. Wrapping it
+				// inside `if (pEntity)` let a hit whose CBaseEntity::Instance(tr.pHit) is null keep UNDECAYED
+				// damage feeding the pierce step -> shotguns (flFactor2 = 0.0 -> should NEVER pierce) and
+				// low-flFactor2 ammo (9mm/.45 = 0.2) wrongly punched through walls (user report). The body
+				// half-damage still needs a real player, so it stays gated on pEntity.
+				flDamageAmount *= ai->flFactor2; // +0x18 — the ammo's pierce-decay column
+				if (pEntity && pEntity->IsPlayer())
+					flDamageAmount *= 0.5f;
 			}
 		}
 		else
