@@ -575,11 +575,20 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		m_iLastActivity = activity;
 		break; // fall through to the gait block (legs keep moving); aim-timer holds this torso
 
-	// ---- Reload / draw (upper body, keep legs) -----------------------------
+	// ---- Reload / draw (upper body, keep legs) — RE Animate case 0x33/0x34 -------------------------
+	// Fires ONLY for a weapon WITH a grip (projectiles). Guards (RETURN): on-ground; not mid dive/slide
+	// (iuser4 & 0x30); and — the KEY one — a NON-EMPTY grip. Melee/kung-fu/grenade have an empty szAnimExt,
+	// so the original RETURNS here with NO draw torso and NO aim timer, dropping them straight to their
+	// idle instead of holding the prior weapon's aim pose for the ~2s aim window (the user's "melee/grenade
+	// swap shows aim ~1s before idle"; the combat knife was fine only because its knife_idle override wins).
 	case TSA_RELOAD:
 	case TSA_DRAW:
 		if (!onground)
-			break;
+			return;
+		if (pev->iuser4 & 0x30) // TSSTUNT_DIVE(0x10) | TSSTUNT_SLIDE(0x20)
+			return;
+		if (grip[0] == 0)
+			return; // empty grip (melee / kung-fu / grenade) -> no draw torso, no aim timer
 		strcpy(name, (activity == TSA_RELOAD) ? "relo_" : "draw_");
 		strcat(name, grip);
 		SetAnim(pPlayer, name, 0x92, 0);
