@@ -2682,28 +2682,24 @@ void PM_Jump()
 		}
 	}
 
-	// See if user can super long jump?
-	const bool cansuperjump = atoi(pmove->PM_Info_ValueForKey(pmove->physinfo, "slj")) == 1;
+	// TS SUPER-JUMP (RE PM_Jump @0xe9944): the "mj" physinfo key is set while the superjump powerup is
+	// active. A DUCK+JUMP with mj=1 does a ONE-SHOT VERTICAL high jump — velocity.z = sqrt(160000) = 400
+	// (a 100-unit jump under g=800) — and arms iuser4 |= 0x200000 (WHEEL_TRIG), which makes CTSStunt::Play
+	// play the morfy_jump(_guns) flight pose + airwheel, and the landing play superjump_land. There is NO
+	// sustained hover: the arc is pure physics (hit a ceiling -> you fall). This REPLACES the stock HL
+	// forward long-jump ("slj") module — TS's superjump is vertical, not a forward launch.
+	const bool cansuperjump = atoi(pmove->PM_Info_ValueForKey(pmove->physinfo, "mj")) == 1;
 
 	// Acclerate upward
 	// If we are ducking...
 	if ((0 != pmove->bInDuck) || (pmove->flags & FL_DUCKING) != 0)
 	{
-		// Adjust for super long jump module
-		// UNDONE -- note this should be based on forward angles, not current velocity.
 		if (cansuperjump &&
 			(pmove->cmd.buttons & IN_DUCK) != 0 &&
-			(pmove->flDuckTime > 0) &&
-			Length(pmove->velocity) > 50)
+			(pmove->flDuckTime > 0))
 		{
-			pmove->punchangle[0] = -5;
-
-			for (i = 0; i < 2; i++)
-			{
-				pmove->velocity[i] = pmove->forward[i] * PLAYER_LONGJUMP_SPEED * 1.6;
-			}
-
-			pmove->velocity[2] = sqrt(2 * 800 * 56.0);
+			pmove->velocity[2] = sqrt(160000.0);  // = sqrt(2*800*100) = 400 (@0x100bc8)
+			pmove->iuser4 |= 0x200000;             // WHEEL_TRIG -> morfy_jump flight pose + superjump_land
 		}
 		else
 		{
@@ -2980,6 +2976,23 @@ void PM_CheckParamters()
 		pmove->cmd.forwardmove *= fRatio;
 		pmove->cmd.sidemove *= fRatio;
 		pmove->cmd.upmove *= fRatio;
+	}
+
+	// TS SUPER-JUMP flight — VARIABLE JUMP HEIGHT (RE PM_CheckParamters @0xe9c94). While the superjump is
+	// airborne-active (iuser4 bit 0x100000 = WHEEL_DONE, set by CTSStunt::Play from the DUCK+JUMP's WHEEL_TRIG
+	// 0x200000), reduce air control and GATE GRAVITY on the JUMP button: HOLD jump to keep climbing under low
+	// gravity (0.30 rising / 0.75 falling), RELEASE (or let velocity decay) to fall at normal 1.0 gravity —
+	// the "hold to climb, release to drop" the live original does. NOT a constant moon-gravity, and no hold
+	// timer (the cap is emergent: velz 400 decays to 0 under 0.30). Client-predicted (pm_shared, both sides).
+	if (pmove->iuser4 & 0x100000)
+	{
+		pmove->cmd.forwardmove *= 0.5f;
+		pmove->cmd.sidemove   *= 0.25f;
+		pmove->cmd.upmove     *= 0.25f;
+		if (pmove->cmd.buttons & IN_JUMP)
+			pmove->gravity = (pmove->velocity[2] < 0.0f) ? 0.75f : 0.30f;
+		else
+			pmove->gravity = 1.0f;
 	}
 
 	if ((pmove->flags & FL_FROZEN) != 0 ||

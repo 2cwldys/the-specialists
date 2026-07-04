@@ -1,0 +1,743 @@
+// ===== FUN @ 000908cc size=1644 =====
+
+/* WARNING: Removing unreachable block (ram,0x0009120d) */
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::PreThink(CBasePlayer *this)
+
+{
+  int *piVar1;
+  globalvars_t *pgVar2;
+  bool bVar3;
+  float fVar4;
+  globalvars_t **ppgVar5;
+  enginefuncs_t *peVar6;
+  undefined uVar7;
+  int iVar8;
+  char *pcVar9;
+  undefined3 extraout_var;
+  uint uVar11;
+  undefined4 uVar12;
+  undefined4 uVar13;
+  uint uVar14;
+  float fVar15;
+  vec_t *pvVar16;
+  Vector *pVVar17;
+  undefined2 in_FPUControlWord;
+  longdouble extraout_ST0;
+  longdouble extraout_ST0_00;
+  longdouble lVar18;
+  int a3;
+  int a4;
+  int a5;
+  entvars_t *peVar19;
+  int *piStack_94;
+  float local_90;
+  float fStack_7c;
+  float fStack_78;
+  float fStack_74;
+  undefined1 auStack_6c [16];
+  float fStack_5c;
+  int iStack_3c;
+  int local_28;
+  undefined2 local_24;
+  undefined2 uStack_22;
+  edict_t *peVar10;
+  undefined3 extraout_var_00;
+  
+  uVar11 = this->pev->button;
+  uVar14 = this->m_afButtonLast ^ uVar11;
+  this->m_afButtonPressed = uVar11 & uVar14;
+  this->m_afButtonReleased = uVar14 & ~this->pev->button;
+  (**(code **)(**(int **)PTR_g_pGameRules_00177e70 + 0x50))(*(int **)PTR_g_pGameRules_00177e70,this)
+  ;
+  if (*(int *)PTR_g_fGameOver_00177600 != 0) {
+    return;
+  }
+  UTIL_MakeVectors__FRC6Vector(&this->pev->v_angle);
+  ItemPreFrame(this);
+  WaterMove(this);
+  (*this->vtbl->UpdateClientData)(this);
+  CheckTimeBasedDamage(this);
+  CheckSuitUpdate(this);
+  ppgVar5 = PTR_gpGlobals_00177410;
+  InterpolateSlowMotion__FfPff
+            ((*PTR_gpGlobals_00177410)->frametime,&this->pev->fuser1,this->m_flSlowMotionGo);
+  (*this->vtbl->GiveSlowMul)(this);
+  this->pev->framerate = (float)extraout_ST0;
+  if ((this->pev->flags & 0x200) != 0) {
+    this->field_0xb88 = (int)(*ppgVar5)->time;
+  }
+  (*this->vtbl->GiveSlowMul)(this);
+  lVar18 = extraout_ST0_00 * (longdouble)(*PTR_gpGlobals_00177410)->frametime;
+  if ((this->m_iPowerups & 0x10) != 0) {
+    lVar18 = lVar18 * (longdouble)fc_1_5;
+  }
+  local_90 = (float)lVar18;
+  if (fc_0 != (float)this->field_0x79c) {
+    fVar15 = (float)this->field_0x79c - local_90;
+    if (fVar15 < fc_0_0010000000474974513) {
+      fVar15 = fc_0_0010000000474974513;
+    }
+    this->field_0x79c = (int)fVar15;
+  }
+  if (fc_0 != (float)this->field_0x4dc) {
+    fVar15 = (float)this->field_0x4dc - local_90;
+    if (fVar15 < fc_0_0010000000474974513) {
+      fVar15 = fc_0_0010000000474974513;
+    }
+    this->field_0x4dc = (int)fVar15;
+  }
+  if (fc_0 != (float)this->field_0x4ec) {
+    fVar15 = (float)this->field_0x4ec - local_90;
+    if (fVar15 < fc_0_0010000000474974513) {
+      fVar15 = fc_0_0010000000474974513;
+    }
+    this->field_0x4ec = (int)fVar15;
+  }
+  fVar15 = (float)this->field_0x7a8 - local_90;
+  if (fVar15 < fc_0) {
+    fVar15 = fc_0;
+  }
+  this->field_0x7a8 = (int)fVar15;
+  fVar15 = (float)this->field_0x7b0 - local_90;
+  if (fVar15 < fc_0) {
+    fVar15 = fc_0;
+  }
+  this->field_0x7b0 = (int)fVar15;
+  fVar15 = (float)this->field_0x7ac - local_90;
+  if (fVar15 < fc_0) {
+    fVar15 = fc_0;
+  }
+  this->field_0x7ac = (int)fVar15;
+  fVar15 = (float)this->field_0x7b4 - local_90 * fc_5;
+  if (fVar15 < fc_0) {
+    fVar15 = fc_0;
+  }
+  this->field_0x7b4 = (int)fVar15;
+  CTSStunt::Play((CTSStunt *)&this->field_0x4f0);
+  CTSAnimation::UpdateTimers((CTSAnimation *)&this->field_0x28c,this);
+  peVar19 = this->pev;
+  bVar3 = false;
+  if ((((peVar19->view_ofs).x == *(float *)PTR_g_vecZero_00177698) &&
+      ((peVar19->view_ofs).y == *(float *)(PTR_g_vecZero_00177698 + 4))) &&
+     ((peVar19->view_ofs).z == *(float *)(PTR_g_vecZero_00177698 + 8))) {
+    bVar3 = true;
+  }
+  if (bVar3) {
+    piVar1 = &this->pev->iuser4;
+    *piVar1 = *piVar1 | 0x400000;
+  }
+  else {
+    piVar1 = &this->pev->iuser4;
+    *piVar1 = *piVar1 & 0xffbfffff;
+  }
+  UpdatePowerUpState(this);
+  SlowMotionFlow(this);
+  if (fc_0 != this->m_flHealthRegen) {
+    if (this->field_0x7b9 == '\0') {
+      if (this->pev->health <= this->pev->max_health) {
+        this->m_flHealthRegen = 0.0;
+      }
+      else if (this->m_flHealthRegen < (*PTR_gpGlobals_00177410)->time) {
+        this->m_flHealthRegen = (float)dc_1 + (*PTR_gpGlobals_00177410)->time;
+        this->pev->health = this->pev->health - fc_1;
+      }
+    }
+    else if (this->m_flHealthRegen < (*PTR_gpGlobals_00177410)->time) {
+      fVar15 = (float)(short)(char)PTR_TSGameRules_00177300[0x5876] * fc_0_3199999928474426;
+      if (fVar15 < fc_1) {
+        fVar15 = fc_1;
+      }
+      this->m_flHealthRegen = fc_1 / fVar15 + (*PTR_gpGlobals_00177410)->time;
+      fVar15 = (float)(short)(char)PTR_TSGameRules_00177300[0x5876] * fc_0_1599999964237213 +
+               this->pev->health;
+      if (fc_150 < fVar15) {
+        fVar15 = fc_150;
+      }
+      this->pev->health = fVar15;
+    }
+  }
+  if (fc_0 != (float)this->field_0x4dc) {
+    uVar11 = this->pev->iuser4;
+    if (((uVar11 & 1) != 0) && ((float)this->field_0x4dc < fc_0_009999999776482582)) {
+      this->pev->iuser4 = uVar11 & 0xfffffffe;
+      this->field_0x4dc = 0;
+    }
+  }
+  if ((fc_0 != (float)this->field_0x4ec) && ((float)this->field_0x4ec < fc_0_009999999776482582)) {
+    this->pev->gravity = 1.0;
+    this->field_0x4ec = 0;
+  }
+  iVar8 = (*this->vtbl->IsAlive)(this);
+  fVar15 = fc_0;
+  if (iVar8 != 0) {
+    if ((fc_0 < (float)this->m_flSpreadAccum) &&
+       (fVar4 = (float)this->m_flSpreadAccum - local_90 * fc_0_10000000149011612,
+       this->m_flSpreadAccum = fVar4, fVar4 < fVar15)) {
+      this->m_flSpreadAccum = 0;
+    }
+    if ((float)this->field_0x774 < fc_100) {
+      if (fc_neg0_0010000000474974513 <= (float)this->field_0x774) {
+        local_90 = local_90 * fc_15;
+      }
+      this->field_0x774 = (int)(local_90 + (float)this->field_0x774);
+      if (fc_100 < (float)this->field_0x774) {
+        this->field_0x774 = 0x42c80000;
+      }
+    }
+  }
+  if (fc_0 != (float)this->field_0x79c) {
+    if (((float)this->field_0x79c < fc_0_009999999776482582) || (fc_0 == (float)this->field_0x7a0))
+    {
+      this->field_0x79c = 0;
+      this->field_0x7a0 = 0;
+      *(undefined1 *)&this->field_0x7a4 = 0;
+    }
+    this->field_0x7a8 = 0;
+  }
+  ppgVar5 = PTR_gpGlobals_00177410;
+  if (this->pev->iuser1 != 0) {
+    if (((fc_0 < (float)this->field_0x770) &&
+        (pgVar2 = *PTR_gpGlobals_00177410, pgVar2->time < (float)this->field_0x770)) &&
+       ((float)this->field_0x754 < pgVar2->time)) {
+      this->field_0x754 = (int)((float)dc_1 + pgVar2->time);
+      _local_24 = CONCAT22(uStack_22,in_FPUControlWord);
+      local_28 = (int)ROUND((float)this->field_0x770 - (*ppgVar5)->time);
+      if (local_28 < 1) {
+        peVar19 = this->pev;
+        pcVar9 = "Press Fire To Play!";
+        iVar8 = 0x1e;
+      }
+      else {
+        peVar19 = this->pev;
+        fVar15 = (float)this->field_0x770 - (*PTR_gpGlobals_00177410)->time;
+        if (fc_30 < fVar15) {
+          fVar15 = fc_30;
+        }
+        _local_24 = CONCAT22(uStack_22,in_FPUControlWord);
+        local_28 = (int)ROUND(fVar15);
+        pcVar9 = (char *)UTIL_VarArgs__FPce("%i");
+        iVar8 = 0x14;
+      }
+      TSHudMessageOne__FUcUcUciiPcP9entvars_s(0,0,0,0x10,iVar8,pcVar9,peVar19);
+    }
+    ppgVar5 = PTR_gpGlobals_00177410;
+    if (fc_0 != (float)this->field_0x7bc) {
+      if ((*PTR_gpGlobals_00177410)->time <= (float)this->field_0x7bc) {
+        if ((float)this->field_0x754 < (*PTR_gpGlobals_00177410)->time) {
+          this->field_0x754 = (int)((float)dc_1 + (*PTR_gpGlobals_00177410)->time);
+          peVar19 = this->pev;
+          _local_24 = CONCAT22(uStack_22,in_FPUControlWord);
+          local_28 = (int)ROUND((float)this->field_0x7bc - (*ppgVar5)->time);
+          pcVar9 = (char *)UTIL_VarArgs__FPce("%i seconds left for respawn, press Fire to Play!");
+          TSHudMessageOne__FUcUcUciiPcP9entvars_s(0,0,0,0x10,0x14,pcVar9,peVar19);
+        }
+      }
+      else {
+        this->field_0x7bc = 0;
+        this->field_0x770 = -0x40800000;
+        this->field_0x74c = 1;
+        TSHudMessageOne__FUcUcUciiPcP9entvars_s
+                  (0xc3,0x2d,0x2d,0x10,0x14,"You have to wait until the next round.",this->pev);
+        CTSGameRules::CallCheckDeads((CTSGameRules *)PTR_TSGameRules_00177300);
+      }
+    }
+    Observer_HandleButtons(this);
+    Observer_Idle(this);
+    this->pev->impulse = 0;
+    return;
+  }
+  CTSStunt::CheckForBreakables((CTSStunt *)&this->field_0x4f0);
+  if (0 < this->pev->deadflag) {
+    PlayerDeathThink(this);
+    return;
+  }
+  if ((this->m_afPhysicsFlags & 2U) == 0) {
+    piVar1 = &this->pev->flags;
+    *piVar1 = *piVar1 & 0xfeffffff;
+  }
+  else {
+    piVar1 = &this->pev->flags;
+    *piVar1 = *piVar1 | 0x1000000;
+  }
+  if ((this->m_afPhysicsFlags & 2U) == 0) {
+    if ((char)this->m_iTrain < '\0') {
+      this->m_iTrain = 0xc0;
+    }
+LAB_000913ab:
+    if ((this->pev->button & 2) != 0) {
+      (*this->vtbl->Jump)(this);
+    }
+    if ((((this->pev->button & 4) != 0) || ((this->pev->flags & 0x4000) != 0)) ||
+       ((this->m_afPhysicsFlags & 8U) != 0)) {
+      (*this->vtbl->Duck)(this);
+    }
+    if ((this->pev->flags & 0x200) == 0) {
+      this->m_flFallVelocity = -(this->pev->velocity).z;
+    }
+    UpdatePlayerState(this);
+    if ((*PTR_TSGameRules_00177300 == '\x03') &&
+       ((float)this->field_0x794 < (*PTR_gpGlobals_00177410)->time)) {
+      this->field_0x794 = (int)((float)dc_0_5 + (*PTR_gpGlobals_00177410)->time);
+      CheckForWires(this);
+    }
+    if (((float)this->field_0x71c < (*PTR_gpGlobals_00177410)->time) && (this->pev->rendermode != 0)
+       ) {
+      this->pev->rendermode = 0;
+      (this->pev->rendercolor).x = 0.0;
+      (this->pev->rendercolor).y = 0.0;
+      (this->pev->rendercolor).z = 0.0;
+      this->pev->renderamt = 0.0;
+      this->pev->renderfx = 0;
+    }
+    if ((fc_0 != (float)this->field_0x7cc) &&
+       ((float)this->field_0x7cc < (*PTR_gpGlobals_00177410)->time)) {
+      ClientPrint__FP9entvars_siPCcN42
+                (this->pev,2,"You have been kicked for some reason...\n",0,0,0,0);
+      a5 = 0;
+      a4 = 0;
+      a3 = 0;
+      iVar8 = 0;
+      pcVar9 = (char *)UTIL_VarArgs__FPce("%s kicked.\n");
+      UTIL_ClientPrintAll__FiPCcN41(1,pcVar9,iVar8,a3,a4,a5);
+      peVar6 = PTR_g_engfuncs_001778b8;
+      uVar7 = (*PTR_g_engfuncs_001778b8->pfnGetPlayerUserId)(this->pev->pContainingEntity);
+      uVar12 = CONCAT31(extraout_var_00,uVar7);
+      uVar13 = UTIL_VarArgs__FPce("kick #%i\n");
+      (*peVar6->pfnServerCommand)(uVar13,uVar12);
+      this->field_0x7cc = 0;
+    }
+    __as__7EHANDLEP11CBaseEntity(&this->field_0x130,0);
+    if ((this->m_afPhysicsFlags & 4U) != 0) {
+      pvVar16 = (vec_t *)PTR_g_vecZero_00177698;
+      pVVar17 = &this->pev->velocity;
+      for (iVar8 = 3; iVar8 != 0; iVar8 = iVar8 + -1) {
+        pVVar17->x = *pvVar16;
+        pvVar16 = pvVar16 + 1;
+        pVVar17 = (Vector *)&pVVar17->y;
+      }
+    }
+    if ((fc_0_0010000000474974513 < (float)this->field_0x84c) &&
+       ((float)this->field_0x84c < (*PTR_gpGlobals_00177410)->time)) {
+      this->field_0x84c = 0;
+      this->pev->health = 0.0;
+      (*this->vtbl->Killed)(this,this->pev,1);
+    }
+  }
+  else {
+    peVar10 = this->pev->groundentity;
+    if (peVar10 == (edict_t *)0x0) {
+      uVar7 = (*PTR_g_engfuncs_001778b8->pfnPEntityOfEntOffset)(0);
+      peVar10 = (edict_t *)CONCAT31(extraout_var,uVar7);
+    }
+    piStack_94 = (int *)0x0;
+    if (peVar10 != (edict_t *)0x0) {
+      piStack_94 = *(int **)(peVar10 + 0x7c);
+    }
+    if (piStack_94 == (int *)0x0) {
+      peVar19 = this->pev;
+      fStack_7c = (peVar19->origin).x + fc_0;
+      fStack_78 = (peVar19->origin).y + fc_0;
+      fStack_74 = (peVar19->origin).z + _UNK_001092d8;
+      UTIL_TraceLine__FRC6VectorT015IGNORE_MONSTERSP7edict_sP11TraceResult
+                (&this->pev->origin,&fStack_7c,1,peVar19->pContainingEntity,auStack_6c);
+      if (((fStack_5c != (float)dc_1) && (iStack_3c != 0)) &&
+         (piStack_94 = (int *)0x0, iStack_3c != 0)) {
+        piStack_94 = *(int **)(iStack_3c + 0x7c);
+      }
+      if (((piStack_94 != (int *)0x0) &&
+          (uVar11 = (**(code **)(piStack_94[0x18] + 0x38))(piStack_94), (uVar11 & 0x40) != 0)) &&
+         (iVar8 = (**(code **)(piStack_94[0x18] + 0xac))(piStack_94,this->pev), iVar8 != 0)) {
+LAB_000912b0:
+        pvVar16 = (vec_t *)PTR_g_vecZero_00177698;
+        pVVar17 = &this->pev->velocity;
+        for (iVar8 = 3; iVar8 != 0; iVar8 = iVar8 + -1) {
+          pVVar17->x = *pvVar16;
+          pvVar16 = pvVar16 + 1;
+          pVVar17 = (Vector *)&pVVar17->y;
+        }
+        if ((this->m_afButtonPressed & 8U) == 0) {
+          fVar15 = fc_0;
+          if ((this->m_afButtonPressed & 0x10U) != 0) {
+            iVar8 = piStack_94[0x18];
+            fVar15 = fc_neg1;
+            goto LAB_00091312;
+          }
+        }
+        else {
+          iVar8 = piStack_94[0x18];
+          fVar15 = fc_1;
+LAB_00091312:
+          (**(code **)(iVar8 + 0xe0))(piStack_94,this,this,2,fVar15);
+        }
+        if (fVar15 != fc_0) {
+          _local_24 = CONCAT22(uStack_22,in_FPUControlWord);
+          local_28 = (int)ROUND(*(float *)(*piStack_94 + 0x1f8));
+          uVar11 = TrainSpeed__Fii(local_28,*(int *)(*piStack_94 + 0x184));
+          this->m_iTrain = uVar11 | 0xc0;
+        }
+        goto LAB_000913ab;
+      }
+    }
+    else if ((((this->pev->flags & 0x200) != 0) && ((*(byte *)(*piStack_94 + 0x1a0) & 2) == 0)) &&
+            ((this->pev->button & 0x600U) == 0)) goto LAB_000912b0;
+    this->m_afPhysicsFlags = this->m_afPhysicsFlags & 0xfffffffd;
+    this->m_iTrain = 0xc0;
+  }
+  return;
+}
+
+
+// ===== FUN @ 000f9c94 size=733 =====
+
+void PM_CheckParamters(void)
+
+{
+  float fVar1;
+  float fVar2;
+  int iVar3;
+  uint *puVar4;
+  undefined *puVar5;
+  float fVar6;
+  longdouble lVar7;
+  float local_1c;
+  float local_18;
+  float local_14;
+  
+  iVar3 = *(int *)PTR_pmove_001772c0;
+  fVar6 = *(float *)((int)&__DT_REL[0x9ea].r_offset + iVar3);
+  fVar1 = *(float *)((int)&__DT_REL[0x9ea].r_info + iVar3);
+  fVar2 = *(float *)((int)&__DT_REL[0x9eb].r_offset + iVar3);
+  fVar1 = SQRT(fVar2 * fVar2 + fVar1 * fVar1 + fVar6 * fVar6);
+  fVar6 = *(float *)(iVar3 + 0x1f8);
+  if (fVar6 != (float)dc_0) {
+    fVar2 = *(float *)(iVar3 + 500);
+    if (fVar6 < fVar2) {
+      fVar2 = fVar6;
+    }
+    *(float *)(iVar3 + 500) = fVar2;
+  }
+  puVar5 = PTR_pmove_001772c0;
+  if (((fVar1 != (float)dc_0) &&
+      (iVar3 = *(int *)PTR_pmove_001772c0, *(float *)(iVar3 + 500) < fVar1)) &&
+     (fVar1 = *(float *)(iVar3 + 500) / fVar1, 0 < *(int *)(iVar3 + 0x1fc))) {
+    *(float *)((int)&__DT_REL[0x9ea].r_offset + iVar3) =
+         fVar1 * *(float *)((int)&__DT_REL[0x9ea].r_offset + iVar3);
+    iVar3 = *(int *)puVar5;
+    *(float *)((int)&__DT_REL[0x9ea].r_info + iVar3) =
+         fVar1 * *(float *)((int)&__DT_REL[0x9ea].r_info + iVar3);
+    iVar3 = *(int *)puVar5;
+    *(float *)((int)&__DT_REL[0x9eb].r_offset + iVar3) =
+         fVar1 * *(float *)((int)&__DT_REL[0x9eb].r_offset + iVar3);
+  }
+  puVar5 = PTR_pmove_001772c0;
+  iVar3 = *(int *)PTR_pmove_001772c0;
+  if ((((*(uint *)(iVar3 + 0xb8) & 0x1001000) != 0) || (*(int *)(iVar3 + 0xd0) != 0)) ||
+     ((*(uint *)(iVar3 + 0x208) & 0x10c10) != 0)) {
+    *(undefined4 *)((int)&__DT_REL[0x9ea].r_offset + *(int *)PTR_pmove_001772c0) = 0;
+    *(undefined4 *)((int)&__DT_REL[0x9ea].r_info + *(int *)puVar5) = 0;
+    *(undefined4 *)((int)&__DT_REL[0x9eb].r_offset + *(int *)puVar5) = 0;
+  }
+  puVar5 = PTR_pmove_001772c0;
+  iVar3 = *(int *)PTR_pmove_001772c0;
+  if ((*(byte *)(iVar3 + 0x20a) & 0x10) != 0) {
+    *(float *)((int)&__DT_REL[0x9ea].r_offset + iVar3) =
+         (float)dc_0_5 * *(float *)((int)&__DT_REL[0x9ea].r_offset + iVar3);
+    fVar6 = (float)dc_0_25;
+    *(float *)((int)&__DT_REL[0x9ea].r_info + *(int *)puVar5) =
+         fVar6 * *(float *)((int)&__DT_REL[0x9ea].r_info + *(int *)puVar5);
+    *(float *)((int)&__DT_REL[0x9eb].r_offset + *(int *)puVar5) =
+         fVar6 * *(float *)((int)&__DT_REL[0x9eb].r_offset + *(int *)puVar5);
+    iVar3 = *(int *)puVar5;
+    if ((*(byte *)((int)&__DT_REL[0x9eb].r_info + iVar3 + 2) & 2) == 0) {
+      *(undefined4 *)(*(int *)PTR_pmove_001772c0 + 0xc0) = 0x3f800000;
+    }
+    else {
+      fVar6 = fc_0_30000001192092896;
+      if (*(float *)(iVar3 + 100) < fc_0) {
+        fVar6 = fc_0_75;
+      }
+      *(float *)(iVar3 + 0xc0) = fVar6;
+    }
+  }
+  puVar5 = PTR_pmove_001772c0;
+  PM_DropPunchAngle(*(int *)PTR_pmove_001772c0 + 0xa0);
+  iVar3 = *(int *)puVar5;
+  if ((*(int *)(iVar3 + 0xd0) == 0) && ((*(byte *)(iVar3 + 0x208) & 2) == 0)) {
+    local_1c = *(float *)((int)&__DT_REL[0x9e8].r_info + iVar3) + *(float *)(iVar3 + 0xa0);
+    local_18 = *(float *)((int)&__DT_REL[0x9e9].r_offset + iVar3) + *(float *)(iVar3 + 0xa4);
+    local_14 = *(float *)((int)&__DT_REL[0x9e9].r_info + iVar3) + *(float *)(iVar3 + 0xa8);
+    lVar7 = (longdouble)
+            PM_CalcRoll(&local_1c,iVar3 + 0x5c,
+                        *(undefined4 *)(*(int *)((int)&__DT_REL[0x1dfb].r_offset + iVar3) + 100),
+                        *(undefined4 *)(*(int *)((int)&__DT_REL[0x1dfb].r_offset + iVar3) + 0x68));
+    *(float *)(*(int *)puVar5 + 0x4c) = (float)(lVar7 * (longdouble)fc_4);
+    *(float *)(*(int *)puVar5 + 0x44) = local_1c;
+    *(float *)(*(int *)puVar5 + 0x48) = local_18;
+    puVar4 = *(uint **)puVar5;
+    if (*puVar4 < 0x20) {
+      *(uint *)(OldrotArray + *puVar4 * 4) = puVar4[0x12];
+    }
+  }
+  else {
+    puVar4 = *(uint **)PTR_pmove_001772c0;
+    if (*puVar4 < 0x20) {
+      puVar4[0x12] = *(uint *)(OldrotArray + *puVar4 * 4);
+    }
+  }
+  if (*(int *)(*(int *)PTR_pmove_001772c0 + 0xd0) != 0) {
+    *(undefined4 *)(*(int *)PTR_pmove_001772c0 + 0x88) = 0xc1000000;
+  }
+  fVar6 = *(float *)(*(int *)PTR_pmove_001772c0 + 0x48);
+  if (fc_180 < fVar6) {
+    *(float *)(*(int *)PTR_pmove_001772c0 + 0x48) = fVar6 - fc_360;
+  }
+  return;
+}
+
+
+// ===== FUN @ 000fa26c size=1286 =====
+
+void PM_WalkMove(void)
+
+{
+  float fVar1;
+  int iVar2;
+  float fVar3;
+  undefined *puVar4;
+  undefined *puVar5;
+  int iVar6;
+  longdouble lVar7;
+  float local_e4;
+  int local_e0;
+  undefined1 local_dc [8];
+  undefined4 local_d4;
+  float local_d0;
+  undefined4 local_cc;
+  undefined4 local_c8;
+  undefined4 local_c4;
+  float local_c0;
+  undefined4 local_98;
+  undefined4 local_94;
+  undefined4 local_90;
+  undefined4 local_8c;
+  float local_88;
+  float local_84;
+  undefined4 local_80;
+  undefined4 local_7c;
+  undefined4 local_78;
+  undefined4 local_70;
+  undefined4 local_6c;
+  float local_68;
+  float local_64;
+  undefined4 local_60;
+  undefined4 local_5c;
+  undefined4 local_58;
+  float local_4c;
+  float local_48;
+  undefined4 local_44;
+  undefined4 local_40;
+  float local_3c;
+  float local_38;
+  undefined4 local_34;
+  float local_2c;
+  float local_28;
+  undefined4 local_24;
+  float local_1c;
+  float local_18;
+  undefined4 local_14;
+  
+  puVar4 = PTR_pmove_001772c0;
+  local_e4 = *(float *)((int)&__DT_REL[0x9ea].r_offset + *(int *)PTR_pmove_001772c0);
+  if (local_e4 < fc_0) {
+    local_e4 = (float)dc_0_8 * local_e4;
+  }
+  fVar1 = *(float *)((int)&__DT_REL[0x9ea].r_info + *(int *)PTR_pmove_001772c0);
+  *(undefined4 *)(*(int *)PTR_pmove_001772c0 + 0x1c) = 0;
+  *(undefined4 *)(*(int *)puVar4 + 0x28) = 0;
+  VectorNormalize(*(int *)puVar4 + 0x14);
+  VectorNormalize(*(int *)puVar4 + 0x20);
+  iVar6 = *(int *)puVar4;
+  local_2c = fVar1 * *(float *)(iVar6 + 0x20) + local_e4 * *(float *)(iVar6 + 0x14);
+  local_28 = fVar1 * *(float *)(iVar6 + 0x24) + local_e4 * *(float *)(iVar6 + 0x18);
+  local_14 = 0;
+  local_24 = 0;
+  local_1c = local_2c;
+  local_18 = local_28;
+  lVar7 = (longdouble)VectorNormalize(&local_2c);
+  if ((longdouble)*(float *)(*(int *)puVar4 + 500) < lVar7) {
+    VectorScale(&local_1c,(float)((longdouble)*(float *)(*(int *)puVar4 + 500) / lVar7),&local_1c);
+    lVar7 = (longdouble)*(float *)(*(int *)puVar4 + 500);
+  }
+  puVar4 = PTR_pmove_001772c0;
+  *(undefined4 *)(*(int *)PTR_pmove_001772c0 + 100) = 0;
+  PM_Accelerate(&local_2c,(float)lVar7,
+                *(undefined4 *)(*(int *)((int)&__DT_REL[0x1dfb].r_offset + *(int *)puVar4) + 0x10));
+  *(undefined4 *)(*(int *)puVar4 + 100) = 0;
+  iVar6 = *(int *)puVar4;
+  *(float *)(iVar6 + 0x5c) = *(float *)(iVar6 + 0x5c) + *(float *)(iVar6 + 0x74);
+  iVar6 = *(int *)puVar4;
+  *(float *)(iVar6 + 0x60) = *(float *)(iVar6 + 0x60) + *(float *)(iVar6 + 0x78);
+  iVar6 = *(int *)puVar4;
+  *(float *)(iVar6 + 100) = *(float *)(iVar6 + 100) + *(float *)(iVar6 + 0x7c);
+  lVar7 = (longdouble)Length(*(int *)puVar4 + 0x5c);
+  puVar5 = PTR_pmove_001772c0;
+  if (lVar7 < (longdouble)fc_1) {
+    *(undefined4 *)(*(int *)puVar4 + 0x5c) = 0;
+    *(undefined4 *)(*(int *)puVar4 + 0x60) = 0;
+    *(undefined4 *)(*(int *)puVar4 + 100) = 0;
+    return;
+  }
+  iVar6 = *(int *)PTR_pmove_001772c0;
+  iVar2 = *(int *)(iVar6 + 0xe0);
+  local_4c = *(float *)(iVar6 + 0x5c) * *(float *)(iVar6 + 0x10) + *(float *)(iVar6 + 0x38);
+  local_48 = *(float *)(iVar6 + 0x60) * *(float *)(iVar6 + 0x10) + *(float *)(iVar6 + 0x3c);
+  local_44 = *(undefined4 *)(iVar6 + 0x40);
+  local_3c = local_4c;
+  local_38 = local_48;
+  local_34 = local_44;
+  (**(code **)((int)&__DT_REL[0x1e0d].r_offset + iVar6))
+            (local_dc,iVar6 + 0x38,&local_3c,0,0xffffffff);
+  puVar4 = PTR_pmove_001772c0;
+  if (fc_1 == local_d0) {
+    *(undefined4 *)(*(int *)puVar5 + 0x38) = local_cc;
+    *(undefined4 *)(*(int *)puVar5 + 0x3c) = local_c8;
+    *(undefined4 *)(*(int *)puVar5 + 0x40) = local_c4;
+    return;
+  }
+  if ((iVar2 == -1) && (*(int *)(*(int *)PTR_pmove_001772c0 + 0xe4) == 0)) {
+    return;
+  }
+  iVar6 = *(int *)PTR_pmove_001772c0;
+  if (fc_0 != *(float *)(iVar6 + 0xcc)) {
+    return;
+  }
+  local_60 = *(undefined4 *)(iVar6 + 0x38);
+  local_5c = *(undefined4 *)(iVar6 + 0x3c);
+  local_58 = *(undefined4 *)(iVar6 + 0x40);
+  local_70 = *(undefined4 *)(iVar6 + 0x5c);
+  local_6c = *(undefined4 *)(iVar6 + 0x60);
+  local_68 = *(float *)(iVar6 + 100);
+  PM_FlyMove();
+  iVar6 = *(int *)puVar4;
+  local_80 = *(undefined4 *)(iVar6 + 0x38);
+  local_7c = *(undefined4 *)(iVar6 + 0x3c);
+  local_78 = *(undefined4 *)(iVar6 + 0x40);
+  local_90 = *(undefined4 *)(iVar6 + 0x5c);
+  local_8c = *(undefined4 *)(iVar6 + 0x60);
+  local_88 = *(float *)(iVar6 + 100);
+  *(undefined4 *)(iVar6 + 0x38) = local_60;
+  *(undefined4 *)(*(int *)puVar4 + 0x3c) = local_5c;
+  *(undefined4 *)(*(int *)puVar4 + 0x40) = local_58;
+  *(undefined4 *)(*(int *)puVar4 + 0x5c) = local_70;
+  *(undefined4 *)(*(int *)puVar4 + 0x60) = local_6c;
+  *(float *)(*(int *)puVar4 + 100) = local_68;
+  iVar6 = *(int *)puVar4;
+  local_40 = *(undefined4 *)(iVar6 + 0x38);
+  local_3c = *(float *)(iVar6 + 0x3c);
+  local_38 = *(float *)(iVar6 + 0x40) +
+             *(float *)(*(int *)((int)&__DT_REL[0x1dfb].r_offset + iVar6) + 0x30);
+  (**(code **)((int)&__DT_REL[0x1e0d].r_offset + iVar6))
+            (&local_e0,iVar6 + 0x38,&local_40,0,0xffffffff);
+  if ((local_e0 == 0) && (local_e4 == 0.0)) {
+    *(float *)(*(int *)puVar4 + 0x38) = local_d0;
+    *(undefined4 *)(*(int *)puVar4 + 0x3c) = local_cc;
+    *(undefined4 *)(*(int *)puVar4 + 0x40) = local_c8;
+  }
+  PM_FlyMove();
+  puVar4 = PTR_pmove_001772c0;
+  iVar6 = *(int *)PTR_pmove_001772c0;
+  local_44 = *(undefined4 *)(iVar6 + 0x38);
+  local_40 = *(undefined4 *)(iVar6 + 0x3c);
+  local_3c = *(float *)(iVar6 + 0x40) -
+             *(float *)(*(int *)((int)&__DT_REL[0x1dfb].r_offset + iVar6) + 0x30);
+  (**(code **)((int)&__DT_REL[0x1e0d].r_offset + iVar6))
+            (&local_e4,iVar6 + 0x38,&local_44,0,0xffffffff);
+  if ((float)dc_0_7 <= local_c0) {
+    if ((local_e4 == 0.0) && (fVar1 == 0.0)) {
+      *(undefined4 *)(*(int *)puVar4 + 0x38) = local_d4;
+      *(float *)(*(int *)puVar4 + 0x3c) = local_d0;
+      *(undefined4 *)(*(int *)puVar4 + 0x40) = local_cc;
+    }
+    puVar4 = PTR_pmove_001772c0;
+    *(undefined4 *)(*(int *)PTR_pmove_001772c0 + 0x2c) =
+         *(undefined4 *)(*(int *)PTR_pmove_001772c0 + 0x38);
+    *(undefined4 *)(*(int *)puVar4 + 0x30) = *(undefined4 *)(*(int *)puVar4 + 0x3c);
+    *(undefined4 *)(*(int *)puVar4 + 0x34) = *(undefined4 *)(*(int *)puVar4 + 0x40);
+    fVar1 = *(float *)(*(int *)puVar4 + 0x2c) - local_68;
+    fVar3 = *(float *)(*(int *)puVar4 + 0x30) - local_64;
+    if ((local_84 - local_64) * (local_84 - local_64) +
+        (local_88 - local_68) * (local_88 - local_68) <= fVar3 * fVar3 + fVar1 * fVar1) {
+      iVar6 = *(int *)PTR_pmove_001772c0;
+      goto LAB_000fa768;
+    }
+  }
+  puVar4 = PTR_pmove_001772c0;
+  *(float *)(*(int *)PTR_pmove_001772c0 + 0x38) = local_88;
+  *(float *)(*(int *)puVar4 + 0x3c) = local_84;
+  *(undefined4 *)(*(int *)puVar4 + 0x40) = local_80;
+  *(undefined4 *)(*(int *)puVar4 + 0x5c) = local_98;
+  *(undefined4 *)(*(int *)puVar4 + 0x60) = local_94;
+  iVar6 = *(int *)puVar4;
+LAB_000fa768:
+  *(undefined4 *)(iVar6 + 100) = local_90;
+  return;
+}
+
+
+// ===== FUN @ 000fe434 size=310 =====
+
+void PM_AirMove(void)
+
+{
+  float fVar1;
+  float fVar2;
+  int iVar3;
+  undefined *puVar4;
+  longdouble lVar5;
+  float local_2c;
+  float local_28;
+  undefined4 local_24;
+  float local_1c;
+  float local_18;
+  undefined4 local_14;
+  
+  puVar4 = PTR_pmove_001772c0;
+  iVar3 = *(int *)PTR_pmove_001772c0;
+  fVar1 = *(float *)((int)&__DT_REL[0x9ea].r_offset + iVar3);
+  fVar2 = *(float *)((int)&__DT_REL[0x9ea].r_info + iVar3);
+  *(undefined4 *)(iVar3 + 0x1c) = 0;
+  *(undefined4 *)(*(int *)puVar4 + 0x28) = 0;
+  VectorNormalize(*(int *)puVar4 + 0x14);
+  VectorNormalize(*(int *)puVar4 + 0x20);
+  iVar3 = *(int *)puVar4;
+  local_2c = fVar2 * *(float *)(iVar3 + 0x20) + fVar1 * *(float *)(iVar3 + 0x14);
+  local_28 = fVar2 * *(float *)(iVar3 + 0x24) + fVar1 * *(float *)(iVar3 + 0x18);
+  local_14 = 0;
+  local_24 = 0;
+  local_1c = local_2c;
+  local_18 = local_28;
+  lVar5 = (longdouble)VectorNormalize(&local_2c);
+  if ((longdouble)*(float *)(*(int *)puVar4 + 500) < lVar5) {
+    VectorScale(&local_1c,(float)((longdouble)*(float *)(*(int *)puVar4 + 500) / lVar5),&local_1c);
+    lVar5 = (longdouble)*(float *)(*(int *)puVar4 + 500);
+  }
+  puVar4 = PTR_pmove_001772c0;
+  PM_AirAccelerate(&local_2c,(float)lVar5,
+                   *(undefined4 *)
+                    (*(int *)((int)&__DT_REL[0x1dfb].r_offset + *(int *)PTR_pmove_001772c0) + 0x14))
+  ;
+  iVar3 = *(int *)puVar4;
+  *(float *)(iVar3 + 0x5c) = *(float *)(iVar3 + 0x5c) + *(float *)(iVar3 + 0x74);
+  iVar3 = *(int *)puVar4;
+  *(float *)(iVar3 + 0x60) = *(float *)(iVar3 + 0x60) + *(float *)(iVar3 + 0x78);
+  iVar3 = *(int *)puVar4;
+  *(float *)(iVar3 + 100) = *(float *)(iVar3 + 100) + *(float *)(iVar3 + 0x7c);
+  PM_FlyMove();
+  return;
+}
+
+

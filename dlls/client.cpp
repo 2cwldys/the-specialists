@@ -576,6 +576,11 @@ void ClientCommand(edict_t* pEntity)
 			case 4:  mask = TS_PWUP_INFCLIP;   break; // MultiplyClips on the active CTSGun
 			case 1:  mask = TS_PWUP_SLOWPAUSE; break; // held, 5s
 			case 5:  mask = TS_PWUP_DBLFIRE;   break; // held, 5s
+			case 6:  mask = TS_PWUP_LOWGRAV;   break; // OUR extension (not in the original cheat table, which
+			                                          // superjumps via the map-global mode / a pickup). Safe
+			                                          // for swap-in: `powerup` is a server-side console cmd —
+			                                          // the wire name/format is unchanged; a client makes no
+			                                          // assumption about it (orig server ignores case 6 → default).
 			default: mask = TS_PWUP_SLOWMO;    break; // held, 5s
 			}
 			TSGrantPowerup(player, mask, 5);

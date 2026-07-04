@@ -2012,41 +2012,33 @@ void CBasePlayer::PreThink()
 		}
 	}
 
-	// TS SUPER-JUMP powerup — an INDEPENDENT persistent powerup (m_bLowGravity, set by PlayerAddPowerUp)
-	// that coexists with the held slow/double slot. The original sets an engine physinfo key ("mj") that
-	// the engine's movement reads for the lift; our engine has no such hook, so we drive it here. Behaviour
-	// (per playtest): hold DUCK+JUMP to thrust upward, capped by a per-launch fuel budget (the max height);
-	// RELEASE jump and you fall (gravity is normal). Fuel refills on the ground; landing thuds.
-	if (m_bLowGravity)
+	// TS SUPER-JUMP LANDING (RE PostThink @0x81a22). The jump itself is the "mj" high jump in PM_Jump
+	// (velocity.z=400, one-shot, DUCK+JUMP) which arms iuser4 |= WHEEL_TRIG -> CTSStunt::Play plays the
+	// morfy_jump(_guns) flight pose + airwheel and sets WHEEL_DONE. When that flight touches down, screen-
+	// shake + either a GoRoll (DUCK held on landing) or the superjump_land plant (view low + PRONE|STOP +
+	// roll 0.75 + the superjump_land pose). No sustained lift, no fuel — the arc is pure jump physics, so
+	// hitting a ceiling just drops you. (Replaces the invented m_bLowGravity thrust model.)
+	if ((pev->flags & FL_ONGROUND) && (pev->iuser4 & TSSTUNT_WHEEL_DONE))
 	{
-		const bool onGround = (pev->flags & FL_ONGROUND) != 0;
-		const bool holdLift = (pev->button & IN_JUMP) && (pev->button & IN_DUCK);
-		const float kLiftSpeed = 240.0f; // upward velocity held while thrusting
-		const float kFuelMax = 1.2f;     // seconds of lift per launch -> the max height
-		if (onGround)
+		pev->iuser4 &= ~TSSTUNT_WHEEL_DONE;
+		UTIL_ScreenShake(pev->origin, 20.0f, 30.0f, 0.3f, 512.0f);
+		bool didRoll = false;
+		if (pev->button & IN_DUCK) // duck on landing -> a landing roll instead of the plant
 		{
-			m_flSuperJumpFuel = kFuelMax; // refuel on the ground
-			// the lift ARMS only when the flight LAUNCHES as duck+jump — a plain jump
-			// ducked mid-air (the climb motion) must not engage it (round 8, user vs the
-			// live original: "they check for if a jump was done first").
-			m_bSuperJumpArmed = holdLift ? 1 : 0;
-			if (m_bSuperJumpAir)          // just landed after a flight
+			if (m_TSStunt.GoRoll(0))
 			{
-				EMIT_SOUND(ENT(pev), CHAN_BODY, "player/superjump-land.wav", VOL_NORM, ATTN_NORM);
-				m_bSuperJumpAir = 0;
+				didRoll = true;
+				m_flNextAttack = UTIL_WeaponTimeBase() + 0.75f;
 			}
 		}
-		if (holdLift && m_bSuperJumpArmed && m_flSuperJumpFuel > 0.0f && !onGround)
+		if (!didRoll)
 		{
-			// sustained lift while held + fuel remains; gravity still pulls (release => fall)
-			if (pev->velocity.z < kLiftSpeed)
-				pev->velocity.z = kLiftSpeed;
-			m_flSuperJumpFuel -= gpGlobals->frametime;
-			m_bSuperJumpAir = 1;
+			EMIT_SOUND(ENT(pev), CHAN_BODY, "player/superjump-land.wav", VOL_NORM, ATTN_NORM);
+			pev->iuser4 |= TSSTUNT_PRONE | TSSTUNT_STOP;
+			pev->view_ofs = Vector(0, 0, 16);
+			m_TSStunt.m_flRollTime = 0.75f;
+			m_TSAnim.Animate(this, TSA_CC_SUPERJUMP_LAND); // superjump_land pose
 		}
-		// Only an actual DUCK+JUMP lift (holdLift, above) arms m_bSuperJumpAir -> the superjump-land
-		// thud. A plain jump-hold must NOT set it (was `else if (!onGround) m_bSuperJumpAir=1`, which
-		// played the superjump-land sound on EVERY normal jump landing while the powerup was active).
 	}
 
 	// TS STUNT/ACROBATICS (RECONSTRUCTED CTSStunt — dlls/ts_stunt.cpp, RE reference/STUNT.md).

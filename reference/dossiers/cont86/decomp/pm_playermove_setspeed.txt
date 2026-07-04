@@ -1,0 +1,103 @@
+// ===== FUN @ 001008d8 size=232 =====
+
+void PM_PlayerMove(undefined4 param_1)
+
+{
+  float fVar1;
+  undefined *puVar2;
+  int iVar3;
+  int iVar4;
+  
+  puVar2 = PTR_pmove_001772c0;
+  iVar4 = 0;
+  *(undefined4 *)(*(int *)PTR_pmove_001772c0 + 4) = param_1;
+  PM_CheckParamters();
+  *(undefined4 *)((int)&__DT_REL[0x9ee].r_info + *(int *)puVar2) = 0;
+  *(float *)(*(int *)puVar2 + 0x10) =
+       (float)dc_0_001 * (float)*(byte *)((int)&__DT_REL[0x9e8].r_offset + *(int *)puVar2 + 2);
+  iVar3 = *(int *)puVar2;
+  fVar1 = fc_0;
+  if (fc_0_10000000149011612 <= *(float *)(iVar3 + 0x20c)) {
+    fVar1 = *(float *)(iVar3 + 0x10) * *(float *)(iVar3 + 0x20c);
+  }
+  *(float *)(iVar3 + 0x10) = fVar1;
+  PM_ReduceTimers();
+  puVar2 = PTR_pmove_001772c0;
+  iVar3 = *(int *)PTR_pmove_001772c0;
+  AngleVectors(iVar3 + 0x44,iVar3 + 0x14,iVar3 + 0x20,iVar3 + 0x2c);
+  if ((*(int *)(*(int *)puVar2 + 0xd8) == 0) && (*(int *)(*(int *)puVar2 + 0x1fc) < 1)) {
+    if (((*(int *)(*(int *)PTR_pmove_001772c0 + 0xdc) == 8) ||
+        (*(int *)(*(int *)PTR_pmove_001772c0 + 0xdc) == 0)) || (iVar3 = PM_CheckStuck(), iVar3 == 0)
+       ) {
+      PM_CatagorizePosition();
+      puVar2 = PTR_pmove_001772c0;
+      *(undefined4 *)(*(int *)PTR_pmove_001772c0 + 0xec) =
+           *(undefined4 *)(*(int *)PTR_pmove_001772c0 + 0xe4);
+      iVar3 = *(int *)puVar2;
+      if (*(int *)(iVar3 + 0xe0) == -1) {
+        *(uint *)(iVar3 + 0x9c) = *(uint *)(iVar3 + 100) ^ 0x80000000;
+      }
+      puVar2 = PTR_g_onladder_00177ef8;
+      *(undefined4 *)PTR_g_onladder_00177ef8 = 0;
+      if (((*(int *)(*(int *)PTR_pmove_001772c0 + 0xd0) == 0) &&
+          ((*(byte *)(*(int *)PTR_pmove_001772c0 + 0xbb) & 1) == 0)) &&
+         (iVar4 = PM_Ladder(), iVar4 != 0)) {
+        *(undefined4 *)puVar2 = 1;
+      }
+      TSHandle();
+      PM_UpdateStepSound();
+      PM_Duck();
+      if ((*(int *)(*(int *)PTR_pmove_001772c0 + 0xd0) == 0) &&
+         ((*(byte *)(*(int *)PTR_pmove_001772c0 + 0xbb) & 1) == 0)) {
+        if (iVar4 == 0) {
+          iVar3 = *(int *)PTR_pmove_001772c0;
+          if ((*(int *)(iVar3 + 0xdc) != 3) && (*(int *)(iVar3 + 0xdc) != 8)) {
+            *(undefined4 *)(iVar3 + 0xdc) = 3;
+          }
+        }
+        else {
+          PM_LadderMove(iVar4);
+        }
+      }
+      if (*(uint *)(*(int *)PTR_pmove_001772c0 + 0xdc) < 0xb) {
+                    /* WARNING: Could not recover jumptable at 0x00100aaa. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+        (*(code *)((int)&__DT_PLTGOT -
+                  *(int *)(&UNK_00100aac + *(uint *)(*(int *)PTR_pmove_001772c0 + 0xdc) * 4)))();
+        return;
+      }
+      iVar3 = *(int *)PTR_pmove_001772c0;
+      (**(code **)((int)&__DT_REL[0x1e09].r_info + iVar3))
+                ("Bogus pmove player movetype %i on (%i) 0=cl 1=sv\n",*(undefined4 *)(iVar3 + 0xdc),
+                 *(undefined4 *)(iVar3 + 4));
+    }
+  }
+  else {
+    PM_SpectatorMove();
+    PM_CatagorizePosition();
+  }
+  return;
+}
+
+
+// ===== FUN @ 00093068 size=164 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::SetPlayerSpeed(CBasePlayer *this,float a0)
+
+{
+  this->field_0x550 = (int)a0;
+  if (fc_330 < a0) {
+    this->field_0x550 = 0x43a50000;
+  }
+  if ((float)this->field_0x550 < fc_0) {
+    this->field_0x550 = 0;
+  }
+  (*PTR_g_engfuncs_001778b8->pfnSetClientMaxspeed)
+            (this->pev->pContainingEntity,(float)(int)ROUND((float)this->field_0x550));
+  return;
+}
+
+

@@ -1,0 +1,400 @@
+  if (iVar7 != 0) {
+    if (fc_0 == (this->pev->velocity).x) {
+      if (fc_0 != (this->pev->velocity).y) {
+        if (((fc_0 == (this->pev->velocity).x) && (fc_0 == (this->pev->velocity).y)) &&
+           (this->pev->waterlevel < 2)) goto LAB_00091aae;
+        goto LAB_00091a99;
+      }
+      iVar7 = 6;
+    }
+    else {
+LAB_00091a99:
+      iVar7 = 1;
+    }
+    CTSAnimation::Animate((CTSAnimation *)&this->field_0x28c,this,iVar7);
+  }
+LAB_00091aae:
+  CBaseAnimating::StudioFrameAdvance((CBaseAnimating *)this,0.0);
+  CheckPowerups__FP9entvars_s(this->pev);
+  UpdatePlayerSound(this);
+  this->m_afButtonLast = this->pev->button;
+LAB_00091ae0:
+  (*this->vtbl->GiveSlowMul)(this);
+  lVar13 = extraout_ST0 * (longdouble)(*PTR_gpGlobals_00177410)->frametime;
+  if ((this->m_iPowerups & 0x10) != 0) {
+    lVar13 = lVar13 * (longdouble)fc_1_5;
+  }
+  local_44 = (float)lVar13;
+  local_48 = 0;
+  iVar7 = 0x9f0;
+  do {
+    if (*(int *)((int)&this->field_0x8 + iVar7) != 0) {
+      iVar12 = *(int *)((int)&this->field_0x8 + iVar7);
+      do {
+        piVar8 = (int *)(**(code **)(*(int *)(iVar12 + 0x60) + 0x158))(iVar12);
+        if ((piVar8 != (int *)0x0) &&
+           (iVar9 = (**(code **)(piVar8[0x18] + 0x198))(piVar8), iVar9 != 0)) {
+          fVar14 = (float)piVar8[0x27] - local_44;
+          if (fVar14 < (float)dc_neg1) {
+            fVar14 = (float)dc_neg1;
+          }
+          piVar8[0x27] = (int)fVar14;
+          fVar14 = (float)piVar8[0x28] - local_44;
+          if (fVar14 < (float)dc_neg0_001) {
+            fVar14 = (float)dc_neg0_001;
+          }
+          piVar8[0x28] = (int)fVar14;
+          fVar14 = (float)piVar8[0x29] - local_44;
+          if (fVar14 < (float)dc_neg0_001) {
+            fVar14 = (float)dc_neg0_001;
+          }
+          piVar8[0x29] = (int)fVar14;
+          if ((float)piVar8[0x2a] != fc_1000) {
+            fVar14 = (float)piVar8[0x2a] - local_44;
+            if (fVar14 < (float)dc_neg0_001) {
+              fVar14 = (float)dc_neg0_001;
+            }
+            piVar8[0x2a] = (int)fVar14;
+          }
+          fVar14 = *(float *)(*piVar8 + 0x254);
+          if (fVar14 != fc_1000) {
+            fVar14 = fVar14 - local_44;
+            if (fVar14 < (float)dc_neg0_001) {
+              fVar14 = (float)dc_neg0_001;
+            }
+            *(float *)(*piVar8 + 0x254) = fVar14;
+          }
+        }
+        iVar12 = *(int *)(iVar12 + 0x84);
+      } while (iVar12 != 0);
+    }
+    iVar7 = iVar7 + 4;
+    local_48 = local_48 + 1;
+  } while (local_48 < 6);
+  fVar14 = (float)this->field_0x12c - local_44;
+  this->field_0x12c = (int)fVar14;
+  if (fVar14 < (float)dc_neg0_001) {
+    this->field_0x12c = -0x457ced91;
+  }
+  if (((float)this->field_0xb84 != fc_1000) &&
+     (fVar14 = (float)this->field_0xb84 - local_44, this->field_0xb84 = (int)fVar14,
+     fVar14 < (float)dc_neg0_001)) {
+    this->field_0xb84 = -0x457ced91;
+  }
+  if (((float)this->field_0xb7c != fc_1000) &&
+     (local_44 = (float)this->field_0xb7c - local_44, this->field_0xb7c = (int)local_44,
+     local_44 < (float)dc_neg0_001)) {
+    this->field_0xb7c = -0x457ced91;
+  }
+  return;
+}
+
+
+// ===== FUN @ 00092960 size=41 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::GiveSlowMul(CBasePlayer *this)
+
+{
+  FixedSlowAmt__Ff(this->pev->fuser1);
+  return;
+}
+
+
+// ===== FUN @ 000ac5b4 size=41 =====
+
+void GiveSlowMul__11CBaseEntity(int *param_1)
+
+{
+  FixedSlowAmt__Ff(*(float *)(*param_1 + 0x254));
+  return;
+}
+
+
+// ===== FUN @ 00096bb0 size=1758 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_player.cpp */
+
+void CBasePlayer::SlowMotionFlow(CBasePlayer *this)
+
+{
+  entvars_t *peVar1;
+  int iVar2;
+  edict_t *peVar3;
+  bool bVar4;
+  globalvars_t **ppgVar5;
+  undefined uVar6;
+  CBasePlayer *this_00;
+  int iVar7;
+  undefined3 extraout_var;
+  undefined3 extraout_var_00;
+  undefined3 extraout_var_01;
+  CBaseEntity *pCVar8;
+  int local_ac;
+  int local_94;
+  float local_8c;
+  float local_88;
+  float local_84;
+  float local_7c;
+  float local_78;
+  float local_74;
+  undefined1 local_5c [16];
+  float local_4c;
+  
+  ppgVar5 = PTR_gpGlobals_00177410;
+  if ((fc_0 != this->m_flSlowMotionScale) &&
+     (this->m_flNextSlowFlow <= (*PTR_gpGlobals_00177410)->time)) {
+    this->m_flNextSlowFlow = (float)dc_0_5 + (*PTR_gpGlobals_00177410)->time;
+    bVar4 = false;
+    local_94 = 1;
+    if (0 < (*ppgVar5)->maxClients) {
+      local_ac = 0x184;
+      do {
+        if (*(int *)((int)&this->field_0x4 + local_ac) == 0) {
+LAB_00096c70:
+          this_00 = (CBasePlayer *)UTIL_PlayerByIndex__Fi(local_94);
+          if ((((this_00 != (CBasePlayer *)0x0) &&
+               (iVar7 = (*this_00->vtbl->IsPlayer)(this_00), iVar7 != 0)) && (this != this_00)) &&
+             ((this_00->m_flSlowMotionScale == 0.0 ||
+              (this_00->m_flSlowMotionRamp != this->m_flSlowMotionRamp)))) {
+            peVar1 = this_00->pev;
+            local_7c = (peVar1->origin).x + (peVar1->view_ofs).x;
+            local_78 = (peVar1->origin).y + (peVar1->view_ofs).y;
+            local_74 = (peVar1->origin).z + (peVar1->view_ofs).z;
+            peVar1 = this->pev;
+            local_8c = (peVar1->origin).x + (peVar1->view_ofs).x;
+            local_88 = (peVar1->origin).y + (peVar1->view_ofs).y;
+            local_84 = (peVar1->origin).z + (peVar1->view_ofs).z;
+            UTIL_TraceLine__FRC6VectorT015IGNORE_MONSTERS12IGNORE_GLASSP7edict_sP11TraceResult
+                      (&local_8c,&local_7c,1,1,this->pev->pContainingEntity,local_5c);
+            if ((float)dc_1 <= local_4c) {
+              if (this_00->m_flSlowMotionScale == 0.0) {
+                *(CBasePlayer **)((int)&this->field_0x4 + local_ac) = this_00;
+              }
+              else if (this->m_flSlowMotionRamp <= this_00->m_flSlowMotionRamp) {
+                *(CBasePlayer **)((int)&this->field_0x4 + local_ac) = this_00;
+              }
+              else {
+                bVar4 = true;
+                *(undefined4 *)((int)&this->field_0x4 + local_ac) = 0;
+              }
+            }
+          }
+        }
+        else if (*(float *)(*(int *)((int)&this->field_0x4 + local_ac) + 0x17c) != 0.0) {
+          *(undefined4 *)((int)&this->field_0x4 + local_ac) = 0;
+          goto LAB_00096c70;
+        }
+        local_ac = local_ac + 4;
+        local_94 = local_94 + 1;
+      } while ((local_94 <= (*PTR_gpGlobals_00177410)->maxClients) && (!bVar4));
+    }
+    if (!bVar4) {
+      (*this->vtbl->GoSlow)(this,this->m_flSlowMotionScale,this->field_0x175);
+      local_94 = 1;
+      if (0 < (*PTR_gpGlobals_00177410)->maxClients) {
+        iVar7 = 0x184;
+        do {
+          if (*(int *)((int)&this->field_0x4 + iVar7) != 0) {
+            iVar2 = *(int *)((int)&this->field_0x4 + iVar7);
+            if ((fc_0 == *(float *)(iVar2 + 0x17c)) ||
+               (*(float *)(iVar2 + 0x180) != this->m_flSlowMotionRamp)) {
+              iVar2 = *(int *)((int)&this->field_0x4 + iVar7);
+              (**(code **)(*(int *)(iVar2 + 0x60) + 0x14))(iVar2,this->m_flSlowMotionRamp,0);
+              *(undefined1 *)(*(int *)((int)&this->field_0x4 + iVar7) + 0x175) = this->field_0x175;
+            }
+            else {
+              *(undefined4 *)((int)&this->field_0x4 + iVar7) = 0;
+            }
+          }
+          iVar7 = iVar7 + 4;
+          local_94 = local_94 + 1;
+        } while (local_94 <= (*PTR_gpGlobals_00177410)->maxClients);
+      }
+      if ((char)this->field_0x288 < ' ') {
+        pCVar8 = (CBaseEntity *)0x0;
+        while (pCVar8 = (CBaseEntity *)
+                        UTIL_FindEntityByClassname__FP11CBaseEntityPCc(pCVar8,"grenade"),
+              pCVar8 != (CBaseEntity *)0x0) {
+          peVar3 = pCVar8->pev->pContainingEntity;
+          bVar4 = false;
+          if ((peVar3 == (edict_t *)0x0) ||
+             (uVar6 = (*PTR_g_engfuncs_001778b8->pfnEntOffsetOfPEntity)(peVar3),
+             CONCAT31(extraout_var,uVar6) == 0)) {
+            bVar4 = true;
+          }
+          if (bVar4) break;
+          iVar7 = UTIL_EntInArray__FPP11CBaseEntityiP11CBaseEntity
+                            ((CBaseEntity **)&this->field_0x208,0x20,pCVar8);
+          if (iVar7 == -1) {
+            peVar1 = this->pev;
+            local_8c = (peVar1->origin).x + (peVar1->view_ofs).x;
+            local_88 = (peVar1->origin).y + (peVar1->view_ofs).y;
+            local_84 = (peVar1->origin).z + (peVar1->view_ofs).z;
+            UTIL_TraceLine__FRC6VectorT015IGNORE_MONSTERS12IGNORE_GLASSP7edict_sP11TraceResult
+                      (&local_8c,&pCVar8->pev->origin,1,1,peVar1->pContainingEntity,local_5c);
+            if (((float)dc_1 <= local_4c) &&
+               ((*pCVar8->vtbl->GoSlow)(pCVar8,this->m_flSlowMotionRamp,'\0'),
+               (char)this->field_0x288 < ' ')) {
+              (&this->field_0x208)[(char)this->field_0x288] = (int)pCVar8;
+              *(char *)&this->field_0x288 = (char)this->field_0x288 + '\x01';
+            }
+          }
+        }
+        pCVar8 = (CBaseEntity *)0x0;
+        while (pCVar8 = (CBaseEntity *)
+                        UTIL_FindEntityByClassname__FP11CBaseEntityPCc(pCVar8,"knife"),
+              pCVar8 != (CBaseEntity *)0x0) {
+          peVar3 = pCVar8->pev->pContainingEntity;
+          bVar4 = false;
+          if ((peVar3 == (edict_t *)0x0) ||
+             (uVar6 = (*PTR_g_engfuncs_001778b8->pfnEntOffsetOfPEntity)(peVar3),
+             CONCAT31(extraout_var_00,uVar6) == 0)) {
+            bVar4 = true;
+          }
+          if (bVar4) break;
+          peVar1 = pCVar8->pev;
+          bVar4 = false;
+          if ((((peVar1->velocity).x == *(float *)PTR_g_vecZero_00177698) &&
+              ((peVar1->velocity).y == *(float *)(PTR_g_vecZero_00177698 + 4))) &&
+             ((peVar1->velocity).z == *(float *)(PTR_g_vecZero_00177698 + 8))) {
+            bVar4 = true;
+          }
+          if ((!bVar4) &&
+             (iVar7 = UTIL_EntInArray__FPP11CBaseEntityiP11CBaseEntity
+                                ((CBaseEntity **)&this->field_0x208,0x20,pCVar8), iVar7 == -1)) {
+            peVar1 = this->pev;
+            local_8c = (peVar1->origin).x + (peVar1->view_ofs).x;
+            local_88 = (peVar1->origin).y + (peVar1->view_ofs).y;
+            local_84 = (peVar1->origin).z + (peVar1->view_ofs).z;
+            UTIL_TraceLine__FRC6VectorT015IGNORE_MONSTERS12IGNORE_GLASSP7edict_sP11TraceResult
+                      (&local_8c,&pCVar8->pev->origin,1,1,peVar1->pContainingEntity,local_5c);
+            if (((float)dc_1 <= local_4c) &&
+               ((*pCVar8->vtbl->GoSlow)(pCVar8,this->m_flSlowMotionRamp,'\0'),
+               (char)this->field_0x288 < ' ')) {
+              (&this->field_0x208)[(char)this->field_0x288] = (int)pCVar8;
+              *(char *)&this->field_0x288 = (char)this->field_0x288 + '\x01';
+            }
+          }
+        }
+        pCVar8 = (CBaseEntity *)0x0;
+        while (pCVar8 = (CBaseEntity *)
+                        UTIL_FindEntityByClassname__FP11CBaseEntityPCc(pCVar8,"WorldGun"),
+              pCVar8 != (CBaseEntity *)0x0) {
+          peVar3 = pCVar8->pev->pContainingEntity;
+          bVar4 = false;
+          if ((peVar3 == (edict_t *)0x0) ||
+             (uVar6 = (*PTR_g_engfuncs_001778b8->pfnEntOffsetOfPEntity)(peVar3),
+             CONCAT31(extraout_var_01,uVar6) == 0)) {
+            bVar4 = true;
+          }
+          if (bVar4) {
+            return;
+          }
+          peVar1 = pCVar8->pev;
+          bVar4 = false;
+          if ((((peVar1->velocity).x == *(float *)PTR_g_vecZero_00177698) &&
+              ((peVar1->velocity).y == *(float *)(PTR_g_vecZero_00177698 + 4))) &&
+             ((peVar1->velocity).z == *(float *)(PTR_g_vecZero_00177698 + 8))) {
+            bVar4 = true;
+          }
+          if ((!bVar4) &&
+             (iVar7 = UTIL_EntInArray__FPP11CBaseEntityiP11CBaseEntity
+                                ((CBaseEntity **)&this->field_0x208,0x20,pCVar8), iVar7 == -1)) {
+            peVar1 = this->pev;
+            local_8c = (peVar1->origin).x + (peVar1->view_ofs).x;
+            local_88 = (peVar1->origin).y + (peVar1->view_ofs).y;
+            local_84 = (peVar1->origin).z + (peVar1->view_ofs).z;
+            UTIL_TraceLine__FRC6VectorT015IGNORE_MONSTERS12IGNORE_GLASSP7edict_sP11TraceResult
+                      (&local_8c,&pCVar8->pev->origin,1,1,peVar1->pContainingEntity,local_5c);
+            if (((float)dc_1 <= local_4c) &&
+               ((*pCVar8->vtbl->GoSlow)(pCVar8,this->m_flSlowMotionRamp,'\0'),
+               (char)this->field_0x288 < ' ')) {
+              (&this->field_0x208)[(char)this->field_0x288] = (int)pCVar8;
+              *(char *)&this->field_0x288 = (char)this->field_0x288 + '\x01';
+            }
+          }
+        }
+      }
+    }
+  }
+  return;
+}
+
+
+// ===== FUN @ 0009910c size=80 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_shared.cpp */
+
+void InterpolateSlowMotion__FfPff(float a0,float *a1,float a2)
+
+{
+  float fVar1;
+  float fVar2;
+  
+  fVar1 = a2 - *a1;
+  if (fc_0_05000000074505806 < ABS(fVar1)) {
+    fVar2 = a0 * fc_7;
+    if (fc_1 < fVar2) {
+      fVar2 = fc_1;
+    }
+    fVar1 = fVar2 * fVar1;
+  }
+  *a1 = fVar1 + *a1;
+  return;
+}
+
+
+// ===== FUN @ 000990e4 size=39 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_shared.cpp */
+
+longdouble FixedSlowMul__Ff(float a0)
+
+{
+  longdouble lVar1;
+  
+  lVar1 = (longdouble)FixedSlowAmt__Ff(a0);
+  return (longdouble)fc_1 / lVar1;
+}
+
+
+// ===== FUN @ 000990bc size=38 =====
+
+/* WARNING: Unknown calling convention -- yet parameter storage is locked */
+/* TS_shared.cpp */
+
+longdouble FixedSlowAmt__Ff(float a0)
+
+{
+  longdouble lVar1;
+  
+  lVar1 = (longdouble)a0;
+  if (lVar1 < (longdouble)fc_0_009999999776482582) {
+    lVar1 = (longdouble)fc_0_009999999776482582;
+  }
+  return lVar1;
+}
+
+
+// ===== FUN @ 00098960 size=70 =====
+
+undefined * __tf10CTSPowerUp(void)
+
+{
+  undefined *puVar1;
+  
+  puVar1 = PTR___ti10CTSPowerUp_00177270;
+  if (*(int *)PTR___ti10CTSPowerUp_00177270 == 0) {
+    __tf14CBaseAnimating();
+    __rtti_si(puVar1,"10CTSPowerUp",PTR___ti14CBaseAnimating_001775d4);
+  }
+  return PTR___ti10CTSPowerUp_00177270;
+}
+
+

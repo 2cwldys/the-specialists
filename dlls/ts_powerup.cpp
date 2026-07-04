@@ -423,7 +423,8 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 	{
 		if (!pPlayer->m_bLowGravity)
 		{
-			pPlayer->m_bLowGravity = 1; // super-jump: the duck+jump lift is driven in PreThink (player.cpp)
+			pPlayer->m_bLowGravity = 1;
+			g_engfuncs.pfnSetPhysicsKeyValue(pPlayer->edict(), "mj", "1"); // PM_Jump reads "mj" -> the DUCK+JUMP high jump
 			TSSendPowerupNotify(pPlayer, TS_PWUP_LOWGRAV); // bottom-center HUD "Super Jump" icon
 		}
 	}
@@ -486,7 +487,8 @@ bool TSGrantPowerup(CBasePlayer *pPlayer, int type, int duration)
 	{
 		if (!pPlayer->m_bLowGravity)
 		{
-			pPlayer->m_bLowGravity = 1; // super-jump lift driven in PreThink
+			pPlayer->m_bLowGravity = 1;
+			g_engfuncs.pfnSetPhysicsKeyValue(pPlayer->edict(), "mj", "1"); // the DUCK+JUMP high jump (PM_Jump)
 			TSSendPowerupNotify(pPlayer, TS_PWUP_LOWGRAV);
 		}
 	}

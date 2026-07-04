@@ -498,6 +498,7 @@ void CTSGameRules::SetPlayerTheOne(CBasePlayer *pPlayer)
 	pPlayer->m_flHealthRegen = gpGlobals->time + 1.0f;
 	pPlayer->m_iKungFu = 1;
 	pPlayer->m_bLowGravity = 1;
+	g_engfuncs.pfnSetPhysicsKeyValue(pPlayer->edict(), "mj", "1"); // "The One": the DUCK+JUMP high jump (PM_Jump)
 	pPlayer->SetPlayerSpeed(330.0f); // @0x83068 — the One moves at full speed
 	if (pPlayer->m_iPowerups == 0 && pPlayer->m_iHeldPowerup == 0)
 	{

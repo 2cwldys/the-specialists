@@ -46,6 +46,7 @@ class CTSStunt
 	// code (kick/katana duck-slash "land low, get up"); grant that direct access rather than invent
 	// a setter. See CTSGun::CCombatAttack / KatanaFire.
 	friend class CTSGun;
+	friend class CBasePlayer; // PostThink's superjump land handler writes m_flRollTime (RE @0x81a22)
 public:
 	// +0x20 — the stunt/dive direction stored by GoRoll/GoWheel/GoDive (normalize(velocity), or
 	// -v_forward for a standing wheel). CTSStunt is embedded at CBasePlayer+0x4f0 in the original,
