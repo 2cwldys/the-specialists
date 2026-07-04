@@ -2095,9 +2095,11 @@ void CBasePlayer::PreThink()
 	// ease CURRENT (fuser1) → TARGET (m_flSlowMotionGo) — the original's TS_shared.cpp helper.
 	InterpolateSlowMotion(gpGlobals->frametime, &pev->fuser1, m_flSlowMotionGo);
 	// Base move speed comes from the inventory-slot encumbrance (GetSpeedBySlots: more/heavier weapons →
-	// slower); slow-motion (fuser1) scales it on top. So maxspeed = slotBase * fuser1, every frame.
-	const float slotBase = GetSpeedBySlots(this);
-	pev->maxspeed = slotBase * pev->fuser1;
+	// slower). Slow-motion does NOT scale maxspeed — the original slows MOVEMENT by dilating the pm_shared
+	// frametime (PM_PlayerMove: frametime *= fuser1), which leaves pev->velocity MAGNITUDE intact, so the
+	// side-kick speed>270 gate still passes in slowmo. RE PreThink @0x808cc (no fuser1 on maxspeed) +
+	// PM_PlayerMove @0xf08d8. (Scaling maxspeed here dropped |velocity| below 270 and blocked the kick.)
+	pev->maxspeed = GetSpeedBySlots(this);
 	if (pev->fuser1 < 0.999f)
 	{
 		pev->framerate = pev->fuser1 < 0.01f ? 0.01f : pev->fuser1; // slowed animation (StudioFrameAdvance)

@@ -3077,6 +3077,19 @@ void PM_PlayerMove(qboolean server)
 	// # of msec to apply movement
 	pmove->frametime = pmove->cmd.msec * 0.001;
 
+	// TS SLOW-MOTION (RE PM_PlayerMove @0xf08d8): the slow factor (fuser1, mirrored from pev->fuser1 by the
+	// engine) dilates ONLY the movement integration step — origin advances slower — while pmove->velocity
+	// (units/sec) is left UNTOUCHED. That's how the original slows you without dropping |velocity| below the
+	// side-kick's 270 gate. Guard fuser1<=0 as normal (1.0) so an unpopulated field can't freeze movement;
+	// real slow is 0.01..1.0, and the original freezes (frametime=0) below 0.1.
+	if (pmove->fuser1 > 0.0f)
+	{
+		if (pmove->fuser1 >= 0.1f)
+			pmove->frametime *= pmove->fuser1;
+		else
+			pmove->frametime = 0.0f;
+	}
+
 	PM_ReduceTimers();
 
 	// Convert view angles to vectors
