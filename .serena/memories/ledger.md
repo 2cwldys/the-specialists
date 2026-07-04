@@ -5,6 +5,33 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 86) — kick land-low recover SOLVED: player+0x78 = stock m_fSequenceFinished (✅ user: "exactly matches the original")
+
+Commits `40f6f59..05975a3` on `restructure-source-parity`, all build-green + nm-T stable + deployed.
+The cont.85 "flat 2s" mystery closed in three steps, each falsifying the previous theory:
+1. **ALERT-instrumented playtest**: our server roll timer was NEVER broken — decrements during the fall
+   (land with roll=1.4/1.0 on jump/2nd-story kicks), getup always 2.0s from the KICK. Client-prediction
+   theory dead. But the user's original-side timings (ground kick ~1s, jump ~0.75s, 2nd-story shorter)
+   showed the ORIGINAL recovers ~2x faster than the 2.0 arm.
+2. **Exhaustive static scans** (all iuser4 bit writes, PRONE clears, view_ofs writers, +0x78 stores):
+   found the getup reads player+0x78 which "only HandleSlide writes" → shipped a wrong "sticky flag"
+   reading (40f6f59, also fixed real getup drift: exact clear set ROLL|0x80000|PRONE|STOP|0x2, friction-only,
+   no stuntTime zero, no stood-up gate on HandleStunt; killed the invented STANDUP-bit note: NOTHING sets bit 8).
+3. **LIVE TRACE settled it** (hw watchpoints on view_ofs.z/iuser4/player+0x68 with the roll timer printed
+   as a relative timestamp): the getup fires at roll=1.07/0.99 ≈ exactly when the ~1s kick ANIM completes;
+   mp.dll's flag writers are inlined StudioFrameAdvance/ResetSequenceInfo tails ⇒ **player+0x78 (.so) /
+   +0x68 (mp.dll) is STOCK CBaseAnimating::m_fSequenceFinished** (gcc2 vs MSVC base offsets). Getup =
+   `roll!=0 && (roll<0.01 || m_fSequenceFinished)` — "timer OR anim-sequence end"; HandleSlide's =1 is a
+   forced sequence-finish. Fix (5e46c99): getup reads m_fSequenceFinished (PostThink StudioFrameAdvance
+   already advances it), invented m_iStandUpLatch/m_iSlideStandUp member DELETED. ✅ User-verified exact;
+   DO-NOT-TOUCH markers committed (05975a3). Memory: [[stock-member-before-inventing]].
+Why we got it wrong twice: the store-scan dismissed StudioFrameAdvance/ResetSequenceInfo writes to
+this+0x78 as "another class's member" — CBasePlayer IS-A CBaseAnimating.
+Discovered-not-chased (tasks): Animate's 13 m_fSequenceFinished read-sites vs ours + BulletDance read (#9);
+Play ladder/water branch clears WHEEL_DONE not DIVE + exact reset set (#10); original TSHandle damps
+cmd moves (not velocity) + PseudoClimb head + PM_Duck gate mask is 0x30C3C not 0x3CC3C (un-tasked, pm_shared).
+Next: #2 sidekick FPV branch parity, #3/#4 HUD color/layout, #6 superjump, #8 parity loop.
+
 ## 2026-07-03 (cont. 85/86) — kung-fu kick chain + 3rd-person gait + weapon-data audit + stunt getup (session close)
 
 User-driven playtest loop on `restructure-source-parity`. All build-green (`scripts/build.sh amd64 all`),
