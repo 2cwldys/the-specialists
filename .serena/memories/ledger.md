@@ -5,6 +5,54 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-04 (cont. 87 cont.3) — LARGE playtest-driven fix batch (all user-verified, RE-grounded)
+
+A long interactive session on `restructure-source-parity`; every fix RE'd from the original then
+user-verified in-engine. Commits after `19efde0`. Method: dossier-subagents for deep client.dll RE
+(spine merge, 3rd-person camera, status HUD, drop mechanism) + live user playtest as ground truth.
+
+- **3rd-person SPINE TWIST** (`4a0b466`): gait merge left the torso pose on the spine (Bip01 Dorso) atop a
+  gait-rotated parent → double-rotated upper body. Original `StudioSetupBones` (FUN_10031080) re-bases the
+  split bone's yaw = (torso_yaw − gait_yaw) then breaks. Added `QuaternionAngles`. Dossier cont87/spine_blend.
+- **Reticle crosshair only for guns** (`05d2d3e`) + **3rd-person knife/katana block anim** (`600328e`): block
+  keyed off the empty `m_szAnimExtention` → fell to kungfu_block; original uses `m_szAnimOverride` (@0x5d8d0 case 0x26).
+- **TS OVER-THE-SHOULDER 3rd-person CAMERA + screen-space RETICLE** (`f4b9637`): NOT the stock distance-orbit —
+  `cl_camtype` (0-3) preset back/right/up offset (0=−48/+16/+12; user runs 3=cam_back 90 centered), render
+  camera uses SMOOTHED cam_ofs angles. Reticle = WorldToScreen of the traced aim point from the EYE (new
+  `v_aimeye`, pre-offset), so it shows true aim + parallaxes/lags. Framerate-dependent /4 smoothing kept
+  faithful (100fps). Dossier cont87/thirdperson_camera_reticle.
+- **SPAWN loadout fixes** (`5244abf`): (1) SlotsUsed counted kung-fu (TSW_MELEE, cost 10) → full loadout hit 90
+  server-side and dropped the last weapon; skip TSW_MELEE. (2) TSDeployArsenal deployed the last-bought; use
+  GetBetterWeapon(-1) → spawn on the highest-priority weapon (M4). Root found via user's "11 free slots" clue.
+- **Ammo HUD** (`4bb03c2`): caliber/firemode → full color (were gray); DrawNumberPair `[  a  /  b  ]`;
+  TSHud_DrawString confirmed = DrawCharacter (NOT DrawConsoleString — that adds a xash shadow; bold/opacity
+  is the xash vs GoldSrc engine font, not ours).
+- **WEAPON-SELECT RIGHT-CLICK DROP** (`5c14b90`): merged our two wrongly-split DropWeapon()/DropWeapon(int,float)
+  into the original's ONE `DropWeapon(int type,float)` (@0x84900; type<0=active/-1 key/-2 disarm, type>=0=specific);
+  added the `drop_<N>` ClientCommand + `CL_ResetButtonBits` now resets IN_ATTACK2 (was IN_ATTACK-only) so the
+  right-click no longer leaks into the weapon secondary. Dossier cont87/weapon_drop.
+- **Low-stamina BREATHING** (`…`): client-side breathe2.wav (loop-marked 'cue' chunk) while melee bar <50%,
+  EDGE-triggered (EV_PlaySound/EV_StopSound on CHAN_STATIC — survives pickups, stops on recovery).
+- **SPAWN button clean** (`…`): StopObserver clears `pev->button` + m_afButtonPressed (RE @0x99a14, was missing) —
+  no auto-fire from fire-to-play; AND `inputw32.cpp` keeps `mouse_oldbuttonstate` in sync while the buy menu
+  absorbs clicks (the early return froze it → a phantom +attack on menu close fired the fresh weapon — the
+  user's exact "buy-menu click → fire on spawn" repro). `0xb34` un-RE'd (no read site) ~= the button-edge cache.
+- **Knife ammo count** (`…`): knife/sealknife carry count rides the WeaponInfo reserve field (0 for caliber-less
+  melee) → drawn as a number above the block bar (LK_COUNT).
+- **Powerup FIGURE icons + `powerup 7`** (`…`): the two persistent indicators used the weapon-bar icon + a
+  non-existent superjump.spr (SPR_Load stale handle → drew the last weapon/numbers sprite); fixed to
+  `sprites/player/kungfu.spr` + `sprites/player/movement.spr` side-by-side @ SH-56. Added `powerup 7` (grant
+  kung-fu — debug, nothing in the shipped game grants it; same divergence as `powerup 6`).
+- **Pump-shotgun 3rd-person reload** (`…`): removed the invented `Animate(TSA_RELOAD)` from ShotgunReload —
+  RE-confirmed the original never animates the shell-by-shell reload. Shell-for-shell shotguns (Mossberg/Benelli)
+  show no world reload; clip shotguns (USAS/Sawed-off) keep the whole-mag anim (standard Reload).
+
+Method wins: the user's diagnoses were repeatedly the RE-correct root (button-clean vs swallow flag; the
+mouse_oldbuttonstate freeze; the kung-fu slot). Several "invented stand-ins" removed (ShotgunReload anim,
+DropWeapon split, superjump.spr). All build-green, server nm-T stable, deployed each step.
+
+---
+
 ## 2026-07-04 (cont. 87 cont.2) — TS over-the-shoulder 3rd-person CAMERA + screen-space-mapped RETICLE (user-verified aim)
 
 Commit `f4b9637` (feat) + `1086ff0` (dossier `reference/dossiers/cont87/thirdperson_camera_reticle.md` + decomps).
