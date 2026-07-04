@@ -23,7 +23,9 @@
 #define TSPM_WALLJUMP_M  0x007000 // any wall-jump bit
 #define TSPM_WALLCLIMB   0x008000 // sign bit of the low short
 #define TSPM_WALLDIVE    0x800000
-#define TSPM_STUNT_MASK  0x03CC3C // any stunt -> PM_Duck skips the normal duck
+#define TSPM_STUNT_MASK  0x030C3C // any stunt -> PM_Duck skips the normal duck (RE PM_Duck @0xe9fe1:
+                                  // exactly 0x4|0x8|0x20|0x10|0x10000|0x20000|0xc00; NOT the walljump/
+                                  // wallclimb LAUNCH bits 0x1000/0x8000 — ours wrongly added 0xC000)
 
 // The TS stunt prediction entry point — called from PM_PlayerMove before PM_Duck
 // on BOTH the server and the client predictor.
