@@ -180,6 +180,86 @@ branch), and diagnose via a live velocity+gaitmovement trace before changing cod
 
 ---
 
+## QUESTION 3 — melee-idle 3rd-person head/torso turned LEFT when moving
+
+RE of the server dispatch (`CTSAnimation::Animate`/`SetAnim`), the client controller math
+(`StudioProcessGait`), the gait bone-merge (`StudioMergeBones` @0x31080), AND the actual TS
+`player.mdl` sequence/bone data. Raw artifacts in `decomp/` (`SetAnim.c`, `Animate_full.c`,
+`StudioMergeBones_gait.c`, `melee_idle_model_analysis.txt`).
+
+### What is DEFINITIVELY RULED OUT
+- **(b) SetAnim flag — NOT the cause.** `CTSAnimation::SetAnim` (nm 0x5d7e4) decoded: flags
+  `LEGS=0x01 CLEARLEGS=0x04 INTERP=0x10 SETFRAME=0x20 FORCE=0x80 KEEPFRAME=0x100` (our map is right;
+  `0x12` = INTERP + an unused 0x02 bit). It only sets `pev->sequence`, `frame`, `ResetSequenceInfo` —
+  **never touches controllers/blending/body**. The original `Animate` (nm 0x5b470) dispatches BOTH
+  the melee override AND the aim_/idle_ torso with the **same flag 0x12** (`Animate_full.c` case 1/6:
+  `if (override=="") SetAnim("aim_"/"idle_"+grip, 0x12) else SetAnim(override, 0x12)`) — identical to
+  ours. No body-yaw/controller-reset exists on either path.
+- **(c) Controller (flYaw) math — NOT the cause.** The original ProcessGait torso controllers =
+  `((flYaw * 0.25) + 30.0) * 4.25` — the three constants read from client.dll .rdata are **0.25, 30.0,
+  4.25** (= `((flYaw/4)+30)/(60/255)`), **byte-identical to ours** (`StudioProcessGait`). The client
+  cannot distinguish the torso sequence anyway — the controller math is sequence-agnostic.
+- **Missing-sequence fallback — NOT the cause.** `player.mdl` HAS `knife_idle`/`katana_idle`/
+  `briefcase_idle`; and they are **structurally identical** to `idle_onehanded`/`aim_onehanded`
+  (all `numblends=2`, `blendtype=(8,0)` = an XR/pitch blend). Same bone controllers (0-3 on
+  `Bip01 Dorso`/`Dorso1-3`, type 8 = XR, range ±30°). So it is not a blend-type or structure difference.
+
+### What is CONFIRMED — (a): the melee idles author the head/upper-body looking down-aside
+Decoded frame-0 rotations of the head bone `Bip01 Testa` (deg XR=pitch, YR, ZR):
+| seq | Testa (XR,YR,ZR) |
+|---|---|
+| **knife_idle** | **(43.2, -17.0, -18.2)** |
+| **katana_idle** | **(62.6, -28.3, -39.9)** |
+| idle_onehanded | (21.7, -5.9, -6.9) |
+| aim_onehanded | (4.3, -4.2, 7.3) |
+The melee idles pose the head sharply DOWN + turned ("looking at the blade") — a standing-idle pose.
+The gun idles keep the head near-forward. This is the **visible turned-head pose**, and it is baked
+into the animation (same file we and the original both load).
+
+### The one CONCRETE client divergence found — the gait bone-merge
+`player.mdl` uses the ITALIAN skeleton: pelvis = `Bip01 Bacino`, spine = `Bip01 Dorso` (bone **8**),
+whose children are the ENTIRE upper body (`Dorso1-3 → Collo → Testa`(head) + both arms). There is
+**no** `Bip01 Spine` or `Bip01 Pelvis` bone.
+
+Original `StudioMergeBones` (@0x31080, `StudioMergeBones_gait.c`): iterate bones in order, **copy the
+gait pose** into each bone until the first `"Bip01 Dorso"`/`"Bip01 Spine"`, then **SLERP-blend that
+one split bone** between gait and torso and **`break`** (bones after = torso). For this model that is:
+bones 0-7 (root/pelvis/legs) = gait; bone 8 (Dorso) = slerp; bones 9-33 (spine/head/arms) = torso.
+
+**OUR** `StudioModelRenderer.cpp` (~978-1010): a persistent `copy` flag, a **hard copy** (no slerp) that
+turns OFF at Dorso, an `else if (parent=="Bip01 Pelvis") copy=true` reset that is **dead code** (the TS
+pelvis is `Bip01 Bacino`), and **no break**. Net split boundary is the SAME (bones 0-7 gait, 8+ torso),
+but **we omit the spine SLERP at bone 8**. Confidence the slerp exists: HIGH. Confidence it is the FULL
+cause: LOW — bone 8's authored gait-vs-torso delta is only ~2-3°, so the slerp alone cannot rotate the
+head ~17°; the dramatic turn is the authored head pose above.
+
+### Honest assessment of the cause + how to close it
+The turned head is the **authored `knife_idle`/`katana_idle` pose (a)**, which BOTH builds load. Nothing
+in the server dispatch (flag, path), the client controllers (identical constants), or the sequence
+structure differs — I verified each. So the reason the ORIGINAL renders it "dead-on when moving" is
+NOT explained by any static divergence except the small spine slerp. That means the original must
+suppress/re-base the melee torso during movement through a path that a static read can't pin (a candidate:
+the spine slerp re-basing the upper body toward the gait; or the override being replaced when moving).
+Per the "don't invent vs the RE" rule, the decisive step is a **LIVE trace** (the user's running
+original): move holding a knife and dump, per frame, `pev->sequence`, `pev->gaitsequence`,
+`pev->controller[0..3]`, `pev->blending[0..1]` (server `mp.dll`), plus client `StudioMergeBones`'s
+per-bone copy/slerp decision — compare to ours. That will show whether the original (i) plays a
+different `pev->sequence` while moving, (ii) sets different controllers/blending, or (iii) the spine
+slerp is doing the work.
+
+### Fix recipe (in priority order)
+1. **Implement the original's spine SLERP + break** in `cl_dll/StudioModelRenderer.cpp` gait-merge
+   (replace the hard `copy`/no-break loop): copy the gait per-bone until the first
+   `"Bip01 Dorso"`/`"Bip01 Spine"`, SLERP that bone between gait and torso, then stop. Also drop the
+   dead `"Bip01 Pelvis"` reset (harmless but non-faithful). This is the only faithful client change and
+   the first thing to try. (MEDIUM confidence it visibly helps; it is correct either way.)
+2. If (1) doesn't fully fix it, **live-trace the original moving-with-knife** (above) to capture whether
+   the melee override torso is replaced/re-based during movement, then mirror that in
+   `dlls/ts_animation.cpp` (`CTSAnimation::Animate`) — do NOT guess it.
+- NOT the fix: changing the SetAnim flag (verified 0x12 both) or the controller math (verified identical).
+
+---
+
 ## QUESTION 2 — the "ombra" blob shadow sprite under the player (we don't draw it)
 
 ### Confirmed: it's `sprites/ombra.spr` (ombra = Italian "shadow")

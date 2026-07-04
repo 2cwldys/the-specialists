@@ -1,0 +1,79 @@
+player.mdl bones (order):
+   0 Bip01                  parent=-1
+   1 Bip01 Bacino           parent=0
+   2 Bip01 SX Coscia        parent=1
+   3 Bip01 SX Polpaccio     parent=2
+   4 Bip01 SX Piede         parent=3
+   5 Bip01 DX Coscia        parent=1
+   6 Bip01 DX Polpaccio     parent=5
+   7 Bip01 DX Piede         parent=6
+   8 Bip01 Dorso            parent=1 ctrl=[0]
+   9 Bip01 Dorso1           parent=8 ctrl=[1]
+  10 Bip01 Dorso2           parent=9 ctrl=[2]
+  11 Bip01 Dorso3           parent=10 ctrl=[3]
+  12 Bip01 Collo            parent=11
+  13 Bip01 Testa            parent=12
+  14 Bip01 SX Clavicola     parent=12
+  15 Bip01 SX Braccio superiore parent=14
+  16 Bip01 SX Avambraccio   parent=15
+  17 Bip01 SX Mano          parent=16
+  18 Bip01 Dito mano SX0    parent=17
+  19 Bip01 Dito mano SX01   parent=18
+  20 Bip01 Dito mano SX02   parent=19
+  21 Bip01 Dito mano SX1    parent=17
+  22 Bip01 Dito mano SX11   parent=21
+  23 Bip01 Dito mano SX12   parent=22
+  24 Bip01 DX Clavicola     parent=12
+  25 Bip01 DX Braccio superiore parent=24
+  26 Bip01 DX Avambraccio   parent=25
+  27 Bip01 DX Mano          parent=26
+  28 Bip01 Dito mano DX0    parent=27
+  29 Bip01 Dito mano DX01   parent=28
+  30 Bip01 Dito mano DX02   parent=29
+  31 Bip01 Dito mano DX1    parent=27
+  32 Bip01 Dito mano DX11   parent=31
+  33 Bip01 Dito mano DX12   parent=32
+
+Upper-body frame0 rotation (deg XR,YR,ZR) per sequence:
+ bone8 Bip01 Dorso:
+    knife_idle       [-3.0, -2.8, 5.7]
+    katana_idle      [-21.7, 3.1, 14.5]
+    idle_onehanded   [-5.0, 0.2, 17.2]
+    aim_onehanded    [-0.0, -0.0, 8.0]
+    walk2            [-0.5, -0.1, 4.2]
+    run2             [0.1, -0.2, 11.2]
+ bone9 Bip01 Dorso1:
+    knife_idle       [-3.0, -0.1, 4.5]
+    katana_idle      [2.6, 0.6, 11.0]
+    idle_onehanded   [-4.1, 1.0, 5.7]
+    aim_onehanded    [-0.0, 0.0, 15.0]
+    walk2            [0.7, -0.8, -0.4]
+    run2             [-2.0, 0.3, 9.0]
+ bone10 Bip01 Dorso2:
+    knife_idle       [-8.1, -1.1, 6.1]
+    katana_idle      [-12.2, -1.6, 5.7]
+    idle_onehanded   [-6.9, -2.2, 10.4]
+    aim_onehanded    [-0.0, 0.0, 9.5]
+    walk2            [1.4, -1.1, 4.3]
+    run2             [0.0, 0.0, 7.5]
+ bone11 Bip01 Dorso3:
+    knife_idle       [-3.7, 4.2, -7.8]
+    katana_idle      [-9.5, 0.7, 8.9]
+    idle_onehanded   [-7.7, 0.5, -6.2]
+    aim_onehanded    [-7.9, 1.3, -3.6]
+    walk2            [-1.2, 0.4, -6.2]
+    run2             [0.0, 0.0, 1.0]
+ bone12 Bip01 Collo:
+    knife_idle       [-0.0, -0.0, 27.0]
+    katana_idle      [-0.0, -0.0, 27.0]
+    idle_onehanded   [-0.0, -0.0, 27.0]
+    aim_onehanded    [-0.0, -0.0, 27.0]
+    walk2            [-0.0, -0.0, 27.0]
+    run2             [-0.0, -0.0, 27.0]
+ bone13 Bip01 Testa:
+    knife_idle       [43.2, -17.0, -18.2]
+    katana_idle      [62.6, -28.3, -39.9]
+    idle_onehanded   [21.7, -5.9, -6.9]
+    aim_onehanded    [4.3, -4.2, 7.3]
+    walk2            [-3.1, 2.1, -19.0]
+    run2             [1.9, 0.1, -39.7]
