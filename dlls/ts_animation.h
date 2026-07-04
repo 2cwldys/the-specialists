@@ -114,6 +114,8 @@ public:
 	float m_flGrenadeFlag = 0; // +0x10 grenade-throw timer (1.0)
 
 private:
+	friend class CTSStunt; // Play's ladder/water reset writes m_iLastActivity = -1 (@orig player+0x28c)
+
 	// The real sequence setter (@0x5d7e4) — flags per TSSetAnimFlags. Returns 1 if it changed.
 	int SetAnim(CBasePlayer *pPlayer, const char *name, int flags, int frame);
 

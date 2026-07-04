@@ -86,21 +86,6 @@ void CTSStunt::Init(CBasePlayer *pPlayer)
 	m_pLastBreakVictim = nullptr;
 }
 
-// Clear all stunt flags + restore gravity/friction/view (Play's ladder/water reset; inlined
-// in the original). The caller also zeroes m_flRollTime (a CTSStunt member).
-static void TS_ResetStuntState(CBasePlayer *pl)
-{
-	entvars_t *pev = pl->pev;
-	pl->m_flBlockTime = 0.0f; // the STOP bit's timer resets with it (RE CTSStunt::Play reset)
-	pev->iuser4 &= ~(TSSTUNT_STOP | TSSTUNT_PRONE | TSSTUNT_STANDUP | TSSTUNT_DIVE |
-					 TSSTUNT_SLIDE | TSSTUNT_DIVE_HEIGHT | TSSTUNT_WHEEL_HI | TSSTUNT_WHEEL_LO |
-					 TSSTUNT_WALLJUMP | TSSTUNT_WALLCLIMB | TSSTUNT_WALLJUMP_A | TSSTUNT_WALLCLIMB_A |
-					 TSSTUNT_ROLL | TSSTUNT_WHEEL_DONE | TSSTUNT_WHEEL_TRIG);
-	pev->friction = 1.0f;
-	pev->gravity = 1.0f;
-	pev->view_ofs.z = 28.0f;
-	pev->iuser4 |= TSSTUNT_STANDUP; // ask pm_shared to leave the prone hull
-}
 
 void CTSStunt::Play()
 {
@@ -189,11 +174,23 @@ void CTSStunt::Play()
 	}
 	else
 	{
-		// on a ladder / in deep water — abort any stunt
-		pev->iuser4 &= ~TSSTUNT_DIVE;
+		// on a ladder / in deep water — abort any stunt (RE Play @0x8a1c0 else-branch, decompile-
+		// exact): clear WHEEL_DONE unconditionally (0xffefffff — the old code wrongly cleared DIVE
+		// here), then — if any live stunt bit of 0x70c31 — clear exactly the NINE listed bits (NOT
+		// the walljump/climb LAUNCH bits, no STANDUP set: nothing in the binary ever sets bit 8;
+		// TSStandUp is dead code), unconditional standing view, friction+gravity=1, roll+blocktime
+		// zeroed, anim m_iLastActivity=-1 (player+0x28c), Animate(RUN).
+		pev->iuser4 &= ~TSSTUNT_WHEEL_DONE;
 		if (pev->iuser4 & 0x70c31)
 		{
-			TS_ResetStuntState(m_pPlayer); m_flRollTime = 0;
+			pev->iuser4 &= ~(TSSTUNT_ROLL | TSSTUNT_PRONE | TSSTUNT_STOP | TSSTUNT_DIVE | TSSTUNT_SLIDE |
+							 TSSTUNT_WHEEL_HI | TSSTUNT_WHEEL_LO | TSSTUNT_WALLJUMP_A | TSSTUNT_WALLCLIMB_A);
+			pev->view_ofs = Vector(0, 0, 28);
+			pev->friction = 1.0f;
+			pev->gravity = 1.0f;
+			m_flRollTime = 0;
+			m_pPlayer->m_flBlockTime = 0.0f;
+			m_pPlayer->m_TSAnim.m_iLastActivity = -1;
 			m_pPlayer->m_TSAnim.Animate(m_pPlayer, 1);
 		}
 	}
