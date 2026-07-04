@@ -47,6 +47,159 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.87d) — pickup for the next orchestrator (= you)
+
+**You ARE the orchestrator AND the previous agent — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF: keep `git config --local
+commit.gpgsign false`). Every commit is build-green (`scripts/build.sh amd64 all`) + nm-T-gated +
+deployed to the xash rig + user-verified. **FIRST:** regenerate the baseline `nm -D
+build-amd64/dlls/hl.so | awk '$2=="T"{print $3}'|sort > /tmp/nm_T_baseline.txt`, then read the ledger
+`cont.87 cont.3` entry (top) via the **Read tool on `.serena/memories/ledger.md`**.
+
+⚠ **SERENA GOTCHA (still bites):** read the ledger/any big memory with the **Read tool on the `.md`
+file directly** — NEVER `read_memory("ledger")` via the Serena MCP: it returns ONE giant single-line
+`{"result":"…"}` JSON (~500KB) that overflows the read limit. (`jq -r '.result' <savedfile>` if you
+must go through the tool.)
+
+### THE MISSION (the law — the user re-stated it repeatedly this session; internalize it)
+Make OUR code a **1:1 drop-in** for the original at EVERY level — **file → class → methods → variables
+→ globals → free functions**. Nothing the original has that we lack, nothing we have that it lacks.
+The **drop-in contract:** our client must run against the ORIGINAL server and vice-versa,
+byte-identically & compatibly (wire names/formats, event/cvar/command names, MECHANISMS). The rules:
+1. **A missing OR extra symbol = a LOGIC MISMATCH → re-RE it.** `audit.py`/`coverage.py` match by
+   NAME, so **our file/class/method/VARIABLE/global/free-func names must EQUAL the original's**
+   (FGD/save/wire names, gcc2-demangled names). A field/method/var that "doesn't exist" on one side is
+   a red flag to chase, not a rounding error — **a mismatched variable name can hide that some OTHER
+   code path was built against the wrong field** (this session: the knife/katana block read the empty
+   `m_szAnimExtention` instead of `m_szAnimOverride`; the knife count was on the wrong field). Match
+   variable names to the original.
+2. **The logic often EXISTS already — moved/renamed/inlined. GREP OUR CODE and MOVE it, don't
+   rewrite.** (This session the sidekick anim, block seqs, gait leg-block, PseudoClimb, TSHandle
+   cmd-damp were all already present/correct — the bug was elsewhere.)
+3. **MIMIC THEIRS.** "Works differently but fine" is WRONG for a drop-in. Copy the mechanism exactly.
+   (This session: buttons-clean-on-spawn vs my invented swallow flag; the original's `DropWeapon` is
+   ONE function not two; ShotgunReload never animates.)
+4. **The TS decompile is COMPLETE** — `reference/coverage/ts_inventory.json` is the machine-checkable
+   inventory of EVERY original class/method/member/global/free-func. So a symbol we lack = a REAL gap
+   to RE, not "not decompiled yet." Drive it with `scripts/coverage/audit.py [Class]` (INTERNAL
+   structure, both directions: MISSING=work-list, INVENTED=review-for-drift) + `coverage.py all` (the
+   EXTERNAL swap contract: entities, cldll exports, commands, cvars, messages, events, keyvalues).
+5. **Discovered a gap mid-fix? FLAG it (a task), FINISH the original issue, THEN report** — don't chase
+   inline. (This session the drop RE surfaced the flag-drop-conditional + grenade-cook gaps; logged, not chased.)
+6. **ASSET references:** every model/sprite/sequence/sound/event/cvar/user-message a decompile
+   references MUST be referenced in our code (precache + use). Missing asset refs = missing behavior.
+   (This session: `sprites/player/movement.spr`+`kungfu.spr` for the powerup figures — ours used a
+   non-existent `superjump.spr` → SPR_Load stale handle drew the wrong sprite; `breathe2.wav`.) When
+   touching a class, grep its decompile for `precache`/`.spr`/`.mdl`/`.wav`/`.sc`/`EMIT_SOUND`/
+   `PLAYBACK_EVENT`/`SetSequence` and verify each is wired.
+7. **`TODO`/`VERIFY`/`SLICE`/`un-RE` comments ARE the standing work-list** — `grep -rn
+   "VERIFY\|TODO\|SLICE\|un-RE" dlls/ cl_dll/ pm_shared/` and resolve as you touch each area.
+
+### METHODS THAT WORKED THIS SESSION (this is how you operate — keep using them)
+- **★ DOSSIER-SUBAGENT HINT (the big scaler — used ~5× this session, kept ~600k decompile tokens out of
+  context).** For any deep/uncertain RE, spawn a `general-purpose` agent (Agent tool) with a
+  SELF-CONTAINED prompt: repo root, the tool recipes + addr-base rules (`re.sh 0x<nm+0x10000>` server;
+  `dc.sh client|mp 0x<RVA>` Windows), known addresses, an explicit work-list, "do NOT edit source", the
+  USER'S EXACT BEHAVIORAL SPEC to reconcile against, and "write the decode dossier + raw decompiles to
+  `reference/dossiers/cont<NN>/` and I'll commit it." Its final message = the summary you implement
+  from. ⚠ **CROSS-CHECK its labels + verify against the live playtest** — the user (running original) is
+  ground truth; a dossier's first rev can read a DEAD path.
+- **★ THE USER'S DIAGNOSES ARE OFTEN THE RE-CORRECT ROOT — take them seriously.** This session the user
+  called: "clean buttons on spawn" (vs my swallow flag — they were right, StopObserver @0x99a14 does
+  `pev->button=0`), the `mouse_oldbuttonstate` freeze, the kung-fu slot cost, the loop-forever breath.
+  When the user proposes a mechanism, RE it before implementing your own.
+- **★ DEBUG-LOG-IN-SOURCE beats gdb for OUR build.** A temporary `ALERT(at_console,"[TAG] …")` (server,
+  `#ifndef CLIENT_DLL`) or `gEngfuncs.Con_Printf` (client) — build+deploy, user does the action + pastes
+  the console line — pins the exact value/branch in one shot (this session the `[KNIFE-SV]`/`[KNIFE-CL]`
+  traces). Remove after; gate on a change to avoid per-frame spam.
+- **★ LIVE gdb on the ORIGINAL** (`scripts/live.py` on the running `hl.exe`) settles what static RE can't.
+  The user KEEPS THE ORIGINAL TS RUNNING — reach for it. ⚠ mp.dll is MSVC → offsets differ from the `.so`.
+- **★ Ghidra tooling (FULL STACK — there is a LOT):** `scripts/ghidra/re.sh <Class|0xADDR>` (server
+  `ts_i386.so`, TYPED by ApplyInventory — `re.sh` addr = `nm addr + 0x10000`) · `dc.sh
+  client|mp|server 0x<RVA>` (Windows binaries; client takes the RAW RVA) · `re.sh refs/vrefs`
+  (direct/virtual callers) · **the Ghidra MCP** (`mcp__ghidra-mcp__*`, interactive decompile+xref on the
+  typed `re` project — CLAUDE.md §4a.3; `scripts/ghidra/mcp-up.sh` to attach; the `.lock` blocks headless
+  while the GUI holds it) · `binmap.py` (`.so` name → mp.dll RVA) · `scripts/coverage/*` (`audit.py`
+  INTERNAL diff both ways = the parity driver; `coverage.py all` = the EXTERNAL swap contract). See
+  CLAUDE.md §4/§4a/§4b for the complete recipes.
+
+### ⭐ SCRATCHPADS / DOSSIERS — PRESERVED + COMMITTED, read before touching these areas
+`reference/dossiers/` (committed): `cont85/` (kick decode, anim state-machine), `cont86/`
+(superjump/slowmo/gait+shadow + `decomp/`), **`cont87/`** (this session:
+`spine_blend.md`, `thirdperson_camera_reticle.md`, `hud_bottomleft.md`, `weapon_drop.md` + `decomp/`
+raw decompiles). These are the primary reference to re-derive the hard-won mechanisms. Always tell a
+dossier-subagent to write to `reference/dossiers/cont<NN>/` and COMMIT it so the next agent has it.
+
+### ⭐ WHAT cont.87 DID (this large session — full detail in the ledger `cont.87 cont.3` entry)
+All build-green + nm-T stable + deployed + USER-VERIFIED, commits `1cf4923..d1d9fc5`. Playtest-driven:
+- **3rd-person spine twist** (split-bone yaw re-base, added `QuaternionAngles`); **reticle crosshair
+  gun-only**; **knife/katana 3rd-person block** (keyed off `m_szAnimExtention` empty → use
+  `m_szAnimOverride`). **TS over-the-shoulder 3rd-person CAMERA** (`cl_camtype` offset presets, smoothed
+  render angles) + **screen-space RETICLE** (WorldToScreen of the eye-traced aim; new `v_aimeye`).
+- **SPAWN loadout**: kung-fu (TSW_MELEE) must NOT cost inventory slots (SlotsUsed skip); spawn on the
+  highest-PRIORITY weapon (GetBetterWeapon(-1), not last-bought). **Ammo HUD**: caliber/firemode full
+  color, `[  a  /  b  ]` slash, font = DrawCharacter (NOT DrawConsoleString). **Knife ammo count** (rides
+  the WeaponInfo reserve field → LK_COUNT above the block bar).
+- **Weapon-select RIGHT-CLICK DROP** (`drop_<N>`): merged our two wrongly-split `DropWeapon()`/
+  `DropWeapon(int,float)` into the original's ONE `DropWeapon(int type,float)` @0x84900; `CL_ResetButtonBits`
+  now resets IN_ATTACK2. **Low-stamina breathing** (breathe2.wav loop, edge-triggered, CHAN_STATIC).
+  **Spawn button clean** (StopObserver `pev->button=0`; + `inputw32.cpp` `mouse_oldbuttonstate` sync so
+  the buy-menu click can't leak a phantom +attack). **Powerup FIGURE icons** (`player/kungfu.spr` +
+  `player/movement.spr`) + `powerup 7` (debug kung-fu grant). **Pump-shotgun 3rd-person reload removed**
+  (ShotgunReload never animates; only clip shotguns via the standard Reload).
+
+### 📋 PARKED / DEFERRED (recreate as TaskCreate entries; none is a user-facing break — all VERIFY/TODO)
+- **[flagged] DropWeapon polish** — the re-pickup delay+owner on drop-KEY throws (type<0) + the grenade
+  cooked-throw (GrenadeIdle) are TODO in the merged `CBasePlayer::DropWeapon` (M61 currently drops via
+  the stackable path); CTSWorldGun pickup-expire fields un-mapped. Also VERIFY: flag-drop is now
+  conditional (bare-handed branch), was unconditional. See `reference/dossiers/cont87/weapon_drop.md`.
+- **[flagged] Camera dynamic zoom-out ease** — the `localplayer+0x26c & 0x130c30` gate that springs
+  `back` −48→−92 while moving is OMITTED (camtype 3 = back 90 already gives the framing); needs a live
+  read of the gate bit. Marked `VERIFY` in `cl_dll/view.cpp`.
+- **[flagged] `TSA_CC_STOCK`** (rifle-butt melee, `ts_animation.cpp`) appends `m_szAnimExtention`; the
+  original @0x5d8d0 case 0x27 appends `field_0xb58` (un-RE'd twin of `m_szAnimOverride`). Rare edge case.
+- **[flagged] spawn `player+0xb34`** — un-named transient cleared with `pev->button` in StopObserver, no
+  read site recovered (we cleared `m_afButtonPressed` as the likely edge-cache). RE if it resurfaces.
+- **[open decision] `iuser4` on the wire (`delta.lst`)** — reverted to clean upstream `3b1d963`; iuser4
+  not networked → the client can't PREDICT powerup-gated behavior (double-fire is server-authoritative).
+  The original TS table `19af2487` nets iuser4 at 32 bits (+iuser3/playerclass). Decide.
+- **[standing driver] audit.py per-class 1:1 parity loop** — `scripts/coverage/audit.py [Class]` +
+  `coverage.py all`. The structural grind: drive each TS class to N/N methods/members/globals/free-funcs;
+  a missing/extra symbol = re-RE (rule #1). This is the path to "nothing missing, nothing added."
+
+### ⚠ RIG STATE (unchanged from cont.86b — the CLEAN ORIGINAL)
+`~/Containers/hlds/mods/ts` = the clean original TS 3.0 (1127 files, 29 `ts_*` maps; `tm_avana` GONE).
+Playtest on `ts_dojo`/`ts_lobby`/`ts_metro`. Launch: `cd
+~/Projects/goldsrc.net/xash3d-fwgs/dist/client-x64 && LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts
++deathmatch 1 +maxplayers 8 +map ts_dojo`. `setup-xash-mod.sh` deploys after every rebuild + pushes
+`network/delta.lst` THROUGH the rig symlink (repo file is source of truth). **The user drives ALL
+playtests — give numbered protocols, NEVER launch xash/xdotool, and HALT after asking them to do
+something in hl.exe** (they lose focus if you keep running commands).
+
+### 💬 MESSAGE TO SEND THE NEXT AGENT (paste this to it)
+> You're the cont.87d orchestrator on mod-ts, continuing `restructure-source-parity` as if you never
+> stopped — you ARE the previous agent. FIRST read HANDOFF.md → the "START HERE (cont.87d)" block, then
+> the ledger `cont.87 cont.3` entry. ⚠ Serena gotcha: read the ledger with the Read tool on
+> `.serena/memories/ledger.md` — NEVER `read_memory("ledger")` (returns one giant single-line
+> `{"result":"…"}` JSON that overflows). The mission (the law): a **1:1 drop-in** at EVERY level — file →
+> class → methods → variables → globals → free functions; nothing missing, nothing added; our
+> client/server must swap for the original byte-compatibly. A missing/extra symbol = a logic mismatch →
+> re-RE it (match VARIABLE names too — a wrong name hides a wrong-field code path). The logic often
+> already EXISTS (moved/renamed) — grep + MOVE it, don't rewrite. MIMIC theirs. The TS decompile is
+> COMPLETE (`ts_inventory.json`), so a symbol we lack is a REAL gap. Every asset a decompile references
+> (models/sprites/sequences/sounds/events/cvars/messages) must be referenced in our code. Resolve the
+> in-code TODO/VERIFY/SLICE work-list. Discovered a gap mid-fix? FLAG it (a task), finish the ORIGINAL
+> issue, THEN report — don't chase inline. Methods: the dossier-subagent hint (self-contained prompt →
+> writes a dossier + raw decompiles to `reference/dossiers/cont<NN>/` + COMMIT; cross-check its labels vs
+> the user's live playtest — the user, running the original, is ground truth); debug-log-in-source
+> (`ALERT`/`Con_Printf` → user pastes the console line); live gdb on the running hl.exe (`scripts/live.py`)
+> for what static can't settle; the full Ghidra stack (`re.sh`/`dc.sh`/`refs`/`vrefs` + the Ghidra MCP
+> `mcp__ghidra-mcp__*`) + `scripts/coverage/{audit,coverage}.py`. Scratchpads/dossiers are preserved under
+> `reference/dossiers/`. The user drives ALL playtests — numbered protocols, never launch xash, HALT after
+> asking. cont.87d (me) is available for consult — reply/SendMessage if you need context on anything above.
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.86d) — pickup for the next orchestrator (= you)
 
 **You ARE the orchestrator and the previous agent — continue as if you never stopped.** Branch
