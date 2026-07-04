@@ -387,6 +387,12 @@ int CTSGun::SlotsUsed() const
 	for (int t = 0; t < TSW_COUNT; t++)
 		if (m_items[t].owned)
 		{
+			// Kung-fu (TSW_MELEE) is the always-free unarmed weapon BuyArmament gives every player —
+			// it does NOT consume inventory slots (the buy menu's "slots left" excludes it too). Counting
+			// its slotCost(10) wrongly ate 10 slots, pushing a full loadout over 81 and silently dropping
+			// the last bought weapon on spawn (e.g. sawed-off). Skip it. [[map-change-state-reset]]
+			if (t == TSW_MELEE)
+				continue;
 			const s_weapon_info *wi = get_weapon_info((tsweapon_t)t);
 			// STACKABLES (knife/sealknife/m61) charge slotCost PER UNIT — the original's
 			// PickUpWeapon multiplies the deduction by the stack's clip (@0x8314c) and
@@ -2855,7 +2861,12 @@ void TSDeployArsenal(CBasePlayer *pPlayer)
 	if (!pGun)
 		return;
 	pPlayer->m_pActiveItem = (CBasePlayerItem *)pGun;
-	pGun->Deploy();
+	// Spawn you on your HIGHEST-PRIORITY owned weapon (g_iWeaponPriority), NOT whatever BuyArmament
+	// deployed last (the last-queued buy). The original spawns on the best weapon — e.g. M4 (priority
+	// index 3) over a sawed-off (10) or akimbo MK23 (19). GetBetterWeapon walks the priority table and
+	// SelectWeapon-deploys; kung-fu is priority-last, so a bare/kung-fu-only loadout still deploys (and
+	// forces the viewmodel — the old plain Deploy()'s job). VERIFY the exact original select fn.
+	pGun->GetBetterWeapon(-1);
 }
 
 // @ the ClientCommand `weapon_<N>` commit (@0xae433): wield the owned arsenal slot holding
