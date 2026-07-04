@@ -293,6 +293,81 @@ static bool LocalLaserEndpoint(Vector& muzzle, Vector& endpoint)
 	return true;
 }
 
+// ---- player blob shadow (RE client.dll: the ombra.spr ground blob under each player) ---------------
+// The original draws a flat "shadow" sprite (sprites/ombra.spr — ombra = shadow) on the ground under
+// every drawn player, gated by the `cl_shadow` cvar (0 off; non-zero = the blob for every player; ==1
+// ALSO the local player's own blob in first-person). Per player: trace straight down to the ground,
+// dist = |origin - hit| - 12; skip if dist >= 200; alpha fades 1.0 - dist*0.005; a flat quad at the hit.
+// Pure client presentation — no wire change. (RE HUD_DrawTransparentTriangles @0x34e50 -> the shadow pass.)
+static int s_shadowSpr = 0;
+static cvar_t* s_cl_shadow = nullptr;
+
+void TS_Shadows_Draw()
+{
+	if (s_cl_shadow == nullptr)
+		s_cl_shadow = gEngfuncs.pfnGetCvarPointer("cl_shadow");
+	if (s_cl_shadow != nullptr && s_cl_shadow->value == 0.0f)
+		return; // shadows disabled
+	const bool localInFirstPerson = (0 == CL_IsThirdPerson());
+	const bool drawLocal = (s_cl_shadow != nullptr && s_cl_shadow->value == 1.0f) || !localInFirstPerson;
+
+	if (s_shadowSpr == 0)
+		s_shadowSpr = SPR_Load("sprites/ombra.spr");
+	if (s_shadowSpr == 0)
+		return;
+	model_t* model = (model_t*)gEngfuncs.GetSpritePointer((HSPRITE)s_shadowSpr);
+	if (model == nullptr)
+		return;
+
+	triangleapi_t* tri = gEngfuncs.pTriAPI;
+	if (!tri->SpriteTexture(model, 0))
+		return;
+	tri->RenderMode(kRenderTransTexture); // alpha-blended blob (not additive — a dark shadow)
+	tri->CullFace(TRI_NONE);
+
+	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
+	const int maxClients = gEngfuncs.GetMaxClients();
+	for (int i = 1; i <= maxClients && i < TS_MAXPLAYERS; i++)
+	{
+		cl_entity_t* p = gEngfuncs.GetEntityByIndex(i);
+		if (p == nullptr || !p->player || p->model == nullptr)
+			continue;
+		if ((p->curstate.effects & EF_NODRAW) != 0)
+			continue;
+		const bool isLocal = (local != nullptr && local->index == i);
+		if (isLocal && !drawLocal)
+			continue;
+
+		Vector origin(p->origin[0], p->origin[1], p->origin[2]);
+		Vector end(origin.x, origin.y, origin.z - 8192.0f);
+		pmtrace_t* tr = gEngfuncs.PM_TraceLine((float*)&origin, (float*)&end, PM_TRACELINE_PHYSENTSONLY, 2, -1);
+		if (tr == nullptr || tr->fraction >= 1.0f)
+			continue; // no ground below
+		Vector hit(tr->endpos[0], tr->endpos[1], tr->endpos[2]);
+		float dist = (origin - hit).Length() - 12.0f;
+		if (dist >= 200.0f)
+			continue; // too high above the ground -> no shadow
+		if (dist < 0.0f)
+			dist = 0.0f;
+		const float alpha = 1.0f - dist * 0.005f;
+
+		const float s = 24.0f; // the ground blob half-extent (RE'd; tune vs the original if needed)
+		const float z = hit.z + 1.0f; // lift 1u to avoid z-fighting the floor
+		Vector c0(hit.x - s, hit.y - s, z);
+		Vector c1(hit.x + s, hit.y - s, z);
+		Vector c2(hit.x + s, hit.y + s, z);
+		Vector c3(hit.x - s, hit.y + s, z);
+		tri->Begin(TRI_QUADS);
+		tri->Color4f(1.0f, 1.0f, 1.0f, alpha);
+		tri->TexCoord2f(0, 0); tri->Vertex3fv((float*)&c0);
+		tri->TexCoord2f(1, 0); tri->Vertex3fv((float*)&c1);
+		tri->TexCoord2f(1, 1); tri->Vertex3fv((float*)&c2);
+		tri->TexCoord2f(0, 1); tri->Vertex3fv((float*)&c3);
+		tri->End();
+	}
+	tri->RenderMode(kRenderNormal);
+}
+
 void TS_Attachments_Draw()
 {
 	// The lasclr_ announcer (dossier-gmsg U2): on a cl_lasercolor change, tell the server via

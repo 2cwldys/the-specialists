@@ -64,4 +64,8 @@ void DLLEXPORT HUD_DrawTransparentTriangles()
 	// TS gun attachments drawn from each player's muzzle: the lasersight beam+dot and the
 	// flashlight beam+light (original client.dll FUN_1003d600 / FUN_1003b750, per-frame).
 	TS_Attachments_Draw();
+
+	// TS player blob shadows (ombra.spr ground blob under each player, cl_shadow-gated) — original
+	// client.dll drew these from HUD_DrawTransparentTriangles per-player. cont.86c.
+	TS_Shadows_Draw();
 }

@@ -16,6 +16,7 @@
 void TS_Attachments_Init();    // hook the ActItems message (call from HUD_Init)
 void TS_Attachments_VidInit(); // drop cached sprite handles on a map change (call from HUD VidInit)
 void TS_Attachments_Draw();    // per-frame render (call from HUD_DrawTransparentTriangles)
+void TS_Shadows_Draw();        // per-frame player blob shadows (ombra.spr; call from HUD_DrawTransparentTriangles)
 bool TS_LocalHasLaser();        // is the LOCAL player's lasersight ACTIVE? (dive-reticle distance/ticks)
 int  TS_LocalActiveAttach();    // the LOCAL player's ACTIVE attach mask (laser 2 / flash 4), 0 on error
 
