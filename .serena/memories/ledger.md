@@ -5,6 +5,54 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 86 cont.) — kick/punch/anim fidelity batch + original-content rig swap + delta.lst revert + double-fire fix
+
+Continuation of cont.86. All build-green, nm-T stable, deployed, USER-VERIFIED each. Commits `40f6f59..6f93900`.
+
+Gameplay/anim fixes (all user-verified "matches original"):
+- **Kick land-low getup** (`5e46c99`,`05975a3`): player+0x78 = STOCK `CBaseAnimating::m_fSequenceFinished`
+  (live-traced, not a TS latch — see [[stock-member-before-inventing]]). Getup = `roll!=0 && (roll<0.01 ||
+  m_fSequenceFinished)`. HandleSlide forces =1 for instant slide-standup. Two prior sessions invented a
+  "latch" member here; deleted. DO-NOT-TOUCH markers in source.
+- **Sidekick FPV** (`b258dd1`): client `UTIL_MakeVectors` was the stock EMPTY stub → predicted
+  gpGlobals->v_forward=0 → fwdDot=0.00 vs server 0.88 → wrong CCombatAttack branch (B5 air kick not B3
+  side kick). Implemented via AngleVectors. Dual-side [CCK] trace confirmed parity.
+- **3rd-person kick anims + duck eye** (`d6f03e4`): Animate close-combat HOLD rebuilt decompile-exact
+  (raw @0x6bf20): while a full-body CC seq plays, a plain RUN/IDLE RETURNS (holds torso+legs; live-verified
+  gaitsequence stays 0 through the whole sidekick). m_iLastActivity updates on the CC dispatch frame.
+  VEC_DUCK_VIEW 12→16 (original PM_Duck writes 16, live viewz=16).
+- **Punch/kick combo cadence** (`ba5c6dc`,`4d22c1b`): player+0x814/0x815 = STOCK `m_afButtonPressed`
+  (PreThink edge trio +0x810/814/818). D2 punchright = pressed&IN_ATTACK; B4a kick-finisher =
+  pressed&IN_ATTACK2. Spaced click = right hook/finisher; held = jab/circkick chain. [[stock-member-before-inventing]]
+- **Play ladder/water abort** (`295b777`): decompile-exact (clears WHEEL_DONE not DIVE; exact 9-bit reset;
+  invented TS_ResetStuntState helper w/ invented STANDUP-set deleted — nothing in the binary sets iuser4 bit 8).
+- **DoubleFireRate 1.5x once** (`6f93900`): was applied in the RE-faithful PostThink timer-decrement
+  (slowFrametime*=1.5) AND duplicated at fire-arm in 3 spots (StandardFire /1.5, ShotgunFire /1.5,
+  double-barrel *0.5=2x) → 2.25x/3x. Removed the 3 duplicates; PostThink decrement is the sole mechanism.
+
+Package/rig investigation (user-driven):
+- **ts-3-final download == our reference/** (all 3 binaries byte-identical, both Linux tar + Windows exe).
+  The Windows Clickteam SFX and the Linux tar ship the IDENTICAL 1127-file set including ALL 4 binaries
+  (mp.dll+client.dll+ts_i386.so+ts_i686.so) — "one cross-platform set, packaged twice", 0 file diffs.
+  TSHD3's delta.lst is byte-identical to the original's (19af2487); TSHD3's fixes are in binaries/content.
+- **Rig content SWAP**: `~/Containers/hlds/mods/ts` was TSHD3-based + ~5800 custom files (1.2G). Backed up
+  to `~/Containers/hlds/mods/ts-TSHD3-backup-cont86.tar`, replaced with the clean original (1127 files, 29
+  ts_* maps). ⚠ tm_avana GONE (custom map, in backup) — playtest on ts_dojo/ts_lobby/ts_metro now.
+- **delta.lst reverted to 3b1d963** (`df56f06`): our network/delta.lst was halflife-updated's table (2013
+  Valve seed → 2021-24 HL upstream) + our 2 edits (b2b512e m_iWeaponState 2→4, c1013a9 iuser4). The only
+  post-3b1d963 commits were both ours; revert = clean upstream base. ⚠ iuser4 no longer on the wire → client
+  can't predict powerup-gated behavior (double-fire is server-authoritative now). Re-adding iuser4 (original
+  TS table nets it at 32 bits) is the trigger to restore that prediction — an OPEN decision.
+
+Method wins: LIVE gdb value-watch on the running original (view_ofs.z/iuser4/sequence, roll timer printed
+as a relative timestamp) settled player+0x78 = m_fSequenceFinished; DEBUG-ALERT dual-side [CCK]/[HCC]/[SYNC]/[ST]
+in OUR build isolated each branch/state divergence. Two "TS mystery members" (0x78, 0x814) both turned out
+STOCK — check the SDK base-class chain FIRST.
+
+Still open (tasks): #4 HUD bottom-left layout, #6 superjump hold-space, #7 powerup HUD icons, #8 audit.py
+parity loop, #9 m_fSequenceFinished usage parity (Animate x13/BulletDance), #11 pm_shared (TSHandle cmd-move
+damp/PseudoClimb/PM_Duck 0x30C3C mask). OPEN DECISION: iuser4 back on the wire (original TS delta table) vs stay clean upstream.
+
 ## 2026-07-03 (cont. 86) — kick land-low recover SOLVED: player+0x78 = stock m_fSequenceFinished (✅ user: "exactly matches the original")
 
 Commits `40f6f59..05975a3` on `restructure-source-parity`, all build-green + nm-T stable + deployed.

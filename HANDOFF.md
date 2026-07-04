@@ -47,11 +47,28 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.86) — pickup for the next orchestrator (cont.85 = me; available for consult)
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.86b) — pickup for the next orchestrator
 
-**You ARE the orchestrator and the previous agent (cont.85) — continue as if you never stopped.** Branch
-`restructure-source-parity` (NOT merged to `main`; GPG signing OFF — keep `git config --local
-commit.gpgsign false`). Every commit is build-green (`scripts/build.sh amd64 all`) + nm-T-gated.
+**You ARE the orchestrator, continue as if you never stopped.** Branch `restructure-source-parity`. Every
+commit build-green + nm-T-gated. Read the ledger `cont.86 cont.` entry (top). Regenerate the nm-T baseline
+first: `nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}'|sort > /tmp/nm_T_baseline.txt`.
+
+### ⚠ RIG STATE CHANGED THIS SESSION (cont.86b)
+- **`~/Containers/hlds/mods/ts` is now the CLEAN ORIGINAL** (1127 files, 29 `ts_*` maps). **`tm_avana` is GONE**
+  (was a TSHD3 custom map) — **playtest on `ts_dojo`/`ts_lobby`/`ts_metro`**. Launch:
+  `cd …/dist/client-x64 && LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +deathmatch 1 +maxplayers 8 +map ts_dojo`.
+  The old TSHD3+customs (1.2G) is backed up at `~/Containers/hlds/mods/ts-TSHD3-backup-cont86.tar` (restore if needed).
+- **`network/delta.lst` reverted to `3b1d963`** (clean halflife-updated base). ⚠ **iuser4 is no longer on the
+  wire** → the client can't predict powerup-gated behavior (double-fire is server-authoritative). **OPEN
+  DECISION:** put iuser4 back (the original TS table `19af2487` nets it at 32 bits, also nets iuser3/playerclass)
+  vs stay clean upstream. `setup-xash-mod.sh` deploys `network/delta.lst` THROUGH the rig symlink into Containers
+  (so it clobbers whatever's there — the repo file is the source of truth).
+- Full-package finding: the ts-3-final download (Linux tar + Windows Clickteam exe) == our `reference/` byte-for-byte,
+  one cross-platform 1127-file set incl. all 4 binaries. cicdec unzipped at scratchpad; wine prefix at
+  `<scratchpad>/wineprefix` has the Windows install (cleanable).
+
+### METHODS (unchanged, keep using)
+Every commit build-green (`scripts/build.sh amd64 all`) + nm-T-gated.
 REGENERATE the baseline first thing: `nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}' | sort >
 /tmp/nm_T_baseline.txt`. **Read the `.serena/memories/ledger.md` cont.85 entry (top) via the Read tool.**
 
