@@ -1540,7 +1540,11 @@ void CTSGun::CCombatAttack()
 		{
 			// B4 — GROUND KICK: basic-kick combo -> a spin finisher
 			evCat = 2; reach = 45;
-			if (/* player+0x815 & 8 (producer un-RE'd -> clear) */ m_kickCombo > 2)
+			// player+0x815&8 DECODED (cont.86): +0x814 is the stock m_afButtonPressed int (PreThink
+			// computes the pressed/released edge trio at +0x810/814/818), so byte+0x815 bit 3 =
+			// IN_ATTACK2 (0x800) freshly PRESSED — a spaced CLICK forces the finisher; a held/mashed
+			// re-fire (no fresh edge at the refire frame) walks the B4b combo chain instead.
+			if ((m_pPlayer->m_afButtonPressed & IN_ATTACK2) != 0 || m_kickCombo > 2)
 			{
 				// B4a — KICK FINISHER (spin) — cycle 0xa/0xe/0xd/0xf, no repeat
 				switch (m_lastMeleeAnim)
@@ -1599,9 +1603,12 @@ void CTSGun::CCombatAttack()
 			moveId = 0x19; evAnim = 0x0b; lunge = 30; refire = 0.65f; whiffT = 0.15f;
 			m_comboStep = 0;
 		}
-		else if (/* (player+0x814^1)&1 == 0 (producer un-RE'd -> clear) */ m_comboStep > 2)
+		else if ((m_pPlayer->m_afButtonPressed & IN_ATTACK) != 0 || m_comboStep > 2)
 		{
-			// D2 — PUNCH (reset, 0x17 "punchright") — @orig also on the player+0x814 cadence bit
+			// D2 — PUNCH (reset, 0x17 "punchright"). (player+0x814^1)&1 DECODED (cont.86): +0x814 is
+			// the stock m_afButtonPressed, bit 0 = IN_ATTACK freshly PRESSED. Spaced clicks land their
+			// edge on the attack frame -> punchright every time; held/mashed re-fires have no fresh
+			// edge at the refire frame -> the D3 jab chain (left, left, then the D1 uppercut).
 			moveId = 0x17; evAnim = 4; lunge = 20; refire = 0.35f; whiffT = 0.15f;
 			m_comboStep = 0;
 		}
