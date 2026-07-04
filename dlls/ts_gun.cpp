@@ -1660,11 +1660,9 @@ void CTSGun::CCombatAttack()
 			ppev->friction = 1.0f;
 			ppev->gravity = 1.0f;
 		}
-		// The low-view overlay. The LOW view itself is right (playtest: without it, the sidekick has no
-		// view offset — just a plain kick). The bug was the RECOVERY: our getup only fired on the 2.0s roll
-		// timer. Fix = the getup ALSO fires on CROUCH-RELEASE (see CTSStunt::Play) — you hold crouch through
-		// the jump (view stays low) and stand up when you release it after landing ("hold crouch until
-		// landing"). The 2.0s roll is now just the hold-forever fallback.
+		// The low-view overlay — ✅ VERIFIED cont.86 (user: "exactly matches the original"); DO NOT TOUCH.
+		// Recovery is CTSStunt::Play's getup: roll<0.01 OR m_fSequenceFinished (the kick anim ending,
+		// ~1s), so the 2.0 roll is only the fallback and fall height shortens the post-landing tail.
 		if (iuserSet)
 			ppev->iuser4 |= iuserSet; // duck-kick: PRONE|STOP; side-kick: PRONE (holds the low view vs PM_Duck)
 		if (setDuckView)

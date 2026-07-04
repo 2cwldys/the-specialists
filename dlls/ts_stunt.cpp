@@ -146,9 +146,16 @@ void CTSStunt::Play()
 	// the ground and trapped you prone — RE Play @0x8a014 lines 90-147.)
 	if (!m_pPlayer->IsOnLadder() && pev->waterlevel != 3)
 	{
-		// GET UP (RE Play @0x8a014 disasm @0x8a2e0-0x8a3d0): a single STATE-cleanup block — NOT an
-		// animation. Fires when a roll timer is LIVE and it either expired (m_flRollTime < 0.01; the
-		// decrement floors at 0.001) OR the current player ANIMATION SEQUENCE FINISHED:
+		// GET UP (RE Play @0x8a014 disasm @0x8a2e0-0x8a3d0) — ✅ VERIFIED CORRECT, cont.86 user playtest:
+		// "now it exactly matches the original". DO NOT TOUCH this block (condition, clear set, or the
+		// m_fSequenceFinished OR-term). We got it wrong TWICE before the live trace: (1) invented a
+		// consumed "stand-up latch" member, (2) re-read it as a sticky slide flag — both because the
+		// static store-scan dismissed StudioFrameAdvance/ResetSequenceInfo/DispatchAnimEvents writes to
+		// this+0x78 as "a different class's member", when CBasePlayer IS-A CBaseAnimating and player+0x78
+		// (.so) / +0x68 (mp.dll) is stock m_fSequenceFinished (gcc2 vs MSVC base offsets differ).
+		// A single STATE-cleanup block — NOT an animation. Fires when a roll timer is LIVE and it either
+		// expired (m_flRollTime < 0.01; the decrement floors at 0.001) OR the current player ANIMATION
+		// SEQUENCE FINISHED:
 		// `roll != 0 && (roll < 0.01 || m_fSequenceFinished)`. player+0x78 (.so) / +0x68 (mp.dll) IS
 		// the stock CBaseAnimating::m_fSequenceFinished (live-trace cont.86: its writers are the
 		// inlined StudioFrameAdvance/ResetSequenceInfo/DispatchAnimEvents tails, it toggles with every
