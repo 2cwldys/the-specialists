@@ -149,21 +149,20 @@ bool CHudTSPowerUp::MsgFunc_TSBTime(const char* pszName, int iSize, void* pbuf)
 // don't" indicator — NOT tinted green like the timed slow-powerup HUD. The original shows
 // sprites/weapons/<n>.spr here; that file isn't in this (partial) game-data extraction, so the by-name
 // SPR_Load returns 0 and we fall back to a label. (When the .spr is present it draws as the sprite.)
-static void DrawIndependentPowerup(const char* spriteName, const char* label, int y)
+static void DrawIndependentPowerup(const char* spriteName, const char* label, int x, int y)
 {
 	const int wr = 200, wg = 200, wb = 200; // soft white
 	HSPRITE spr = SPR_Load(spriteName);
 	if (spr)
 	{
-		const int w = SPR_Width(spr, 0);
 		SPR_Set(spr, wr, wg, wb);
-		SPR_DrawAdditive(0, (ScreenWidth - w) / 2, y, NULL); // NULL rect = the whole sprite frame
+		SPR_DrawAdditive(0, x, y, NULL); // NULL rect = the whole sprite frame; x = sprite top-left
 	}
 	else
 	{
 		int tw, th;
 		GetConsoleStringSize(label, &tw, &th);
-		TSHud_DrawString((ScreenWidth - tw) / 2, y, ScreenWidth, label, wr, wg, wb);
+		TSHud_DrawString(x, y, ScreenWidth, label, wr, wg, wb);
 	}
 }
 
@@ -200,14 +199,16 @@ bool CHudTSPowerUp::Draw(float flTime)
 		m_flNextHeartbeat = flTime + 0.75f;
 	}
 
-	// INDEPENDENT persistent powerups (kung-fu / super-jump): a bottom-center indicator each, shown the
-	// whole life once picked up and coexisting with any held slow/double powerup. Drawn BEFORE the held
-	// early-out below so they show even with nothing held. Sprite if it loads (sprites/weapons/<n>.spr),
-	// else a text label.
+	// INDEPENDENT persistent powerups (kung-fu / super-jump): two bottom-center FIGURE indicators, shown
+	// the whole life once picked up and coexisting with any held slow/double powerup. RE (status-HUD
+	// dossier): kung-fu = sprites/player/kungfu.spr @ (SW/2-48, SH-56); super-jump = the "movement" figure
+	// sprites/player/movement.spr @ (SW/2, SH-56) — side by side. (The old sprites/weapons/kungfu.spr was
+	// the weapon-bar icon and sprites/weapons/superjump.spr doesn't exist — SPR_Load returned a stale
+	// handle, so it drew the last weapon/numbers sprite.)
 	{
-		int y = gHUD.m_scrinfo.iHeight - 64;
-		if (m_bSuperJump) { DrawIndependentPowerup("sprites/weapons/superjump.spr", "Super Jump", y); y -= 28; }
-		if (m_bKungFu)    { DrawIndependentPowerup("sprites/weapons/kungfu.spr", "Kung-Fu", y); }
+		const int py = ScreenHeight - 56;
+		if (m_bKungFu)    DrawIndependentPowerup("sprites/player/kungfu.spr", "Kung-Fu", ScreenWidth / 2 - 48, py);
+		if (m_bSuperJump) DrawIndependentPowerup("sprites/player/movement.spr", "Super Jump", ScreenWidth / 2, py);
 	}
 
 	// The held-powerup label + seconds, at the TOP-LEFT, on the weapon-bar header row (raw

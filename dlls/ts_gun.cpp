@@ -2468,7 +2468,12 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	const int caliber = wi->iCaliber;
-	const int reserve = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
+	int reserve = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
+	// Combat/seal knife carry a STACK count (1..iPellets, cap 5/10) — the caliber-less reserve is
+	// otherwise 0, so ride the count on the reserve field so the ammo HUD can show "N" above the
+	// melee block bar (katana/kung-fu have no count). m_iClip = the active knife's live count.
+	if (m_weaponType == TSW_KNIFE || m_weaponType == TSW_SEALKNIFE)
+		reserve = m_iClip;
 
 	// ActItems — broadcast this player's ACTIVE attachment mask to ALL clients (so everyone sees the
 	// laser/flashlight only while it's toggled ON via `useitems`, not just because it's equipped). The
@@ -2704,7 +2709,11 @@ void CTSGun::ShotgunReload()
 			// EV_TSReload plays block[8] (the open) off fparam1=8
 			PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero,
 				g_vecZero, 8.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
-			m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 3rd-person reload
+			// NO 3rd-person reload anim for the pump shell-by-shell reload — RE-confirmed the original
+			// ShotgunReload @0x74aac plays only the view-model event, never Animate. Shell-for-shell
+			// shotguns (Mossberg/Benelli/...) show no world reload; only CLIP shotguns (USAS/Sawed-off,
+			// via the standard Reload above) animate the whole-mag swap. (Our Animate(TSA_RELOAD) here
+			// was an invented stand-in.)
 			m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.3f; // dc_0_3
 			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.3f;
 			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;

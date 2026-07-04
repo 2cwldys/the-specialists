@@ -581,6 +581,9 @@ void ClientCommand(edict_t* pEntity)
 			                                          // for swap-in: `powerup` is a server-side console cmd —
 			                                          // the wire name/format is unchanged; a client makes no
 			                                          // assumption about it (orig server ignores case 6 → default).
+			case 7:  mask = TS_PWUP_KUNGFU;    break; // OUR extension (same rationale as 6): grant kung-fu — the
+			                                          // shipped game has no cheat/pickup that grants it, so this is
+			                                          // the only way to test the kung-fu powerup + its HUD figure.
 			default: mask = TS_PWUP_SLOWMO;    break; // held, 5s
 			}
 			TSGrantPowerup(player, mask, 5);

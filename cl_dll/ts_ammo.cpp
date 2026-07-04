@@ -241,7 +241,7 @@ bool CHudTSAmmo::Draw(float flTime)
 	// per EQUIPPED attachment (dot bullet + label), then the bar at the very bottom. The active
 	// attachments (laser/flash toggled ON via `useitems`) are drawn at full brightness with a bright dot;
 	// inactive ones are dimmed. Silencer/scope are always-on when equipped.
-	enum LineKind { LK_TEXT, LK_AMMO, LK_ATTACH };
+	enum LineKind { LK_TEXT, LK_AMMO, LK_ATTACH, LK_COUNT };
 	struct Line { LineKind kind; const char* s; int r, g, b; bool light; bool active; };
 	Line lines[10];
 	int n = 0;
@@ -284,6 +284,12 @@ bool CHudTSAmmo::Draw(float flTime)
 			break;
 	}
 
+	// Combat/seal knife carry a STACK COUNT (5/10) — networked in m_iReserve — shown as a number line
+	// just ABOVE the block bar (kung-fu/katana have no count). Not for guns (they use the ammo line).
+	const bool knifeCount = (m_iWeaponType == 25 /*knife*/ || m_iWeaponType == 35 /*sealknife*/);
+	if (knifeCount && n < (int)(sizeof(lines) / sizeof(lines[0])))
+		lines[n++] = {LK_COUNT, nullptr, hr, hg, hb, false, false};
+
 	// Only MELEE weapons (kung-fu/knife/katana/seal-knife) carry the block bar; guns have no bar.
 	const bool meleeBar = TSIsMeleeType(m_iWeaponType);
 
@@ -312,6 +318,13 @@ bool CHudTSAmmo::Draw(float flTime)
 				SPR_Set(dot, 255, 255, 255);
 				SPR_DrawAdditive(0, x + BOXW - dw - 3, y + (LINEH - 1 - dh) / 2, (Rect*)rc);
 			}
+		}
+		else if (lines[i].kind == LK_COUNT)
+		{
+			// the knife carry count — a single number, centred in the box (like the ammo readout).
+			const int cw = TSHud_NumberWidth(m_iReserve);
+			TSHud_DrawNumber(x + (BOXW - cw) / 2, y + (LINEH - 1 - TS_NUMBER_H) / 2, m_iReserve,
+				lines[i].r, lines[i].g, lines[i].b);
 		}
 		else
 		{
