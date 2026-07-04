@@ -1171,11 +1171,10 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	else
 	{
 		flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
-		// Double-firerate powerup is really 1.5x, NOT 2x (RE PostThink @0x81610: when player+0x724 & 0x10,
-		// the weapon-timer decrement is *= 1.5 — so timers drain 1.5x faster). We apply it to flRate here
-		// (Fire is client-predicted, so this stays in sync). It also makes semis fire-while-held (above).
-		if (DoubleFireRate(m_pPlayer))
-			flRate /= 1.5f;
+		// DoubleFireRate's 1.5x speedup is applied ONCE, by the PostThink weapon-timer decrement
+		// (player.cpp: slowFrametime *= 1.5, RE @0x81610 player+0x724 & 0x10). Do NOT also divide
+		// flRate here — that compounded to 2.25x (the "fires far too fast" bug). The powerup's
+		// fire-WHILE-held effect is handled separately at the full-auto gate above.
 	}
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
 	// Short idle during a burst so WeaponIdle drives the remaining rounds; else normal.
@@ -1212,8 +1211,8 @@ void CTSGun::ShotgunFire(const s_weapon_info *wi)
 	if (m_fireMode == TSFM_PUMP && m_fInSpecialReload != 0)
 	{
 		float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
-		if (DoubleFireRate(m_pPlayer))
-			flRate /= 1.5f;
+		// DoubleFireRate 1.5x comes from the PostThink timer decrement only (see StandardFire note) —
+		// no flRate division here (compounded to 2.25x).
 		m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + flRate;
 		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
 
@@ -2345,8 +2344,8 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 			m_pPlayer->random_seed);
 
 	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
-	if (DoubleFireRate(m_pPlayer))
-		flRate *= 0.5f;
+	// DoubleFireRate 1.5x comes from the PostThink timer decrement only (see StandardFire note) — no
+	// flRate scaling here (this was *0.5 = 2x, compounding to 3x on this barrel).
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
 	m_flNextSecondaryAttack = m_flNextPrimaryAttack; // the right-barrel trigger shares the cadence
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
