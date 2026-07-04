@@ -204,10 +204,14 @@ void CTSAnimation::HandleCloseCombat(CBasePlayer *pPlayer, int activity)
 	case TSA_CC_KATANADUCK:   strcpy(name, "katana_duck");  break;
 	case TSA_CC_BLOCK:
 	{
-		// katana_block / knife_block / kungfu_block by the active weapon-ext, + a random "1"/"2".
-		const char *ext = pPlayer->m_szAnimExtention;
-		if (strncmp(ext, "kat", 3) == 0)       strcpy(name, "katana_block");
-		else if (strncmp(ext, "kni", 3) == 0)  strcpy(name, "knife_block");
+		// katana_block / knife_block / kungfu_block + a random "1"/"2". The original
+		// (HandleCloseCombat @0x5d8d0 case 0x26) keys off m_szAnimOverride (player+0x478 =
+		// the blade idle override "katana_idle"/"knife_idle"), NOT m_szAnimExtention — which
+		// is EMPTY for all melee weapons (grip ""), so the old ext check fell through to
+		// kungfu_block for knife/katana too (they reused the generic melee block in 3rd person).
+		const char *ov = pPlayer->m_szAnimOverride;
+		if (strncmp(ov, "kat", 3) == 0)        strcpy(name, "katana_block");
+		else if (strncmp(ov, "kni", 3) == 0)   strcpy(name, "knife_block");
 		else                                   strcpy(name, "kungfu_block");
 		strcat(name, RANDOM_LONG(0, 1) ? "1" : "2");
 		break;
