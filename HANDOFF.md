@@ -47,15 +47,70 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.86c) — pickup for the next orchestrator
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.86d) — pickup for the next orchestrator (= you)
 
-**You ARE the orchestrator, continue as if you never stopped.** Branch `restructure-source-parity`. Every
-commit build-green + nm-T-gated. Read the ledger `cont.86 cont.2` entry (top). Regenerate the nm-T baseline
-first: `nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}'|sort > /tmp/nm_T_baseline.txt`.
+**You ARE the orchestrator and the previous agent — continue as if you never stopped.** Branch
+`restructure-source-parity` (NOT merged to `main`; GPG signing OFF: keep `git config --local commit.gpgsign false`).
+Every commit is build-green (`scripts/build.sh amd64 all`) + nm-T-gated. **FIRST:** regenerate the baseline
+`nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}'|sort > /tmp/nm_T_baseline.txt`, then read the ledger
+`cont.86 cont.2` entry (top).
 
-### ⭐ SUPER-JUMP + SLOW-MOTION were reconstructed to the REAL mechanisms (cont.86c) — read the dossiers
-`reference/dossiers/cont86/{superjump_moongravity.md, slowmo_movement.md}` (+ `decomp/`). Both were long-standing
-INVENTED approximations; now RE-exact + user-verified. Key facts you must not re-break:
+⚠ **SERENA GOTCHA:** read the ledger with the **Read tool on `.serena/memories/ledger.md`** — NEVER
+`read_memory("ledger")` (Serena MCP returns one giant single-line `{"result":"…"}` JSON ~500KB that overflows
+the read limit). Same for any big memory.
+
+### THE MISSION (the law — the user re-stated it this session; internalize it)
+Make OUR code a **1:1 drop-in** for the original at EVERY level — **file → class → methods → variables → globals →
+free functions**: nothing the original has that we lack, nothing we have that it lacks. The **drop-in contract**:
+our client must run against the ORIGINAL server and vice-versa, byte-identically & compatibly. So:
+1. **A missing OR extra symbol = a LOGIC MISMATCH → re-RE it.** `audit.py` matches by NAME, so **our method/class/
+   file/variable/global/free-func names must EQUAL the original's** (FGD/save/wire names, the gcc2-demangled names).
+   A field/method/var that "doesn't exist" on one side is a red flag to chase, not a rounding error. Match VARIABLE
+   names too — a mismatched name can hide that some OTHER code path was reconstructed against the wrong field.
+2. **The logic often EXISTS already — moved/renamed/inlined. GREP OUR CODE and MOVE it, don't rewrite.** (This
+   session: the sidekick anim, block seqs, gait leg-block, PseudoClimb, and the whole TSHandle cmd-damp were all
+   ALREADY present/correct — the bug was elsewhere.)
+3. **MIMIC THEIRS.** "Works differently but fine" is WRONG for a drop-in. Copy the mechanism exactly.
+4. **The TS decompile is COMPLETE** — `ts_inventory.json` is the machine-checkable inventory of every original
+   class/method/member/global/free-func. So a symbol we lack = a REAL gap to RE, not "not decompiled yet."
+5. **Discovered a gap mid-fix? FLAG it (a task), FINISH the original issue, THEN report** — don't chase it inline.
+6. **ASSET references:** every model/sprite/sequence/sound/event/cvar/user-message a decompile references MUST be
+   referenced in our code too (precache + use). Missing asset refs = missing behavior. (This is how the ombra.spr
+   shadow + the morfy/superjump_land anims were found missing.) When touching a class, grep its decompile for
+   `precache`, `.spr`/`.mdl`/`.wav`/`.sc`, `EMIT_SOUND`, `PLAYBACK_EVENT`, `SetSequence`/anim ids — verify each is wired.
+7. **`TODO`/`VERIFY`/`SLICE`/`VERIFY`-tagged comments in code are the standing work-list** — grep them
+   (`grep -rn "VERIFY\|TODO\|SLICE\|un-RE" dlls/ cl_dll/ pm_shared/`) and resolve as you touch each area.
+
+### METHODS THAT WORKED THIS SESSION (keep using them — this is how you operate)
+- **★ DOSSIER-SUBAGENT HINT (the big win — used 3× this session, kept ~500k decompile tokens out of context).**
+  For any deep/uncertain RE, spawn a `general-purpose` agent (Agent tool) with a SELF-CONTAINED prompt: repo root,
+  the tool recipes + addr-base rules (`re.sh 0x<nm+0x10000>` server; `dc.sh client|mp 0x<RVA>` Windows), known
+  addresses, an explicit work-list, "do NOT edit source", the USER'S EXACT BEHAVIORAL SPEC to reconcile against,
+  and "write the decode dossier + raw decompiles to `reference/dossiers/cont<NN>/`". Its final message = the
+  summary table you implement from. ⚠ **CROSS-CHECK its labels + verify against the live playtest** — the superjump
+  agent's FIRST rev was WRONG (read a DEAD code path); a `SendMessage` follow-up with the user's precise behavior
+  got REV 2 right. The user (the running original) is ground truth. [[dead-code-path-gravity-trap]] [[live-original-ts-debuggable]]
+- **★ DEBUG-LOG-IN-SOURCE beats gdb for OUR build.** A temporary `ALERT(at_console,"[TAG] ...")` (server,
+  `#ifndef CLIENT_DLL`; client `ALERT` == AlertMessage, prints "cl:") — build+deploy, user does the action + pastes
+  the console line — gave exact branch/state data in one shot (the `[CCK]`/`[HCC]`/`[SYNC]`/`[ST]` traces isolated
+  every kick/anim/state divergence). Remove after.
+- **★ LIVE gdb on the ORIGINAL** (`scripts/live.py` on the running `hl.exe`) settles what static RE can't
+  (player+0x78 = m_fSequenceFinished; the recoil). ⚠ mp.dll is MSVC → offsets DIFFER from the `.so` (pev@player+4,
+  CTSStunt@player+0x4dc). See CLAUDE.md §4b. HALT after arming a watch — tell the user, then STOP.
+- **★ Ghidra tooling (full stack):** `scripts/ghidra/re.sh <Class|0xADDR>` (server, typed by ApplyInventory) ·
+  `dc.sh client|mp|server 0x<RVA>` (Windows binaries; client takes the RAW RVA) · `re.sh refs/vrefs` (callers) ·
+  the **Ghidra MCP** (`mcp__ghidra-mcp__*`, interactive xrefs on the typed `re` project — CLAUDE.md §4a.3; the
+  `.lock` blocks headless while the GUI holds it) · `binmap.py` (`.so` name → mp.dll RVA) · `scripts/coverage/*`
+  (`audit.py` INTERNAL-structure diff BOTH ways = the parity driver; `coverage.py all` = the EXTERNAL swap contract).
+
+### ⭐ SCRATCHPADS / DOSSIERS — PRESERVED, read them before touching these areas
+Committed at **`reference/dossiers/`**: `cont85/` (kick decode + gait/anim state-machine), `cont86/`
+(`superjump_moongravity.md`, `slowmo_movement.md`, `gait_and_shadow.md` + `decomp/` raw decompiles). These are the
+primary reference to re-derive the hard-won mechanisms. When you spawn a dossier agent, tell it to write to
+`reference/dossiers/cont<NN>/` and COMMIT it so the next agent has it.
+
+### ⭐ SUPER-JUMP + SLOW-MOTION reconstructed to the REAL mechanisms (cont.86c, committed + user-verified) — DO NOT re-break
+Dossiers `reference/dossiers/cont86/{superjump_moongravity.md, slowmo_movement.md}`.
 - **Super-jump = physinfo `"mj"` + a pm_shared jump gate (NOT a lift/hover):** grant sets `"mj"="1"` (ability only,
   gravity normal). `PM_Jump` reads `"mj"` (NOT stock `"slj"`) → DUCK+JUMP one-shot `velocity.z=sqrt(160000)=400`
   + `iuser4|=0x200000`. `Play` → WHEEL_DONE (0x100000) + morfy pose. `PM_CheckParamters` @0xe9c94 = VARIABLE HEIGHT:
@@ -64,7 +119,38 @@ INVENTED approximations; now RE-exact + user-verified. Key facts you must not re
 - **Slow-motion slows TIME not velocity:** `PM_PlayerMove` `frametime *= fuser1`; `pev->velocity` magnitude is
   PRESERVED (so the side-kick `speed>270` gate passes in slowmo). Never scale `maxspeed`/velocity by `fuser1`.
 
-### ⚠ RIG STATE CHANGED THIS SESSION (cont.86b)
+### 🔧 IN-PROGRESS THIS SESSION (uncommitted, deployed, PENDING USER VERIFY) — finish these first
+Dossier `reference/dossiers/cont86/gait_and_shadow.md`. Uncommitted files: `cl_dll/StudioModelRenderer.cpp`,
+`cl_dll/ts_attachments.cpp` (+`.h`), `cl_dll/tri.cpp`.
+- **#14 walk2/run2 gait too fast** — applied Fix 1 (`StudioModelRenderer.cpp:1441` in-place branch `fps*dt` →
+  `curstate.framerate*fps*dt`, matching original `StudioProcessGait @0x2250`). ⚠ CAVEAT: our SERVER never sets
+  `pev->framerate` by move speed (only `=0` at death), so `curstate.framerate` may be a constant 1.0 → Fix 1 may
+  no-op. If the walk is STILL too fast: the real cause is DIVERGENCE 2 (`m_fGaitEstimation=true` @`StudioModelRenderer.cpp:89`
+  → origin-delta gait-movement; original lays the velocity path as the flag==0 case — dossier says verify the live
+  `g_StudioRenderer+0x1c` flag before flipping), OR the server must set framerate by speed. Playtest-driven.
+- **#15 player blob shadow** — added `TS_Shadows_Draw` (`ts_attachments.cpp`, called from `tri.cpp`): `ombra.spr`
+  ground blob, `cl_shadow`-gated, trace-down-8192 to ground, `dist=|origin-hit|-12`, skip `>=200`, `alpha=1-dist*0.005`,
+  24u-half quad. Orig = client.dll `FUN_10055760` (master) + `FUN_10055500` (per-blob) from `HUD_DrawTransparentTriangles
+  @0x34e50`. OPEN Qs to the user: split into master+per-blob to mirror the original shape? blob size 24 tunable?
+  NOTE: won't audit as "invented" — client.dll is stripped → the audit "unverifiable (client.dll)" bucket.
+
+### 📋 REMAINING WORK-LIST (recreate as TaskCreate entries)
+- **[in_progress] #14 walk2/run2 gait speed** + **[in_progress] #15 player blob shadow** — the two uncommitted
+  in-progress items above; verify with the user, then commit.
+- **[pending] HUD bottom-left layout** — `ts_status.cpp`: missing TEAM label above health + "X free slots" section
+  right of health + our health box too big vs original. Client VGUI → live-RE `client.dll`.
+- **[pending] HUD powerup icons** — `ts_powerup_hud.cpp`: too bright (less opaque), and with BOTH powerups shows a
+  weapon icon / flips to "numbers" sprite on invnext/prev — want TWO icons (kfu + superjump), same opacity.
+- **[pending] Per-class 1:1 parity loop (audit.py driver)** — the STANDING driver: `scripts/coverage/audit.py [Class]`
+  + `coverage.py all`. Last headline: **0 missing methods/funcs/members/files · 25 invented methods (all legit helper
+  decompositions) · 1 missing global (`TSGameRules` singleton @0x1681a0 — we use stock `g_pGameRules`) · a few
+  invented globals**. Drive each TS class to N/N; a missing/extra symbol = re-RE (mission rule #1).
+- **[pending] OPEN DECISION — iuser4 back on the wire (`delta.lst`)** — currently reverted to clean upstream
+  `3b1d963`; iuser4 not networked → the client can't predict powerup-gated behavior (double-fire server-authoritative
+  now works but isn't predicted). The original TS table `19af2487` nets iuser4 at 32 bits (+iuser3/playerclass). Decide.
+- **[flagged, not chased] gaps surfaced this session** (rule #5): `m_iSlideStandUp`/`m_fSequenceFinished` reads in
+  `Animate`(x13)/`PlayerDeathThink`/`BulletDance` (verified covered); Play ladder/water WHEEL_DONE branch (fixed);
+  the `SetPlayerTheOne` gravity (LOW-confidence, untraced); TS normal-jump height 56000 (v≈236.6) vs our stock 268.
 
 ### ⚠ RIG STATE CHANGED THIS SESSION (cont.86b)
 - **`~/Containers/hlds/mods/ts` is now the CLEAN ORIGINAL** (1127 files, 29 `ts_*` maps). **`tm_avana` is GONE**

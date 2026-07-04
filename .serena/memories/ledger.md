@@ -5,6 +5,18 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 86 cont.3) — gait speed + player blob shadow (IN PROGRESS, uncommitted) + full HANDOFF for next agent
+
+Dossier `reference/dossiers/cont86/gait_and_shadow.md`. Two CLIENT presentation items, deployed + pending user verify:
+- **walk2/run2 gait too fast** (#14): Fix 1 applied (`StudioModelRenderer.cpp:1441` in-place gait `fps*dt` →
+  `curstate.framerate*fps*dt`, RE `StudioProcessGait @0x2250`). ⚠ our server never sets `pev->framerate` by speed
+  → Fix 1 may no-op; fallback = DIVERGENCE 2 (`m_fGaitEstimation` flag) or a server framerate write. Playtest-driven.
+- **player blob shadow** (#15): `TS_Shadows_Draw` (`ts_attachments.cpp`+`.h`, called from `tri.cpp`) — `ombra.spr`
+  ground blob, `cl_shadow`-gated, trace-down + alpha falloff + 24u quad. Orig = client.dll FUN_10055760/FUN_10055500
+  from `HUD_DrawTransparentTriangles @0x34e50`. Won't audit-flag (client.dll stripped = "unverifiable" bucket).
+HANDOFF rewritten (`START HERE cont.86d`) with the full mission/methods/tooling/asset-check/scratchpad direction
+for the next orchestrator. Memory `[[dead-code-path-gravity-trap]]` added. Commits through `975011c`; gait/shadow uncommitted.
+
 ## 2026-07-03 (cont. 86 cont.2) — SUPER-JUMP + SLOW-MOTION reconstructed to the real mechanisms (both hard to find; both user-verified)
 
 Two subsystems that were LONG mis-implemented as playtest-tuned approximations got reconstructed to their actual
