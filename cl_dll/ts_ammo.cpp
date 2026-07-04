@@ -206,7 +206,9 @@ bool CHudTSAmmo::Draw(float flTime)
 
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
-	const int dr = hr / 2, dg = hg / 2, db = hb / 2; // dimmed (label) colour
+	// (No dimmed label tint: the original draws caliber + fire-mode at the FULL hud color, not
+	// half — RE'd from the ammo-panel draw (firemode string drawn at the raw hud-color ftol, no /2),
+	// user-confirmed against the original. Our earlier half-brightness note was wrong.)
 
 	// The box, top→bottom (matching the reference image): name, caliber, fire-mode, ammo, then one line
 	// per EQUIPPED attachment (dot bullet + label), then the bar at the very bottom. The active
@@ -223,10 +225,10 @@ bool CHudTSAmmo::Draw(float flTime)
 	{
 		const int cal = s_weaponCaliber[m_iWeaponType];
 		if (cal > 0 && cal < s_numCalibers && s_caliberNames[cal][0])
-			lines[n++] = {LK_TEXT, s_caliberNames[cal], dr, dg, db, false, false};
+			lines[n++] = {LK_TEXT, s_caliberNames[cal], hr, hg, hb, false, false};
 
 		const int mode = (m_iFireMode >= 0 && m_iFireMode < s_numFireModes) ? m_iFireMode : 1;
-		lines[n++] = {LK_TEXT, s_fireModeNames[mode], dr, dg, db, false, false};
+		lines[n++] = {LK_TEXT, s_fireModeNames[mode], hr, hg, hb, false, false};
 
 		int ar = hr, ag = hg, ab = hb;
 		if (m_iClip == 0)

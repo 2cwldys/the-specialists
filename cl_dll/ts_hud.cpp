@@ -125,8 +125,11 @@ void TSHud_HealthBar(int x, int y, int health)
 
 int TSHud_DrawString(int x, int y, int maxX, const char* str, int r, int g, int b)
 {
-	// Faithful port of FUN_10021ce0: draw each glyph with pfnDrawCharacter, advance by
-	// the engine's per-character width, and stop before any glyph that would cross maxX.
+	// Faithful port of FUN_10021ce0: a per-glyph loop calling the engine's DrawCharacter
+	// (DAT_100d5b90), advancing by charWidths[c], stopping before any glyph crossing maxX.
+	// (Confirmed by RE: the original uses DrawCharacter, NOT DrawConsoleString — the console
+	// string path in xash draws a drop-shadow the original doesn't have. Any residual BOLDNESS
+	// vs the original is the xash-vs-GoldSrc engine HUD font, not this code.)
 	for (const char* p = str; *p && *p != '\n'; p++)
 	{
 		const unsigned char c = (unsigned char)*p;
