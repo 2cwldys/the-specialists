@@ -5,6 +5,53 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 86 cont.2) — SUPER-JUMP + SLOW-MOTION reconstructed to the real mechanisms (both hard to find; both user-verified)
+
+Two subsystems that were LONG mis-implemented as playtest-tuned approximations got reconstructed to their actual
+mechanisms via dossier-subagents (`reference/dossiers/cont86/{superjump_moongravity.md,slowmo_movement.md}` +
+raw decompiles). All build-green, nm-T stable, deployed. Commits: slow-motion `29e4861`, super-jump `725fb66`.
+
+### ⭐ SUPER-JUMP — the whole thing was invented; the real mechanism is a physinfo key + a pm_shared jump gate
+The old superjump was a from-scratch `m_bLowGravity` PreThink sustained-velocity lift (fuel/hover/ceiling-clamp
+with MADE-UP constants 240/300/1.2) — no counterpart in the binary. The user flagged it ("you seem to be
+inventing code"). The REAL mechanism (all HIGH-confidence, raw-verified):
+- **Physinfo key `"mj"`** (moon-jump; string @ .so vaddr 0xf791d) — the grant (`PlayerAddPowerUp`, `SetPlayerTheOne`,
+  `TSInit` map-global) sets `pfnSetPhysicsKeyValue(edict,"mj","1")` = the ABILITY only, gravity stays normal.
+  (Our old comment CALLED this "mj" but dismissed it as invented lore; it was RIGHT. Also: our `PM_Jump` was
+  reading the STOCK HL `"slj"` long-jump key, doing the forward long-jump — wrong key AND wrong jump.)
+- **`PM_Jump`** (pm_shared): `"mj"`==1 + DUCK + on-ground → ONE-SHOT vertical `velocity.z = sqrt(160000) = 400`
+  (const is a DOUBLE @0x100bc8; base jump = sqrt(56000)≈236.6 @0x100bb8) + `iuser4 |= 0x200000` (WHEEL_TRIG).
+- **`CTSStunt::Play`**: WHEEL_TRIG → WHEEL_DONE (0x100000, the flight-active bit) + morfy_jump pose + airwheel
+  (existing handler — the flight anim came FREE).
+- **`PM_CheckParamters`** (pm_shared @0xe9c94) = the piece that was missed twice: VARIABLE JUMP HEIGHT. While
+  `iuser4 & 0x100000`: reduce air control (fwd*0.5, side/up*0.25) and GATE GRAVITY ON `IN_JUMP` — held = 0.30
+  rising / 0.75 falling (climb), released = 1.0 (drop). NO hold-timer (cap emergent: 400 decays under 0.30).
+- **Landing** (PostThink @0x81a22): WHEEL_DONE + onground → screen shake + `GoRoll` (DUCK) or the superjump_land plant.
+- ⚠ **THE TRAP (cost a whole wrong REV):** `UpdatePowerUpState` HAS a `m_iPowerups & 0x100 → gravity=0.15` branch,
+  but it's **DEAD CODE for the superjump** (PlayerAddPowerUp never writes `m_iPowerups` for LOWGRAV — only
+  `m_bLowGravity`+`"mj"`, then returns). The first dossier REV read that dead path and concluded "constant 0.15
+  while held" — WRONG (float just from holding the powerup; overshot ~2×). The user's playtest caught it. Lesson:
+  a reachable-looking gravity write can be DEAD — verify the gating bit is actually SET on the path you care about.
+- Debug hook: `powerup 6` grants LOWGRAV (swap-in-safe — server-side console cmd, wire name/format unchanged).
+
+### ⭐ SLOW-MOTION — the original slows TIME, not velocity (fixes the kick gate)
+The mid-air side-kick gate `speed>270` (plain `|velocity|`, NO slow-divide — verified in CCombatAttack @0x76078)
+failed in OUR slowmo but works in the original. Cause: the original slows MOVEMENT purely by time-dilating the
+pm_shared frametime — **`PM_PlayerMove` @0xf08d8: `frametime *= fuser1`** — leaving `pev->velocity` (units/sec)
+UNTOUCHED, so `|velocity|` stays high and >270 passes. OUR bug: `pev->maxspeed *= fuser1` every PreThink, capping
+achievable `|velocity|` (and networked → client predicted it too). Fix: `maxspeed = GetSpeedBySlots` (no fuser1) +
+the frametime dilation in PM_PlayerMove (guarded `fuser1>0` so an unpopulated field can't freeze). User-verified.
+
+### METHOD: dossier-subagents nailed both
+Two `general-purpose` agents (self-contained prompts w/ addr-base rules + the exact questions) produced the
+dossiers while keeping ~350k tokens of decompile out of the main context. The superjump agent's FIRST rev was
+wrong (dead-code path) — a SendMessage follow-up with the user's precise behavioral spec got the right answer.
+Cross-check agent labels against the live playtest (the user is ground truth). [[live-original-ts-debuggable]]
+
+Still OPEN (agents/tasks): walk2/run2 gait speed should scale to velocity (#14), player blob-shadow sprite
+(likely `ombra.spr`, #15) — a combined RE agent is running. Also: iuser4-on-the-wire decision (delta.lst) for
+powerup client-prediction; HUD layout (#4), powerup HUD icons (#7), audit.py parity loop (#8).
+
 ## 2026-07-03 (cont. 86 cont.) — kick/punch/anim fidelity batch + original-content rig swap + delta.lst revert + double-fire fix
 
 Continuation of cont.86. All build-green, nm-T stable, deployed, USER-VERIFIED each. Commits `40f6f59..6f93900`.

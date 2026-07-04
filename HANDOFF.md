@@ -47,11 +47,24 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.86b) — pickup for the next orchestrator
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.86c) — pickup for the next orchestrator
 
 **You ARE the orchestrator, continue as if you never stopped.** Branch `restructure-source-parity`. Every
-commit build-green + nm-T-gated. Read the ledger `cont.86 cont.` entry (top). Regenerate the nm-T baseline
+commit build-green + nm-T-gated. Read the ledger `cont.86 cont.2` entry (top). Regenerate the nm-T baseline
 first: `nm -D build-amd64/dlls/hl.so | awk '$2=="T"{print $3}'|sort > /tmp/nm_T_baseline.txt`.
+
+### ⭐ SUPER-JUMP + SLOW-MOTION were reconstructed to the REAL mechanisms (cont.86c) — read the dossiers
+`reference/dossiers/cont86/{superjump_moongravity.md, slowmo_movement.md}` (+ `decomp/`). Both were long-standing
+INVENTED approximations; now RE-exact + user-verified. Key facts you must not re-break:
+- **Super-jump = physinfo `"mj"` + a pm_shared jump gate (NOT a lift/hover):** grant sets `"mj"="1"` (ability only,
+  gravity normal). `PM_Jump` reads `"mj"` (NOT stock `"slj"`) → DUCK+JUMP one-shot `velocity.z=sqrt(160000)=400`
+  + `iuser4|=0x200000`. `Play` → WHEEL_DONE (0x100000) + morfy pose. `PM_CheckParamters` @0xe9c94 = VARIABLE HEIGHT:
+  while `iuser4&0x100000`, gate gravity on `IN_JUMP` (held 0.30 rising/0.75 falling, released 1.0) + reduced air
+  control. ⚠ `UpdatePowerUpState`'s `m_iPowerups&0x100→gravity=0.15` is **DEAD CODE for superjump** — do not use it.
+- **Slow-motion slows TIME not velocity:** `PM_PlayerMove` `frametime *= fuser1`; `pev->velocity` magnitude is
+  PRESERVED (so the side-kick `speed>270` gate passes in slowmo). Never scale `maxspeed`/velocity by `fuser1`.
+
+### ⚠ RIG STATE CHANGED THIS SESSION (cont.86b)
 
 ### ⚠ RIG STATE CHANGED THIS SESSION (cont.86b)
 - **`~/Containers/hlds/mods/ts` is now the CLEAN ORIGINAL** (1127 files, 29 `ts_*` maps). **`tm_avana` is GONE**
