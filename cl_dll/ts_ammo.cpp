@@ -199,24 +199,25 @@ bool CHudTSAmmo::Draw(float flTime)
 	// melee bar (user-confirmed: below 50%). breathe2.wav is a single breath, so replay it on a timer
 	// while the bar stays low. VERIFY the exact threshold/interval + whether guns keep breathing.
 	{
-		static float s_nextBreath = 0.0f;
-		if (m_iMeleeBar < 50 && TSIsMeleeType(m_iWeaponType))
+		// breathe2.wav is LOOP-MARKED (a 'cue' chunk) -> ONE EV_PlaySound self-loops it forever until
+		// stopped. So EDGE-trigger: start it once when the bar drops below 50%, EV_StopSound when it
+		// recovers (or we leave melee) — otherwise it loops forever. CHAN_STATIC = the persistent-loop
+		// channel, so a pickup (CHAN_ITEM) or other sound won't steal/short-circuit the breathing.
+		static bool s_breathing = false;
+		cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+		const bool wantBreath = (lp != nullptr && m_iMeleeBar < 50 && TSIsMeleeType(m_iWeaponType));
+		if (wantBreath && !s_breathing)
 		{
-			if (flTime >= s_nextBreath)
-			{
-				// EV_PlaySound on the local player, a FIXED channel (CHAN_VOICE), so each replay cleanly
-				// REPLACES the previous breath — no overlap and no "third breath drops" (pfnPlaySoundByName
-				// was unreliable, same as goslow — see ts_powerup_hud). Replay at the clip length (1.799s)
-				// for back-to-back breaths.
-				cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
-				if (lp)
-					gEngfuncs.pEventAPI->EV_PlaySound(lp->index, lp->origin, CHAN_VOICE,
-						"player/breathe2.wav", 1.0f, 0.8f, 0, 100);
-				s_nextBreath = flTime + 1.8f; // = breathe2.wav length (1.799s)
-			}
+			gEngfuncs.pEventAPI->EV_PlaySound(lp->index, lp->origin, CHAN_STATIC,
+				"player/breathe2.wav", 1.0f, ATTN_NORM, 0, 100);
+			s_breathing = true;
 		}
-		else
-			s_nextBreath = 0.0f; // reset so it restarts promptly next time the bar drops below 50
+		else if (s_breathing && !wantBreath)
+		{
+			if (lp)
+				gEngfuncs.pEventAPI->EV_StopSound(lp->index, CHAN_STATIC, "player/breathe2.wav");
+			s_breathing = false;
+		}
 	}
 
 	// Exact geometry recovered from FUN_1004d7e0 (reference/HUD_DRAWCHAIN.md): a
