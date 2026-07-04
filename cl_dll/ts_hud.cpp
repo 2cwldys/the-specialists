@@ -190,14 +190,22 @@ int TSHud_NumberWidth(int value)
 // readout — e.g. clip / reserve, "30 / 120"). numbers.spr is digits only, so the slash is a text
 // glyph drawn at the digit baseline (the original's separate "divider" sprite isn't in this data
 // extraction). Returns x past the last digit.
-int TSHud_DrawNumberPair(int x, int y, int a, int b_, int r, int g, int b)
+int TSHud_DrawNumberPair(int x0, int x1, int y, int a, int b_, int r, int g, int b)
 {
-	x = TSHud_DrawNumber(x, y, a, r, g, b);
-	x += 4;
-	// slash, vertically centred on the digit cell (text glyphs are ~iCharHeight tall).
-	const int slashY = y + (TS_NUMBER_H - gHUD.m_scrinfo.iCharHeight) / 2;
-	x = TSHud_DrawString(x, slashY, x + 16, "/", r, g, b);
-	x += 4;
-	x = TSHud_DrawNumber(x, y, b_, r, g, b);
-	return x;
+	// Layout "[  x  /  x  ]": the '/' is fixed-centred in the [x0,x1] span, the clip (a) is
+	// centred in the LEFT half, the reserve (b) centred in the RIGHT half — so the slash stays
+	// put and each number is balanced within its own half (the original's centred readout).
+	const int centerX = (x0 + x1) / 2;
+	const int slashW = gHUD.m_scrinfo.charWidths[(unsigned char)'/'];
+	const int slashX = centerX - slashW / 2;
+	const int slashY = y + (TS_NUMBER_H - gHUD.m_scrinfo.iCharHeight) / 2; // slash on the digit baseline
+
+	// slash, centred
+	TSHud_DrawString(slashX, slashY, slashX + slashW + 2, "/", r, g, b);
+	// clip: centred in the left half [x0, slashX]
+	const int leftMid = (x0 + slashX) / 2;
+	TSHud_DrawNumber(leftMid - TSHud_NumberWidth(a) / 2, y, a, r, g, b);
+	// reserve: centred in the right half [slashX+slashW, x1]
+	const int rightMid = (slashX + slashW + x1) / 2;
+	return TSHud_DrawNumber(rightMid - TSHud_NumberWidth(b_) / 2, y, b_, r, g, b);
 }

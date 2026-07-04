@@ -49,9 +49,10 @@ int TSHud_NumberWidth(int value);
 // Height of a numbers.spr digit (the imagemap cell height), for vertical centring against text.
 #define TS_NUMBER_H 16
 
-// Draw "clip / reserve" with the numbers.spr digit font + a slash separator. x,y top-left of the
-// first digit; returns the x past the last digit. (The bottom weapon box ammo readout.)
-int TSHud_DrawNumberPair(int x, int y, int a, int b_, int r, int g, int b);
+// Draw "a / b" (clip / reserve) in the [x0,x1] span: the '/' is centred in the span, a is centred
+// in the left half and b in the right half ("[  x  /  x  ]"). y = top of the digit cell. Returns
+// the x past the last digit. (The bottom weapon box ammo readout.)
+int TSHud_DrawNumberPair(int x0, int x1, int y, int a, int b_, int r, int g, int b);
 
 // The TS health bar (FUN_1004d5f0): a 0x80(128)-wide bar at (x,y) — faint background
 // (alpha 0x1e) + a fill proportional to health, in the HUD colour (red when low). The

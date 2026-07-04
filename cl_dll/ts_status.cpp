@@ -28,6 +28,7 @@
 #include "ts_weapon_info.h" // Set_ammo_count (the SrvSett id-2 shared call)
 #include "ts_hud.h"
 #include "player_info.h" // g_PlayerExtraInfo (team name)
+#include "vgui_TeamFortressViewport.h" // iTeamColors / iNumberOfTeamColors (team box color)
 
 #include <stdio.h>
 
@@ -189,86 +190,95 @@ bool CHudTSStatus::Draw(float flTime)
 	if (gHUD.m_Spectate.IsActive())
 		return true;
 
-	// The TS status panel (bottom-left): team name on top, the posture figure on the
-	// left, the health number + heart to its right, and a "Kevlar" label below when
-	// armored. RE'd from client.dll (sprite slots @0x10049d1f, "%i Kevlar  %i" @0x1003808e)
-	// and matched to the in-game reference. Armor is binary here (kevlar-or-not), not the
-	// numeric battery the stock HUD shows.
+	// The TS bottom-left status HUD, RE'd from client.dll CHudTSStatus::Draw (FUN_1004a3e0) —
+	// see reference/dossiers/cont87/hud_bottomleft.md. FIXED-PIXEL layout (X absolute: 8/72/104/136/144,
+	// box width 127; only Y is bottom-anchored SH-k). Three boxes: HEALTH (always), TEAM (team mode,
+	// above health), FREE-SLOTS (always, to the right). Box backgrounds use the full HUD color at faint
+	// alpha (0x0f), the team box the team color at 0x23; elements use half-HUD, turning warn-red when low.
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
+	const int halfR = hr / 2, halfG = hg / 2, halfB = hb / 2; // element tint
+	const int wR = 195, wG = 45, wB = 45;                     // warn/low color (195,45,45)
 
-	const int lineHeight = gHUD.m_scrinfo.iCharHeight + 2;
+	const int SW = ScreenWidth;
+	const int SH = ScreenHeight;
+	const int BOXW = 0x7f; // 127px, fixed
 
-	// Posture figure = the server's TSState byte (0 stand / 1 duck / 2 stunt-prone) — the
-	// invented local derivation (g_iTSProne + curstate.usehull) is deleted; the wire drives it.
+	// Posture figure (server TSState byte: 0 stand / 1 crouch / 2 prone).
 	HSPRITE hFig = m_hStand;
-	Rect* rcFig = &m_rcStand;
-	const int posture = m_iState;
-	if (posture == 2 && m_hProne != 0) { hFig = m_hProne; rcFig = &m_rcProne; }
-	else if (posture == 1 && m_hCrouch != 0) { hFig = m_hCrouch; rcFig = &m_rcCrouch; }
+	Rect* rcF = &m_rcStand;
+	if (m_iState == 2 && m_hProne != 0) { hFig = m_hProne; rcF = &m_rcProne; }
+	else if (m_iState == 1 && m_hCrouch != 0) { hFig = m_hCrouch; rcF = &m_rcCrouch; }
 
-	const int figW = (hFig != 0) ? (rcFig->right - rcFig->left) : 0;
-	const int figH = (hFig != 0) ? (rcFig->bottom - rcFig->top) : 0;
+	// ---- B. HEALTH box (always) ----
+	const int hbY = SH - 0x30; // SH-48
+	FillRGBA(8, hbY, BOXW, 0x27, hr, hg, hb, 0x0f);
 
-	// Panel geometry, bottom-left. Sized to the figure (with room for the team line
-	// above and the kevlar line below).
-	const int margin = ScreenWidth / 40;
-	const int pad = lineHeight / 2;
-	const int contentH = (figH > lineHeight * 2 ? figH : lineHeight * 2);
-	const int panelW = (figW > 0 ? figW : 24) + ScreenWidth / 9;
-	const int panelH = lineHeight + contentH + lineHeight + pad * 2;
-	const int panelX = margin;
-	const int panelY = ScreenHeight - panelH - ScreenHeight / 40;
-	TSHud_Panel(panelX, panelY, panelW, panelH);
+	// The figure is a two-tone vertical HEALTH-FILL GAUGE: the missing top portion in warn-red, the
+	// filled bottom in half-HUD (empties from the top as health drops).
+	if (hFig != 0)
+	{
+		const int figH = rcF->bottom - rcF->top;
+		const int cap = (m_iHealth < 100) ? m_iHealth : 100;
+		const int missing = figH - (cap * figH) / 100;
+		const int figX = 8, figY = hbY - 4; // (8, SH-52)
+		if (m_iHealth < 100)
+		{
+			Rect rt = { rcF->left, rcF->right, rcF->top, rcF->top + missing };
+			SPR_Set(hFig, wR, wG, wB);
+			SPR_DrawAdditive(0, figX, figY, &rt);
+		}
+		Rect rb = { rcF->left, rcF->right, rcF->top + missing, rcF->bottom };
+		SPR_Set(hFig, halfR, halfG, halfB);
+		SPR_DrawAdditive(0, figX, figY + missing, &rb);
+	}
 
-	const int left = panelX + pad;
-	int y = panelY + pad;
+	// health number @ (72, SH-44) + heart @ (104, SH-48)
+	{
+		const bool lo = m_iHealth < 50;
+		const int nr = lo ? wR : halfR, ng = lo ? wG : halfG, nb = lo ? wB : halfB;
+		TSHud_DrawNumber(0x48, hbY + 4, m_iHealth, nr, ng, nb);
+		if (m_hHeart != 0)
+		{
+			SPR_Set(m_hHeart, nr, ng, nb);
+			SPR_DrawAdditive(0, 0x68, hbY, &m_rcHeart);
+		}
+	}
+	// kevlar sprite (armor>0 only) @ (72, SH-28)
+	if (m_iArmor > 0 && m_hKevlar != 0)
+	{
+		const bool lo = m_iArmor < 50;
+		SPR_Set(m_hKevlar, lo ? wR : halfR, lo ? wG : halfG, lo ? wB : halfB);
+		SPR_DrawAdditive(0, 0x48, hbY + 0x14, &m_rcKevlar);
+	}
 
-	// Team name ("humans"/"specialists") from the local player's networked info.
+	// ---- A. TEAM box (team mode only), above the health box ----
 	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
 	if (lp != nullptr)
 	{
 		const char* team = g_PlayerExtraInfo[lp->index].teamname;
 		if (team != nullptr && team[0] != '\0')
-			TSHud_DrawString(left, y, ScreenWidth, team, hr, hg, hb);
-	}
-	y += lineHeight;
-
-	// Posture figure on the left.
-	const int figY = y + (contentH - figH) / 2;
-	if (hFig != 0)
-	{
-		SPR_Set(hFig, hr, hg, hb);
-		SPR_DrawAdditive(0, left, figY, rcFig);
-	}
-
-	// Health number + heart, to the right of the figure.
-	const int col = left + (figW > 0 ? figW + pad : 28);
-	const int midY = y + (contentH - lineHeight) / 2;
-	// Health as the numbers.spr digit font (the original's HUD number), vertically centred on the line.
-	const int numY = midY + (lineHeight - TS_NUMBER_H) / 2;
-	int nx = TSHud_DrawNumber(col, numY, m_iHealth, hr, hg, hb);
-	if (m_hHeart != 0)
-	{
-		const int heartH = m_rcHeart.bottom - m_rcHeart.top;
-		SPR_Set(m_hHeart, hr, hg, hb);
-		SPR_DrawAdditive(0, nx + pad, midY + (lineHeight - heartH) / 2, &m_rcHeart);
-	}
-
-	// Kevlar indicator below — drawn only when the player has armor (binary), with the
-	// kevlar sprite if present, otherwise the "Kevlar" label.
-	if (m_iArmor > 0)
-	{
-		const int ky = y + contentH;
-		if (m_hKevlar != 0)
 		{
-			SPR_Set(m_hKevlar, hr, hg, hb);
-			SPR_DrawAdditive(0, col, ky, &m_rcKevlar);
+			int tn = g_PlayerExtraInfo[lp->index].teamnumber;
+			if (tn < 0) tn = 0;
+			if (iNumberOfTeamColors > 0) tn %= iNumberOfTeamColors;
+			const int tr = iTeamColors[tn][0], tg = iTeamColors[tn][1], tb = iTeamColors[tn][2];
+			const int tbY = SH - 0x44; // SH-68
+			FillRGBA(8, tbY, BOXW, 0x13, tr, tg, tb, 0x23); // team color, alpha 35
+			TSHud_DrawString(10, tbY, SW, team, tr, tg, tb);
 		}
-		else
-		{
-			TSHud_DrawString(col, ky, ScreenWidth, "Kevlar", hr, hg, hb);
-		}
+	}
+
+	// ---- C. FREE-SLOTS box (always), to the right ----
+	{
+		const int fbY = SH - 0x1c; // SH-28
+		FillRGBA(0x88, fbY, BOXW, 0x13, hr, hg, hb, 0x0f); // (136, SH-28)
+		const bool lo = m_iSpace == 0;
+		const int nr = lo ? wR : halfR, ng = lo ? wG : halfG, nb = lo ? wB : halfB;
+		const int xEnd = TSHud_DrawNumber(0x90, fbY + 2, m_iSpace, nr, ng, nb); // (144, SH-26)
+		const char* lbl = gHUD.m_TextMessage.LookupString("#HUD_FreeSlots"); // -> "free slots"
+		if (lbl == nullptr || lbl[0] == '\0' || lbl[0] == '#') lbl = "free slots";
+		TSHud_DrawString(xEnd + 8, fbY, SW, lbl, nr, ng, nb);
 	}
 
 	return true;

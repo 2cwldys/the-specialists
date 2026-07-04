@@ -83,8 +83,12 @@ static const char* const s_caliberNames[] = {
 };
 static const int s_numCalibers = sizeof(s_caliberNames) / sizeof(s_caliberNames[0]);
 
-// Fire-mode labels, indexed by the WeaponInfo fireMode byte (tsfiremode_mode_t).
-static const char* const s_fireModeNames[] = {"Full Auto", "Semi Auto", "Burst", "Pump Action", "Akimbo", "Akimbo"};
+// Fire-mode labels, indexed by the WeaponInfo fireMode byte (tsfiremode_mode_t). RE'd from the
+// client.dll ammo-panel switch (FUN_1004a3e0-adjacent, #HUD_* tokens @0x95e20..): 0 Full Auto,
+// 1 Semi Auto, 2 Burst, 3 Pump Action, 4 Free Semi, 5 Free Full. "Free" = the akimbo per-barrel
+// firemode (click to fire the respective gun): akimbo pistols toggle Semi Auto<->Free Semi, akimbo
+// SMGs (uzi) toggle Full Auto<->Free Full. NOT "Akimbo" (that was wrong).
+static const char* const s_fireModeNames[] = {"Full Auto", "Semi Auto", "Burst", "Pump Action", "Free Semi", "Free Full"};
 static const int s_numFireModes = sizeof(s_fireModeNames) / sizeof(s_fireModeNames[0]);
 
 // Melee/grenade weapons (no magazine) show just the name — no caliber/clip/reserve.
@@ -263,7 +267,8 @@ bool CHudTSAmmo::Draw(float flTime)
 		FillRGBA(x, y, BOXW, LINEH - 1, hr, hg, hb, lines[i].light ? 0x2a : 0x0f);
 		if (lines[i].kind == LK_AMMO)
 		{
-			TSHud_DrawNumberPair(x + 2, y + (LINEH - 1 - TS_NUMBER_H) / 2, m_iClip, m_iReserve,
+			// "[  clip  /  reserve  ]" — slash centred in the box, each number centred in its half.
+			TSHud_DrawNumberPair(x + 2, x + BOXW - 2, y + (LINEH - 1 - TS_NUMBER_H) / 2, m_iClip, m_iReserve,
 				lines[i].r, lines[i].g, lines[i].b);
 		}
 		else if (lines[i].kind == LK_ATTACH)
