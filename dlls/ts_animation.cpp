@@ -330,6 +330,7 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	const bool seqPlaying = (pPlayer->m_fSequenceFinished == 0);
 	const bool alive = pPlayer->IsAlive() != 0;
 	const bool onladder = pPlayer->IsOnLadder() != 0;
+	bool gaitCCHold = false; // @orig: the a4 high byte, set by the gait-CC hold below
 	if (!IsInCloseCombat(m_iLastActivity))
 	{
 		switch (m_iLastActivity)
@@ -427,13 +428,34 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 			break;
 		}
 	}
+	// The CLOSE-COMBAT HOLD (RE Animate raw @0x6bf20-0x6bf5x, the else of the Region-B gate): a CC
+	// sequence is still PLAYING (m_iLastActivity is CC, m_fSequenceFinished==0) and the incoming
+	// activity is a plain per-frame RUN/IDLE (not CC, not a stunt transition): a FULL-BODY CC move
+	// (GaitCloseCombat==0 — the kicks, CLEARLEGS) RETURNS, holding torso AND legs — live-verified on
+	// the original: gaitsequence stays 0 through the whole jump-sidekick and only re-populates at the
+	// getup frame. A GAIT CC move (punch/knife/katana, keep-legs) skips Phase C (torso keeps the CC
+	// pose) but still falls through to the LEG block. (m_bCCStarted (+0x1e8) is verbatim from the
+	// binary but ALWAYS 0 — its only writers, Init/HandleCloseCombat, write 0 — so the
+	// (!m_bCCStarted || !onground) term never blocks.)
+	else if (pPlayer->m_fSequenceFinished == 0 && !IsInCloseCombat(activity) && alive &&
+			 activity != TSA_DIVE && activity != TSA_ROLL && activity != TSA_DIVE_END &&
+			 activity != TSA_BULLETTIME && activity != TSA_LOWWHEEL && activity != TSA_WHEEL &&
+			 activity != TSA_WALLJUMP && activity != TSA_WALLCLIMB && activity != TSA_MORFY &&
+			 (!m_bCCStarted || !onground))
+	{
+		if (GaitCloseCombat(m_iLastActivity, pPlayer) == 0)
+			return; // full-body close combat: hold everything
+		gaitCCHold = true; // gait close combat: keep the torso, legs keep gaiting below
+	}
 
-	// ---- Phase C: pick & set the NEW body sequence ---------------------------
-	bool ccHandled = false;
-	if (IsInCloseCombat(activity))
+	// ---- Phase C: pick & set the NEW body sequence (skipped during a gait-CC hold) -----------------
+	if (gaitCCHold)
+	{
+		// torso held; fall through to the leg block
+	}
+	else if (IsInCloseCombat(activity))
 	{
 		HandleCloseCombat(pPlayer, activity);
-		ccHandled = true;
 	}
 	else switch (activity)
 	{
@@ -749,15 +771,21 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	// ---- Phase D: the shared LEG (gait) block + the kungfu body-sync (RE Animate bottom, lines 977+).
 	// Reached by fall-through from RUN/IDLE and from fire/reload/grenade, so the legs keep animating
 	// during firing (run-and-gun). Legs are a SEPARATE sequence (pev->gaitsequence) from the torso. ----
-	if (!ccHandled)
+	// @orig (leg-block entry): `if (byte==0) m_iLastActivity = a1` — updates on the CC DISPATCH frame
+	// too (m_iLastActivity becomes the CC move id, which is what arms the CC hold above on the
+	// following per-frame calls); only the gait-CC hold pass keeps the CC id by skipping the update.
+	if (!gaitCCHold)
 		m_iLastActivity = activity;
 
 	if (!onground)
 		return; // airborne non-jump: keep whatever's playing
 
 	// Skip the gait during an active stunt (dive/slide/roll/wheel set iuser4 bits) so it keeps its
-	// full-body pose instead of stamping run2/walk2 legs on it. @orig (iuser4 & 0x30c30)==0.
-	if ((pev->iuser4 & 0x30c30) == 0)
+	// full-body pose instead of stamping run2/walk2 legs on it, AND on a full-body close-combat
+	// dispatch frame (@orig gate: `!IsInCloseCombat(a1) || GaitCloseCombat(a1)` — the kick's
+	// CLEARLEGS gait must stay cleared; live-verified gait==0 through the original's sidekick).
+	if ((pev->iuser4 & 0x30c30) == 0 &&
+		(!IsInCloseCombat(activity) || GaitCloseCombat(activity, pPlayer) != 0))
 	{
 		const char *legName;
 		if (ducking)
@@ -799,7 +827,11 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 	// Kungfu body-sync: the TORSO follows the leg gait (run2/walk2 while moving, combat_idle standing),
 	// so bare hands NEVER freezes in the fighting stance while running. Gated exactly like @orig: bare
 	// hands, no override, not holding a fresh attack (aim-timer AND sequence not finished), torso != legs.
-	if (!ccHandled && kungfu && pPlayer->m_szAnimOverride[0] == 0 &&
+	// @orig sync gate uses GaitCloseCombat(a1)==0 (not a ccHandled bool): per-frame RUN/IDLE passes,
+	// a gait-CC dispatch frame (punch) is blocked; a full-body kick dispatch passes the gate but the
+	// fresh aim-timer + un-finished sequence term blocks it.
+	if (kungfu && pPlayer->m_szAnimOverride[0] == 0 &&
+		GaitCloseCombat(activity, pPlayer) == 0 &&
 		!(m_flAimTimer >= 0.01f && pPlayer->m_fSequenceFinished == 0) &&
 		pPlayer->pev->sequence != pPlayer->pev->gaitsequence)
 	{

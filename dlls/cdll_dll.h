@@ -170,6 +170,10 @@ constexpr Vector VEC_VIEW(0, 0, 28);
 
 constexpr Vector VEC_DUCK_HULL_MIN(-16, -16, -18);
 constexpr Vector VEC_DUCK_HULL_MAX(16, 16, 18);
-constexpr Vector VEC_DUCK_VIEW(0, 0, 12);
+// TS duck eye = 16, NOT stock HL 12 — the original PM_Duck writes 16.0 directly (@0xea194,
+// mp.dll live-verified viewz=16 while ducked), and TSStandUp's duck branch / the kick land-low
+// overlay / Play's getup (FL_DUCKING ? 16 : 28) all agree. Stock 12 made our predicted duck
+// eye fight the server's 16 (visible 28->12->16 pop at duck press, cont.86 [ST] trace).
+constexpr Vector VEC_DUCK_VIEW(0, 0, 16);
 
 constexpr Vector VEC_DEAD_VIEW(0, 0, -8);
