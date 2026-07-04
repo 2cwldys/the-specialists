@@ -975,37 +975,45 @@ void CStudioModelRenderer::StudioSetupBones()
 			m_pPlayerInfo->gaitsequence = 0;
 		}
 
-		bool copy = true;
-
 		pseqdesc = (mstudioseqdesc_t*)((byte*)m_pStudioHeader + m_pStudioHeader->seqindex) + m_pPlayerInfo->gaitsequence;
 
 		panim = StudioGetAnim(m_pRenderModel, pseqdesc);
 		StudioCalcRotations(pos2, q2, pseqdesc, panim, m_pPlayerInfo->gaitframe);
 
+		// TS: snapshot the ORIGINAL torso root orientation BEFORE the loop overwrites q[0]
+		// with the gait root — the split re-base measures the yaw delta against it.
+		vec4_t q_torso_root;
+		memcpy(q_torso_root, q[0], sizeof(vec4_t));
+
 		for (i = 0; i < m_pStudioHeader->numbones; i++)
 		{
 			auto bone = &pbones[i];
 
-			// TS: the player skeletons are ITALIAN-boned ("Bip01 Dorso" = Spine, "Bip01
-			// Bacino" = Pelvis) — the original client.dll adds "Bip01 Dorso" to the stock
-			// split (both strings ship in reference/client.dll). Without it the gait owned
-			// the WHOLE skeleton and the fire/aim torso never rendered while moving.
+			// TS: the player skeletons are ITALIAN-boned ("Bip01 Dorso" = Spine). The original
+			// client.dll (StudioSetupBones, FUN_10031080) copies the gait pose into every bone up
+			// to the first "Bip01 Dorso"/"Bip01 Spine", then RE-BASES that split bone's yaw and
+			// STOPS — it does NOT just leave the torso pose there. The re-base cancels the gait yaw
+			// that the parent chain injected, so the upper body follows the torso (aim) facing
+			// instead of the legs' movement direction. Without it, the spine bone kept its
+			// torso-authored local pose atop a gait-rotated parent → the whole upper body was
+			// double-rotated → the visible spine kink while moving with melee.
 			if (0 == strcmp(bone->name, "Bip01 Spine") || 0 == strcmp(bone->name, "Bip01 Dorso"))
 			{
-				copy = false;
-			}
-			else if (bone->parent >= 0 &&
-					 bone->parent < m_pStudioHeader->numbones &&
-					 0 == strcmp(pbones[bone->parent].name, "Bip01 Pelvis"))
-			{
-				copy = true;
+				float angRoot[3], angCur[3], angBone[3];
+
+				QuaternionAngles(q_torso_root, angRoot); // yaw of the ORIGINAL torso root
+				QuaternionAngles(q[0], angCur);          // yaw of the CURRENT root == gait root (copied at i==0)
+				float yawDelta = angRoot[2] - angCur[2]; // torso_yaw - gait_yaw   (index 2 = yaw)
+
+				QuaternionAngles(q[i], angBone);         // the spine bone's torso-authored pose
+				angBone[0] += yawDelta;                  // inject the yaw delta into the spine's local roll (index 0)
+				AngleQuaternion(angBone, q[i]);          // write the re-based spine quat back
+
+				break;                                   // bones after the spine keep their torso pose
 			}
 
-			if (copy)
-			{
-				memcpy(pos[i], pos2[i], sizeof(pos[i]));
-				memcpy(q[i], q2[i], sizeof(q[i]));
-			}
+			memcpy(pos[i], pos2[i], sizeof(pos[i]));
+			memcpy(q[i], q2[i], sizeof(q[i]));
 		}
 	}
 

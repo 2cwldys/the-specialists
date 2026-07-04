@@ -129,6 +129,39 @@ void QuaternionMatrix(vec4_t quaternion, float (*matrix)[4])
 
 /*
 ====================
+QuaternionAngles
+
+quat -> euler (RADIANS), studio convention: angles[0]=roll(local X), [1]=pitch, [2]=yaw.
+Mirrors client.dll FUN_1002ffe0 = QuaternionMatrix + MatrixAngles (asin-pitch form).
+====================
+*/
+void QuaternionAngles(vec4_t quaternion, float* angles)
+{
+	float matrix[3][4];
+	QuaternionMatrix(quaternion, matrix);
+
+	float sp = -matrix[2][0];
+	if (sp < -1.0f)
+		sp = -1.0f;
+	else if (sp > 1.0f)
+		sp = 1.0f;
+	angles[1] = asin(sp); // pitch
+
+	// gimbal-lock guard: pitch within ~0.01 rad of +/- pi/2 (matches the original's eps)
+	if (fabs(fabs(angles[1]) - (float)(M_PI * 0.5)) < 0.01f)
+	{
+		angles[0] = 0.0f;
+		angles[2] = atan2(-matrix[0][1], matrix[1][1]);
+	}
+	else
+	{
+		angles[0] = atan2(matrix[2][1], matrix[2][2]); // roll
+		angles[2] = atan2(matrix[1][0], matrix[0][0]); // yaw
+	}
+}
+
+/*
+====================
 MatrixCopy
 
 ====================
