@@ -158,8 +158,8 @@ Player (m_pPlayer):
 - `player+0x7a0` — **m_flWhiffLungeForce** = ±scaled-lunge `[0x1c]` on miss (sign-flip if bVar9==3).
 - `player+0x7a4` — **m_iWhiffLungeType** = 0 on miss.
 - `player+0x7a8` — **m_flKungFuBlock** = 0 (cleared at tail end).
-- `player+0x814` — punch-cadence bit (D2 predicate `(b^1)&1`). member name TBD.
-- `player+0x815` — kick-finisher bit `& 8` (B4a predicate). member name TBD.
+- `player+0x814` — RESOLVED (cont.86): stock `m_afButtonPressed` (PreThink edge trio +0x810/814/818); D2 = pressed & IN_ATTACK.
+- `player+0x815` — RESOLVED (cont.86): byte 1 of m_afButtonPressed; &8 = IN_ATTACK2 (0x800) freshly pressed (B4a).
 - `player+0x510/0x514/0x518` — stored move-dir used by Animate (not CCombatAttack).
 - `player+0x1a5` (flags byte+1) — FL_ONGROUND (bit 0x2) / FL_DUCKING (bit 0x40) tests.
 
