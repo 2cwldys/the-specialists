@@ -450,6 +450,12 @@ void DLLEXPORT IN_MouseEvent(int mstate)
 	if (gHUD.m_TSBuyMenu.IsUp())
 	{
 		gHUD.m_TSBuyMenu.HandleMouse(mstate);
+		// Keep the edge-detect state in sync while the menu absorbs clicks. Otherwise mouse_oldbuttonstate
+		// stays frozen (the early return skips the update below), and when the menu closes the next
+		// IN_MouseEvent compares the live button to that stale state and synthesizes a spurious
+		// Key_Event(K_MOUSE1) = +attack DOWN — which then fires the freshly-spawned weapon (the
+		// "buy-menu click -> fire on spawn" bug). The click was consumed by the menu; it must NOT leak.
+		mouse_oldbuttonstate = mstate;
 		return;
 	}
 
