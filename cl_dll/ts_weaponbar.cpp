@@ -69,6 +69,17 @@ static const char* const s_spriteName[] = {
 };
 static const int TSW_COUNT_LOCAL = sizeof(s_weaponColumn) / sizeof(s_weaponColumn[0]);
 
+// "Only guns have the crosshair" — the reticle's aiming crosshair (donut sight + NSEW ticks)
+// is suppressed for melee/grenade/flag (weapon column 1); guns are column >= 2 (pistols/SMGs/
+// rifles/akimbo). Reads the active weaponType tracked by the WeaponInfo message.
+bool TS_ActiveWeaponIsGun()
+{
+	const int t = g_iTSActiveWeapon;
+	if (t < 0 || t >= TSW_COUNT_LOCAL)
+		return false; // unarmed / unknown -> no crosshair
+	return s_weaponColumn[t] >= 2;
+}
+
 // Per-weapon clip capacity (max rounds per clip), indexed by tsweapon_t — the iClip column of the
 // server weapon table (dlls/ts_weapons.cpp; the client has the same data in its own weapon table).
 // Drawn as "curclip/maxclip" for the highlighted weapon. 0 = none (flag).

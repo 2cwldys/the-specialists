@@ -98,23 +98,30 @@ bool CHudTSReticle::Draw(float flTime)
 	const int cx = ScreenWidth / 2;
 	const int cy = ScreenHeight / 2;
 
-	// center crosshair (64x64). The DARK donut RING is cross2 (transparent bg) drawn near-black; the
-	// four NSEW ticks + the centre dot are small (~4x1px) LIGHT line-draws in the ring's gaps (the
-	// original draws them as lines, not sprite art).
-	if (m_hCross2)
-	{
-		SPR_Set(m_hCross2, 16, 16, 16); // near-black donut ring — TUNED
-		SPR_DrawHoles(0, cx - 32, cy - 32, NULL);
-	}
-	// NSEW ticks 2x4 (4x2 horizontals): the dot's BASE blue (the lit dot is this +30%). No centre dot.
-	// With a LASERSIGHT the ticks pull IN toward centre (the laser gives the precise aim).
 	const bool laser = TS_LocalHasLaser();
 	const int tr = 80, tg = 130, tb = 185;
-	const int to = laser ? 15 : 21; // outer offset of the N/W ticks (S/E inner edge = to-4)
-	FillRGBA(cx - 1,      cy - to,     2, 4, tr, tg, tb, 255); // N tick
-	FillRGBA(cx - 1,      cy + to - 4, 2, 4, tr, tg, tb, 255); // S tick
-	FillRGBA(cx + to - 4, cy - 1,      4, 2, tr, tg, tb, 255); // E tick
-	FillRGBA(cx - to,     cy - 1,      4, 2, tr, tg, tb, 255); // W tick
+
+	// The aiming crosshair (donut "sprite sight" + the NSEW ticks) shows ONLY for guns — melee/
+	// grenade/flag suppress it (only the dive/weight arc below stays). RE: the original client.dll
+	// gates the reticle crosshair on the active weapon (column>=2 == a firearm).
+	if (TS_ActiveWeaponIsGun())
+	{
+		// center crosshair (64x64). The DARK donut RING is cross2 (transparent bg) drawn near-black; the
+		// four NSEW ticks + the centre dot are small (~4x1px) LIGHT line-draws in the ring's gaps (the
+		// original draws them as lines, not sprite art).
+		if (m_hCross2)
+		{
+			SPR_Set(m_hCross2, 16, 16, 16); // near-black donut ring — TUNED
+			SPR_DrawHoles(0, cx - 32, cy - 32, NULL);
+		}
+		// NSEW ticks 2x4 (4x2 horizontals): the dot's BASE blue (the lit dot is this +30%). No centre dot.
+		// With a LASERSIGHT the ticks pull IN toward centre (the laser gives the precise aim).
+		const int to = laser ? 15 : 21; // outer offset of the N/W ticks (S/E inner edge = to-4)
+		FillRGBA(cx - 1,      cy - to,     2, 4, tr, tg, tb, 255); // N tick
+		FillRGBA(cx - 1,      cy + to - 4, 2, 4, tr, tg, tb, 255); // S tick
+		FillRGBA(cx + to - 4, cy - 1,      4, 2, tr, tg, tb, 255); // E tick
+		FillRGBA(cx - to,     cy - 1,      4, 2, tr, tg, tb, 255); // W tick
+	}
 
 	// LEFT arc: divestept / divestepc / divestepb (40x80 each). Each sprite holds its third of the
 	// "(" arc at a different vertical spot in its own canvas, so they're drawn AT THE SAME POSITION
