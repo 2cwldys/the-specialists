@@ -5,6 +5,44 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-03 (cont. 87) — 3rd-person spine twist (upper body looking left while moving w/ melee) FIXED — split-bone yaw re-base
+
+Commit `4a0b466` (fix) + `031bd75` (dossier `reference/dossiers/cont87/spine_blend.md`). Build-green, server
+nm-T unchanged (client-only), deployed, ✅ user-verified ("looks correct").
+
+**Symptom:** in 3rd person, moving (walk/run) while holding a melee weapon (katana/knife), OUR client twisted
+the upper body/spine sideways (torso faced a different direction than the legs). Original keeps it aligned. User
+screenshots confirmed a spine kink.
+
+**Root cause:** our gait bone-merge in `StudioSetupBones` (`cl_dll/StudioModelRenderer.cpp`) hard-copied the gait
+pose into bones up to the spine (`Bip01 Dorso`), then LEFT the torso's authored local pose on that split bone —
+which sat atop a gait-rotated parent chain → the whole upper body was DOUBLE-rotated → the kink. (Our old code
+was the stock-HL hard-copy + the italian `Bip01 Dorso` name; it MISSED the TS-specific re-base.)
+
+**Fix (RE'd asm-exact, dossier-subagent, keeps decompile out of context):** the original client.dll
+`StudioSetupBones` (`FUN_10031080` @ RVA 0x31080) re-bases the split bone: snapshot the torso root yaw BEFORE the
+copy loop overwrites `q[0]` with the gait root; copy gait up to the first `Bip01 Dorso`/`Bip01 Spine`; at that
+bone set `yawDelta = torso_root_yaw − gait_root_yaw` and inject it into the spine's local ROLL (index 0, the
+twist axis for the italian Dorso whose local-X runs up the spine) via QuaternionAngles→AngleQuaternion, then
+`break`. Re-basing the single Dorso bone rotates the ENTIRE upper body (all upper bones are its children) back
+into aim alignment. Added `QuaternionAngles` (quat→euler, asin-pitch form; `FUN_1002ffe0` = QuaternionMatrix +
+MatrixAngles) to `studio_util.cpp/.h` — quat→angles was missing from our tree.
+
+Helper IDs (all HIGH, asm-traced): 0x2fdf0=QuaternionMatrix, 0x2fbd0=AngleQuaternion, 0x2fef0=MatrixAngles,
+0x2ffe0=QuaternionAngles, 0x2fa90=ConcatTransforms, 0x30010=quat copy. Angle convention [0]=roll,[1]=pitch,[2]=yaw.
+Only MED-confidence piece = the gimbal-lock fold eps (inert for spine/root bones, never near ±90°).
+
+Method: focused general-purpose dossier-subagent decompiled the merge fn + math helpers, IDed each, derived the
+exact split algorithm, cross-checked vs stock-HL gait merge, and returned a drop-in using our var names. Cleared
+the cont.86 gait "QUESTION 3" head-turn item (the authored knife_idle head pose was a red herring — the real
+divergence was this missing spine re-base). Superseded the reverted gait Fix 1 (`fps*dt`, #14 was a separate speed
+concern; line 1441 remains plain `fps*dt`).
+
+**Next:** the reverted #14 walk2/run2 gait SPEED item (separate from this twist) still open if it re-surfaces;
+HUD bottom-left layout; HUD powerup icons; audit.py parity loop; iuser4-on-the-wire decision.
+
+---
+
 ## 2026-07-03 (cont. 86 cont.3) — gait speed + player blob shadow (IN PROGRESS, uncommitted) + full HANDOFF for next agent
 
 Dossier `reference/dossiers/cont86/gait_and_shadow.md`. Two CLIENT presentation items, deployed + pending user verify:
