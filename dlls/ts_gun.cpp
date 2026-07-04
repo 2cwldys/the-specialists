@@ -3045,63 +3045,121 @@ static void TSThrowWorldGun(CBasePlayer *pPlayer, CTSGun *pGun, int type, int cl
 	pPlayer->ThrowWeapon(type, status, NULL, &lateral);
 }
 
-// @ CBasePlayer::DropWeapon (@0x84900) — drop the player's ACTIVE TS weapon into the world.
-// Faithful akimbo branches (reference/WEAPON_SELECT.md):
-//  - dropping a combinable AKIMBO (fire-type 4) throws TWO of its base single (clip split in
-//    half, tossed ±4) and removes BOTH items[akimbo] and items[single];
-//  - dropping a SINGLE while you also own its akimbo throws ONE single, then keeps the single
-//    owned (its clip becomes the akimbo's right barrel) and removes the akimbo item;
-//  - any other weapon throws one and is removed.
-// Returns true if anything was dropped.
-// @0x84900 CBasePlayer::DropWeapon — drop the player's ACTIVE TS weapon into the world.
-bool CBasePlayer::DropWeapon()
+// @0x84900 CBasePlayer::DropWeapon(tsweapon_t type, float damage) — the ONE drop entry point (RE'd
+// merge of our previously-split DropWeapon()/DropWeapon(int,float); dossier cont87/weapon_drop.md):
+//   type <  0  -> the ACTIVE weapon   (-1 = the "drop" key; -2 = disarm, gated by melee pressure)
+//   type >= 0  -> that SPECIFIC owned type (the weapon-select "drop_<N>" right-click)
+// Akimbo branches (reference/WEAPON_SELECT.md): a combinable AKIMBO throws TWO base singles (clip
+// split, ±4) and removes both items; a SINGLE whose akimbo we also own throws one + keeps the other
+// barrel; else throw one and remove. The CTF flag drops ONLY in the out-of-range (bare-handed) branch
+// — NOT unconditionally on every weapon drop (dossier §control-flow; VERIFY the bare-handed trigger).
+bool CBasePlayer::DropWeapon(int type, float flDamage)
 {
 	CBasePlayer *pPlayer = this;
-	pPlayer->DropFlag(false); // CTF: the drop key also drops a carried flag
-
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun)
 		return false;
 
-	const int type = pGun->m_weaponType;
-	if (type < 1 || type >= TSW_COUNT || !pGun->m_items[type].owned)
+	// disarm (-2) can't take the flag or bare hands
+	if ((pGun->m_weaponType == TSW_FLAG || pGun->m_weaponType < 1) && type == -2)
 		return false;
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)type);
+
+	bool fThrow = true; // true => reselect after the arsenal clear; false (disarm) => holster only
+
+	// disarm (-2): accumulate melee pressure; only knock the weapon out past the threshold
+	if (type == -2)
+	{
+		m_flDisarmPressure += flDamage;
+		int thr = 30; // katana / default
+		if (pGun->m_weaponType != TSW_KATANA)
+		{
+			thr = 25; // the melee category (GetWeaponType == 3)
+			if (GetWeaponType((tsweapon_t)pGun->m_weaponType) != 3)
+			{
+				const s_weapon_info *awi = get_weapon_info((tsweapon_t)pGun->m_weaponType);
+				int sc = awi ? awi->slotCost : 20;
+				thr = (sc < 21) ? 20 : (sc < 50 ? sc : 50); // clamp(slotCost, 20, 50)
+			}
+		}
+		if (m_flDisarmPressure < (float)thr)
+			return false;
+		fThrow = false;
+		m_flDisarmPressure = 0.0f;
+	}
+
+	// resolve the target: negative -> the active weapon; non-negative -> that specific type
+	const int a0 = (type < 0) ? pGun->m_weaponType : type;
+
+	// out of weapon range (bare hands / the flag slot) -> a CTF flag drop (drop key only, not disarm)
+	if (a0 < 1 || a0 >= TSW_COUNT)
+	{
+		if (type == -2)
+			return false;
+		if (!m_flagStatus.active) // HaveFlag()
+			return false;
+		DropFlag(false);
+		return true;
+	}
+
+	if (!pGun->m_items[a0].owned)
+		return false;
+	const s_weapon_info *wi = get_weapon_info((tsweapon_t)a0);
 	if (!wi->pszWorldModel) // kung-fu / katana &c. have no droppable world model
 		return false;
+
+	// park the active weapon's live clip so m_items[a0].clip is current for ANY a0 (active or not)
+	pGun->SyncActiveToItem();
+	const bool wasActive = (a0 == pGun->m_weaponType);
 
 	// 1) combinable akimbo -> throw two base singles, remove both items.
 	if (wi->iFireType == TSFT_AKIMBO && wi->iSingleType >= 1 && wi->iSingleType < TSW_COUNT)
 	{
 		const int single = wi->iSingleType;
-		const int total = pGun->m_iClip; // live total (= leftClip+rightClip)
+		const int total = pGun->m_items[a0].clip;
 		const int half = total / 2;
 		TSThrowWorldGun(pPlayer, pGun, single, half, 4.0f);
 		TSThrowWorldGun(pPlayer, pGun, single, total - half, -4.0f);
-		pGun->DropWeapon(type, true);   // remove the akimbo (auto-selects next)
-		pGun->DropWeapon(single, true); // and the single base, if it was also owned
-		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
-		return true;
+		pGun->DropWeapon(a0, fThrow);     // remove the akimbo (auto-selects next if it was active)
+		pGun->DropWeapon(single, fThrow); // and the base single, if it was also owned
 	}
-
 	// 2) single whose akimbo we ALSO own -> throw one, keep the other (clip = akimbo right barrel).
-	if (wi->iAkimboType >= 1 && wi->iAkimboType < TSW_COUNT && pGun->m_items[wi->iAkimboType].owned)
+	else if (wi->iAkimboType >= 1 && wi->iAkimboType < TSW_COUNT && pGun->m_items[wi->iAkimboType].owned)
 	{
 		const int akimbo = wi->iAkimboType;
-		const int thrownClip = pGun->m_iClip;                 // the dropped gun keeps the live clip
-		const int keptClip = pGun->m_items[akimbo].rightClip; // the kept single takes the other barrel
-		TSThrowWorldGun(pPlayer, pGun, type, thrownClip, 0.0f);
-		pGun->m_items[type].clip = keptClip;
-		pGun->DropWeapon(akimbo, false);     // remove the akimbo item (type stays owned + active)
-		pGun->m_iClip = keptClip;          // refresh the live clip of the kept single
-		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
-		return true;
+		const int keptClip = pGun->m_items[akimbo].rightClip;
+		TSThrowWorldGun(pPlayer, pGun, a0, pGun->m_items[a0].clip, 0.0f);
+		pGun->m_items[a0].clip = keptClip;
+		pGun->DropWeapon(akimbo, false); // remove the akimbo item (a0 stays owned)
+		if (wasActive)
+			pGun->m_iClip = keptClip; // refresh the live clip if a0 is the held weapon
+	}
+	// 3) stackable throwable (knife/sealknife/m61): .clip is a UNIT count.
+	else if (wi->iStackable)
+	{
+		const int throwN = (type == -2) ? 1 : pGun->m_items[a0].clip; // disarm throws one unit
+		TSThrowWorldGun(pPlayer, pGun, a0, throwN, 0.0f);
+		if (throwN < pGun->m_items[a0].clip)
+		{
+			pGun->m_items[a0].clip -= throwN; // units remain
+			if (wasActive)
+				pGun->m_iClip = pGun->m_items[a0].clip;
+		}
+		else
+			pGun->DropWeapon(a0, fThrow);
+	}
+	// 4) plain weapon -> throw one, remove it.
+	else
+	{
+		TSThrowWorldGun(pPlayer, pGun, a0, pGun->m_items[a0].clip, 0.0f);
+		pGun->DropWeapon(a0, fThrow);
 	}
 
-	// 3) plain weapon -> throw one, remove it.
-	TSThrowWorldGun(pPlayer, pGun, type, pGun->m_iClip, 0.0f);
-	pGun->DropWeapon(type, true);
+	// VERIFY (dossier §11): type<0 (drop key/disarm) should set a re-pickup delay + owner on the
+	// thrown gun; type>=0 (drop_<N>) leaves it instantly re-pickable. Not reconstructed (CTSWorldGun
+	// pickup-expire fields un-mapped). The grenade cooked-throw (GrenadeIdle) is also deferred — M61
+	// drops via the stackable path above. TODO.
 	EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
+	SetPlayerSpeed(GetSpeedBySlots(pPlayer));
 	return true;
 }
 

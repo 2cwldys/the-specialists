@@ -867,43 +867,9 @@ void CBasePlayer::CheckHull(Vector vecSrc, Vector vecEnd, TraceResult &tr, int i
 // DMG_CLUB|DMG_NEVERGIB (RE CloseCombatAttack @0x8646c: bits 0x4001080).
 #define DMG_TSCLOSECOMBAT 0x4000000
 
-// @0x84900 (the -2 disarm path of) DropWeapon(tsweapon_t, float) — RE'd from the decompile
-// (scratchpad/dropweapon.c): melee hits ACCUMULATE disarm pressure (player+0x7b4, PreThink-
-// decayed at 5x the frame delta); crossing the per-weapon threshold — katana 30 / the melee
-// weapon category 25 / clamp(slotCost, 20, 50) for guns — knocks the ACTIVE weapon out and
-// resets the accumulator. The flag (TSW_FLAG) and empty hands can't be disarmed.
-// Regular-type drops stay on the drop-key DropWeapon() (ts_gun.cpp); only -2 routes here.
-bool CBasePlayer::DropWeapon(int iType, float flDamage)
-{
-	if (iType != -2)
-		return false; // only the disarm sentinel is routed through this shape
-
-	CTSGun *pGun = GetPlayerTSGun(this);
-	if (!pGun || !m_pActiveItem)
-		return false;
-	const int wt = pGun->m_weaponType;
-	if (wt == TSW_FLAG || wt < 1)
-		return false;
-
-	m_flDisarmPressure += flDamage;
-
-	float threshold;
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)wt);
-	if (wt == TSW_KATANA)
-		threshold = 30.0f;
-	else if (wi && wi->iFireType == 3) // the melee weapon category (GetWeaponType()==3)
-		threshold = 25.0f;
-	else
-	{
-		int slot = wi ? wi->slotCost : 20;
-		threshold = (float)(slot < 21 ? 20 : (slot < 50 ? slot : 50));
-	}
-	if (m_flDisarmPressure < threshold)
-		return false;
-
-	m_flDisarmPressure = 0.0f;
-	return DropWeapon(); // knock the active weapon out (the drop machinery, ts_gun.cpp)
-}
+// NB: the -2 disarm path is now folded into the single CBasePlayer::DropWeapon(int type, float
+// flDamage) in ts_gun.cpp (the faithful merge of the original's one @0x84900 function) — the split
+// disarm-only shape here was removed. Disarm callers still call DropWeapon(-2, flDamage).
 
 // @0x85f88 CloseCombatAttack — the shared melee hit-resolver (kung-fu twin; the coldcock sibling
 // below sets glast_coldcock instead). Trace via CheckHull, gates, VictimKungfuHold deflect,

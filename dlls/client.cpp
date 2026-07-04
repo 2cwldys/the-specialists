@@ -638,11 +638,19 @@ void ClientCommand(edict_t* pEntity)
 			}
 		}
 	}
-	else if (FStrEq(pcmd, "drop")) // TS: drop the active weapon into the world (default.cfg binds t)
+	else if (!strncmp(pcmd, "drop_", 5) && pcmd[5] >= '0' && pcmd[5] <= '9')
 	{
-		// CBasePlayer::DropWeapon does the throws + the faithful akimbo bookkeeping (akimbo ->
+		// TS weapon-select RIGHT-click: the select bar emits "drop_<N>" (numeric tsweapon_t) to drop
+		// that SPECIFIC owned type from the arsenal (reference/dossiers/cont87/weapon_drop.md). type>=0
+		// path: drop that type (reselect only if it was active); no re-pickup delay/owner (unlike the
+		// drop key). The digit guard keeps this from matching the exact "drop" key command below.
+		player->DropWeapon(atoi(pcmd + 5), 0.0f);
+	}
+	else if (FStrEq(pcmd, "drop")) // TS: drop the ACTIVE weapon into the world (default.cfg binds t)
+	{
+		// type -1 => the active weapon; DropWeapon does the throws + akimbo bookkeeping (akimbo ->
 		// two singles; a single dropped while its akimbo is owned leaves the other barrel).
-		player->DropWeapon();
+		player->DropWeapon(-1, 0.0f);
 	}
 	else if (FStrEq(pcmd, "tsbuy")) // TS: buy a weapon (free; restriction-gated). SLICE: cl_dll menu
 	{

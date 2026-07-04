@@ -491,7 +491,6 @@ public:
 
 	bool TakeFlag(s_flag_status *src);                    // @0x83830 — pick up a flag onto m_flagStatus
 	void DropFlag(bool bSilent);                          // @0x8334c — drop it (false=spawn loose flag)
-	bool DropWeapon();                                    // @0x84900 — drop the active TS weapon (the drop key)
 	CTSWorldGun *ThrowWeapon(int type, const TSItem &status, const Vector *angleOffset, const Vector *velOffset); // @0x8529c
 	void CutWire(int wire);                               // cut a bomb wire (the cutwire_<n> command)
 	void SetPlayerSpeed(float speed);                     // @0x83068 — clamp [0,330] + SetClientMaxspeed
@@ -501,7 +500,7 @@ public:
 	void UpdateMeleeBar(float flAmount);                  // @0x8650c — THE melee-stamina drain choke-point (sends KFuPower)
 	void BlockPlayer(float flDuration);                   // @0x85b58 — post-swing movement self-root (STOP bit + m_flBlockTime)
 	void CheckHull(Vector vecSrc, Vector vecEnd, TraceResult &tr, int iHull); // @0x85e28 — melee line+hull trace
-	bool DropWeapon(int iType, float flDamage);           // @0x84900 (disarm shape): -2 = active weapon; roll VERIFY-gated
+	bool DropWeapon(int type, float flDamage);            // @0x84900 — THE drop entry: type<0=active(-1 key/-2 disarm), type>=0=that specific type (drop_<N>)
 	// @0x85f88 / @0x86610 — the shared melee hit-resolver twins (kung-fu / coldcock)
 	CBaseEntity *CloseCombatAttack(Vector vecSrc, Vector vecEnd, Vector vecDir, int iHull, float flDamage,
 		int iAnim, bool bDisarm, bool bPlayersOnly, bool bKnockback, bool bForceTeamSafe);

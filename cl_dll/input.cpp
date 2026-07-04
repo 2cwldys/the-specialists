@@ -934,6 +934,18 @@ void CL_ResetButtonBits(int bits)
 			in_attack.state &= ~7;
 		}
 	}
+
+	// TS: the weapon-select bar also intercepts +attack2 (right-click = drop the highlighted weapon),
+	// so a cleared IN_ATTACK2 must propagate back to the live button state too — otherwise the click
+	// leaks into the held weapon's SECONDARY (knife throw / akimbo orientation switch) even though the
+	// menu consumed it. Stock HL only reset IN_ATTACK here (it never intercepted attack2).
+	if ((bitsNew & IN_ATTACK2) != 0)
+	{
+		if ((bits & IN_ATTACK2) != 0)
+			KeyDown(&in_attack2);
+		else
+			in_attack2.state &= ~7; // totally clear state
+	}
 }
 
 /*

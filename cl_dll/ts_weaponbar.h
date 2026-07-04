@@ -61,4 +61,5 @@ private:
 	int m_selType = -1;              // highlighted tsweapon_t (the cursor)
 	float m_selTime = 0;             // last input time (for the auto-close timeout)
 	bool m_swallowAttack = false;    // after a FIRE-commit, ignore +attack until released (no stray shot)
+	bool m_swallowAttack2 = false;   // after a right-click DROP, ignore +attack2 until released (no stray 2nd fire)
 };

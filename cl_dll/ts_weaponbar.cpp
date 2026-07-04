@@ -122,6 +122,14 @@ void CHudTSWeaponBar::Think()
 		else
 			m_swallowAttack = false;
 	}
+	// same for +attack2 after a right-click drop (no stray secondary fire once the menu closes).
+	if (m_swallowAttack2)
+	{
+		if ((gHUD.m_iKeyBits & IN_ATTACK2) != 0)
+			gHUD.m_iKeyBits &= ~IN_ATTACK2;
+		else
+			m_swallowAttack2 = false;
+	}
 
 	if (!m_selecting)
 		return;
@@ -131,6 +139,21 @@ void CHudTSWeaponBar::Think()
 		Commit();
 		gHUD.m_iKeyBits &= ~IN_ATTACK;
 		m_swallowAttack = true;
+	}
+	else if ((gHUD.m_iKeyBits & IN_ATTACK2) != 0)
+	{
+		// RIGHT-CLICK during select = DROP the highlighted weapon (original client.dll sends
+		// "drop_<type>", mirroring the left-click "weapon_<type>"). Then close the menu and swallow
+		// the held +attack2 so it doesn't leak into secondary fire on the weapon we keep.
+		if (m_selType >= 0)
+		{
+			char cmd[32];
+			sprintf(cmd, "drop_%d\n", m_selType);
+			ServerCmd(cmd);
+		}
+		m_selecting = false;
+		gHUD.m_iKeyBits &= ~IN_ATTACK2;
+		m_swallowAttack2 = true;
 	}
 	// No idle auto-close: the original closes the select only on commit (FIRE) or cancel
 	// (key 0 / cancelselect) — there is no timer-based close (FUN_1004f220 / FUN_1004d2cf).
