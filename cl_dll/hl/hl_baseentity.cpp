@@ -67,7 +67,13 @@ void UTIL_PrecacheOther(const char* szClassname) {}
 void UTIL_BloodDrips(const Vector& origin, const Vector& direction, int color, int amount) {}
 void UTIL_DecalTrace(TraceResult* pTrace, int decalNumber) {}
 void UTIL_GunshotDecalTrace(TraceResult* pTrace, int decalNumber) {}
-void UTIL_MakeVectors(const Vector& vecAngles) {}
+// NOT a stub: predicted TS code branches on gpGlobals->v_forward (CTSGun::CCombatAttack's
+// fwdDot picks the SIDE KICK, B3) — with the stock empty stub the client predictor read
+// dot=0.00 vs the server's 0.88 and played the wrong FPV kick (cont.86 [CCK] trace).
+void UTIL_MakeVectors(const Vector& vecAngles)
+{
+	AngleVectors(vecAngles, &gpGlobals->v_forward, &gpGlobals->v_right, &gpGlobals->v_up);
+}
 bool UTIL_IsValidEntity(edict_t* pent) { return true; }
 void UTIL_SetOrigin(entvars_t*, const Vector& org) {}
 void UTIL_LogPrintf(char*, ...) {}
