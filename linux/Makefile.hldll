@@ -114,6 +114,32 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/tentacle.o \
 	$(HLDLL_OBJ_DIR)/triggers.o \
 	$(HLDLL_OBJ_DIR)/tripmine.o \
+	$(HLDLL_OBJ_DIR)/ts_utils.o \
+	$(HLDLL_OBJ_DIR)/TS_util.o \
+	$(HLDLL_OBJ_DIR)/TS_gamerules.o \
+	$(HLDLL_OBJ_DIR)/TS_gamerulesclass.o \
+	$(HLDLL_OBJ_DIR)/ts_cvars.o \
+	$(HLDLL_OBJ_DIR)/ts_buy.o \
+	$(HLDLL_OBJ_DIR)/ts_flag.o \
+	$(HLDLL_OBJ_DIR)/ts_player.o \
+	$(HLDLL_OBJ_DIR)/ts_animation.o \
+	$(HLDLL_OBJ_DIR)/ts_stunt.o \
+	$(HLDLL_OBJ_DIR)/ts_grenades.o \
+	$(HLDLL_OBJ_DIR)/hldmcompat.o \
+	$(HLDLL_OBJ_DIR)/ts_sharedemitter.o \
+	$(HLDLL_OBJ_DIR)/ts_emitter.o \
+	$(HLDLL_OBJ_DIR)/ts_func_break.o \
+	$(HLDLL_OBJ_DIR)/ts_gun.o \
+	$(HLDLL_OBJ_DIR)/ts_deadcorpse.o \
+	$(HLDLL_OBJ_DIR)/TS_combat.o \
+	$(HLDLL_OBJ_DIR)/TS_entities.o \
+	$(HLDLL_OBJ_DIR)/TS_objectives.o \
+	$(HLDLL_OBJ_DIR)/ts_powerup.o \
+	$(HLDLL_OBJ_DIR)/ts_shared.o \
+	$(HLDLL_OBJ_DIR)/ts_bullet.o \
+	$(HLDLL_OBJ_DIR)/ts_worldgun.o \
+	$(HLDLL_OBJ_DIR)/ts_weapon_info.o \
+	$(HLDLL_OBJ_DIR)/ts_weapons.o \
 	$(HLDLL_OBJ_DIR)/turret.o \
 	$(HLDLL_OBJ_DIR)/UserMessages.o \
 	$(HLDLL_OBJ_DIR)/util.o \
@@ -126,6 +152,7 @@ HLDLL_OBJS = \
 
 PM_OBJS = \
 	$(PM_OBJ_DIR)/pm_shared.o \
+	$(PM_OBJ_DIR)/TS_pm_shared.o \
 	$(PM_OBJ_DIR)/pm_math.o \
 	$(PM_OBJ_DIR)/pm_debug.o
 

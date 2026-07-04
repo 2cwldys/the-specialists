@@ -148,6 +148,24 @@ cmd /c ""$(ProjectDir)..\..\filecopy.bat" "$(SolutionDir)../../network" "" "delt
     <ClCompile Include="..\..\cl_dll\in_camera.cpp" />
     <ClCompile Include="..\..\cl_dll\menu.cpp" />
     <ClCompile Include="..\..\cl_dll\message.cpp" />
+    <ClCompile Include="..\..\cl_dll\roundtime.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_hud.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_buymenu.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_message.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_powerup_hud.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_reticle.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_scope.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_debris.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_particles.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_attachments.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_status.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_ammo.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_weaponbar.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_weapon_predict.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_gun_stubs.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_spectate.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_commands.cpp" />
+    <ClCompile Include="..\..\cl_dll\ev_ts.cpp" />
     <ClCompile Include="..\..\cl_dll\particleman\CBaseParticle.cpp" />
     <ClCompile Include="..\..\cl_dll\particleman\CMiniMem.cpp" />
     <ClCompile Include="..\..\cl_dll\particleman\CFrustum.cpp" />
@@ -188,6 +206,9 @@ cmd /c ""$(ProjectDir)..\..\filecopy.bat" "$(SolutionDir)../../network" "" "delt
     <ClCompile Include="..\..\dlls\squeakgrenade.cpp" />
     <ClCompile Include="..\..\dlls\tripmine.cpp" />
     <ClCompile Include="..\..\dlls\weapons_shared.cpp" />
+    <ClCompile Include="..\..\dlls\ts_shared.cpp" />
+    <ClCompile Include="..\..\dlls\ts_weapon_info.cpp" />
+    <ClCompile Include="..\..\dlls\ts_gun.cpp" />
     <ClCompile Include="..\..\dlls\glock.cpp" />
     <ClCompile Include="..\..\game_shared\filesystem_utils.cpp" />
     <ClCompile Include="..\..\game_shared\vgui_checkbutton2.cpp" />
@@ -200,6 +221,7 @@ cmd /c ""$(ProjectDir)..\..\filecopy.bat" "$(SolutionDir)../../network" "" "delt
     <ClCompile Include="..\..\game_shared\voice_banmgr.cpp" />
     <ClCompile Include="..\..\pm_shared\pm_debug.cpp" />
     <ClCompile Include="..\..\pm_shared\pm_math.cpp" />
+    <ClCompile Include="..\..\pm_shared\TS_pm_shared.cpp" />
     <ClCompile Include="..\..\pm_shared\pm_shared.cpp" />
     <ClCompile Include="..\..\public\interface.cpp" />
   </ItemGroup>

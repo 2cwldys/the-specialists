@@ -57,6 +57,24 @@ HL1_OBJS = \
 	$(HL1_OBJ_DIR)/interpolation.o \
 	$(HL1_OBJ_DIR)/menu.o \
 	$(HL1_OBJ_DIR)/message.o \
+	$(HL1_OBJ_DIR)/roundtime.o \
+	$(HL1_OBJ_DIR)/ts_hud.o \
+	$(HL1_OBJ_DIR)/ts_buymenu.o \
+	$(HL1_OBJ_DIR)/ts_message.o \
+	$(HL1_OBJ_DIR)/ts_powerup_hud.o \
+	$(HL1_OBJ_DIR)/ts_reticle.o \
+	$(HL1_OBJ_DIR)/ts_scope.o \
+	$(HL1_OBJ_DIR)/ts_debris.o \
+	$(HL1_OBJ_DIR)/ts_particles.o \
+	$(HL1_OBJ_DIR)/ts_attachments.o \
+	$(HL1_OBJ_DIR)/ts_status.o \
+	$(HL1_OBJ_DIR)/ts_ammo.o \
+	$(HL1_OBJ_DIR)/ts_weaponbar.o \
+	$(HL1_OBJ_DIR)/ts_weapon_predict.o \
+	$(HL1_OBJ_DIR)/ts_gun_stubs.o \
+	$(HL1_OBJ_DIR)/ts_spectate.o \
+	$(HL1_OBJ_DIR)/ts_commands.o \
+	$(HL1_OBJ_DIR)/ev_ts.o \
 	$(HL1_OBJ_DIR)/saytext.o \
 	$(HL1_OBJ_DIR)/status_icons.o \
 	$(HL1_OBJ_DIR)/statusbar.o \
@@ -100,6 +118,9 @@ DLL_OBJS = \
 	$(HL1_SERVER_OBJ_DIR)/squeakgrenade.o \
 	$(HL1_SERVER_OBJ_DIR)/tripmine.o \
 	$(HL1_SERVER_OBJ_DIR)/weapons_shared.o \
+	$(HL1_SERVER_OBJ_DIR)/ts_shared.o \
+	$(HL1_SERVER_OBJ_DIR)/ts_weapon_info.o \
+	$(HL1_SERVER_OBJ_DIR)/ts_gun.o \
 
 
 PUBLIC_OBJS = \
@@ -123,6 +144,7 @@ GAME_SHARED_OBJS = \
 PM_SHARED_OBJS = \
 	$(PM_SHARED_OBJ_DIR)/pm_debug.o \
 	$(PM_SHARED_OBJ_DIR)/pm_shared.o \
+	$(PM_SHARED_OBJ_DIR)/TS_pm_shared.o \
 	$(PM_SHARED_OBJ_DIR)/pm_math.o \
 
 all: client.$(SHLIBEXT)
