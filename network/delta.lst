@@ -46,7 +46,6 @@ clientdata_t none
 	
 	DEFINE_DELTA( iuser1, DT_INTEGER, 3, 1.0 ),
 	DEFINE_DELTA( iuser2, DT_INTEGER, 6, 1.0 ),
-	DEFINE_DELTA( iuser4, DT_INTEGER, 12, 1.0 ),	// TS: active powerup bits -> the predicted DoubleFireRate full-auto gate
 
 	DEFINE_DELTA( vuser1[0], DT_SIGNED | DT_FLOAT, 10, 1.0 ),
 	DEFINE_DELTA( vuser1[1], DT_SIGNED | DT_FLOAT, 10, 1.0 ),
@@ -240,7 +239,7 @@ weapon_data_t none
 	DEFINE_DELTA( m_fInReload, DT_INTEGER, 1, 1.0 ),
 	DEFINE_DELTA( m_fAimedDamage, DT_FLOAT, 6, 0.1 ),
 	DEFINE_DELTA( m_fInZoom, DT_INTEGER, 1, 1.0 ),
-	DEFINE_DELTA( m_iWeaponState, DT_INTEGER, 4, 1.0 ),	// TS: carries the wielded item's ATTACH MASK (bits 1/2/4/8 — 2 bits truncated 15->3: the scope bit never survived the wire)
+	DEFINE_DELTA( m_iWeaponState, DT_INTEGER, 2, 1.0 ),
 	DEFINE_DELTA( m_iId, DT_INTEGER, 5, 1.0 ),
 	DEFINE_DELTA( iuser1, DT_SIGNED | DT_INTEGER, 10, 1.0  ),
 	DEFINE_DELTA( iuser2, DT_SIGNED | DT_INTEGER, 10, 1.0  ),
