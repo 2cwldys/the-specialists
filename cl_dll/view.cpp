@@ -64,10 +64,21 @@ extern cvar_t* cl_rollangle;
 extern cvar_t* cl_rollspeed;
 extern cvar_t* cl_bobtilt;
 
+// TS over-the-shoulder 3rd-person camera preset cvars (defined in in_camera.cpp)
+extern cvar_t* cl_camtype;
+extern cvar_t* cam_back;
+extern cvar_t* cam_right;
+extern cvar_t* cam_up;
+
 #define CAM_MODE_RELAX 1
 #define CAM_MODE_FOCUS 2
 
 Vector v_origin, v_angles, v_cl_angles, v_sim_org, v_lastAngles;
+// The player EYE (simorg + view_ofs) = where bullets fire from — captured BEFORE the 3rd-person
+// camera offset is applied to vieworg. The 3rd-person reticle traces its aim from HERE (not the
+// offset camera v_origin) and projects through the render camera, so it screen-space-maps the
+// true aim point (parallax when you strafe; correct where-shots-land).
+Vector v_aimeye;
 float v_frametime, v_lastDistance;
 float v_cameraRelaxAngle = 5.0f;
 float v_cameraFocusAngle = 35.0f;
@@ -679,6 +690,7 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 	// still bobs below (view->origin[2] += bob). So the main view must NOT bob:
 	// pparams->vieworg[2] += (bob);   // <- removed: TS bobs the gun, not the eyes
 	VectorAdd(pparams->vieworg, pparams->viewheight, pparams->vieworg);
+	VectorCopy(pparams->vieworg, v_aimeye); // the true eye (pre-3rd-person-offset) = bullet origin
 
 	VectorCopy(pparams->cl_viewangles, pparams->viewangles);
 
@@ -786,24 +798,46 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 		for (i = 0; i < 3; i++)
 			pparams->vieworg[i] += -80.0f * camForward[i];
 	}
-	// Treating cam_ofs[2] as the distance
+	// TS over-the-shoulder 3rd-person camera (RE: client.dll V_CalcNormalRefdef @0x67890,
+	// dossier reference/dossiers/cont87/thirdperson_camera_reticle.md). TS ignores
+	// cam_idealdist; only cam_ofs pitch/yaw (smoothed by CAM_Think) feed the camera
+	// DIRECTION, and the POSITION comes from a cl_camtype (0-3) preset of back/right/up
+	// offsets — an over-the-shoulder rig, not a straight-back distance orbit.
 	else if (0 != CL_IsThirdPerson())
 	{
-		Vector ofs;
+		Vector camOfs;
+		camOfs[0] = camOfs[1] = camOfs[2] = 0.0f;
+		CL_CameraOffset((float*)&camOfs); // [0]=pitch, [1]=yaw (smoothed toward the view)
 
-		ofs[0] = ofs[1] = ofs[2] = 0.0;
-
-		CL_CameraOffset((float*)&ofs);
-
-		VectorCopy(ofs, camAngles);
+		VectorCopy(camOfs, camAngles);
 		camAngles[ROLL] = 0;
-
 		AngleVectors(camAngles, camForward, camRight, camUp);
 
-		for (i = 0; i < 3; i++)
+		// cl_camtype preset offset (RE: V_CalcNormalRefdef 0x67fb0). camtype 0 (default) =
+		// back -48, right +16 (over the right shoulder), up +12.
+		float back, side, lift;
+		const float TSCAM_UP = 12.0f;
+		switch ((int)cl_camtype->value)
 		{
-			pparams->vieworg[i] += -ofs[2] * camForward[i];
+		case 1:  back = -48.0f; side = -16.0f; lift = TSCAM_UP; break;
+		case 2:  back = -90.0f; side =   0.0f; lift = TSCAM_UP; break;
+		case 3:  back = -cam_back->value; side = cam_right->value; lift = cam_up->value; break;
+		default: back = -48.0f; side =  16.0f; lift = TSCAM_UP; break; // camtype 0
 		}
+		// clamps (0x68033): back [-128,24], right/up [-24,24]
+		if (back < -128.0f) back = -128.0f; else if (back > 24.0f) back = 24.0f;
+		if (side < -24.0f)  side = -24.0f;  else if (side > 24.0f)  side = 24.0f;
+		if (lift < -24.0f)  lift = -24.0f;  else if (lift > 24.0f)  lift = 24.0f;
+
+		for (i = 0; i < 3; i++)
+			pparams->vieworg[i] += back * camForward[i] + lift * camUp[i] + side * camRight[i];
+
+		// TS renders the camera with the SMOOTHED cam_ofs angles, so the whole rig orbits
+		// with a rotational lag as you turn (0x67d60). This lag is what makes the 3rd-person
+		// reticle float behind the mouse — ts_reticle.cpp projects the INSTANT aim through
+		// this lagging view. VERIFY: the dynamic back-ease (48->92 when moving) is omitted
+		// pending a live read of the 0x130c30 player-state gate.
+		VectorCopy(camAngles, pparams->viewangles);
 	}
 
 	// Give gun our viewangles

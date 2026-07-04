@@ -17,6 +17,7 @@
 #include "cl_util.h"
 #include "cl_entity.h"  // cl_entity_t (GetLocalPlayer)
 #include "pmtrace.h"    // pmtrace_t (laser distance trace)
+#include "triangleapi.h" // pTriAPI->WorldToScreen (3rd-person reticle projection)
 #include "ts_hud.h"     // TSHud_DrawNumber (numbers.spr)
 #include "ts_attachments.h" // TS_LocalHasLaser
 #include "ts_reticle.h"
@@ -24,6 +25,8 @@
 #include <math.h>
 
 extern Vector v_origin, v_angles; // view origin/angles (cl_dll/view.cpp) — for the aim trace
+extern Vector v_aimeye;            // player eye (bullet origin), pre-3rd-person-offset (view.cpp)
+extern "C" int CL_IsThirdPerson(); // in_camera.cpp (engine export, C linkage)
 
 static inline int clampc(int v) { return v < 0 ? 0 : (v > 255 ? 255 : v); }
 
@@ -95,8 +98,35 @@ bool CHudTSReticle::Draw(float flTime)
 	const float pitch = va[0]; // +down / -up (GoDive thresholds: <-10 high, <=10 med, else low)
 	const int aimStep = (pitch < -10.0f) ? 0 : (pitch <= 10.0f ? 1 : 2);
 
-	const int cx = ScreenWidth / 2;
-	const int cy = ScreenHeight / 2;
+	int cx = ScreenWidth / 2;
+	int cy = ScreenHeight / 2;
+
+	// 3rd-person FLOATING reticle (RE dossier cont87, task C — PROVISIONAL): the gun fires along
+	// the INSTANT view aim, but TS renders the camera with the SMOOTHED, over-the-shoulder cam_ofs
+	// angles (view.cpp / V_CalcNormalRefdef). Projecting the instant aim point through that lagging,
+	// offset view makes the whole reticle trail the mouse then re-converge — the "float". In 1st
+	// person (and scoped, handled above) it stays dead-centre.
+	// 3rd-person reticle = the SCREEN-SPACE PROJECTION of the actual traced aim point (user-RE'd:
+	// "it's screen space mapping the actual traced location of the aim"). The gun fires along the
+	// INSTANT view dir; the reticle is that aim point run through WorldToScreen — which uses the
+	// current render camera (over-the-shoulder, SMOOTHED cam_ofs angles from view.cpp). So (a) moving
+	// shifts the eye => the projected point moves (parallax), and (b) turning => the camera angles
+	// lag => the point trails then re-converges. No explicit lerp — the float is inherent geometry.
+	if (0 != CL_IsThirdPerson())
+	{
+		Vector fwd;
+		gEngfuncs.pfnAngleVectors(va, fwd, NULL, NULL); // va = instant view angles (above)
+		Vector eye = v_aimeye; // trace from the EYE (bullet origin), NOT the offset camera v_origin
+		Vector end = eye + fwd * 8192.0f;
+		pmtrace_t* aimtr = gEngfuncs.PM_TraceLine(eye, end, 0 /*PM_NORMAL*/, 2, -1);
+		Vector aim = (aimtr && aimtr->fraction < 1.0f) ? Vector(aimtr->endpos) : end;
+		float screen[3];
+		if (0 == gEngfuncs.pTriAPI->WorldToScreen((float*)&aim, screen)) // 0 == on-screen
+		{
+			cx = (int)((1.0f + screen[0]) * 0.5f * (float)ScreenWidth);
+			cy = (int)((1.0f - screen[1]) * 0.5f * (float)ScreenHeight);
+		}
+	}
 
 	const bool laser = TS_LocalHasLaser();
 	const int tr = 80, tg = 130, tb = 185;

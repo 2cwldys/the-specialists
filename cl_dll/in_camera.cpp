@@ -58,6 +58,14 @@ cvar_t* c_minyaw;
 cvar_t* c_maxdistance;
 cvar_t* c_mindistance;
 
+// TS over-the-shoulder 3rd-person camera (RE: client.dll V_CalcNormalRefdef @0x67890).
+// TS ignores cam_idealdist and positions the camera by a cl_camtype (0-3) preset of
+// back/right/up offsets; view.cpp reads these. Defaults from CAM_Init in the original.
+cvar_t* cl_camtype; // preset selector 0..3 (default "0" = back-48/right+16/up+12)
+cvar_t* cam_back;   // camtype-3 back  distance (default "90")
+cvar_t* cam_right;  // camtype-3 side  offset   (default "0")
+cvar_t* cam_up;     // camtype-3 up    offset   (default "12")
+
 // pitch, yaw, dist
 Vector cam_ofs;
 
@@ -498,6 +506,15 @@ void CAM_Init()
 	c_minyaw = gEngfuncs.pfnRegisterVariable("c_minyaw", "-135.0", 0);
 	c_maxdistance = gEngfuncs.pfnRegisterVariable("c_maxdistance", "200.0", 0);
 	c_mindistance = gEngfuncs.pfnRegisterVariable("c_mindistance", "30.0", 0);
+
+	// TS over-the-shoulder camera preset cvars (defaults RE'd from CAM_Init in client.dll).
+	// cl_camtype default "0" matches the binary + the clean original's shipped config.cfg
+	// (camtype 0 = back-48/right+16/up+12). A user's config.cfg can select 3 (centered, back
+	// cam_back=90) as a personal preference — that's what the reference rig runs.
+	cl_camtype = gEngfuncs.pfnRegisterVariable("cl_camtype", "0", 0);
+	cam_back = gEngfuncs.pfnRegisterVariable("cam_back", "90", 0);
+	cam_right = gEngfuncs.pfnRegisterVariable("cam_right", "0", 0);
+	cam_up = gEngfuncs.pfnRegisterVariable("cam_up", "12", 0);
 }
 
 void CAM_ClearStates()
