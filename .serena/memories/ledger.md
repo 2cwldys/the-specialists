@@ -5,6 +5,39 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-04 (cont. 87d) — CI made green: build source-list sync + MSVC-compat fixes
+
+First-ever CI run on the repo surfaced two classes of latent breakage (`.github/workflows/ci-cd.yml`
+has 6 jobs: Linux-{i386×2,amd64,aarch64}, Win32, Win64). Commits `67579f2..686eb88` on
+`restructure-source-parity`, fast-forwarded to `main` and pushed. **Final: all 6 jobs green.**
+
+- **Build source-list drift (the trigger).** `hl.so`/`client.so` compile through FOUR parallel build
+  systems, each with its own explicit `.cpp` list: the CMake authority (`dlls/`+`cl_dll/CMakeLists.txt`,
+  used by amd64/aarch64/win64), the legacy i386 Makefiles (`linux/Makefile.hldll`+`Makefile.hl_cdll`,
+  the `linux-i386` job), and the VS2019 vcxprojs (`projects/vs2019/hldll.vcxproj`+`hl_cdll.vcxproj`
+  +`.filters`, the `win32` job). Every reconstructed TS file had only ever been added to CMake, so the
+  Makefile/MSBuild jobs never compiled them. Synced all four hand-maintained lists to CMake: server =
+  26 TS `dlls/` sources (`ts_*`/`TS_*`/`hldmcompat`) + `pm_shared/TS_pm_shared`; client = 18 `cl_dll/`
+  TS sources (`ts_*`/`ev_ts`/`roundtime`) + 3 shared weapon srcs (`ts_shared`/`ts_weapon_info`/`ts_gun`)
+  from `dlls/` + `TS_pm_shared`. Verified by building the EXACT CI i386 path locally (`cd linux && make
+  COMPILER=g++ CFG=release`): both `.so` clean, `--no-undefined` server link = no missing symbols, no
+  further files surfaced (the CMake list was complete). Commit `67579f2`.
+- **Guard: `scripts/check-source-lists.py`** (commit `6b48d6d`). Normalizes every `.cpp` each build system
+  compiles to a repo-relative path and set-compares the Makefile+vcxproj against the CMake authority,
+  per target, printing MISSING/EXTRA and exiting non-zero on drift (stdlib-only, negative-tested). Run it
+  whenever a source file is added/removed. Referenced from `CLAUDE.md §3`.
+- **MSVC-compat bugs the Win32/Win64 jobs then exposed** (gcc's `-w` on Linux had hidden them; Win64 is
+  CMake so it was already failing at `fad367a`, before this session). Commit `686eb88`:
+  - `dlls/TS_util.cpp` used raw POSIX `strcasecmp` (error C3861 on MSVC, lines 40+204) → SDK-portable
+    `stricmp` (`common/Platform.h` maps it to `_stricmp`/`strcasecmp`), matching the rest of the tree.
+  - `pm_shared/pm_shared.cpp` `PM_Jump` had a leftover unreferenced `int i;` (warning C4101 → fatal under
+    the vcxproj's warnings-as-errors) → removed; `i` was unused in the whole function post-reconstruction.
+  - amd64 server+client build green (glibc 2.14), server nm-T unchanged (872), no behavioural change.
+
+Method note: `gh run view --log-failed` + grep for `error C####`/file-level diagnostics pinned the exact
+files/lines fast; the user (watching the run) flagged "Win32 'i' variable, Win64 strcasecmp" which matched.
+Next: nothing outstanding on CI; resume the audit.py per-class parity loop.
+
 ## 2026-07-04 (cont. 87 cont.3) — LARGE playtest-driven fix batch (all user-verified, RE-grounded)
 
 A long interactive session on `restructure-source-parity`; every fix RE'd from the original then
