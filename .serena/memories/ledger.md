@@ -5,6 +5,41 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-04 (cont. 87 cont.2) — TS over-the-shoulder 3rd-person CAMERA + screen-space-mapped RETICLE (user-verified aim)
+
+Commit `f4b9637` (feat) + `1086ff0` (dossier `reference/dossiers/cont87/thirdperson_camera_reticle.md` + decomps).
+Build-green, server nm-T unchanged (client-only), deployed. RE: client.dll `V_CalcNormalRefdef` @0x67890.
+
+The big finding: TS 3rd-person is NOT the stock `cam_idealdist` straight-back distance orbit our view.cpp had —
+it's an **over-the-shoulder OFFSET camera** driven by cvar **`cl_camtype`** (0-3). `CAM_Think` is kept stock
+(smooths `cam_ofs` pitch/yaw toward the view via `MoveToward`); the DIRECTION comes from cam_ofs, the POSITION
+from a preset back/right/up offset. Implemented:
+- **`cl_camtype` presets** (in_camera.cpp cvars cl_camtype/cam_back/cam_right/cam_up + view.cpp switch): camtype 0
+  (default, RE'd binary default) = back-48/right+16/up+12; 1 = -48/-16/+12; 2 = -90/0/+12; **3 = cam_back/cam_right/
+  cam_up (90/0/12) = centered+zoomed**. Clamps back[-128,24], side/up[-24,24]. ⚠ **camtype 2 and 3 are IDENTICAL
+  with default cvars** (both back -90 centered); camtype 3 is the CVAR-TUNABLE one (`cam_back 110` zooms 3 further,
+  mode 2 is fixed). The user's original runs camtype 3 (their config); the CLEAN original ships config.cfg
+  `cl_camtype "0"` + CAM_Init default "0", so our registration default is "0" (faithful) — the ref rig's
+  config.cfg is set to 3 (user preference).
+- **Render camera = SMOOTHED cam_ofs angles** (view.cpp `VectorCopy(camAngles, pparams->viewangles)`, RE 0x67d60):
+  the rig orbits with rotational lag. The `/4`-per-frame ease is FRAMERATE-DEPENDENT (RE: MoveToward FUN_10024ba0
+  = stock, 1-degree snap + *0.25/frame). Original ran ~100fps → visible small-turn lag; at high fps it catches up
+  in fewer ms so the lag hides on small turns. **User chose to KEEP it faithful (not frametime-normalize)** — it's
+  the original's actual behavior; run `fps_max 100` to match the feel.
+- **RETICLE = WorldToScreen of the TRACED AIM POINT from the player EYE** (ts_reticle.cpp), NOT pinned to center.
+  KEY FIX: trace from **`v_aimeye`** (new view.cpp global = simorg+view_ofs, captured BEFORE the 3rd-person offset)
+  = the bullet origin, NOT the offset camera `v_origin` (tracing from the camera put the hit dead-ahead → always
+  centered → wrong aim + no parallax). Now the reticle shows where shots ACTUALLY land (accuracy correct at any
+  shoulder offset) and screen-space-maps the aim (strafing parallaxes it, turning trails it). ✅ user: "aim is correct".
+
+Method: dossier-subagent RE'd client.dll (kept ~130k decompile tokens out of context); then iterated live with the
+user (ground truth) — the eye-vs-camera trace origin + the framerate cause of the lag threshold were both settled by
+the user's playtest observations ("screen space mapping the traced location", "original is 100fps, mine is 240"). The
+reticle-lag mechanism (C) was LOW-confidence in the dossier and got PINNED by the user's observations, not static RE.
+
+⚠ VERIFY still open: the dynamic back-ease (48->92 under the `localplayer+0x26c & 0x130c30` gate) is omitted — camtype
+3 (back 90) already gives the zoomed framing, so it's cosmetic; needs a live gate read if pursued.
+
 ## 2026-07-04 (cont. 87 cont.) — melee 3rd-person fidelity: crosshair gun-gate + knife/katana block anim (both user-verified)
 
 Commits `05d2d3e` (crosshair) + `600328e` (block). Build-green, server nm-T unchanged, deployed, ✅ user-verified.
