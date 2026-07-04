@@ -37,7 +37,7 @@ int WeaponIdFromString(char *psz)
 	for (int id = 0; id < TSW_COUNT; id++)
 	{
 		const s_weapon_info *wi = get_weapon_info((tsweapon_t)id);
-		if (wi->pszName && strcasecmp(psz, wi->pszName) == 0)
+		if (wi->pszName && stricmp(psz, wi->pszName) == 0)
 			return id;
 	}
 	return -1;
@@ -201,7 +201,7 @@ int TSCountPlayers(const char *team, bool onlyActive)
 		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
 		if (!p)
 			continue;
-		if (team && team[0] && (!p->TeamID() || strcasecmp(team, p->TeamID()) != 0))
+		if (team && team[0] && (!p->TeamID() || stricmp(team, p->TeamID()) != 0))
 			continue;
 		if (onlyActive && !p->IsAlive() && p->m_flTSRespawnTime < 0)
 			continue;

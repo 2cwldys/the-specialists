@@ -2577,8 +2577,6 @@ PM_Jump
 */
 void PM_Jump()
 {
-	int i;
-
 	if (0 != pmove->dead)
 	{
 		pmove->oldbuttons |= IN_JUMP; // don't jump again until released
