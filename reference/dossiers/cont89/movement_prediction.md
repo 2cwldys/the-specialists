@@ -585,3 +585,79 @@ weapon-data track (cont.89b §3, Fix 3).
 - `UpdateClientData` @0xb0294: `cd[0x19c] (fuser1) = pev[0x2d4] (fuser1)`, unconditional.
 - Ours: `client.cpp` writes no `cd->fuser1`; `pm_shared.cpp:3112` has an extra `if(fuser1>0)` wrapper.
 - iuser4 masks: TSPM_SLIDE 0x20, TSPM_STUNT_MASK 0x030C3C (TS_pm_shared.h); TS_PWUP_ bits ts_gamerules.h.
+
+---
+
+## cont.89e — pm_shared exactness batch (jump velocity + CheckParamters + friction + flymove)
+
+Ranked by user-visible impact. All are shared `pm_shared` → one fix covers hl.so AND client.so.
+
+### 1. ★ HIGH — PM_Jump normal-jump velocity is 45u; the original is **35u** (`sqrt 56000`)
+
+**The concrete new "0.5-3u every jump" bug.** Original `PM_Jump` @0xe9944 sets the ground-jump
+velocity from two `.rodata` doubles (asm e9c3b/e9c67, `fldl; fsqrt`):
+- superjump (canhighjump): `sqrt(_UNK_0x100bc8)` = `sqrt(160000.0)` = **400** (100-unit).  ✅ ours matches.
+- normal (canhighjump==0): `sqrt(_UNK_0x100bb8)` = `sqrt(56000.0)` = **236.6432** (= `sqrt(2*800*35)`, a **35-unit** jump).
+
+**Ours (`pm_shared.cpp:2720,2725`) uses `sqrt(2 * 800 * 45.0)` = 268.3282 (45-unit)** in BOTH the
+ducking-non-super and standing branches. The original has NO ducking-specific jump velocity — every
+non-superjump is `sqrt(56000)`. (The nearby `.rodata` 112000.0 = 70-unit is used by a DIFFERENT
+function, NOT PM_Jump — verified no `fldl` of it in PM_Jump's range.)
+
+pm_shared is shared, so our client+server AGREE at 45u (no self-error) but both are **wrong vs the
+original**, so in the drop-in cross-test the original client predicts a 236.6 launch while our server
+computes 268.3 → a ~31.7 u/s vertical-velocity mismatch that integrates to a **~0.5-3u transient
+prediction error per jump** (and the jump feels ~10u too high). 
+
+**FIX:** both `sqrt(2 * 800 * 45.0)` → `sqrt(2 * 800 * 35.0)` (== `sqrt(56000.0)` == 236.6432).
+
+Minor (LOW): on the stunt-mask early-return (`iuser4 & PRONE|SLIDE|DIVE|walljump|...`), the original
+does a PLAIN `return` (does NOT set `oldbuttons |= IN_JUMP`); ours sets it. Affects only jump-buffering
+out of a stunt — leave for a stunt exactness pass. (`PM_PreventMegaBunnyJumping` 1.7/0.65 and its
+call order — once, before velocity set — are byte-identical; not a divergence.)
+
+### 2. MED — PM_CheckParamters: drop the anniversary IN_USE 1/3, add the iuser4 stunt handling
+
+Original `PM_CheckParamters` @0xe9c94 (verified cont.89c, re-confirmed):
+- **NO IN_USE `maxspeed *= 1/3`.** Our `pm_shared.cpp:2981-2984` ("JoshA" anniversary) has it — remove
+  it. The original client (predicting) never slows on +use, so our server's 1/3 slowdown mispredicts
+  every frame +use is held on ground. (No +use velocity-scale exists elsewhere in the original
+  PM_PlayerMove either — safe to just delete.)
+- **Zero-cmd condition** is `flags & 0x1001000 (FL_FROZEN|FL_ONTRAIN) || dead || (iuser4 & 0x10c10)`.
+  Ours (`~line 3012`) only tests `FL_FROZEN|FL_ONTRAIN|dead` — add `|| (pmove->iuser4 & 0x10c10)`
+  (the stunt-freeze bits). Now relevant since iuser4 carries real stunt flags (cont.89d fix).
+- **Angle recompute gate** is `dead == 0 && !(iuser4 & 0x2)`. Ours (`line 3025`) is only `dead == 0`
+  — add `&& (pmove->iuser4 & 0x2) == 0` so a view-locked stunt state freezes the angles.
+- **OldrotArray yaw lock** (LOW/defer): when it recomputes angles the original stores `angles[YAW]`
+  into a per-player `OldrotArray[player_index]` and, on the frozen/locked branch, RESTORES YAW from it
+  (keeps your facing through a stunt). Ours has no equivalent. Needs a `static int OldrotArray[32]`
+  indexed by the player; verify the index source (`*(int*)pmove`) before implementing. Stunt-yaw
+  polish — lower priority than the mask/gate fixes above.
+
+### 3. MED-LOW — PM_Friction: remove the extra `&& pmove->friction == 1.0f` (reverts cont.81)
+
+Original `PM_Friction` @0xede08 edge-gate is `if (trace.fraction == 1.0) friction *= edgefriction`
+with **no `pmove->friction == 1.0` sub-gate** (confirmed in raw asm cont.89b: `edefe: je` on
+`trace.fraction==1.0` only). Ours (`pm_shared.cpp:1334`) adds `&& pmove->friction == 1.0f` (cont.81,
+to stop rolls decaying fast). **VERDICT: remove it** — change to `if (trace.fraction == 1.0)`.
+Rationale: the cont.81 "rolls decay 2.7× too fast" was a self-consistent-test misread — the ORIGINAL
+client predicts edge-doubled friction even at `pev->friction` 0.3, so our gate made the SERVER diverge
+from the client during rolls. Now that stunt iuser4 is correct (cont.89d), removing it restores parity
+(both sides edge-double). It IS a behavioral revert of cont.81 — confirm roll feel matches the ORIGINAL
+client (expect the original's own faster decay, which is correct), not the earlier "feels too fast" note.
+
+### 4. LOW / KEEP — PM_FlyMove `numplanes == 1` (M1): keep the anniversary carve-out, SKIP
+
+The original reflect branch (@0xed408) runs on ALL planes; ours guards `numplanes == 1`. **But
+single-plane air collisions (the common case) already AGREE** — they diverge only on multi-plane
+acute-corner air/stunt collisions (rare). The user confirms the air/corner residual matches parity
+(within GoldSrc prediction noise). **VERDICT: KEEP the HL25 `numplanes==1` fix (anniversary carve-out),
+SKIP the revert.** Strict byte-exactness would remove the guard, but the drop-in payoff is nil and the
+guard prevents a real acute-corner stuck bug. Revisit only if a specific air-corner desync is reported.
+
+### Appendix — cont.89e verified constants
+- PM_Jump @0xe9944: normal `sqrt(56000.0)`=236.6432 (`.rodata` 0x100bb8), super `sqrt(160000.0)`=400
+  (0x100bc8); PM_PreventMegaBunnyJumping once before velocity set; 112000.0@0x100bc0 NOT used here.
+- PM_CheckParamters @0xe9c94: no IN_USE 1/3; zero-cmd `flags&0x1001000 | dead | iuser4&0x10c10`;
+  angle gate `dead==0 && !(iuser4&2)`; OldrotArray yaw save/restore.
+- PM_Friction @0xede08: edge-gate `trace.fraction==1.0` only (no `friction==1.0` sub-gate).
