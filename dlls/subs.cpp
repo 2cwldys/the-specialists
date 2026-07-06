@@ -62,6 +62,14 @@ private:
 
 // These are the new entry points to entities.
 LINK_ENTITY_TO_CLASS(info_player_deathmatch, CBaseDMStart);
+// TS team spawn points (@0xd2ae0..): map-placed per-team starts, same CBaseDMStart class as
+// info_player_deathmatch. TSSelectSpawnSpot (player.cpp) picks "info_player_team<N>" for a team
+// player and falls back to info_player_deathmatch — without these registrations the team starts
+// never spawned, so team maps fell back to DM starts (drop-in break vs the original).
+LINK_ENTITY_TO_CLASS(info_player_team1, CBaseDMStart);
+LINK_ENTITY_TO_CLASS(info_player_team2, CBaseDMStart);
+LINK_ENTITY_TO_CLASS(info_player_team3, CBaseDMStart);
+LINK_ENTITY_TO_CLASS(info_player_team4, CBaseDMStart);
 LINK_ENTITY_TO_CLASS(info_player_start, CPointEntity);
 LINK_ENTITY_TO_CLASS(info_landmark, CPointEntity);
 
