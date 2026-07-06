@@ -2099,7 +2099,12 @@ void CBasePlayer::PreThink()
 	// frametime (PM_PlayerMove: frametime *= fuser1), which leaves pev->velocity MAGNITUDE intact, so the
 	// side-kick speed>270 gate still passes in slowmo. RE PreThink @0x808cc (no fuser1 on maxspeed) +
 	// PM_PlayerMove @0xf08d8. (Scaling maxspeed here dropped |velocity| below 270 and blocked the kick.)
-	pev->maxspeed = GetSpeedBySlots(this);
+	// cont.89: push the encumbrance speed through SetPlayerSpeed → pfnSetClientMaxspeed, NOT a raw
+	// pev->maxspeed assignment. A raw assignment updates only the SERVER's physics; the CLIENT predicts
+	// off `clientmaxspeed`, which is set ONLY by pfnSetClientMaxspeed — so a direct write left the client
+	// predicting at its stale spawn maxspeed (loadout changes felt like NO speed change, verified: server
+	// gsbs=256 for a loadout but the client stayed fast). SetPlayerSpeed updates both.
+	SetPlayerSpeed(GetSpeedBySlots(this));
 	if (pev->fuser1 < 0.999f)
 	{
 		pev->framerate = pev->fuser1 < 0.01f ? 0.01f : pev->fuser1; // slowed animation (StudioFrameAdvance)

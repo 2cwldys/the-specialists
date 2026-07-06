@@ -1059,6 +1059,18 @@ int PM_FlyMove()
 PM_Accelerate
 ==============
 */
+// @0xedcc4 PM_GetAccelBySpeed — TS scales ground acceleration by the player's maxspeed:
+// 1.1x at the kung-fu top speed (330), ramping 0.6 -> 1.1 across maxspeed 210 -> 330 (heavier
+// loadouts accelerate slower). Not in stock HL. The original CLIENT predicts with this factor,
+// so our SERVER must apply it too or the client's ground-accel prediction runs ~10%/frame ahead
+// of the server and GoldSrc error-smoothing feels like input latency (cont.89 movement dossier).
+static float PM_GetAccelBySpeed(float maxspeed)
+{
+	if (maxspeed >= 330.0f)
+		return 1.1f;
+	return (maxspeed - 210.0f) * (1.0f / 120.0f) * 0.5f + 0.6f; // 0.6 @210 ... 1.1 @330
+}
+
 void PM_Accelerate(Vector wishdir, float wishspeed, float accel)
 {
 	int i;
@@ -1084,6 +1096,10 @@ void PM_Accelerate(Vector wishdir, float wishspeed, float accel)
 
 	// Determine amount of accleration.
 	accelspeed = accel * pmove->frametime * wishspeed * pmove->friction;
+
+	// @0xedd08: TS accel-by-speed scaling, applied unless sliding or ducking.
+	if ((pmove->iuser4 & TSPM_SLIDE) == 0 && (pmove->flags & FL_DUCKING) == 0)
+		accelspeed *= PM_GetAccelBySpeed(pmove->maxspeed);
 
 	// Cap at addspeed
 	if (accelspeed > addspeed)
