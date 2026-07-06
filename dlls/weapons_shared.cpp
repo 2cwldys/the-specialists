@@ -166,10 +166,25 @@ void CBasePlayerWeapon::ItemPostFrame()
 		const s_weapon_info *wi = gun->m_pActiveInfo;
 		TSItem &it = *gun->m_pActiveItem;
 		const int caliber = wi->iCaliber;
+#ifdef CLIENT_DLL
+		// CLIENT (prediction) — the ORIGINAL client's completion (client.dll, cont.89d raw-disasm fork)
+		// is an OPTIMISTIC FULL-MAG SET with NO reserve arithmetic: it just fills the clip and leaves the
+		// reserve entirely to the server, which re-seeds m_ammoReserve[caliber] from clientdata.vuser2[1]
+		// every frame (HUD_WeaponsPostThink). Predicting the min()/debit here diverges from the original
+		// client (the reserve is NOT the client's to spend). So on the client: fill the mag; the SERVER owns
+		// the reserve. `take` (the mag delta) still feeds the akimbo mirror below.
+		const int take = wi->iClip - gun->m_iClip;
+		gun->m_iClip = wi->iClip;
+#else
+		// SERVER (authoritative) — byte-identical to CBasePlayerWeapon::ItemPostFrame @0xa03d4:
+		// clip += min(clipSize - clip, reserve); debit the reserve by exactly that (objdump: 0x90539 add,
+		// 0x9061f sub). NOT a full-mag SET — a partial reload with reserve < need must stay partial (a SET
+		// would over-fill and drive the reserve negative).
 		const int reserve = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? gun->m_ammoReserve[caliber] : 0;
 		const int need = wi->iClip - gun->m_iClip;
 		const int take = (need < reserve) ? need : reserve;
 		gun->m_iClip += take;
+#endif
 		it.clip = gun->m_iClip;
 		it.leftClip = it.clip / 2; // the barrel split is unconditional in the original
 		it.rightClip = it.clip - it.leftClip;
@@ -185,8 +200,11 @@ void CBasePlayerWeapon::ItemPostFrame()
 			gun->m_items[wi->iAkimboType].clip += take;
 			gun->m_items[wi->iAkimboType].leftClip = it.clip;
 		}
+#ifndef CLIENT_DLL
+		// server-only: the reserve is server-authoritative (the client re-seeds it from vuser2[1]).
 		if (caliber > 0 && caliber < TS_NUM_CALIBERS)
 			gun->m_ammoReserve[caliber] -= take;
+#endif
 		gun->m_fInReload = false; // item+0xc
 	}
 

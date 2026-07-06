@@ -284,6 +284,61 @@ the reserve change at reload) and already correct.
 
 ---
 
+## (f) The reload REFILL/DEBIT — server byte-correct; client must full-set (cont.89d)
+
+After the vuser2[1] reserve channel landed, the FIRST reload works but everything after it breaks
+(fire stops decrementing, no further reload anim). RE'd the refill on both sides to settle where
+the clip is filled and the reserve debited:
+
+**SERVER refill — objdump-PROVEN byte-identical to the original** (`CBasePlayerWeapon::ItemPostFrame`
+`0x903d4/0xa03d4`, gated `activeItem->m_fInReload!=0 && WeaponTimeBase()>=player->m_flNextAttack`):
+```
+0x90514 need   = activeInfo->iClip - activeItem->iClip
+0x90520 esi    = m_ammoReserve[activeInfo->iCaliber]
+0x90527 cmp/jle/mov  esi = min(need, reserve)          // take
+0x90539 add %esi, activeItem->iClip                    // clip += take   (NOT a full-mag SET)
+0x90609 mov activeItem->iClip -> gun+0xb4 (m_iClip)    // sync weapon_data channel
+0x9061f sub %esi, m_ammoReserve[caliber]               // reserve -= take (SINGLE debit)
+0x90632 mov $0, activeItem->m_fInReload                // clear
+```
+Ammo source is **`m_ammoReserve[caliber]`, not stock `m_rgAmmo`** (0x90520). `DoReload`/`ReloadWeapon`
+(`0x84a14`) only ARMS (m_fInReload + the countdown lock) — no debit, no clip change. **Our
+`weapons_shared.cpp:164-191` matches this exactly.** ⇒ **Do NOT change the server to a full-mag SET** —
+a partial reload with `reserve < need` must stay partial; a SET over-fills and drives the reserve
+negative. The coordinator directive's "server does the stock m_rgAmmo refill / must full-set" premise
+is incorrect: the server already does the TS-correct `clip += min(need, reserve)` + `m_ammoReserve`
+debit.
+
+**CLIENT refill — the divergence (fork raw-disasm of `client.dll`, `FUN_1000b7b0`):** the original
+client's completion is an **optimistic FULL-MAG SET `activeItem->iClip = activeInfo->iClip` with NO
+reserve arithmetic and NO debit** — the reserve is server-authoritative, re-seeded from
+`clientdata.vuser2[1]` every frame (`HUD_WeaponsPostThink` reads `from+0x1bc` → `m_ammoReserve[iCaliber]`,
+iCaliber = winfo+8 on BOTH the seed and the read — the earlier "+2" was a Ghidra mislabel). **OUR
+refill is SHARED (`weapons_shared.cpp`) and ran `clip += min` + `reserve -= take` on the CLIENT too**,
+so our client predicted a reserve debit the original client never does. **Fix (committed):** guard
+the refill — `#ifdef CLIENT_DLL` full-set + no debit (match the original client); `#else` the
+byte-correct server `clip += min(need,reserve)` + debit. (`dlls/weapons_shared.cpp:164-207`.)
+
+**Status of the "breaks-after-first-reload" symptom.** The server path is byte-correct and the
+reserve wire (`vuser2.y`, single writer, sent every frame) is clean; the reserve seed is `clip*3`
+capped at `iMaxCarry` (~60 for 9mm), the akimbo mirror indices are all in-bounds (2→8/3→16/9→10/
+14→30/17→37), timers are floored (`slowFrametime ≥ 0.01*frametime`, so `m_flNextAttack` always
+counts down), and there is no double-debit or `vuser2.y` clobber. Analytically, an ORIGINAL client
+against this server should reload repeatedly. So the residual symptom (if it persists on the original
+client) is a **runtime** state issue not visible in the static code — settle it with a live gdb read.
+
+**Live gdb probe (our hl.so, amd64 — offsets recovered from `CTSGun::ReloadWeapon` @0x112c90 +
+`CBasePlayerWeapon::ItemPostFrame` @0x12fff0):** `m_iClip`=gun+0xec, `m_ammoReserve[]`=gun+0xaa0,
+`m_fInReload`=gun+0xf8 (byte), `m_pActiveInfo`=gun+0xa98 (iCaliber=info+0x94), `m_pPlayer`=gun+0xb8
+(`m_flNextAttack`=player+0x2e4). Break `*&'CTSGun::ReloadWeapon(int, int, float)'` (this=%rdi) for
+the arm, and `*(&'CBasePlayerWeapon::ItemPostFrame()'+0x20f)` (this=%rbx) for the completion; print
+`clip / caliber / m_ammoReserve[cal] / m_fInReload / m_flNextAttack` at each. Reload 2-3× on the
+original client and compare — if the server's clip/reserve/m_fInReload are correct after each
+completion, the bug is client/wire, not the server refill. (ptrace_scope=1 blocks attaching to a
+non-descendant PID; run the server as a gdb child, or `sysctl kernel.yama.ptrace_scope=0` for the read.)
+
+---
+
 ## Appendix — addresses
 
 Server (`ts_i386.so`): StandardFire `0x724a4/0x824a4` · Fire `0x71c78/0x81c78` · PrimaryAttack
