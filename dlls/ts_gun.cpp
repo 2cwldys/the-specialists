@@ -230,12 +230,16 @@ float GetSpeedBySlots(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun)
-		return 320.0f; // no TS arsenal yet → engine default
+		return 330.0f; // empty hands = 81 free slots → the original's `free > 80 → 330` branch (@0x66bd4)
 	int remaining = 81 - pGun->SlotsUsed();
 	if (pPlayer->m_flagStatus.active)
 		remaining -= 20; // carrying the CTF flag costs 20 slot-weight (CBasePlayer::TakeFlag -0x14)
 	if (remaining < 0) remaining = 0;
 	if (remaining > 81) remaining = 81;
+	// @0x66bd4: empty hands (free > 80) return a fixed 330; only a laden loadout ramps down.
+	// (The final round to int happens in SetPlayerSpeed → pfnSetClientMaxspeed.)
+	if (remaining > 80)
+		return 330.0f;
 	return 210.0f + (120.0f / 81.0f) * (float)remaining;
 }
 
