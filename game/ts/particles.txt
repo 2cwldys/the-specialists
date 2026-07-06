@@ -1,0 +1,69 @@
+Here I will layout how particles.rmf works and what each thing does. These are only how I did the effects, once you learn how the system works, you can mix and match and use all these effects to 
+
+PARTICLE SHOWER
+
+There is a small shower that emits concrete particles. It is there to demonstrate how the particles work, it is a very simple example. Here are some of the general properties:
+
+- Follow and rotate allows the particles to have some spin. That spin is set with the y in Angular Velocity.
+- World Only collisions are very fast.
+- Velocity of particles is set so that there is a slight lateral variance (2 to -2) and all particles go up (5 to 10)
+- Angular Velocity sets the spin of the particles from 5 to -5
+- Starting frame is from 0 to 3 because there are four frames in the concrete particle. Each represents a different particle. The framerate is then set to zero to make sure that TS doesn't start scrolling through the particles. In other words, this chooses which particle texture TS will use.
+
+SNOW
+
+The snow works by putting many snow particle emitters up near the skybox. The snow particles have zero gravity, but start with some downward velocity so that they float to the bottom. Then, some random velocities are added and viola.
+
+- The life span is 13 because it takes the average snowflake 13 seconds to fall to the ground. You'll want to set the lifespan to be as short as possible, because when there are a lot of snowflakes, they are very expensive to simulate.
+- The origin variance causes the particles to spawn in a 100 unit square. This way, snow particles don't always appear in the same exact spots, but instead are randomly distributed about the sky.
+- The velocity causes particles always to be moving downwards when they spawn, with some slight lateral movement.
+- Angular velocity gives the particles some spin.
+- The random velocity is what really makes the particles look like snow. This accelerates each particle slightly so that they move around randomly and generally just look like snow.
+- Gravity is set to 0 so that the particles don't accelerate towards the ground.
+- Fade speed doesn't take effect until the particles die, and usually they are already on the ground at this point. This fades out the snow particles fairly quickly once they die.
+- Snow particles of varying radius look good.
+- Snow particles look good when the player moves around with them. .6 to .7 is a good range, so the player doesn't push snow particles all over the place, but instead the snow only slightly follows the players around. Cool.
+- Emitters only emit one or two particles per second, one at a time. There's just a lot of emitters.
+
+FIRE
+
+Fire is actually a couple different particles mixed together. There's the flame particles, the spark particles (mine suck) and the smoke particles. Combine them all to get fire.
+
+- The fire sprite should be a roundish flare type thing so that it looks good from above and below, instead of an image of a fire.
+- Unlike in this demo, use sprites that are not very bright, because the cumulative effect of the additive transparency looks better then each sprite being bright of itself.
+- This particular sprite that I used looked no good with rotation.
+- Fire doesn't really... collide. At all. Not really. There isn't much to collide with, and not colliding goes a hell of a lot faster then colliding.
+- Life span is zero so that the fire will immediately start animating.
+- Origin variance makes sure all the fire doesn't spawn in the same exact spot.
+- Z velocity starts as zero, because the gravity (negative means to float up) moves the gravity up wards toward the sky.
+- Fire will fade slightly. Looks kinda cool, some licks of flame are slightly transparent.
+- Negative scale speed causes the fire to scale up as it floats up towards the sky. Since the particles are animating, the increasing scale won't cause the particles not to die, because they'll die when the animation ends.
+- Fire is only really slightly affected by other stuff.
+- Complete the effect with a nice ambient_generic.
+- Two particle types (fire2particle and fire3particle) which just throw out sparks and make popping sounds.
+- You can't see the sprite very well by looking at the fire, but with a better fire sprite it should show up. It should be just a spark sprite.
+- Sound on emit is currently set to a rifle blast, but that's a horrible sound I know. It should be set to the sound of a fire popping and crackling.
+- One smoke particle creates smoke rising from the fire.
+- The sprite the smoke uses is a solid transparency sprite, not additive. This type of sprite is slower to draw, but it allows you to color the sprite black if you like.
+- Don't put anything but sky above the smoke so that it doesn't go through anything. Make sure the skybox is high enough that the smoke doesn't disappear into it.
+- Gravity must should be lower then the fire's gravity so that the smoke rises faster then the fire does.
+- The smoke transparency is a big hack. Solid sprites don't use this value for transparency, but color instead. Therefore, if you start the smoke with a low color (like .001, must be > 0 so the particle doesn't die from "invisibility") and use a negative fade speed, the particle will fade to white.
+- Scale speed causes the smoke sprite to get bigger rather quickly.
+- A reaction amount of about .3 to .4 looked the best for smoke.
+
+VOLUMETRIC FOG
+
+- Use the glow render mode so sprites don't stick into walls and stuff.
+- Place emitters around the floor, and give the sprites a slow lateral velocity so they wander around.
+- You might try a static sprite that fades in and out quickly, or a regular sprite that animates and dies quickly, and then simply spawn many of them.
+- Give them some react amount so that they react to players, but not alot. Very little.
+
+RAIN
+
+- Rain is small transparent additive particles all over the place with a fast downward velocity.
+- Use the feature that allows you to kill a particle when it collides and spawn instead a small splash particle.
+- Use a heavy wind factor, and a large difference between react amount high and low, to give the wind a turbulent effect.
+- Fade the wind in so that it doesn't look like it simply appears in the sky.
+- Place the emitters high up in the sky so that when the player looks up it doesn't ruin the effect.
+- Alternatively, you can turn collision off and use a sprite that draws a lot of rain drops at once.
+- Combine with a good rain sound and you're set.

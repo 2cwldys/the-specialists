@@ -1,0 +1,232 @@
+// NOTE:  THIS FILE IS AUTOMATICALLY REGENERATED, 
+//DO NOT EDIT THIS HEADER, YOUR COMMENTS WILL BE LOST IF YOU DO
+// User options script
+//
+// Format:
+//  Version [float]
+//  Options description followed by 
+//  Options defaults
+//
+// Option description syntax:
+//
+//  "cvar" { "Prompt" { type [ type info ] } { default } }
+//
+//  type = 
+//   BOOL   (a yes/no toggle)
+//   STRING
+//   NUMBER
+//   LIST
+//
+// type info:
+// BOOL                 no type info
+// NUMBER       min max range, use -1 -1 for no limits
+// STRING       no type info
+// LIST          delimited list of options value pairs
+//
+//
+// default depends on type
+// BOOL is "0" or "1"
+// NUMBER is "value"
+// STRING is "value"
+// LIST is "index", where index "0" is the first element of the list
+
+
+// Half-Life User Info Configuration Layout Script (stores last settings chosen, too)
+// File generated:  Fri Jun 15 17:17:10 AM
+//
+//
+// Cvar	-	Setting
+
+VERSION 1.0
+
+DESCRIPTION INFO_OPTIONS
+{
+	"mp_decals"
+	{
+		"Decals Limit (0 - 4096)"
+		{ NUMBER 0.000000 4096.000000 }
+		{ "300.000000" }
+	}
+
+	"hud_r"
+	{
+		"Hud color red (0-255)"
+		{ NUMBER 0.000000 255.000000 }
+		{ "125.000000" }
+	}
+
+	"hud_g"
+	{
+		"Hud color green (0-255)"
+		{ NUMBER 0.000000 255.000000 }
+		{ "150.000000" }
+	}
+
+	"hud_b"
+	{
+		"Hud color blue (0-255)"
+		{ NUMBER 0.000000 255.000000 }
+		{ "165.000000" }
+	}
+
+	"hud_fastswitch"
+	{
+		"Fast weapons switch"
+		{ BOOL }
+		{ "0" }
+	}
+
+	"cl_showequipment"
+	{
+		"Show equipment?"
+		{
+			LIST
+			"never" "0"
+			"with 1/4 transparency" "1"
+			"with 1/2 transparency" "2"
+			"with full transparency" "3"
+		}
+		{ "1.000000" }
+	}
+
+	"cl_usepowerup"
+	{
+		"Double tap use activate powerup"
+		{ BOOL }
+		{ "1" }
+	}
+
+	"cl_buykevlar"
+	{
+		"Buy kevlar by default?"
+		{ BOOL }
+		{ "1" }
+	}
+
+	"cl_bob"
+	{
+		"Weapon/View Bobbing"
+		{
+			LIST
+			"min" "0"
+			"1/3" "1"
+			"half" "2"
+			"2/3" "3"
+			"full" "4"
+		}
+		{ "3.000000" }
+	}
+
+	"cl_camtype"
+	{
+		"Thirdperson Camera Type"
+		{
+			LIST
+			"Right shoulder" "0"
+			"Left shoulder" "1"
+			"Center" "2"
+			"Custom" "3"
+		}
+		{ "0.000000" }
+	}
+
+	"cl_thirdpersonswitch"
+	{
+		"AutoSwitch to thirdperson view"
+		{
+			LIST
+			"never" "0"
+			"on kung-fu" "1"
+		}
+		{ "0.000000" }
+	}
+
+	"cl_thirdtransparency"
+	{
+		"Transparent 3rd person model when aiming?"
+		{ BOOL }
+		{ "0" }
+	}
+
+	"cl_fx"
+	{
+		"Special effects detail"
+		{
+			LIST
+			"Low" "0"
+			"AutoDetail" "1"
+			"High" "2"
+		}
+		{ "1.000000" }
+	}
+
+	"cl_motionblur"
+	{
+		"Motion blur?"
+		{ BOOL }
+		{ "1" }
+	}
+
+	"cl_gore"
+	{
+		"Blood Amount"
+		{
+			LIST
+			"None" "0"
+			"Low" "1"
+			"Normal" "2"
+			"Lots" "3"
+			"Even More" "4"
+			"Bloodbath" "5"
+		}
+		{ "2.000000" }
+	}
+
+	"cl_shadow"
+	{
+		"Draw shadows?"
+		{
+			LIST
+			"no" "0"
+			"yes" "1"
+			"only other players" "2"
+		}
+		{ "2.000000" }
+	}
+
+	"cl_wavedetail"
+	{
+		"Bullet trails?"
+		{
+			LIST
+			"no" "0"
+			"yes" "1"
+		}
+		{ "0.000000" }
+	}
+
+	"cl_solidcross"
+	{
+		"CrossHair style"
+		{
+			LIST
+			"trasparent" "0"
+			"solid with hud color" "1"
+			"solid with black color" "2"
+		}
+		{ "2.000000" }
+	}
+
+	"cl_laser"
+	{
+		"Lasersight style"
+		{
+			LIST
+			"Standard" "0"
+			"Beta 1.0" "1"
+			"Realistic" "2"
+		}
+		{ "0.000000" }
+	}
+
+}

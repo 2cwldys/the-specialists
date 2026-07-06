@@ -1,0 +1,748 @@
+$Id: CHANGELOG.txt 162 2005-08-18 21:32:32Z morfeo $
+
+Changelog
+
+Legend for this changelog:
++ Feature added
+- Feature removed 
+! Feature fixed/updated
+? Unresolved issue
+* Note
+
+Version 2.1.21 beta - aug 19 2005
+
+Morfeo:
++new armor behaviour (kevlar is always on and cannot be dropped if bought, it always absorb some ammount of damage, 20% by default)
++semi-custom lasersight color (cl_lasercolor 0, 1 or 2)
+!slowpause to 2 sec
+!throwing sealknives do 35 damage
++new particle sys features: follow axis and stretching along velocity (both useful for rain, look at the fgd)
+!some better particle sparks effect
++new infinite clip model
++new beretta/skorpion sounds (thx flakk)
+
+Version 2.1.20 beta - aug 4 2005
+
++some ts_emitter entities optimization
++ Refactored placeable powerups: 
+Its now possible to spwan any random set of powerups (slwmo+slowpause, grenades+infite+double firerate, all of them, just one, you name it). 
+Its also possible to have some powerups with custom duration time (6 sec slowmo for example).
+!some animation improvements (feet sliding with melee)
+!view bob tweaked
+!lasersight: now with animated beam (still to polish), gameplay wise it grant a little more accuracy for the very first shots.
+!fixed weirdo stock attack bug
+!all the weapon default values updated to the latest weapon config
+
+Version 2.1.19 beta - July 11 2005
+Vino:
++All client-side messages are now localized. Server-side messages require more work.
+
+Morfeo:
+!several melee changes: the biggest one is regarding blocking, each melee weapon can block and is using the melee bar now. The more you block the more you eat the bar, the less the bar is the less the damage you do. Once the bar reach 0 it will take a while to block again. Whenever you block you always block the full damage.
++contender scope
++laser beam visible from thirdperson
+!scope sprite is less obstructing now
++wrong torso rotation for kungfu and melee weapons when running is adjusted automatically by code. Finally!
++ts_emitters/ts_particle changes: offset origin can be defined only in the emitter, and added the "particles around camera" feature (in the ts_emitter look for "Density around camera" and "Camera radius", the first (0-1 range) define how much of the particles will be inside the defined radius)
++new infinite clips behaviour, it will double the current weapon clip now (very precius powerup now)
+!a better jump feeling and some smoothness to the camera rolling
+!network code improvement: weapon clip/firemode update is done completely client side! And player accel is calcuated by the maxspeed, no need to synch it anymore.
+!fixed missing slowmotion when turn spectator
+!small tracers tweaking
+-removed viewpunch due bullet damage
+
+
+Version 2.1.18 beta - May 5 2005
+!The one mode works again and it should more solid now.
+!no more extra frags for backwheeling on the spot.
+!katana progress: 50hp for strong, 25hp for light, only back and duck attacks stops the player, firerates tweaked.
+!kungfu selectable again in the weapon menu only via slot keys (next/prev weapon commands ignore kungfu)
+!max particles count doubled
+!a way better/cheaper/serious bullet trail effect (no more silly "enter the matrix" trails): basically we have tracers in slowmotion now. And the less the slowmotion the more they are stretched.
+
+Version 2.1.17 beta - May 1 2005
+
+Vino:
++Added a bar on the right of each weapon in the menu to show remaining ammo for that weapon.
+!Fixed cl_showequipment display for empty weapons not showing up red.
+!Fixes for gl_fog
+!Demos show alternate fire animations and globalslow effects correctly.
+!Improved demo recording a playback.
+!Disallow stocking while zoomed.
+!Fixed logs not showing what people say.
+!Fixed crash which occurred when you prime a grenade and then drop it.
+!Fixed disarming of accumulable weapons disarming the entire set of weapons. (morf: actually, I dont consider that a bug)
+
+Morfeo:
++skorpion added!!1
++disarm by accumulative damage, melee weapons takes more damage to get disarmed
++work in progress on the katana revamp: damages are totally wrong
+!only 1 extra frag for stunting
+
+Version 2.1.16 beta - Apr 16 2005
+!fixed jumping/fu bar bug
+!a way better spread pattern
++armor values are saved/loaded from the weapon config
++carried weapons are shown on the hud (optional with cl_showequipment cvar, or from the customize menu)
+!several animation improvements (dives, walljump, knife anims, etc..)
+!removed kungfu from the selection menu (just slot0 switch to kungfu)
++added "botarmor" cvar: -1 = never buy armor, 0 = random, 1 = always buy armor
++knives will be dropped in packs now, this means you dont have to press the drop button 10 times if you want to get rid of your knives. I expect an extra w_model for when they are packed.
+
+Version 2.1.15 beta - Apr 3 2005
+!gunkick disarm restored
+!A key buy the contender (doesnt feel that good anyway, probably its better to put the contender in the special category..)
+!kelvar is by default
++also in teamDM there can be 4 teams max, each team with arbitrary names and models!
++updated FGD with more spawn spots, one for each team. So its possible to define specific spawn spots even in simple teamDM.
++grenade can be thrown back by pressing USE!!1
+!restored old secondary attack for the grenade
+!fixed grenade switching bug
+!added cl_thirdtransparency and cl_motionblur, also accessible from customize menu
+
+Version 2.1.14 beta - Mar 25 2005
+!test: not possible to disarm via "gunkick", after all make sense that 2 gunners should not be able to disarm each other.
+!test: trying black fade instead blue for slowmotion
+!weapon selection should be fixed once for all
+
+Version 2.1.13 beta - Mar 13 2005
+! major changes to kungfu: 
+	-full auto again
+	-block mechanics: to block just stay still, no more reload button 
+	-stamina bar is used only by blocking, it represent how much damage the player can block
+	-damages not affected anymore by the stamina bar
+
+! changes to knives: 
+	-full auto again 
+	-longer range for combat knives (but less firerate)
+	-new damages on throwing: 50 for seal, 100 for combat
+
+! kevlar system changed: kevlar can still be bought (but takes 10 slots) and no more virtual slots.
+! stunt limits changed: 40 for high, 50 for medium, 60 for low.
+! slots affect also acceleration now: the lighter the equipment the faster the acceleration.
++ blue screenfade and heartbeat while slowmotion.
++ added the uppercut punch: quickly tap crouch and press attack1 or after the 3 fast punches (maybe remove the tap crouch thing?) 
++ improved some kungfu animations
++ first person kungfu! (some animations still missing)
+! probably other small things here and there
+
+Version 2.1.12 beta -
+! fixed load/saveweapons commands
+! reenabled fog
++ mute a player mute also his text
+
+Version 2.1.11 beta -
+! double firerate for semi auto restored
+! double firerate will tune down view and spread recoil a bit
+! slowmotion can be accumulated up to 5 sec. Still, when picking it will be 3 sec max.
+! frag awards and slowmatch in teamplay too.
+! objectives tags updated when team change or client connect to the game.
+! default contender cost is 1500 now.
+! no more mouse slowing during slowmo.
+
+Version 2.1.10 beta --
+! New Kevlar behaviour in testing
++ Flag Id is supported, a capture zone with flag ID less than 0 (-1) will take every flag ID, otherwise just the specified ID.
++ flag and kevlar droppable by "dropping kungfu"
++ origin offset moved from ts_particle to ts_emitter, the one in ts_particle is still supported for a while until mappers update their maps.
+! fixed some issue with team names in TM
+! updated fgd with the possibility to change team names and models in teamplay (its on the map properties, look at the teamplay_test.rmf)
+! cleaned up a lot the teamplay code
++ some improvements related to flags, tags on the hud disappear if the flag is not at the spot
++ TESTING: 3 sec of slow-mo instead 5 (but I still have to make it so the player can accumulate to 5)
+
+Version 2.1.9 beta --
+! Fixed the crash by stocking an explosive object and killing yourself with it.
+! safe collision for particles, which means that no collision is missed even with big delays between the collision checks.
+! grenade timer get slowed down properly
+! fixed blood bug
++ TESTING:new doublefirerate behaviour, every timer is speeded up by 150%, so even reload times, kungfu etc, its way more powerful, so it last 3 sec now.
++ infinite-ammo works even when the clip is empty (for shotgun is not working: to fix).
++ support for katana and knife idles
++ support for basic briefcase animations (but still need some work, and I'm still skeptical about it: briefcase limit a lot the player freedom)
++ capture the flag works, and it is compatible with the objective system. Backpack visualization still need to be done, but all the rest is working (there are tm_test.bsp and teamplay_example.rmf to show how it works)
+! fixed the bug regarding mossberg + grenade launch
+
+Version 2.1.85 beta -- Nov 14, 2004 
++ wall dive!!
++ reworked kevlar behaviour (it also take 10 slots, thats experimental)
++ kevlar can be bough in DM (experimental too)
+! tweaked slowmotion change speed, faster now
+! blood effect fixed, no more blood falling through the ceiling, plus the cl_gore multipler really works now, even if its changed a bit. Now there are 5 levels of blood (they are in the customize menu): none, low, normal, lots, even more, bloodbath.
+! throwing knives not hitting people sometimes should be fixed
+! "missing frame" particle error should be fixed
++ added some missing pewees
+
+Version 2.1.8 beta -- 
++ TS now conforms to the HL Standard Log Format Specification http://www.hlstats.org/logs/. Logs will specify stunt/dive kills, killer/demo/specialist status, and other major game events.
+! slowmotion refactoring, timers/delays get perfectly slowed/accelerated in slowmotion, lots of slowmotion bug fixed.
++ slowmotion change smoothly.
++ reload times get slowed down too, this is more a side effect of the refactoring, but it really add depth to the gameplay.
+! fixed env_fade bugs
+! next/prevweapon works again after get disarmed
+
+Version 2.1.7c beta -- Oct 30, 2004
+! particle system improvements (better performance in some cases)
+! blood effect improved
+! raging bull sound bug fixed
+! player pain sounds slowdown tuned down
++ m4 and m16 coldcock animations
++ desert eagle coldcock
+! a bit brighter blood sprite
+! shell casings sounds changed a bit and they get slowed down in slowmotion
+
+Version 2.1.7b beta -- Oct 27, 2004
+! Fixed the crashes regarding dropping weapons
+! tweaked wall debris particles
+! tweaked grenade effect
+! added a splat sound when blood fall on the ground (not always)
+! minor fixies to the bots
+! UMP have a 2 rounds burst
++ env_fade is a solid entity if desired
+! almost all sounds are slowed down in slowmo
+
+Version 2.1.7 beta -- Oct 25, 2004
+! Screen punches go away when you die.
+! Fixed the auto-draw of the next weapon. M82, M60, rifles, shotguns, SMG's, akimbo pistols, single pistols, blades, grenades, flag.
++ Added option for a flag which deprecates in value when it is dropped, at the mapper's discretion.
+! globalslow command works betweem 0 and 1 AND between 0 and 100.
+! Removed the ability to cold-cock while prone, in airwheels or wall jumps/climbs.
++ Explosions throw ground weapons around.
+! Some improvement to the bots (better aim and look behaviour, coldcock, better knives throwing, more challenging in general)
+! Better muzzle flashes.
++ Flashes and shaking are extended in slow motion.
+! Fixed guns and knives sticking to each other in the air.
+
+! Fixed bug causing first person animations to sometimes be the alternate set.
+! Only hitscan weapons are allowed in the "killed with their own weapon" message.
+! Fixed tm_push_gpc_x crashing in singleplayer mode, even though Clan-Killer should be using multiplayer mode to test it ;)
+! Fixed player's slots not being given back to him after a flag capture.
+! Code asserts can now be seen by betatesters. developer 1 should be on to see them. Useful for mappers to see error messages in their map construction.
+! Flag is 20 slots.
+! Restricted scripts from using +attack +attack2 or +alt2.
++ Added wind affect value to particle system to allow the mapper to specify how much a particle is affected by wind.
+- Removed dive kick exploit.
+! Fixed SP2 crash.
+! Tweaked glass to break better when you dive through it.
++ Contender autoreload after shoot with a 0.5 sec delay
+! Bigger and more debris when shooting at walls.
+! Particle physics improved
+
+Version 2.1.6 beta -- Oct 5 2004
+-Sjet's pewees fixies
+-TO EXPERIMENT: added a bit of viewshake for autos, with my weapons_morf.txt its optimal. I think it give a very nice feeling.
+-fixed berettas bug
+-usas takes less slots. This + less recoil should make it more useful.
+-new m3 stock animation
+-new sawedoff stock animation
+-all weapons with a stock do a stock attack even if there is no animation yet (its used the draw anim for now)
+-stock damage is different per weapon: barrett and m60 do the most damage
+-a bit different death message when a stock attack is used
+-particles physics touched a bit, probably some particle emitter in maps have to be tweaked now
+-most of the sounds get slowed down in slowmotion
+-shell casings updated
+-small things here and there
+
+-fixed berettas bug
+
+Version 2.1.5 beta -- 08/10/04
++ Added a stock attack for the MP5SD.
+- Removed initial_cash. Initial cash set at 1200.
+- Removed cashforwin. Cash for win set at 10000.
+- Removed cashforlose. Cash for lose set at 1200.
+- Removed reducing fu bar when you are disarmed.
+! Totally redid the cash system.
++ The value of the player's weapons and ammo is refunded to the player when a round ends.
++ Added the Contender single-shot pistol.
++ Added support for fog.
++ Added support for wind.
++ Added a single Beretta Contender.
++ Reloading and other weapon sounds are slowed with slow motion.
+
+Version 2.1.4 beta -- 19/04/04
++ Added the "motd" command, which displays the MOTD.
++ Added ts_particle and ts_emitter so that mappers can spawn particle systems.
+! Reduced M4A1 damage.
+! Reduced MP5SD damage.
+! Reduced Glock 20c damage.
+! Increased Sawed-Off damage and widened spread.
+! Increased Mossberg damage.
+! Increased M3 damage and tightened spread.
+! Increased SPAS 12 damage and widened spread.
+! Reduced USAS 12 recoil.
+! An empty kung-fu bar does 20% damage.
++ Many changes to the particle system, which include:
+ - Particles use new very fast collision code, which should allow many more particles to exist at once.
+ - Added the capability for random acceleration to particles.
+ - Particles will now react to things in the environment. Players moving moving and shooting will throw particles around.
++ cl_thirdtransparency allows the player to specify how transparent he wants his third person model.
++ Remove on fire for ts_playeramount.
+! Raised materials.txt texture limit to 1024 textures with 16 letters per texture name.
+
+! ts_playeramount works for bots too.
+? The particle system is not yet done. Bullets affect the particles WAY too much, being in third person mode doesn't affect the particles at all. I know all this, don't bother me with it.
+
+Version 2.1.3 beta -- 07/04/04
++ Added a stock attack for the Benelli M3 Super shotgun.
++ sound/ts_mapname_materials.txt parsed for each map.
++ Added cl_attackswitch, which switches +attack2 and +alt2 for all firearms.
++ Reintroduced the bullet dodge, but with heavy motion blur, and the player has the ability to fire.
+! Worldguns on breakables fall if the breakable is destroyed.
+! Fixed getting stuck in cameras if you're killed while watching one.
++ Added the ts_playeramount entity, which fires when players enter and leave servers.
++ Added a much better working version of first person spectator.
+! Improved the accuracy of where other player's laser and flashlights are drawn.
++ Added a cocking sound that others hear at the end of a shotgun reload.
+! Filtered entities fade in and out.
+
+! Fixed the Windows 98 bug -- beta releases will now be in release mode.
+! Pretty sure I fixed the motion blur crashing bug.
+! Motion blur fades out faster.
+! Motion blur is only shown during slow motion.
+! Motion blur starts out at 85% transparency.
+! Fixed duplicating temporary powerups while holding down use and walking over a permanent powerup (phew!)
+! Fixed server crash if grenade is held, +attack, invprev, slot1 with no other weapons and hud_fastswitch 1
+! Fixed a crash when someone hits another player with kung fu for more then 20 damage after they are already dead (phew!)
+! Fixed triggered breakables shattering in direction of hit.
+! Fixed respawn targets.
+! Fixed Kung-Fu not giving two frags.
+! Solidified 3rd person transparency a bit.
+! Fixed players going transparent when they die.
+
+- Removed some excess precaches.
+! Fixed superjump settings hanging around from the previous map.
+! Fixed trying to buy groundweapons you already have draining all your cash.
+! Fixed free ts_groundweapons not being free.
+? Make sure initial_cash cashforwin and cashforlose are not defined in server.cfg
+! Fixed mapper-defined weapon restrictions not working if "weaponrestriction 0" is not in the config.
+! Fixed going into spectator mode with the flag (by changing teams etc) removing the flag from the game.
+! Modified weapons.txt to take five parameters: accuracy, recoil, accuracy decay, damage multiplier, cost
+! Local player's simulated velocity is used for affecting particles (also fixes third person not affecting particles.)
+! Particles don't do collisions more then 30 times a second (faster) and do less the farther you get.
++ .50 AE/BMG rounds spin particles around as they fly through the air.
+! Particle system performance improved.
+! Server performance improved.
++ Rain is now possible with the particle system.
++ Added particles which never die.
++ Added emitters which kill themselves on spawn.
++ Added dmgreport cvar, which reports how much damage attacks do.
+
+Version 2.1.2 beta -- 06/05/04
+! Fixed not being able to fire for a moment after cold-cocking during a reload.
++ Breakables now can have separate targets for spawning and dieing.
+! Kung fu/stock attacks only punch the victim's screen if he is not blocking.
++ Added clicking sound when firemode is changed.
+! Auto switching weapons (ie when dropping one) goes by slot number instead of price.
+! Fixed spawning without weapons sometimes.
++ Game description in the server browser shows "TS The One Mode" and "TS Last Man Standing".
+! Changed teamplay from roundbased back to continuous spawning.
+- Disabled invprev and invnext while using kung fu.
++ ts_trigger entity expanded to include stuff that regular triggers do.
+! Fixed not being able to press cancel in one of the buy menus in team deathmatch.
++ Added motion blur.
++ Cold cocking with rifles and shotguns will block katana attacks.
++ Added the "slowsensitivity" cvar to configure sensitivity in slow motion.
+- Removed bullet dodge stunt until something better can be thought up.
++ Added new gameplay mode push, and a briefcase for a flag.
+! View model animation will slow with globalslow.
+! globalslow is now a command (not a cvar) that takes a percent, 0 to 100. 0 or 100 turns globalslow off.
+! restartround is now a command (not a cvar).
+! weaponrestriction is now a command (not a cvar).
++ Added option for the mapper to enable superjump in a map.
+! Updated ts_fall to have superjump allways enabled.
+! Some general speedups of the game rules thinking function.
++ Added the ts_groundammo entity to allow mappers to place ammo in maps.
+! HLDM entities replaced with random TS weapons.
+! Longjump replaced with superjump on HLDM maps.
+! Health and HEV chargers replace health and armor instantaneously.
+- Removed some of the harmful things players can do if sv_cheats is on a server.
+
+! Fixed exploding breakables causing network overflow errors.
+! Scale fubar transparency to user's hud color.
+! Eliminated particles that get stuck in stuff and just spin around.
+! Fixed killing someone with their own weapon.
+! Heartbeat plays at half fu (instead of two thirds). Breathing is quieter and plays at a quarter fu (instead of a third.)
+! Catroll sped up.
+! Land sound for the catroll replaced with a small step sound.
+! Fixed knives and katanas sometimes wrongfully causing screen punches.
+? Briefcase needs to be seen and not be a combat knife.
+? Money should be given to the players when they accomplish a mission.
+
+Version 2.1.1 beta -- 05/20/04
++ Bullets play a whiz sound as they go past you.
+! Updated cold cock for the M4.
+! Freeman's freakin face fixed. Fucker.
+! A throw to the head with a knife is allways fatal.
+! Weapons don't bounce off windows when they break them.
++ Cold-cocking attacks punch victim's view.
++ Kung Fu attacks that do more then 20 damage will also punch the victim's view.
+! Kung Fu bar regeneration rate raised a smidge.
+! Kung Fu bar turns red as your power drops.
+! Your breathing and heartbeat heard when your power drops. (Not audible to others.)
++ Double-tap crouch and look up to execute a catroll.
+! Stunt height indicator in the crosshair returned for non-crosshair weapons.
+! Buy menu does not open during demo playback.
+! Rearranged slot 1 weapon order: M61 Grenade, Katana, Combat Knife, Seal Knife.
++ Glass and other breakables shatter in direction of impact.
++ Third person player model becomes semi-transparent when looking at another player.
+! Arm shots do half damage. (Experimental!)
+! The player's shadow gets lighter if he is in the air.
+! Dropped or disarmed weapons stick around longer.
++ Weapons that you drop or which were disarmed from you glow so you can find them.
++ cl_thirdperson will keep you in thirdperson when you spawn.
++ Vintage 1.5 ts_lobby added again as ts_lobbyduel.
+! Updated M61 prime animation so the spoon doesnt fly off and arm the grenade.
++ Secondary fire for the M61 grenade throws the grenade behind you.
+! Infinite ammo powerup turned sideways.
+! Third person zooming goes to first person.
++ Metamod 1.17, Admin Mod 2.50.59 and AMX Mod X 0.16 will now be distributed fully functional with TS.
+! TS now uses the Impact font to display text.
+! Breakables now respawn 60 seconds after they break.
+! Breakables won't respawn if a player is in the way.
++ Mappers can now customize how long a breakable takes to respawn, or set breakables that do not respawn.
++ Mappers can now set a breakable to trigger its targets when it respawns.
++ Masters will now work for spawn points. Players will not spawn there until the master triggers it.
+! AK-47 damage lowered a smidge.
++ If The Specialist kills himself he gets -6 points and a taunting message.
++ Killing someone with their own weapon gets you a special message (but no extra points.)
+! Disarmed players have their kung fu bar reduced by 60%. (Experimental!)
+! Grenade weight lowered to 7 (was 15.)
+! Players who die and had grenades drop them as powerups.
++ Player symbol on the bottom left turns red as your health drops.
+- Removed say commands (votemap, ff, timeleft) because Admin Mod and AMX Mod X do them better.
++ Saying %h or %a over chat will report your health and armor respectively.
+
+Version 2.0.9 beta -- 03/03/04
+- Cut SPAS 15. Not enough time to make it look good.
+- Cut first person spectator. Too many bugs, requires a total redo. Locked chase cam still in.
+! Pump shotguns full auto once again. (ala 2.0)
++ Weapons will slide along the floor if thrown outwards.
+! Fixed super roll.
+
+! Heavier weapons (more slots) break stronger things.
+! Fixed mouse buy menu thing.
+! Shotguns have 30% additional recoil (instead of 50%) in semi.
+! Fixed fu block respawn bug.
+
+Version 2.0.8 beta -- 2/29/04
+! Cold-cock added for the sawed-off.
+! SPAS 15 shotgun added.
+! Backflip damage is now 15.
+* Forgot to note in previous changelog that semi shotguns do 50% more recoil.
+! Raised Kung Fu damage 5% to 90% (2.0 level)
+! Silenced beretta p models.
+! Steam splash and Steam compatible.
+! Plus two (three total) frags for a stunt kill. Two frags for everything else.
+! New Berettas model.
+
+! UMP is a two-handed weapon.
+! New fire sounds for UMP.
+! M4 origins shifted back.
+? ACK! What a shitty sawed-off animation!
+! Pump shotties are semi auto for fire and full auto for pump. AKA, hold the button down after fire to pump, release to not pump.
+! Upped shotgun damages 180%.
+! Slightly raised MK23 damages.
+! Spazzy and moonwalking player models fixed.
+! Lowered the victim slowpause to .15 (was .1 in 2.0, .2 in 2.0.7)
+! Fixed spreads allways being the same server side (I think.)
+! Right mouse button cancels in buy menu.
+! Hard-coded weapons.txt into the game. Tweaking will be possible until the freeze date.
+
+Version 2.0.7 beta -- 02/24/04
+* New version numbering scheme: major.minor.beta
+! Some balance tweaks to weapon damages.
+! Barrett leg shots are not fatal.
+- Player's velocity added to knife's removed. Too many mixed feelings among the betatesters.
+! Backflip damage is now 10.
+! Grenades are now listed as "M61 Grenade" (rather then just "grenade".)
+! Raised the speed at which victims move when slow pause is activated.
+! Client and server are now more synced to where bullets strike.
+
+! Weapon damages fluctuate randomly between 70% and 75%
+! UMP fire rate set to 650 rounds per minute.
+! Shotguns damages balanced (were one hit kill before.)
+! MK23 damages decreased.
+! Fixed a glitch in the buy menu causing the menu to show weapon categories when empty space outside the menu is clicked.
+! Two frags for a diving kill.
+! Faster ROF for knives, katana, and some fu moves.
+! M4 AUG and MP5K damages decreased to 70%.
+! Fixed the fu blocking.
+
+Version 2.06 beta -- 02/19/04
+! Rearranged buy menus. Barrett is now a rifle and sawed-off is now a shotgun.
++ Added in force chase cam (uncommented two lines of code.)
+! Tweaked the angles that chase cam uses. Equivalent to cam_back 90, cam_up 7, cam_idealpitch -10.
+! Fixed a bug that sometimes wouldnt let you select the next person in spectator mode.
++ Added first person spectator mode.
+! When you die, you resume spectating in the same mode as you were in before.
++ Saving a config is now allowed for empty configs. It just empties out the slot.
+- MAC 10 removed.
++ UMP added.
++ Added support for the mouse in the buy menu.
+! Updated version of ts_gpc
+! Updated version of ts_parking
+
+* Still need to replace the MAC 10 sprites and fire sounds, and p_ and w_ models.
+? Morfeo really needs to send me the models qc files, please. The more I test, the more problems I see with the player models.
+
+Version 2.05 beta -- 02/02/04
++ New combat_idle_low anim.
+! Glock 18 reload lengthened (2 seconds.)
++ Shrapnel added to grenades.
+- Removed orgasmic death sounds.
+! Throwing knife kills are now listed as such in death messages (instead of just "knife".)
++ Paintball: r_paintball shows bullet holes as colored splats.
+- Crosshair removed for fu, knives, katana, nades and the unscoped Barett.
+! You may pick up health and armor powerups even with maxed out health/armor.
+! Picking up a grenade powerup does not automatically switch to that weapon.
+! You may pick up powerups even if you already have them. There is no extra affect.
++ Added the +alt2 command for cold-cocking.
++ Added cold-cocking for the M4A1.
++ Reload button blocks in kung fu.
+! Changed "theonematch" to "mp_theonemode".
++ Added "mp_theone" and "mp_theothers" cvars for the server to set models for The One.
+! The One cannot be disarmed.
+! The Kung Fu bar represents the % of the max damage a Fu attack will do. 50% bar == 50% damage.
+! Lightened the rbull's and removed the deagle's fire rates.
+
+* These changes are against 2.04, not 2.04b.
+! Fixed some bugs with The One mode.
+? Running backwards plays the running forwards animation.
+
+Version 2.04 beta -- 1/23/04
+! Firearm damage changed to 75%.
+! Katana/Fu damage changed to 85%.
+! Throwing knife damage reduced to 80 max.
++ Slowed the fire rate for the rbull and deagle slightly.
++ lastinv command re-implemented. Does not work if you have kung fu out.
++ cl_accel cl_accelexp and cl_accelmax "mewcelleration" added.
+! Logs will now show Steam ID's properly.
+* Forgot to notice in 2.03 changelog that 1.5 walljumping has been reinstated in addition to 2.0 walljumping.
++ The One updated: All players will be agents except The One, who is laurence.
++ The One gets ten*players on the server frags per kill, but no more then 200 health.
+- Removed all three point score bonuses for fu, katana, knife etc kills. They are now 2.
+- Removed HL weapons (gauss egon hgrenade etc) and other HLDM entities.
+
+! Fixed the stupid knife bug.
++ Reinstated saveweapons loadweapons weaponinfo adjustweapon.
+! cl_lw 0 eliminates gun smoke.
+! Fixed weapons making multiple falling sounds as they slide across the floor.
+! loadweapons/customweapons will now work with any game directory.
++ weapons.txt is loaded by default.
++ Using a slight modification of Keyser's edit of Tempyst's version of TOG's weapons.txt
++ Code is now 100% ANSI-compliant.
+
+Version 2.03 beta -- 1/19/04
+! Fixed doing flips allowing reloading faster.
+! Fixed the cl_lw recoil exploit (actually, just made changing it to 0 have no effect.)
+! Fixed the screen flashing red for damages less then 1.
+! Fixed selecting an empty weapon slot switching you to kung fu.
+! Fixed Morfeo's fix of the fu script blocking system (cl_pitchspeed would never be less then 225. Now will never be more. :D)
+! Fixed The One mode.
+! Fixed hud weapon selection menu switching to the weapon which just finished reloading.
+! Fixed weapon reload twice if the button is held down.
+! Fixed not being able to dive if you jump off something.
+! Fixed reloading during a burst.
+! Fixed addbot being a client command. Is now a server command, which rcon required for.
++ Updated the recoil to be smoother.
+! "powerup" command and other such cheats only work if the map was loaded with sv_cheats 1
+! Backwards velocity changed from 4/7 max speed to 4/5 max speed.
+! Weapon damages increased from 65% to 80% of 1.5 levels.
++ Players velocity is now added to thrown knife velocities.
++ Knives will now ricochet off a wall if they strike them at a shallow angle.
+! Katanas and kung fu are now 80% as strong as before.
++ Added "addbot help" and "addcustombot help".
+
+Game files updated for 2.05:
+decals.wad
+events/coldcock.sc
+models/v_glock18.mdl
+models/v_m4.mdl
+models/player.mdl
+models/player/agent/agent.mdl
+models/player/castor/castor.mdl
+models/player/gordon/gordon.mdl
+models/player/hitman/hitman.mdl
+models/player/laurence/laurence.mdl
+models/player/merc/merc.mdl
+models/player/seal/seal.mdl
+
+Game files updated for 2.06:
+delta.lst
+titles.txt
+models/v_ump.mdl
+sound/weapons/ump/clipin.wav
+sound/weapons/ump/clipout.wav
+sound/weapons/ump/clipslap.wav
+sound/weapons/ump/slideback.wav
+sound/weapons/ump/boltpull.wav
+sound/weapons/ump/boltslap.wav
+sound/weapons/ump/ump-fire.wav
+sound/weapons/ump/ump-fire-sil.wav
+sound/ts_gpc/ts_stoom1.wav
+gfx/env/ts_gpcbk.tga
+gfx/env/ts_gpcdn.tga
+gfx/env/ts_gpcft.tga
+gfx/env/ts_gpclf.tga
+gfx/env/ts_gpcrt.tga
+gfx/env/ts_gpcup.tga
+maps/ts_gpc.bsp
+maps/ts_gpc.txt
+maps/ts_parking.bsp
+maps/ts_parking.txt
+sprites/mapsprites/ts_gpc1.spr
+sprites/mapsprites/ts_gpc2.spr
+
+Game files updated for 2.0.7:
+maps/ts_central.bsp
+
+
+models/schmung/GameCfg.wc
+models/schmung/pool.dxf
+models/schmung/sg_3dmtab.mdl
+models/schmung/sg_bkchair.mdl
+models/schmung/sg_cereal.mdl
+models/schmung/sg_chair.mdl
+models/schmung/sg_count.mdl
+models/schmung/sg_cstatue.mdl
+models/schmung/sg_kbot.mdl
+models/schmung/sg_mkbot.mdl
+models/schmung/sg_nash.mdl
+models/schmung/sg_rechair.mdl
+models/schmung/sg_smcouch.mdl
+models/schmung/sg_spot.mdl
+models/schmung/sg_spotbase.mdl
+models/schmung/sg_table2.mdl
+
+models/schmung/sg_wine.mdl
+models/schmung/sg_wntf.mdl
+sound/ambience/dronemachine2.wav
+
+Game files updated for 2.0.8
+models/v_m4.mdl
+models/v_ump.mdl
+models/w_ump.mdl
+models/p_ump.mdl
+models/v_sawedoff.mdl
+models/v_spas15.mdl
+models/w_spas15.mdl
+models/p_spas15.mdl
+models/v_berettas.mdl
+models/p_berettas.mdl
+models/p_berettas_sil.mdl
+models/w_berettas.mdl
+models/frankenspas15.txt
+models/player.mdl
+models/player/agent/agent.mdl
+models/player/castor/castor.mdl
+models/player/gordon/gordon.mdl
+models/player/hitman/hitman.mdl
+models/player/laurence/laurence.mdl
+models/player/merc/merc.mdl
+models/player/seal/seal.mdl
+sound/weapons/ump/ump-fire.wav
+sound/weapons/spas15/spas15-fire.wav
+sound/weapons/spas15/spas15-pump.wav
+sprites/weapons/ump.spr
+sprites/weapons/spas15.spr
+resource/*
+gfx/shell/splash.bmp
+
+Game files updated for 2.0.9
+models/v_ump.mdl
+models/w_ump.mdl
+models/p_ump.mdl
+models/p_ump_sil.mdl
+sound/player/block.wav
+sprites/weapons/ump.spr
+
+Game files updated for 2.1.1
+addons/*
+sound/weapons/whizz.wav
+sound/weapons/whizz2.wav
+sound/weapons/whizz3.wav
+sound/weapons/whizz4.wav
+sound/weapons/whizz5.wav
+models/v_m4.mdl
+models/v_m61.mdl
+models/player/agent/agent.mdl
+models/player/castor/castor.mdl
+models/player/gordon/gordon.mdl
+models/player/hitman/hitman.mdl
+models/player/laurence/laurence.mdl
+models/player/merc/merc.mdl
+models/player/seal/seal.mdl
+models/player.mdl
+models/powerup.mdl
+maps/ts_lobbyduel.bsp
+server.cfg
+listenserver.cfg
+ts_fgd.fgd
+
+Game files updated for 2.1.2
+addons/metamod/dlls/metamod.dll
+models/player/agent/agent.mdl
+models/player/castor/castor.mdl
+models/player/gordon/gordon.mdl
+models/player/hitman/hitman.mdl
+models/player/laurence/laurence.mdl
+models/player/merc/merc.mdl
+models/player/seal/seal.mdl
+models/player.mdl
+maps/ts_fall.bsp
+ts_fgd.fgd
+
+Game files updated for 2.1.3
+models/v_m3.mdl
+addons/metamod/dlls/metamod.dll
+events/draw.sc
+events/grenade.sc
+
+Game files updated for 2.1.4
+ts_fgd.fgd
+
+Files for the particle demo:
+maps/ptest.bsp
+maps/particles.rmf
+sprites/hvrsmoke.spr
+
+Game files updated for 2.1.5
+models/v_mp5sd.mdl
+models/v_contender.mdl
+models/p_contender.mdl
+models/w_contender.mdl
+sound/weapons/contender/close.wav
+sound/weapons/contender/fire.wav
+sound/weapons/contender/hammerback.wav
+sound/weapons/contender/insert-shell.wav
+sound/weapons/contender/open.wav
+sound/weapons/contender/shellout.wav
+sprites/waepons/contender.spr
+ts_fgd.fgd
+models/v_beretta.mdl
+models/p_beretta.mdl
+models/p_beretta_sil.mdl
+
+Files for the particle demo:
+sprites/rain.spr
+sprites/rainsplash.spr
+
+
+
+New entities for metamod:
+info_breakable
+ts_capturezone
+ts_scoregiver
+ts_briefcase
+ts_sellzone
+ts_groundammo
+ts_playeramount
+ts_emitter
+ts_particle
+ts_fog
+ts_wind
+
+
+Special thanks to:
+Sjet vs Kerrigan for many custom pistol animations and a fixed Gordon model.
+Podunkian for the MP5SD stock attack animation.

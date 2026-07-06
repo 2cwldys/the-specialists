@@ -1,0 +1,237 @@
+    func_breakable
+
+- Respawn Time (attribute)
+This enables you to set the amount of time before a breakable will respawn. 0 sets it to the default time of 30 seconds. Negative numbers mean that the breakable will never respawn, it will break once and be removed from the map.
+
+- Respawn Target (attribute)
+This specifies a target to fire instead of the standard target when a breakable respawns. The standard target is not fired on respawn with this set, but it is fired as normal when the breakable dies. The "Trigger Respawn" flag must be set to use this.
+
+- Trigger Respawn (flag)
+If this is checked, then the breakable will fire its targets when it respawns as well as when it dies.
+
+
+
+    info_player_deathmatch
+
+If an info_player_deathmatch has a master, players will not be able to spawn there until the master triggers it.
+
+
+
+    ts_scoregiver
+
+This is similar to wingiver, but has a different message and does things a bit differently. This is tailored more for use with CTF, although you can use it for bomb defusal or whatever you like.
+
+- Respawn Players (flag)
+If this is set, then as soon as this entity is activated all players will be returned to their respective spawn points.
+
+
+
+    ts_capturezone
+
+Running over this entity with the flag (briefcase) in your inventory will trigger it.
+
+
+
+    ts_briefcase
+
+This is essentually a ts_groundweapon that allways drops a briefcase, for convenience of the mapper. This also allows you to specify a number of additional fields as to what kind of briefcase it is, etc.
+
+- Contents (attribute)
+What are the contents of the briefcase? When a message is shown in-game about the briefcase, it will include this. "The briefcase with jewels" or "The briefcase with a bomb" etc.
+
+- Flag ID (attribute)
+Each flag can be assigned a special ID, so that only some flags can be capped at some capture points. -1 means this flag can be capped at all spawn points.
+
+
+
+    ts_trigger
+
+In addition to the functions it performed in 2.0/2.1, this entity will also now perform the functions of a regular trigger. The main purpose is for teamplay because of this entity's additional team testing function.
+
+- Message (attribute)
+You may set a message that will be shown to all players when this object is triggered. If you include %s anywhere in the message, that will be replaced with the player's name. You can, for example, put this just in front of something that kills the player with a taunting message "%s fell stupidly to his death!" or something similar.
+
+- Flag Carrier Only (flag)
+This will only trigger if the player is carrying the flag. It is recommended that you use these to cover push maps, to announce to all players where the flag carrier has gone. "The briefcase is now in the central parking lot!"
+
+
+
+    ts_groundweapon
+
+Groundweapons have some new functionality that allow players to buy them in cash-based maps. Buyable weapons of all types with many extra clips should be placed on tables and racks in the spawn area so that players can go back to spawn and get new weapons. The walls should be lined with all types of weapons, such as the shack in Hitman 2, with plenty of ammo, some with silencers, some with lasers and scopes. (Try to stay away from flashlights unless on dark maps.) Make sure to set the team correctly for all of the weapons so that enemy players can not get a hold of the weapons.
+
+- Useable for Team (attribute)
+This restricts what team can buy a weapon. If all teams is selected then anybody can buy the weapon. This only applies to Specialists vs Mercenaries teamplay, not team deathmatch.
+
+- Buyable (attribute)
+Is this weapon buyable?
+
+
+
+    ts_groundammo
+
+This is a new entity that allows mappers to place ammo in a map. Ammo is a free-for-all, it cannot be bought in teamplay maps. It is a good idea to scatter small ammo packs around your maps at various locations to facilitate those players who seem to not be able to die very often, and need some backup. It is also a good idea to place four or five completely full fast-respawning ammo packs in the spawns of teamplay maps so that players can head back for more ammo. Note that the values for each of the ammo types listed are values in magazines, not values in bullets. As a general rule, one magazine in the pack is one magazine for a gun, but guns load different size magazines and TS uses a "gigantic pocket of bullets" system. Exactly how many bullets per magazine is beyond the scope of this document.
+
+- Respawn Time (attribute)
+This sets how long until the ammo will respawn after taken.
+
+- Lie on wall? (spawnflag)
+This will set the ammo pack to hang vertically from a wall.
+
+
+
+    ts_sellzone
+
+This new entity allows players to sell weapons to get their money back in cash-based games. For teamplay games, place one of these in every spawn in a box labelled "SELL" or something to that effect.
+
+- Useable for Team (attribute)
+This restricts what team can sell weapons here. If all teams is selected then anybody can use this to sell weapons. This applies to all cash-based game modes.
+
+
+
+    ts_mapglobals
+
+The player-respawn and player-at-a-time attributes formerly available with ts_mapglobals are not anymore, for consistency. New spawnflags have been added.
+
+- No Round Timer (spawnflag)
+This will disable the round timer on teamplay maps for continuous play. Disabling the round timer for CTF maps is a good idea.
+
+- Superjump (spawnflag)
+This will give the superjump capability to players when they spawn.
+
+
+
+    ts_playeramount
+
+This entity allows you to trigger things when there are a certain many players in the server.
+
+- Clients to trigger (attribute)
+This is the number of clients required to trigger the entity. ts_playeramount will be triggered once only when this number of players is on the server.
+
+- Target on connect (attribute)
+Target this entity when a player connects bringing the number of players on the server up to the desired number.
+
+- Target on disconnect (attribute)
+Target this entity when a player disconnects bringing the number of players on the server down to the desired number.
+
+
+
+    ts_particle
+
+This entity is used with a ts_emitter to generate particle systems. Most particle attributes have a "low" and "high" value. If low is not equal to high, then a random value between the two will be generated. Leaving a field blank is the same as placing a zero in it.
+
+Particles will not animate or fade transparency until their life span has run out. They will still be affected by physics and rotate and such, but their fade speed and framerate will not take effect until the life span is over. At that point, you can either set the fade, or the particle's animation. Radius scaling however will take effect as soon as a particle spawns. If the transparency from the fade reaches zero, or the size of the particle reaches zero, or the animation plays out in entirety, (whichever happens first) the particle will die. If the fade speed, the scale speed and the framerate are all zero, the particle will instantly die as soon as the life runs out.
+
+- Sprite Name (attribute)
+This is the file name of the sprite this particle will use. For example, "sprites/debris_concrete3.spr"
+
+- Follow view (attribute)
+Use this to select whether or not the sprite will follow the user's view.
+
+- Life span (attribute)
+This is the length of time in seconds that the particle will remain alive. If set to 0 it will remain alive until its transparency reaches zero or its animation ends.
+
+- Velocity (attribute)
+Three numbers (just like how color works -- "x y z") representing the initial velocity of the particle. x and y move a particle laterally, and z moves a particle up and down.
+
+- Random Velocity (attribute)
+A random velocity between the low and high value will be appled to the particle every frame. Note that this calculation is one of the more math-intensive ones.
+
+- Random Velocity Delta (attribute)
+The random velocity will never change more then this amount. In other words, if you set the Random Velocity Delta to "1", then the Random Velocity will never change more then one unit between frames. If you set the Random Velocity Delta do "10", then the Random Velocity will never change more then 10 units, etc.
+
+- Angular Velocity (attribute)
+Similar to velocity, but controls which way the sprite is facing.
+
+- Gravity (attribute)
+How strong is the force of gravity acting on the object?
+
+- Transparency (attribute)
+More or less, how transparent is a particle? This is a value from 0 to 1, 0 is totally transparent.
+
+- Fade speed (attribute)
+How fast does this particle fade away? This simply adjust the transparency a bit every frame.
+
+- Radius (attribute)
+How wide in units is this sprite?
+
+- Scale speed (attribute)
+This adjusts the radius of the particle a bit every frame.
+
+- Framerate (attribute)
+Framerate of the particle, obviously. If set to zero, the particle does not animate. If set greater then zero, then the particle will play its animation and then die.
+
+- Starting frame (attribute)
+This sets the frame that the particle will begin life as.
+
+- Origin variance (attribute)
+When the particle is spawned, it will spawn at the origin of the emitter plus a small variance so every particle doesn't spawn in the same spot. This is three numbers (like color -- "x y z") representing a box.
+
+- Sound on emit (attribute)
+This plays a sound every time an emitter emits this particle. The sound is played once even if more then one particle is emitted.
+
+- React to environment (attribute)
+This is a multiplier for how much a particle will react to the players. Value between 0 and 1, 0 being not at all. Do without if you can, as this is fairly math-intensive.
+
+- Fade in time (attribute)
+How long in seconds does the particle take to fade in after it initially spawns? 0 for instantaneous appear.
+
+- Action on collide (attribute)
+What will happen when this particle collides with something? You can choose to kill the particle, kill the particle and spawn another particle, or simply spawn another particle. The new particle takes on the position and velocity of the old one, but all other values are taken from the new particle's information. Use the "Target" attribute to specify the name of which particle should be spawned.
+
+- Don't inheret velocity (spawnflag)
+If this is checked, the particle will not inheret its velocity from the particle which created it through the "Action on collide" attribute.
+
+- Never die (spawnflag)
+If this is checked, the particle will never die. The life of the particle is ignored. The particle will never animate fade or scale. Recommended use is with the emitter's kill on emit spawnflag.
+
+
+
+    ts_emitter
+
+This entity is used with a ts_particle to generate particle systems. Most emitter attributes have a "low" and "high" value. If low is not equal to high, then a random value between the two will be generated. Leaving a field blank is the same as placing a zero in it.
+
+- Particle name (attribute)
+Every particle emitter must have a particle type assigned to it. This field is used to reference a ts_particle that this emitter will use. When the emitter is triggered, it will emit this type of particle.
+
+- Master (attribute)
+If the emitter has a master then the master must be satisfied at all times for the emitter to emit particles.
+
+- Emits per second (attribute)
+How many times per second will this emitter emit particles?
+
+- Particles per emit (attribute)
+How many particles will this emitter emit when it emits particles? How much wood would a woodchuck chuck?
+
+- Kill on spawn (spawnflag)
+If this is checked, the emitter will kill itself immediately after its first emit and will never spawn particles again, until the next time the map is loaded of course. Use this in conjuction with a particle's never die spawnflag to create a good replacement for env_glows and the like.
+
+
+
+    ts_fog
+
+This is used to make global point-based fog which will cover the entire map. If maxplayers is 1 and gl_fog is 2, you can use the gl_fog_whatever cvars to customize fog ingame.
+
+- Start distance (attribute)
+At what distance does the fog begin to fade in? Objects closer then this distance will be completely visible and unobstructed by fog.
+
+- End distance (attribute)
+At what distance does the fog finish fading in? At this distance the fog totally obscures everything, and you can no longer see anything beyond.
+
+- Color (Attribute)
+This is the color of the fog. 0 to 1, R G B.
+
+
+
+    ts_wind
+
+Use this to create global wind which affects all particles in a map.
+
+- Base strength
+This is a base number for how string the wind will be.
+
+- Variance
+This reflects how much the wind can change from the base number.
+
+- Frequency
+This reflects how often a wind changes its strength.

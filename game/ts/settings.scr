@@ -1,0 +1,203 @@
+// NOTE:  THIS FILE IS AUTOMATICALLY REGENERATED, 
+//DO NOT EDIT THIS HEADER, YOUR COMMENTS WILL BE LOST IF YOU DO
+// Multiplayer options script
+//
+// Format:
+//  Version [float]
+//  Options description followed by 
+//  Options defaults
+//
+// Option description syntax:
+//
+//  "cvar" { "Prompt" { type [ type info ] } { default } }
+//
+//  type = 
+//   BOOL   (a yes/no toggle)
+//   STRING
+//   NUMBER
+//   LIST
+//
+// type info:
+// BOOL                 no type info
+// NUMBER       min max range, use -1 -1 for no limits
+// STRING       no type info
+// LIST          delimited list of options value pairs
+//
+//
+// default depends on type
+// BOOL is "0" or "1"
+// NUMBER is "value"
+// STRING is "value"
+// LIST is "index", where index "0" is the first element of the list
+
+
+// Half-Life Server Configuration Layout Script (stores last settings chosen, too)
+// File generated:  Thu Jun 14 08:03:40 PM
+//
+//
+// Cvar	-	Setting
+
+VERSION 1.0
+
+DESCRIPTION SERVER_OPTIONS
+{
+	"mp_fraglimit"
+	{
+		"Frag Limit"
+		{ NUMBER 0.000000 -1.000000 }
+		{ "0.000000" }
+	}
+
+	"mp_timelimit"
+	{
+		"Time Limit (Min.)"
+		{ NUMBER 0.000000 -1.000000 }
+		{ "30.000000" }
+	}
+
+	"initial_cash"
+	{
+		"Starting Credits"
+		{ NUMBER 100.000000 10000.000000 }
+		{ "3000.000000" }
+	}
+
+	"roundtime"
+	{
+		"Round Time (sec.)"
+		{ NUMBER 30.000000 180.000000 }
+		{ "180.000000" }
+	}
+
+	"respawntime"
+	{
+		"Respawn Delay (sec.)"
+		{ NUMBER 1.000000 30.000000 }
+		{ "3.000000" }
+	}
+
+	"globalslow"
+	{
+		"Permanent Slow-motion? (0 - 100)"
+		{ NUMBER 0.000000 200.000000 }
+		{ "0.000000" }
+	}
+
+	"mp_teamplay"
+	{
+		"Teamplay in DM maps?"
+		{ BOOL }
+		{ "0" }
+	}
+
+	"mp_teamlist"
+	{
+		"Teams list (TeamDM and The One)"
+		{ STRING }
+		{ "team1;team2;team3;team4" }
+	}
+
+	"mp_teammodels"
+	{
+		"Teams model list (TeamDM and The One)"
+		{ STRING }
+		{ "seal;merc|gordon;laurence|agent|hitman;castor" }
+	}
+
+	"usecash"
+	{
+		"Cash based DeathMatch?"
+		{ BOOL }
+		{ "0" }
+	}
+
+	"slowmatch"
+	{
+		"SlowMatch?"
+		{ BOOL }
+		{ "1" }
+	}
+
+	"mp_theonemode"
+	{
+		"The One Mode?"
+		{ BOOL }
+		{ "0" }
+	}
+
+	"lastmanstanding"
+	{
+		"Last Man Standing?"
+		{ BOOL }
+		{ "0" }
+	}
+
+	"superjump"
+	{
+		"Superjump?"
+		{ BOOL }
+		{ "0" }
+	}
+
+	"spectacularness"
+	{
+		"Spectacularness Percentage (0 - 100)"
+		{ NUMBER 0.000000 100.000000 }
+		{ "50.000000" }
+	}
+
+	"ammocount"
+	{
+		"Ammo loadouts"
+		{
+			LIST
+			"Normal" "0"
+			"Realistic" "1"
+			"Survival" "2"
+			"Desperado" "3"
+		}
+		{ "0.000000" }
+	}
+
+	"weaponrestriction"
+	{
+		"Weapon restrictions"
+		{
+			LIST
+			"All weapons" "0"
+			"Kung fu" "1"
+			"Knives only" "2"
+			"Pistols only" "3"
+			"Pistols and shotguns" "4"
+			"All weapons over map restrictions" "5"
+		}
+		{ "0.000000" }
+	}
+
+	"realbullet"
+	{
+		"Bullet physics detail"
+		{
+			LIST
+			"Low" "0"
+			"Medium" "1"
+			"High" "2"
+		}
+		{ "0.000000" }
+	}
+
+	"mp_friendlyfire"
+	{
+		"Friendly Fire"
+		{ BOOL }
+		{ "0" }
+	}
+
+	"sv_sendvelocity"
+	{
+		"Low lag server physics and decals"
+		{ BOOL }
+		{ "1" }
+	}
+
+}

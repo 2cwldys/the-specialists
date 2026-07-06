@@ -1,0 +1,890 @@
+// Titles for The Specialists.
+// %i or %d are integers, %f is a floating-point and %s is a string. They
+// can't be rearranged, they must be specified in the original order.
+
+Spec_Mode1
+{
+Locked Chase-Camera
+}
+
+Spec_Mode2
+{
+Free Chase-Camera
+}
+
+Spec_Mode3
+{
+Free-Look
+}
+
+Spec_Mode4
+{
+First Person
+}
+
+Spec_Mode5
+{
+First Person
+}
+
+Spec_Mode6
+{
+Chase Map Overview
+}
+
+Spec_NoTarget
+{
+No valid targets. Cannot switch to Chase-Camera Mode.
+}
+
+Spec_Help_Title
+{
+Spectator Mode
+}
+
+Spec_Help_Text
+{
+Use the following keys to change view styles:
+
+ FIRE1 - Chase next player
+ FIRE2 - Chase previous player
+ JUMP - Change view modes
+ USE - Change inset window mode
+ 
+ DUCK  - Enable spectator menu
+  
+In Overview Map Mode move around with:
+
+ MOVELEFT - move left
+ MOVERIGHT - move right
+ FORWARD - zoom in
+ BACK - zoom out
+ MOUSE - rotate around map/target
+}
+
+Spec_Slow_Motion
+{
+Slow Motion
+}
+
+Spec_Replay
+{
+Instant Replay
+}
+
+Spec_Auto
+{
+Auto
+}
+
+// Multiplayer Scoreboard
+Spec_Map
+{
+Map
+}
+
+Spectators
+{
+Spectators
+}
+
+Unassigned
+{
+Unassigned
+}
+
+TEAMS
+{
+TEAMS
+}
+
+PLAYERS
+{
+PLAYERS
+}
+
+CLASS
+{
+CLASS
+}
+
+SCORE
+{
+SCORE
+}
+
+DEATHS
+{
+DEATHS
+}
+
+LATENCY
+{
+PING
+}
+
+VOICE
+{
+VOICE
+}
+
+// other menu text
+Menu_OK
+{
+OK
+}
+
+Menu_Cancel
+{
+CANCEL
+}
+
+Mic_Volume
+{
+Mic Volume
+}
+
+Speaker_Volume
+{
+Speaker Volume
+}
+
+Voice_Properties
+{
+Voice Properties
+}
+
+Map_Description_not_available
+{
+Map Description not available.
+}
+
+Player
+{
+player
+}
+
+Player_plural
+{
+players
+}
+
+Muted
+{
+You have muted %s.
+}
+
+Unmuted
+{
+You have unmuted %s.
+}
+
+No_longer_hear_that_player
+{
+You will no longer hear that player speak.
+}
+
+OBS_NONE
+{
+Camera Options
+}
+
+OBS_CHASE_LOCKED
+{
+Locked Chase-Cam
+}
+
+OBS_CHASE_FREE
+{
+Free Chase-Cam
+}
+
+OBS_ROAMING
+{
+Roaming
+}
+
+OBS_IN_EYE
+{
+First Person
+}
+
+OBS_MAP_FREE
+{
+Free Overview
+}
+
+OBS_MAP_CHASE
+{
+Chase-Cam Overview
+}
+
+SPECT_OPTIONS
+{
+Options
+}
+
+CAM_OPTIONS
+{
+Camera Options
+}
+
+Spec_Duck
+{
+Press DUCK for Spectator Menu
+}
+
+//TS ones
+
+Spec_Help_TSTitle
+{
+}
+
+Spec_Help_TSText
+{
+}
+
+Spec_TSHelp1
+{
+ JUMP - Change Camera modes, FORWARD - Next Player, BACK - Prev Player
+}
+
+Spec_TSHelp2
+{
+ JUMP - Change Camera modes, FORWARD - Next Player, BACK - Prev Player, MOUSE - rotate around target
+}
+
+Spec_TSHelp3
+{
+ JUMP - Change Camera modes, MOVEMENT KEYS - move around, MOUSE - rotate view
+}
+
+Spec_TSHelp5
+{
+ JUMP - Change Camera modes, FORWARD - Next Player, BACK - Prev Player
+}
+
+Buy_Total_CashBased
+{
+Cash Left : %i (Total: %i)
+}
+
+Buy_Total
+{
+(Total: %i)
+}
+
+Buy_FreeSlots
+{
+Free Slots : %i
+}
+
+Buy_Credits
+{
+%i Credits
+}
+
+Buy_Slots
+{
+%i Slots
+}
+
+Buy_Sil
+{
+Sil
+}
+
+Buy_Las
+{
+Las
+}
+
+Buy_Fla
+{
+Fla
+}
+
+Buy_Sco
+{
+Sco
+}
+
+Buy_SaveEquipment
+{
+Save Equipment
+}
+
+Buy_LoadEquipment
+{
+Load Equipment
+}
+
+Buy_SlotEmpty
+{
+Slot #%i (Empty)
+}
+
+Buy_SlotAvailable
+{
+Slot #%i (Available)
+}
+
+Buy_GoBack
+{
+Go Back
+}
+
+Buy_EmptyConfig
+{
+Empty Config
+}
+
+Buy_UseLastConfig
+{
+Use Last Config
+}
+
+Buy_UseNewConfig
+{
+Use New Config
+}
+
+Buy_Buy
+{
+Buy
+}
+
+Buy_RemoveItem
+{
+Remove Item
+}
+
+Buy_ResetConfig
+{
+Reset Config
+}
+
+Buy_SaveConfig
+{
+Save Config
+}
+
+Buy_LoadConfig
+{
+Load Config
+}
+
+Buy_Random
+{
+Random
+}
+
+Buy_Cancel
+{
+Cancel
+}
+
+Buy_Handguns
+{
+Handguns
+}
+
+Buy_SMGs
+{
+SMGs
+}
+
+Buy_Rifles
+{
+Rifles
+}
+
+Buy_Shotguns
+{
+Shotguns
+}
+
+Buy_SpecialPurpose
+{
+Special Purpose
+}
+
+Buy_PlayerAccessory
+{
+Player Accessory
+}
+
+Buy_Akimbo
+{
+Buy Akimbo
+}
+
+Buy_FullLoad
+{
+Full Load
+}
+
+Buy_ConfigReset
+{
+Config Reset
+}
+
+Buy_SavedConfig
+{
+Saved Config on slot #%i
+}
+
+Buy_ConfigLoaded
+{
+Config #%i Loaded
+}
+
+Buy_Removed
+{
+%s Removed
+}
+
+Buy_ConfigEmpty
+{
+Your config is empty!
+}
+
+Buy_NoCash
+{
+No cash left!
+}
+
+Buy_UsingNewConfig
+{
+Using new config.
+}
+
+Buy_UsingLastConfig
+{
+Using last config.
+}
+
+Chg_ChangeTeam
+{
+Change Team:
+}
+
+Chg_Join
+{
+Join
+}
+
+Chg_Cancel
+{
+Cancel
+}
+
+Pwr_SlowMotion
+{
+Slow Motion
+}
+
+Pwr_InfiniteAmmo
+{
+Infinite Ammo
+}
+
+Pwr_SlowPause
+{
+Slow Pause
+}
+
+Pwr_DoubleFireRate
+{
+Double Fire Rate
+}
+
+HUD_FreeSlots
+{
+free slots
+}
+
+HUD_Credits
+{
+Credits
+}
+
+HUD_Silencer
+{
+Silencer
+}
+
+HUD_Lasersight
+{
+Lasersight
+}
+
+HUD_Flashlight
+{
+Flashlight
+}
+
+HUD_Scope
+{
+Scope
+}
+
+HUD_FullAuto
+{
+Full Auto
+}
+
+HUD_SemiAuto
+{
+Semi Auto
+}
+
+HUD_Burst
+{
+Burst
+}
+
+HUD_PumpAction
+{
+Pump Action
+}
+
+HUD_FreeFull
+{
+Free Full
+}
+
+HUD_FreeSemi
+{
+Free Semi
+}
+
+TS_DefeatTeam
+{
+Defeat the opposite team
+}
+
+TS_RestartingRound
+{
+Restarting Round
+}
+
+TS_WaitingForPlayers
+{
+Waiting for other players.
+}
+
+TS_TeamScore
+{
+%s Score!
+}
+
+TS_TeamWin
+{
+%s Win!
+}
+
+TS_GameDraw
+{
+Game Draw
+}
+
+TS_CheatsOn
+{
+This server has cheats enabled.
+}
+
+TS_CustomDamage
+{
+This server has custom weapon damages (%.2f)
+}
+
+TS_LMS
+{
+%s is the Last Man Standing! %i frags
+}
+
+TS_RoundOver
+{
+Round over
+}
+
+TS_PressFire
+{
+Press Fire To Play!
+}
+
+TS_CustomWeapons
+{
+This server is using custom weapons.
+}
+
+TS_TeamCannotBuy
+{
+Your team cannot buy this weapon.
+}
+
+TS_NotEnoughMoney
+{
+You don't have enough money for that weapon.
+}
+
+TS_TheOne
+{
+%s is The One!
+}
+
+TS_TheOneIsDead
+{
+The One is dead.
+}
+
+TS_TheOneKilledBy
+{
+The One was killed by %s!
+}
+
+// # frags for person, style!
+TS_Frg
+{
+frags
+}
+
+TS_FrgFr
+{
+for
+}
+
+TS_ConsKills
+{
+kills in a row!
+}
+
+TS_StStl
+{
+Stuntman style!
+}
+
+TS_SlStl
+{
+Sliding style!
+}
+
+TS_Stl
+{
+style!
+}
+
+TS_KungFu
+{
+Kung-Fu
+}
+
+
+TS_SpecialistSuicide
+{
+kills himself after so many frags!
+}
+
+TS_Doublefrag
+{
+Double Frag
+}
+
+TS_Coldcock
+{
+Stock Kill
+}
+
+TS_Headshot
+{
+Headshot
+}
+
+TS_KnifeKill
+{
+Knife kill
+}
+
+TS_KatanaKill
+{
+Katana kill
+}
+
+TS_KilledTheSpecialist
+{
+who has killed a Specialist!
+}
+
+TS_Stops
+{
+stops
+}
+
+TS_Fury
+{
+fury!
+}
+
+TS_Unstoppable
+{
+No one can stop
+}
+
+TS_Specialist
+{
+is a Specialist!
+}
+
+TS_SixKills
+{
+PWNAGE, 6 kills in a row!
+}
+
+TS_ThreeKills
+{
+is Furious, 3 kills in a row!
+}
+
+TS_Killed
+{
+killed
+}
+
+TS_OwnWeapon
+{
+with his own weapon!
+}
+
+//killing spree
+TS_KillSpree1
+{
+is Hard Boiled!
+}
+
+TS_KillSpree2
+{
+is a Hard Target!
+}
+
+TS_KillSpree3
+{
+is a Lethal Weapon!
+}
+
+TS_KillSpree4
+{
+feels the Heat!
+}
+
+TS_KillSpree5
+{
+is going Commando!
+}
+
+TS_KillSpree6
+{
+is going Rambo!
+}
+
+TS_KillSpree7
+{
+is going Desperado!
+}
+
+TS_KillSpree8
+{
+kills for a Better Tomorrow!
+}
+
+TS_KillSpree9
+{
+is a Killer!
+}
+
+TS_KillSpree10
+{
+Demolishes!
+}
+
+TS_KillSpree11
+{
+had a Total Recall!
+}
+
+TS_KillSpree12
+{
+has a machine gun. Ho ho ho!
+}
+
+TS_KillSpree13
+{
+eats green berets for breakfast!
+}
+
+TS_KillSpree14
+{
+ain't got time to bleed!
+}
+
+TS_KillSpree15
+{
+woke up, why don't you!
+}
+
+TS_KillSpree16
+{
+is taking names!
+}
+
+
+//killing spree has been killed tags
+TS_SpreeKilled1
+{
+will be back!
+}
+
+TS_SpreeKilled2
+{
+dies hard!
+}
+
+TS_SpreeKilled3
+{
+lets some steam off!
+}
+
+TS_SpreeKilled4
+{
+has been terminated!
+}
+
+TS_SpreeKilled5
+{
+has been erased!
+}
+
+TS_SpreeKilled6
+{
+should stick around!
+}
+
+TS_SpreeKilled7
+{
+got his face off!
+}
+
+TS_SpreeKilled8
+{
+got a raw deal!
+}
+
+TS_SpreeKilled9
+{
+was an expendable asset!
+}
+
+TS_SpreeKilled10
+{
+is going direct to video!
+}
