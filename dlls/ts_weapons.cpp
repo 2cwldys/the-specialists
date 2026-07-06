@@ -34,6 +34,11 @@ void PrecacheAllTSWeapons()
 	PRECACHE_MODEL("models/shotgunshell.mdl"); // shotgun shell casing
 	PRECACHE_MODEL("models/shrapnel.mdl");
 	PRECACHE_MODEL("models/ammopack.mdl");
+	// NB: w_weaponbox.mdl is intentionally NOT precached. RE-confirmed the original never
+	// instantiates CWeaponBox — both weaponbox creators (PackDeadPlayerItems, DropPlayerItem) are
+	// dead code (0 callers), so CWeaponBox::Precache never runs and w_weaponbox is never precached.
+	// TS drops weapons via its own DropWeapon/CTSWorldGun path (TSDropWeaponsOnDeath). See the
+	// removed stock PackDeadPlayerItems() call in CBasePlayer::PlayerDeathThink.
 	PRECACHE_MODEL("models/briefcase.mdl");
 	PRECACHE_SOUND("items/gunpickup2.wav");
 	PRECACHE_SOUND("items/weapondrop1.wav");

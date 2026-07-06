@@ -1180,14 +1180,12 @@ void CBasePlayer::PlayerDeathThink()
 			pev->velocity = flForward * pev->velocity.Normalize();
 	}
 
-	if (HasWeapons())
-	{
-		// we drop the guns here because weapons that have an area effect and can kill their user
-		// will sometimes crash coming back from CBasePlayer::Killed() if they kill their owner because the
-		// player class sometimes is freed. It's safer to manipulate the weapons once we know
-		// we aren't calling into any of their code anymore through the player pointer.
-		PackDeadPlayerItems();
-	}
+	// NB: the stock HL `if (HasWeapons()) PackDeadPlayerItems();` weaponbox drop is intentionally
+	// omitted — RE-confirmed the original TS PlayerDeathThink does NOT call it (PackDeadPlayerItems
+	// is dead code in the original, 0 callers). TS drops weapons via its own DropWeapon/CTSWorldGun
+	// path from CTSGameRules::PlayerKilled → TSDropWeaponsOnDeath, so a second stock weaponbox drop
+	// here would be a divergence (and would spawn a CWeaponBox → precache w_weaponbox.mdl mid-game →
+	// Host_Error on a strict engine). See ts_weapons.cpp (w_weaponbox not precached).
 
 
 	if (0 != pev->modelindex && (!m_fSequenceFinished) && (pev->deadflag == DEAD_DYING))

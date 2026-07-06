@@ -318,8 +318,14 @@ void CTSGun::Spawn()
 	m_fireMode = it.mode;
 	m_iClip = wi->iClip; // SLICE: deploy loaded
 
-	const char *world = wi->pszWorldModel ? wi->pszWorldModel : "models/w_weaponbox.mdl";
-	SET_MODEL(ENT(pev), world);
+	// @0x70568 — the original hardcodes the GLOCK world model here as the generic CTSGun
+	// pickup/drop model (NOT a per-type pszWorldModel lookup). It's already precached by the
+	// Precache() call above (→ PrecacheAllTSWeapons, the whole roster). Our earlier
+	// `wi->pszWorldModel ? … : "models/w_weaponbox.mdl"` fallback was drift from the RE:
+	// w_weaponbox is never precached, so a null-world-model type (0 = bare kung-fu) SET_MODEL'd
+	// an un-precached model → Host_Error on a strict engine (ReHLDS/GoldSrc). xash's lenient
+	// late-precache hid it. Match the original exactly.
+	SET_MODEL(ENT(pev), "models/w_glock18.mdl");
 
 	m_iDefaultAmmo = wi->iClip; // SLICE: stock ammo; TS runs its own ammo system
 	UpdateActivePointers();
