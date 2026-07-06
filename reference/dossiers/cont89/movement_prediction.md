@@ -500,3 +500,88 @@ still constant everywhere, re-check that `pfnSetClientMaxspeed` is actually firi
 - `PreThink` @0x808cc: no maxspeed write. `SetPlayerSpeed` @0x83068: clamp[0,330], `pfnSetClientMaxspeed(round)`.
 - `GetSpeedBySlots` @0x66bd4: `(field_0x7b9 || field_0x548>80) ? 330 : round(0.012345679*field_0x548*120+210)`;
   field_0x548 = free slots (init 0x51=81); false-branch const .rodata 0xf7620 = 330.0.
+
+---
+
+## cont.89d — ★ ROOT CAUSE of the constant 10-20u: unsent `cd->fuser1` (frametime seam)
+
+The residual constant error (robust to accel-multiplier on/off and to maxspeed, present on
+ground AND air, on flat ground where pm_shared is byte-identical) is a **frametime seam**:
+our server never transmits `cd->fuser1`, so the original client predicts with the wrong
+per-frame `frametime`.
+
+### The mechanism (RE, definitive)
+
+**Original `PM_PlayerMove` @0xf08d8 scales the ENTIRE move by fuser1** (asm f0911-f094e):
+```c
+frametime = 0.001f * cmd.msec;          // f0911-f0923 (msec@byte, ×0.001 double const)
+if (pmove->fuser1 >= 0.1f)              // f0928 flds fuser1@0x20c; fcomps 0.1; jne→0.0
+    frametime *= pmove->fuser1;         // f093b-f093e
+else
+    frametime = 0.0f;                   // f0948 (freeze below 0.1)
+```
+`frametime` feeds EVERY integration step (`origin += velocity*frametime`, PM_Accelerate,
+PM_AirAccelerate, gravity) — so any fuser1 mismatch scales the whole move, on ground and
+in air, independent of accel/maxspeed. **Exactly the reported signature.**
+
+**Original `UpdateClientData` @0xb0294 sends fuser1 to the client** (decompile):
+`*(cd + 0x19c) = *(pev + 0x2d4)` → **`cd->fuser1 = pev->fuser1`, unconditional.** (Flagged
+as unsent in cont.89b §3.)
+
+**Ours does NOT.** `grep 'cd->fuser1' dlls/client.cpp` → nothing (only an unrelated
+`item->fuser1` weapon-data field). So:
+- **Our SERVER:** `pev->fuser1 = 1.0` (PreThink sets it if 0), `pmove->fuser1 = 1.0` →
+  our (guarded) pm_shared → `frametime *= 1.0` = `msec*0.001`. Moves normally.
+- **The ORIGINAL CLIENT (predicting):** `pmove->fuser1 = cd->fuser1`, but we never write
+  `cd->fuser1` → the client predicts with fuser1 ≈ 0 (unset) / stale, so its
+  `PM_PlayerMove` takes the `< 0.1 → frametime = 0` path (or a scaled-wrong dt) → its
+  predicted per-frame displacement diverges from the server's every frame → **constant
+  prediction error, bounded by the interp/smoother window (~10-20u), 0 when stopped.**
+
+The coordinator's earlier fuser1 check verified the SERVER side (`pev->fuser1 = 1.0`, our
+guard) but not that **the original client never receives fuser1** — that transmission gap
+is the seam. It survived the accel/maxspeed tests because frametime is UPSTREAM of both.
+
+### Fix
+
+1. **PRIMARY — send it.** In `dlls/client.cpp UpdateClientData`, add (unconditional, before
+   the `sendweapons` gate, matching @0xb0294):
+   ```c
+   cd->fuser1 = pev->fuser1;
+   ```
+   With `pev->fuser1 = 1.0` for a normal player, the original client then predicts
+   `frametime = msec*0.001*1.0` = the server's frametime → **error resolves**. It also makes
+   slow-motion (fuser1 0.1..1.0) predict correctly on the client instead of desyncing.
+2. **SECONDARY — align the pm_shared guard to the original** (drop-in hygiene): change
+   `pm_shared.cpp:3112-3118` from the extra `if (fuser1 > 0){...}` wrapper to the original's
+   flat form: `if (pmove->fuser1 >= 0.1f) pmove->frametime *= pmove->fuser1; else
+   pmove->frametime = 0.0f;`. Safe because PreThink guarantees `pev->fuser1 >= 0.1` for a
+   live player (0→1.0) and we now transmit it; this matches what the original CLIENT
+   computes exactly (the client freezes below 0.1, so the server must too for slow-mo parity).
+   *(If you keep the `>0` wrapper, the bare fix still works since fuser1=1.0 on both — but the
+   client-vs-server slow-mo edge would then diverge.)*
+
+### Confirm test (original client → our server)
+After fix #1, `cl_showerror 1` and run: the constant 10-20u must collapse to ~0 on ground
+AND in air. (If it doesn't, the client's `pmove->fuser1` is seeded from the entity_state
+rather than clientdata — then also ensure `pev->fuser1` is in the transmitted entity delta;
+but `cd->fuser1` is the channel the original uses.)
+
+### Also — SEPARATE confirmed bug: `cd->iuser4 = m_iPowerups` collides with pm_shared masks
+Not the bare-kungfu cause (m_iPowerups=0 for bare — and the accel-off test rules it out:
+if `m_iPowerups & 0x20` set TSPM_SLIDE, accel-off would have fixed it), but a real drop-in
+break for POWERUP states: **TS_PWUP_GRENADE = 0x20 == TSPM_SLIDE**, and TS_PWUP_KUNGFU(0x4)/
+SLOWPAUSE(0x8)/DBLFIRE(0x10)/GRENADE(0x20) all fall inside **TSPM_STUNT_MASK (0x030C3C)**. So
+when a powerup with one of those bits is active, the original client (reading
+`cd->iuser4 = m_iPowerups`) trips a pm_shared stunt/slide branch the server doesn't (server
+`pmove->iuser4 = pev->iuser4` = stunt flags). **Fix:** restore `cd->iuser4 = pev->iuser4`
+(the stunt channel the original uses) and move the DoubleFireRate powerup gate off iuser4
+onto a spare clientdata field (e.g. an unused fuserN/iuser2 bit). Coordinate with the
+weapon-data track (cont.89b §3, Fix 3).
+
+### Appendix — cont.89d verified addresses
+- `PM_PlayerMove` @0xf08d8: `frametime = 0.001*msec` (f0911-f0923), `frametime *= fuser1@0x20c`
+  if `fuser1 >= 0.1` (f0928 fcomps 0.1, f093e fmul) else `= 0.0` (f0948).
+- `UpdateClientData` @0xb0294: `cd[0x19c] (fuser1) = pev[0x2d4] (fuser1)`, unconditional.
+- Ours: `client.cpp` writes no `cd->fuser1`; `pm_shared.cpp:3112` has an extra `if(fuser1>0)` wrapper.
+- iuser4 masks: TSPM_SLIDE 0x20, TSPM_STUNT_MASK 0x030C3C (TS_pm_shared.h); TS_PWUP_ bits ts_gamerules.h.
