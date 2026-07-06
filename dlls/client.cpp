@@ -2146,11 +2146,8 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 					cd->vuser4.y = pl->m_rgAmmo[gun->m_iPrimaryAmmoType];
 					cd->vuser4.z = pl->m_rgAmmo[gun->m_iSecondaryAmmoType];
 
-					if (pl->m_pActiveItem->m_iId == WEAPON_RPG)
-					{
-						cd->vuser2.y = static_cast<vec_t>(((CRpg*)pl->m_pActiveItem)->m_fSpotActive);
-						cd->vuser2.z = ((CRpg*)pl->m_pActiveItem)->m_cActiveRockets;
-					}
+					// NB: stock RPG laser-spot prediction (WEAPON_RPG → CRpg m_fSpotActive/m_cActiveRockets)
+					// removed — CRpg is absent from the original; TS weapons are CTSGun (never WEAPON_RPG).
 				}
 			}
 		}

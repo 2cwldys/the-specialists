@@ -167,21 +167,7 @@ target_sources(client PRIVATE
 	../common/mathlib.cpp
 	../common/parsemsg.cpp
 
-	../dlls/crossbow.cpp
-	../dlls/crowbar.cpp
-	../dlls/egon.cpp
-	../dlls/gauss.cpp
-	../dlls/handgrenade.cpp
-	../dlls/hornetgun.cpp
-	../dlls/mp5.cpp
-	../dlls/python.cpp
-	../dlls/rpg.cpp
-	../dlls/satchel.cpp
-	../dlls/shotgun.cpp
-	../dlls/squeakgrenade.cpp
-	../dlls/tripmine.cpp
 	../dlls/weapons_shared.cpp
-	../dlls/glock.cpp
 	../dlls/ts_shared.cpp
 	../dlls/ts_weapon_info.cpp
 	../dlls/ts_gun.cpp

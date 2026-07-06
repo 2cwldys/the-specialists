@@ -40,12 +40,9 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/client.o \
 	$(HLDLL_OBJ_DIR)/combat.o \
 	$(HLDLL_OBJ_DIR)/controller.o \
-	$(HLDLL_OBJ_DIR)/crossbow.o \
-	$(HLDLL_OBJ_DIR)/crowbar.o \
 	$(HLDLL_OBJ_DIR)/defaultai.o \
 	$(HLDLL_OBJ_DIR)/doors.o \
 	$(HLDLL_OBJ_DIR)/effects.o \
-	$(HLDLL_OBJ_DIR)/egon.o \
 	$(HLDLL_OBJ_DIR)/explode.o \
 	$(HLDLL_OBJ_DIR)/flyingmonster.o \
 	$(HLDLL_OBJ_DIR)/func_break.o \
@@ -53,23 +50,19 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/game.o \
 	$(HLDLL_OBJ_DIR)/gamerules.o \
 	$(HLDLL_OBJ_DIR)/gargantua.o \
-	$(HLDLL_OBJ_DIR)/gauss.o \
 	$(HLDLL_OBJ_DIR)/genericmonster.o \
 	$(HLDLL_OBJ_DIR)/ggrenade.o \
-	$(HLDLL_OBJ_DIR)/glock.o \
 	$(HLDLL_OBJ_DIR)/gman.o \
 	$(HLDLL_OBJ_DIR)/h_ai.o \
 	$(HLDLL_OBJ_DIR)/h_battery.o \
 	$(HLDLL_OBJ_DIR)/h_cine.o \
 	$(HLDLL_OBJ_DIR)/h_cycler.o \
 	$(HLDLL_OBJ_DIR)/h_export.o \
-	$(HLDLL_OBJ_DIR)/handgrenade.o \
 	$(HLDLL_OBJ_DIR)/hassassin.o \
 	$(HLDLL_OBJ_DIR)/headcrab.o \
 	$(HLDLL_OBJ_DIR)/healthkit.o \
 	$(HLDLL_OBJ_DIR)/hgrunt.o \
 	$(HLDLL_OBJ_DIR)/hornet.o \
-	$(HLDLL_OBJ_DIR)/hornetgun.o \
 	$(HLDLL_OBJ_DIR)/houndeye.o \
 	$(HLDLL_OBJ_DIR)/ichthyosaur.o \
 	$(HLDLL_OBJ_DIR)/islave.o \
@@ -81,7 +74,6 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/monsters.o \
 	$(HLDLL_OBJ_DIR)/monsterstate.o \
 	$(HLDLL_OBJ_DIR)/mortar.o \
-	$(HLDLL_OBJ_DIR)/mp5.o \
 	$(HLDLL_OBJ_DIR)/nihilanth.o \
 	$(HLDLL_OBJ_DIR)/nodes.o \
 	$(HLDLL_OBJ_DIR)/observer.o \
@@ -90,21 +82,16 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/plane.o \
 	$(HLDLL_OBJ_DIR)/plats.o \
 	$(HLDLL_OBJ_DIR)/player.o \
-	$(HLDLL_OBJ_DIR)/python.o \
 	$(HLDLL_OBJ_DIR)/rat.o \
 	$(HLDLL_OBJ_DIR)/roach.o \
-	$(HLDLL_OBJ_DIR)/rpg.o \
-	$(HLDLL_OBJ_DIR)/satchel.o \
 	$(HLDLL_OBJ_DIR)/schedule.o \
 	$(HLDLL_OBJ_DIR)/scientist.o \
 	$(HLDLL_OBJ_DIR)/scripted.o \
-	$(HLDLL_OBJ_DIR)/shotgun.o \
 	$(HLDLL_OBJ_DIR)/skill.o \
 	$(HLDLL_OBJ_DIR)/sound.o \
 	$(HLDLL_OBJ_DIR)/soundent.o \
 	$(HLDLL_OBJ_DIR)/spectator.o \
 	$(HLDLL_OBJ_DIR)/squadmonster.o \
-	$(HLDLL_OBJ_DIR)/squeakgrenade.o \
 	$(HLDLL_OBJ_DIR)/subs.o \
 	$(HLDLL_OBJ_DIR)/talkmonster.o \
 	$(HLDLL_OBJ_DIR)/teamplay_gamerules.o \
@@ -113,7 +100,6 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/tempmonster.o \
 	$(HLDLL_OBJ_DIR)/tentacle.o \
 	$(HLDLL_OBJ_DIR)/triggers.o \
-	$(HLDLL_OBJ_DIR)/tripmine.o \
 	$(HLDLL_OBJ_DIR)/ts_utils.o \
 	$(HLDLL_OBJ_DIR)/TS_util.o \
 	$(HLDLL_OBJ_DIR)/TS_gamerules.o \

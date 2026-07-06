@@ -52,7 +52,6 @@ bool g_irunninggausspred = false;
 Vector previousorigin;
 
 // HLDM Weapon placeholder entities.
-CGlock g_Glock;
 CTSGun g_TSGun; // the client-predicted TS arsenal weapon (weapon_tsgun)
 
 // The local viewmodel's BODY, from the PREDICTED weapon state — the original refreshes it
@@ -74,19 +73,10 @@ bool TS_LocalHoldPosition()
 {
 	return g_TSGun.m_bHoldPosition;
 }
-CCrowbar g_Crowbar;
-CPython g_Python;
-CMP5 g_Mp5;
-CCrossbow g_Crossbow;
-CShotgun g_Shotgun;
-CRpg g_Rpg;
-CGauss g_Gauss;
-CEgon g_Egon;
-CHgun g_HGun;
-CHandGrenade g_HandGren;
-CSatchel g_Satchel;
-CTripmine g_Tripmine;
-CSqueak g_Snark;
+// NB: the stock HL weapon prediction placeholders (g_Glock/g_Crowbar/g_Python/g_Mp5/g_Crossbow/
+// g_Shotgun/g_Rpg/g_Gauss/g_Egon/g_HGun/g_HandGren/g_Satchel/g_Tripmine/g_Snark) were removed —
+// the original never defines these concrete stock weapon classes (all absent from the binaries);
+// TS predicts only CTSGun (g_TSGun above). Their <weapon>.cpp files are dropped from the build.
 
 
 /*
@@ -453,7 +443,7 @@ void HUD_InitClientWeapons()
 	// Fill in current time ( probably not needed )
 	gpGlobals->time = gEngfuncs.GetClientTime();
 
-	// On 64-bit, MAKE_STRING() in shared weapon code (e.g. CGlock::Spawn) is an
+	// On 64-bit, MAKE_STRING() in shared weapon code (e.g. CTSGun::Spawn) is an
 	// engine AllocString call; give it a local string pool so it doesn't deref a
 	// NULL pointer, and point pStringBase at the same pool so STRING() reads back.
 	gpGlobals->pStringBase = stub_StringBase();
@@ -482,21 +472,8 @@ void HUD_InitClientWeapons()
 	// Allocate a slot for the local player
 	HUD_PrepEntity(&player, NULL);
 
-	// Allocate slot(s) for each weapon that we are going to be predicting
-	HUD_PrepEntity(&g_Glock, &player);
-	HUD_PrepEntity(&g_Crowbar, &player);
-	HUD_PrepEntity(&g_Python, &player);
-	HUD_PrepEntity(&g_Mp5, &player);
-	HUD_PrepEntity(&g_Crossbow, &player);
-	HUD_PrepEntity(&g_Shotgun, &player);
-	HUD_PrepEntity(&g_Rpg, &player);
-	HUD_PrepEntity(&g_Gauss, &player);
-	HUD_PrepEntity(&g_Egon, &player);
-	HUD_PrepEntity(&g_HGun, &player);
-	HUD_PrepEntity(&g_HandGren, &player);
-	HUD_PrepEntity(&g_Satchel, &player);
-	HUD_PrepEntity(&g_Tripmine, &player);
-	HUD_PrepEntity(&g_Snark, &player);
+	// Allocate slot(s) for each weapon that we are going to be predicting.
+	// TS predicts only its own arsenal weapon (the stock HL weapon placeholders were removed).
 	HUD_PrepEntity(&g_TSGun, &player); // TS: predict CTSGun so its viewmodel anims stick
 }
 
@@ -565,62 +542,9 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 	// FIXME, make this a method in each weapon?  where you pass in an entity_state_t *?
 	switch (from->client.m_iId)
 	{
-	case WEAPON_CROWBAR:
-		pWeapon = &g_Crowbar;
-		break;
-
-	case WEAPON_GLOCK:
-		pWeapon = &g_Glock;
-		break;
-
-	case WEAPON_PYTHON:
-		pWeapon = &g_Python;
-		break;
-
-	case WEAPON_MP5:
-		pWeapon = &g_Mp5;
-		break;
-
-	case WEAPON_CROSSBOW:
-		pWeapon = &g_Crossbow;
-		break;
-
-	case WEAPON_SHOTGUN:
-		pWeapon = &g_Shotgun;
-		break;
-
-	case WEAPON_RPG:
-		pWeapon = &g_Rpg;
-		break;
-
-	case WEAPON_GAUSS:
-		pWeapon = &g_Gauss;
-		break;
-
-	case WEAPON_EGON:
-		pWeapon = &g_Egon;
-		break;
-
-	case WEAPON_HORNETGUN:
-		pWeapon = &g_HGun;
-		break;
-
-	case WEAPON_HANDGRENADE:
-		pWeapon = &g_HandGren;
-		break;
-
-	case WEAPON_SATCHEL:
-		pWeapon = &g_Satchel;
-		break;
-
-	case WEAPON_TRIPMINE:
-		pWeapon = &g_Tripmine;
-		break;
-
-	case WEAPON_SNARK:
-		pWeapon = &g_Snark;
-		break;
-
+	// NB: the stock HL weapon cases (WEAPON_CROWBAR/GLOCK/PYTHON/MP5/CROSSBOW/SHOTGUN/RPG/GAUSS/
+	// EGON/HORNETGUN/HANDGRENADE/SATCHEL/TRIPMINE/SNARK → their g_* placeholders) were removed —
+	// those concrete stock weapon classes don't exist in the original; TS predicts only CTSGun.
 	case TSGUN_WEAPON_ID:
 		pWeapon = &g_TSGun; // TS: run CTSGun::ItemPostFrame client-side each prediction frame
 		break;
@@ -824,9 +748,8 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		s_lastViewmodel = curViewmodel;
 	if (g_runfuncs && ((HUD_GetWeaponAnim() != to->client.weaponanim) || (vmChanged && curViewmodel != 0)))
 	{
-		//Make sure the 357 has the right body
-		g_Python.pev->body = bIsMultiplayer() ? 1 : 0;
-
+		// (stock "make sure the 357 has the right body" g_Python fixup removed — no stock weapons;
+		// CTSGun drives its own viewmodel body via TS_PredictedViewmodelBody)
 		// Force a fixed anim down to viewmodel
 		HUD_SendWeaponAnim(to->client.weaponanim, pWeapon->pev->body, true);
 	}

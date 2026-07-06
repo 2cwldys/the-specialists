@@ -31,12 +31,9 @@ target_sources(hl PRIVATE
 	client.cpp
 	combat.cpp
 	controller.cpp
-	crossbow.cpp
-	crowbar.cpp
 	defaultai.cpp
 	doors.cpp
 	effects.cpp
-	egon.cpp
 	explode.cpp
 	flyingmonster.cpp
 	func_break.cpp
@@ -44,17 +41,14 @@ target_sources(hl PRIVATE
 	game.cpp
 	gamerules.cpp
 	gargantua.cpp
-	gauss.cpp
 	genericmonster.cpp
 	ggrenade.cpp
 	gman.cpp
-	handgrenade.cpp
 	hassassin.cpp
 	headcrab.cpp
 	healthkit.cpp
 	hgrunt.cpp
 	hornet.cpp
-	hornetgun.cpp
 	houndeye.cpp
 	h_ai.cpp
 	h_battery.cpp
@@ -71,7 +65,6 @@ target_sources(hl PRIVATE
 	monsters.cpp
 	monsterstate.cpp
 	mortar.cpp
-	mp5.cpp
 	multiplay_gamerules.cpp
 	nihilanth.cpp
 	nodes.cpp
@@ -81,29 +74,23 @@ target_sources(hl PRIVATE
 	plane.cpp
 	plats.cpp
 	player.cpp
-	python.cpp
 	rat.cpp
 	roach.cpp
-	rpg.cpp
-	satchel.cpp
 	schedule.cpp
 	scientist.cpp
 	scripted.cpp
-	shotgun.cpp
 	singleplay_gamerules.cpp
 	skill.cpp
 	sound.cpp
 	soundent.cpp
 	spectator.cpp
 	squadmonster.cpp
-	squeakgrenade.cpp
 	subs.cpp
 	talkmonster.cpp
 	teamplay_gamerules.cpp
 	tempmonster.cpp
 	tentacle.cpp
 	triggers.cpp
-	tripmine.cpp
 	ts_utils.cpp
 	TS_util.cpp
 	TS_gamerules.cpp
@@ -137,7 +124,6 @@ target_sources(hl PRIVATE
 	weapons.cpp
 	weapons_shared.cpp
 	world.cpp
-	glock.cpp
 	xen.cpp
 	zombie.cpp
 

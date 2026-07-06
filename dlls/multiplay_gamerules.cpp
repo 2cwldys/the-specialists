@@ -746,10 +746,8 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 		PK->m_flNextDecalTime = gpGlobals->time;
 	}
 
-	if (pVictim->HasNamedPlayerItem("weapon_satchel"))
-	{
-		DeactivateSatchels(pVictim);
-	}
+	// NB: stock `if (HasNamedPlayerItem("weapon_satchel")) DeactivateSatchels(...)` removed —
+	// DeactivateSatchels/CSatchel are absent from the original (TS has no satchel weapon; uses CTSGun).
 }
 
 //=========================================================
