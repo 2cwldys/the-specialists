@@ -114,7 +114,6 @@ cmd /c ""$(ProjectDir)..\..\filecopy.bat" "$(SolutionDir)../../network" "" "delt
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\common\mathlib.cpp" />
-    <ClCompile Include="..\..\dlls\airtank.cpp" />
     <ClCompile Include="..\..\dlls\animating.cpp" />
     <ClCompile Include="..\..\dlls\animation.cpp" />
     <ClCompile Include="..\..\dlls\bmodels.cpp" />
@@ -134,7 +133,6 @@ cmd /c ""$(ProjectDir)..\..\filecopy.bat" "$(SolutionDir)../../network" "" "delt
     <ClCompile Include="..\..\dlls\healthkit.cpp" />
     <ClCompile Include="..\..\dlls\h_ai.cpp" />
     <ClCompile Include="..\..\dlls\h_battery.cpp" />
-    <ClCompile Include="..\..\dlls\h_cine.cpp" />
     <ClCompile Include="..\..\dlls\h_cycler.cpp" />
     <ClCompile Include="..\..\dlls\h_export.cpp" />
     <ClCompile Include="..\..\dlls\items.cpp" />
@@ -189,7 +187,6 @@ cmd /c ""$(ProjectDir)..\..\filecopy.bat" "$(SolutionDir)../../network" "" "delt
     <ClCompile Include="..\..\dlls\ts_weapons.cpp" />
     <ClCompile Include="..\..\dlls\UserMessages.cpp" />
     <ClCompile Include="..\..\dlls\util.cpp" />
-    <ClCompile Include="..\..\dlls\vehicle.cpp" />
     <ClCompile Include="..\..\dlls\weapons.cpp" />
     <ClCompile Include="..\..\dlls\weapons_shared.cpp" />
     <ClCompile Include="..\..\dlls\world.cpp" />

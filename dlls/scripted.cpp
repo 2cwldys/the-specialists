@@ -111,10 +111,11 @@ TYPEDESCRIPTION CCineMonster::m_SaveData[] =
 
 IMPLEMENT_SAVERESTORE(CCineMonster, CBaseMonster);
 
-LINK_ENTITY_TO_CLASS(scripted_sequence, CCineMonster);
+// [TS] scripted-sequence entities absent from the original — unregistered (class code kept only because CBaseMonster still references CineCleanup/ExitScriptedSequence; a full strip is a deferred base-SDK cleanup):
+// LINK_ENTITY_TO_CLASS(scripted_sequence, CCineMonster);
 #define CLASSNAME "scripted_sequence"
 
-LINK_ENTITY_TO_CLASS(aiscripted_sequence, CCineAI);
+// LINK_ENTITY_TO_CLASS(aiscripted_sequence, CCineAI);
 
 
 void CCineMonster::Spawn()
@@ -961,7 +962,7 @@ TYPEDESCRIPTION CScriptedSentence::m_SaveData[] =
 
 IMPLEMENT_SAVERESTORE(CScriptedSentence, CBaseToggle);
 
-LINK_ENTITY_TO_CLASS(scripted_sentence, CScriptedSentence);
+// LINK_ENTITY_TO_CLASS(scripted_sentence, CScriptedSentence);
 
 bool CScriptedSentence::KeyValue(KeyValueData* pkvd)
 {
@@ -1220,7 +1221,7 @@ public:
 };
 
 
-LINK_ENTITY_TO_CLASS(monster_furniture, CFurniture);
+// LINK_ENTITY_TO_CLASS(monster_furniture, CFurniture);
 
 
 //=========================================================

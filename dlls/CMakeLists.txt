@@ -14,7 +14,6 @@ target_compile_definitions(hl PRIVATE
 	VALVE_DLL)
 
 target_sources(hl PRIVATE
-	airtank.cpp
 	animating.cpp
 	animation.cpp
 	bmodels.cpp
@@ -34,7 +33,6 @@ target_sources(hl PRIVATE
 	healthkit.cpp
 	h_ai.cpp
 	h_battery.cpp
-	h_cine.cpp
 	h_cycler.cpp
 	h_export.cpp
 	items.cpp
@@ -89,7 +87,6 @@ target_sources(hl PRIVATE
 	ts_weapons.cpp
 	UserMessages.cpp
 	util.cpp
-	vehicle.cpp
 	weapons.cpp
 	weapons_shared.cpp
 	world.cpp

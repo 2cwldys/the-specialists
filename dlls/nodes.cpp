@@ -41,8 +41,9 @@ Vector VecBModelOrigin(entvars_t* pevBModel);
 
 CGraph WorldGraph;
 
-LINK_ENTITY_TO_CLASS(info_node, CNodeEnt);
-LINK_ENTITY_TO_CLASS(info_node_air, CNodeEnt);
+// [TS] AI node-graph placement/debug entities absent from the original — unregistered (CGraph kept):
+// LINK_ENTITY_TO_CLASS(info_node, CNodeEnt);
+// LINK_ENTITY_TO_CLASS(info_node_air, CNodeEnt);
 
 //=========================================================
 // CGraph - InitGraph - prepares the graph for use. Frees any
@@ -3483,10 +3484,10 @@ public:
 	void AddNode(int iFrom, int iTo);
 	void EXPORT DrawThink();
 };
-LINK_ENTITY_TO_CLASS(node_viewer, CNodeViewer);
-LINK_ENTITY_TO_CLASS(node_viewer_human, CNodeViewer);
-LINK_ENTITY_TO_CLASS(node_viewer_fly, CNodeViewer);
-LINK_ENTITY_TO_CLASS(node_viewer_large, CNodeViewer);
+// LINK_ENTITY_TO_CLASS(node_viewer, CNodeViewer);
+// LINK_ENTITY_TO_CLASS(node_viewer_human, CNodeViewer);
+// LINK_ENTITY_TO_CLASS(node_viewer_fly, CNodeViewer);
+// LINK_ENTITY_TO_CLASS(node_viewer_large, CNodeViewer);
 
 void CNodeViewer::Spawn()
 {

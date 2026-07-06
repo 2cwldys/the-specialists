@@ -23,7 +23,6 @@ DO_CC=$(CPLUS) $(INCLUDEDIRS) $(CFLAGS) -o $@ -c $<
 #####################################################################
 
 HLDLL_OBJS = \
-	$(HLDLL_OBJ_DIR)/airtank.o \
 	$(HLDLL_OBJ_DIR)/animating.o \
 	$(HLDLL_OBJ_DIR)/animation.o \
 	$(HLDLL_OBJ_DIR)/bmodels.o \
@@ -42,7 +41,6 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/ggrenade.o \
 	$(HLDLL_OBJ_DIR)/h_ai.o \
 	$(HLDLL_OBJ_DIR)/h_battery.o \
-	$(HLDLL_OBJ_DIR)/h_cine.o \
 	$(HLDLL_OBJ_DIR)/h_cycler.o \
 	$(HLDLL_OBJ_DIR)/h_export.o \
 	$(HLDLL_OBJ_DIR)/healthkit.o \
@@ -98,7 +96,6 @@ HLDLL_OBJS = \
 	$(HLDLL_OBJ_DIR)/ts_weapons.o \
 	$(HLDLL_OBJ_DIR)/UserMessages.o \
 	$(HLDLL_OBJ_DIR)/util.o \
-	$(HLDLL_OBJ_DIR)/vehicle.o \
 	$(HLDLL_OBJ_DIR)/weapons.o \
 	$(HLDLL_OBJ_DIR)/weapons_shared.o \
 	$(HLDLL_OBJ_DIR)/world.o \
