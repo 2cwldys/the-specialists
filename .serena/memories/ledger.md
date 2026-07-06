@@ -40,6 +40,39 @@ code is inherited base-SDK; entities unregistered = interface parity, but the ME
 42-method CBaseMonster) is DEFERRED — a ~6-file base-class refactor, flagged in HANDOFF. **User carve-out rule:
 keep anniversary/HL25 code even where it diverges from the 2007 original (this AI system is classic → in scope).**
 
+## 2026-07-05 (cont. 88 cont.2) — merged delta.lst (3-way), scope rework, interop rig live
+
+Continuation of cont.88. Commits `da29059` (scope), `f96d71d` (delta+scripts), + docs.
+
+**delta.lst — the interop wire contract.** Diffed original TS (`19af2487`, = what Steam ships) vs
+halflife-updated stock (`1aaf1652`, our repo). They split cleanly: **anniversary/HL25 fixes** stock has
+(eflags 1→2 EFLAG_FLESH_SOUND, skin 9→12, m_iId 5→6, iuser1/2 adds, fuser2/3 widths, animtime encoding) vs
+**TS wire additions** the original has (iuser3 + iuser4 32-bit in clientdata/entity_state/player — the powerup
+game-state networking, the old `[open decision]`). Built the **merged table via a field-level 3-WAY MERGE**
+from the 1998 SDK seed (`de70fad`) as common ancestor: seed + TS-branch + anniversary-branch. Add/add overlap
+on iuser1/iuser2 (both branches added them, different widths) → resolved to **max width** (iuser1=5, iuser2=6;
+iuser2=6 is REQUIRED for spectate player-index 32 — the naive eyeball missed it, the 3-way caught it).
+**Verified against CODE:** all 226 fields are real struct members (`common/entity_state.h` etc.); bit-widths
+hold the written values (`cd->iuser4 = pl->m_iPowerups` already written, client.cpp:2122). It's a minimal
+WIDENING of the TS table → drop-in with the original client (GoldSrc transmits the SERVER's table at connect,
+so the client adapts; widening is decode-safe). Committed as `network/delta.lst` + 3-way inputs in
+`reference/dossiers/cont88/`.
+
+**Scope rework — killed an INVENTED asset.** `ts_scopefull.spr` (round-7l: quarterscope mirrored 4x, baked +
+committed) does NOT exist in the original. RE (client.dll scope draw @0x10054516) shows the original ships only
+`quarterscope.spr` (one quarter, SPR_INDEXALPHA black mask) and paints it **4x-rotated via TriAPI** at render
+time. Reworked `cl_dll/ts_scope.cpp` to match (screen-space TriAPI quads, uv(1,1)=circle centre; black side bars
+drawn first + 1px overlap for the seam). Removed the baked sprite. Visual-verified in xash (transparent circle,
+clean seam). **Lesson: assets referenced in a decompile must exist in our code — diff asset refs per class.**
+
+**Deploy-script clobber bug (cost real cleanup).** The rig's `ts/delta.lst`/`ts/sprites` are SYMLINKS into the
+pristine `~/Containers/hlds/mods/ts`; a `cp -f` wrote THROUGH them and clobbered the original TS `delta.lst`
+(restored from `recovered/ts3-linux/ts/delta.lst`) + leaked a sprite. Both `setup-{rehlds,xash}-mod.sh` now use
+`cp --remove-destination` (writes a real file, breaks the symlink) — never plain `cp -f` onto a symlinked path.
+
+**Interop rig LIVE:** ReHLDS server (merged delta.lst, rcbot `max_bots 4`) + xash client up for the user to test
+both drop-in directions. End-to-end powerup confirmation pending. HANDOFF "START HERE (cont.88)" is the pickup.
+
 ## 2026-07-04 (cont. 87d) — CI made green: build source-list sync + MSVC-compat fixes
 
 First-ever CI run on the repo surfaced two classes of latent breakage (`.github/workflows/ci-cd.yml`

@@ -47,7 +47,137 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.87d) — pickup for the next orchestrator (= you)
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.88) — pickup for the next orchestrator (= you)
+
+**You ARE the orchestrator AND the previous agent — continue as if you never stopped.** Branch
+`restructure-source-parity`. The user is hands-on: they playtest, run the original TS live for you to
+gdb, and steer. The previous orchestrator (me) is **available for consult** — see the message at the
+bottom to relay.
+
+### THE MISSION (the law — do not drift)
+Produce a **drop-in** ts server AND client: run our client against the original server (or vice-versa)
+and behaviour is **identical + compatible**. The contract is the EXTERNAL INTERFACE (entities,
+protocol/user-messages, events, commands, cvars, wire/delta), NOT the internal C++ ABI. Build on the
+modern `halflife-updated` SDK on purpose. **Keep anniversary/HL25 fixes even where they diverge from
+the 2007 original** (they're what our runtime needs) — but everything TS-specific must match the original.
+
+### ⭐ THE VERIFY-EVERYTHING METHODOLOGY (the user re-stated this repeatedly — internalize it)
+The reconstruction is **structurally checkable** against the original inventory. For every unit —
+**file → the classes in it → each class's methods + member variables → globals → free functions →
+referenced ASSETS** — verify against the original (`reference/coverage/ts_inventory.json` +
+`scripts/coverage/audit.py [Class]`):
+- **Nothing MISSING** (original has it, we don't) and **nothing INVENTED** (we have it, original doesn't).
+- **A missing/extra symbol is a SIGNAL, not noise** — it means our logic diverges. **Re-RE it** (Ghidra
+  typed decompile + a live gdb trace if static dead-ends). Don't paper over it.
+- **The logic is often ALREADY implemented — just in the wrong place.** Before writing new code, grep:
+  it may exist under a different file/name and only need MOVING to match the original's layout (e.g. the
+  scripted/AI code lives in the base SDK already; the firing-detection logic was in a different call path).
+- **If the original does it a DIFFERENT WAY, mimic THEIRS** — drop-in compatibility means the *mechanism*
+  must match, not just the observable result. (`[[mimic-original-mechanism-for-dropin]]`.)
+- **Variable/method/class/file names must match the original's** — coverage matches by NAME, and a name
+  mismatch is itself a red flag that the surrounding code diverged (`[[match-original-names-for-coverage]]`,
+  `[[members-globals-signal-hidden-logic]]`). `scripts/coverage/filemap.py` recovers the original `.cpp`
+  per function; `run.py`→`members.tsv` the saved members; `curate_members.py`→`members_re.tsv` the transient ones.
+- **ASSETS referenced in a decompile MUST be referenced in our code** — every `models/…`, `sprites/…`,
+  `.sc` event, sound, `sequence`/anim name, precache, `SET_MODEL` in the original's functions must have a
+  counterpart in ours. Two live bugs this session came from this: an INVENTED `ts_scopefull.spr` (original
+  uses `quarterscope.spr` painted 4x-rotated) and a MISSING `w_weaponbox.mdl` precache. When you touch a
+  class, diff its asset references against the original's.
+- **In-code `TODO`/`VERIFY`/`SLICE`/`un-RE` comments ARE the standing work-list** —
+  `grep -rn "TODO\|VERIFY\|SLICE\|un-RE" dlls/ cl_dll/ pm_shared/` and resolve as you pass through each area.
+- ⚠ **The "TS decompile is complete" claim (made early) is about the SERVER symbol INVENTORY, not
+  behaviour.** Coverage is `~38%` method-complete (`RECONSTRUCTION_COVERAGE.md`); plenty is un-RE'd.
+- **When fixing bug X you'll discover gap Y — FLAG Y (note it / tell the user), but FINISH X first, then
+  report Y.** Don't rabbit-hole (`[[flag-unfound-re-early]]`). This session's item_longjump/func_vip/
+  w_weaponbox/scope were all "discovered while doing something else" → flagged → finished the original → reported.
+
+### METHODS THAT WORKED THIS SESSION (keep using them)
+- **The ReHLDS rig is a strict-engine gate that catches bugs xash hides.** `scripts/setup-rehlds-mod.sh`
+  deploys our `hl.so` + the merged `delta.lst` into `~/Containers/hlds/hlds-linux64-test`. ReHLDS enforces
+  GoldSrc precache/setmodel strictness; xash is lenient → run BOTH.
+- **`hosterr_break.gdb` (in `reference/dossiers/cont88/`)** — break on the engine's `Host_Error`, dump the
+  stack, resolve the gamedll caller. This nailed the w_weaponbox setmodel + precache faults directly.
+- **Entity/interface parity as the metric:** `nm -D build/dlls/hl.so` T-symbol entity factories vs the
+  original's, both directions (EXTRA = invented, MISSING = we lack). Drove it to **EXACT** this session.
+- **VERIFY BEFORE REMOVING — the big lesson.** An EXTRA entity can be a REAL original class registered
+  under a DIFFERENT NAME (a drop-in BUG), not a vestigial. Check the backing class in the original binary
+  first. This caught `ts_superjump`→`item_longjump` and `func_vip_safetyzone` (real class `CVipEscape`).
+- **The original ships DEAD CODE** (unreachable legacy vgui buy-menu `client.dll@0x10010xxx`, 0 xrefs;
+  dead-but-present `CVipEscape`). So it is NOT `--gc-sections`-stripped → symbol-for-symbol binary parity is
+  NOT the bar; **entity/interface parity is.** Don't strip inherited-SDK internals to chase symbol parity.
+- **3-way merge for config tables** (delta.lst): common-ancestor seed + both branches, field-level. See the dossier.
+- **Ghidra tooling — a LOT of it (see CLAUDE.md §4/§4a/§4b):** `re.sh` (typed server decompile + ApplyInventory),
+  `dc.sh` (client/mp/server by-addr), `binmap.py` (.so name → live mp.dll RVA), `live.py` (drive the running
+  original: pid/base/resolve/bt/read/watch/break), `coverage/*` (the gap harness), and the **Ghidra MCP**
+  (`mcp__ghidra-mcp__*`, interactive decompile + xref/callgraph on the typed `re` project — first reach for
+  "read this + who calls it"; `scripts/ghidra/mcp-up.sh` to attach; ⚠ project `.lock` blocks headless while the GUI holds it).
+
+### 🤖 SUBAGENT / ORCHESTRATION HINT
+You are the orchestrator. This session was mostly solo (tight interactive loop with the user), but the
+next phase (the parity grind — auditing class-by-class, RE'ing gaps) **fans out well**. Delegate to
+**`general-purpose`** subagents (they have the full tool set incl. the Ghidra MCP + `re.sh`/`dc.sh`/`live.py`/
+`coverage/*`) for: "audit + RE class `CTSStunt` to N/N", "diff asset refs for file X vs original", "RE the
+un-RE'd method Y". Use **`Explore`** for read-only "where is Z / what references Z" sweeps. Keep the live
+gdb trace, the user-facing playtests, and the final drop-in verification on the main (your) loop.
+**Preserve subagent findings** the same way as this session: have them write to `reference/dossiers/cont<NN>/`
+and COMMIT, so the next agent inherits them (context dies with the subagent otherwise).
+
+### 📌 IN PROGRESS / DID NOT COMPLETE this session (pick these up)
+No `TaskCreate` entries were used this session (tight interactive loop). Open threads:
+1. **⏳ INTEROP TEST — running, unconfirmed.** ReHLDS server (merged delta.lst, rcbot capped at 4) + xash
+   client are UP for the user to test our-client↔our-server AND original-client↔our-server. The
+   **end-to-end powerup proof** (`iuser4` → double-fire full-auto reaching the client, the `[open decision]`
+   payoff) is NOT yet confirmed in-game. Watch for `bad delta`/decode spam + powerups. See RIG STATE below.
+2. **[flagged] Trim `CBaseMonster` to the original's 42-method set** — see PARKED/DEFERRED below (unchanged;
+   RE-proven the original stripped the AI-schedule + scripted system at source).
+3. **`iuser4` on the wire is now NETWORKED** (merged delta.lst) and the server-side write EXISTS
+   (`cd->iuser4 = pl->m_iPowerups`, client.cpp:2122) — so the `[open decision] iuser4` in the older PARKED
+   list is essentially RESOLVED at the table level; just needs the in-game confirmation (thread 1).
+4. **`No pfn TSMBlur 119`** — the xash client logs a missing handler for the `TSMBlur` (motion-blur) user
+   message on spawn. Pre-existing, unrelated to this session's work; a real gap to RE (register the client
+   handler). Flagged, not fixed.
+5. **Client-side view roll** — the user gets vertigo from the strafe/turn tilt (`cl_rollangle`). Told them
+   `cl_rollangle 0` (instant, cvar). Open: whether to bake a default-0 (diverges from stock TS) — user's call.
+
+### ⭐ SCRATCHPADS / DOSSIER — preserved + committed
+`reference/dossiers/cont88/` — the delta 3-way merge inputs (`delta_seed/ts/stock.lst`), `hosterr_break.gdb`,
+and the method notes. (The 8 MB `client_disasm.txt` is regenerable — command in the dossier README.)
+
+### ⚠ RIG STATE (LIVE right now — background tasks)
+- **ReHLDS dedicated server** UP: `ts_bikini`, `sv_lan 1 +maxplayers 8`, **rcbot `max_bots 4`** (edited
+  `~/Containers/hlds/hlds-linux64-test/rcbot/bot_config.ini`), running **the merged `delta.lst`** (deployed
+  as a REAL file at `ts/delta.lst`; `mods/ts` verified pristine). Connect: `127.0.0.1:27015`.
+- **xash client** UP: `ts_dojo`, merged delta.lst + the reworked scope.
+- ⚠ **`~/Containers/hlds/mods/ts` is the PRISTINE original TS 3.0 — the deploy scripts symlink into it.**
+  This session a `cp -f` wrote THROUGH `ts/delta.lst`/`ts/sprites` symlinks and CLOBBERED the original
+  `delta.lst` (restored from `recovered/ts3-linux/ts/delta.lst`, md5 19af2487) + leaked a sprite. **Both
+  deploy scripts now use `cp --remove-destination` — do NOT reintroduce a plain `cp -f` onto a symlinked path.**
+- The user's **original TS runs in `hl.exe` (Proton/Wine)** for live gdb — `pgrep -f 'Half-Life/hl.exe'`
+  (the big-RSS process; client `ts/cl_dlls/client.dll`, server `ts/dlls/mp.dll`). Their Steam TS `delta.lst`
+  = the original `19af2487`.
+
+### 💬 MESSAGE TO SEND THE NEXT AGENT (paste this to it)
+> You're resuming mod-ts on `restructure-source-parity` — you ARE the orchestrator and the previous agent;
+> continue as if you never stopped. Read `CLAUDE.md`, then `.serena/memories/ledger.md` **with the Read tool
+> directly** (⚠ NEVER `read_memory("ledger")` via the Serena MCP — it returns one giant single-line
+> `{"result":"…"}` JSON that overflows the read limit; Read the `.md` file, or `jq -r '.result'` the saved
+> file), then this HANDOFF's "START HERE (cont.88)".
+>
+> The mission is a **drop-in** ts client AND server (identical + compatible against the original). The method
+> is **verify everything against the original inventory**: every file, the classes in it, their methods +
+> member variables, globals, free functions, AND referenced assets (models/sprites/sequences/events/precaches)
+> — nothing MISSING (→ re-RE, the logic may already exist elsewhere and just need moving), nothing INVENTED
+> (→ review/remove). A mismatch is a SIGNAL of diverged logic. Names must match the original (coverage matches
+> by name). If the original does it a different way, **mimic theirs**. Keep anniversary/HL25 fixes; match TS
+> exactly otherwise. Use the Ghidra tooling (`re.sh`/`dc.sh`/`live.py`/`binmap.py`/`coverage/*` + the Ghidra
+> MCP) and the ReHLDS rig (strict engine catches what xash hides). When a bug-fix surfaces another gap, FLAG
+> it but FINISH the current issue first, then report. Fan out class-by-class parity work to `general-purpose`
+> subagents; have them commit findings to `reference/dossiers/cont<NN>/`.
+>
+> **The cont.88 orchestrator (me) is available for consult** — if you hit a decision I already reasoned
+> through (delta merge, vestigial-vs-mismatch, dead-code-not-DCE, the scope RE), ask before re-deriving it.
+
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.87d) — pickup for the previous orchestrator
 
 **You ARE the orchestrator AND the previous agent — continue as if you never stopped.** Branch
 `restructure-source-parity` (NOT merged to `main`; GPG signing OFF: keep `git config --local
