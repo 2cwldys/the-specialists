@@ -93,6 +93,123 @@ from there, NOT from weapon_data). Committed fronts (newest→oldest, all built 
   left-first) — settle with a live gdb watch on the original's `item+0x24` during semi-fire if it looks off.
 - Then resume the broader drop-in/parity work below (cont.88 pickup).
 
+### 🎯 THE PARITY MANDATE — how to work EVERY bug (the user's law; read before touching code)
+**Goal: DROP-IN either direction.** Our client vs the ORIGINAL server, and our server vs the ORIGINAL client,
+must behave **identically and compatibly**. The contract is the EXTERNAL interface (the engine-facing C API +
+the client↔server protocol: user-message **names + wire formats**, **event** names + param packing, **command**
+names, **cvar** names) + behaviour. The internal C++ ABI is NOT a target — but we DO mirror the original's
+**structure** (files → classes → methods → members → globals → free functions) so the machine-checkable
+inventory matches 1:1.
+
+- **Name-match the original.** Our class/method/member/file names should be the ORIGINAL's. Coverage/audit
+  match **by NAME**; `scripts/coverage/filemap.py` recovers the original `.cpp` per function. A renamed/missing
+  symbol looks like a gap to the harness. (memory: `match-original-names-for-coverage`.)
+- **The two harnesses ARE the driver — run them, close the diffs:**
+  - `scripts/coverage/audit.py [<Class>|--strict]` → `reference/coverage/AUDIT.md` — the INTERNAL-structure
+    diff vs `reference/coverage/ts_inventory.json`, BOTH directions. **MISSING** (original has, we don't) =
+    re-RE + implement. **INVENTED** (we have, original doesn't) = review for drift/remove. Down to
+    member/global level.
+  - `scripts/coverage/coverage.py all` → `reference/coverage/REPORT.md` — the EXTERNAL swap contract
+    (entity classes, cldll exports, server+client commands, cvars w/ default + wire-size, user messages,
+    events, entity keyvalues).
+- **A mismatch is a SIGNAL, never noise.** A member/global/method present in the original but not ours (or
+  vice-versa) = **hidden logic inconsistency** → re-audit + Ghidra, never paper over. Drive members to N/N
+  too. (memory: `members-globals-signal-hidden-logic`; blind spots in `audit-py-blind-spots`.)
+- **The logic is often ALREADY implemented — MOVE/RENAME it, don't rewrite.** Frequently the behaviour exists
+  but in the wrong place, under a different name, or on the wrong member. Prefer relocating to match the
+  original over writing new code. *This session's archetype:* the akimbo barrel-side alternation was
+  "implemented" via `m_fInSpecialReload`, but the original uses ONE item byte `item+0x24` (`altMode`, rides
+  `vuser4.x`) and never resets it in Primary/Secondary — the fix was to MOVE the state to the right byte, not
+  invent logic.
+- **If they do it another way, MIMIC THEIRS.** Even when our way "works," drop-in needs the mechanism + wire
+  to match (which side computes/sends what). Verify which side does what first. (memory:
+  `mimic-original-mechanism-for-dropin`; `dropin-both-directions`.)
+- **The decompile is "complete" but bugs surface adjacent gaps.** The server `.so` is fully symboled and was
+  inventoried early — yet fixing one bug routinely reveals a neighbouring MISSING/INVENTED. **FLAG it** (tell
+  the user + drop a `// VERIFY` in code + note in the ledger), **don't ignore it, but FINISH the original issue
+  first**, then report. (memory: `flag-unfound-re-early`.)
+- **Assets must all be wired.** Every model/sprite/sound/sequence/event referenced inside a decompile must be
+  referenced in OUR code (precached + played). Recover the per-entity asset list with
+  `scripts/coverage/precache.py` (pulls each `Precache__<Class>`'s `PRECACHE_MODEL/SOUND/...` string literals
+  from the `.so`) and grep the decompiles for asset-path strings + event names; diff vs our `PRECACHE_*` /
+  `PLAYBACK_EVENT` / `SetModel`. A missing asset = a code path we didn't reconstruct → re-RE it.
+- **Sweep the ~173 `VERIFY`/`TODO`/`SLICE` comments** (`grep -rn 'VERIFY\|TODO\|SLICE\|FIXME' dlls cl_dll`) —
+  known-uncertain spots; when you touch an area, resolve its VERIFYs against the binary. Also
+  `defer-setter-without-consumer`, `weapon-table-verify-source`, `dead-code-path-gravity-trap`,
+  `embedded-object-offset-blindness`, `stock-member-before-inventing` (Serena memories) are recurring RE traps.
+
+### 🛠️ THE TOOLCHAIN (how you actually RE — CLAUDE.md §4 has the full detail)
+- **Server decompile (typed):** `scripts/ghidra/re.sh <Class|Ghidra-addr>` (addr = `nm` addr + 0x10000). Builds
+  the applied `re` project via ApplyInventory (typed `this`/args/`pev->`/vtable). `re.sh refs <Class>` /
+  `re.sh vrefs <Method>` = direct / virtual callers. `re.sh members` regenerates member skeletons.
+- **Client / mp.dll decompile:** `scripts/ghidra/dc.sh <client|mp|server> 0x<rva|addr>` (client/mp = PE
+  imagebase 0x10000000 + RVA; mp.dll has 159 typed MSVC exports = readable `Class::Method`).
+- **Ghidra MCP** (`mcp__ghidra-mcp__*`, interactive) = the FIRST reach for "read this + who calls it": fast
+  `decompile_function` / `get_xrefs_to` / `get_function_callers` on the SAME typed `re` project the scripts
+  built. Attach via `scripts/ghidra/mcp-up.sh` (open `recovered/ghidra/re/re.gpr` + `ts_i386.so` in the GUI,
+  then `connect_instance`/`open_program`). ⚠ **`.lock`:** while the GUI holds `re`, you CANNOT run
+  `re.sh`/`dc.sh server` (headless lock) — drive via MCP (reads only, don't mutate) or close the program first.
+- **Live runtime = the ONLY truth for "what happens at run time":** `scripts/live.py` gdb's the running
+  ORIGINAL `hl.exe` (Proton) — `pid`/`base`/`resolve`/`bt`/`read`/`watch --go`/`break --go`. `scripts/binmap.py
+  <Class::Method>` resolves a (non-exported) name → live `mp.dll` RVA to break on. The user keeps the original
+  running and fires/acts on demand — ASK them to reproduce, don't guess. (memory: `live-original-ts-debuggable`,
+  `user-drives-playtests` — never drive xash/xdotool yourself; give a NUMBERED test protocol.)
+- **Build BOTH libs every change** (shared code → both): `scripts/build.sh amd64 all` (→ `build-amd64/dlls/hl.so`
+  + `build-amd64/cl_dll/client.so`, glibc floor 2.14; `amd64` = server only, `amd64 client` = client only). Run
+  `scripts/check-source-lists.py` after adding/removing a `.cpp` (4 parallel build systems must agree).
+
+- **▶ BUILD + RUN OUR TS ON THE REHLDS RIG (the real dedicated-server drop-in test)** — exact flow the parent used:
+  ```bash
+  # 1. build (server + client):
+  scripts/build.sh amd64 all
+  # 2. deploy OUR hl.so (+ merged network/delta.lst) into the rig (via metamod, keeps rcbot):
+  scripts/setup-rehlds-mod.sh                 # NOMETAMOD=1 scripts/setup-rehlds-mod.sh = bypass metamod/rcbot
+  # 3. launch the ReHLDS dedicated server (kill the hlds_run WRAPPER, not hlds_linux, or it respawns):
+  cd ~/Containers/hlds/hlds-linux64-test && ./hlds_run -game ts +sv_lan 1 +maxplayers 8 +map tm_avana
+  #    (maps used: tm_avana, ts_bikini; add +sv_maxspeed 330 for kungfu-movement tests. sv_lan 1 = LAN join, no Steam ticket.)
+  # 4. (optional) join with OUR xash client = full drop-in (our server + our client):
+  scripts/setup-xash-mod.sh
+  cd ~/Projects/goldsrc.net/xash3d-fwgs/dist/client-x64 && LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +connect 127.0.0.1:27015
+  ```
+  **Server-crash → get the backtrace** (gdb intercepts SIGSEGV before ReHLDS's breakpad):
+  ```bash
+  cd ~/Containers/hlds/hlds-linux64-test && gdb -batch -nx -ex run -ex bt \
+    --args ./hlds_linux -game ts -condebug +developer 1 +sv_lan 1 +maxplayers 8 +map ts_bikini > /tmp/ts.log 2>&1
+  ```
+  Re-run `scripts/setup-rehlds-mod.sh` after every `build.sh` to refresh the rig's `hl.so`. Visual/client-side
+  test on this box (has a GPU) via xash — `scripts/setup-xash-mod.sh` + CLAUDE.md §3. Rig at
+  `~/Containers/hlds/hlds-linux64-test` (override with `RIG=…`).
+
+### 👥 SUBAGENT DELEGATION (you're the orchestrator, and so is your successor)
+Delegate a self-contained RE-a-class or implement-a-fix pass to a **`general-purpose`** subagent (full tools;
+give it the class/bug + point it at the Ghidra tooling + the live-trace recipe + "build both libs, don't touch
+dlls/cl_dll unless implementing"), or **`fork`** to inherit your full context for a tightly-coupled continuation.
+Read-only fan-out searches → **`Explore`**; a design pass → **`Plan`**. Keep the coverage/audit metric + the
+final integration + the user-facing report in the MAIN loop. *This session's pattern:* orchestrator →
+one general-purpose subagent that RE'd the akimbo cluster (re.sh/dc.sh + MCP, live-trace-ready), wrote the
+dossier, implemented across `dlls/ts_gun.cpp` + `cl_dll/{ts_weapon_predict,hl/hl_weapons}.cpp`, built both libs,
+and reported back. When delegating parallel independent work, launch the agents in ONE message.
+
+### 🗒️ SCRATCHPADS + RE OUTPUT (disk-durable, GITIGNORED — read before re-RE'ing an area)
+`scratchpad/` (loose RE notes/decompiles — e.g. `SLOWMO_PRESENTATION_RE.md` **referenced by our code**
+comments, `pm_jump.c`, `knife_decomp.txt`, `weapon_itempostframe.c`, `coldcock_chain.c`, …) and `recovered/`
+(per-class decompiles under `recovered/decomp/` + the persistent Ghidra projects `recovered/ghidra/{re,
+clientdll,mpdll}`) are **gitignored** — they persist on THIS box (so you, the next orchestrator, have them) but
+a fresh clone does NOT. Read them before re-decompiling something a prior agent already did. The committed,
+durable RE writeups live in `reference/dossiers/**` and `reference/*.md`.
+
+### 📌 Serena gotcha (repeat of the read-first): read `.serena/memories/ledger.md` with the **Read tool** —
+do NOT `read_memory("ledger")` via the MCP (it returns one giant single-line JSON `{"result":"…"}` ~150 KB that
+overflows the read limit; if you must, `jq -r '.result'` the saved file).
+
+### 💬 Message to relay to the next agent (consult availability)
+> *I (cont.89, the akimbo-cluster + drop-in-prediction orchestrator) am available for consult.* I RE'd and
+> implemented the akimbo cluster (barrel alternation on `item+0x24`/`altMode`, the WStatus paired-variant
+> resend, the deploy-body via `EV_TSDraw`/`TS_SetPredictedWeaponType`) and the cont.89 vuser-channel prediction
+> work — ask me before re-RE'ing `AkimboFire`/`UpdateClientData`/the vuser mapping. **Everything I did is
+> BUILT but NOT yet playtested** — start by driving the numbered akimbo playtest with the user, then treat any
+> new gap the playtest surfaces per THE PARITY MANDATE above (flag it, finish the current issue, report).
+
 ---
 
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.88) — pickup for the next orchestrator (= you)
