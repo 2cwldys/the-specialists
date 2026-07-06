@@ -599,12 +599,30 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		pCurrent->m_fInAttack = pfrom->iuser2;
 		pCurrent->m_fireState = pfrom->iuser3;
 
-		pCurrent->m_iSecondaryAmmoType = (int)from->client.vuser3[2];
-		pCurrent->m_iPrimaryAmmoType = (int)from->client.vuser4[0];
-		player.m_rgAmmo[pCurrent->m_iPrimaryAmmoType] = (int)from->client.vuser4[1];
-		player.m_rgAmmo[pCurrent->m_iSecondaryAmmoType] = (int)from->client.vuser4[2];
-
-		pCurrent->SetWeaponData(*pfrom);
+		// TS weapon-state channel (cont.89): the active weapon's predicted state comes from the clientdata
+		// vuser block the server sends (this REPLACES the removed invented CTSGun::SetWeaponData/weapon_data
+		// override, which corrupted the stock fire-state fields for the ORIGINAL client). Same slot layout the
+		// original client reads: vuser3.x=type, vuser3.y=fireMode, vuser3.z=attach, vuser4.x=altMode,
+		// vuser4.y=clip, vuser4.z=2nd/left clip, vuser2.x=bloody, vuser1.z=active-attach.
+		if (pCurrent == &g_TSGun)
+		{
+			const int wt = (int)from->client.vuser3[0];
+			g_TSGun.m_weaponType = wt;
+			g_TSGun.m_fireMode = (int)from->client.vuser3[1];
+			g_TSGun.UpdateActivePointers();
+			if (wt >= 0 && wt < TSW_COUNT)
+			{
+				TSItem& it = g_TSGun.m_items[wt];
+				it.bloody = (int)from->client.vuser2[0];
+				it.mode = (int)from->client.vuser3[1];
+				it.attach = (int)from->client.vuser3[2];
+				it.altMode = (int)from->client.vuser4[0];
+				it.clip = (int)from->client.vuser4[1];
+				it.leftClip = (int)from->client.vuser4[2];
+				it.active = (int)from->client.vuser1[2];
+				it.owned = true; // the wielded item is owned (predicted-event gate)
+			}
+		}
 	}
 
 	// For random weapon events, use this seed to seed random # generator
@@ -736,6 +754,8 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		to->client.vuser2[2] = ((CRpg*)player.m_pActiveItem)->m_cActiveRockets;
 	}
 
+	// (cont.89: the TS weapon-state vuser mirror lives in the per-weapon loop below, next to DecrementTimers.)
+
 	// Make sure that weapon animation matches what the game .dll is telling us
 	//  over the wire ( fixes some animation glitches )
 	// ALSO force a replay when the VIEWMODEL changed (a weapon switch), even if the new deploy anim
@@ -797,10 +817,25 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		pto->m_flTimeWeaponIdle -= slowMsec;
 		pto->fuser1 -= slowMsec;
 
-		to->client.vuser3[2] = pCurrent->m_iSecondaryAmmoType;
-		to->client.vuser4[0] = pCurrent->m_iPrimaryAmmoType;
-		to->client.vuser4[1] = player.m_rgAmmo[pCurrent->m_iPrimaryAmmoType];
-		to->client.vuser4[2] = player.m_rgAmmo[pCurrent->m_iSecondaryAmmoType];
+		// TS weapon-state channel (cont.89): mirror the predicted active-weapon state into the vuser block
+		// (the inverse of the from-read above) so OUR client's prediction reconciliation matches the server's
+		// clientdata layout. Same slots the original client reads.
+		if (pCurrent == &g_TSGun)
+		{
+			const int wt = g_TSGun.m_weaponType;
+			to->client.vuser3[0] = (float)wt;
+			to->client.vuser3[1] = (float)g_TSGun.m_fireMode; // LIVE fire-mode (matches server)
+			to->client.vuser4[1] = (float)g_TSGun.m_iClip;    // LIVE clip (matches server)
+			if (wt >= 0 && wt < TSW_COUNT)
+			{
+				const TSItem& it = g_TSGun.m_items[wt];
+				to->client.vuser2[0] = (float)it.bloody;
+				to->client.vuser3[2] = (float)it.attach;
+				to->client.vuser4[0] = (float)it.altMode;
+				to->client.vuser4[2] = (float)it.leftClip;
+				to->client.vuser1[2] = (float)it.active;
+			}
+		}
 
 		pCurrent->DecrementTimers();
 
@@ -808,7 +843,8 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		if (pCurrent == &g_TSGun)
 			g_TSGun.m_flNextAlternateAttack = V_max((float)(g_TSGun.m_flNextAlternateAttack - slowMsec), -0.001f);
 
-		pCurrent->GetWeaponData(*pto);
+		// (cont.89: the invented pCurrent->GetWeaponData(*pto) is removed — TS predicted weapon state now
+		// rides the clientdata vuser block written above, matching the original client's layout.)
 
 		/*		if ( pto->m_flPumpTime != -9999 )
 		{

@@ -751,70 +751,12 @@ bool CTSGun::GetItemInfo(ItemInfo *p)
 	return true;
 }
 
-// Client-prediction state shipping (step 3c). The generic GetWeaponData loop (client.cpp /
-// hl_weapons.cpp) already mirrors m_iClip + the timers + m_fInReload; here we add the TS-specific
-// active state the prediction needs: the active weapon TYPE (drives the anim/fire-type the client
-// runs) + the active caliber's spare RESERVE (drives the reload gate) + the fire-mode. Packed into
-// the spare iuser fields (CTSGun doesn't use the base m_chargeReady/m_fInAttack/m_fireState those
-// normally carry). Server packs in GetWeaponData; client unpacks in SetWeaponData before ItemPostFrame.
-void CTSGun::GetWeaponData(weapon_data_t &data)
-{
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	const int caliber = wi->iCaliber;
-	data.iuser1 = m_weaponType;
-	data.iuser2 = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
-	data.iuser3 = m_fireMode;
-	data.iuser4 = m_bHoldPosition ? 1 : 0; // hold-position stance, so the client predicts the held-stance fire anim
-	data.fuser4 = m_flNextAlternateAttack; // gun+0xa4 — the +alt2 gate rides the spare fuser4
-	// The REAL per-barrel clips ride the spare fuser2/3 (CTSGun never uses the stock
-	// m_flStartThrow/m_flReleaseThrow they normally carry; our GetWeaponData runs AFTER the
-	// generic loop, so these win). Without them the client rebuilt the barrels BALANCED from
-	// the combined clip every frame — so the predicted gun never saw a dry barrel: free-mode
-	// fire kept flaring/banging client-side while the server refused, the predicted dry-click
-	// never fired, and the plain-semi alternation desynced (the round-6 playtest bug).
-	const TSItem &it = m_items[m_weaponType];
-	data.fuser2 = (float)it.leftClip;
-	data.fuser3 = (float)it.rightClip;
-	// The ATTACH MASK rides the spare m_iWeaponState (unused by CTSGun):
-	// the PREDICTED weapon's anims carry the attachment BODY and its predicted fire event
-	// carries iparam2 — without this the client instance ran attach 0 (round-7i: the mask
-	// landed server-side, yet no submodels and no silenced sound — both were the HOST's
-	// predicted copies).
-	data.m_iWeaponState = it.attach;
-}
-
-void CTSGun::SetWeaponData(const weapon_data_t &data)
-{
-	m_weaponType = data.iuser1;
-	UpdateActivePointers();
-	m_fireMode = data.iuser3;
-	m_bHoldPosition = (data.iuser4 != 0);
-	m_flNextAlternateAttack = data.fuser4;
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-	const int caliber = wi->iCaliber;
-	if (caliber > 0 && caliber < TS_NUM_CALIBERS)
-		m_ammoReserve[caliber] = data.iuser2;
-
-#ifdef CLIENT_DLL
-	// The per-item ARSENAL state (m_items[]) is server-only and NOT in the prediction data — only
-	// type/reserve/mode/holdpos travel (iuser1..4) + the base m_iClip. Anything a PREDICTED code
-	// path gates on must be reconstructed here or the host's predicted events silently vanish
-	// (FEV_NOTHOST means the server copy skips the host — the "coldcock went silent" bug: its
-	// playback gates on item->owned, which stayed false client-side).
-	// The wielded item is by definition OWNED:
-	if (m_pActiveItem)
-		m_pActiveItem->owned = true;
-	// The REAL per-barrel clips (fuser2/3 — packed by our GetWeaponData). The old balanced
-	// reconstruction from m_iClip is GONE: it fed the prediction half-full barrels every frame,
-	// which is exactly why free-mode fire never dry-clicked and the alternation desynced.
-	{
-		TSItem &it = m_items[m_weaponType];
-		it.leftClip = (int)data.fuser2;
-		it.rightClip = (int)data.fuser3;
-		it.attach = data.m_iWeaponState; // the wielded item's attachment mask (see GetWeaponData)
-	}
-#endif
-}
+// cont.89: CTSGun::GetWeaponData/SetWeaponData (the invented weapon_data override) were REMOVED. They
+// packed TS active state (type/reserve/fireMode/holdpos/barrel-clips/attach) into the STOCK weapon_data
+// slots (iuser1..4 / fuser2..4 / m_iWeaponState) — which the ORIGINAL client reads as its stock fire-state
+// (m_chargeReady/m_fInAttack/m_fireState/m_flStartThrow/m_flReleaseThrow), corrupting its fire prediction
+// (misfire every frame → clip flicker + absurd spread). The original ships this state on the clientdata
+// vuser block instead (dlls/client.cpp UpdateClientData); our client reads it in HUD_WeaponsPostThink.
 
 // Per-tsweapon_t viewmodel DRAW (unholster) sequence index — recovered by parsing each viewmodel's
 // sequence names (the "draw"/"drawb" sequence). The original looks this up at init into the weapon

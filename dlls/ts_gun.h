@@ -101,8 +101,8 @@ public:
 		return false;
 #endif
 	}
-	void GetWeaponData(weapon_data_t &data) override; // server: pack the TS-specific active state (3c)
-	void SetWeaponData(const weapon_data_t &data) override; // client: unpack it before ItemPostFrame (3c)
+	// (cont.89: GetWeaponData/SetWeaponData overrides removed — TS predicted weapon state rides the
+	// clientdata vuser block, not weapon_data; see dlls/client.cpp + cl_dll/hl/hl_weapons.cpp.)
 
 	void AlternateAttack() override;             // @AlternateAttack @0x71ba8 — +alt2 (IN_CANCEL): ColdCock if the weapon can
 	void ColdCock();                             // @ColdCock — a quick pistol-whip melee bash

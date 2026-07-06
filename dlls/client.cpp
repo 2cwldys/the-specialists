@@ -35,6 +35,7 @@
 #include "saverestore.h"
 #include "player.h"
 #include "ts_weapons.h" // TSSelectWeaponType (weapon_<N> commit) / TSLastInv (lastinv)
+#include "ts_gun.h"     // CTSGun::m_weaponType (clientdata.vuser2.z weapon-type channel)
 #include "ts_player.h"  // TSGrantPowerup (the `powerup <N>` debug cheat)
 #include "spectator.h"
 #include "client.h"
@@ -2008,7 +2009,13 @@ int GetWeaponData(struct edict_s* player, struct weapon_data_s* info)
 						item->iuser2 = gun->m_fInAttack;
 						item->iuser3 = gun->m_fireState;
 
-						gun->GetWeaponData(*item);
+						// cont.89: the invented CTSGun::GetWeaponData override is GONE — it packed TS state
+						// (m_weaponType/reserve/fireMode/clips/attach) into these stock weapon_data slots, which
+						// the ORIGINAL client reads as m_chargeReady/m_fInAttack/m_fireState/m_flStartThrow/
+						// m_flReleaseThrow → a corrupt fire state (m_fInAttack≈reserve ⇒ "always attacking" ⇒
+						// misfire every frame ⇒ clip flicker + absurd spread). The generic loop above now packs
+						// the real stock fire-state fields; the TS weapon state travels on the clientdata vuser
+						// block instead (see UpdateClientData). Our own client reads that block in HUD_WeaponsPostThink.
 
 						//						item->m_flPumpTime				= V_max( gun->m_flPumpTime, -0.001f );
 					}
@@ -2120,14 +2127,16 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 			// double-fire powerup runs); without the sync the client-side gate always saw 0
 			// (round 8: 'weapons should fullauto ... IF double fire rate has been triggered').
 			cd->iuser4 = pl->m_iPowerups;
-			cd->vuser1.x = pl->ammo_9mm;
-			cd->vuser1.y = pl->ammo_357;
-			cd->vuser1.z = pl->ammo_argrens;
 			cd->ammo_nails = pl->ammo_bolts;
 			cd->ammo_shells = pl->ammo_buckshot;
 			cd->ammo_rockets = pl->ammo_rockets;
 			cd->ammo_cells = pl->ammo_uranium;
-			cd->vuser2.x = pl->ammo_hornets;
+			// TS weapon-state channel (cont.89): the ORIGINAL client reads the active weapon's predicted
+			// state from a vuser block, NOT from weapon_data. The invented ammo/powerup writes that used to
+			// occupy vuser1/vuser2.x/vuser3/vuser4 are REMOVED — the original client mis-read them as weapon
+			// state (phantom silencer/flash/laser/scope, clip 0). The melee stamina bar (player-level) rides
+			// vuser1.y (cd+0x1b0); the per-weapon fields are set in the active-item block below.
+			cd->vuser1.y = pl->m_flMeleeBar;
 
 
 			if (pl->m_pActiveItem)
@@ -2141,13 +2150,30 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 
 					cd->m_iId = II.iId;
 
-					cd->vuser3.z = gun->m_iSecondaryAmmoType;
-					cd->vuser4.x = gun->m_iPrimaryAmmoType;
-					cd->vuser4.y = pl->m_rgAmmo[gun->m_iPrimaryAmmoType];
-					cd->vuser4.z = pl->m_rgAmmo[gun->m_iSecondaryAmmoType];
-
-					// NB: stock RPG laser-spot prediction (WEAPON_RPG → CRpg m_fSpotActive/m_cActiveRockets)
-					// removed — CRpg is absent from the original; TS weapons are CTSGun (never WEAPON_RPG).
+					// TS drop-in weapon-state channel (cont.89, verified by live gdb + client.dll disasm).
+					// The ORIGINAL client's HUD_WeaponsPostThink reads the active weapon's predicted state
+					// from these vuser slots (client reads `flds 0x30c/0x318/0x31c/0x320/0x324/0x328/0x32c(%esi)`
+					// = cd+0x1b8/0x1c4/0x1c8/0x1cc/0x1d0/0x1d4/0x1d8). The cont.89 dossier's field NAMES were
+					// off by one 4-byte slot (it read cd+0x1c4 as "vuser2.z"; with iuser1@0x18c standard layout
+					// it is vuser3.x) — the OFFSETS below are ground-truth. These REPLACE the invented
+					// ammo/powerup writes the original client mis-read (phantom silencer/flash/laser/scope,
+					// clip 0, absurd spread). m_weaponType 0 = kung-fu (melee).
+					if (II.iId == TSGUN_WEAPON_ID)
+					{
+						CTSGun* tsgun = (CTSGun*)gun;
+						const int wt = tsgun->m_weaponType;
+						const TSItem& it = tsgun->m_items[wt];
+						cd->vuser2.x = (float)it.bloody;         // cd+0x1b8 — bloody-blade state
+						cd->vuser3.x = (float)wt;                // cd+0x1c4 — active weapon type (g_ActiveTSWeapon)
+						cd->vuser3.y = (float)tsgun->m_fireMode; // cd+0x1c8 — fire-mode (LIVE, not the parked it.mode
+						                                         //   — stale it.mode defaults SEMI, so full-auto fired like semi)
+						cd->vuser3.z = (float)it.attach;         // cd+0x1cc — EQUIPPED attach mask (sil/laser/flash/scope)
+						cd->vuser4.x = (float)it.altMode;        // cd+0x1d0 — alt-mode
+						cd->vuser4.y = (float)tsgun->m_iClip;    // cd+0x1d4 — active clip (LIVE m_iClip, not parked
+						                                         //   it.clip — the parked copy is stale during firing → 20→19→20 flicker)
+						cd->vuser4.z = (float)it.leftClip;       // cd+0x1d8 — second/left clip (VERIFY)
+						cd->vuser1.z = (float)it.active;   // cd+0x1b4 — ACTIVE attachments (laser/flash toggled)
+					}
 				}
 			}
 		}
