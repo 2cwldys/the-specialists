@@ -1327,11 +1327,11 @@ void PM_Friction()
 
 		trace = pmove->PM_PlayerTrace(start, stop, PM_NORMAL, -1);
 
-		// TS-modified PM_Friction (RE @0xede08, dossier cont.81): the edgefriction doubling
-		// applies ONLY at entity friction 1.0 — stunting/rolling players (pev->friction 0.3)
-		// never get edge-doubled (the low prone hull trips the edge trace constantly, which
-		// made our rolls decay ~2.7x faster than the original's).
-		if (trace.fraction == 1.0 && pmove->friction == 1.0f)
+		// PM_Friction edge-friction (RE @0xede08): the original gates edge-doubling on
+		// `trace.fraction == 1.0` ONLY — NO `pmove->friction == 1.0` sub-gate (cont.89e confirmed in
+		// asm). The cont.81 sub-gate made our SERVER diverge from the original CLIENT's prediction (which
+		// edge-doubles at pev->friction 0.3 too) → a stunt-roll prediction mismatch. Reverted to match.
+		if (trace.fraction == 1.0)
 			friction = pmove->movevars->friction * pmove->movevars->edgefriction;
 		else
 			friction = pmove->movevars->friction;
@@ -2717,12 +2717,12 @@ void PM_Jump()
 		}
 		else
 		{
-			pmove->velocity[2] = sqrt(2 * 800 * 45.0);
+			pmove->velocity[2] = sqrt(2 * 800 * 35.0); // cont.89e: original @0xe9944 = sqrt(56000)=236.6 (35-unit), not 45
 		}
 	}
 	else
 	{
-		pmove->velocity[2] = sqrt(2 * 800 * 45.0);
+		pmove->velocity[2] = sqrt(2 * 800 * 35.0); // cont.89e: original @0xe9944 = sqrt(56000)=236.6 (35-unit), not 45
 	}
 
 	// Decay it for simulation
@@ -2974,14 +2974,9 @@ void PM_CheckParamters()
 		pmove->maxspeed = V_min(maxspeed, pmove->maxspeed);
 	}
 
-	// Slow down, I'm pulling it! (a box maybe) but only when I'm standing on ground
-	//
-	// JoshA: Moved this to CheckParamters rather than working on the velocity,
-	// as otherwise it affects every integration step incorrectly.
-	if ((pmove->onground != -1) && (pmove->cmd.buttons & IN_USE))
-	{
-		pmove->maxspeed *= 1.0f / 3.0f;
-	}
+	// cont.89e: the anniversary "JoshA" IN_USE maxspeed*=1/3 block is REMOVED — the original TS
+	// PM_CheckParamters (@0xe9c94) has NO such term, so holding +use on the ground mispredicted every
+	// frame vs the original client. (TS +use is the item toggle, not a slow-walk.) [[useitems-is-attachment-toggle]]
 
 	if ((spd != 0.0) &&
 		(spd > pmove->maxspeed))
@@ -3011,7 +3006,8 @@ void PM_CheckParamters()
 
 	if ((pmove->flags & FL_FROZEN) != 0 ||
 		(pmove->flags & FL_ONTRAIN) != 0 ||
-		0 != pmove->dead)
+		0 != pmove->dead ||
+		(pmove->iuser4 & 0x10c10) != 0) // cont.89e: TS stunt-freeze bits (PRONE/STOP/etc.) zero the cmd — @0xe9c94
 	{
 		pmove->cmd.forwardmove = 0;
 		pmove->cmd.sidemove = 0;
@@ -3022,7 +3018,8 @@ void PM_CheckParamters()
 	PM_DropPunchAngle(pmove->punchangle);
 
 	// Take angles from command.
-	if (0 == pmove->dead)
+	// cont.89e: skip the angle-recompute when the TS view-lock stunt bit (iuser4 & 0x2) is set (@0xe9c94).
+	if (0 == pmove->dead && (pmove->iuser4 & 0x2) == 0)
 	{
 		VectorCopy(pmove->cmd.viewangles, v_angle);
 		VectorAdd(v_angle, pmove->punchangle, v_angle);
