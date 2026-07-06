@@ -21,7 +21,7 @@ clientdata_t none
 	DEFINE_DELTA( ammo_cells, DT_SIGNED | DT_INTEGER, 10, 1.0 ),
 	DEFINE_DELTA( ammo_rockets, DT_SIGNED | DT_INTEGER, 10, 1.0 ),
 
-	DEFINE_DELTA( m_iId, DT_INTEGER, 6, 1.0 ),
+	DEFINE_DELTA( m_iId, DT_INTEGER, 6, 1.0 ), // [merge] anniv: wider m_iId #98 (TS 5)
 
 	DEFINE_DELTA( punchangle[2], DT_SIGNED | DT_FLOAT, 16, 8.0 ),
 	DEFINE_DELTA( flags, DT_INTEGER, 32, 1.0 ), // Cut to 3 bits?
@@ -43,10 +43,8 @@ clientdata_t none
 	DEFINE_DELTA( flSwimTime, DT_INTEGER, 10, 1.0 ),
 	DEFINE_DELTA( waterjumptime, DT_INTEGER, 15, 1.0 ),
 	DEFINE_DELTA( waterlevel, DT_INTEGER, 2, 1.0 ),
-	
-	DEFINE_DELTA( iuser1, DT_INTEGER, 3, 1.0 ),
-	DEFINE_DELTA( iuser2, DT_INTEGER, 6, 1.0 ),
 
+	//DEFINE_DELTA( vuser1[0], DT_FLOAT, 8, 10.0 ),
 	DEFINE_DELTA( vuser1[0], DT_SIGNED | DT_FLOAT, 10, 1.0 ),
 	DEFINE_DELTA( vuser1[1], DT_SIGNED | DT_FLOAT, 10, 1.0 ),
 	DEFINE_DELTA( vuser1[2], DT_SIGNED | DT_FLOAT, 10, 1.0 ),
@@ -64,14 +62,20 @@ clientdata_t none
 	DEFINE_DELTA( vuser4[2], DT_SIGNED | DT_FLOAT, 10, 1.0 ),
 	
 	DEFINE_DELTA( fuser1, DT_SIGNED | DT_FLOAT, 22, 128.0 ),
-	DEFINE_DELTA( fuser2, DT_SIGNED | DT_FLOAT, 10, 128.0 ),
-	DEFINE_DELTA( fuser3, DT_SIGNED | DT_FLOAT, 10, 128.0 ),
-	DEFINE_DELTA( fuser4, DT_SIGNED | DT_FLOAT, 2, 128.0 )
+	DEFINE_DELTA( fuser2, DT_SIGNED | DT_FLOAT, 2, 128.0 ),
+	DEFINE_DELTA( fuser3, DT_SIGNED | DT_FLOAT, 2, 128.0 ),
+	DEFINE_DELTA( fuser4, DT_SIGNED | DT_FLOAT, 2, 128.0 ),
+
+	DEFINE_DELTA( iuser1, DT_INTEGER, 5, 1.0 ),
+	DEFINE_DELTA( iuser2, DT_INTEGER, 6, 1.0 ), // [merge] add/add overlap -> max(TS 5, anniv 6)
+	DEFINE_DELTA( iuser3, DT_INTEGER, 5, 1.0 ),
+	DEFINE_DELTA( iuser4, DT_INTEGER, 32, 1.0 )
 }
 
 entity_state_t gamedll Entity_Encode
 {
-	DEFINE_DELTA( animtime, DT_TIMEWINDOW_8, 8, 1.0 ),
+	// DEFINE_DELTA( animtime, DT_TIMEWINDOW_8, 8, 1.0 ),
+	DEFINE_DELTA( animtime, DT_TIMEWINDOW_BIG, 8, 100.0 ),
 	DEFINE_DELTA( frame, DT_FLOAT, 10, 4.0 ),
 	DEFINE_DELTA( origin[0], DT_SIGNED | DT_FLOAT, 16, 8.0 ),
 	DEFINE_DELTA( angles[0], DT_ANGLE, 16, 1.0 ),
@@ -101,11 +105,11 @@ entity_state_t gamedll Entity_Encode
 	DEFINE_DELTA( weaponmodel, DT_INTEGER, 10, 1.0 ),
 	DEFINE_DELTA( owner, DT_INTEGER, 5, 1.0 ),
 	DEFINE_DELTA( effects, DT_INTEGER, 8, 1.0 ),
-	DEFINE_DELTA( eflags, DT_INTEGER, 2, 1.0 ), // JoshA: Changed to 2 for EFLAG_FLESH_SOUND to fix flesh sounds on entities. If a mod ships updated DLLs and not this file, they just won't have that fix.
+	DEFINE_DELTA( eflags, DT_INTEGER, 2, 1.0 ), // [merge] HL25 EFLAG_FLESH_SOUND (TS 1)
 	DEFINE_DELTA( angles[2], DT_ANGLE, 16, 1.0 ),
 	DEFINE_DELTA( colormap, DT_INTEGER, 16, 1.0 ),
 	DEFINE_DELTA( framerate, DT_SIGNED | DT_FLOAT, 8, 16.0 ),
-	DEFINE_DELTA( skin, DT_SHORT | DT_SIGNED, 12, 1.0 ),
+	DEFINE_DELTA( skin, DT_SHORT | DT_SIGNED, 12, 1.0 ), // [merge] anniv: wider skin, sprite-attach (TS 9)
 	DEFINE_DELTA( controller[0], DT_BYTE, 8, 1.0 ),
 	DEFINE_DELTA( controller[1], DT_BYTE, 8, 1.0 ),
 	DEFINE_DELTA( controller[2], DT_BYTE, 8, 1.0 ),
@@ -127,12 +131,15 @@ entity_state_t gamedll Entity_Encode
 
 	// Playerclass signifies it's a decalable glass item when referring to an object
 
-	DEFINE_DELTA( playerclass, DT_INTEGER, 1, 1.0 )
+	DEFINE_DELTA( playerclass, DT_INTEGER, 1, 1.0 ),
+
+	DEFINE_DELTA( iuser4, DT_INTEGER, 32, 1.0 )
 }
 
 entity_state_player_t gamedll Player_Encode
 {
-	DEFINE_DELTA( animtime, DT_TIMEWINDOW_8, 8, 1.0 ),
+	// DEFINE_DELTA( animtime, DT_TIMEWINDOW_8, 8, 1.0 ),
+	DEFINE_DELTA( animtime, DT_TIMEWINDOW_BIG, 8, 100.0 ),
 	DEFINE_DELTA( frame, DT_FLOAT, 8, 1.0 ),
 	DEFINE_DELTA( origin[0], DT_SIGNED | DT_FLOAT, 18, 32.0 ),
 	DEFINE_DELTA( angles[0], DT_ANGLE, 16, 1.0 ),
@@ -180,7 +187,9 @@ entity_state_player_t gamedll Player_Encode
 	DEFINE_DELTA( basevelocity[0], DT_SIGNED | DT_FLOAT, 16, 8.0 ),
 	DEFINE_DELTA( basevelocity[1], DT_SIGNED | DT_FLOAT, 16, 8.0 ),
 	DEFINE_DELTA( basevelocity[2], DT_SIGNED | DT_FLOAT, 16, 8.0 ),
-	DEFINE_DELTA( spectator, DT_INTEGER, 1, 1.0 )
+	DEFINE_DELTA( spectator, DT_INTEGER, 1, 1.0 ),
+
+	DEFINE_DELTA( iuser4, DT_INTEGER, 32, 1.0 )
 }
 
 custom_entity_state_t gamedll Custom_Encode

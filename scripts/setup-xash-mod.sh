@@ -56,12 +56,15 @@ done
 # client_amd64.so) — without it, it silently falls back to valve/dlls/hl_amd64.so.
 # Provide the suffixed name as primary + the bare name as an alias (GoldSrc compat).
 cp -f "$HL_SO" "$TS/dlls/hl_amd64.so"
-# delta.lst MUST track the repo's (round-7i-b: a stale deployed delta silently TRUNCATES
-# prediction fields — m_iWeaponState 2-bit dropped the scope attach bit on the wire)
-cp -f "$MODTS/network/delta.lst" "$TS/delta.lst"
-# generated mod assets (e.g. sprites/ts_scopefull.spr — the composed scope mask)
-mkdir -p "$TS/sprites"
-cp -f "$MODTS"/game/ts/sprites/*.spr "$TS/sprites/" 2>/dev/null || true
+# delta.lst tracks the repo's for the xash client (our-client wire format). Use
+# --remove-destination so we replace the symlink with a REAL file in the xash root —
+# a plain `cp -f` would follow the ts/delta.lst symlink and write THROUGH into the shared
+# original ~/Containers/hlds/mods/ts (clobbering the pristine original TS delta.lst).
+cp -f --remove-destination "$MODTS/network/delta.lst" "$TS/delta.lst"
+# NB: no generated sprites are deployed — the composed scope mask (ts_scopefull.spr) was an
+# invented asset and has been removed; the scope now paints the ORIGINAL quarterscope.spr 4x
+# rotated at render time (cl_dll/ts_scope.cpp), and quarterscope.spr resolves via the ts/sprites
+# symlink into the original content. (Copying into ts/sprites would also write through that symlink.)
 ln -sfn hl_amd64.so "$TS/dlls/hl.so"
 cp -f "$CLIENT_SO" "$TS/cl_dlls/client_amd64.so"
 ln -sfn client_amd64.so "$TS/cl_dlls/client.so"

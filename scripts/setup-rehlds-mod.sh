@@ -38,15 +38,18 @@ mkdir -p "$TS/dlls"
 cp -f "$HL_SO" "$TS/dlls/hl.so"
 echo ">>> deployed hl.so ($(du -h "$HL_SO" | cut -f1))"
 
-# --- wire parity: delta.lst must track the repo -------------------------------
-# The SERVER's delta.lst defines the on-wire delta encoding the client decodes;
-# a stale one silently truncates prediction fields (round-7i-b). Copy the repo's
-# (breaking the symlink into mods/ts if present).
-cp -f "$MODTS/network/delta.lst" "$TS/delta.lst"
-
-# --- generated client-side mod assets the server precaches --------------------
-mkdir -p "$TS/sprites"
-cp -f "$MODTS"/game/ts/sprites/*.spr "$TS/sprites/" 2>/dev/null || true
+# --- wire table: deploy OUR merged delta.lst to the rig ----------------------
+# network/delta.lst is the MERGED table: the original TS wire fields (iuser3/iuser4 etc.)
+# 3-way-merged from the 1998 SDK seed with the anniversary/HL25 fixes (eflags flesh-sound,
+# wider skin/m_iId/iuser2). It's the correct table for our server — a minimal WIDENING of the
+# original TS table, so it stays drop-in with the original client (GoldSrc transmits the
+# server's table at connect, and widening is decode-safe) while keeping the modern engine fixes.
+# Use --remove-destination: the rig's ts/delta.lst starts as a SYMLINK into the pristine
+# ~/Containers/hlds/mods/ts; a plain `cp -f` would follow it and write THROUGH, clobbering the
+# shared original. --remove-destination REPLACES the symlink with a real file in the rig instead.
+cp -f --remove-destination "$MODTS/network/delta.lst" "$TS/delta.lst"
+# (No generated sprites are deployed — the scope now paints the ORIGINAL quarterscope.spr at
+#  render time; ts_scopefull.spr was removed. quarterscope resolves via the ts/sprites symlink.)
 
 # --- gamedll wiring: metamod (default, keeps rcbot) vs direct -----------------
 LIB="$TS/liblist.gam"
