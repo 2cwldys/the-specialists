@@ -459,7 +459,13 @@ public:
 	bool KeyValue(KeyValueData *pkvd) override;     // @0x8d22c — handles no keys
 };
 
-LINK_ENTITY_TO_CLASS(func_vip_safetyzone, CVipEscape);
+// NB: func_vip_safetyzone is NOT registered in the original — RE-confirmed CVipEscape has no
+// GetClassPtr / no LINK factory and is never constructed (dead-but-present class, leftover of an
+// unbuilt VIP feature; its Spawn sets classname="func_vip_safetyzone" but never runs). The real,
+// FGD-listed team-escape entity is ts_teamescape -> CTSTeamEscape (registered below). Registering
+// func_vip_safetyzone here was invented drift. Keep the class (matches the original's dead-code
+// retention) but do NOT LINK it as a spawnable entity.
+// LINK_ENTITY_TO_CLASS(func_vip_safetyzone, CVipEscape);
 
 // @0x8d22c — CVipEscape ignores all keyvalues (the original just clears fHandled and returns;
 // it does NOT chain to CBaseEntity::KeyValue).
