@@ -300,43 +300,6 @@ class CItemSecurity : public CItem
 
 LINK_ENTITY_TO_CLASS(item_security, CItemSecurity);
 
-class CItemLongJump : public CItem
-{
-	void Spawn() override
-	{
-		Precache();
-		SET_MODEL(ENT(pev), "models/w_longjump.mdl");
-		CItem::Spawn();
-	}
-	void Precache() override
-	{
-		PRECACHE_MODEL("models/w_longjump.mdl");
-	}
-	bool MyTouch(CBasePlayer* pPlayer) override
-	{
-		if (pPlayer->m_fLongJump)
-		{
-			return false;
-		}
-
-		if (pPlayer->HasSuit())
-		{
-			pPlayer->m_fLongJump = true; // player now has longjump module
-
-			g_engfuncs.pfnSetPhysicsKeyValue(pPlayer->edict(), "slj", "1");
-
-			MESSAGE_BEGIN(MSG_ONE, gmsgItemPickup, NULL, pPlayer->pev);
-			WRITE_STRING(STRING(pev->classname));
-			MESSAGE_END();
-
-			EMIT_SOUND_SUIT(pPlayer->edict(), "!HEV_A1"); // Play the longjump sound UNDONE: Kelly? correct sound?
-			return true;
-		}
-		return false;
-	}
-};
-
-// [TS] item_longjump is remapped to the TS super-jump powerup (CTSSuperJump, hldmcompat.cpp) —
-// the original has no stock CItemLongJump. Unregister the stock class so item_longjump spawns the
-// TS powerup (and to avoid a duplicate `item_longjump` factory symbol).
-// LINK_ENTITY_TO_CLASS(item_longjump, CItemLongJump);
+// [TS] The stock CItemLongJump class + its `item_longjump` registration were removed — the original
+// has no CItemLongJump; TS remaps the item_longjump entity name to its super-jump powerup
+// (CTSSuperJump, hldmcompat.cpp).
