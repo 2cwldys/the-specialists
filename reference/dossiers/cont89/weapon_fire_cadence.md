@@ -210,13 +210,91 @@ flicker. Do the same for a full-auto weapon to confirm `vuser3[1]==0` and contin
 
 ---
 
+## (e) Reload prediction — anim-not-playing + post-reload clip flicker (the missing reserve channel)
+
+After the Priority-1 rate fix, **fresh-spawn firing is clean**, but two reload bugs remain:
+(1) after a reload the 20↔19 flicker returns while firing; (2) the reload **animation doesn't
+play** for the local player. Both are **one cause: the client can't predict the reload because
+the active weapon's spare-ammo reserve is not on the wire.**
+
+**How the reload works (original, both sides run this identical code):**
+- `+reload` → base `CBasePlayerWeapon::ItemPostFrame` (`0x903d4/0xa03d4`) IN_RELOAD branch →
+  `CTSGun::Reload` (`0x74d5c/0x84d5c`). `Reload` **early-returns if
+  `m_ammoReserve[activeInfo->iCaliber] < 1`**; otherwise it `ReloadWeapon`s (arm), sets idle +5,
+  `Unzoom`, and **`PlaybackEvent(FEV_NOTHOST, m_usReload, …, weaponType, activeItem->attach, …)`**
+  + 3rd-person `Animate(TSA_RELOAD=0x33)`.
+- `CTSGun::ReloadWeapon` (`0x74a14/0x84a14`): needs `m_ammoReserve[caliber] > 0` and
+  `take = min(clipSize - clip, reserve) > 0`; sets `activeItem->m_fInReload (activeItem+0xc)=1`
+  and locks the countdown `player->m_flNextAttack (player+0x12c) = WeaponTimeBase()+flReloadTime`
+  (UseDecrement ⇒ `WeaponTimeBase()==0` ⇒ a **relative countdown**, decremented per frame).
+- **The refill** completes back in `CBasePlayerWeapon::ItemPostFrame` when the countdown elapses
+  (`activeItem->m_fInReload!=0 && WeaponTimeBase() >= player->m_flNextAttack`, i.e. countdown ≤0):
+  `take = min(activeInfo->iClip - activeItem->iClip, m_ammoReserve[caliber])`;
+  `activeItem->iClip += take` (the LIVE clip → vuser4[1]); `this->m_iClip = activeItem->iClip`
+  (syncs the gun+0xb4 weapon_data channel); `m_ammoReserve[caliber] -= take`;
+  `activeItem->m_fInReload = 0`. **Ammo source = `m_ammoReserve[caliber]` (gun+0xd4 array), never
+  stock `m_rgAmmo`.**
+
+**Why FEV_NOTHOST still shows the anim on the local player:** the event is sent with
+`FEV_NOTHOST`, so the **server skips the owning (host) player** — the host only sees the reload
+viewmodel anim if **its own client predicts `Reload()`** and fires the same `PlaybackEvent`
+locally (EV_TSReload plays the viewmodel block). If the client's predicted `Reload()`
+early-returns, no local event ⇒ **no anim**.
+
+**Root cause — the reserve isn't networked.** For the client to predict the reload it needs
+`m_ammoReserve[activeInfo->iCaliber]` in its predicted CTSGun (gun+0xd4). The original ships it
+in **`clientdata.vuser2[1]` (cd+0x1bc)**: the global `UpdateClientData` (`0xb0294`) writes
+`cd+0x1bc = *(gun+0xd4 + activeInfo->iCaliber*4)` = the active caliber's reserve. Everything else
+the reload needs is already present: `activeItem->iClip` (vuser4[1]), the countdown
+`m_flNextAttack` (cd+0x7c — `dlls/client.cpp:2122`, client seeds/decrements at
+`hl_weapons.cpp:657/888`), `m_fInReload` (predicted client-side + echoed in weapon_data), and the
+static `activeInfo->iClip`.
+
+**Our bug:** the TSGUN vuser block (`dlls/client.cpp:2166-2176`) sets `vuser2.x` (bloody) but
+**never `vuser2.y`** (the reserve), and the client (`cl_dll/hl/hl_weapons.cpp:609-622`) never
+reads `from->client.vuser2[1]`. So the client's `g_TSGun.m_ammoReserve[caliber]` stays **0** ⇒
+predicted `CTSGun::Reload` early-returns (`ts_gun.cpp:2591` `m_ammoReserve[caliber] < 1`) ⇒
+**no reload event/anim (bug 2)** and **no predicted refill**; the client's clip is never refilled
+locally, so post-reload it re-seeds/fights the server's refilled `vuser4[1]` ⇒ **20↔19 flicker
+(bug 1)**. (The invented vuser ammo channel that was removed had been feeding the client's
+ammo — its correct replacement, the single `vuser2[1]` reserve, was never added.)
+
+**Fix (concrete; `ts_gun.cpp`/`Reload` unchanged — they already match the original):**
+1. **Server** — in the `TSGUN_WEAPON_ID` block (`dlls/client.cpp:2166`), add the reserve channel:
+   ```
+   const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
+   const int cal = awi->iCaliber;
+   cd->vuser2.y = (float)((cal > 0 && cal < TS_NUM_CALIBERS) ? tsgun->m_ammoReserve[cal] : 0); // cd+0x1bc
+   ```
+2. **Client** — in `HUD_WeaponsPostThink`'s TS read (`cl_dll/hl/hl_weapons.cpp` ~609), seed the
+   active caliber's reserve so the predicted `Reload()`/refill runs:
+   ```
+   const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
+   if (awi->iCaliber > 0 && awi->iCaliber < TS_NUM_CALIBERS)
+       g_TSGun.m_ammoReserve[awi->iCaliber] = (int)from->client.vuser2[1];
+   ```
+   and mirror it in the write-back next to the other TS fields (~832):
+   `to->client.vuser2[1] = (float)g_TSGun.m_ammoReserve[awi->iCaliber];` (inside the TSGUN block —
+   the `CRpg` path that also uses `vuser2[1]` is a different active weapon, so no clash).
+
+Result: the client predicts `Reload()` (reserve>0 → event fires locally → **anim plays**) and the
+predicted refill matches the server's, so `vuser4[1]` re-seed equals the prediction ⇒ **no
+post-reload flicker**. The gmsgWeaponInfo reserve display is separate (change-detected, sent on
+the reserve change at reload) and already correct.
+
+---
+
 ## Appendix — addresses
 
 Server (`ts_i386.so`): StandardFire `0x724a4/0x824a4` · Fire `0x71c78/0x81c78` · PrimaryAttack
 `0x71a20/0x81a20` · ScaleSpread `0x702a8/0x802a8` · WeaponIdle `0x754dc/0x854dc` ·
 CTSGun::UpdateClientData `0x758c8/0x858c8` · CBasePlayer::UpdateClientData `0x81d00/0x91d00` ·
 UpdateClientData(dll) `0xa0294/0xb0294` · GetWeaponData(dll) `0xa00ac/0xb00ac` ·
-CBasePlayer::PreThink `0x808cc/0x908cc` · CBasePlayer::ItemPostFrame `0xcc4d0/0xdc4d0`.
+CBasePlayer::PreThink `0x808cc/0x908cc` · CBasePlayer::ItemPostFrame `0xcc4d0/0xdc4d0` ·
+Reload `0x74d5c/0x84d5c` · ReloadWeapon `0x74a14/0x84a14` · ShotgunReload `0x74aac/0x84aac` ·
+StopReload `0x71288/0x81288` · CBasePlayerWeapon::ItemPostFrame (refill) `0x903d4/0xa03d4`.
+Reserve on the wire: `clientdata.vuser2[1]` (cd+0x1bc) = `m_ammoReserve[activeInfo->iCaliber]`
+(gun+0xd4 array); reload countdown `m_flNextAttack` = clientdata cd+0x7c.
 
 Client (`client.dll` RVA): HUD_WeaponsPostThink `FUN_10003830` (via HUD_PostRunCmd 0x45b0) ·
 weapon ItemPostFrame `FUN_1000b7b0` (vtbl 0x134) · PrimaryAttack `FUN_100089a0` (vtbl 0x174) ·
