@@ -245,7 +245,11 @@ public:
 	}
 };
 
-LINK_ENTITY_TO_CLASS(ts_superjump, CTSSuperJump);
+// @0xb9484 — the original registers CTSSuperJump under the stock HL entity name `item_longjump`
+// (TS remaps the longjump item to its super-jump powerup, same pattern as the weapon remaps above).
+// Our earlier `ts_superjump` name was invented drift — a map-placed `item_longjump` powerup spawned
+// nothing in our build, and it broke drop-in with the original client/maps.
+LINK_ENTITY_TO_CLASS(item_longjump, CTSSuperJump);
 
 // Keep the two UNLINKED pistol classes in the binary (compiled-but-unlinked in the original;
 // weapon_9mmhandgun/357 + ammo_9mmclip/357 are string-table-only there). This exported anchor

@@ -336,4 +336,7 @@ class CItemLongJump : public CItem
 	}
 };
 
-LINK_ENTITY_TO_CLASS(item_longjump, CItemLongJump);
+// [TS] item_longjump is remapped to the TS super-jump powerup (CTSSuperJump, hldmcompat.cpp) —
+// the original has no stock CItemLongJump. Unregister the stock class so item_longjump spawns the
+// TS powerup (and to avoid a duplicate `item_longjump` factory symbol).
+// LINK_ENTITY_TO_CLASS(item_longjump, CItemLongJump);
