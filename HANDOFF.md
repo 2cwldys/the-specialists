@@ -47,6 +47,54 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.89, 2026-07-06) — DROP-IN both directions (movement/weapon/reload prediction + akimbo cluster)
+
+**You ARE the orchestrator — continue as if you never stopped.** Branch `restructure-source-parity`. The
+user is hands-on: they playtest, keep the ORIGINAL TS running under Proton for you to gdb live
+(`scripts/live.py`), and deploy to the **Linux hlds64 test dir** (so the `game/ts/` worktree deletions are
+INTENTIONAL — ignore them). This cont.89 START-HERE was reconstructed from the commit log + dossiers after
+the previous orchestrator ran out of context; the full detail is the **ledger cont.89 entry** + the four
+`reference/dossiers/cont89/*.md`.
+
+### What cont.89 was about — DROP-IN both directions
+Our SERVER must behave identically to the original for the ORIGINAL client (`hl.exe`/`client.dll`), and our
+CLIENT for the original server. Everything rides the SHARED code (dlls/ + cl_dll/) so both move together.
+The channel is the **clientdata vuser block** (the original client reads its predicted weapon/movement state
+from there, NOT from weapon_data). Committed fronts (newest→oldest, all built + RE-grounded):
+
+- **Movement:** PM_Accelerate accel-by-speed curve, jump 45→35, friction edge-gate, PM_CheckParamters
+  (`4ae0b1e`/`5f45f09`); `cd->fuser1=frametime` (`fd70541`, the constant-10-20u root cause); `cd->iuser4=
+  pev->iuser4` stunt flags (`37b5cd8`); encumbrance via pfnSetClientMaxspeed (`9c53268`). Dossier
+  `movement_prediction.md`.
+- **Weapon-state prediction:** active weapon state on the vuser channel, not the invented GetWeaponData
+  (`8922f0c`) — the "kungfu-for-every-weapon" fix. Dossier `weapon_data_transmission.md`.
+- **Reload:** `cd->vuser2.y=reserve` (`380866b`); refill = client full-mag SET, server clip+=min+debit
+  (`868c4c1`).
+- **Fire cadence:** semi-with-auto fixed 0.1s (`d18568f`). Dossier `weapon_fire_cadence.md`.
+- **Akimbo cluster (last, dossier `akimbo_weaponbar.md`):**
+  1. `2bd0319` vuser4.z = the RELOAD flag (item+0x0c=m_fInReload), akimbo LEFT clip → cd+0x70 (ammo_nails),
+     client derives rightClip=clip−leftClip. Fixed reload snap-to-full flicker.
+  2. `87c21af` **barrel ALTERNATION** — the barrel side is ONE item byte item+0x24 (it.altMode, rides
+     vuser4.x); Primary/SecondaryAttack must NOT touch it for the akimbo (they did → stuck on one barrel);
+     `AkimboFire` rewritten to the original @0x729c0 state machine (flip+clamp non-free, button-select free,
+     dry only when BOTH empty). Removed the m_fInSpecialReload split + dead barrelMask override.
+  3. `87c21af` **weapon-bar phantom clip** — hoisted the WStatus owned-loop above the WeaponInfo
+     early-return + added the paired-variant resend (iAkimboType/iSingleType) so a parked variant's bar cell
+     shows its real clip (was stale -1/red). Matches @0x758c8.
+  4. `87c21af` **deploy body flicker** — Deploy draw event iparam2 = attach mask; `EV_TSDraw` advances the
+     predicted type (`TS_SetPredictedWeaponType`) so view.cpp asserts the akimbo body on the deploy frame
+     (mirrors client.dll `FUN_100425b0`).
+
+### ⚠️ NEXT (cont.89 open — do these)
+- **PLAYTEST the akimbo cluster** (user-driven): SEMI akimbo (berettas/MK23) should alternate barrels each
+  shot (dry only when both empty); the parked single/akimbo bar cell shows its real clip (not -1/red);
+  switching to the akimbo shows the akimbo body immediately (no single→akimbo flicker); reload no snap-flicker.
+- **VERIFY (LOW):** `item+0x0c` semantic beyond "= m_fInReload"; the akimbo alternation ORDER (right-first vs
+  left-first) — settle with a live gdb watch on the original's `item+0x24` during semi-fire if it looks off.
+- Then resume the broader drop-in/parity work below (cont.88 pickup).
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.88) — pickup for the next orchestrator (= you)
 
 **You ARE the orchestrator AND the previous agent — continue as if you never stopped.** Branch

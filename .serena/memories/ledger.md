@@ -5,6 +5,64 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-06 (cont. 89) — DROP-IN both directions: movement + weapon-state + reload prediction, fire cadence, akimbo cluster
+
+The whole cont.89 session was **drop-in compatibility** — our server must behave identically to the
+original for the ORIGINAL TS Steam client (`hl.exe`/`client.dll`), and our client for the original server.
+The user keeps the original TS running under Proton for live gdb traces. Every fix landed in the SHARED
+code (dlls/ + cl_dll/) so BOTH directions move together. Dossiers in `reference/dossiers/cont89/`.
+
+**Movement prediction (dossier `movement_prediction.md`):**
+- `4ae0b1e`/`5f45f09` **PM_Accelerate accel-by-speed** (PM_GetAccelBySpeed: 0.6@210 → 1.1@330, unless
+  sliding/ducking) + pm_shared exactness (jump vel 45→35, friction edge-gate, PM_CheckParamters, flymove).
+  The original client predicts these; we didn't → persistent smoothed error felt as input lag.
+- `fd70541` **cd->fuser1 = frametime** — the missing frametime seam (root cause of the constant 10-20u
+  error, `4b79443`). `37b5cd8` **cd->iuser4 = pev->iuser4 (stunt flags)** unconditionally (was m_iPowerups)
+  so stunts predict. `9c53268` encumbrance speed via pfnSetClientMaxspeed + GetSpeedBySlots free>80 branch.
+
+**Weapon-state prediction — the "kungfu-for-every-weapon" drop-in bug (dossier `weapon_data_transmission.md`):**
+- `8922f0c` the active weapon's predicted state rides the **clientdata vuser channel** (vuser3.x=type,
+  .y=fireMode, .z=attach, vuser4.x=altMode, .y=clip, vuser2.x=bloody, vuser2.y=reserve, …), NOT the invented
+  GetWeaponData override — the original client reads vuser, so leaving it 0 = kungfu for every weapon.
+
+**Reload prediction:** `380866b` **cd->vuser2.y = active-caliber reserve** (the client refill reads it);
+`868c4c1` refill = client full-mag SET (no reserve debit — server owns the reserve, re-seeds via vuser2.y),
+server keeps `clip += min(need,reserve)` + debit.
+
+**Fire cadence (dossier `weapon_fire_cadence.md`):** `d18568f` StandardFire semi-with-auto fixed 0.1s rate.
+**Teamplay HUD:** `c9df646` dossier (#Spectators / blank-yellow team box RE).
+
+**Akimbo cluster (final front — dossier `akimbo_weaponbar.md`; `1413b7a` dossier, `2bd0319`+`87c21af` fixes):**
+1. **vuser4.z is the RELOAD flag, not leftClip** (`2bd0319`): cd+0x1d8 (vuser4.z) = item+0x0c = m_fInReload;
+   the akimbo LEFT clip = item+0x1c → **cd+0x70 (ammo_nails)**; client derives rightClip = clip − leftClip
+   (RE-confirmed vs `FUN_10003830`). Fixed the reload snap-to-full flicker.
+2. **Barrel ALTERNATION** (`87c21af`, `dlls/ts_gun.cpp AkimboFire`): the original `AkimboFire@0x729c0` holds
+   the barrel side in ONE per-item byte, **item+0x24 (our it.altMode, rides vuser4.x)**, and
+   Primary/SecondaryAttack DON'T touch it for the akimbo (only grenade/knife) — so the per-shot flip
+   PERSISTS → true alternation. Ours split the state (m_fInSpecialReload for SEMI, altMode for FREE) AND
+   reset it every pull → stuck on one barrel (all-right-then-last-left). Rewrote to the original state
+   machine (0=right/1=left; non-free flip+clamp, free button-select, decrement matching barrel, dry only
+   when both empty via `Fire()`'s m_iClip<1 gate); removed the Primary/Secondary resets + the dead
+   `barrelMask` override; `Fire()`'s 3rd-person shoot pose is now `8+altMode`.
+3. **Weapon-bar phantom clip** (`87c21af`, `CTSGun::UpdateClientData`): a parked akimbo/single variant
+   showed a stale -1/red cell. Root: our WStatus owned-loop was GATED behind the WeaponInfo early-return +
+   we omitted the original's **paired-variant resend**. Fix: hoisted the WStatus loop above the early-return;
+   added mechanism B — on active/reserve change resend the active weapon's iAkimboType (weapon_info+0xc8) /
+   iSingleType (weapon_info+0xcc) WStatus with their live parked clip → a held akimbo keeps its single's
+   cell fresh and vice-versa (matches @0x758c8, both directions).
+4. **Deploy body flicker** (`87c21af`): Deploy's draw event now passes iparam2 = equipped attach mask (was
+   dead barrelMask, matches original @0x71030); `EV_TSDraw` advances the predicted active type on the deploy
+   frame (`TS_SetPredictedWeaponType` in hl_weapons.cpp) so `view.cpp`'s TS_PredictedViewmodelBody asserts
+   the akimbo/attachment body AT ONCE (mirrors client.dll `FUN_100425b0`) — kills the single→akimbo lag.
+
+**Verified:** both libs build clean (glibc 2.14, `scripts/build.sh amd64 all`); RE-grounded vs
+`ts_i386.so`/`client.dll`. **Behaviour = user playtest** (original hl.exe available for live gdb). **Deploy:**
+user ships to the Linux hlds64 test dir — the `game/ts/` worktree deletions are INTENTIONAL (not a bug).
+**NEXT / VERIFY:** playtest the akimbo cluster (alternation order right-vs-left, parked bar clip shows real
+count, no deploy flicker); `item+0x0c`'s semantic beyond "= m_fInReload" is still VERIFY (LOW); the akimbo
+uzi(16) modes = {AUTO, AKIMBO_BOTH} while berettas/MK23/gold = {SEMI, AKIMBO_ALT} (SEMI alternation applies
+to the semi-capable akimbos), from the recovered `kFireModes` — not re-derived from the binary this pass.
+
 ## 2026-07-05 (cont. 88) — ReHLDS local drop-in test rig + vestigial removal → EXACT entity parity
 
 Added `scripts/setup-rehlds-mod.sh` (deploys our `hl.so` into the `~/Containers/hlds/hlds-linux64-test`
