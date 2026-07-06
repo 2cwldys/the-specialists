@@ -257,3 +257,134 @@ client predicts; matching them is exactly the drop-in contract.
 - `UpdateClientData` @0xa0294: basic-walk cd fields all match; `cd->iuser4 =
   pev->iuser4` unconditional (ours: m_iPowerups, gated) is the sole movement-relevant
   divergence, and it is stunt/powerup-scoped.
+
+---
+
+## cont.89b — residual 10-20u divergence (after the PM_Accelerate fix)
+
+**Task:** the PM_Accelerate accel-by-speed fix (§1) is committed, yet the original
+client → our server still shows a **persistent 10–20u `cl_showerror`** while moving
+(bare kungfu, maxspeed 330). Find the *residual* pm_shared divergence.
+
+**Method:** function-by-function static diff of our `pm_shared/pm_shared.cpp` against
+the original `pm_shared` in `reference/ts_i386.so` (symboled; Ghidra addr = nm+0x10000),
+via `re.sh <addr>` decompiles + raw `objdump -d` where the decompile was ambiguous.
+Every function on the ground-movement path the predictor reconciles was checked.
+
+### 0. Headline: the flat-ground bare-run path is BYTE-IDENTICAL
+
+After the accel fix, **on flat open ground our server computes exactly what the
+original client predicts.** Verified identical, function by function:
+
+| fn | orig addr | verdict |
+|---|---|---|
+| `PM_Accelerate` | @0xedd08 | ✅ EXACT — decompiled: `accelspeed = accel*frametime*wishspeed*pmove->friction`, then `if (!(iuser4&0x20) && !(flags&0x4000)) accelspeed *= PM_GetAccelBySpeed(maxspeed)`. Matches our committed fix byte-for-byte. |
+| `PM_GetAccelBySpeed` | @0xedcc4 | ✅ 1.1 @≥330, `(ms-210)/240+0.6` below. |
+| `PM_Friction` | @0xede08 | ✅ EXACT — **confirmed by raw asm** (`ede08`–`edf5d`): `control = max(speed, stopspeed)` (`flds speed; fcoms stopspeed@movevars+4; jae keep; else load stopspeed`), `drop = control * movevars->friction[*edgefriction] * pmove->friction@0xc4 * 0.75 * frametime`. Our lines 1334-1346 identical. (The Ghidra decompile's `local_a4=0` was a slot-coalescing artifact; the asm proves `control`=speed.) |
+| `PM_WalkMove` | @0xea26c | ✅ backpedal ×0.8 (`fmove<0 → *0.8`), accel-then-basevel-add, `Length<1 → clear`, single-trace flat path, stepsize up/down + downdist/updist. Identical. |
+| `PM_AirAccelerate` | @0xedfdc | ✅ wishspd cap 30, no accel-by-speed scale. Identical (dossier §1). |
+| `PM_AirMove` | @0xee434 | ✅ identical. |
+| `PM_CatagorizePosition` | @0xee760 | ✅ `velocity[2]>180 → onground=-1`; else trace origin→origin-2, `normal[2]>=0.7 → onground=ent` else -1; `waterlevel<2 && !startsolid && !allsolid → snap to endpos`; `ent>0 → AddToTouched`. Identical. |
+| `PM_CheckVelocity` | @0xed0b8 | ✅ NaN velocity/origin zero + clamp to ±movevars->maxvelocity. Identical. |
+| `PM_CheckParamters` (bare path) | @0xe9c94 | ✅ spd from cmd, `maxspeed = min(clientmaxspeed, maxspeed)`, FROZEN/ONTRAIN/dead zero-cmd, DropPunchAngle, v_angle = viewangles+punch, `angles[ROLL]=PM_CalcRoll(...)*4`, yaw>180 wrap. Bare-run path identical. |
+| `PM_ReduceTimers` | @0xf07f8 | ✅ reduce flTimeStepSound/flDuckTime/flSwimTime by cmd.msec. |
+| `PM_Duck` | @0xe9f7c | ✅ does NOTHING for a standing non-ducking runner (all blocks gated on IN_DUCK/bInDuck/FL_DUCKING/iuser4). |
+| `PM_Move` wrapper | @0xf1188 | ✅ friction-reset gated `!multiplayer` (matches). |
+| friction edge-trace stop dist | .rodata @0x100c90 | ✅ = 34.0 (matches our `start[2]-34`). |
+
+**On truly flat ground the WalkMove move is a single `origin += velocity*frametime`
+trace (first trace has fraction==1, returns early) — `PM_FlyMove` is never entered.**
+So flat-ground horizontal error is purely velocity-driven, and velocity is byte-identical.
+**⇒ a persistent 10-20u on flat ground is NOT explained by the ground dynamics.**
+
+### 1. The remaining pm_shared divergences are AIR- / STUNT- / USE-scoped
+
+Ranked by plausible contribution to the residual error *during real movement*:
+
+**#1 — `PM_FlyMove` reflect-branch guard `numplanes == 1` (pm_shared.cpp:974).**
+The original @0xed408 reflect condition is `movetype==MOVETYPE_WALK && (onground==-1 ||
+friction!=1.0)` with **NO `numplanes==1` term** — it reflects over *all* accumulated
+clip planes. Ours adds `numplanes == 1 &&` (the HL25 "acute corner" fix, comment
+lines 972-973). Effect:
+- For a **single-plane** air/stunt collision (`numplanes==1`) both agree — the
+  overbounce math (`>0.7 → ClipVelocity(...,1)`, else `1+0.01*(1-friction)`) is identical.
+- They **diverge only on multi-plane (corner) collisions** in air (`onground==-1`) or
+  stunt (`friction!=1`): the original reflects on every plane, ours falls to the
+  standard crease-slide else-branch. Different resulting velocity → next-frame origin
+  drifts.
+- Relevance: TS kungfu is air-heavy (bunnyhops, wall-brush, slope-clip while airborne),
+  so this is the **top pm_shared candidate** if the measured "moving" includes the air
+  phase — but it is bounded to corner/multi-plane cases, so it likely cannot alone
+  produce a *steady* 10-20u on open running. Confidence: medium the RE; low it is THE
+  dominant cause of a *flat-ground* number.
+
+**#2 — `PM_Friction` edge-gate `&& pmove->friction == 1.0f` (line 1334).** Original has
+NO such sub-gate (asm `edefe`: `je → friction*=edgefriction` on `trace.fraction==1.0`
+only). No-op for bare walking (friction==1.0); during stunts the original client
+predicts edge-doubled friction our server suppresses → stunt-only drop-in break. (Same
+as dossier §2; re-confirmed by asm.)
+
+**#3 — `PM_CheckParamters` IN_USE `maxspeed *= 1/3` (lines 2981-2984, "JoshA").** The
+original @0xe9c94 has **no** IN_USE slowdown in CheckParamters (nor was one seen in the
+walk block). Anniversary addition. Fires only with `+use` held on ground → not the
+bare-run bug, but a genuine drop-in divergence when a player holds use.
+
+**#4 — `PM_CheckParamters` missing iuser4 stunt handling.** The original zeroes the move
+command when `iuser4 & 0x10c10` (TS stunt-freeze bits) — ours zeroes only on
+`FL_FROZEN|FL_ONTRAIN|dead`. The original also gates the angle recompute on `!(iuser4 &
+2)` and, when frozen, restores `angles[YAW]` from an `OldrotArray[playerindex]` (a
+per-player yaw lock during stunts); ours always recomputes. All stunt-scoped (iuser4==0
+for bare run).
+
+**#5 (VERIFY) — `PM_CheckParamters` cmd-clamp gate `iuser1 > 0`.** The original's
+"scale cmd down when spd>maxspeed" appears gated on `*(pmove+0x1fc) > 0` (= iuser1);
+ours is unconditional. Since `PM_WalkMove` re-clamps `wishspeed` to maxspeed regardless,
+the net effect on a straight run is nil; may perturb diagonal input near maxspeed. Low
+confidence — decompiler comma-expression, worth a live check before acting.
+
+### 2. Where the flat-ground residual most likely actually lives (out of pm_shared math)
+
+Since the ground *math* is byte-identical, a steady flat-ground 10-20u points to a
+**pm_shared INPUT the server feeds differently than the original client predicts** —
+outside pm_shared's own code, so invisible to this diff:
+- **`maxspeed` → `PM_GetAccelBySpeed` is steep** (0.6→1.1 across ms 210→330, slope
+  0.00417/unit). If the server's `pev->maxspeed` and the client's predicted
+  `pmove->maxspeed`/`clientmaxspeed` differ by even ~20u at any instant (SetPlayerSpeed
+  timing, the `min(clientmaxspeed, maxspeed)` clamp resolving differently, or the
+  "maxspd" physinfo key), the accel multiplier AND the WalkMove top-speed clamp diverge
+  every frame → exactly a persistent small error. **This is the most likely real cause
+  of a flat-ground number and should be checked first at runtime.**
+- `pmove->friction` (pev->friction) seeding: if the server ever leaves pev->friction
+  ≠ 1.0 on a bare MP player (the `!multiplayer` reset is skipped in MP), the friction
+  drop and the FlyMove reflect gate both change vs the client's predicted 1.0.
+
+### 3. Reconciliation plan
+
+1. **Confirm the phase (30s, original client vs our server, do first).** `cl_showerror 1`:
+   run *straight on flat ground without jumping* — if error stays ~0 and only spikes when
+   you **bunnyhop / brush walls / slope-clip in air**, the pm_shared culprit is **#1**
+   (`PM_FlyMove numplanes==1`). If error is a steady 10-20u even on flat ground with no
+   air time, it is **not** pm_shared math → go to step 3 (maxspeed/friction input).
+2. **Fix #1 (pm_shared, if air-phase):** drop the `numplanes == 1 &&` at `pm_shared.cpp:974`
+   so the reflect runs on all planes like the original. This *reverts* the HL25 acute-corner
+   behavior — it is a behavioral change, so verify air-strafe-into-corner feel; keep only if
+   it closes measured air-phase error. (Preserve every other anniversary fix.)
+3. **If flat-ground steady (most likely):** instrument the maxspeed seam — `live.py`/gdb
+   watch `pmove->maxspeed` and `pmove->friction` on BOTH our server and the original client
+   for the same bare player; any per-frame delta feeds `PM_GetAccelBySpeed` a different
+   multiplier. Fix is in the server's speed/friction transmission (`dlls/`, out of this
+   dossier's pm_shared scope) — hand to the clientdata/weapon-data track.
+4. Fixes #2–#5 are stunt/use-scoped drop-in breaks — resolve under stunt/+use playtests,
+   not as part of the bare-run residual.
+
+### Appendix — cont.89b verified constants / offsets
+- `PM_Friction` control (asm `edf3b`–`edf49`): `flds speed@[esp+0xc]; fcoms stopspeed@movevars+4;
+  jae keep-speed; else stopspeed` = `max(speed,stopspeed)`. drop mul chain `edf29`–`edf59`:
+  `*pmove->friction@0xc4 *0.75(-0x6df6c) *frametime@0x10`. edge stop `-0x65180` = 34.0.
+- `PM_FlyMove` reflect (@0xed408 decompile): `movetype@0xdc==3 && (onground@0xe0==-1 ||
+  friction@0xc4!=1.0)`; iterates all `numplanes` (no `==1` guard); overbounce `1 + 0.01*(1-friction)`.
+- `PM_Accelerate` gate (asm/decompile): `iuser4@0x208 & 0x20` (TSPM_SLIDE), `flags byte@0xb9 & 0x40`
+  (FL_DUCKING), maxspeed@0x1f4. friction@0xc4, frametime@0x10.
+- `PM_CheckParamters` (@0xe9c94): no IN_USE 1/3 block; zero-cmd on `flags@0xb8 & 0x1001000`
+  (FL_FROZEN|FL_ONTRAIN) | dead@0xd0 | `iuser4@0x208 & 0x10c10`; angle recompute gated
+  `dead==0 && !(iuser4 & 2)`; `OldrotArray` yaw save/restore; cmd-scale gate `iuser1@0x1fc > 0`.
