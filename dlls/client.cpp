@@ -2099,6 +2099,14 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 
 	cd->pushmsec = pev->pushmsec;
 
+	// cont.89d: the ORIGINAL client's PM_PlayerMove (@0xf08d8) scales the WHOLE move frametime by
+	// pmove->fuser1 (`frametime *= fuser1`, or 0 if <0.1) — upstream of accel AND maxspeed, on ground
+	// AND air. The original UpdateClientData (@0xb0294) sends cd->fuser1 = pev->fuser1 unconditionally.
+	// We never did → the original client predicted with fuser1≈0 (frozen frametime) → a CONSTANT ~10-20u
+	// prediction error everywhere (it survived accel/maxspeed tests because frametime is upstream of both).
+	// With pev->fuser1=1.0 normal, the client now predicts the same frametime; also fixes slow-mo prediction.
+	cd->fuser1 = pev->fuser1;
+
 	//Spectator mode
 	if (pevOrg != NULL)
 	{
