@@ -817,9 +817,13 @@ bool CTSGun::Deploy()
 	// Additive — the deploy view/anim above stays server-driven; this only primes client state.
 	if (ok && m_usDraw)
 	{
-		const int barrelMask = (m_items[m_weaponType].barrelMask & 6) ? (m_items[m_weaponType].barrelMask & 6) : 1;
+		// iparam2 = the EQUIPPED attach mask (silencer/laser/flash/scope) — the ORIGINAL Deploy
+		// (@0x71030) passes attachEquipped here, and the client draw.sc handler (FUN_100425b0) feeds
+		// it to GetBodyByItems to assert the viewmodel BODY on the deploy frame (cont.89 §3, fixes the
+		// single->akimbo body flicker). Was the akimbo barrelMask, which is dead — the barrel side
+		// rides item+0x24 / vuser4.x now.
 		PLAYBACK_EVENT_FULL(0, m_pPlayer->edict(), m_usDraw, 0.0, g_vecZero, g_vecZero,
-			0.0, 0.0, m_weaponType, barrelMask, 0, 0);
+			0.0, 0.0, m_weaponType, m_items[m_weaponType].attach, 0, 0);
 	}
 	return ok;
 }
@@ -899,8 +903,9 @@ void CTSGun::SecondaryAttack()
 		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 1.0f;      // dc_1
 		return;
 	}
-	// the FREE modes (4 "Free Semi" / 5 "Free Full"): right click fires the RIGHT barrel
-	m_items[m_weaponType].altMode = 1;
+	// the FREE modes (4 "Free Semi" / 5 "Free Full"): a right-click (IN_ATTACK2) fires the LEFT
+	// barrel — but the barrel is picked from the HELD button INSIDE AkimboFire (item+0x24), NOT
+	// preset here (the original @0x717a8 just Fire()s the akimbo, leaving item+0x24 to AkimboFire).
 	Fire();
 }
 
@@ -987,10 +992,9 @@ void CTSGun::PrimaryAttack()
 
 	if (fire)
 	{
-		// the FREE akimbo modes route the trigger to a BARREL: primary (left click) = the LEFT
-		// barrel (item+0x24 = 0); SecondaryAttack sets 1 for the right (user-confirmed model).
-		if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
-			m_items[m_weaponType].altMode = 0;
+		// The akimbo barrel side is owned ENTIRELY by AkimboFire (item+0x24 flip / held-button
+		// select). PrimaryAttack does NOT touch it — the original @0x71a20 only sets item+0x24 for
+		// grenade/knife. Resetting it here every pull is what killed the per-shot alternation.
 		Fire();
 	}
 }
@@ -1025,7 +1029,7 @@ void CTSGun::Fire()
 	if (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY)
 	{
 		if (AkimboFire(wi))
-			shootanim = 8 + (m_fInSpecialReload != 0 ? 1 : 0); // the fired barrel's shoot pose
+			shootanim = 8 + (m_items[m_weaponType].altMode != 0 ? 1 : 0); // fired barrel (0 right/1 left)
 	}
 	else
 	{
@@ -2198,22 +2202,27 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 {
 	TSItem &it = m_items[m_weaponType];
 
-	// The USER-CONFIRMED akimbo trigger model:
+	// @ AkimboFire barrel state machine (ts_i386.so @0x729c0, decompile-exact). ONE per-item byte
+	// holds the barrel side — item+0x24 (our it.altMode), NOT m_fInSpecialReload — and it rides
+	// clientdata.vuser4.x so it PREDICTS. Primary/SecondaryAttack LEAVE IT ALONE (the original's
+	// @0x71a20/@0x717a8 only touch item+0x24 for grenade/knife), so the per-shot flip below persists
+	// across pulls -> true alternation. Convention: altMode 0 = RIGHT barrel, 1 = LEFT (the
+	// original's decrement: pumpToggle==0 -> rightClip--).
 	//  - plain AUTO (the uzis' default): BOTH barrels fire AT ONCE while held;
-	//  - plain SEMI: ALTERNATE barrels per pull (skipping a dry one);
-	//  - the FREE modes (4 "Free Semi" / 5 "Free Full"): the CLICKED barrel only — item+0x24
-	//    (0 = left click = LEFT barrel, 1 = right click = RIGHT), each draining ITS OWN clip
-	//    and dry-clicking when THAT barrel is empty even if the other still has rounds.
-	// @0x829e5 (round-6 verify RE): in the FREE modes, BOTH buttons together = a LINKED
-	// both-barrels shot — "Free Full" (5) checks the HELD buttons, "Free Semi" (4) the
-	// PRESSED cache (player+0x814).
+	//  - plain SEMI: ALTERNATE barrels per pull (flip item+0x24, skipping a dry one);
+	//  - the FREE modes (4 "Free Semi" / 5 "Free Full"): the CLICKED barrel only (IN_ATTACK=RIGHT,
+	//    IN_ATTACK2=LEFT), each draining ITS OWN clip and dry-clicking when THAT barrel is empty.
+	// @0x829e5: in the FREE modes, BOTH buttons together = a LINKED both-barrels shot — "Free Full"
+	// (5) checks the HELD buttons, "Free Semi" (4) the PRESSED cache (player+0x814). The both-empty
+	// dry for the non-free / linked paths already happened in Fire() (m_iClip < 1 gate).
+	const bool freeMode = (m_fireMode == TSFM_AKIMBO_ALT || m_fireMode == TSFM_AKIMBO_BOTH);
 	const unsigned int ccBtns = (m_fireMode == TSFM_AKIMBO_BOTH)
 		? (unsigned int)m_pPlayer->pev->button : (unsigned int)m_pPlayer->m_afButtonPressed;
-	const bool freeLinked = (m_fireMode == TSFM_AKIMBO_ALT || m_fireMode == TSFM_AKIMBO_BOTH) &&
-		(ccBtns & IN_ATTACK) != 0 && (ccBtns & IN_ATTACK2) != 0;
+	const bool fireBoth = (m_fireMode == TSFM_AUTO) ||
+		(freeMode && (ccBtns & IN_ATTACK) != 0 && (ccBtns & IN_ATTACK2) != 0);
 
 	int sides[2], nSides = 0; // 0 = right, 1 = left
-	if (m_fireMode == TSFM_AUTO || freeLinked)
+	if (fireBoth)
 	{
 		if (it.rightClip > 0) sides[nSides++] = 0;
 		if (it.leftClip  > 0) sides[nSides++] = 1;
@@ -2223,35 +2232,32 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 			EmptySound(); // @0x72adc — the in-akimbo dry click (0.1s re-arm inside)
 			return false;
 		}
+		// advance the toggle too (the original flips item+0x24 on this path as well).
+		it.altMode = it.altMode ? 0 : 1;
+		if (it.rightClip < 1) it.altMode = 1;
+		if (it.leftClip  < 1) it.altMode = 0;
 	}
-	else if (m_fireMode == TSFM_AKIMBO_ALT || m_fireMode == TSFM_AKIMBO_BOTH)
+	else if (freeMode)
 	{
-		const int fireLeft = it.altMode ? 0 : 1; // primary(left click)=LEFT, secondary=RIGHT
-		const int barrelClip = fireLeft ? it.leftClip : it.rightClip;
-		if (barrelClip <= 0)
+		// free single-click: the CLICKED barrel only (item+0x24 set from the held button).
+		if ((m_pPlayer->pev->button & IN_ATTACK) != 0)
 		{
-			EmptySound(); // THIS barrel is dry — the other may still be loaded
-			return false;
+			if (it.rightClip < 1) { EmptySound(); return false; } // right dry — the other may be loaded
+			it.altMode = 0; // RIGHT
 		}
-		sides[nSides++] = fireLeft;
-		m_fInSpecialReload = fireLeft; // the last-fired side (the item's pumpToggle byte)
+		if ((m_pPlayer->pev->button & IN_ATTACK2) != 0)
+		{
+			if (it.leftClip < 1) { EmptySound(); return false; } // left dry
+			it.altMode = 1; // LEFT
+		}
+		sides[nSides++] = it.altMode;
 	}
-	else // plain SEMI: alternate (the useitems barrelMask override honored)
-	{
-		if (it.leftClip + it.rightClip <= 0)
-		{
-			m_iClip = 0;
-			EmptySound();
-			return false;
-		}
-		int fireLeft;
-		if ((it.barrelMask & 6) == 2)      fireLeft = 1;          // left only
-		else if ((it.barrelMask & 6) == 4) fireLeft = 0;          // right only
-		else                               fireLeft = (m_fInSpecialReload ^ 1) & 1; // alternate
-		if (fireLeft && it.leftClip <= 0 && it.rightClip > 0) fireLeft = 0;
-		else if (!fireLeft && it.rightClip <= 0 && it.leftClip > 0) fireLeft = 1;
-		sides[nSides++] = fireLeft;
-		m_fInSpecialReload = fireLeft; // the barrel side lives in the item's pumpToggle byte
+	else // plain SEMI (and burst): ALTERNATE barrels per pull — flip item+0x24, then clamp to a
+	{    // loaded barrel. The persisted item+0x24 makes shot N fire the OTHER barrel from shot N-1.
+		it.altMode = it.altMode ? 0 : 1;
+		if (it.rightClip < 1) it.altMode = 1; // right dry -> LEFT
+		if (it.leftClip  < 1) it.altMode = 0; // left dry  -> RIGHT
+		sides[nSides++] = it.altMode;
 	}
 
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH;
@@ -2451,6 +2457,35 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 		MESSAGE_END();
 	}
 
+	// @ the WStatus per-slot weapon-bar loop of CTSGun::UpdateClientData @0x758c8 (mechanism A) —
+	// UNCONDITIONAL each call, change-detected per slot. It must run BEFORE the WeaponInfo
+	// early-return below: gating it behind that return left a PARKED akimbo/single variant's bar
+	// cell STALE (the -1/red phantom — cont.89 akimbo dossier §2). The original change-detects on
+	// the OWNED byte; we also catch clip changes so OUR bar tracks live counts. One WStatus per
+	// slot on change: BYTE type, BYTE owned(0/1), BYTE clip.
+	if (!m_bWStatusInit)
+	{
+		for (int i = 0; i < TSW_COUNT; i++)
+			m_iClientWStatus[i] = -2; // force a first send of every slot
+		m_bWStatusInit = true;
+	}
+	for (int t = 0; t < TSW_COUNT; t++)
+	{
+		const int owned = m_items[t].owned ? 1 : 0;
+		// the live active clip is in m_iClip, not yet synced into its item
+		int clip = owned ? ((t == m_weaponType) ? m_iClip : m_items[t].clip) : 0;
+		if (clip < 0) clip = 0; // a bar clip is never negative (the original's slot+0x04 isn't)
+		const int state = owned ? clip : -1;
+		if (state == m_iClientWStatus[t])
+			continue;
+		m_iClientWStatus[t] = state;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSWeaponStatus, NULL, pPlayer->pev);
+		WRITE_BYTE(t);     // tsweapon_t
+		WRITE_BYTE(owned); // 1 = in the arsenal
+		WRITE_BYTE(clip);  // loaded rounds
+		MESSAGE_END();
+	}
+
 	const int equipped = m_items[m_weaponType].attach;
 	// The WeaponInfo "clip" byte carries the MELEE BAR for melee weapons (RE UpdateClientData
 	// @0x758c8 reads player+0x774) — this is how the client tracks the silent PreThink regen.
@@ -2460,7 +2495,7 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	if (m_weaponType == m_iClientWeaponType && clipByte == m_iClientClip &&
 		reserve == m_iClientReserve && m_fireMode == m_iClientFireMode &&
 		equipped == m_iClientEquip)
-		return false; // nothing changed
+		return false; // WeaponInfo unchanged (the WStatus loop above already flushed the bar)
 
 	m_iClientWeaponType = m_weaponType;
 	m_iClientClip = clipByte;
@@ -2476,32 +2511,30 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	WRITE_BYTE(equipped);         // EQUIPPED attachment mask (silencer 1 / laser 2 / flash 4 / scope 8)
 	MESSAGE_END();
 
-	// @ the WStatus block of CTSGun::UpdateClientData @0x758c8 — the original owns the whole
-	// weapon-bar loop INSIDE UpdateClientData (dossier-invented A2; our SendWeaponStatus split
-	// was invented — merged back). One WStatus per arsenal slot on change: BYTE type,
-	// BYTE owned(0/1), BYTE clip.
-
-	if (!m_bWStatusInit)
+	// @ mechanism B of @0x758c8 — the PAIRED-VARIANT resend. On the active weapon's type/reserve
+	// change (we reach here only then), refresh the bar cell of its akimbo variant
+	// (weapon_info+0xc8 = iAkimboType) and single variant (weapon_info+0xcc = iSingleType, when owned
+	// && != active) with their LIVE parked clip — so a held akimbo keeps its base single's cell
+	// fresh, and a held single keeps the akimbo's. This is the original's drop-in behaviour and the
+	// definitive fix for the parked variant's stale -1/red cell. cont.89 akimbo dossier §2.
 	{
-		for (int i = 0; i < TSW_COUNT; i++)
-			m_iClientWStatus[i] = -2; // force a first send of every slot
-		m_bWStatusInit = true;
-	}
-
-	for (int t = 0; t < TSW_COUNT; t++)
-	{
-		const int owned = m_items[t].owned ? 1 : 0;
-		// the live active clip is in m_iClip, not yet synced into its item
-		const int clip = owned ? ((t == m_weaponType) ? m_iClip : m_items[t].clip) : 0;
-		const int state = owned ? clip : -1;
-		if (state == m_iClientWStatus[t])
-			continue;
-		m_iClientWStatus[t] = state;
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSWeaponStatus, NULL, pPlayer->pev);
-		WRITE_BYTE(t);     // tsweapon_t
-		WRITE_BYTE(owned); // 1 = in the arsenal
-		WRITE_BYTE(clip);  // loaded rounds
-		MESSAGE_END();
+		const s_weapon_info *awi = get_weapon_info((tsweapon_t)m_weaponType);
+		const int pair[2] = { awi->iAkimboType,
+			(awi->iSingleType != m_weaponType) ? awi->iSingleType : -1 };
+		for (int k = 0; k < 2; k++)
+		{
+			const int t = pair[k];
+			if (t < 0 || t >= TSW_COUNT || !m_items[t].owned)
+				continue;
+			int c = (t == m_weaponType) ? m_iClip : m_items[t].clip;
+			if (c < 0) c = 0;
+			m_iClientWStatus[t] = c; // keep the change-detect cache coherent
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSWeaponStatus, NULL, pPlayer->pev);
+			WRITE_BYTE(t);
+			WRITE_BYTE(1);
+			WRITE_BYTE(c);
+			MESSAGE_END();
+		}
 	}
 
 	return true;

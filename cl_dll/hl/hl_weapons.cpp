@@ -54,6 +54,17 @@ Vector previousorigin;
 // HLDM Weapon placeholder entities.
 CTSGun g_TSGun; // the client-predicted TS arsenal weapon (weapon_tsgun)
 
+// Advance the client-predicted active weapon type on deploy (the draw.sc event, EV_TSDraw) so the
+// predicted viewmodel body (view.cpp -> TS_PredictedViewmodelBody) is right on the deploy frame,
+// not a vuser3.x reconcile late (the single->akimbo body flicker). cont.89 akimbo dossier §3.
+void TS_SetPredictedWeaponType(int type)
+{
+	if (type < 0 || type >= TSW_COUNT)
+		return;
+	g_TSGun.m_weaponType = type;
+	g_TSGun.UpdateActivePointers();
+}
+
 // The local viewmodel's BODY, from the PREDICTED weapon state — the original refreshes it
 // EVERY FRAME (dossier-attachments §5, DAT_10191d5c): the deploy/zoom-return anims otherwise
 // run with a stale body until the next anim tick (the ~1 s attachment "blink", round 7j).

@@ -17,6 +17,11 @@
 #include "eventscripts.h"
 #include "ts_weapon_predict.h"
 
+// Advance the client-predicted active weapon to the deployed type (defined in hl_weapons.cpp,
+// where the CTSGun g_TSGun + its server-side headers are already in scope). Used by EV_TSDraw so
+// the predicted viewmodel body is right on the deploy frame. cont.89 akimbo dossier §3.
+extern void TS_SetPredictedWeaponType(int type);
+
 TSActiveWeapon g_tsActive;
 
 void TSActiveWeapon::UpdateFromEvent(event_args_t* a)
@@ -39,4 +44,12 @@ void TSActiveWeapon::UpdateFromEvent(event_args_t* a)
 void EV_TSDraw(event_args_t* args)
 {
 	g_tsActive.UpdateFromEvent(args);
+
+	// Mirror the original draw.sc handler (client.dll FUN_100425b0): on the deploy frame, advance the
+	// PREDICTED active weapon type to the deployed weapon so view.cpp's per-frame
+	// TS_PredictedViewmodelBody asserts the akimbo/attachment BODY AT ONCE — it otherwise lags a
+	// stale m_weaponType until the vuser3.x reconcile (the single->akimbo body flicker). cont.89
+	// akimbo dossier §3. Local player only (the viewmodel is the local player's).
+	if (EV_IsLocal(args->entindex))
+		TS_SetPredictedWeaponType(args->iparam1);
 }

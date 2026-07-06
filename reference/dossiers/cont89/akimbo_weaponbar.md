@@ -1,5 +1,10 @@
 # cont.89 — Akimbo weapon-bar clip + deploy-flicker (original client → OUR server)
 
+> **STATUS (implemented).** Items #2 (weapon-bar), #3 (deploy body), #4 (vuser4.z, done by
+> coordinator), and a NEW item #5 (barrel alternation) are IMPLEMENTED in `dlls/ts_gun.cpp`,
+> `cl_dll/ts_weapon_predict.cpp`, `cl_dll/hl/hl_weapons.cpp`. Both libs build (glibc 2.14).
+> See §7 (implementation) + §8 (barrel alternation). Behaviour pending a user playtest.
+
 **Symptom cluster (original TS `hl.exe`/`client.dll` vs OUR `hl.so`, akimbo uzis):**
 1. **Swap flicker.** Switching to akimbo uzis shows a SINGLE-uzi viewmodel for ~1 s,
    then snaps to the akimbo view/body — the akimbo body isn't set on the deploy frame.
@@ -339,3 +344,84 @@ Client `client.dll` (PE `0x10000000 + RVA`):
 | 2 phantom red single | `ts_gun.cpp` `UpdateClientData` (2426): hoist the WStatus owned-loop above the WeaponInfo early-return (2460-2463); change-detect on OWNED; add the paired-variant resend (iAkimboType/iSingleType) after 2477 | `ts_weaponbar.cpp` already faithful (opt: red at `< 1` @388) |
 | 3 deploy flicker | none (`ts_gun.cpp:771` Deploy already sets body) | `ts_weapon_predict.cpp:39` EV_TSDraw — set viewmodel deploy anim + `GetBodyByItems(type,attach)` body on the deploy frame (mirror `FUN_100425b0`) |
 | 4 vuser4.z / left clip | `dlls/client.cpp:2195-2197` — `cd->ammo_nails = it.leftClip`; `cd->vuser4.z = 0` (item+0x0c, VERIFY) | `hl_weapons.cpp` — read leftClip from `ammo_nails`, `rightClip = clip-leftClip`; pack `ammo_nails = leftClip`; drop the `vuser4.z→leftClip` read (626) and the `ammo_bolts↔ammo_nails` use (677/756) for the tsgun |
+
+---
+
+## 7. Implementation (what was changed)
+
+### Item #2 — weapon-bar phantom clip (server `dlls/ts_gun.cpp` `CTSGun::UpdateClientData`)
+- **Hoisted the per-slot `WStatus` owned-loop ABOVE the `WeaponInfo` change early-return** so it
+  runs every call (mechanism A) — it was gated behind the early-return, leaving a parked variant's
+  bar cell stale. Clip is clamped `>= 0` (a bar clip is never negative).
+- **Added mechanism B — the paired-variant resend:** after the `WeaponInfo` send (reached only on a
+  type/reserve change), resend the active weapon's `iAkimboType` (weapon_info+0xc8) and `iSingleType`
+  (weapon_info+0xcc, when owned && != active) `WStatus` with their LIVE parked clip. So a held akimbo
+  keeps its base single's cell fresh and vice-versa — the definitive fix for the parked variant's
+  stale −1/red cell, matching the original @0x758c8.
+
+### Item #3 — deploy body flicker (client)
+- `dlls/ts_gun.cpp` `Deploy`: the draw.sc event now passes **iparam2 = the EQUIPPED attach mask**
+  (was the dead akimbo `barrelMask`), matching the original Deploy (@0x71030, iparam2=attachEquipped)
+  — the value `GetBodyByItems` needs.
+- `cl_dll/ts_weapon_predict.cpp` `EV_TSDraw`: for the local player, calls
+  **`TS_SetPredictedWeaponType(iparam1)`** — advances the PREDICTED active type to the deployed
+  weapon on the deploy frame, so `view.cpp`'s per-frame `TS_PredictedViewmodelBody` asserts the
+  akimbo/attachment body AT ONCE (it otherwise lagged a stale `m_weaponType` until the vuser3.x
+  reconcile). Mirrors client.dll `FUN_100425b0` (which sets the deploy body from
+  `GetBodyByItems(type, attach)`). Helper `TS_SetPredictedWeaponType` added in `hl_weapons.cpp`
+  (where `g_TSGun` + its headers are in scope; the client TU can't include `ts_gun.h` directly —
+  it pulls server-only `cbase.h`/`effects.h`).
+- Our Deploy fires the draw event with flag **0** (not FEV_NOTHOST), so the local player DOES get
+  `EV_TSDraw` — the fix reaches the local viewmodel.
+
+### Item #4 — vuser4.z / left clip (already applied by coordinator; RE-confirmed here)
+- Confirmed against the binaries: `cd+0x1d8` (vuser4.z) = **item+0x0c = `m_fInReload`** (activeItem+0xc);
+  the akimbo LEFT clip = **item+0x1c → `cd+0x70` = `ammo_nails`**; the client derives
+  **rightClip = clip − leftClip** (`FUN_10003830`). The coordinator's mapping (vuser4.z = reload flag,
+  leftClip on ammo_nails) is correct.
+
+---
+
+## 8. Item #5 (NEW) — akimbo barrel ALTERNATION
+
+**Symptom (user):** on the akimbo's SEMI mode, all shots but the last fire from the RIGHT gun, the
+last from the LEFT — i.e. it does NOT alternate.
+
+### Root cause
+The original `AkimboFire` (@0x729c0, decompile-exact) holds the barrel side in **ONE per-item byte,
+`item+0x24`** (our `it.altMode`, transmitted on `clientdata.vuser4.x` so it PREDICTS). Convention:
+**0 = RIGHT barrel, 1 = LEFT** (decrement: `pumpToggle==0 → rightClip--`). Critically:
+- `PrimaryAttack`/`SecondaryAttack` (@0x71a20 / @0x717a8) **do NOT touch item+0x24 for the akimbo**
+  (only grenade/knife use it) — so the per-shot flip PERSISTS across pulls → alternation.
+- Non-free / linked path: `altMode = !altMode; if (rightClip<1) altMode=1; if (leftClip<1) altMode=0;`
+- Free single-click path: button-select (`IN_ATTACK → altMode=0/RIGHT`, `IN_ATTACK2 → altMode=1/LEFT`),
+  dry-clicking THAT barrel if empty.
+- Decrement the matching barrel; `iClip` = total; both-empty dry happens in `Fire()` (m_iClip<1 gate).
+
+OUR code used a **different, split** state: the SEMI branch alternated via `m_fInSpecialReload`
+(weapon_data channel) while the FREE branch used `it.altMode` — AND `PrimaryAttack`/`SecondaryAttack`
+RESET `altMode` (0 / 1) every pull. Plus an invented `barrelMask` right-only override (dead, always 0).
+The reset + split-channel is what stuck the semi barrel on one side (only the empty-switch gave the
+last shot to the other barrel).
+
+### Fix (shared `dlls/ts_gun.cpp`, covers both libs)
+- **`AkimboFire`** rewritten to the original state machine: `it.altMode` is the SOLE barrel byte
+  (0=right/1=left); non-free/linked flips + clamps; free single-click button-selects; decrement the
+  matching barrel; event `bparam1 = sides[0]` (= altMode; the client `EV_TSFire` already reads
+  bparam1 as side, 0=right/1=left). Removed the `m_fInSpecialReload` akimbo use and the dead
+  `barrelMask` override.
+- **`PrimaryAttack`**: removed the `altMode = 0` reset for the akimbo (the original leaves it).
+- **`SecondaryAttack`**: removed the `altMode = 1` preset for the akimbo (AkimboFire reads the held
+  button).
+- **`Fire`**: the 3rd-person shoot pose is now `8 + altMode` (was `m_fInSpecialReload`).
+- Prediction: `it.altMode` rides `vuser4.x` (already reconciled both ways), so the alternation
+  predicts exactly like the original (same reconcile-then-flip mechanism).
+
+### VERIFY (left open)
+- **Akimbo fire-mode masks:** akimbo uzi (16) = 33 = {AUTO, AKIMBO_BOTH}; akimbo berettas/MK23/gold
+  (8/10/21) = 18 = {SEMI, AKIMBO_ALT}. The SEMI alternation applies to the SEMI-capable akimbos
+  (berettas/MK23/…). Not re-derived from the binary this pass — trust the recovered `kFireModes`.
+- **AUTO-with-one-barrel-empty:** we fire only loaded barrels (nSides from clip>0) then use the
+  single event; the original clamps and may fire an empty barrel. Cosmetic; left as the safer form.
+- Live playtest of the alternation order (right-first vs left-first) is the final check; a live gdb
+  watch on the original's `item+0x24` during akimbo semi-fire settles it if the order looks off.
