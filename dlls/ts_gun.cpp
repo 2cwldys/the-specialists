@@ -1122,6 +1122,14 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 			m_burstOrPhase--;
 		flRate = (m_burstOrPhase <= 0) ? 0.2f : 0.03f;
 	}
+	else if (m_fireMode == TSFM_SEMI && (wi->iFireModes & (1 << TSFM_AUTO)))
+	{
+		// @0x824a4 (cont.89): a DUAL-MODE weapon (one that also has an AUTO mode) fired in SEMI
+		// re-arms at a FIXED 0.1s, NOT flFireRate. The original client predicts this exact rate
+		// (client fork FUN_100091e0); without it our cadence diverged by one shot, and the client's
+		// per-frame re-seed of the predicted clip from vuser4[1] reverted it → the 20↔19 flicker.
+		flRate = 0.1f;
+	}
 	else
 	{
 		flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.15f;
