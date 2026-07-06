@@ -388,3 +388,115 @@ outside pm_shared's own code, so invisible to this diff:
 - `PM_CheckParamters` (@0xe9c94): no IN_USE 1/3 block; zero-cmd on `flags@0xb8 & 0x1001000`
   (FL_FROZEN|FL_ONTRAIN) | dead@0xd0 | `iuser4@0x208 & 0x10c10`; angle recompute gated
   `dead==0 && !(iuser4 & 2)`; `OldrotArray` yaw save/restore; cmd-scale gate `iuser1@0x1fc > 0`.
+
+---
+
+## cont.89c — maxspeed transmission seam + client.dll accel confirmation
+
+**Two questions from the coordinator, both answered from the binaries.**
+
+### A. ★ DOES client.dll's PM_Accelerate apply PM_GetAccelBySpeed? → **YES. Do NOT revert the server fix.**
+
+pm_shared is one source compiled into `client.dll`, `mp.dll`, `ts_i386.so` — and the
+client copy is confirmed to contain and CALL the multiplier:
+
+- **`PM_GetAccelBySpeed` exists in client.dll** as a real compiled function at RVA
+  `0x2b7f0` (VA 0x1002b7f0). Its constant pool sits consecutively in `.rdata` at file
+  0x7d558-0x7d568 = `1.1, 0.6, 1/120, 210.0, 330.0`. Decoded body:
+  `if (maxspeed >= 330.0) return 1.1; return (maxspeed-210.0)*(1/120)*0.5 + 0.6;`
+  — **byte-identical** to ts_i386.so @0xedcc4 and to our reconstruction.
+- **client.dll's PM_Accelerate CALLS it.** Call site file/RVA `0x2b8bc → 0x2b7f0`,
+  immediately preceded by the exact same gate as the server:
+  `test byte [ecx+0x208],0x20` (iuser4 & TSPM_SLIDE) → `jne skip`;
+  `mov eax,[ecx+0xb8]; test ah,0x40` (flags & FL_DUCKING 0x4000) → `jne skip`;
+  `mov eax,[ecx+0x1f4]` (maxspeed); `push eax; call 0x2b7f0`; then `fmul` the result
+  into accelspeed. Identical to `PM_Accelerate` @0xedd08 and our fix.
+
+**Conclusion:** the original CLIENT predicts the ×PM_GetAccelBySpeed(maxspeed) ground
+accel. The committed server PM_Accelerate fix is **correct and must stay** — reverting
+it makes our server compute ×1.0 while the original client predicts ×1.1 → a *constant,
+everywhere* prediction error (which is exactly the newly-reported symptom, but the fix
+for it is the opposite of reverting). **The accel multiplier is NOT the seam.**
+
+### B. Maxspeed transmission — the ORIGINAL mechanism (RE)
+
+- **`CBasePlayer::PreThink` @0x808cc does NOT touch maxspeed at all.** Full disasm of
+  PreThink contains no `GetSpeedBySlots`, no `SetPlayerSpeed`, no `pfnSetClientMaxspeed`,
+  no `pev->maxspeed` write. **Maxspeed is EVENT-DRIVEN only.** The complete caller set of
+  `GetSpeedBySlots→SetPlayerSpeed` (from the disasm): `CBasePlayer::TSInit` (spawn),
+  `PickUpWeapon`, `DropWeapon`, `CTSGun::{KnifeFire, KatanaThrow, GrenadeIdle,
+  MultiplyClips, ...}` (fire/reload), `DropFlag`, `TakeFlag`, `TakeArmor`,
+  `CTSGameRules::SetPlayerTheOne`. Never per-frame.
+- **`SetPlayerSpeed(float)` @0x83068:** clamp to [0,330], store the clamped float in a
+  member (`m@0x550`), then `pfnSetClientMaxspeed(edict, (float)(int)ROUND(clamped))` —
+  the value pushed to the engine is **integer-rounded**. (Our `ts_player.cpp:550`
+  matches: `(float)(int)(m_flSetMaxSpeed + 0.5f)`.)
+- **`GetSpeedBySlots` @0x66bd4:**
+  ```c
+  float GetSpeedBySlots(CBasePlayer *p) {
+      if (p->field_0x7b9 != 0 || p->field_0x548 > 80)   // 0x548 = FREE slots, init 0x51=81
+          return 330.0f;                                 // empty hands (81 > 80) → flat max
+      return round(0.012345679f * p->field_0x548 * 120.0f + 210.0f); // = round(210 + (120/81)*free)
+  }
+  ```
+  free=0 → 210, free=80 → 329, free=81 (empty) → **330** (via the `>80` branch), plus an
+  override flag `field_0x7b9` (→330). The result is **rounded to an int**.
+
+**How the client's prediction gets maxspeed:** off **`pmove->clientmaxspeed`**, which the
+engine seeds from the last **`pfnSetClientMaxspeed`** value — NOT from `cd->maxspeed`.
+(Confirmed empirically earlier: a raw `pev->maxspeed=` write "left the client fast";
+routing through `pfnSetClientMaxspeed` fixed it.) `PM_CheckParamters` then does
+`pmove->maxspeed = min(clientmaxspeed, pmove->maxspeed)`. Because the original ONLY ever
+sets speed via `pfnSetClientMaxspeed(round(gsbs))`, the server's `pev->maxspeed`, the
+sent `cd->maxspeed`, and the client's `clientmaxspeed` are **all the same rounded integer**
+→ no seam; `PM_GetAccelBySpeed` and the WalkMove clamp use identical values both sides.
+
+### C. THE SEAM (why our code mispredicts every frame)
+
+Our `player.cpp:2105` currently does a **per-frame RAW `pev->maxspeed = GetSpeedBySlots(this)`**.
+That updates the SERVER's `pev->maxspeed` (and `cd->maxspeed`) but **never calls
+`pfnSetClientMaxspeed`**, so the client's `clientmaxspeed` stays at whatever the last
+*event* set (often the engine default `sv_maxspeed` 330). Result:
+- **Constant `cl_showerror` everywhere:** server integrates at the loadout speed; the
+  original client predicts at its stale `clientmaxspeed` → they disagree every frame, on
+  ground and in air (matches the report).
+- **"Loadout range feels too small":** the client stays pinned at ~330 regardless of
+  loadout because it never receives the per-loadout `pfnSetClientMaxspeed` value.
+- **"Kungfu feels slower":** separate value bug — our `GetSpeedBySlots` returns the
+  `320.0f` null-gun default (`ts_gun.cpp:233`) for a fresh bare player instead of the
+  original's **330** (empty hands = 81 free slots → `>80` branch). It also omits the
+  `round(...)` and the explicit `>80→330` / `field_0x7b9→330` branches.
+
+### D. Concrete fix
+
+1. **Keep the PM_Accelerate server fix** (client.dll predicts it — §A). Do not revert.
+2. **`player.cpp:2105` — replace the raw write with `SetPlayerSpeed(GetSpeedBySlots(this))`**
+   so the value reaches the client via `pfnSetClientMaxspeed`. This closes the seam
+   (both sides then use the same rounded integer). The coordinator's SetPlayerSpeed change
+   was the RIGHT channel — **restore it; do not revert to the raw assignment.**
+   - **Most faithful:** REMOVE the maxspeed update from PreThink entirely and update it
+     only on the loadout-change events the original uses (TSInit/spawn, PickUpWeapon,
+     DropWeapon, weapon fire/reload, DropFlag/TakeFlag/TakeArmor, SetPlayerTheOne — most
+     already call `SetPlayerSpeed(GetSpeedBySlots)` in `ts_gun.cpp`/`ts_player.cpp`).
+     Per-frame `SetPlayerSpeed` is *safe* for a constant loadout (it re-sends the same
+     rounded int), so it's an acceptable interim, but the original is event-driven.
+3. **Fix `GetSpeedBySlots` (`ts_gun.cpp:229`) to the original:** null-gun default → **330**
+   (not 320); add the `round()`; make the empty case return 330 via the `>80` branch;
+   otherwise `round(210 + (120/81)*free)`. This fixes "kungfu slower / range too small"
+   (a value bug independent of the seam — it shifts felt speed even when `cl_showerror`≈0).
+4. **Keep `cd->maxspeed = pev->maxspeed`** (`client.cpp:2096`) — it's the reconciliation
+   baseline and is consistent once `pfnSetClientMaxspeed` sets `pev->maxspeed` too.
+
+### E. One-line confirm test (original client → our server)
+`cl_showerror 1` and run forward on flat ground: **after fix #2** the constant error must
+collapse to ~0 (seam was maxspeed). If a residual only appears when brushing walls/corners
+in air, that's the separate `PM_FlyMove numplanes==1` item (cont.89b §1); if the error is
+still constant everywhere, re-check that `pfnSetClientMaxspeed` is actually firing (server
+`developer 1` should show no per-frame maxspeed churn once event-driven).
+
+### Appendix — cont.89c verified addresses/constants
+- client.dll `PM_GetAccelBySpeed` @RVA 0x2b7f0 (const pool .rdata 0x7d558: 1.1,0.6,1/120,210,330);
+  caller (PM_Accelerate) @0x2b8bc, gate `[ecx+0x208]&0x20`, `[ecx+0xb8]&0x4000`, arg `[ecx+0x1f4]`.
+- `PreThink` @0x808cc: no maxspeed write. `SetPlayerSpeed` @0x83068: clamp[0,330], `pfnSetClientMaxspeed(round)`.
+- `GetSpeedBySlots` @0x66bd4: `(field_0x7b9 || field_0x548>80) ? 330 : round(0.012345679*field_0x548*120+210)`;
+  field_0x548 = free slots (init 0x51=81); false-branch const .rodata 0xf7620 = 330.0.
