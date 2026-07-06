@@ -5,6 +5,41 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-05 (cont. 88) — ReHLDS local drop-in test rig + vestigial removal → EXACT entity parity
+
+Added `scripts/setup-rehlds-mod.sh` (deploys our `hl.so` into the `~/Containers/hlds/hlds-linux64-test`
+ReHLDS rig via metamod, mirrors `setup-xash-mod.sh`) so we can run our server against a real dedicated engine.
+Refreshed the rig engine to current ReHLDS (web-auth commits). **The strict engine (ReHLDS/GoldSrc) vs xash's
+lenient late-precache surfaced real drop-in bugs xash hid** — this is precisely why the test matters.
+
+**RE-driven fixes (all committed, ReHLDS `ts_bikini` bot-combat verified, zero Host_Error):**
+- `978fab0` **death-drop**: dropped the inherited-stock `PackDeadPlayerItems()` weaponbox drop from
+  `PlayerDeathThink` (RE-confirmed the original NEVER instantiates CWeaponBox — both creators
+  `PackDeadPlayerItems`/`DropPlayerItem` are 0-caller dead code; TS drops via `TSDropWeaponsOnDeath`). Also
+  `CTSGun::Spawn` hardcodes `w_glock18.mdl` (our `pszWorldModel?:w_weaponbox` fallback was invented drift).
+- `61aad35`/`2871717` **removed stock weapons (14) + monsters (32)** — all classes RE-verified absent from
+  `ts_i386.so`. Kept `hornet.cpp` (CHornet, monster ammo), base classes (`CBaseMonster`/`CTalkMonster`/`CDeadHEV`),
+  AI infra (soundent/nodes/schedule/combat). Fixed coupling (weapons.cpp save-tables, hl_weapons.cpp prediction).
+- `bd1058c` **`ts_superjump`→`item_longjump`** (name-mismatch DROP-IN BUG): the original registers CTSSuperJump
+  under the stock `item_longjump` name; our `ts_superjump` meant map-placed powerups spawned nothing. `b9dc368`
+  removed stock CItemLongJump.
+- `7d50de1` **registered `info_player_team1-4`** (were MISSING; all → CBaseDMStart, same class as
+  info_player_deathmatch, team carried by classname — our CBaseDMStart RE-verified identical to theirs).
+- `5a1008f` removed airtank/vehicle/h_cine; unregistered node+scripted entities. `c2c2900` **unregistered
+  `func_vip_safetyzone`** (name-mismatch: CVipEscape is a real-but-dead original class, never LINK'd; real
+  entity is `ts_teamescape`→CTSTeamEscape). **Entity diff vs original now EXACT: EXTRA none, MISSING none.**
+
+**Method (the win): "verify before removing" caught 2 name-mismatch drop-in bugs (item_longjump, func_vip)** —
+an EXTRA entity can be a real class under a different name, not a vestigial. Backing-class check before every
+removal.
+
+**Key finding (see HANDOFF PARKED "Trim CBaseMonster"):** the original **removed** the monster-AI schedule +
+scripted system from `CBaseMonster` **at source** (proven not-DCE via retained dead code: the unreachable legacy
+vgui buy-menu `client.dll@0x10010xxx` with 0 xrefs, + dead-but-present `CVipEscape`). Our kept scripted/nodes
+code is inherited base-SDK; entities unregistered = interface parity, but the METHOD-level trim (to the original's
+42-method CBaseMonster) is DEFERRED — a ~6-file base-class refactor, flagged in HANDOFF. **User carve-out rule:
+keep anniversary/HL25 code even where it diverges from the 2007 original (this AI system is classic → in scope).**
+
 ## 2026-07-04 (cont. 87d) — CI made green: build source-list sync + MSVC-compat fixes
 
 First-ever CI run on the repo surfaced two classes of latent breakage (`.github/workflows/ci-cd.yml`

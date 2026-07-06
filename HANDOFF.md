@@ -166,6 +166,21 @@ All build-green + nm-T stable + deployed + USER-VERIFIED, commits `1cf4923..d1d9
 - **[standing driver] audit.py per-class 1:1 parity loop** — `scripts/coverage/audit.py [Class]` +
   `coverage.py all`. The structural grind: drive each TS class to N/N methods/members/globals/free-funcs;
   a missing/extra symbol = re-RE (rule #1). This is the path to "nothing missing, nothing added."
+- **[flagged] Trim `CBaseMonster` to the original's 42-method set (source parity).** RE-PROVEN this
+  session (cont.88): the original **removed at source** the entire monster-AI schedule runtime
+  (`RunTask`/`StartTask`/`RunAI`/`MonsterThink`/`GetScheduleOfType`) + the scripted-sequence system
+  (`CineCleanup`/`ExitScriptedSequence`/`CCineMonster`/`CScriptedSentence`) from `CBaseMonster`. Proof it's
+  source-removal not linker DCE: the original binary RETAINS dead code (unreachable legacy vgui buy-menu in
+  `client.dll` @`0x10010xxx` — 0 xrefs; dead-but-present `CVipEscape` in `ts_i386.so`), yet those methods are
+  absent → never compiled. Original `CBaseMonster` = **42 leaf behavioral methods** (`nm ts_i386.so | grep
+  __12CBaseMonster`; list: TakeDamage/Killed/**ChangeYaw** (HL25 turn-speed fix KEPT)/GibMonster/BloodColor/…).
+  To match: trim our `CBaseMonster` to that set + drop `scripted.cpp` and the `nodes.cpp` entity classes,
+  across ~6 shared base files (`basemonster.h`, `monsters.cpp`, `schedule.cpp`, `defaultai.cpp`,
+  `monsterstate.cpp`, `talkmonster.cpp`). **Risk:** `CBasePlayer` derives from `CBaseMonster` — verify no
+  player call sites into the stripped methods; build + ReHLDS smoke + `audit.py CBaseMonster` after. **Carve-out
+  rule (user, cont.88): keep anniversary/HL25 code even where it diverges from the 2007 original — this AI
+  system is classic (2013 seed), so it's in scope to cut; `ChangeYaw`'s HL25 fix stays (it's in the kept 42).**
+  Entity-level parity is ALREADY exact (EXTRA/MISSING = none); this is the method-level tail.
 
 ### ⚠ RIG STATE (unchanged from cont.86b — the CLEAN ORIGINAL)
 `~/Containers/hlds/mods/ts` = the clean original TS 3.0 (1127 files, 29 `ts_*` maps; `tm_avana` GONE).
