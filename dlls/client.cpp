@@ -2163,6 +2163,14 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 						CTSGun* tsgun = (CTSGun*)gun;
 						const int wt = tsgun->m_weaponType;
 						const TSItem& it = tsgun->m_items[wt];
+						// cont.89 reload: the CLIENT needs the active caliber's RESERVE to PREDICT Reload()
+						// (its refill reads m_ammoReserve[caliber], and Reload early-returns when reserve<1).
+						// The original ships it here in cd+0x1bc = vuser2.y (UpdateClientData @0xb0294). Without
+						// it the client's reserve stayed 0 → predicted reload no-op → no anim + post-reload flicker.
+						{
+							const int cal = get_weapon_info((tsweapon_t)wt)->iCaliber;
+							cd->vuser2.y = (cal > 0 && cal < TS_NUM_CALIBERS) ? (float)tsgun->m_ammoReserve[cal] : 0.0f;
+						}
 						cd->vuser2.x = (float)it.bloody;         // cd+0x1b8 — bloody-blade state
 						cd->vuser3.x = (float)wt;                // cd+0x1c4 — active weapon type (g_ActiveTSWeapon)
 						cd->vuser3.y = (float)tsgun->m_fireMode; // cd+0x1c8 — fire-mode (LIVE, not the parked it.mode

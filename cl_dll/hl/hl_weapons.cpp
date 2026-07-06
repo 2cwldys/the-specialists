@@ -612,6 +612,11 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 			g_TSGun.UpdateActivePointers();
 			if (wt >= 0 && wt < TSW_COUNT)
 			{
+				// cont.89 reload: seed the active caliber's RESERVE so the client can PREDICT Reload()
+				// (its refill reads m_ammoReserve[caliber]; without this it stays 0 → reload no-ops).
+				const int cal = get_weapon_info((tsweapon_t)wt)->iCaliber;
+				if (cal > 0 && cal < TS_NUM_CALIBERS)
+					g_TSGun.m_ammoReserve[cal] = (int)from->client.vuser2[1];
 				TSItem& it = g_TSGun.m_items[wt];
 				it.bloody = (int)from->client.vuser2[0];
 				it.mode = (int)from->client.vuser3[1];
@@ -828,6 +833,9 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 			to->client.vuser4[1] = (float)g_TSGun.m_iClip;    // LIVE clip (matches server)
 			if (wt >= 0 && wt < TSW_COUNT)
 			{
+				const int cal = get_weapon_info((tsweapon_t)wt)->iCaliber; // reload reserve (matches server)
+				if (cal > 0 && cal < TS_NUM_CALIBERS)
+					to->client.vuser2[1] = (float)g_TSGun.m_ammoReserve[cal];
 				const TSItem& it = g_TSGun.m_items[wt];
 				to->client.vuser2[0] = (float)it.bloody;
 				to->client.vuser3[2] = (float)it.attach;
