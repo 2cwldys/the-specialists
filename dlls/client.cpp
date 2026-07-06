@@ -2194,7 +2194,16 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 						cd->vuser4.x = (float)it.altMode;        // cd+0x1d0 — alt-mode
 						cd->vuser4.y = (float)tsgun->m_iClip;    // cd+0x1d4 — active clip (LIVE m_iClip, not parked
 						                                         //   it.clip — the parked copy is stale during firing → 20→19→20 flicker)
-						cd->vuser4.z = (float)it.leftClip;       // cd+0x1d8 — second/left clip (VERIFY)
+						// cd+0x1d8 = vuser4.z is the RELOAD flag, NOT leftClip. The ORIGINAL client re-seeds
+						// activeItem->m_fInReload (activeItem+0xc) from this every frame (HUD_WeaponsPostThink)
+						// and, while it's nonzero, FULL-MAG-SETS the clip to wi->iClip each frame. We were
+						// sending it.leftClip here — after a reload leftClip=clip/2 (nonzero) → the original
+						// client thought it was perpetually reloading → snapped the clip to full every frame
+						// (the "reload triggers it, reverts to full, all ammo weapons" flicker). cont.89 fork
+						// (client.dll FUN_1000b7b0 @0x1000b88c MOV + the cd+0x1d8→weapon+0xc reseed).
+						cd->vuser4.z = (float)(tsgun->m_fInReload ? 1 : 0);
+						// The akimbo LEFT barrel clip rides cd->ammo_nails (cd+0x70) instead (cont.89 akimbo dossier).
+						cd->ammo_nails = it.leftClip;
 						cd->vuser1.z = (float)it.active;   // cd+0x1b4 — ACTIVE attachments (laser/flash toggled)
 					}
 				}

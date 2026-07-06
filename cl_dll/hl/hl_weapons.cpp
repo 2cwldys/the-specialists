@@ -623,7 +623,8 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 				it.attach = (int)from->client.vuser3[2];
 				it.altMode = (int)from->client.vuser4[0];
 				it.clip = (int)from->client.vuser4[1];
-				it.leftClip = (int)from->client.vuser4[2];
+				g_TSGun.m_fInReload = (from->client.vuser4[2] != 0.0f); // cd+0x1d8 = the RELOAD flag (not leftClip)
+				it.leftClip = (int)from->client.ammo_nails;            // cd+0x70 = akimbo LEFT barrel clip
 				it.active = (int)from->client.vuser1[2];
 				it.owned = true; // the wielded item is owned (predicted-event gate)
 			}
@@ -846,7 +847,8 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 				to->client.vuser2[0] = (float)it.bloody;
 				to->client.vuser3[2] = (float)it.attach;
 				to->client.vuser4[0] = (float)it.altMode;
-				to->client.vuser4[2] = (float)it.leftClip;
+				to->client.vuser4[2] = (float)(g_TSGun.m_fInReload ? 1 : 0); // RELOAD flag (cd+0x1d8)
+				to->client.ammo_nails = (float)it.leftClip;                  // akimbo LEFT barrel (cd+0x70)
 				to->client.vuser1[2] = (float)it.active;
 			}
 		}
