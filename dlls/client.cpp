@@ -2134,7 +2134,14 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 			// trigger logic reads DoubleFireRate() (semi weapons full-auto while the
 			// double-fire powerup runs); without the sync the client-side gate always saw 0
 			// (round 8: 'weapons should fullauto ... IF double fire rate has been triggered').
-			cd->iuser4 = pl->m_iPowerups;
+			// cont.89: send the STUNT FLAGS (pev->iuser4), matching the original UpdateClientData
+			// (cd->iuser4 = pev->iuser4). TS_pm_shared reads pmove->iuser4 for every stunt (PRONE/SLIDE/
+			// DIVE/WALLJUMP/STOP/STANDUP), so the client can only PREDICT stunts if it receives them here.
+			// We previously overwrote this with m_iPowerups (the invented DoubleFire predicted gate), which
+			// starved the client of the stunt state → no prone/stunt prediction (view_ofs didn't survive,
+			// "still moving while prone"). The powerup-predicted gate is neutralized on the client (see
+			// hl_weapons.cpp) — powerup effects are server-authoritative, matching the original. [[useitems-is-attachment-toggle]]
+			cd->iuser4 = pev->iuser4;
 			cd->ammo_nails = pl->ammo_bolts;
 			cd->ammo_shells = pl->ammo_buckshot;
 			cd->ammo_rockets = pl->ammo_rockets;

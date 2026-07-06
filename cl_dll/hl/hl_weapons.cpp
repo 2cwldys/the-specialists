@@ -662,7 +662,13 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 	player.m_flNextAttack = from->client.m_flNextAttack;
 	player.m_flNextAmmoBurn = from->client.fuser2;
 	player.m_flAmmoStartCharge = from->client.fuser3;
-	player.m_iPowerups = from->client.iuser4; // TS: active powerup bits (DoubleFireRate full-auto gate)
+	// cont.89: clientdata.iuser4 now carries the STUNT FLAGS (pev->iuser4), matching the original — the
+	// client needs them for stunt prediction (TS_pm_shared reads pmove->iuser4). So do NOT read iuser4 as
+	// powerups here (that was the invented DoubleFire predicted gate). Powerup effects (DoubleFireRate /
+	// InfiniteClips) are server-authoritative for now; if the original predicts them it's via a separate
+	// channel (TODO: relocate the powerup bits to a spare clientdata field if predicted). Zero = no predicted
+	// powerup effect, which is safe (semi stays semi client-side during the double-fire powerup — edge case).
+	player.m_iPowerups = 0;
 
 	//Stores all our ammo info, so the client side weapons can use them.
 	player.ammo_9mm = (int)from->client.vuser1[0];
