@@ -14,82 +14,52 @@ target_compile_definitions(hl PRIVATE
 	VALVE_DLL)
 
 target_sources(hl PRIVATE
-	aflock.cpp
-	agrunt.cpp
 	airtank.cpp
 	animating.cpp
 	animation.cpp
-	apache.cpp
-	barnacle.cpp
-	barney.cpp
-	bigmomma.cpp
-	bloater.cpp
 	bmodels.cpp
-	bullsquid.cpp
 	buttons.cpp
 	cbase.cpp
 	client.cpp
 	combat.cpp
-	controller.cpp
 	defaultai.cpp
 	doors.cpp
 	effects.cpp
 	explode.cpp
-	flyingmonster.cpp
 	func_break.cpp
 	func_tank.cpp
 	game.cpp
 	gamerules.cpp
-	gargantua.cpp
-	genericmonster.cpp
 	ggrenade.cpp
-	gman.cpp
-	hassassin.cpp
-	headcrab.cpp
 	healthkit.cpp
-	hgrunt.cpp
-	hornet.cpp
-	houndeye.cpp
 	h_ai.cpp
 	h_battery.cpp
 	h_cine.cpp
 	h_cycler.cpp
 	h_export.cpp
-	ichthyosaur.cpp
-	islave.cpp
 	items.cpp
-	leech.cpp
 	lights.cpp
 	maprules.cpp
-	monstermaker.cpp
 	monsters.cpp
 	monsterstate.cpp
-	mortar.cpp
 	multiplay_gamerules.cpp
-	nihilanth.cpp
 	nodes.cpp
 	observer.cpp
-	osprey.cpp
 	pathcorner.cpp
 	plane.cpp
 	plats.cpp
 	player.cpp
-	rat.cpp
-	roach.cpp
 	schedule.cpp
-	scientist.cpp
 	scripted.cpp
 	singleplay_gamerules.cpp
 	skill.cpp
 	sound.cpp
 	soundent.cpp
 	spectator.cpp
-	squadmonster.cpp
 	subs.cpp
 	talkmonster.cpp
 	teamplay_gamerules.cpp
 	tempmonster.cpp
-	tentacle.cpp
 	triggers.cpp
 	ts_utils.cpp
 	TS_util.cpp
@@ -117,7 +87,6 @@ target_sources(hl PRIVATE
 	ts_worldgun.cpp
 	ts_weapon_info.cpp
 	ts_weapons.cpp
-	turret.cpp
 	UserMessages.cpp
 	util.cpp
 	vehicle.cpp
@@ -125,7 +94,6 @@ target_sources(hl PRIVATE
 	weapons_shared.cpp
 	world.cpp
 	xen.cpp
-	zombie.cpp
 
 	../common/mathlib.cpp
 
