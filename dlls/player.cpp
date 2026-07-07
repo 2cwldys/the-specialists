@@ -46,6 +46,7 @@
 #include "ts_weapons.h" // TS weapon helpers
 #include "ts_gun.h" // CTSGun::Reset (StartObserver arsenal wipe), GetPlayerTSGun
 #include "ts_shared.h" // InterpolateSlowMotion (the fuser1 slow-motion ease)
+#include "ts_player.h" // glast_headshot (TS TraceAttack hitgroup multiplier)
 
 // #define DUCKFIX
 
@@ -305,28 +306,35 @@ void CBasePlayer::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vec
 	{
 		m_LastHitGroup = ptr->iHitgroup;
 
+		// TS damage damping (RE CBasePlayer::TraceAttack @0x901cc): while the victim is in a
+		// slow-mo / stunt lock state (pev->iuser4 & 0x10c10) incoming damage is x0.7. (The original
+		// also x0.7's a BULLET taken during the roll-dodge i-frame window at player+0x524 — that
+		// member isn't modeled here yet; VERIFY / follow-up.)
+		if (pev->iuser4 & 0x10c10)
+			flDamage *= 0.7f;
+
+		// TS hitgroup multipliers (RE @0x901cc) — these REPLACE the stock gSkillData plr* values,
+		// which were wrong for TS and caused the player-damage complaints:
+		//  - HEAD (1): doubles ONLY for bullet-type damage (mask 0x8000002 = DMG_BULLET|0x8000000),
+		//    or x1.5 for the 0x2000000 type (shotgun pellets). A MELEE headshot gets NO bonus — the
+		//    stock plrHead x3 on a club hit was the jumping-kick INSTA-KILL. Sets glast_headshot.
+		//  - LEGS (6/7): x0.5.
+		//  - Chest/stomach/arms/generic: x1 (TS has NO torso multiplier; stock plrChest/etc inflated
+		//    pistol damage -> the "2-shot beretta").
 		switch (ptr->iHitgroup)
 		{
-		case HITGROUP_GENERIC:
+		case HITGROUP_HEAD: // 1
+			if (bitsDamageType & 0x8000002)
+			{
+				flDamage *= (bitsDamageType & 0x2000000) ? 1.5f : 2.0f;
+				glast_headshot = true;
+			}
 			break;
-		case HITGROUP_HEAD:
-			flDamage *= gSkillData.plrHead;
+		case HITGROUP_LEFTLEG:  // 6
+		case HITGROUP_RIGHTLEG: // 7
+			flDamage *= 0.5f;
 			break;
-		case HITGROUP_CHEST:
-			flDamage *= gSkillData.plrChest;
-			break;
-		case HITGROUP_STOMACH:
-			flDamage *= gSkillData.plrStomach;
-			break;
-		case HITGROUP_LEFTARM:
-		case HITGROUP_RIGHTARM:
-			flDamage *= gSkillData.plrArm;
-			break;
-		case HITGROUP_LEFTLEG:
-		case HITGROUP_RIGHTLEG:
-			flDamage *= gSkillData.plrLeg;
-			break;
-		default:
+		default: // generic / chest / stomach / arms — no multiplier in TS
 			break;
 		}
 
