@@ -477,6 +477,7 @@ static void compile_weapons_info()
       {10, "models/p_mk23_akimbo_sil.mdl" }, {12, "models/p_desert_sil.mdl" },
       {14, "models/p_fnh_sil.mdl" },     {15, "models/p_aug_sil.mdl" },
       {16, "models/p_uzi_akimbo_sil.mdl" }, {17, "models/p_tmp_sil.mdl" },
+      {19, "models/p_pdw_sil.mdl" }, // cont.91: was missing -> silenced PDW showed the bare barrel
       {22, "models/p_glock22_sil.mdl" }, {23, "models/p_ump_sil.mdl" },
       {28, "models/p_ruger.mdl" },       {30, "models/p_fnh_akimbo_sil.mdl" },
     };
