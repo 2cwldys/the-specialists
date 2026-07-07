@@ -18,6 +18,7 @@
 #include "ts_stunt.h"
 #include "ts_weapons.h" // TSPlayerFreeSlots
 #include "ts_player.h"  // KungFu()
+#include "ts_gun.h"     // GetPlayerTSGun / CTSGun::m_weaponType (jump-kick active-weapon gate)
 
 int gmsgTSNextStunt = 0; // "NextStunt" 1 (registered centrally in LinkUserMessages) — stunt-meter byte (HUD; client handler deferred)
 extern int gmsgTSMotionBlur;
@@ -727,14 +728,25 @@ int CTSStunt::CloseAttack()
 {
 	entvars_t *pev = m_pPlayer->pev;
 
-	// cooldown (CTSStunt+8 = m_flStunCooldown, decremented in Play) + FL_FROZEN guard
-	if (m_flStunCooldown > 0.0f)
+	// Gates in the ORIGINAL's order (RE @0x8c630): not mid-roll, not in a dive/roll/duck stunt lock,
+	// not frozen, past the cooldown, and a real weapon must be deployed.
+	if (m_flRollTime > 0.0f)          // was MISSING — the kick could fire mid-roll
+		return 0;
+	if ((pev->iuser4 & 0x30c30) != 0) // was MISSING — mid dive/roll/duck-active stunt lock
 		return 0;
 	if (pev->flags & FL_FROZEN)
 		return 0;
+	if (m_flStunCooldown > 0.0f)      // one kick per ~0.7s (set at the tail)
+		return 0;
 
-	// no kick when bare-hands KUNG-FU is active (empty grip) — kung-fu is manual when equipped.
-	if (m_pPlayer->m_szAnimExtention[0] == 0)
+	// cont.91: the original gates on the ACTIVE WEAPON ITEM being ABSENT — @0x8c630 checks
+	// m_pActiveItem->m_iId==0x10 (tsgun) && gun->m_pActiveItem==0 (no weapon deployed = kung-fu),
+	// i.e. m_weaponType==TSW_MELEE. It is NOT an empty-grip check: knives/katana have an EMPTY grip
+	// but a REAL active weapon, so the old `m_szAnimExtention[0]==0` WRONGLY blocked their jump-kick
+	// (the original allows it — any deployed weapon can jump-kick). No KungFu powerup is required
+	// (the powerup only doubles the damage).
+	CTSGun *pGun = GetPlayerTSGun(m_pPlayer);
+	if (!pGun || pGun->m_weaponType == TSW_MELEE)
 		return 0;
 
 	// speed-scaled melee damage: clamp(|velocity| / 15, 10, 20), ×2 under the kung-fu powerup.
