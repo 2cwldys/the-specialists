@@ -5,6 +5,53 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-07 (cont. 93) — Interactive playtest round 2: damage model, kill feed, death drop, globalslow
+
+User back at the keyboard reporting more playtest issues; RE-grounded fixes (commits `45c8253..2ff251c`).
+
+- **`70da4a4` TraceAttack hitgroup multipliers — THE damage fix.** Our `CBasePlayer::TraceAttack` used
+  STOCK gSkillData (head ×3, torso mults, leg ×1). The original TS `TraceAttack` @0x901cc is fully custom:
+  **HEAD ×2 bullets-only** (mask 0x8000002; ×1.5 for 0x2000000/shotgun; **MELEE headshot = NO bonus**),
+  **LEGS ×0.5**, **chest/stomach/arms ×1** (no torso multiplier), + a ×0.7 slow-mo/stunt damping
+  (iuser4 & 0x10c10). This was BOTH complaints: "2-shot beretta" (head ×3 + torso inflation) and the
+  jump-kick "insta-kill" (a melee hit to the head got the ×3 bullet-headshot mult). Sets glast_headshot on
+  a real headshot. VERIFY/todo: the roll-dodge i-frame ×0.7 (player+0x524) + the early-return gate
+  (time < player+0x71c) not yet modeled; the TraceAttack presentation (gmsgTSTakeDamage report, kevlar/
+  hit/pain sounds) is a separate pass.
+- **`45c8253` jump auto-kick (CloseAttack @0x8c630) trigger gates.** Added two MISSING gates (m_flRollTime>0;
+  iuser4 & 0x30c30 mid-stunt) and FIXED the kung-fu gate: the original blocks only when NO weapon item is
+  active (m_weaponType==TSW_MELEE), NOT on empty grip — so knives/katana (empty grip, real weapon) CAN
+  jump-kick (ours wrongly blocked them). No KungFu powerup needed (only ×2 damage). Base kick dmg
+  clamp(speed×K,10,20)×2 = ≤40 confirmed faithful (the insta-kill was the TraceAttack mult above).
+- **`54449de` kill feed shows the real weapon**, not "tsgun". DeathNotice used m_pActiveItem->pszName()
+  ("tsgun"); the original PlayerKilled @0x795e4 names the ACTIVE type via get_weapon_info(m_weaponType)->
+  pszName (s_weapon_info+0x44, "Beretta 92F"). Added the tsgun special-case.
+- **`380ad35` death weapon-scatter: akimbo drops TWO guns.** TSDropWeaponsOnDeath bypassed
+  CBasePlayer::DropWeapon (TSThrowWorldGun once/type) → akimbo dropped ONE gun. Original Killed @0x7ed5c
+  loops DropWeapon(type,0) over all types + a 2nd when iAkimboType!=-1; our DropWeapon @0x84900 already does
+  akimbo→two-singles + no-ops unowned, so routing through it scatters two. ("something off in the drop".)
+- **`2ff251c` `globalslow` command (Permanent Slow-motion) — the cvar audit's one real server gap.** It's a
+  COMMAND (not a cvar) we never registered (→ "Unknown command"), AND its per-frame Think driver was ALSO
+  missing. Added both: cmd_globalslow @0xb5580 (percent→0..2 scale, 100%=off) + AddServerCommand, and the
+  RE-exact first block of Think @0x67204 (expire/restore/maintain via GlobalSlowMotion2).
+- **`257758b`/`8d837c2` etc. (cont.92 continued):** kSil PDW silenced model; the 3rd-person transparency
+  feature.
+
+**CVAR/SETTINGS AUDIT** (`reference/dossiers/cont91/cvar_settings_audit.md`): 39 TS cvars. Server 17/20 honored;
+the user's 3 priorities (initial_cash / weaponrestriction / realbullet-Low) all FINE. **FOLLOW-ON (client.dll
+RE):** 9 registered-but-unread client-display cvars — notably **cl_thirdtransparency should GATE the
+3rd-person transparency feature** (it's currently always-on; the .scr default is OFF), and we read
+`cl_lasercolor` where the .scr uses `cl_laser`.
+
+**BOT CRASH (#3) — RETRACTED my "reproduced on ts_hammertime" claim:** the server restart + minidumps I saw
+were the USER'S REBOOT (plasmashell crash), invisible to me. The FindEntityByString/ts_hammertime crash is
+UNCONFIRMED; /tmp/dumps minidumps are untrusted (reboot artifacts). The WaitThink brace fix (`9566cd5`) stands
+(binary-proven, independent). NEEDS a real repro on a stable machine, under a PROPERLY-ATTACHED gdb (the
+`hlds_run -debug` wrapper does NOT attach gdb — run hlds_linux directly under gdb).
+
+**STILL OPEN:** doors-glass playtest; floating-weapon runtime probe (both need the user); the broad audit/
+coverage sweep; the cl_thirdtransparency gate + the other 8 client-display cvars.
+
 ## 2026-07-07 (cont. 92) — AUTONOMOUS bug-sweep from a playtest report (RE-grounded, subagent-orchestrated)
 
 User ran a playtest (original TS client vs our ReHLDS server), reported a batch of bugs, then stepped away
