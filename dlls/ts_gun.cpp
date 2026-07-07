@@ -612,8 +612,10 @@ bool CTSGun::MultiplyClips()
 // Per-tsweapon_t draw sequence in the v_*.mdl (the anim block entry [2], baked from the model
 // sequence names — the original looks it up at init into the weapon anim set, item+0x28 +4).
 static const int s_drawSeq[TSW_COUNT] = {
-	1, 2, 4, 2, 5, 2, 4, 2, 2, 4, 5, 2, 2, 2, 2, 1, 2, 1, 2, 2,
+	1, 2, 4, 2, 5, 2, 4, 2, 2, 4, 5, 2, 2, 2, 2, 1, 4, 1, 2, 2,
 	5, 2, 2, 1, 1, 2, 7, 2, 3, 2, 1, 3, 1, 1, 1, 1, 1, 1};
+// [16] uzi_akimbo draw = v_uzi_akimbo.mdl seq 4 "akimbo_draw" (was 2 = "left_idle", a one-uzi looping
+// idle → the akimbo deployed showing ONE left-hand uzi for ~1s until the idle corrected). cont.89.
 
 // @ HolsterWeapon__6CTSGun (@0x85698, decompile-exact: dossiers/cont81/holster.c) — holster the
 // wielded weapon TO BARE HANDS: strip the view/weapon models, leave any zoom, drop the blade
