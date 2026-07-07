@@ -198,9 +198,19 @@ void CTSWorldGun::Fall()
 void CTSWorldGun::WaitThink()
 {
 	pev->nextthink = gpGlobals->time + 0.1f;
+	// RE @0x9104c: BOTH calls are gated by (m_flExpire < time) — the disasm `jae` skips both. The
+	// source had dropped the braces, so UTIL_Remove(this) ran UNCONDITIONALLY every tick → every
+	// dropped/thrown/death-scattered WorldGun was removed ~0.1s after it settled (should live
+	// weaponstay 5-60s). This was masked while the endless-friction bug (BounceTouch) kept guns
+	// sliding forever so they never handed off to WaitThink; with that fixed, settled guns hit this
+	// path. The rapid create→settle→free edict churn under bot combat is also the prime suspect for
+	// the rcbot FindEntityByString crash (cached pickup edict freed + slot-reused mid linear-scan).
+	// cont.91 (findentity_crash.md #1).
 	if (m_flExpire < gpGlobals->time)
-		RemoveEntityFromSlowedArray(this); // WaitThink__11CTSWorldGun @0x9108c — scrub the packed slowed array before removal
+	{
+		RemoveEntityFromSlowedArray(this); // scrub the packed slowed array before removal
 		UTIL_Remove(this);
+	}
 }
 
 // @0xa10a4 OnGround — settled: become a USE trigger with the real grab box. Stays MOVETYPE_BOUNCE.
