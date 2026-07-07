@@ -885,11 +885,13 @@ bool CBaseMonster::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, f
 		}
 	}
 
-	// if this is a player, move him around!
-	if ((!FNullEnt(pevInflictor)) && (pev->movetype == MOVETYPE_WALK) && (!pevAttacker || pevAttacker->solid != SOLID_TRIGGER))
-	{
-		pev->velocity = pev->velocity + vecDir * -DamageForce(flDamage);
-	}
+	// NOTE (RE @0xa2430, symptoms a+b): the stock HLSDK momentum-push
+	//   `pev->velocity += vecDir * -DamageForce(flDamage)`
+	// is ABSENT from the original TS CBaseMonster::TakeDamage — disasm of 0xa2430 has NO call to
+	// DamageForce (0xa2d08) and NO write to pev->velocity; DamageForce is only ever called from
+	// CBasePlayer::Killed (0x7ed5c, the death launch). Alive players/monsters take NO per-hit
+	// knockback here. Re-adding it (a) launched mid-air players on bullet hits and (b) double-dipped
+	// on melee (CloseCombatAttack already applies its own attacker-speed knockback). Removed to match.
 
 	// do the damage
 	pev->health -= flTake;

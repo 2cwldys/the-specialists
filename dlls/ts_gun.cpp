@@ -1632,8 +1632,14 @@ void CTSGun::CCombatAttack()
 
 		// @0x76cf6: the shared resolver — TSMBlur roll, CheckHull trace, validity/teammate gates,
 		// VictimKungfuHold deflect (counter role-swap), disarm-pressure, >30-dmg knockback, TraceAttack.
+		// flDamage is the FLAT local_114 (35/45/55, == `reach`), NOT the speed/melee/kungfu-scaled
+		// `lunge` (that is local_110, and it feeds ONLY the whiff-lunge store below). Confirmed by the
+		// 0x76078 disasm: the scaled slot ([esp+0x20]) is used at the post-call miss branch, while the
+		// param_6 push (0x76cd0) reads the flat local_114. Passing `lunge` here made melee damage
+		// scale with speed+kungfu (symptom c: duck-kick near-instant-kill) and mis-gated the >30
+		// knockback (symptom b). Melee DAMAGE is flat; only the whiff push is scaled.
 		CBaseEntity *pHit = m_pPlayer->CloseCombatAttack(vecSrc, vecEnd, gpGlobals->v_forward,
-			iHull, lunge, moveId, true, false, true, false);
+			iHull, reach, moveId, true, false, true, false);
 
 		// on a MISS, arm the forward whiff-lunge (PreThink consumes +0x79c/0x7a0/0x7a4); backkick reverses.
 		if (pHit == nullptr && whiffT > 0.001f)

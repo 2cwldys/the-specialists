@@ -740,8 +740,11 @@ int CTSStunt::CloseAttack()
 	// speed-scaled melee damage: clamp(|velocity| / 15, 10, 20), ×2 under the kung-fu powerup.
 	float spd = pev->velocity.Length() * (1.0f / 15.0f);
 	float dmg = (spd < 10.0f) ? 10.0f : (spd <= 20.0f) ? spd : 20.0f;
+	float dmgBase = dmg; // RE @0x9c630: UpdateMeleeBar uses the UNdoubled dmg (fVar3), not fVar10
 	if (KungFu(m_pPlayer))
 		dmg *= 2.0f;
+
+	m_pPlayer->m_flKungFuBlock = 0.0f; // orig sets player+0x7a8 = 0 here (post-gate), before the swing
 
 	// forward reach 48u; route through the shared resolver (RE @0x8c8b9: hull 3, iAnim -1 —
 	// it animates only on a HIT; disarm on, playersOnly off, knockback on, teamSafe FORCED).
@@ -754,17 +757,24 @@ int CTSStunt::CloseAttack()
 	if (!pHit)
 		return 0;
 
-	// hit tail per the fragment @0x9c70c: close own kungfu window, random kick body anim
-	// (circfront/latback/circback = ids 0xa/0xe/0xd), top up the attack gate if expired.
-	// DEFERRED (VERIFY L10): UpdateMeleeBar(dmg * const) — the drain constant is un-RE'd.
-	m_pPlayer->m_flKungFuBlock = 0.0f;
+	// hit tail (RE @0x9c630 tail, decompile+disasm exact): random kick body anim
+	// (circfront/latback/circback = ids 0xa/0xe/0xd), re-arm the global attack gate, play the
+	// close-combat swing sound, drain the melee bar.
+	m_flStunCooldown = 0.7f; // one kick per ~0.7s (also gates roll/wheel)
 	static const int kickActs[3] = { TSA_CC_CIRCFRONT, TSA_CC_LATBACK, TSA_CC_CIRCBACK };
 	m_pPlayer->m_TSAnim.Animate(m_pPlayer, kickActs[RANDOM_LONG(0, 2)]);
-	if (m_pPlayer->m_flNextAttack <= 0.0f)
-		m_pPlayer->m_flNextAttack = 0.5f; // top-up (VERIFY exact value at @0x9c70c)
 
-	EMIT_SOUND(ENT(pev), CHAN_WEAPON, "player/closecombat.wav", VOL_NORM, ATTN_NORM);
-	m_flStunCooldown = 0.7f; // one kick per ~0.7s (also gates roll/wheel)
+	// re-arm m_flNextAttack so the just-kicked player can't immediately fire their gun (the missing
+	// gate here let a held/queued attack fire a bullet right after the kick — symptom d's
+	// "flesh/bullet-hit sound"). Orig: if (m_flNextAttack < WeaponTimeBase()) += 0.35.
+	if (m_pPlayer->m_flNextAttack < UTIL_WeaponTimeBase())
+		m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.35f;
+
+	// orig EMIT_SOUND_DYN(edict, CHAN_BODY(4), "player/closecombat.wav", 1.0, 0.8, 0, 95+rand(0,31))
+	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/closecombat.wav", VOL_NORM, 0.8f, 0,
+		95 + RANDOM_LONG(0, 31));
+
+	m_pPlayer->UpdateMeleeBar(dmgBase * 1.5f); // RE @0x9c630 tail: UpdateMeleeBar(fVar3 * 1.5)
 	return 1;
 }
 
