@@ -650,6 +650,28 @@ void CTSGameRules::Think()
 
 	g_BulletManager.Think(); // TS: fly the slow-motion bullets-as-models each frame (ts_bullet.cpp)
 
+	// `globalslow` command / SetGlobalSlowMotion driver (RE CTSGameRules::Think @0x67204, the FIRST
+	// block): expire a timed slow, restore normal speed ONCE when it goes inactive (and clear
+	// scale/end), else re-apply the scale each Think (GlobalSlowMotion2 self-throttles ~0.5s). Without
+	// this, the newly-registered `globalslow` command set m_flGlobalSlowActive but nothing consumed it.
+	// cont.91 (cvar_settings_audit.md fix 1). NOTE: coexists with the slowmatch block below — both call
+	// GlobalSlowMotion2; they are mutually-exclusive server settings in practice. VERIFY if both on.
+	if (m_flGlobalSlowEnd != 0.0f && m_flGlobalSlowEnd < gpGlobals->time)
+		m_flGlobalSlowActive = 0;
+	if (m_flGlobalSlowActive == 0.0f)
+	{
+		if (m_flGlobalSlowScale != 0.0f)
+		{
+			GlobalSlowMotion2(0.0f, 0); // restore normal speed once
+			m_flGlobalSlowScale = 0.0f;
+			m_flGlobalSlowEnd = 0.0f;
+		}
+	}
+	else
+	{
+		GlobalSlowMotion2(m_flGlobalSlowScale, 0); // maintain the global slow
+	}
+
 	// `slowmatch` cvar (default 1.0): a value in (0,1) runs the entire match in global
 	// slow-motion at that scale (the .so's "SlowMatch" mode). GlobalSlowMotion2 is self-
 	// throttled (~0.5s) and re-applies the slow to every player, so calling it each Think

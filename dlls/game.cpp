@@ -521,6 +521,37 @@ static void cmd_weaponrestriction()
 	display_weaponrestriction();
 }
 
+// @0xb5580 cmd_globalslow — the "Permanent Slow-motion?" server setting (a COMMAND, not a cvar; the
+// settings.scr entry sends `globalslow <percent>`). Parses percent -> a 0..2.0 scale (100% = normal =
+// OFF), then drives CTSGameRules::SetGlobalSlowMotion (duration 0 = permanent). This was UNREGISTERED,
+// so a server that set globalslow got "Unknown command" and the permanent slow-mo never engaged
+// (cvar_settings_audit.md fix 1). The apply machinery (SetGlobalSlowMotion/GlobalSlowMotion2) already
+// existed — only the command binding was missing.
+static void cmd_globalslow()
+{
+	CTSGameRules *rules = TSGameRules();
+	if (!rules)
+		return;
+	if (CMD_ARGC() < 2)
+	{
+		if (rules->m_flGlobalSlowActive != 0.0f)
+			ALERT(at_console, "Globalslow is at %.0f%%.\n", rules->m_flGlobalSlowScale * 100.0f);
+		else
+			ALERT(at_console, "Globalslow is off.\n");
+		return;
+	}
+	float scale = (float)atof(CMD_ARGV(1)) * 0.01f;
+	if (scale > 2.0f) scale = 2.0f;                       // clamp(percent/100, 0, 2)
+	if (scale < 0.0f) scale = 0.0f;
+	if (scale > 0.999f && scale < 1.001f) scale = 0.0f;   // 100% = normal speed = OFF
+	if (scale > 0.0f && scale < 0.01f)    scale = 0.01f;  // floor a tiny non-zero at 1%
+	rules->SetGlobalSlowMotion(scale, 0.0f);              // duration 0 = permanent
+	if (scale != 0.0f)
+		ALERT(at_console, "Globalslow is at %.0f%%.\n", scale * 100.0f);
+	else
+		ALERT(at_console, "Globalslow is off.\n");
+}
+
 // --- customweapons load/save (@cmd_loadweapons/@cmd_saveweapons, game.cpp home). The console
 // command NAMES are swap contract. loadweapons: adjust_weapon_value + broadcast the table;
 // saveweapons: dump the current table. Default file per the original example.
@@ -595,6 +626,7 @@ void GameDLLInit()
 	TSRegisterCvars();
 
 	g_engfuncs.pfnAddServerCommand("weaponrestriction", cmd_weaponrestriction); // swap-contract command name
+	g_engfuncs.pfnAddServerCommand("globalslow", cmd_globalslow); // "Permanent Slow-motion?" setting (RE @0xb5580)
 	g_engfuncs.pfnAddServerCommand("loadweapons", cmd_loadweapons); // swap-contract command names
 	g_engfuncs.pfnAddServerCommand("saveweapons", cmd_saveweapons);
 
