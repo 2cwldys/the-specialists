@@ -47,6 +47,168 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.93, 2026-07-07) — interactive playtest parity: the DAMAGE MODEL, kill feed, death drop, cvars
+
+**You ARE the orchestrator — continue as if you never stopped.** Branch `restructure-source-parity`. The
+previous orchestrator (**cont.89–cont.93, me**) is *available for consult* — hand the user the message at the
+end of this block. Read the cont.90 and cont.89 blocks below too — SAME method, more emphasis each round.
+
+**The user is hands-on** but not always available: they playtest with the **ORIGINAL TS client** (Proton/Wine)
+against **OUR ReHLDS server** (the drop-in test), keep the original running for live gdb (`scripts/live.py`), and
+deploy to the **Linux hlds64 rig** at `~/Containers/hlds/hlds-linux64-test`. **The `game/ts/` deletions are
+INTENTIONAL — the user deleted `game/` (the harness/rehlds/xash don't read it); ignore those deletions, never
+restore them.** This session the user went to their phone mid-work and rebooted (which crashed the running
+server — that reboot was invisible to me and I briefly misread it as a game crash; see "OPEN: bot crash").
+
+### 🎯 THE PARITY MANDATE — the user's law (reread cont.90/cont.89; this is the SAME law, sharpened with cont.93's feedback)
+- **Goal: DROP-IN BOTH DIRECTIONS.** Our client vs the ORIGINAL server, AND our server vs the ORIGINAL client,
+  must behave **identically and compatibly**. Every fix lands in the SHARED `dlls/`+`cl_dll/` code so both move.
+- **Mirror the original 1:1:** files → classes → methods → members → globals → free functions. A **MISSING**
+  one = a hidden-logic gap → **re-RE it**. An **INVENTED** one = drift → **remove it**. The audit/coverage
+  match **BY NAME**.
+- **NAME-MATCH the original (user's explicit cont.93 feedback):** variable/member/method/global names should
+  match the original's. **If a symbol doesn't exist in the original, that signals a potential LOGIC MISMATCH —
+  re-RE it.** Names are not cosmetic; a renamed/invented field usually means the logic diverged.
+- **A mismatch flags OTHER mismatches (user's feedback):** when you find one wrong field/offset/value/name,
+  the logic AROUND it is suspect. Check the neighbourhood; don't fix in isolation.
+- **The logic is OFTEN ALREADY IMPLEMENTED — MOVE/RENAME it, don't rewrite.** cont.93 archetype: `DropWeapon`
+  already did akimbo→two-singles; `TSDropWeaponsOnDeath` just *bypassed* it. The melee knockback was already
+  faithful; the bug was a SECOND, invented push. If they do it another way, **MIMIC THEIRS** — don't invent a
+  "cleaner" way.
+- **Verify WHICH SIDE computes/sends what** (client vs server) before "fixing" — cont.91's whole shotgun fix was
+  on the server's clientdata pack that the *original client* reads.
+- **Assets:** every model/sprite/sound/sequence/event referenced in a decompile must be **precached + played**
+  in OUR code. cont.93: `kSil[]` was missing the PDW silenced held model (`p_pdw_sil.mdl` ships on disk). When
+  you touch a class, diff its asset refs (strings in the decompile) against our precache/play sites.
+- **Flag-don't-ignore:** a bug fix routinely surfaces a NEIGHBOURING gap. Flag it (tell the user + `// VERIFY`
+  in code + a ledger note) but **FINISH THE CURRENT ISSUE first, then report.** cont.93 flagged: the roll-dodge
+  i-frame ×0.7 (player+0x524) and the early-return damage gate (time < player+0x71c) in TraceAttack — left as
+  `// VERIFY` in `dlls/player.cpp`.
+- **TODOs / `// VERIFY`:** the tree is full of them — known-uncertain spots. When you touch an area, resolve its
+  VERIFYs against the binary. `grep -rn "VERIFY\|TODO\|SLICE" dlls/ cl_dll/`.
+- **"The decompile is complete" ≠ "every method is faithfully reconstructed."** The inventory is complete; bugs
+  keep revealing methods that were stubbed, inherited-from-stock-HL, or mis-RE'd. That's NORMAL — expect it.
+
+### 🔬 THE cont.93 METHOD — decompile-diff (the session workhorse)
+Reproduce (user playtest report) → `dc.sh`/`re.sh` the ORIGINAL function → **COMPARE our code to it line-by-line**
+→ **the mismatch IS the bug.** The dominant cont.93 archetype: **our code inherited STOCK HALF-LIFE behavior
+where TS is CUSTOM.** When a TS class extends an HL base, SUSPECT the inherited/overridden method and RE the
+original's version:
+- `CBasePlayer::TraceAttack` @0x901cc — ours used the **stock `gSkillData` hitgroup mults** (head ×3, torso
+  mults, leg ×1). TS is custom: **head ×2 bullets-only (×1.5 shotgun, MELEE = no headshot bonus), legs ×0.5,
+  torso/arms ×1, + ×0.7 slow-mo/stunt damping**. THAT one function was both playtest complaints ("2-shot
+  beretta" = head ×3 + torso inflation; jump-kick "insta-kill" = a melee hit to the head got the ×3 bullet mult).
+- `CBaseMonster::TakeDamage` @0xa2430 — the ORIGINAL has **NO** `pev->velocity += DamageForce()` push; ours had
+  re-added the stock one → midair players launched on every hit. (`DamageForce` @0xa2d08 is faithful — it's just
+  only called from the death launch.)
+- `CTSWorldGun` physics (cont.92) — stock-ish bounce vs the original's per-contact horizontal damp.
+
+When you can't read a constant/branch statically, **LIVE-TRACE** (`scripts/live.py`) — the cont.90 workhorse.
+
+### 🛠️ TOOLING (Ghidra + the rig)
+- `scripts/ghidra/dc.sh {server|client|mp} 0x<addr>` — decompile by address. **server** = nm/file addr (Ghidra =
+  +0x10000). **client/mp** = PE RVA (Ghidra = 0x10000000 + rva). Typed projects (this/args/pev fields resolved).
+- `scripts/ghidra/re.sh <Class>` — decompile a whole server class (resolves Class→methods + applies inventory).
+- **The Ghidra MCP** (interactive, on the typed `re` project) — use for **xrefs**: who calls a function / reads a
+  field / writes a member. Faster than objdump-grepping for callers. (`scripts/ghidra/mcp-up.sh` if not up.)
+- `python3 scripts/binmap.py <Name>` — name→live/RVA. `nm reference/ts_i386.so | grep <mangled>`.
+  `objdump -s -j .rodata reference/ts_i386.so | grep '^ 000f9b1'` for `.rodata` float constants;
+  `readelf`/`objdump -d` for the last mile. **binmap.tsv is the SERVER map; `binmap_client.tsv` is the client
+  map — don't let a `binmap.py --build` for one clobber the other** (cont.90/91 gotcha).
+- `scripts/live.py` — LIVE-TRACE the original under Proton (break at a fn entry, read args off the stack —
+  `__cdecl`: `[esp+4+4*(n-1)]`; `__thiscall`: `$ecx`). **When static RE is uncertain, TRACE — don't guess.**
+- `scripts/build.sh amd64 {hl|client|all}` (GLIBC_2.14 floor). **Build `hl` only to isolate from a concurrent
+  `cl_dll` editor** (both libs share `dlls/` sources, so a half-finished cl_dll edit can break an `all` build).
+- `scripts/setup-rehlds-mod.sh` deploys OUR `hl.so` to the rig (metamod+rcbot bots; `NOMETAMOD=1` = no bots).
+  Run under the rig's `./hlds_run` (the `-debug` flag does NOT reliably attach gdb — see the crash note).
+- `reference/dossiers/cont91/decompiles/rcon.py` — drive the live rig (I set `rcon_password lol`):
+  `python3 …/rcon.py status` / `"changelevel ts_hammertime"` / `"globalslow 50"`. GoldSrc UDP challenge/response.
+- **Preserved RE + regen recipe:** `reference/dossiers/cont91/decompiles/` (traceattack/closeattack/tsthink +
+  a README listing every address to regenerate the rest).
+
+### 🤖 THE SUBAGENT ORCHESTRATION PATTERN (cont.92/93 — how I ran the fan-out; you'll do the same)
+- **Read-only RE-dossier agents IN PARALLEL:** spawn `general-purpose` agents that ONLY read + write a dossier
+  (`reference/dossiers/cont91/<x>.md`) and RETURN a concise fix spec — **no code edits, no build.** They can't
+  conflict with each other or with a code-editor. Used this session for floating-weapons, dropped-weapon,
+  3rd-person transparency, the FindEntityByString crash review, and the cvar audit — each nailed the root cause
+  and a precise, apply-without-re-RE fix spec.
+- **Then APPLY sequentially:** only ONE code-editing agent (or you) touches the working tree at a time (shared
+  tree, no worktrees). If you must overlap, keep the editor on `dlls/` and any parallel work read-only, and
+  build `hl`-only. Verify each agent's key claim yourself (I re-decompiled `TakeDamage` to confirm "no knockback"
+  before committing).
+- **Agent brief template** (what worked): repo path + branch; the PARITY LAW verbatim; the specific symptom(s) +
+  the code sites + the original addresses (hand them the addresses you already found); the tooling recipe;
+  **the read-only constraint + the dossier output path**; "mirror don't rewrite, mark `// VERIFY` where uncertain,
+  build (hl-only or both), remove debug, DON'T commit, return a DENSE fix spec (consumed by the orchestrator,
+  not the user)." Delegate self-contained "RE X + fix it"; **fork** for tightly-coupled continuation; keep
+  integration + builds + commits + the user report in the MAIN loop.
+
+### ✅ WHAT cont.93 SHIPPED (13 commits `c817041..92e0a05`, ALL LOCAL/UNPUSHED — the user pushes after playtest)
+All RE-grounded (`ts_i386.so`/`client.dll`), all build clean. Verification is RE-correctness + clean build —
+**almost none is playtest-confirmed** (user was away/on phone); each is flagged pending.
+- `2e4d678` bullet-whizz radius 56→75 (RE'd `_DAT_1007cccc`=75.0 @client.dll rva 0x7cccc).
+- `6c83a7d` melee/damage vs players — **removed the invented stock bullet-knockback** (orig `TakeDamage`
+  @0xa2430 has none), flat melee `reach` damage (not the scaled `lunge`), jump-kick tail gate.
+- `7c75c76`+`9566cd5` dropped weapon (`CTSWorldGun`) — per-contact ground damp + `FCAP_CONTINUOUS_USE`, and the
+  binary-proven `WaitThink` **missing-brace** bug (guns vanished ~0.1s after settling).
+- `257758b` `kSil[]` missing PDW silenced model.
+- `8d837c2` 3rd-person self-transparency feature (client) — **NOTE: currently always-on; the original gates it
+  behind `cl_thirdtransparency` (default OFF). GATE IT (a decision I left to the user).**
+- `45c8253` jump auto-kick (`CloseAttack` @0x8c630) trigger gates — RE-matched (added m_flRollTime + iuser4
+  &0x30c30 gates; fixed the kung-fu gate to check m_weaponType==TSW_MELEE not empty-grip → knives/katana can kick).
+- `70da4a4` **TraceAttack hitgroup multipliers** — the damage-complaint root cause (see method above).
+- `54449de` kill feed shows the real weapon name (get_weapon_info(m_weaponType)->pszName), not "tsgun".
+- `380ad35` death weapon-scatter — akimbo drops TWO guns (route `TSDropWeaponsOnDeath` through `DropWeapon`).
+- `2ff251c` `globalslow` command (Permanent Slow-motion) — the cvar audit's one real server gap; needed BOTH
+  the `AddServerCommand` binding AND the missing per-frame `Think` driver (@0x67204 first block).
+- `a18a0bc`/`92e0a05` ledger cont.92/cont.93 + the cont91 dossiers.
+- Earlier this session (cont.92, autonomous): the floating-weapon RE (root-caused to a runtime `pev->sequence`=0
+  CTSAnimation issue — data is faithful; DON'T touch `pszPlayerModel`/`pev->body`), dropped-weapon, transparency.
+
+### 📋 OPEN / INCOMPLETE — the live task list (mirror of my TaskCreate entries; pick up here)
+1. **Bot crash `#3` (FindEntityByString, metamod/rcbot, ts_hammertime-specific)** — UNCONFIRMED. My "reproduced
+   it" was the user's REBOOT (invisible to me). The `WaitThink` brace fix (`9566cd5`) is a real binary-proven
+   bug but may not be THE crash. `/tmp/dumps/*.dmp` breakpad minidumps are UNTRUSTED (reboot/shutdown artifacts).
+   NEXT: user reproduces on ts_hammertime (bots + player) on a stable machine; attach a REAL gdb (`gdb -p <pid>`
+   the live server, or run `hlds_linux` directly under gdb — the `hlds_run -debug` wrapper does NOT attach gdb),
+   `handle SIGSEGV stop`, get `bt`. Suspect (crash-review dossier `findentity_crash.md`): rapid WorldGun
+   create→settle→free edict churn feeding rcbot's cached pickup pointers.
+2. **doors.cpp breakable-glass playtest `#4`** — cont.90 fix, still unplaytested (needs the user).
+3. **Broad audit.py/coverage.py parity sweep `#6`** — the standing structural sweep (name-match all
+   files→classes→methods→members→globals→free-fns vs the original; MISSING=re-RE, EXTRA=drift). See
+   `reference/coverage/REPORT.md` + `RECONSTRUCTION_COVERAGE.md` (method-completeness, least-complete first).
+4. **Floating held weapons (remote players)** — RE proved the per-weapon model DATA is faithful; the float is a
+   runtime remote-player `pev->sequence`==0 (CTSAnimation body-pose) issue. Needs a runtime probe (dump remote
+   `pev->sequence` + `m_szAnimExtention` per weapon) + user visual confirm. Dossier `floating_weapons.md §6`.
+   **DO NOT change `pszPlayerModel`/`pev->body`.**
+5. **TraceAttack follow-ups (`// VERIFY` in `dlls/player.cpp`)** — the roll-dodge i-frame ×0.7 (player+0x524) and
+   the early-return damage gate (time < player+0x71c) are not yet modeled; and the full TraceAttack presentation
+   (gmsgTSTakeDamage report, kevlar/hit/pain sounds) is a separate pass (`traceattack.c` has the whole function).
+6. **`cl_thirdtransparency` gate + 8 more client-display cvars** (`cl_gore`/`cl_fx`/`cl_motionblur`/`cl_wavedetail`/
+   `cl_solidcross`/`cl_showequipment`/`cl_thirdpersonswitch`/`cl_laser`) registered-but-unread — need client.dll
+   RE to wire. `cvar_settings_audit.md` fix 2. (We read `cl_lasercolor` where the .scr uses `cl_laser`.)
+7. **Push the 13 local commits** after the user has playtested (the user decides — do NOT push unprompted).
+
+### ⚠️ SERENA GOTCHA (unchanged — critical)
+Read the ledger via the **Read tool on `.serena/memories/ledger.md`**. Do **NOT** `read_memory("ledger")` via the
+Serena MCP — it returns one giant single-line JSON (`{"result":"…"}`, now ~490 KB) that overflows the read limit.
+If you must, `jq -r '.result' <savedfile>`. **First job when picking up: append your ledger entry** (I already
+wrote cont.92/cont.93; you write cont.94).
+
+### 💬 MESSAGE TO HAND THE USER (paste to the next agent so it can consult me)
+> You're picking up mod-ts as the orchestrator on branch `restructure-source-parity`. Read `HANDOFF.md`
+> top-down — the **cont.93 START-HERE block** is your brief (cont.90/cont.89 below it are the same method).
+> Read the ledger with the **Read tool on `.serena/memories/ledger.md`** — do NOT `read_memory("ledger")` via
+> Serena MCP, it returns one ~490 KB single-line JSON that overflows. **First job:** append a cont.94 ledger
+> entry. The cont.89–cont.93 orchestrator (me) is **available for consult** — ask the user to relay a question
+> before re-RE'ing anything I already covered (the damage model / TraceAttack @0x901cc, the death drop, the
+> shotgun clientdata pack, the akimbo cluster, the breakable glass); my full RE is in the commit messages, the
+> `reference/dossiers/cont91/` dossiers, the preserved decompiles in `.../cont91/decompiles/`, and the persistent
+> Ghidra projects. The user is hands-on (playtests the ORIGINAL client vs our server) but not always available.
+> The live test server is deployed and running (rcon_password `lol`); the `game/` deletions are intentional.
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.90, 2026-07-07) — bug-driven parity via LIVE RE (weapon prediction + breakable glass, drop-in both directions)
 
 **You ARE the orchestrator — continue as if you never stopped.** Branch `restructure-source-parity`. The
