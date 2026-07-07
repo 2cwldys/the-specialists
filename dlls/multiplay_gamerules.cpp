@@ -779,6 +779,18 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 				if (pPlayer->m_pActiveItem)
 				{
 					killer_weapon_name = pPlayer->m_pActiveItem->pszName();
+					// TS: the unified weapon reports "tsgun" for the whole arsenal. The ORIGINAL
+					// PlayerKilled @0x795e4 instead names the ACTIVE weapon type (s_weapon_info+0x44 =
+					// pszName, e.g. "Beretta 92F") so the kill feed shows the real gun, not "tsgun". The
+					// weapon_/monster_/func_ stripping below is a no-op on these prefix-less names, and a
+					// kung-fu/coldcock kill is still overridden to "Kung Fu"/" Stock" further down.
+					CTSGun* pGun = GetPlayerTSGun(pPlayer);
+					if (pGun && (CBaseEntity*)pGun == (CBaseEntity*)pPlayer->m_pActiveItem)
+					{
+						const s_weapon_info* wi = get_weapon_info((tsweapon_t)pGun->m_weaponType);
+						if (wi && wi->pszName)
+							killer_weapon_name = wi->pszName;
+					}
 				}
 			}
 			else
