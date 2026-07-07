@@ -2205,6 +2205,30 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 						// The akimbo LEFT barrel clip rides cd->ammo_nails (cd+0x70) instead (cont.89 akimbo dossier).
 						cd->ammo_nails = it.leftClip;
 						cd->vuser1.z = (float)it.active;   // cd+0x1b4 — ACTIVE attachments (laser/flash toggled)
+						// cd+0x1c0 = vuser2.z is the HOLD-POSITION stance (item+0x2c). The ORIGINAL client
+						// re-seeds activeItem+0x2c from this in HUD_WeaponsPostThink (client.dll FUN_10003830,
+						// m_iId==0x10 branch: cd+0x1c0 -> the weapon-status slot -> activeItem+0x2c) so the
+						// sideways/upright viewmodel stance PREDICTS. Without it the client's m_bHoldPosition
+						// floated (client predicts the toggle, server never reconciles it), so the stance
+						// blinked upright<->sideways every clientdata update. cont.89 clientdata dossier §4.
+						cd->vuser2.z = (float)(it.holdPosition ? 1 : 0);
+						// cd+0x6c (ammo_shells) carries the PAIRED akimbo/single variant's CLIP so the client
+						// can show/predict the PARKED variant's bar cell (the original @0xb0294 zeroes cd+0x6c
+						// then, from m_pActiveInfo: if iAkimboType!=-1 sends m_items[iAkimboType].clip; else if
+						// iSingleType!=-1 && !=active sends m_items[iSingleType].clip). WITHOUT this the original
+						// client had no parked-variant clip → the akimbo/single bar cell stayed -1/red. This is
+						// SEPARATE from the WStatus bar message. cont.89 clientdata dossier §4 (cd+0x6c was
+						// mislabeled "queued weaponanim"; it is the paired-variant clip). Repurposing ammo_shells
+						// is faithful — for a wielded tsgun (m_iId==0x10) the client reads cd+0x6c as this clip.
+						{
+							const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
+							if (awi->iAkimboType >= 0 && awi->iAkimboType < TSW_COUNT)
+								cd->ammo_shells = tsgun->m_items[awi->iAkimboType].clip;
+							else if (awi->iSingleType >= 0 && awi->iSingleType < TSW_COUNT && awi->iSingleType != wt)
+								cd->ammo_shells = tsgun->m_items[awi->iSingleType].clip;
+							else
+								cd->ammo_shells = 0;
+						}
 					}
 				}
 			}

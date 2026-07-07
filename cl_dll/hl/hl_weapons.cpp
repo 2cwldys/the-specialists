@@ -637,7 +637,24 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 				g_TSGun.m_fInReload = (from->client.vuser4[2] != 0.0f); // cd+0x1d8 = the RELOAD flag (not leftClip)
 				it.leftClip = (int)from->client.ammo_nails;            // cd+0x70 = akimbo LEFT barrel clip
 				it.active = (int)from->client.vuser1[2];
+				it.holdPosition = (from->client.vuser2[2] != 0.0f);   // cd+0x1c0 = hold-position stance
+				g_TSGun.m_bHoldPosition = it.holdPosition;            // seed the PREDICTED base (UpdateActivePointers
+				                                                      //   ran above off the stale item) so SecondaryAttack
+				                                                      //   toggles from the server truth -> no stance blink
 				it.owned = true; // the wielded item is owned (predicted-event gate)
+				// cd+0x6c (ammo_shells) = the PAIRED akimbo/single variant's clip (server pack @0xb0294). Store
+				// it back into the parked variant's clip so our client knows it for the bar/prediction — the
+				// inverse of the server pack, completing drop-in parity vs the ORIGINAL server. [[dropin-both-directions]]
+				{
+					const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
+					int paired = -1;
+					if (awi->iAkimboType >= 0 && awi->iAkimboType < TSW_COUNT)
+						paired = awi->iAkimboType;
+					else if (awi->iSingleType >= 0 && awi->iSingleType < TSW_COUNT && awi->iSingleType != wt)
+						paired = awi->iSingleType;
+					if (paired >= 0)
+						g_TSGun.m_items[paired].clip = (int)from->client.ammo_shells;
+				}
 			}
 		}
 	}

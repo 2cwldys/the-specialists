@@ -367,7 +367,13 @@ void CTSGun::LoadActiveFromItem()
 	const TSItem &it = m_items[m_weaponType];
 	m_iClip = it.clip;
 	m_fireMode = it.mode;
-	m_bHoldPosition = it.holdPosition;
+	// @0x81030 (Deploy) CLEARS m_pActiveItem->holdPosition = '\0' — the sideways/upright weapon-hold
+	// orientation RESETS to upright on EVERY deploy/switch; it is NOT restored from the parked item. Ours
+	// used to restore it (m_bHoldPosition = it.holdPosition), so a weapon parked sideways redeployed
+	// sideways and the switch "blinked" the stance. LoadActiveFromItem is shared code, so clearing here
+	// fixes the server AND the client's predicted stance on the deploy frame (no blink). cont.89.
+	m_items[m_weaponType].holdPosition = false; // item+0x2c
+	m_bHoldPosition = false;
 	m_burstOrPhase = 0; // holster cleared the item's burst/pump-phase slot (@0x85698)
 	m_fInSpecialReload = it.pumpToggle; // restore the parked rack/barrel step
 }
@@ -1064,6 +1070,18 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	}
 
 	m_iClip--;
+	// @0x824a4 StandardFire: a single that HAS an akimbo variant mirrors its shot into the parked akimbo —
+	// decrement the akimbo's TOTAL clip and set its leftClip = the single's (decremented) clip, clamped >=0.
+	// This is the reverse of AkimboFire's single-mirror (2305); without it, draining the single left the
+	// parked akimbo stuck at N/N. The original gates the pair under !InfiniteClips; we mirror our own
+	// (unconditional) single decrement so the two stay in lockstep. cont.89.
+	if (wi->iAkimboType >= 0 && wi->iAkimboType < TSW_COUNT)
+	{
+		TSItem& ak = m_items[wi->iAkimboType];
+		ak.clip--;                 // item[iAkimboType]+0x04 (field_0x118)
+		ak.leftClip = m_iClip;     // item[iAkimboType]+0x1c (field_0x130) = the single's live clip
+		if (ak.clip < 0) ak.clip = 0;
+	}
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH; // 3rd-person muzzleflash on the player model
 	// (the 3rd-person shoot_ body pose is set by CTSGun::Fire's direct Animate call — RE Fire@0x71c78 — not
 	// here; TS's SetAnimation is an empty stub, so we don't route through it.)
@@ -2474,8 +2492,12 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 		const int owned = m_items[t].owned ? 1 : 0;
 		// the live active clip is in m_iClip, not yet synced into its item
 		int clip = owned ? ((t == m_weaponType) ? m_iClip : m_items[t].clip) : 0;
-		if (clip < 0) clip = 0; // a bar clip is never negative (the original's slot+0x04 isn't)
-		const int state = owned ? clip : -1;
+		// Send the RAW clip byte. MELEE (kung-fu) has clip -1 (WEAPON_NOCLIP); the original writes it raw
+		// (-1 -> byte 0xFF = 255), and the client reds a cell only when clip < 1, so 255 renders NORMAL (not
+		// red). Clamping <0 to 0 (the old "a bar clip is never negative" assumption) made kung-fu red. Guns
+		// are always >=0 so they're unaffected. cont.89 kung-fu-red fix.
+		clip &= 0xFF; // -1 -> 255; guns unchanged (0..~64)
+		const int state = owned ? clip : -1; // clip is 0..255 here (never -1), so owned != not-owned sentinel
 		if (state == m_iClientWStatus[t])
 			continue;
 		m_iClientWStatus[t] = state;
