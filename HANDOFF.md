@@ -47,6 +47,172 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.90, 2026-07-07) — bug-driven parity via LIVE RE (weapon prediction + breakable glass, drop-in both directions)
+
+**You ARE the orchestrator — continue as if you never stopped.** Branch `restructure-source-parity`. The
+previous orchestrator (**cont.89/cont.90, me**) is *available for consult* — see the message to hand the user.
+The user is hands-on: they playtest, keep the ORIGINAL TS running under Proton/Wine for you to gdb live
+(`scripts/live.py`), and deploy to the **Linux hlds64 rig** (so `game/ts/` worktree deletions are INTENTIONAL —
+ignore them). Read the cont.89 block below AND this one; they're the same method.
+
+### What cont.90 shipped (all committed, all confirmed in-engine: ORIGINAL hl.exe client ↔ OUR ReHLDS server)
+Method every fix followed: reproduce → RE the original (typed Ghidra + MCP) → **when static RE is uncertain,
+LIVE-TRACE the original with `scripts/live.py`, don't guess** → implement in the shared `dlls/`+`cl_dll/` code
+so BOTH libs move → build both → user playtests. Commits (newest→oldest):
+- **`48c32e1` breakable-glass shatter** — the big one. The `gmsgTSCreateDebris` ("TSFrags") shower was wrong
+  in ~6 ways, each found by decompiling `CBreakable::Die @0x752e0` / `CBreakable::TraceAttack @0xc1060` / the
+  client `FUN_10047cb0`+`FUN_1004bd50` AND live-tracing the original server's emitted values + the client's
+  received params. Root causes: (1) wire field order swapped — the payload is `[origin][size][material]
+  [impact POINT][DIRECTION][bitsDamageType(LONG)][velMag]`; we sent `[dir][centre]`. (2) The 4-byte field is
+  **NOT a sprite index — it's the killing hit's `bitsDamageType`**; the client resolves `sprites/glassfrag.spr`
+  BY NAME and uses this only to pick the velocity branch. We sent a SHORT model index → `READ_LONG` ate 2
+  bytes of velMag → velMag read as 0 → static/slow. (3) **Two velocity branches** keyed on `(dmgType &
+  0x8000002)`: bullets (`DMG_BULLET 0x2`) → SCATTER (`RANDOM(-9,9)` per axis + a bias weighted by `1/(dist
+  fragment→impact point)`), else → tight forward cluster. We only had cluster → bullets looked like the
+  original's *knife* shatter. (4) dir/point are the exact killing hit's, stored in `TraceAttack`
+  (`m_vecShatterDir` +0x104, `m_vecShatterPoint` +0xf8), not the stale global `g_vecAttackDir`. (5) `velMag =
+  the killing shot's damage` (glass `local_474`=1), **×8 when bit `0x2000000` set** (was `150·dmg`, ~10× fast).
+  (6) The ×8 bit = `ShootBulletsPlayer`'s `iMode==1`, sourced from `weapon_info+0x20` (our `iKnifeType`); EVERY
+  SHOTGUN sets it (`Write_benellim3/mossberg/sawedoff/spas12/usas12`), so shotguns propel glass, other guns 1×.
+  Files: `dlls/func_break.{h,cpp}`, `dlls/doors.cpp`, `dlls/ts_weapon_info.cpp`, `cl_dll/ts_debris.cpp`.
+- **`a7651cd` akimbo uzi deploy** — `s_drawSeq[16]` pointed at `v_uzi_akimbo.mdl` seq 2 = `left_idle` (a
+  one-uzi idle) instead of seq 4 = `akimbo_draw`. RE'd by dumping the model's sequence names. `dlls/ts_gun.cpp`.
+- **`7ca23bf` drop-in prediction parity** — 5 fixes in the clientdata **vuser channel** (the original client
+  reads predicted weapon state from `cd->vuser*`/`ammo_nails`, verified against DLL `UpdateClientData @0xb0294`
+  + client `HUD_WeaponsPostThink FUN_10003830`): holdPosition on `cd->vuser2.z` (was never packed → orientation
+  blink); orientation **resets on weapon switch** (`Deploy @0x81030` clears `item+0x2c`; we were restoring it);
+  akimbo/single **parked bar clip** ships on `cd->ammo_shells` (cd+0x6c = the paired-variant clip, NOT a sprite —
+  the dossier §4 mislabeled it); kung-fu bar cell **red** = we clamped the melee clip (-1) to 0 (client reds
+  clip<1) — send the raw byte (-1→255); **single→akimbo fire mirror** (`StandardFire @0x824a4` decrements the
+  parked akimbo's clip). `dlls/client.cpp`, `dlls/ts_gun.cpp`, `cl_dll/hl/hl_weapons.cpp`.
+
+### ⚠️ NEXT / OPEN (do these; nothing here is blocked except where noted)
+- **`FindEntityByString` server CRASH with metamod/rcbot bots.** Surfaced early this session. gdb caught it
+  (`__strcmp_avx2` ← `FindEntityByString` ← our `hl.so`, corrupt stack `#3 0x1 #4 0x0` = tail-call). The user
+  confirms **rcbot runs fine for days on `valve`** → it's a **TS-specific entity interaction, not rcbot**. My
+  static audit of TS `FIND_ENTITY_BY_STRING`/classname/targetname sites came up CLEAN (all literals/ALLOC_STRING/
+  guarded), so it's likely a **use-after-free** (a `UTIL_Remove`'d TS entity still iterated → strcmp a freed
+  classname). **To pin it: run the rig WITH metamod (`scripts/setup-rehlds-mod.sh`, NO `NOMETAMOD`) under the
+  gdb wrapper** (see cont.89 "BUILD + RUN" block) and let bots run; the wrapper dumps the faulting caller +
+  string when it trips. For weapon/glass playtests meanwhile, `NOMETAMOD=1 scripts/setup-rehlds-mod.sh` (no
+  bots) is stable.
+- **Unpushed:** the entire cont.89 + cont.90 commit series is LOCAL-only (`git log origin/…-parity..HEAD`).
+  Push when the user asks.
+- **`doors.cpp` breakable-glass path is UNPLAYTESTED** (marked `// UNPLAYTESTED` in `CBaseDoor::TraceAttack`).
+  It now mirrors `func_break` Die but no map with a breakable-glass door was shot.
+- **Resume the broader drop-in/parity sweep** (cont.88 pickup, below): run `audit.py`/`coverage.py`, close the
+  MISSING/INVENTED diffs.
+
+### 🎯 THE PARITY MANDATE (the user's law — reread the cont.89 block too; this is the SAME method with cont.90 emphasis)
+**Goal: DROP-IN either direction.** Our client vs the ORIGINAL server AND our server vs the ORIGINAL client must
+behave **identically and compatibly**. The contract is the EXTERNAL interface (engine-facing C API + the
+client↔server protocol: user-message NAMES + WIRE FORMATS, event names + param packing, command names, cvar
+names) + behaviour. The internal C++ ABI is NOT a target — but we DO mirror the original's **structure** so the
+machine-checkable inventory matches 1:1. Hard rules the user restated this session:
+- **The inventory must match 1:1 — files → classes → methods → members → globals → free functions.** Nothing
+  the original has that we lack; nothing we invented the original doesn't have. A MISSING member/global/method/
+  file = a **hidden-logic gap → re-RE it** (drive `audit.py` to N/N). An INVENTED one = drift → review/remove.
+  Down to the member/global level. This is NOT noise — a mismatch is always a SIGNAL. (memories:
+  `members-globals-signal-hidden-logic`, `inventory-then-refactor-goal`.)
+- **Name-match the original.** Our class/method/member/file names should be the ORIGINAL's — coverage/audit
+  match BY NAME; `filemap.py` recovers the original `.cpp` per function. A renamed symbol reads as a gap.
+- **The logic is often ALREADY implemented — MOVE/RENAME it, don't rewrite.** Frequently the behaviour exists
+  but in the wrong place / under a different name / on the wrong member. cont.90 archetypes: the akimbo/single
+  clip mirror already half-existed (only the reverse direction was missing); the `iMode==1` shotgun-glass code
+  existed but was tagged "no shipping caller" — the caller (shotgun `iKnifeType`) was just defaulted to 0.
+- **If they do it another way, MIMIC THEIRS.** Even when our way "works," drop-in needs the exact mechanism +
+  wire (which side computes/sends what). Verify which side does what FIRST. cont.90 archetype: the glass velMag
+  field size (SHORT vs LONG) and the field's *meaning* (dmgType, not sprite index) had to match byte-for-byte.
+- **The decompile is "complete" but bugs surface adjacent gaps.** The server `.so` was fully symboled and
+  inventoried EARLY — yet nearly every cont.90 fix revealed a neighbouring MISSING/INVENTED (the paired-clip
+  field, the velocity branch, the shotgun bit). **FLAG it (tell the user + `// VERIFY` in code + ledger), DON'T
+  ignore it, but FINISH the current issue first, then report.** (memory: `flag-unfound-re-early`.)
+- **Assets must ALL be wired.** Every model/sprite/sound/sequence/event referenced inside a decompile must be
+  referenced in OUR code (precached + played). cont.90 hit this twice: `v_uzi_akimbo.mdl` seq 4 `akimbo_draw`
+  (wrong `s_drawSeq`) and `sprites/glassfrag.spr` (client resolves by name). Recover per-entity asset lists with
+  `scripts/coverage/precache.py`, grep decompiles for asset-path strings + event names, diff vs our
+  `PRECACHE_*`/`PLAYBACK_EVENT`/`SetModel`. A missing asset = an un-reconstructed code path → re-RE it.
+- **Sweep the ~173 `VERIFY`/`TODO`/`SLICE`/`FIXME` comments** (`grep -rn 'VERIFY\|TODO\|SLICE\|FIXME' dlls cl_dll`)
+  — known-uncertain spots; when you touch an area, resolve its VERIFYs against the binary. cont.90 resolved
+  several (glass velMag "VERIFY: 150 guess", the `iMode==1` "no shipping caller"). Recurring RE traps live in the
+  Serena memories: `defer-setter-without-consumer`, `weapon-table-verify-source`, `dead-code-path-gravity-trap`,
+  `embedded-object-offset-blindness`, `stock-member-before-inventing`, `base-sdk-divergence-check`.
+
+### 🔬 THE LIVE-RE LOOP (cont.90's workhorse — when static RE is uncertain, TRACE, don't guess)
+This session's biggest lesson: **the server `.so` decompile is complete, but "reading it correctly" repeatedly
+dead-ended on packed calling conventions, mislabeled fields, and the-branch-you're-on. The live trace settled
+every one.** The user KEEPS THE ORIGINAL RUNNING (`hl.exe` under Proton — listen server = mp.dll server +
+client.dll client). Use it as a FIRST-CLASS tool:
+- **`scripts/live.py`** drives the running original: `pid` / `base <module>` / `resolve` / `bt` /
+  `read <module> 0xRVA [f|d|u|p]` / `readabs` / `watch <mod|abs> 0xRVA --go "msg"` / `break … --go`. A
+  hardware `watch`/`break` runs BACKGROUNDED, prints `>>> ARMED`, blocks till it trips, then resolves the
+  backtrace. `--go` + a `timeout N gdb -p <pid> -batch -x script.gdb` is the pattern for a custom capture.
+- **The definitive cont.90 pattern — break at a client function entry and read its args off the stack**
+  (`__cdecl`: `param_n @ [esp + 4 + 4*(n-1)]`; `__thiscall`: `this` in `$ecx`). e.g. breaking `FUN_10047cb0`
+  (glass spawn) at `client.dll base + 0x47cb0` and reading `param_8/9/10` (velocity dir), `param_14` (dmgType),
+  `param_15` (velMag) PROVED the direction was fine but velMag=0 — which no static reading had caught. Do the
+  SAME thing on OUR server (user connects to the rig) to compare our emitted values vs the original's.
+- **Instrument OUR server** with temporary `ALERT(at_console, "[TAG] …")` (guard with `#ifndef CLIENT_DLL`),
+  rebuild server-only, `-condebug` writes to `<rig>/ts/qconsole.log`; truncate it before a capture. This showed
+  our WStatus/vuser emissions exactly. **REMOVE all debug before committing** (grep your tags; note: a multi-line
+  `ALERT(...)` won't be fully removed by `sed '/TAG$/d'` — delete the whole statement with Edit).
+- **`scripts/binmap.py <Class::Method>`** resolves a non-exported `.so` name → live `mp.dll` RVA to break on.
+  `mp.dll` has 159 typed MSVC exports (`recovered/ghidra/mpdll`) — readable `Class::Method` to name a live RVA.
+- Recipe each session: **find the live PID (it changes): `python3 scripts/live.py pid`** (pick the real `hl.exe`,
+  the big-RSS Wine proc, NOT the launcher — `pgrep -f 'Half-Life/hl.exe'` also matches the reaper/wrapper). Ask
+  the user to reproduce the exact action; NEVER drive xash/xdotool yourself — give a NUMBERED protocol
+  (memories: `user-drives-playtests`, `live-original-ts-debuggable`, `no-busywait-loops`).
+
+### 🛠️ GHIDRA / RE TOOLCHAIN (full detail in CLAUDE.md §4/§4a/§4b — the short version)
+- **Server decompile (typed):** `scripts/ghidra/re.sh <Class|Ghidra-addr>` (Ghidra addr = `nm` addr + 0x10000).
+  Builds the ApplyInventory-typed `re` project (typed `this`/args/`pev->`/vtable). `re.sh refs <Class>` /
+  `re.sh vrefs <Method>` = direct / virtual callers. `re.sh members` regenerates member skeletons. `re.sh
+  export <Class>` writes to `recovered/decomp/`.
+- **Client / mp.dll decompile:** `scripts/ghidra/dc.sh <client|mp|server> 0x<rva|addr>` (client/mp = PE
+  imagebase `0x10000000+RVA`; the `.so` = addr+0x10000). `client.dll` has no symbols/RTTI — resolve by name/xref.
+- **Ghidra MCP** (`mcp__ghidra-mcp__*`) — interactive `decompile_function`/`get_xrefs_to`/`get_function_callers`
+  on the SAME typed `re` project, ~1s, no JVM spin-up. FIRST reach for "read this + who calls it." Attach via
+  `scripts/ghidra/mcp-up.sh` (open `recovered/ghidra/re/re.gpr` + `ts_i386.so` in the GUI, then
+  `connect_instance`/`open_program`). ⚠ **`.lock`:** while the GUI holds `re`, you CANNOT run `re.sh`/`dc.sh
+  server` (headless lock) — drive via MCP (reads only) or close the program first.
+- **objdump for the last mile.** cont.90 used `objdump -d reference/ts_i386.so | grep 'c7 4. 20 01 00 00 00'`
+  (movl $1, 0x20(reg)) to find EVERY weapon setting `field_0x20 = 1` in one shot (the 5 shotguns). Map an addr
+  → function with a small python bisect over `nm` output. The `.data` pointers that read as 0 in the file
+  (vtables/cvar_t/message names) resolve with `readelf -W -r`.
+- **Model assets:** dump a `.mdl`'s sequence names by parsing `studiohdr_t` (`numseq @164`, `seqindex @168`,
+  each `mstudioseqdesc_t` 176 bytes, `label[32]@0`). This nailed the uzi `akimbo_draw` fix. Models live under
+  `~/.local/share/Steam/steamapps/common/Half-Life/ts/models/` and `recovered/ts3-linux/ts/models/`.
+- **`.rodata` FP constants:** file offset = RVA (1:1 for these binaries — the string `paddr==vaddr-0x10000000`);
+  read floats with `struct.unpack_from('<f', data, rva)`. This recovered the glass velocity constants
+  (`_DAT_1007a870=0.5`, `_DAT_1007a890=15`, `_DAT_10079e88=10`, epsilon `_DAT_10079e58=1`).
+
+### 👥 SUBAGENT HINT (you're the orchestrator; delegate the self-contained work)
+This session was driven mostly SOLO in the main loop because the fixes were tightly coupled (live-trace →
+implement → user-playtest → re-trace) and needed the user in the loop each round — that stays in the MAIN loop.
+Delegate when work is self-contained: a **`general-purpose`** subagent for "RE class X + implement the fix"
+(give it the class/bug + point it at `re.sh`/`dc.sh`/the MCP + the live-trace recipe + "build BOTH libs, don't
+touch dlls/cl_dll unless implementing, remove any debug"); **`fork`** to inherit your full context for a tightly-
+coupled continuation; **`Explore`** for read-only fan-out searches; **`Plan`** for a design pass. Keep the
+coverage/audit metric + final integration + the user-facing report in the MAIN loop. Launch parallel independent
+agents in ONE message.
+
+### 🗒️ SCRATCHPADS / RE OUTPUT (disk-durable, GITIGNORED — read before re-RE'ing an area)
+`scratchpad/` + `recovered/` (per-class decompiles `recovered/decomp/`, the persistent Ghidra projects
+`recovered/ghidra/{re,clientdll,mpdll,client,mpdll,server}`) persist on THIS box but a fresh clone won't have
+them. **cont.90 did NOT write new scratchpad files** — its RE lives in this HANDOFF block + the commit messages
+(which are deliberately detailed with the exact addresses/offsets) + the ledger. The persistent Ghidra `re`
+project already holds all the typed decompiles I read. If you generate loose RE notes, drop them in
+`scratchpad/` and REFERENCE them from a code comment or here so the next agent finds them. The committed durable
+writeups live in `reference/dossiers/**` and `reference/*.md`.
+
+### ⚠️ SERENA LEDGER GOTCHA (read it right)
+Read the ledger with the **Read tool on `.serena/memories/ledger.md`** (newest on top). Do **NOT**
+`read_memory("ledger")` via the Serena MCP — it returns one giant single-line JSON (`{"result":"…"}`, ~480 KB)
+that overflows the read limit. If you must, `jq -r '.result' <savedfile>`. **Append a cont.90 ledger entry** for
+this session (glass + prediction fixes) — I ran out of context before doing it; keep it factual (what was
+reconstructed, how verified, what's next). No task-list tool entries were created this session (the work was
+linear); if you open tasks, mirror them here.
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.89, 2026-07-06) — DROP-IN both directions (movement/weapon/reload prediction + akimbo cluster)
 
 **You ARE the orchestrator — continue as if you never stopped.** Branch `restructure-source-parity`. The
