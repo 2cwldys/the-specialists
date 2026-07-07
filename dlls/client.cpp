@@ -2178,20 +2178,35 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 						CTSGun* tsgun = (CTSGun*)gun;
 						const int wt = tsgun->m_weaponType;
 						const TSItem& it = tsgun->m_items[wt];
+						const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
 						// cont.89 reload: the CLIENT needs the active caliber's RESERVE to PREDICT Reload()
 						// (its refill reads m_ammoReserve[caliber], and Reload early-returns when reserve<1).
-						// The original ships it here in cd+0x1bc = vuser2.y (UpdateClientData @0xb0294). Without
+						// The original ships it here in cd+0x1bc = vuser2.y (UpdateClientData @0xa0294). Without
 						// it the client's reserve stayed 0 → predicted reload no-op → no anim + post-reload flicker.
 						{
-							const int cal = get_weapon_info((tsweapon_t)wt)->iCaliber;
+							const int cal = awi->iCaliber;
 							cd->vuser2.y = (cal > 0 && cal < TS_NUM_CALIBERS) ? (float)tsgun->m_ammoReserve[cal] : 0.0f;
 						}
-						cd->vuser2.x = (float)it.bloody;         // cd+0x1b8 — bloody-blade state
+						// cd+0x1b8 (vuser2.x) = the LIVE active item+0x8 (RE UpdateClientData @0xa0294:
+						// *(int*)(m_pActiveItem+8)). ONE original byte, reused per weapon family: the pump/shell
+						// RELOAD phase + the burst-round counter (+ grenade cook) live in our m_burstOrPhase for
+						// guns; the bloody-blade flag lives in it.bloody for blades. The original client re-seeds
+						// its predicted item+0x8 from this to run the shell-by-shell ShotgunReload phase machine —
+						// we were sending it.bloody (always 0 for a shotgun), so the original client NEVER saw the
+						// reload phase → the one-shell-at-a-time reload never predicted. cont.90.
+						const bool awBlade = (awi->iFireType == TSFT_KNIFE || awi->iFireType == TSFT_KATANA);
+						cd->vuser2.x = (float)(awBlade ? it.bloody : tsgun->m_burstOrPhase);
 						cd->vuser3.x = (float)wt;                // cd+0x1c4 — active weapon type (g_ActiveTSWeapon)
 						cd->vuser3.y = (float)tsgun->m_fireMode; // cd+0x1c8 — fire-mode (LIVE, not the parked it.mode
 						                                         //   — stale it.mode defaults SEMI, so full-auto fired like semi)
 						cd->vuser3.z = (float)it.attach;         // cd+0x1cc — EQUIPPED attach mask (sil/laser/flash/scope)
-						cd->vuser4.x = (float)it.altMode;        // cd+0x1d0 — alt-mode
+						// cd+0x1d0 (vuser4.x) = the LIVE active item+0x24 (RE @0xa0294: *(byte*)(m_pActiveItem+0x24)).
+						// ONE original byte: the pump-shotgun's fire/RACK toggle (our m_fInSpecialReload) for a pump
+						// gun; the akimbo barrel side (it.altMode) otherwise. We were sending it.altMode for the pump
+						// shotgun (always 0), so the original client's ShotgunFire never entered the RACK half → it
+						// fired every trigger pull instead of fire→pump→fire→pump. cont.90.
+						const bool awPump = (awi->iFireType == TSFT_PUMP);
+						cd->vuser4.x = (float)(awPump ? tsgun->m_fInSpecialReload : it.altMode);
 						cd->vuser4.y = (float)tsgun->m_iClip;    // cd+0x1d4 — active clip (LIVE m_iClip, not parked
 						                                         //   it.clip — the parked copy is stale during firing → 20→19→20 flicker)
 						// cd+0x1d8 = vuser4.z is the RELOAD flag, NOT leftClip. The ORIGINAL client re-seeds
@@ -2221,7 +2236,6 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 						// mislabeled "queued weaponanim"; it is the paired-variant clip). Repurposing ammo_shells
 						// is faithful — for a wielded tsgun (m_iId==0x10) the client reads cd+0x6c as this clip.
 						{
-							const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
 							if (awi->iAkimboType >= 0 && awi->iAkimboType < TSW_COUNT)
 								cd->ammo_shells = tsgun->m_items[awi->iAkimboType].clip;
 							else if (awi->iSingleType >= 0 && awi->iSingleType < TSW_COUNT && awi->iSingleType != wt)

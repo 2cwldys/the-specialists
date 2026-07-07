@@ -623,16 +623,25 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 			g_TSGun.UpdateActivePointers();
 			if (wt >= 0 && wt < TSW_COUNT)
 			{
+				const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
 				// cont.89 reload: seed the active caliber's RESERVE so the client can PREDICT Reload()
 				// (its refill reads m_ammoReserve[caliber]; without this it stays 0 → reload no-ops).
-				const int cal = get_weapon_info((tsweapon_t)wt)->iCaliber;
+				const int cal = awi->iCaliber;
 				if (cal > 0 && cal < TS_NUM_CALIBERS)
 					g_TSGun.m_ammoReserve[cal] = (int)from->client.vuser2[1];
 				TSItem& it = g_TSGun.m_items[wt];
-				it.bloody = (int)from->client.vuser2[0];
+				// cont.90: vuser2.x = LIVE item+0x8 (reload/burst PHASE for guns, bloody for blades); vuser4.x =
+				// LIVE item+0x24 (pump RACK toggle for pump guns, akimbo barrel otherwise). Inverse of the server
+				// pack in dlls/client.cpp — re-seed the field our prediction reads so ShotgunFire alternates and
+				// ShotgunReload runs shell-by-shell against the ORIGINAL server too. [[dropin-both-directions]]
+				const bool awBlade = (awi->iFireType == TSFT_KNIFE || awi->iFireType == TSFT_KATANA);
+				const bool awPump  = (awi->iFireType == TSFT_PUMP);
+				if (awBlade) it.bloody = (int)from->client.vuser2[0];
+				else         g_TSGun.m_burstOrPhase = (int)from->client.vuser2[0];
 				it.mode = (int)from->client.vuser3[1];
 				it.attach = (int)from->client.vuser3[2];
-				it.altMode = (int)from->client.vuser4[0];
+				if (awPump) g_TSGun.m_fInSpecialReload = (int)from->client.vuser4[0];
+				else        it.altMode = (int)from->client.vuser4[0];
 				it.clip = (int)from->client.vuser4[1];
 				g_TSGun.m_fInReload = (from->client.vuser4[2] != 0.0f); // cd+0x1d8 = the RELOAD flag (not leftClip)
 				it.leftClip = (int)from->client.ammo_nails;            // cd+0x70 = akimbo LEFT barrel clip
@@ -646,7 +655,6 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 				// it back into the parked variant's clip so our client knows it for the bar/prediction — the
 				// inverse of the server pack, completing drop-in parity vs the ORIGINAL server. [[dropin-both-directions]]
 				{
-					const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
 					int paired = -1;
 					if (awi->iAkimboType >= 0 && awi->iAkimboType < TSW_COUNT)
 						paired = awi->iAkimboType;
@@ -868,13 +876,18 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 			to->client.vuser4[1] = (float)g_TSGun.m_iClip;    // LIVE clip (matches server)
 			if (wt >= 0 && wt < TSW_COUNT)
 			{
-				const int cal = get_weapon_info((tsweapon_t)wt)->iCaliber; // reload reserve (matches server)
+				const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
+				const int cal = awi->iCaliber; // reload reserve (matches server)
 				if (cal > 0 && cal < TS_NUM_CALIBERS)
 					to->client.vuser2[1] = (float)g_TSGun.m_ammoReserve[cal];
 				const TSItem& it = g_TSGun.m_items[wt];
-				to->client.vuser2[0] = (float)it.bloody;
+				// cont.90: LIVE item+0x8 (phase for guns / bloody for blades) on vuser2.x, LIVE item+0x24
+				// (pump RACK toggle / akimbo barrel) on vuser4.x — matches the server pack in dlls/client.cpp.
+				const bool awBlade = (awi->iFireType == TSFT_KNIFE || awi->iFireType == TSFT_KATANA);
+				const bool awPump  = (awi->iFireType == TSFT_PUMP);
+				to->client.vuser2[0] = (float)(awBlade ? it.bloody : g_TSGun.m_burstOrPhase);
 				to->client.vuser3[2] = (float)it.attach;
-				to->client.vuser4[0] = (float)it.altMode;
+				to->client.vuser4[0] = (float)(awPump ? g_TSGun.m_fInSpecialReload : it.altMode);
 				to->client.vuser4[2] = (float)(g_TSGun.m_fInReload ? 1 : 0); // RELOAD flag (cd+0x1d8)
 				to->client.ammo_nails = (float)it.leftClip;                  // akimbo LEFT barrel (cd+0x70)
 				to->client.vuser1[2] = (float)it.active;

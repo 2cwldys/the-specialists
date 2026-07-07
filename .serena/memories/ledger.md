@@ -5,6 +5,98 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-07 (cont. 91) — DROP-IN pump shotgun: rack alternation + shell-by-shell reload (live active-item bytes on the wire)
+
+Original TS client vs OUR ReHLDS server. Two shotgun bugs, both a clientdata mis-pack found by decompiling
+the **original server's** `UpdateClientData` free function (`UpdateClientData__FPC7edict_siP12clientdata_s`
+@nm **0xa0294** — the cont.89 note's "0xb0294" was a typo). The active-weapon (id 0x10) branch packs the
+**LIVE active-item bytes** (`pItem = *(gun+0xcc)`), and we were shipping the wrong fragmented halves on two
+slots:
+- **vuser4.x (cd+0x1d0) = `*(byte*)(pItem+0x24)`** — the pump fire/**RACK toggle** (akimbo barrel otherwise).
+  We sent `it.altMode` (always 0 for a pump gun) → the original client's `ShotgunFire` never entered the rack
+  half → **fired every trigger pull** instead of fire→pump→fire→pump.
+- **vuser2.x (cd+0x1b8) = `*(int*)(pItem+0x8)`** — the pump/shell **RELOAD phase** (burst counter / grenade
+  cook / bloody-blade share the byte). We sent `it.bloody` (0 for a shotgun) → the client never saw the phase
+  → **no shell-by-shell reload** (open→insert→close never predicted).
+
+**Root cause = field fragmentation.** The original reuses ONE byte per weapon family (item+0x24 = pump toggle
+*or* akimbo barrel; item+0x8 = reload/burst phase *or* bloody), but our reconstruction split each into separate
+members (`m_fInSpecialReload`/`it.altMode`; `m_burstOrPhase`/`it.bloody`) and the wire shipped the wrong one.
+
+**Fix** (`dlls/client.cpp` server pack + symmetric `cl_dll/hl/hl_weapons.cpp` client read + write-back — both
+directions): send/read the LIVE byte, branching by `awi->iFireType` — PUMP → `m_fInSpecialReload` on vuser4.x;
+KNIFE/KATANA → `it.bloody` on vuser2.x, else the gun's `m_burstOrPhase`. Akimbo (vuser4.x=altMode) and blade
+(vuser2.x=bloody) paths unchanged; normal firing unchanged (both fields 0 when idle). Both libs build clean
+(GLIBC_2.14, `scripts/build.sh amd64 all`).
+
+**VERIFIED — user playtest, original TS client → our ReHLDS server (`ts_kissmeyerbasic`):** pump shotguns now
+alternate fire→pump→fire, and reload is shell-by-shell. Both fixed.
+
+**Adjacent gap flagged (not yet fixed — VERIFY next):** the original `UpdateClientData` writes
+**cd+0x1b0 (vuser1.y) = player+0x724 (m_iPowerups)**, but we send `m_flMeleeBar` there — a possible separate
+drift on the melee-bar / powerup channel. Also still open from the handoff: FindEntityByString metamod/rcbot
+bot crash; doors.cpp breakable-glass path unplaytested; cont.89/90/91 commits unpushed.
+
+## 2026-07-07 (cont. 90) — DROP-IN bug-driven parity: weapon prediction fronts + breakable-glass shatter (live RE)
+
+Continued the cont.89 drop-in mandate (our server ⇄ original hl.exe/client.dll) by fixing the bugs
+the last playtest surfaced, each RE-grounded (decompile + live gdb trace on the running original) and
+verified in-engine (original hl.exe client vs our ReHLDS server). All fixes in SHARED code so both
+directions move together.
+
+**Weapon-state prediction — 4 gaps in the clientdata weapon pack (`7ca23bf`, `CTSGun::UpdateClientData`
+@0xb0294):**
+1. **holdPosition on cd->vuser2.z (item+0x2c)** — the sideways/upright weapon-hold stance. The original
+   client reconciles it (HUD_WeaponsPostThink, cd+0x1c0→activeItem+0x2c); unpacked → the original client's
+   stance floated and the orientation blinked. Now packed + read back.
+2. **paired-variant clip on cd->ammo_shells (cd+0x6c)** — the PARKED akimbo/single variant's clip
+   (m_items[iAkimboType|iSingleType].clip) so the client shows/predicts the parked cell. We were sending
+   buckshot ammo there → parked bar cell rendered -1/red. **Corrects the cont.89 dossier mislabel of cd+0x6c
+   as "queued weaponanim".** Now packed + read back.
+3. **kung-fu bar cell red** — WStatus clamped the melee clip (-1, WEAPON_NOCLIP) to 0, which the original
+   client reds (clip<1). The original writes it RAW (-1 → byte 255 → not red). Send raw; keep change-detect
+   distinct from not-owned.
+4. **orientation resets on switch** — Deploy@0x81030 CLEARS m_pActiveItem->holdPosition every deploy; we
+   restored the parked value → a sideways-parked weapon redeployed sideways + blinked. Cleared in
+   LoadActiveFromItem (shared).
+   Plus **single→akimbo clip mirror**: StandardFire@0x824a4 mirrors a single's shot into its parked akimbo
+   (akimbo.clip--, akimbo.leftClip = single.clip, clamp ≥0). We only had the reverse (AkimboFire→single),
+   so draining the single left the parked akimbo stuck at N/N.
+
+**Akimbo uzi deploy flicker (`a7651cd`):** single LEFT-hand uzi shown ~1s before the akimbo idle. Root:
+`s_drawSeq[16]=2`, but in v_uzi_akimbo.mdl seq 2 = "left_idle" (one-uzi idle), not the draw — the akimbo
+draw is seq **4 "akimbo_draw"**. Recovery error unique to the uzi (2 is the SINGLE uzi's draw index,
+wrongly reused). Verified every other akimbo viewmodel's draw index correct (mk23=5, beretta=2, gold=2,
+fnh=1, skorpion=1). This closes the cont.89 "STILL OPEN: uzi deploy body flicker".
+
+**Breakable-glass shatter (`48c32e1`, gmsgTSCreateDebris "TSFrags" — CBreakable::Die@0x752e0 /
+TraceAttack@0xc1060 / client FUN_10047cb0):** the sprite-shower diverged in FIVE ways, all found by
+decompile + live-tracing the original server:
+- **Wire field order was wrong.** Correct msg = [origin][size][material][impact POINT][DIRECTION]
+  [bitsDamageType(**LONG**)][velMag]. We sent [direction][centre] + a **SHORT** model index — the SHORT
+  under-sent 2 bytes so the client's READ_LONG ate the velMag bytes → velMag read 0 → static/slow shards.
+- **The LONG is bitsDamageType, NOT a sprite index.** Client resolves sprites/glassfrag.spr by NAME; uses
+  the LONG only to pick the velocity formula. Server stores the killing hit's dmgType in TraceAttack
+  (m_iShatterDmgType +0x114) and Die sends it.
+- **Two velocity branches keyed on (dmgType & 0x8000002):** DMG_BULLET(0x2) → SCATTER (RANDOM(-9,9)/axis +
+  a 1/dist directional bias → majority forward, some back/down); else → tight forward cluster
+  RANDOM(dir·velMag·0.5, dir·velMag+15). We only had the cluster → bullets looked like the knife shatter.
+- **Direction/point are the exact killing hit's** (m_vecShatterDir +0x104, m_vecShatterPoint +0xf8, stored
+  in TraceAttack), not the stale global g_vecAttackDir.
+- **velMag = the killing shot's damage** (glass local_474=1), **×8 when bit 0x2000000 set** (was a 150·dmg
+  guess ~10× too fast; traced ~16-21 for a ranged bullet). The ×8 bit = ShootBulletsPlayer's iMode==1 =
+  weapon_info+0x20 (our iKnifeType); **every SHOTGUN sets it** (benellim3/mossberg/sawedoff/spas12/usas12) —
+  a shotgun blast propels glass. We had the iMode==1 code but the shotguns' field defaulted to 0.
+- **doors.cpp breakable-glass path fixed the same way** (still UNPLAYTESTED — see NEXT).
+
+**Verified:** both libs build clean (glibc 2.14, `scripts/build.sh amd64 all`); in-engine original hl.exe
+client vs our ReHLDS server (bullets scatter, knives cluster, shotguns propel).
+**NEXT / VERIFY:** (1) **FindEntityByString crash with metamod/rcbot bots** — TS-specific (rcbot fine on
+valve), likely a use-after-free of a UTIL_Remove'd TS entity still being iterated; run the rig with metamod
+under the gdb wrapper to catch the faulting caller. (2) **doors.cpp breakable-glass path is unplaytested.**
+(3) cont.89+cont.90 commits are UNPUSHED (local `restructure-source-parity` ahead of origin). Then resume the
+broad audit.py/coverage.py parity sweep.
+
 ## 2026-07-06 (cont. 89) — DROP-IN both directions: movement + weapon-state + reload prediction, fire cadence, akimbo cluster
 
 The whole cont.89 session was **drop-in compatibility** — our server must behave identically to the
