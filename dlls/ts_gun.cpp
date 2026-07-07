@@ -3202,17 +3202,19 @@ void TSDropWeaponsOnDeath(CBasePlayer *pPlayer)
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun)
 		return;
+	// RE CBasePlayer::Killed @0x7ed5c: the death scatter loops EVERY weapon type calling
+	// CBasePlayer::DropWeapon(type, 0), plus a SECOND DropWeapon(type, 0) when that type has an akimbo
+	// form (get_weapon_info(type).iAkimboType != -1). DropWeapon owns the akimbo -> TWO-base-singles
+	// throw + the arsenal removal/single-pair bookkeeping internally, and no-ops on an unowned or
+	// already-removed type — so a wielded AKIMBO correctly scatters TWO world guns. The old
+	// single-TSThrowWorldGun-per-owned-type dropped only ONE gun for an akimbo and bypassed the
+	// single/akimbo pair logic (the "something looks off" in the death drop). cont.91.
 	for (int type = 1; type < TSW_COUNT; type++)
 	{
-		if (!pGun->m_items[type].owned)
-			continue;
+		pPlayer->DropWeapon(type, 0.0f);
 		const s_weapon_info *wi = get_weapon_info((tsweapon_t)type);
-		if (!wi->pszWorldModel) // skip melee/things without a droppable world model
-			continue;
-		int clip = (type == pGun->m_weaponType) ? pGun->m_iClip : pGun->m_items[type].clip;
-		// Route through the same throw path as a live drop. The player is dead here, so ThrowWeapon
-		// takes its dead branch (random angles). VERIFY: scatter direction/feel vs the original.
-		TSThrowWorldGun(pPlayer, pGun, type, clip, 0.0f);
+		if (wi && wi->iAkimboType != -1)
+			pPlayer->DropWeapon(type, 0.0f);
 	}
 }
 
