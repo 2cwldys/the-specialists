@@ -602,8 +602,9 @@ void EV_TSColdCock(event_args_t* args)
 // Bullet-flyby "whizz" (RE client.dll FUN_100450c0 tracer path): when a round fired by SOMEONE ELSE
 // passes within a glaze radius of the LOCAL player, a random weapons/whizz1-5.wav cracks past your ear.
 // The original gates it on the perpendicular distance from the local view origin to the bullet line
-// (Heron's-formula area / base); we use the equivalent closest-point-on-segment distance. Your own
-// rounds never whizz you.
+// (Heron's-formula area / base) against _DAT_1007cccc = 75.0 (read from client.dll .rdata @0x1007cccc);
+// we use the equivalent closest-point-on-segment distance. Your own rounds never whizz you (FUN_100450c0
+// gates on shooter entindex != local player). cont.91: radius was 56 (guessed) -> 75 (RE'd constant).
 static void TS_BulletWhizz(int idx, const Vector& start, const Vector& dir)
 {
 	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
@@ -621,7 +622,7 @@ static void TS_BulletWhizz(int idx, const Vector& start, const Vector& dir)
 	if (t < 0.0f) t = 0.0f;
 	else if (t > 1.0f) t = 1.0f;
 	Vector closest = start + seg * t;
-	if ((p - closest).Length() < 56.0f) // glaze radius — a close near-miss
+	if ((p - closest).Length() < 75.0f) // glaze radius — RE'd _DAT_1007cccc (client.dll)
 	{
 		char w[24];
 		sprintf(w, "weapons/whizz%d.wav", gEngfuncs.pfnRandomLong(1, 5));
