@@ -657,6 +657,15 @@ static void compile_weapons_info()
   g_weaponInfo[TSW_KNIFE].iKnifeType = 6;
   g_weaponInfo[TSW_SEALKNIFE].iKnifeType = 7;
   g_weaponInfo[TSW_KATANA].iKnifeType = 8;
+  // The SHOTGUNS set info+0x20 = 1 (Write_benellim3/mossberg/sawedoff/spas12/usas12 in ts_i386.so). This
+  // field is the ShootBulletsPlayer iMode arg; iMode==1 ORs DMG bit 25 (0x2000000) into the bullet damage
+  // type. On glass that trips CBreakable's velMag = damage*8 (@0xc1060) — so a shotgun blast sends the shards
+  // flying, while every other gun stays damage-1×. (Recovered by objdump'ing every 'field_0x20 = 1' store.)
+  g_weaponInfo[TSW_BENELLIM3].iKnifeType = 1;
+  g_weaponInfo[TSW_USAS12].iKnifeType = 1;
+  g_weaponInfo[TSW_SPAS12].iKnifeType = 1;
+  g_weaponInfo[TSW_MOSSBERG].iKnifeType = 1;
+  g_weaponInfo[TSW_SAWEDOFF].iKnifeType = 1;
   g_weaponInfo[TSW_M61].iKnifeType = 4; // Write_m61 @0x77e0e: info+0x20 = 4 — the GrenadeIdle
                                         // throw gate (the grenade never spawned without it)
 

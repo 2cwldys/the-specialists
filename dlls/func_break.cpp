@@ -537,6 +537,15 @@ void CBreakable::Use(CBaseEntity* pActivator, CBaseEntity* pCaller, USE_TYPE use
 
 void CBreakable::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vecDir, TraceResult* ptr, int bitsDamageType)
 {
+	// @0xc1060: stash THIS hit's geometry on the breakable so Die (@0x752e0) sends the exact killing hit —
+	// the impact point + the normalized shot direction — instead of the stale global g_vecAttackDir. The
+	// client flies the glass shards ALONG m_vecShatterDir (see Die + cl_dll/ts_debris.cpp).
+	m_vecShatterPoint = ptr->vecEndPos;   // +0xf8 = TraceResult.vecEndPos (impact point)
+	m_vecShatterDir = vecDir.Normalize();  // +0x104 = normalized shot direction
+	// +0x110 velMag base = this hit's damage (×8 for the dive/melee bit 0x2000000). @0xc1060.
+	m_flShatterVel = (bitsDamageType & 0x2000000) ? flDamage * 8.0f : flDamage;
+	m_iShatterDmgType = bitsDamageType; // +0x114 — Die sends this; the client's velocity branch keys on it
+
 	// random spark if this is a 'computer' object
 	if (RANDOM_LONG(0, 1))
 	{
@@ -746,19 +755,15 @@ void CBreakable::Die()
 	// stock TE_BREAKMODEL gib model below. (CBreakable::Die @0x752e0 material case 0.)
 	if (m_Material == matGlass && gmsgTSCreateDebris != 0)
 	{
-		// VERIFY: the original's per-pane velocity base (CBreakable+0x110) is a runtime/keyvalue
-		// value not recovered statically — 150 is a grounded starting point (cf. the directed-gib
-		// 200 below); tune from playtest. The fragments fly forward along the bullet/attack dir.
-// Die's wire velMag = <local> x this+0x110 in the binary (the factor's writer is still
-		// un-RE'd) — scaled here by the KILLING BLOW's damage so a 300-dmg grenade blast shards
-		// far harder than a 20-dmg bullet (user-directed; exact original factor VERIFY).
-		float velMag = 150.0f * (m_flDieDamage > 30.0f ? m_flDieDamage / 30.0f : 1.0f);
-		if (velMag > 600.0f)
-			velMag = 600.0f;
+		// @0x752e0: velMag = local_474 * (CBreakable+0x110). For GLASS (material case 0) local_474 stays
+		// 1.0 (only metal/wood/flesh scale it), and +0x110 = the killing hit's damage (m_flShatterVel,
+		// stored in TraceAttack — ×8 for the dive/melee bit). So glass velMag = the shot's damage (~16-21
+		// for a ranged bullet), verified by a live trace of the ORIGINAL server's Die. Our old 150·dmg
+		// guess was ~10× too fast.
+		float velMag = m_flShatterVel;
 		// shatter direction = the bullet TRAVEL direction (away from the shooter). g_vecAttackDir
 		// points FROM the breakable TOWARD the attacker (that's why the gib code below uses
 		// -g_vecAttackDir), so negate it — otherwise the glass flew back at the shooter.
-		Vector vecShatter = g_vecAttackDir * -1.0f;
 		MESSAGE_BEGIN(MSG_PVS, gmsgTSCreateDebris, vecSpot);
 		WRITE_COORD(vecSpot.x);
 		WRITE_COORD(vecSpot.y);
@@ -767,13 +772,22 @@ void CBreakable::Die()
 		WRITE_COORD(pev->size.y);
 		WRITE_COORD(pev->size.z);
 		WRITE_BYTE(0); // material 0 = glass
-		WRITE_COORD(vecShatter.x); // shatter direction = bullet travel dir (away from shooter)
-		WRITE_COORD(vecShatter.y);
-		WRITE_COORD(vecShatter.z);
-		WRITE_COORD(vecSpot.x); // reference point (centre)
-		WRITE_COORD(vecSpot.y);
-		WRITE_COORD(vecSpot.z);
-		WRITE_SHORT(g_idGlassFrag);
+		// @0x752e0 wire order: triple 1 = the IMPACT POINT (member +0xf8 = TraceResult.vecEndPos), triple 2
+		// = the normalized shot DIRECTION (member +0x104). The client flies the shards along triple 2. We
+		// used to send them SWAPPED (dir first, centre second) — so the original client read our CENTRE as
+		// the velocity dir → the shards flew toward the pane's world position ≈ static across windows.
+		WRITE_COORD(m_vecShatterPoint.x); // triple 1 = impact point
+		WRITE_COORD(m_vecShatterPoint.y);
+		WRITE_COORD(m_vecShatterPoint.z);
+		WRITE_COORD(m_vecShatterDir.x);   // triple 2 = shatter direction (the shard velocity dir)
+		WRITE_COORD(m_vecShatterDir.y);
+		WRITE_COORD(m_vecShatterDir.z);
+		// @0x752e0 this LONG field is the killing hit's bitsDamageType (field_0x114), NOT a sprite index —
+		// the client looks up sprites/glassfrag.spr BY NAME and uses this only to choose the velocity
+		// formula: (dmgType & 0x8000002) set (bullets: DMG_BULLET 0x2) -> the SCATTER branch (RANDOM(-9,9)
+		// + a distance-weighted directional bias), clear -> the tight forward cluster. We were sending the
+		// model index here, whose bit pattern happened to clear the flag -> everything clustered forward.
+		WRITE_LONG(m_iShatterDmgType);
 		WRITE_COORD(velMag);
 		MESSAGE_END();
 

@@ -95,6 +95,16 @@ public:
 	// TS respawn state (net-new; not in the save table, matching the original). m_flRespawnTime < 0
 	// (the FGD default) = non-respawning, so stock breakables are unaffected.
 	float   m_flDieDamage = 0;            // transient — the last TraceAttack damage (shard-speed scale)
+	// Glass-shatter debris vectors, stored by TraceAttack (@0xc1060), read by Die (@0x752e0). The original
+	// keeps these as breakable MEMBERS (not the global g_vecAttackDir) so Die sends the exact killing hit's
+	// geometry. m_vecShatterDir is the DIRECTION the client flies the shards along (Die's 2nd coord triple).
+	Vector  m_vecShatterPoint;            // +0xf8 — the impact point (TraceResult.vecEndPos); Die triple 1
+	Vector  m_vecShatterDir;              // +0x104 — normalized shot direction; Die triple 2 = shard velocity dir
+	float   m_flShatterVel = 0;           // +0x110 — velMag base = the hit's flDamage (×8 if the dive/melee
+	                                      // bit 0x2000000 is set). Die glass velMag = this (glass local_474 = 1).
+	int     m_iShatterDmgType = 0;        // +0x114 — the killing hit's bitsDamageType. Die sends it (WriteLong);
+	                                      // the client picks its velocity formula from (dmgType & 0x8000002):
+	                                      // set (e.g. DMG_BULLET 0x2) -> scatter branch; clear -> forward cluster.
 	float   m_flRespawnHealth = 0;       // +0x6c — spawn health, restored on respawn
 	EHANDLE m_hRespawner;                 // +0x70 — the CInfoBreakable retry-helper (created in Spawn)
 	float   m_flRespawnTime = 0;          // +0x90 — keyvalue "respawntime". DEFAULT 0 (gcc2 entity data is

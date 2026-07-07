@@ -412,10 +412,13 @@ void CBaseDoor::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vecDi
 		WRITE_COORD(vecSpot.x); WRITE_COORD(vecSpot.y); WRITE_COORD(vecSpot.z);
 		WRITE_COORD(pev->size.x); WRITE_COORD(pev->size.y); WRITE_COORD(pev->size.z);
 		WRITE_BYTE(0); // material 0 = glass
-		WRITE_COORD(vecShatter.x); WRITE_COORD(vecShatter.y); WRITE_COORD(vecShatter.z);
-		WRITE_COORD(vecSpot.x); WRITE_COORD(vecSpot.y); WRITE_COORD(vecSpot.z);
-		WRITE_SHORT(MODEL_INDEX("sprites/glassfrag.spr"));
-		WRITE_COORD(150.0f); // VERIFY: per-fragment velocity (cf. CBreakable::Die)
+		// @0x752e0 wire order (see func_break Die): triple 1 = impact POINT, triple 2 = DIRECTION; the LONG
+		// is the killing hit's bitsDamageType (selects the client velocity branch); velMag = damage (×8 for
+		// the shotgun bit 0x2000000). The client resolves the glassfrag sprite by name.
+		WRITE_COORD(ptr->vecEndPos.x); WRITE_COORD(ptr->vecEndPos.y); WRITE_COORD(ptr->vecEndPos.z); // triple 1 = impact point
+		WRITE_COORD(vecShatter.x); WRITE_COORD(vecShatter.y); WRITE_COORD(vecShatter.z);             // triple 2 = direction
+		WRITE_LONG(bitsDamageType);
+		WRITE_COORD((bitsDamageType & 0x2000000) ? flDamage * 8.0f : flDamage);
 		MESSAGE_END();
 	}
 	else

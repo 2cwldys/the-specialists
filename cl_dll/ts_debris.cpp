@@ -8,7 +8,7 @@
 *  centre 0.5, step 1/9, velocity spread "+15", gravity 0.05, life RANDOM(2,5).
 *
 *  Payload ("TSFrags" = gmsgTSCreateDebris, sent by CBreakable::Die for matGlass): origin[3], size[3],
-*  material byte(0=glass), shatterDir[3], refPoint[3], spriteModelIndex(short), velMag(coord).
+*  material byte(0=glass), shatterDir[3], refPoint[3], bitsDamageType(long), velMag(coord).
 ***/
 #include "hud.h"
 #include "cl_util.h"
@@ -36,7 +36,7 @@ bool CHudTSDebris::VidInit()
 
 // Reconstruct FUN_10047cb0: spray the 9x9 glass-fragment grid across the pane face.
 static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Vector& dir,
-	int spriteModel, float velMag)
+	const Vector& refPoint, int spriteModel, float velMag, int dmgType)
 {
 	if (spriteModel <= 0)
 		return;
@@ -70,12 +70,27 @@ static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Ve
 			(&pos.x)[ax0] = o[ax0] - s[ax0] * 0.5f + s[ax0] * (1.0f / 9.0f) * (float)i;
 			(&pos.x)[ax1] = o[ax1] - s[ax1] * 0.5f + s[ax1] * (1.0f / 9.0f) * (float)j;
 
-			// velocity: a forward bias along the shatter dir + a LARGE random scatter on every axis
-			// so the shards burst outward and land spread out (not clumped along one direction).
+			// @0x10047cb0 — TWO velocity formulas, selected by (dmgType & 0x8000002):
 			Vector vel;
-			for (int c = 0; c < 3; c++)
-				(&vel.x)[c] = d[c] * velMag * 0.4f +
-					gEngfuncs.pfnRandomFloat(-velMag * 0.6f, velMag * 0.6f);
+			if (dmgType & 0x8000002)
+			{
+				// SCATTER branch (bullets: DMG_BULLET 0x2). Base = a small CENTERED random (some shards go
+				// BACKWARDS / straight down) + a directional bias weighted by 1/(distance from the fragment
+				// to the impact point): fragments near the hit fly forward hard, far ones mostly scatter.
+				vel.x = gEngfuncs.pfnRandomFloat(-9.0f, 9.0f);
+				vel.y = gEngfuncs.pfnRandomFloat(-9.0f, 9.0f);
+				vel.z = (float)gEngfuncs.pfnRandomLong(0, 10);
+				const float dist = (pos - refPoint).Length();
+				const float f = velMag / (dist + 1.0f) * 10.0f; // ε=1, ×10 (_DAT_10079e88)
+				vel.x += d[0] * f; vel.y += d[1] * f; vel.z += d[2] * f;
+			}
+			else
+			{
+				// CLUSTER branch: per-component RANDOM_FLOAT(dir[c]*velMag*0.5, dir[c]*velMag+15) — tight
+				// forward burst. (C1=0.5 _DAT_1007a870, C2=15 _DAT_1007a890.)
+				for (int c = 0; c < 3; c++)
+					(&vel.x)[c] = gEngfuncs.pfnRandomFloat(d[c] * velMag * 0.5f, d[c] * velMag + 15.0f);
+			}
 
 			TEMPENTITY* t = gEngfuncs.pEfxAPI->R_TempSprite(pos, vel, scale, spriteModel,
 				kRenderTransAdd, kRenderFxNone, 1.0f, // glassfrag.spr is SPR_ADDITIVE
@@ -99,18 +114,25 @@ bool CHudTSDebris::MsgFunc_TSFrags(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
 
-	Vector origin, size, dir, ref;
+	Vector origin, size, point, dir;
 	origin.x = READ_COORD(); origin.y = READ_COORD(); origin.z = READ_COORD();
 	size.x = READ_COORD();   size.y = READ_COORD();   size.z = READ_COORD();
 	int material = READ_BYTE();
 
 	if (material == 0) // glass → the sprite shower
 	{
-		dir.x = READ_COORD(); dir.y = READ_COORD(); dir.z = READ_COORD();
-		ref.x = READ_COORD(); ref.y = READ_COORD(); ref.z = READ_COORD();
-		int spriteModel = READ_SHORT();
+		// @0x752e0 wire order: triple 1 = impact POINT (field_0xf8), triple 2 = shatter DIRECTION
+		// (field_0x104). The shards fly along the DIRECTION (triple 2). We used to use triple 1 for the
+		// velocity, which held the server's CENTRE against the original server → static/non-directional.
+		point.x = READ_COORD(); point.y = READ_COORD(); point.z = READ_COORD(); // triple 1 = impact point (refPoint)
+		dir.x = READ_COORD();   dir.y = READ_COORD();   dir.z = READ_COORD();   // triple 2 = shatter direction
+		// @0x752e0: this LONG is the killing hit's bitsDamageType (NOT a sprite index) — the client resolves
+		// the glassfrag sprite by NAME and uses this only to select the velocity formula. Read as LONG (4
+		// bytes); a short read here misaligned velMag to 0.
+		int dmgType = READ_LONG();
 		float velMag = READ_COORD();
-		SpawnGlassShatter(origin, size, dir, spriteModel, velMag);
+		const int spriteModel = gEngfuncs.pEventAPI->EV_FindModelIndex("sprites/glassfrag.spr");
+		SpawnGlassShatter(origin, size, dir, point, spriteModel, velMag, dmgType);
 	}
 	else if (material == 1) // grenade explosion (TSExplosion): size.x = the blast magnitude
 	{
