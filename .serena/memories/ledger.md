@@ -5,6 +5,59 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-07 (cont. 92) — AUTONOMOUS bug-sweep from a playtest report (RE-grounded, subagent-orchestrated)
+
+User ran a playtest (original TS client vs our ReHLDS server), reported a batch of bugs, then stepped away
+asking me to work the whole list autonomously (no client playtests available → verification = RE-correctness +
+clean builds; playtest confirmation flagged PENDING). Orchestrated read-only RE-dossier subagents + focused
+edit-agents; dossiers in `reference/dossiers/cont91/`. Commits `2e4d678..8d837c2`. Started at `c817041`.
+
+- **`2e4d678` bullet-whizz radius.** Confirmed the near-miss "whizz" IS original (client.dll references
+  `weapons/whizz%d.wav` in FUN_100450c0; plays on OTHERS' bullets, shooter!=local, within a perpendicular
+  near-miss). Ours was faithful except the radius — guessed 56, RE'd `_DAT_1007cccc`@0x1007cccc = **75.0**.
+- **`6c83a7d` melee/damage vs players (4 sub-bugs, all RE-verified).** (a) Shooting a MIDAIR player launched
+  them — combat.cpp had re-added the STOCK HLSDK `pev->velocity += vecDir*-DamageForce()` push; the original
+  `CBaseMonster::TakeDamage` @0xa2430 has **NO** such push (verified: 270-line decompile, no DamageForce call /
+  no velocity write; DamageForce is only the death launch). Removed. (b) kung-fu fling = that push double-dipping
+  on melee (CloseCombatAttack @0x85f88 already applies its own faithful attacker-speed pop) — fixed by (a).
+  (c) crouch-kick instakill: CCombatAttack @0x76078 passed the speed/melee/KungFu-scaled `lunge` as flDamage;
+  original passes the FLAT `reach` (35/45/55), scaling only the whiff-lunge store — pass `reach`. (d) jump
+  auto-kick registered on players with a flesh sound + no anim: the hit tail's `m_flNextAttack` re-arm was
+  `if(<=0)=0.5` (never true) so a queued gun attack fired right after the kick; RE-exact tail (re-arm
+  `<WeaponTimeBase()`→+0.35, CHAN_BODY pitched closecombat.wav, UpdateMeleeBar(dmgBase*1.5)). The user's
+  "jump-kick is breakables/doors-only" theory was FALSE (CloseAttack @0x8c630 has bPlayersOnly=0).
+- **`7c75c76` + `9566cd5` dropped weapon (CTSWorldGun "WorldGun", from DropWeapon@0x84900).** Endless friction:
+  BounceTouch@0xa0b0c damps horiz on EVERY ground contact (<=40→×0.7, else→×0.9, same k on velocity+avelocity);
+  ours lacked the else branch and set avelocity=velocity → throws (speed 60-180) never damped → slid forever
+  (+ skated off edges into the void = the steep-drop-sink / near-edge-vanish reports, all downstream). Near-edge
+  pickup: ObjectCaps@0xa3404 = FCAP_CONTINUOUS_USE (0x10); ours returned FCAP_IMPULSE_USE (0x8). **Coupled bug
+  (`9566cd5`, binary-proven, from the crash review):** `WaitThink` had lost its braces so `UTIL_Remove(this)`
+  ran UNCONDITIONALLY every tick (orig @0x9104c gates both under `m_flExpire<time` — `jae` skips both) → dropped
+  guns vanished ~0.1s after settling (masked before by the friction bug never letting them settle).
+- **`257758b` kSil[] PDW.** Added the missing silenced PDW held model `{19,"models/p_pdw_sil.mdl"}` (string
+  confirmed in both binaries). — This is the ONLY concrete fix for the "floating held weapons" report; the RE
+  proved the per-weapon held-model DATA is faithful (pszPlayerModel byte-matches @0x6fe28; p_usas/p_beretta
+  byte-identical bones; player.mdl has aim_/idle_ for every grip). **Float root-caused, NOT fixed:** it's the
+  REMOTE player's `pev->sequence`==0 (bind pose) — a runtime CTSAnimation body-pose issue; needs a runtime probe
+  (dump remote pev->sequence + m_szAnimExtention per weapon) + user confirm. Do NOT touch pszPlayerModel/pev->body.
+- **`8d837c2` 3rd-person self-transparency (client feat).** Ported client.dll V_CalcNormalRefdef @0x678b8: in
+  3rd person, fade the local model toward alpha 100 (rendermode kRenderTransColor) while the crosshair aim-trace
+  is on a player, ease to 255 otherwise; spectator/dead opaque-reset. Was missing from our cl_dll (original client
+  has it). `cl_dll/ts_reticle.cpp` (aim classifier g_iTSAimTarget) + `cl_dll/view.cpp`.
+
+**Bot crash (#3):** the WaitThink brace bug (`9566cd5`) is the leading suspect — rapid create→settle→free WorldGun
+edict churn under bot combat feeds rcbot's cached pickup pointers → FindEntityByString UAF on a freed+reused slot.
+HIGH confidence it's a real bug, MEDIUM it's precisely that crash. Could NOT reproduce autonomously (45min bot
+combat + rcon map-churn across 5 maps, debug.log empty; bots idle without waypoints on some maps). Fixed server
+redeployed + boots clean with bots. If it persists post-fix, remaining suspect is rcbot's own cache invalidation.
+
+**VERIFY / PENDING (all need the user's playtest — none confirmed in-engine this session):** every fix above;
+the melee CloseAttack fire-gate (fireType==0x10 vs bare-hands, `// VERIFY`); the transparency ease steps 50/5 +
+the __ftol sub-gate; the WorldGun slow-mo threshold 40*GiveSlowMul(). **STILL OPEN (not user-mentioned this
+batch):** the floating-weapon runtime probe; doors.cpp breakable-glass playtest (cont.90); the broad audit.py/
+coverage.py parity sweep; the flagged cd+0x1b0 drift (orig UpdateClientData sends player+0x724=m_iPowerups on
+vuser1.y, we send m_flMeleeBar — VERIFY).
+
 ## 2026-07-07 (cont. 91) — DROP-IN pump shotgun: rack alternation + shell-by-shell reload (live active-item bytes on the wire)
 
 Original TS client vs OUR ReHLDS server. Two shotgun bugs, both a clientdata mis-pack found by decompiling
