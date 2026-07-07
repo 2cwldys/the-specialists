@@ -27,7 +27,7 @@ public:
 	void GetWeapon(CBaseEntity *pOther);                                             // @0xa1198
 	void EXPORT WaitTouch(CBaseEntity *pOther);                                      // @0xa1250
 	virtual bool ShouldCollide(CBaseEntity *pOther);                                // @0xa1290 (TS virtual)
-	int  ObjectCaps() override { return FCAP_IMPULSE_USE; }                          // @0xa3404 -> 0x10
+	int  ObjectCaps() override { return FCAP_CONTINUOUS_USE; }                        // @0xa3404 = mov $0x10 = FCAP_CONTINUOUS_USE (cont.91: was IMPULSE 0x8 -> near-edge pickup flaky)
 	virtual int CanUsedTroughWalls() { return 0; }                                  // @0xa340c -> 0 (TS virtual)
 
 	// @0x907ec CreateWeapon — spawn a dropped weapon carrying `status` (the dropping gun's item slot)

@@ -129,13 +129,19 @@ void CTSWorldGun::BounceTouch(CBaseEntity *pOther)
 	}
 	else
 	{
-		// On the ground: roll if slow (apply 0.7 restitution into avelocity), else settle flat.
+		// On the ground: bleed horizontal momentum on EVERY contact so the gun settles near the
+		// landing point (RE @0xa0b0c: horiz <= 40 -> x0.7, else -> x0.9; the SAME scalar applies to
+		// BOTH velocity and avelocity). We previously damped only the <=40 case (no else) and set
+		// avelocity = velocity, so a real throw (speed 60-180) hit the un-damped path and NEVER shed
+		// horizontal speed -> slid forever (endless friction) and skated off floor edges into the void
+		// (the steep-drop sink / near-edge disappear were downstream of this). Constants verified in
+		// .rodata: 40.0@0xf6d9c, 0.7@0xf7f50, 0.9@0xf7f44. cont.91.
+		// VERIFY (slow-mo only, LOW): the original threshold is 40 * GiveSlowMul(); plain 40 is exact
+		// at normal time scale.
 		float horiz = Vector(pev->velocity.x, pev->velocity.y, 0).Length();
-		if (horiz <= 40.0f)
-		{
-			pev->velocity = pev->velocity * 0.7f;   // restitution
-			pev->avelocity = pev->velocity;
-		}
+		const float k = (horiz <= 40.0f) ? 0.7f : 0.9f;
+		pev->velocity = pev->velocity * k;
+		pev->avelocity = pev->avelocity * k;
 		pev->angles.z = 0;
 	}
 }
