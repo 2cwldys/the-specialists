@@ -21,12 +21,46 @@
 #include "ts_hud.h"     // TSHud_DrawNumber (numbers.spr)
 #include "ts_attachments.h" // TS_LocalHasLaser
 #include "ts_reticle.h"
+#include "player_info.h" // g_PlayerExtraInfo (hit player's team, for the aim classifier)
 
 #include <math.h>
 
 extern Vector v_origin, v_angles; // view origin/angles (cl_dll/view.cpp) — for the aim trace
 extern Vector v_aimeye;            // player eye (bullet origin), pre-3rd-person-offset (view.cpp)
 extern "C" int CL_IsThirdPerson(); // in_camera.cpp (engine export, C linkage)
+
+// ---- 3rd-person self-transparency: aim-at-player classifier (RE dossier cont91 §2) ----------
+// The original client.dll (FUN_1004acc0, run once/frame from the reticle update) traces the aim
+// and sets a tri-state flag: 0 = nothing/world, 1 = teammate under aim, 2 = enemy under aim.
+// V_CalcNormalRefdef fades the LOCAL player's own model whenever this is != 0 (see view.cpp).
+// This uses the SAME eye/forward/trace the 3rd-person reticle above uses (v_aimeye + view angles).
+int g_iTSAimTarget = 0; // 0 none / 1 teammate / 2 enemy — transparency fires on != 0
+
+void TS_UpdateAimTarget()
+{
+	g_iTSAimTarget = 0;
+	float va[3];
+	gEngfuncs.GetViewAngles(va);
+	Vector fwd;
+	gEngfuncs.pfnAngleVectors(va, fwd, NULL, NULL);
+	Vector eye = v_aimeye; // the true eye / bullet origin (pre-3rd-person offset), same as the reticle
+	Vector end = eye + fwd * 8192.0f;
+	pmtrace_t* tr = gEngfuncs.PM_TraceLine(eye, end, 0 /*PM_NORMAL*/, 2 /*studio hull*/, -1);
+	if (!tr || tr->fraction >= 1.0f)
+		return;
+	// WARNING: tr->ent is a physent-list index, NOT the entity number — map it exactly as the
+	// aim/pickup trace in view.cpp:1188 does (PM_GetPhysEntInfo -> real index -> GetEntityByIndex).
+	if (tr->ent <= 0)
+		return;
+	extern int PM_GetPhysEntInfo(int ent); // pm_shared.cpp (declared locally, as in view.cpp:30)
+	cl_entity_t* hit = gEngfuncs.GetEntityByIndex(PM_GetPhysEntInfo(tr->ent));
+	if (!hit || 0 == hit->player)
+		return;
+	// team compare: local g_iTeamNumber (entity.cpp:153) vs the hit player's networked team.
+	// The original fades on ANY hit player (!= 0); the 1-vs-2 split just mirrors its tri-state.
+	int hitTeam = g_PlayerExtraInfo[hit->index].teamnumber;
+	g_iTSAimTarget = (hitTeam == g_iTeamNumber) ? 1 : 2; // both != 0 -> the local model fades
+}
 
 static inline int clampc(int v) { return v < 0 ? 0 : (v > 255 ? 255 : v); }
 
