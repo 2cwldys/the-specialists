@@ -67,20 +67,23 @@ public:
 	float m_flHealthAbsorb = 0;      // 0x5888 — the customweapons health_absorb value (reader VERIFY)
 
 	// --- Team subsystem (cont.35) ---
-	// (IsTeamMode/IsTeamplay DELETED — R1 item-9: invented; the original's team gate is the global
-	// `g_teamplay != 0` at each site; the team-play virtual is stock CHalfLifeTeamplay::IsTeamplay.)
+	// The map is a team-mode map. Faithful gate is the TS game-mode member (@+0 == 2/3),
+	// not reconstructed; functional proxy = a ts_objective_manager is present. Lazily
+	// resolved + cached (worldspawn installs the rules before objective ents spawn).
+	bool IsTeamMode();
+	bool IsTeamplay();                   // teamplay iff IsTeamMode() (INTERIM R1: the real virtual
+	                                     // is stock Teamplay::IsTeamplay @0xd5200, g_teamplay-driven)
 	// GetGameDescription is NOT overridden here — the original defines it on CHalfLifeMultiplay
 	// (theOne->LMS->DM, no teamplay branch); CTSGameRules inherits it.
 
-	// Team roster (the original's 4-slot name table). InitTeams seeds defaults; SetTeamList
-	// tokenizes the ";"-list directly into the slots (RecountTeams was invented — R1 item-9).
+	// Team roster (mirrors CHalfLifeTeamplay). InitTeams seeds the TS default list when
+	// team mode is first detected; RecountTeams tokenizes it into m_teamNames/m_numTeams.
 	void  InitTeams();
+	void  RecountTeams();
 	int   GetTeamIndex(const char *pTeamName);              // @0x685xx non-virtual (original has it)
-	// Thin slot accessor (name by index, "" if out of range). The original has no
-	// CTSGameRules::GetIndexedTeamName — it inlines the slot read (name@+0x28+i*0x8c) at each of
-	// ~8 sites; KEPT as one internal helper rather than duplicating the bounds check 8x (internal,
-	// not part of the external interface — CLAUDE.md). audit.py flags it; accepted. [R1 item-9]
-	const char *GetIndexedTeamName(int teamIndex);
+	const char *GetIndexedTeamName(int teamIndex);          // "" if out of range (R1 interim)
+	const char *GetTeamID(CBaseEntity *pEntity);            // the entity's team name string (R1 interim)
+	const char *TeamWithFewestPlayers();                    // auto-balance pick
 	int   GetTeamsNum();                                     // @0x685a8 — number of active teams
 	void  SetTeamList(const char *pList);                   // @0x680dc — parse the ";"-team list into the slots
 	void  SetTeamModelList(const char *pList);             // @0x68258 — parse the "|"-model list into the slots
@@ -99,6 +102,7 @@ public:
 	void  InitHUD(CBasePlayer *pPlayer);                    // @0x69134 non-virtual — called from
 	                                                        // CBasePlayer::UpdateClientData's InitHUD block
 
+	char  m_szTeamList[256] = {};
 	char  m_teamNames[TS_MAX_TEAMS][TS_TEAMNAME_LEN] = {};
 	char  m_teamModels[TS_MAX_TEAMS][TS_TEAMNAME_LEN] = {};
 	int   m_teamCash[TS_MAX_TEAMS] = {}; // per-team cash pool (GetTeamCash; the cash economy is dead in the shipped game)

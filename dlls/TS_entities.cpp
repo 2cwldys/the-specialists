@@ -407,7 +407,7 @@ void CTSDMHill::Spawn()
 	pev->movetype = MOVETYPE_NONE;
 	UTIL_SetOrigin(pev, pev->origin);
 
-	const bool team = g_teamplay;
+	const bool team = TSGameRules && TSGameRules->IsTeamMode();
 	if ((!team || fragseverycheckteam > 0) && (!team || fragseverycheck > 0))
 		SetTouch(&CTSDMHill::WaitTouch);
 	else
@@ -463,7 +463,7 @@ void CTSDMHill::WaitTouch(CBaseEntity *pOther)
 		// a DIFFERENT player touched — a teammate keeps the hold, an enemy steals/resets it
 		CBaseEntity *pKing = m_hKing;
 		bool sameTeam = false;
-		if (pKing && g_teamplay)
+		if (pKing && TSGameRules && TSGameRules->IsTeamMode())
 			sameTeam = TSGameRules->GetTeamIndex(((CBasePlayer *)pKing)->TeamID()) ==
 				TSGameRules->GetTeamIndex(pPlayer->TeamID());
 		if (!sameTeam)
@@ -478,7 +478,7 @@ void CTSDMHill::WaitTouch(CBaseEntity *pOther)
 		return; // held, but not long enough yet
 
 	// --- PAYOUT ---
-	const bool team = g_teamplay;
+	const bool team = TSGameRules && TSGameRules->IsTeamMode();
 	char kingMsg[128] = {0};
 	if (!FStringNull(pev->message))
 	{
