@@ -86,6 +86,21 @@ into the standard-gun path (one phantom bullet, clip 1→0, then 398 logged dry-
 the cont96 dossier: the @0x758c8 melee-bar byte for firetype 11; items[29] lifecycle on DropFlag.
 Pending user confirm (briefcase slash + no red/empty-click).
 
+**Kill-feed weapon names — `5f6940d` (user-reported: "tsgun" everywhere, 'knife'/'grenade' raw).**
+(a) 18 weapon-table szName entries were NULLPTR (extraction gap) → the cont.93 pszName fix fell
+back to "tsgun". All recovered from the binaries (Write_* decompiles + the client.dll mirror
+table); ak47/aug/ump are EMPTY in the ORIGINAL (zeroed .rodata @0x106600 — mimic, don't invent);
+"Kung-fu" exact case @0xf843c. (b) DeathNotice name chain rewritten decompile-exact to PlayerKilled
+@0x795e4: glast_weaponid first (tracked slow-bullet — name what FIRED), → "Kung Fu" → "<gun> Stock"
+→ active table name; classname=="knife" → CTSKnife::GetDescription ("Throwing Combat Knife"/"…Seal
+Knife"/"…Katana" @0x6db04); targetname-before-classname for non-clients; tail remaps 'knife'→
+"Throwing Knife", 'shrapnel'→"Shrapnel", 'grenade'→"M61 Grenade" (@0x10c734 = "handgrenade"+4);
+log line lowercase+underscore transform; stock egon/gauss rename dropped. (c) glast_weaponid reset
+MOVED to UpdateBullet right after ApplyMultiDamage (@0x5f311) — was in PlayerKilled, stale on
+non-kill hits → misattributed later kills. PARKED for R1: name computed in PlayerKilled + the
+4-arg DeathNotice (T2Pc) signature + kill-streak log flavor ("stopped_fury"/"is_unstoppable"
+@0x89e0d block). Both libs build; deployed. Pending user playtest.
+
 *(Entry updated as work lands — see below for cont.95's blow-by-blow.)*
 
 ## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
