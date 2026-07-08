@@ -335,6 +335,31 @@ bool CHudTSWeaponBar::Draw(float flTime)
 	if (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL))
 		return true;
 
+	// TS cl_showequipment (dossier cont94 §2 — the alphaScale switch at the top of FUN_1004e030):
+	// gates/scales ONLY the PASSIVE (non-select) equipment overlay — 1 = x0.25, 2 = x0.5 (default),
+	// 3 = x1.0, anything else (incl. 0) draws nothing. The open select menu is never gated (x1.0).
+	float equipScale = 1.0f;
+	if (!m_selecting)
+	{
+		static cvar_t* s_showequip = nullptr;
+		if (s_showequip == nullptr)
+			s_showequip = gEngfuncs.pfnGetCvarPointer("cl_showequipment");
+		switch (s_showequip != nullptr ? (int)s_showequip->value : 2)
+		{
+		case 1:
+			equipScale = 0.25f;
+			break;
+		case 2:
+			equipScale = 0.5f;
+			break;
+		case 3:
+			equipScale = 1.0f;
+			break;
+		default:
+			return true; // hidden (0 or anything else)
+		}
+	}
+
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
 
@@ -375,20 +400,19 @@ bool CHudTSWeaponBar::Draw(float flTime)
 
 			// Three opacity levels (the highlight is brightness, not a box): NOT selecting -> very
 			// transparent; selecting non-cursor -> medium; cursor -> full. Additive draw, so scaling
-			// the colour down = more transparent.
-			int num = 1, den = 6; // not selecting -> ~1/6 (very faint)
+			// the colour down = more transparent. The passive BASE (~1/3) is ours-tuned so the
+			// default cl_showequipment 2 (x0.5) reproduces the observed ~1/6 faintness; VERIFY the
+			// original's un-scaled base alphas when FUN_1004e030's body is fully RE'd.
+			float opacity = equipScale / 3.0f; // passive: base x the cl_showequipment scale
 			if (m_selecting)
-			{
-				num = 1;
-				den = cursor ? 1 : 2; // cursor full, others ~half
-			}
+				opacity = cursor ? 1.0f : 0.5f; // cursor full, others ~half — never cvar-gated
 			// no-ammo weapons tint red (the original's empty-clip colour), scaled by the opacity.
 			// Clipless weapons (kung-fu/knife/katana, maxClip 0) have no ammo to be out of — never red.
 			const int maxClip = (t < (int)(sizeof(s_weaponMaxClip) / sizeof(s_weaponMaxClip[0]))) ? s_weaponMaxClip[t] : 0;
 			const bool noAmmo = (maxClip > 0 && m_iClip[t] == 0);
-			const int ir = (noAmmo ? 0xc3 : hr) * num / den;
-			const int ig = (noAmmo ? 0x2d : hg) * num / den;
-			const int ib = (noAmmo ? 0x2d : hb) * num / den;
+			const int ir = (int)((noAmmo ? 0xc3 : hr) * opacity);
+			const int ig = (int)((noAmmo ? 0x2d : hg) * opacity);
+			const int ib = (int)((noAmmo ? 0x2d : hb) * opacity);
 
 			if (m_hIcon[t] != 0)
 			{

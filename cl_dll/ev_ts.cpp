@@ -479,6 +479,15 @@ static void TS_MeleeSmokePuff(pmtrace_t* tr, char chType)
 	const char* spr;
 	if (chType == CHAR_TEX_FLESH)
 		return;
+	// cl_fx gun-smoke gate (dossier cont94 §5): the smoke-puff spawn is skipped when cl_fx is 0
+	// (exact original test: float != 0.0). Only the smoke part of cl_fx is reconstructed.
+	{
+		static cvar_t* s_cl_fx = nullptr;
+		if (s_cl_fx == nullptr)
+			s_cl_fx = gEngfuncs.pfnGetCvarPointer("cl_fx");
+		if (s_cl_fx != nullptr && s_cl_fx->value == 0.0f)
+			return;
+	}
 	if (chType == CHAR_TEX_WOOD || chType == CHAR_TEX_DIRT)
 		spr = "sprites/wood_smoke_add.spr";
 	else

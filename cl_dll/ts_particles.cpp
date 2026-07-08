@@ -485,6 +485,18 @@ static void TSP_Pellets(const float* o, const float* n, const char* spr, short r
 	TSP_Commit(p);
 }
 
+// cl_fx gun-smoke gate (dossier cont94 §5 — the gun_smoke_add spawner FUN_10047130 @0x4716c):
+// the smoke spawn is skipped entirely when cl_fx is 0. Exact original test: float != 0.0. Only
+// the gun_smoke_add spawns are gated here — the other cl_fx consumers (blur frame cap, the
+// FX-root/particle-config reads @0x56dea/0x57d5f) belong to un-reconstructed subsystems.
+static bool TSP_FxSmokeOn()
+{
+	static cvar_t* s_cl_fx = nullptr;
+	if (s_cl_fx == nullptr)
+		s_cl_fx = gEngfuncs.pfnGetCvarPointer("cl_fx");
+	return s_cl_fx == nullptr || s_cl_fx->value != 0.0f;
+}
+
 //-----------------------------------------------------------------------------
 // Visual dispatcher  (FUN_10048f60) — per-surface texture-char switch + roll gating.
 //-----------------------------------------------------------------------------
@@ -517,7 +529,8 @@ void TS_ImpactEffect(const float* origin, const float* normal, int mode, char te
 		TSP_SparkShower(origin, normal, 23, 1.15f, 25.0f);
 		if (roll > 70)
 			TSP_Pellets(origin, normal, "sprites/shotgun_pellets.spr", 5, 5, 0.0f, 0.75f, 0.015f, 0.25f);
-		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 50.0f);
+		if (TSP_FxSmokeOn())
+			TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 50.0f);
 		break;
 
 	case 'P': // computer
@@ -525,14 +538,16 @@ void TS_ImpactEffect(const float* origin, const float* normal, int mode, char te
 		TSP_Scintille(origin, normal, "sprites/scintille_metal.spr", 5, 48);
 		if (roll > 50)
 			TSP_SparkShower(origin, normal, 3, 1.15f, 25.0f);
-		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 50.0f);
+		if (TSP_FxSmokeOn())
+			TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 50.0f);
 		break;
 
 	default: // concrete / tile / snow / etc. (RE: count=RandomLong(5/2,5)=2-5, spread=32)
 		// debris_concrete3 is INDEXALPHA — the original's rendermode 1 (TransColor) renders as an
 		// unmasked square in our TriAPI; kRenderTransAlpha(4) masks it to white chips. (engine deviation)
 		TSP_Debris(origin, normal, "sprites/debris_concrete3.spr", 4, 5, 4.0f, 32, 1.0f, 1.0f, 1);
-		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 20.0f);
+		if (TSP_FxSmokeOn())
+			TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 20.0f);
 		if (roll > 50)
 		{
 			TSP_Scintille(origin, normal, "sprites/scintille_metal.spr", 5, 3);

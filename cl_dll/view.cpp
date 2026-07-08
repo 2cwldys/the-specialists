@@ -670,7 +670,8 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 	// TS 3rd-person self-transparency (RE dossier cont91 / client.dll V_CalcNormalRefdef @0x678b8):
 	// fade the LOCAL player's own model toward alpha 100 while the crosshair aim-trace is on a
 	// player, ease back to 255 (opaque) otherwise, so your own shoulder stops blocking the target.
-	// Hard-reset to opaque in spectator/dead (the original's FUN_1004c250 state gate). Written every
+	// Hard-reset to opaque in spectator/dead/first-person (the original's FUN_1004c250 state gate;
+	// the smoothed alpha itself is NOT reset there — it persists across the reset). Written every
 	// frame on the local cl_entity's curstate here at the TOP of the refdef pass, matching the
 	// original's placement — StudioRenderFinal later consumes curstate.rendermode
 	// (StudioModelRenderer.cpp:1779). Nothing re-derives the local curstate after this:
@@ -683,17 +684,30 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 		cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
 		if (lp)
 		{
+			// cl_thirdtransparency gates the fade TARGET only (dossier cont94 §1, read @0x678e6):
+			// registered default "1" = ON — the original's registration default, the parity target
+			// (the .scr's 0 is only the listen-server GUI suggestion, NOT the binary default).
+			static cvar_t* s_thirdtrans = nullptr;
+			if (s_thirdtrans == nullptr)
+				s_thirdtrans = gEngfuncs.pfnGetCvarPointer("cl_thirdtransparency");
 			static float s_alpha = 255.0f;
-			if (0 != gEngfuncs.IsSpectateOnly() || 0 != g_iUser1 || gHUD.m_Health.m_iHealth <= 0)
+			// Hard-reset ALSO fires in FIRST person (the original's FUN_1004c250 gate is spectator
+			// OR !thirdperson) — and it does NOT touch the smoothed alpha (DAT_10097214 persists).
+			if (0 != gEngfuncs.IsSpectateOnly() || 0 != g_iUser1 || gHUD.m_Health.m_iHealth <= 0 ||
+				0 == CL_IsThirdPerson())
 			{
 				lp->curstate.rendermode = kRenderNormal; // 0 — opaque hard-reset
 				lp->curstate.renderamt = 255;
-				s_alpha = 255.0f;
 			}
 			else
 			{
-				float target = (g_iTSAimTarget != 0) ? 100.0f : 255.0f; // §1a: 100 aiming at a player / 255 opaque
-				float step = (s_alpha >= target) ? 50.0f : 5.0f;         // VERIFY: fast-in ~50 / slow-out ~5 per frame (§1b)
+				// §1a: 100 aiming at a player AND cl_thirdtransparency on / 255 opaque.
+				// Test form is the original's ftol truncation — (int)value != 0, so 0.5 reads OFF.
+				float target = (g_iTSAimTarget != 0 && s_thirdtrans != nullptr &&
+								   (int)s_thirdtrans->value != 0) ?
+								   100.0f :
+								   255.0f;
+				float step = (s_alpha >= target) ? 50.0f : 5.0f; // fade-out 50 / fade-back 5 per frame (confirmed @0x67911–0x6794b)
 				if (s_alpha < target)
 					s_alpha = (s_alpha + step > target) ? target : s_alpha + step;
 				else

@@ -170,13 +170,34 @@ bool CHudTSReticle::Draw(float flTime)
 	// gates the reticle crosshair on the active weapon (column>=2 == a firearm).
 	if (TS_ActiveWeaponIsGun())
 	{
-		// center crosshair (64x64). The DARK donut RING is cross2 (transparent bg) drawn near-black; the
-		// four NSEW ticks + the centre dot are small (~4x1px) LIGHT line-draws in the ring's gaps (the
-		// original draws them as lines, not sprite art).
-		if (m_hCross2)
+		// center crosshair (64x64) — the donut RING, style-gated by cl_solidcross (dossier cont94 §6,
+		// FUN_1004e9f0 @0x4ed01): 0 = ADDITIVE cross_e.spr in the HUD colour; >0 = SOLID cross2.spr,
+		// HUD colour at 1, forced BLACK (0,0,0) above 1 (default "2" — the original writes literal
+		// black, not near-black). The original also requires hardware GL for the solid branch
+		// (software always takes the additive cross_e path). The four NSEW ticks below are small
+		// LIGHT line-draws in the ring's gaps (the original draws them as lines, not sprite art).
 		{
-			SPR_Set(m_hCross2, 16, 16, 16); // near-black donut ring — TUNED
-			SPR_DrawHoles(0, cx - 32, cy - 32, NULL);
+			static cvar_t* s_solidcross = nullptr;
+			if (s_solidcross == nullptr)
+				s_solidcross = gEngfuncs.pfnGetCvarPointer("cl_solidcross");
+			int hr, hg, hb;
+			TSHud_Color(hr, hg, hb);
+			if (s_solidcross != nullptr && s_solidcross->value > 0.0f)
+			{
+				if (m_hCross2)
+				{
+					if (s_solidcross->value > 1.0f)
+						SPR_Set(m_hCross2, 0, 0, 0); // solid black ring (all components forced 0)
+					else
+						SPR_Set(m_hCross2, hr, hg, hb); // solid ring in the HUD colour
+					SPR_DrawHoles(0, cx - 32, cy - 32, NULL);
+				}
+			}
+			else if (m_hCrossE)
+			{
+				SPR_Set(m_hCrossE, hr, hg, hb); // additive crosshair in the HUD colour
+				SPR_DrawAdditive(0, cx - 32, cy - 32, NULL);
+			}
 		}
 		// NSEW ticks 2x4 (4x2 horizontals): the dot's BASE blue (the lit dot is this +30%). No centre dot.
 		// With a LASERSIGHT the ticks pull IN toward centre (the laser gives the precise aim).
@@ -233,7 +254,24 @@ bool CHudTSReticle::Draw(float flTime)
 	{
 		int lx, ly, lr, lg, lb;
 		if (TS_LocalLaserDot(lx, ly, lr, lg, lb))
+		{
+			// cl_laser dot style (dossier cont94 §7 — FUN_1004e6f0 @0x4e7f6/0x4e8a9/0x4e950): with
+			// cl_laser < 1.0f (default 0) the ORIGINAL snaps the 2x2 dot to the CROSSHAIR centre
+			// with a per-frame +-1px jitter (rand(-10,10)/10) while the "laser settled" flag holds,
+			// else it rides the projected beam end. VERIFY: the settled flag (DAT_1018a628, zeroed
+			// while wd+0x1d0 <= 0) is unpinned — treated as always held here, so the style-0 dot
+			// always centre-snaps. TODO(cont94 §7): pin DAT_1018a628 with a live A/B trace and fall
+			// back to the projected beam end while it is 0.
+			static cvar_t* s_cl_laser = nullptr;
+			if (s_cl_laser == nullptr)
+				s_cl_laser = gEngfuncs.pfnGetCvarPointer("cl_laser");
+			if (s_cl_laser != nullptr && s_cl_laser->value < 1.0f)
+			{
+				lx = cx + gEngfuncs.pfnRandomLong(-10, 10) / 10;
+				ly = cy + gEngfuncs.pfnRandomLong(-10, 10) / 10;
+			}
 			FillRGBA(lx - 1, ly - 1, 2, 2, lr, lg, lb, 255);
+		}
 	}
 
 	// LASERSIGHT distance readout: trace from the eye along aim, show the distance (metres) right of

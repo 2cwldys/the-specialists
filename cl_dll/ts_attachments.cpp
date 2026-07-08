@@ -6,7 +6,8 @@
 *  Faithful-BEHAVIOUR reconstruction (the standard used for the particle/impact subsystem):
 *   - LASER (RE FUN_1003d600): trace from the muzzle along the gun aim; draw a thin laserbeam.spr
 *     quad muzzle->hit + a laserdot.spr dot at the hit, in the player's laser colour
-*     (FUN_100582f0: 1=green, 2=blue, else=red). The local player's colour comes from cl_lasercolor.
+*     (FUN_100582f0: 1=green, 2=blue, else=red). ALL colours — the local player's included — come
+*     from the server-echoed PlInfo byte; cl_lasercolor only feeds the lasclr_ announcer.
 *   - FLASHLIGHT (RE FUN_1003b750): trace forward; a white dynamic light at the surface it lands on
 *     + a faint flash beam from the muzzle.
 *  The gun direction is the model's two muzzle attachments (attachment[1]-attachment[0]) — the same
@@ -37,8 +38,8 @@ extern Vector v_origin, v_angles; // view origin/angles (cl_dll/view.cpp) — fo
 #define TS_MAXPLAYERS 33 // 1..32 players (index 0 unused) — matches the original's 0..0x20 loop
 
 // Per-player attach mask, set by the ActItems message (BYTE playerIndex, BYTE attachMask). Mirrors
-// the original's DAT_1018d128 array (one byte per player; the original packs a colour byte too which
-// it networks separately — we colour by cl_lasercolor, see GetLaserColor).
+// the original's DAT_1018d128 array (one byte per player; the original packs a colour byte too,
+// networked separately via PlInfo — g_playerLaserColor below, the ONLY render colour source).
 static unsigned char g_playerAttach[TS_MAXPLAYERS];
 // PlInfo type 0 — each player's announced laser color byte (0/def red, 1 green, 2 blue).
 static unsigned char g_playerLaserColor[TS_MAXPLAYERS];
@@ -276,6 +277,21 @@ static bool LocalLaserEndpoint(Vector& muzzle, Vector& endpoint)
 	if (!GetMuzzleAim(lp->index, muzzle, forward))
 		return false;
 	TraceAim(lp->index, muzzle, forward, hit);
+	// cl_laser beam style (dossier cont94 §7 — FUN_1003bb00 @0x3bc9b/0x3bdde): the beam runs along
+	// the VIEW forward only when cl_laser == 1.0f (BIT-exact compare vs 0x3f800000, or no viewmodel);
+	// otherwise (default 0) along the raw gun-attachment direction. Our x-centred eye-ray endpoint
+	// below IS the view-forward rendering (it pins the beam/dot to the crosshair), so style 0
+	// returns the raw traced hit instead. VERIFY: the original's style 0 also adds a per-frame
+	// random jitter (rand(-1,1) * const) to the attachment direction — the constant is
+	// unrecovered, so the jitter is omitted here.
+	static cvar_t* s_cl_laser = nullptr;
+	if (s_cl_laser == nullptr)
+		s_cl_laser = gEngfuncs.pfnGetCvarPointer("cl_laser");
+	if (s_cl_laser == nullptr || s_cl_laser->value != 1.0f)
+	{
+		endpoint = hit;
+		return true;
+	}
 	const float d = (hit - muzzle).Length(); // surface distance along the gun aim (beam length)
 	AngleVectors(v_angles, vf, vr, vu);
 	// SCREENSPACE -> gamespace: the dot is fixed in SCREEN space — the gun DIRECTION (horizontally
@@ -411,10 +427,12 @@ void TS_Attachments_Draw()
 		const bool isLocal = local && local->index == i;
 		if (attach & TS_ATT_LASER)
 		{
-			// local laser uses cl_lasercolor; others use their PlInfo-announced color byte.
+			// ALL render colour — the LOCAL player included — comes from the server-echoed
+			// per-player PlInfo colour byte (dossier cont94 §7: the original never renders from
+			// cl_lasercolor; the cvar only feeds the lasclr_ announcer above, and the local player
+			// sees colour 0 = red until the echo arrives).
 			float r, g, b;
-			GetLaserColor(isLocal ? (int)gEngfuncs.pfnGetCvarFloat("cl_lasercolor")
-			                      : (int)g_playerLaserColor[i], r, g, b);
+			GetLaserColor((int)g_playerLaserColor[i], r, g, b);
 			// The lasersight mounts UNDER the barrel — start the beam below the muzzle (it was emitting
 			// from the barrel top). Offset along the gun's down (perpendicular to the aim).
 			Vector right = CrossProduct(forward, Vector(0, 0, 1));
@@ -510,7 +528,9 @@ bool TS_LocalLaserDot(int& sx, int& sy, int& r, int& g, int& b)
 	sy = (int)((1.0f - screen[1]) * 0.5f * (float)ScreenHeight);
 
 	float fr, fg, fb;
-	GetLaserColor((int)gEngfuncs.pfnGetCvarFloat("cl_lasercolor"), fr, fg, fb);
+	// server-echoed per-player colour byte, the LOCAL player included — the original never renders
+	// from cl_lasercolor (dossier cont94 §7); colour 0 = red until the lasclr_ echo arrives.
+	GetLaserColor((int)g_playerLaserColor[lp->index], fr, fg, fb);
 	r = (int)(fr * 255.0f); g = (int)(fg * 255.0f); b = (int)(fb * 255.0f);
 	return true;
 }

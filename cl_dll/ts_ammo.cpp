@@ -33,6 +33,10 @@
 
 #include <stdio.h>
 
+extern "C" int CL_IsThirdPerson(); // in_camera.cpp (engine export, C linkage)
+void CAM_ToThirdPerson();          // in_camera.cpp — the `thirdperson`/`firstperson` toggles
+void CAM_ToFirstPerson();
+
 DECLARE_MESSAGE(m_TSAmmo, WeaponInfo)
 DECLARE_MESSAGE(m_TSAmmo, KFuPower)
 
@@ -149,6 +153,7 @@ void CHudTSAmmo::Reset()
 bool CHudTSAmmo::MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
+	const int oldType = m_iWeaponType; // the previous weapon type — cl_thirdpersonswitch keys off it
 	m_iWeaponType = READ_BYTE();
 	int clipByte = READ_BYTE();
 	m_iReserve = READ_SHORT();
@@ -165,6 +170,23 @@ bool CHudTSAmmo::MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf)
 		m_iClip = clipByte;
 
 	g_iTSActiveWeapon = m_iWeaponType; // the weapon-select bar highlights this slot
+
+	// cl_thirdpersonswitch (dossier cont94 §8 — the WeaponInfo handler FUN_1004f800 @0x4f93b/0x4f958):
+	// auto third-person while on BARE HANDS (type 0 = kung fu), back to first person on leaving them.
+	// The test is the original's BIT-EXACT == 1.0f — value 2 must NOT trigger. The original's toggle
+	// (FUN_1004fe00) skips while spectating; VERIFY our CAM_To*Person no-ops match there.
+	{
+		static cvar_t* s_tpswitch = nullptr;
+		if (s_tpswitch == nullptr)
+			s_tpswitch = gEngfuncs.pfnGetCvarPointer("cl_thirdpersonswitch");
+		if (s_tpswitch != nullptr && s_tpswitch->value == 1.0f)
+		{
+			if (m_iWeaponType == 0 && 0 == CL_IsThirdPerson())
+				CAM_ToThirdPerson();
+			else if (m_iWeaponType > 0 && 0 != CL_IsThirdPerson() && oldType == 0)
+				CAM_ToFirstPerson();
+		}
+	}
 
 	m_iFlags |= HUD_ACTIVE;
 	return true;
