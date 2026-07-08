@@ -8,21 +8,21 @@ scope (not a drop-in requirement — see CLAUDE.md).
 
 _Original = the TS FGD's mapper-facing entity set; ours = LINK_ENTITY_TO_CLASS classnames. MISSING = an FGD entity we don't implement (the reconstruction work-list). EXTRA = we link an entity the FGD omits (stock HL helpers / non-mapper entities — low signal)._
 
-- matched: **143**  |  missing (orig→not ours): **5**  |  extra (ours→not orig): **144**
+- matched: **144**  |  missing (orig→not ours): **4**  |  extra (ours→not orig): **62**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `info_player_coop`, `info_player_team1`, `info_player_team2`, `info_player_team3`, `info_player_team4`
+  `func_mortar_field`, `info_bigmomma`, `info_player_coop`, `item_airtank`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `DelayedUse`, `TSAmmoPack`, `TSWorldGun`, `ammo_357`, `ammo_9mmAR`, `ammo_9mmbox`, `ammo_9mmclip`, `ammo_ARgrenades`, `ammo_buckshot`, `ammo_crossbow`, `ammo_egonclip`, `ammo_gaussclip`, `ammo_glockclip`, `ammo_mp5clip`, `ammo_mp5grenades`, `ammo_rpgclip`, `beam`, `bmortar`, `bodyque`, `cine_blood`, `controller_energy_ball`, `controller_head_ball`, `crossbow_bolt`, `cycler_prdroid`, `deadcorpse`, `env_debris`, `env_lightning`, `env_smoker`, `fireanddie`, `func_vehicle`, `func_vehiclecontrols`, `func_vip_safetyzone`, `garg_stomp`, `grenade`, `hornet`, `hvr_rocket`, `info_breakable`, `item_sodacan`, `knife`, `laser_spot`, `m61_grenade`, `mapClassName`, `monster_alien_controller`, `monster_alien_grunt`, `monster_alien_slave`, `monster_apache`, `monster_babycrab`, `monster_barnacle`, `monster_barney`, `monster_barney_dead`, `monster_bigmomma`, `monster_bloater`, `monster_bullchicken`, `monster_cine2_hvyweapons`, `monster_cine2_scientist`, `monster_cine2_slave`, `monster_cine3_barney`, `monster_cine3_scientist`, `monster_cine_barney`, `monster_cine_panther`, `monster_cine_scientist`, `monster_cockroach`, `monster_flyer`, `monster_flyer_flock`, `monster_furniture`, `monster_gargantua`, `monster_generic`, `monster_gman`, `monster_grunt_repel`, `monster_headcrab`, `monster_hevsuit_dead`, `monster_hgrunt_dead`, `monster_houndeye`, `monster_human_assassin`, `monster_human_grunt`, `monster_ichthyosaur`, `monster_leech`, `monster_miniturret`, `monster_mortar`, `monster_nihilanth`, `monster_osprey`, `monster_player`, `monster_rat`, `monster_satchel`, `monster_scientist`, `monster_scientist_dead`, `monster_sentry`, `monster_sitting_scientist`, `monster_snark`, `monster_tentacle`, `monster_tentaclemaw`, `monster_tripmine`, `monster_turret`, `monster_vortigaunt`, `monster_zombie`, `monstermaker`, `my_monster`, `nihilanth_energy_ball`, `node_viewer`, `node_viewer_fly`, `node_viewer_human`, `node_viewer_large`, `player`, `rpg_rocket`, `shrapnel`, `soundent`, `spark_shower`, `squidspit`, `streak_spiral`, `test_effect`, `testhull`, `trigger`, `trip_beam`, `ts_flag`, `ts_slowmotionpoint`, `ts_superjump`, `weapon_357`, `weapon_9mmAR`, `weapon_9mmhandgun`, `weapon_crossbow`, `weapon_crowbar`, `weapon_egon`, `weapon_gauss`, `weapon_glock`, `weapon_handgrenade`, `weapon_hornetgun`, `weapon_mp5`, `weapon_python`, `weapon_rpg`, `weapon_satchel`, `weapon_shotgun`, `weapon_snark`, `weapon_tripmine`, `weapon_tsgun`, `weaponbox`, `world_items`, `xen_hair`, `xen_hull`, `xen_plantlight`, `xen_spore_large`, `xen_spore_medium`, `xen_spore_small`, `xen_tree`, `xen_ttrigger`
+  `DelayedUse`, `TSAmmoPack`, `TSWorldGun`, `ammo_9mmAR`, `ammo_ARgrenades`, `ammo_buckshot`, `ammo_crossbow`, `ammo_gaussclip`, `ammo_rpgclip`, `beam`, `bodyque`, `cycler_prdroid`, `deadcorpse`, `env_debris`, `env_lightning`, `fireanddie`, `func_vip_safetyzone`, `grenade`, `info_breakable`, `item_sodacan`, `knife`, `m61_grenade`, `mapClassName`, `monster_furniture`, `monster_hevsuit_dead`, `monster_player`, `my_monster`, `node_viewer`, `node_viewer_fly`, `node_viewer_human`, `node_viewer_large`, `player`, `shrapnel`, `soundent`, `spark_shower`, `test_effect`, `testhull`, `trigger`, `trip_beam`, `ts_flag`, `ts_slowmotionpoint`, `weapon_9mmAR`, `weapon_crossbow`, `weapon_egon`, `weapon_gauss`, `weapon_handgrenade`, `weapon_hornetgun`, `weapon_rpg`, `weapon_satchel`, `weapon_shotgun`, `weapon_snark`, `weapon_tsgun`, `weaponbox`, `world_items`, `xen_hair`, `xen_hull`, `xen_plantlight`, `xen_spore_large`, `xen_spore_medium`, `xen_spore_small`, `xen_tree`, `xen_ttrigger`
 
 ### Client cldll exports
 
 _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI decoration; cross-check by base name._
 
-- matched: **41**  |  missing (orig→not ours): **1**  |  extra (ours→not orig): **41**
+- matched: **41**  |  missing (orig→not ours): **1**  |  extra (ours→not orig): **26**
 
 **MISSING (in original, not in ours — implement / RE):**
 
@@ -30,7 +30,7 @@ _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `F`, `HUD_ChatInputPosition`, `HUD_DirectorMessage`, `__cxa_allocate_dependent_exception`, `__cxa_allocate_exception`, `__cxa_begin_catch`, `__cxa_call_terminate`, `__cxa_call_unexpected`, `__cxa_current_exception_type`, `__cxa_deleted_virtual`, `__cxa_demangle`, `__cxa_end_catch`, `__cxa_free_dependent_exception`, `__cxa_free_exception`, `__cxa_get_exception_ptr`, `__cxa_get_globals`, `__cxa_get_globals_fast`, `__cxa_guard_abort`, `__cxa_guard_acquire`, `__cxa_guard_release`, `__cxa_init_primary_exception`, `__cxa_pure_virtual`, `__cxa_rethrow`, `__cxa_throw`, `__gcclibcxx_demangle_callback`, `__gxx_personality_v0`, `ammo_357`, `ammo_9mmbox`, `ammo_9mmclip`, `ammo_egonclip`, `ammo_glockclip`, `ammo_mp5clip`, `ammo_mp5grenades`, `monster_satchel`, `weapon_357`, `weapon_9mmhandgun`, `weapon_crowbar`, `weapon_glock`, `weapon_mp5`, `weapon_python`, `weapon_tripmine`
+  `F`, `HUD_ChatInputPosition`, `HUD_DirectorMessage`, `__cxa_allocate_dependent_exception`, `__cxa_allocate_exception`, `__cxa_begin_catch`, `__cxa_call_terminate`, `__cxa_call_unexpected`, `__cxa_current_exception_type`, `__cxa_deleted_virtual`, `__cxa_demangle`, `__cxa_end_catch`, `__cxa_free_dependent_exception`, `__cxa_free_exception`, `__cxa_get_exception_ptr`, `__cxa_get_globals`, `__cxa_get_globals_fast`, `__cxa_guard_abort`, `__cxa_guard_acquire`, `__cxa_guard_release`, `__cxa_init_primary_exception`, `__cxa_pure_virtual`, `__cxa_rethrow`, `__cxa_throw`, `__gcclibcxx_demangle_callback`, `__gxx_personality_v0`
 
 ### Server console commands (ClientCommand dispatch)
 
@@ -74,7 +74,7 @@ _Original = names hooked in client.dll (pfnHookUserMsg); ours = HOOK_MESSAGE in 
 
 _For entities we implement: FGD-declared map keys that no `KeyValue()` in our DLL handles (stock base keys count as handled). Unhandled = the entity silently ignores that map key = a behavioral gap._
 
-- implemented entities with FGD keyvalues checked: **76**  |  entities with unhandled keys: **0**
+- implemented entities with FGD keyvalues checked: **75**  |  entities with unhandled keys: **0**
 
 ### User-message wire sizes (REG_USER_MSG size byte)
 
@@ -86,27 +86,23 @@ _The registered byte-size per message (−1 = variable). A MISMATCH silently cor
 
 _Predicted-event scripts referenced by each server. MISSING = a TS event we don't reference; EXTRA = a stock-HL event we still precache that the original removed (HL leftover)._
 
-- matched: **12**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **19**
-
-**EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
-
-  `events/crossbow1.sc`, `events/crossbow2.sc`, `events/crowbar.sc`, `events/egon_fire.sc`, `events/egon_stop.sc`, `events/firehornet.sc`, `events/gauss.sc`, `events/gaussspin.sc`, `events/glock1.sc`, `events/glock2.sc`, `events/mp5.sc`, `events/mp52.sc`, `events/python.sc`, `events/rpg.sc`, `events/shotgun1.sc`, `events/shotgun2.sc`, `events/snarkfire.sc`, `events/tripfire.sc`, `events/vehicle.sc`
+- matched: **12**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **0**
 
 ### default.cfg input cross-check
 
 _Every command the original binds should be answered by our client/server (or be an engine builtin)._
 
-- bound commands: **53**  |  unanswered by ours (non-builtin): **0**
+- bound commands: **0**  |  unanswered by ours (non-builtin): **0**
 
 ### Client cvars (original binary-registered vs ours)
 
 _Source = pfnRegisterVariable sites in client.dll (authoritative — NOT config.cfg). MISSING = a client cvar the original registers that we don't. EXTRA = ours-only (invented, or a SERVER cvar — server-side registrations aren't in this client list yet, TODO)._
 
-- matched: **93**  |  missing (orig→not ours): **14**  |  extra (ours→not orig): **21**
+- matched: **96**  |  missing (orig→not ours): **11**  |  extra (ours→not orig): **21**
 
 **MISSING (in original, not in ours — implement / RE):**
 
-  `cam_back`, `cam_right`, `cam_up`, `cl_drawnames`, `cl_thirdperson`, `gl_fog`, `gl_fog_blue`, `gl_fog_end`, `gl_fog_green`, `gl_fog_red`, `gl_fog_start`, `m_accel`, `m_accelexp`, `m_accelmax`
+  `cl_drawnames`, `cl_thirdperson`, `gl_fog`, `gl_fog_blue`, `gl_fog_end`, `gl_fog_green`, `gl_fog_red`, `gl_fog_start`, `m_accel`, `m_accelexp`, `m_accelmax`
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
