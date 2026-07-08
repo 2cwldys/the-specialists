@@ -113,9 +113,25 @@ RECURRING root cause — anything sent once at InitHUD as MSG_ONE to the joiner 
 that map does NOT exist in TS; real maps are `ts_*` + `ctb_deadheat`. mp_teamplay on a DM map like
 `ts_hammertime` is an INTENTIONAL config (how the original dev ran them), NOT degenerate.
 
-**STILL OPEN:** the R1 item-9 convergence (6 invented CTSGameRules stand-ins + the SetTeamList/per-site
-§4.6 regrade) + re-run audit.py; then the queued client fixes (bloody blades + glass integrator). The
-DM "Spectate-as-team" was stale client state (cleared on fresh connect) — not a persistent bug.
+**R1 ITEM-9 CONVERGENCE DONE — `21ff210` (audit.py INVENTED methods 9→4; behaviour-preserving, live-verified).**
+Retired 5 of the 6 invented CTSGameRules quintet stand-ins:
+- **GetTeamID, TeamWithFewestPlayers** — dead, deleted.
+- **IsTeamMode, IsTeamplay** — deleted; the original's gate is the global `g_teamplay != 0` (== m_iGameMode>=1;
+  2/3 dead §4.6). All 13 internal + 6 external callers (TS_entities/ts_worldgun/ts_buy) read g_teamplay now.
+- **RecountTeams + m_szTeamList** — deleted; SetTeamList reconstructed per §4.5 (direct slot tokenize + dedup +
+  The-ONE insertion + "created team %s" ALERT + cap g_theOneMode?2:4). RestartRound no longer re-tokenizes.
+- **KEPT: GetIndexedTeamName** — thin name-by-index slot accessor, ~8 callers; the original inlines the slot
+  read but removing it = 8 duplicated bounds-checks for an INTERNAL helper (not the external-interface target);
+  documented + accepted. Other 3 audit-invented (TSEnterSpectate/LoadActiveFromItem/SyncActiveToItem) are
+  separate helpers, out of quintet scope.
+Verified via LIVE client-memory read after the convergence: m_Teamplay=1, TeamNames count 4, labels team1-4,
+per-player teams intact — the new SetTeamList produces the same roster. Builds clean; check-source-lists agrees.
+
+**STILL OPEN:** re-grade the remaining §4.6 IsTeamMode-turned-g_teamplay sites if any need IsCTB/lms specifically
+(the round-gate site was already fixed `19309bb`; others are behaviour-preserving g_teamplay reads); the powerup
+Think gate (`if (g_teamplay) skip` — original gives dynamic powerups in mode<2 i.e. teamplay too — a // VERIFY
+regrade); the InitObjectives mode-2/3 promotion (dead-path fidelity §4.6). Then the queued client fixes (bloody
+blades + glass integrator, client_bloody_and_shards.md). DM "Spectate-as-team" was stale client state (not a bug).
 
 New orchestrator picked up from the cont.95 START-HERE (HANDOFF.md) at HEAD `336b501`, branch
 `restructure-source-parity`. Tree clean apart from the INTENTIONAL `game/ts/` deletions. Previous
