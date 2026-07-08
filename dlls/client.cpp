@@ -43,7 +43,8 @@
 #include "gamerules.h"
 #include "ts_playeramount.h"
 #include "ts_sharedemitter.h" // CTSPlayerAmount connect/disconnect relays
-#include "ts_gamerules.h" // TSGameRules (the `motd` re-send passthrough)
+#include "ts_gamerules.h"
+#include "teamplay_gamerules.h" // R1: jointeam dispatches to the TS-patched ChangePlayerTeam // TSGameRules (the `motd` re-send passthrough)
 #include "ts_utils.h"     // TSPlayerDisconnect (ClientDisconnected)
 #include "game.h"
 #include "customentity.h"
@@ -682,14 +683,14 @@ void ClientCommand(edict_t* pEntity)
 	}
 	else if (FStrEq(pcmd, "jointeam")) // TS: join team <index> (jointeam <N>) -> assign + respawn
 	{
-		if (CMD_ARGC() > 1)
+		if (CMD_ARGC() > 1 && TSGameRules)
 		{
+			// R1 phase 3 — the original dispatch @0x9e4b0: GetIndexedTeamName -> the TS-patched
+			// CHalfLifeTeamplay::ChangePlayerTeam(pl, name, false, false) (vt+0xdc). The no-kill
+			// change sends the player to spectate with a forced 5s gate — NOT an instant respawn.
 			const char *name = TSGameRules->GetIndexedTeamName(atoi(CMD_ARGV(1)));
-			if (name && name[0])
-			{
-				TSGameRules->AssignToTeam(player, name);
-				respawn(&pEntity->v, false); // spawn onto the chosen team
-			}
+			if (name && name[0] && g_pGameRules && g_pGameRules->IsTeamplay())
+				((CHalfLifeTeamplay*)g_pGameRules)->ChangePlayerTeam(player, name, false, false);
 		}
 	}
 	else if (!strncmp(pcmd, "drop_", 5) && pcmd[5] >= '0' && pcmd[5] <= '9')

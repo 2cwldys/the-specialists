@@ -987,39 +987,10 @@ const char *CTSGameRules::TeamWithFewestPlayers()
 	return pTeamName;
 }
 
-// @ AssignToTeam — put a player on `pTeamName`: set pev->team (0-based, the convention the
-// objective gating reads), the team-name string, the model/team infokeys (so a real client
-// would render the team model), and broadcast the HUD team + score info.
-void CTSGameRules::AssignToTeam(CBasePlayer *pPlayer, const char *pTeamName)
-{
-	int team = GetTeamIndex(pTeamName);
-	if (team < 0)
-		return;
-
-	strncpy(pPlayer->m_szTeamName, pTeamName, TEAM_NAME_LENGTH - 1);
-	pPlayer->m_szTeamName[TEAM_NAME_LENGTH - 1] = '\0';
-	pPlayer->pev->team = team; // 0-based (cf. ts_objectives.cpp CanInteract / pev->team gate)
-
-	int clientIndex = pPlayer->entindex();
-	char *pInfo = g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict());
-	const char *pModel = GetPlayerModel(pPlayer);
-	g_engfuncs.pfnSetClientKeyValue(clientIndex, pInfo, "model", (pModel && pModel[0]) ? pModel : pTeamName);
-	g_engfuncs.pfnSetClientKeyValue(clientIndex, pInfo, "team", pPlayer->m_szTeamName);
-
-	// notify everyone's HUD of the team membership + score row
-	MESSAGE_BEGIN(MSG_ALL, gmsgTeamInfo);
-	WRITE_BYTE(clientIndex);
-	WRITE_STRING(pPlayer->m_szTeamName);
-	MESSAGE_END();
-
-	MESSAGE_BEGIN(MSG_ALL, gmsgScoreInfo);
-	WRITE_BYTE(clientIndex);
-	WRITE_SHORT((int)pPlayer->pev->frags);
-	WRITE_SHORT(pPlayer->m_iDeaths);
-	WRITE_SHORT(0); // playerclass is a CONSTANT 0 in every original ScoreInfo (fold-plan Y6)
-	WRITE_SHORT(team + 1); // scoreboard team column is 1-based
-	MESSAGE_END();
-}
+// (AssignToTeam DELETED — R1 phase 3: the original assigns teams in the TS-patched
+// CHalfLifeTeamplay::SetDefaultPlayerTeam @0xd44ac / ChangePlayerTeam @0xd488c
+// (teamplay_gamerules.cpp); jointeam dispatches there @0x9e4b0. The pev->team stamp our
+// version carried rides ChangePlayerTeam as a tagged shim for the objectives gate.)
 
 // (CTSGameRules::PlayerSpawn DELETED — R1/Y9: the original CTSGameRules has NO PlayerSpawn;
 // the virtual is the TS-patched CHalfLifeMultiplay::PlayerSpawn @0x790ac (multiplay_gamerules.cpp,
@@ -1041,6 +1012,19 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 
 	pPlayer->m_iRespawnsUsed = 0; // @0x694d1 — a joiner starts with a fresh respawn budget
 
+	// items 1-2 of the original @0x69134 (dossier §2.4) — the cheats/damage notices come FIRST.
+	if (CVAR_GET_FLOAT("sv_cheats") != 0.0f)
+		TSHudMessageOne(0x2d, 0xc3, 0x2d, 8, 100, "This server has cheats enabled.", pPlayer->pev);
+	{
+		const float dm = CVAR_GET_FLOAT("damagemult");
+		if (dm > 0.0f)
+			TSHudMessageOne(0x2d, 0xc3, 0x2d, 8, 100,
+				UTIL_VarArgs("This server has custom weapon damages (%.2f)", dm), pPlayer->pev);
+	}
+	// custom-weapons catch-up (@0x691d8, item 2): a joiner on a customized server gets the table.
+	if (m_bWeaponParamsCustom)
+		InformClientsOnWeaponsParams(pPlayer);
+
 	// @0x69134: the joiner catches up on EVERY player's spectator state — MSG_ONE per
 	// connected player: (BYTE idx, BYTE iuser1 != 0).
 	for (int i = 1; i <= gpGlobals->maxClients; i++)
@@ -1055,7 +1039,8 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	}
 
 	// SrvSett catch-up: the joiner gets all four settings (no late-joiner hole).
-	m_iSrvRealBullet = (int)(CVAR_GET_FLOAT("realbullet") + 0.5f);
+	// item 3: byte-0 sends the THINK-CACHED value (+0x578), not a fresh cvar read (Init
+	// seeds it -1; Think refreshes on change) — dossier §2.4.
 	MESSAGE_BEGIN(MSG_ONE, gmsgTSServerSetting, NULL, pPlayer->edict());
 	WRITE_BYTE(0);
 	WRITE_SHORT(m_iSrvRealBullet);
@@ -1078,32 +1063,12 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	// client is active (PreThink honours m_flSrvSettResendTime). See the member note in player.h.
 	pPlayer->m_flSrvSettResendTime = gpGlobals->time + 0.75f;
 
-	// custom-weapons catch-up (@0x691d8): a joiner on a customized server gets the whole table.
-	if (m_bWeaponParamsCustom)
-		InformClientsOnWeaponsParams(pPlayer);
+	// (the TeamNames + TeamInfo roster catch-up is GONE from here — R1 phase 3: it lives in
+	// the STOCK CHalfLifeTeamplay::InitHUD @0xd45d8, which runs on team maps now that Teamplay
+	// is installed as g_pGameRules. Dossier §2.3/§2.5.)
 
 	if (!IsTeamMode())
 		return;
-
-	const int nTeams = GetTeamsNum();
-	MESSAGE_BEGIN(MSG_ONE, gmsgTeamNames, NULL, pPlayer->edict());
-	WRITE_BYTE(nTeams);
-	for (int i = 0; i < nTeams; i++)
-		WRITE_STRING(m_teamNames[i]);
-	MESSAGE_END();
-
-	// catch the new client up on everyone's current team
-	for (int i = 1; i <= gpGlobals->maxClients; i++)
-	{
-		CBaseEntity *plr = UTIL_PlayerByIndex(i);
-		if (plr && plr->TeamID() && *plr->TeamID())
-		{
-			MESSAGE_BEGIN(MSG_ONE, gmsgTeamInfo, NULL, pPlayer->edict());
-			WRITE_BYTE(plr->entindex());
-			WRITE_STRING(plr->TeamID());
-			MESSAGE_END();
-		}
-	}
 
 	// @0x69134 (fold-plan G3, decompile-exact — inv_C lines 163-177): catch the new client up on
 	// the round clock (the round-start broadcast only happens at arm-time). Gated on the timer

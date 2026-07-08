@@ -761,6 +761,22 @@ bool CWorld::KeyValue(KeyValueData* pkvd)
 		pev->team = ALLOC_STRING(pkvd->szValue);
 		return true;
 	}
+	// R1 phase 3 — the TS worldspawn keys (dossier §5.3): "gamemode" (1-4 = DM/TDM/LMS/TheOne,
+	// consumed by DecideGamePlay) and "teammodels" (the team-model table conduit the TS-patched
+	// Teamplay ctor reads).
+	else if (FStrEq(pkvd->szKeyName, "gamemode"))
+	{
+		extern int g_gamemode;
+		g_gamemode = atoi(pkvd->szValue);
+		return true;
+	}
+	else if (FStrEq(pkvd->szKeyName, "teammodels"))
+	{
+		extern char g_teamModels[0x800];
+		strncpy(g_teamModels, pkvd->szValue, sizeof(g_teamModels) - 1);
+		g_teamModels[sizeof(g_teamModels) - 1] = 0;
+		return true;
+	}
 	else if (FStrEq(pkvd->szKeyName, "defaultteam"))
 	{
 		if (0 != atoi(pkvd->szValue))

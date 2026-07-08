@@ -568,14 +568,8 @@ void CHalfLifeMultiplay::PlayerSpawn(CBasePlayer* pPlayer)
 	// (initial_cash moved to ClientPutInServer — its original home @0xacf44; the old
 	// "re-seed any 0-cash respawn" behavior was ours-only. Fold-plan Y9-2.)
 
-	// INTERIM (fold-plan Y9-4/R1): the original assigns teams in the TS-patched
-	// CHalfLifeTeamplay::SetDefaultPlayerTeam/ChangePlayerTeam (@0xd44ac/@0xd488c); until the
-	// rules split installs Teamplay on team maps, the auto-balance stand-in lives here.
-	if (TSGameRules && TSGameRules->IsTeamMode())
-	{
-		if (TSGameRules->GetTeamIndex(pPlayer->m_szTeamName) < 0)
-			TSGameRules->AssignToTeam(pPlayer, TSGameRules->TeamWithFewestPlayers());
-	}
+	// (the Y9-4 auto-balance interim is GONE — R1 phase 3 installs CHalfLifeTeamplay on team
+	// maps; its stock InitHUD runs SetDefaultPlayerTeam + ChangePlayerTeam on join.)
 }
 
 //=========================================================

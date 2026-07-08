@@ -94,10 +94,8 @@ public:
 	void  InitTeamScore(int *pScores);                     // @0x69130 — (no-op in the original)
 	void  UpdateTeamScores(int a, int b);                  // @0x67908 — (no-op in the original)
 
-	// Put `pPlayer` on `pTeamName`: pev->team (0-based) + m_szTeamName + model/team
-	// infokeys, and broadcast the HUD team/score info. The server-side stand-in for the
-	// faithful client class-selection menu (cl_dll, not built).
-	void  AssignToTeam(CBasePlayer *pPlayer, const char *pTeamName);
+	// (AssignToTeam DELETED — R1 phase 3: teams are assigned by the TS-patched
+	// CHalfLifeTeamplay::SetDefaultPlayerTeam/ChangePlayerTeam @0xd44ac/@0xd488c.)
 
 	// (PlayerSpawn override DELETED — R1/Y9: the virtual is the TS-patched
 	// CHalfLifeMultiplay::PlayerSpawn @0x790ac; equip core + tagged interims live there.)
