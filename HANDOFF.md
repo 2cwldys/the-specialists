@@ -80,18 +80,21 @@ if the last RE agent finished — `client_message_hooks.md`).
   changes: audio kept playing, SDL key handlers ate the login form). **Cloud web-join still unverified** —
   if the user was joining the CLOUD server, get DevTools /api/game-token status + box journalctl.
 
-### 📋 OPEN — pick up here
-1. **`client_message_hooks.md` dossier → APPLY** (agent may still be running / just finished): the 7 missing
-   client hooks (TSMBlur/NextStunt/TSPSys/TSFlag/Objective/ShowObj/TSHVoice) + cl_gore's PTakeDam blood tail
-   + the specmode/special client-side mechanism swap. These are the biggest drop-in gaps vs an original server.
-2. Parity-sweep remainder (`parity_sweep.md`): ~23 invented methods to fold (CTSGameRules ×11, CTSGun ×7,
-   CBasePlayer ×5), 6 invented globals (+ missing `TSGameRules` global var), 11 missing client cvars
-   (gl_fog×6, cl_drawnames, cl_thirdperson, m_accel×3), extra server ClientCommand branches (HL leftovers +
-   the invented tsbuy* dev stand-ins — verify `buy`+`weapon_%d` cover them first), server sk_*×252 strip
-   (CAREFUL: check nothing TS-relevant still reads gSkillData), client cvar leftovers ×21.
-3. D14 EMIT_SOUND_DYN 8-arg overload (repo-wide slow-mo pitch floor).
-4. Blocked-on-user: playtest protocol (traceattack dossier §end + the cvar set), bot-crash gdb repro,
-   doors-glass, floating-weapons probe, the PUSH (user pushes after playtest), cloud web-join datapoint.
+### 📋 OPEN — pick up here (post clear-out `8ab55fb..67b5b4f`: hooks APPLIED, cvars 0/0, strips DONE,
+### D14 DONE, folds 23→12 — see the cont.94 ledger entry; ALL remaining autonomous items below are the
+### documented-deferred structural set)
+1. **R1 (the big one): the CTSGameRules STANDALONE-class split** — the original CTSGameRules has base null,
+   NO vtable, lives as the 22.7KB static object @0x1681a0 COEXISTING with a TS-patched stock g_pGameRules;
+   our merged subclass is the root of the 12 remaining invented methods (team quintet, PlayerKilled/
+   PlayerSpawn splits, TSEnterSpectate). Full plan: `reference/dossiers/cont94/invented_method_folds.md`
+   (YELLOW/RED sections). Do it as its OWN session with playtest checkpoints.
+2. Deferred consumer seams (all documented in their dossiers): the fog pass + ts_fog BSP-lump parse
+   (`client_cvar_parity.md` §A1), cl_gore full TSP template fields, cl_motionblur render-time own-ghost
+   gate, cl_wavedetail/realbullet, TSPSys wind pass, CBaseEntity::GoSlow virtual + DefaultDeploy draw.wav
+   (`emit_sound_dyn_overload.md`), Y2 stored slot counter + Y1(c) m_lastType member, the 6 client globals.
+3. Blocked-on-user: THE PLAYTEST (protocol: traceattack dossier §end + the new HUD/blur/blood/stunt/cvar
+   items + the fold flags: lastinv-from-kungfu no-op, WAITING-via-award-byte, spawn mouse-accel feel),
+   bot-crash gdb repro, doors-glass, floating-weapons probe, the PUSH, cloud web-join datapoint.
 
 ### ⚠️ unchanged: Serena ledger via Read tool on .serena/memories/ledger.md (NOT read_memory — ~500 KB JSON).
 First job: append YOUR ledger entry (cont.95). The cont.89–94 orchestrator RE is in the commit messages,
