@@ -377,6 +377,16 @@ void CHalfLifeTeamplay::ResendTeamRoster(CBasePlayer* pPlayer)
 			WRITE_BYTE(plr->entindex());
 			WRITE_STRING(plr->TeamID());
 			MESSAGE_END();
+			// the SCOREBOARD section name+color key off the ScoreInfo teamid column — the
+			// join-time MP::InitHUD per-player rows are MSG_ONEs in the same drop window.
+			CBasePlayer* pl = (CBasePlayer*)plr;
+			MESSAGE_BEGIN(MSG_ONE, gmsgScoreInfo, NULL, pPlayer->edict());
+			WRITE_BYTE(plr->entindex());
+			WRITE_SHORT((int)plr->pev->frags);
+			WRITE_SHORT(pl->m_iDeaths);
+			WRITE_SHORT(0);
+			WRITE_SHORT(GetTeamIndex(pl->m_szTeamName) + 1);
+			MESSAGE_END();
 		}
 	}
 }
