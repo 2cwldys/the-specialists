@@ -184,6 +184,12 @@ void CHalfLifeMultiplay::RefreshSkillData()
 //=========================================================
 void CHalfLifeMultiplay::Think()
 {
+	// R1 phase 2: the TS-patched MP::Think calls the standalone rules object's non-virtual
+	// Think (@0xbf302; Teamplay::Think has its own call @0xd439a — ours chains to MP, so this
+	// single site covers both paths).
+	if (TSGameRules)
+		TSGameRules->Think();
+
 	g_VoiceGameMgr.Update(gpGlobals->frametime);
 
 	///// Check game rules /////

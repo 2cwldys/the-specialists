@@ -275,7 +275,9 @@ void CTSGameRules::CheckDeads()
 // InitObjectives/SetObjective when the map entities exist) and seeds the objective subsystem.
 CTSGameRules::CTSGameRules()
 {
-	Init();
+	// R1 phase 2: the object is STATIC (@0x1681a0 — ctor runs at static-init, before
+	// gpGlobals is valid). Per-map setup happens in Init(), called from InstallGameRules —
+	// the original's ctor/Init split (__12CTSGameRules + Init__12CTSGameRules @0x67d6c).
 }
 
 void CTSGameRules::Init()
@@ -618,7 +620,8 @@ void CTSGameRules::CheckVotes()
 
 void CTSGameRules::Think()
 {
-	CHalfLifeMultiplay::Think();
+	// (R1 phase 2: no base call — this is the original's NON-VIRTUAL Think @0x67204, invoked
+	// by the TS-patched CHalfLifeMultiplay::Think @0xbf302 / CHalfLifeTeamplay::Think @0xd439a.)
 
 	g_BulletManager.Think(); // TS: fly the slow-motion bullets-as-models each frame (ts_bullet.cpp)
 
@@ -1033,7 +1036,8 @@ int gmsgTSServerSetting = 0;
 
 void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 {
-	CHalfLifeMultiplay::InitHUD(pPlayer);
+	// (R1 phase 2: no base call — this is the original's NON-VIRTUAL InitHUD @0x69134, invoked
+	// from CBasePlayer::UpdateClientData's InitHUD block @0x81d00 AFTER g_pGameRules->InitHUD.)
 
 	pPlayer->m_iRespawnsUsed = 0; // @0x694d1 — a joiner starts with a fresh respawn budget
 

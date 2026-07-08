@@ -669,7 +669,10 @@ void ClientCommand(edict_t* pEntity)
 	}
 	else if (FStrEq(pcmd, "motd")) // TS: re-send the MOTD to this client
 	{
-		TSGameRules->ResendMOTD(player->edict());
+		// R1: SendMOTDToClient lives on the stock rules object now (the merged-class
+		// ResendMOTD passthrough is gone).
+		if (g_pGameRules && g_pGameRules->IsMultiplayer())
+			((CHalfLifeMultiplay*)g_pGameRules)->SendMOTDToClient(player->edict());
 	}
 	else if (FStrEq(pcmd, "changeteam")) // TS: open the team-select VGUI menu (original pushes gmsgVGUIMenu)
 	{

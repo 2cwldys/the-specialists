@@ -367,7 +367,12 @@ protected:
 	float m_flIntermissionStartTime = 0;
 	float m_flIntermissionEndTime = 0;
 	bool m_iEndIntermissionButtonHit;
+	// R1 interim: public — the `motd` ClientCommand re-sends it via g_pGameRules (was a
+	// CTSGameRules passthrough when the classes were merged). VERIFY the original's motd path.
+public:
 	void SendMOTDToClient(edict_t* client);
+
+protected:
 };
 
 //=========================================================

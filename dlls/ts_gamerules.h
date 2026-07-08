@@ -38,12 +38,15 @@ class CTSObjectiveManager; // dlls/ts_objectives.h (round objective managers)
 #define TS_MAX_TEAMS    4
 #define TS_TEAMNAME_LEN 32
 
-class CTSGameRules : public CHalfLifeMultiplay
+// R1 phase 2: CTSGameRules is a STANDALONE class — base:null, NO vtable, all methods
+// non-virtual, exactly like the original (nm has no __vt_12CTSGameRules; the 22.7KB static
+// object @0x1681a0 is reached via the GOT pointer PTR_TSGameRules = our `TSGameRules`).
+// It COEXISTS with g_pGameRules (a stock TS-patched CHalfLifeMultiplay/CHalfLifeTeamplay):
+// MP::Think/Teamplay::Think call TSGameRules->Think() (@0xbf302/@0xd439a), and
+// CBasePlayer::UpdateClientData's InitHUD block calls TSGameRules->InitHUD() (@0x81d00).
+class CTSGameRules
 {
 public:
-	// Public passthrough so the `motd` console command can re-send the MOTD (the base
-	// CHalfLifeMultiplay::SendMOTDToClient is protected). @ ClientCommand "motd".
-	void ResendMOTD(edict_t *client) { SendMOTDToClient(client); }
 
 	// Pick a random permitted powerup bit out of `mask`, or 0 if none qualify.
 	int GetRandomPowerup(int mask);
@@ -68,7 +71,8 @@ public:
 	// not reconstructed; functional proxy = a ts_objective_manager is present. Lazily
 	// resolved + cached (worldspawn installs the rules before objective ents spawn).
 	bool IsTeamMode();
-	bool IsTeamplay() override;          // teamplay iff IsTeamMode()
+	bool IsTeamplay();                   // teamplay iff IsTeamMode() (INTERIM R1: the real virtual
+	                                     // is stock Teamplay::IsTeamplay @0xd5200, g_teamplay-driven)
 	// GetGameDescription is NOT overridden here — the original defines it on CHalfLifeMultiplay
 	// (theOne->LMS->DM, no teamplay branch); CTSGameRules inherits it.
 
@@ -76,9 +80,9 @@ public:
 	// team mode is first detected; RecountTeams tokenizes it into m_teamNames/m_numTeams.
 	void  InitTeams();
 	void  RecountTeams();
-	int   GetTeamIndex(const char *pTeamName) override;     // 0-based, -1 = no match
-	const char *GetIndexedTeamName(int teamIndex) override; // "" if out of range
-	const char *GetTeamID(CBaseEntity *pEntity) override;   // the entity's team name string
+	int   GetTeamIndex(const char *pTeamName);              // @0x685xx non-virtual (original has it)
+	const char *GetIndexedTeamName(int teamIndex);          // "" if out of range (R1 interim)
+	const char *GetTeamID(CBaseEntity *pEntity);            // the entity's team name string (R1 interim)
 	const char *TeamWithFewestPlayers();                    // auto-balance pick
 	int   GetTeamsNum();                                     // @0x685a8 — number of active teams
 	void  SetTeamList(const char *pList);                   // @0x680dc — parse the ";"-team list into the slots
@@ -97,7 +101,8 @@ public:
 
 	// (PlayerSpawn override DELETED — R1/Y9: the virtual is the TS-patched
 	// CHalfLifeMultiplay::PlayerSpawn @0x790ac; equip core + tagged interims live there.)
-	void  InitHUD(CBasePlayer *pPlayer) override;           // send the team roster to a client
+	void  InitHUD(CBasePlayer *pPlayer);                    // @0x69134 non-virtual — called from
+	                                                        // CBasePlayer::UpdateClientData's InitHUD block
 
 	char  m_szTeamList[256] = {};
 	char  m_teamNames[TS_MAX_TEAMS][TS_TEAMNAME_LEN] = {};
@@ -108,7 +113,7 @@ public:
 
 	// Per-frame: drives the dynamic deathmatch powerup spawner (PutPowerUp) on top of the
 	// inherited CHalfLifeMultiplay round/spawn logic.
-	void Think() override;
+	void Think(); // @0x67204 non-virtual — called from the TS-patched MP/Teamplay::Think
 
 	// On death: the MP scoring, plus the TS death effects (drop the arsenal as world guns +
 	// leave a fading corpse).

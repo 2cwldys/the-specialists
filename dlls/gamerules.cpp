@@ -232,9 +232,16 @@ CGameRules* InstallGameRules()
 		// the LMS/TheOne mode flags; rules+0 is seeded from it (Init @0x67d83) and
 		// InitObjectives later promotes team maps to 2 (plain) / 3 (objectives).
 		g_teamplay = DecideGamePlay((char *)STRING(gpGlobals->mapname), teamplay.value > 0 ? 1 : 0) != 0;
-		CTSGameRules *pRules = new CTSGameRules;
-		pRules->m_iGameMode = g_teamplay ? 1 : 0;
-		TSGameRules = pRules; // the original's global TSGameRules object (interim pointer, fold-plan G1/R1)
-		return pRules;
+		// R1 phase 2 — the original two-object architecture (@0xb6050): g_pGameRules is a stock
+		// (TS-patched) CHalfLifeMultiplay/CHalfLifeTeamplay; the STANDALONE CTSGameRules lives
+		// alongside as the static object @0x1681a0 (ctor at static-init; Init() here per map;
+		// reached via the GOT pointer PTR_TSGameRules = our `TSGameRules`).
+		static CTSGameRules s_TSGameRules;
+		TSGameRules = &s_TSGameRules;
+		TSGameRules->m_iGameMode = g_teamplay ? 1 : 0;
+		TSGameRules->Init(); // @0x67d6c — per-map setup (InitTeams + objectives + arm round 1)
+		if (g_teamplay)
+			return new CHalfLifeTeamplay;
+		return new CHalfLifeMultiplay;
 	}
 }
