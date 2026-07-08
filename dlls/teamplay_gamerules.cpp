@@ -437,6 +437,14 @@ void CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeam
 // now-active joiner (idempotent; the client just re-stores names/teams).
 void CHalfLifeTeamplay::ResendTeamRoster(CBasePlayer* pPlayer)
 {
+	// gmsgGameMode(1) FIRST — it sets the client m_Teamplay flag that gates the whole team
+	// scoreboard/HUD. Sending it here (the +0.75s per-joiner resend) instead of only in the 3s
+	// periodic rebroadcast makes the team NAMES render near-instantly on join (they arrive with
+	// this resend but otherwise sit un-rendered until the next 3s tick flips the flag).
+	MESSAGE_BEGIN(MSG_ONE, gmsgGameMode, NULL, pPlayer->edict());
+	WRITE_BYTE(1);
+	MESSAGE_END();
+
 	MESSAGE_BEGIN(MSG_ONE, gmsgTeamNames, NULL, pPlayer->edict());
 	WRITE_BYTE(num_teams);
 	for (int i = 0; i < num_teams; i++)
