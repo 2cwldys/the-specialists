@@ -191,6 +191,23 @@ CTSGameRules still standing, callers to converge) + the dmcashbased/usecash nami
 Wires mode==3 divergence re-RE. Client dossier fixes (bloody SVC_WEAPONANIM skiplocal + glass exact
 integrator) QUEUED behind R1 per user mandate.
 
+**R1 CHECKPOINT 3 (team experience) — PASSED after 4 fixes (`8b31b93`..`+scoreinfo`), all user-confirmed:**
+(1) InitHUD recursion crash (Teamplay::InitHUD→ChangePlayerTeam→StartObserver re-armed m_fInitHUD →
+stack overflow; guard set before the InitHUD calls — VERIFY original UCD flag order). (2) IsTeamMode
+was the old lazy objective-manager proxy — cached 0 at ctor time (no entities) and silently disabled
+the ENTIRE team layer; now the mode gate (m_iGameMode>=1) per the ground-truth dossier. (3) dead
+players flapped to "Spectate": stock StartObserver sent TeamInfo("") — the original sends
+TeamInfo(TeamID()) @0x89922 (disasm-verified) so the dead KEEP their team. (4) team names/colors
+blank until a kill: the ORIGINAL client's scoreboard section name/color AND individual player color
+key off the ScoreInfo TEAMID column + TeamInfo — all the join-time catch-ups are MSG_ONEs in the
+connect drop window; CHalfLifeTeamplay::ResendTeamRoster (INVENTED-INTEROP, rides the 0.75s SrvSett
+resend) resends TeamNames + per-player TeamInfo + per-player ScoreInfo(teamid). ALSO: mp_teamplay is
+the cvar (not `teamplay`); +cvar on the command line doesn't stick for game-dll cvars — set via rcon
++ changelevel. OPEN from checkpoint 3: xash client scoreboard has NO team sections (cl_dll
+reconstruction item — needs the original client Tab renderer RE); the DM empty-team-box/"Spectate"
+cosmetics on the original client (queued client RE); "created team %s" ALERT missing in our
+SetTeamList (cosmetic).
+
 *(Entry updated as work lands — see below for cont.95's blow-by-blow.)*
 
 ## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
