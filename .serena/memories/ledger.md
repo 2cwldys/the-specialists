@@ -101,6 +101,26 @@ non-kill hits → misattributed later kills. PARKED for R1: name computed in Pla
 4-arg DeathNotice (T2Pc) signature + kill-streak log flavor ("stopped_fury"/"is_unstoppable"
 @0x89e0d block). Both libs build; deployed. Pending user playtest.
 
+**Bloody blade blinks clean at idle — `dc118b0` (user-reported).** The bloody katana/knife is a
+viewmodel SUBMODEL (body 1). Server side verified faithful (KatanaFire/KnifeFire set it.bloody +
+pev->body; WeaponIdle @0x754dc passes this->pev->body; vuser2.x ships it.bloody — cont.89/90 map).
+Our gap: the hit branch is #ifndef CLIENT_DLL and the client restore re-seeded it.bloody but NOT
+the predicted gun's fake pev->body → the predicted WeaponIdle (3s timer — the "couple seconds")
+re-sent the idle anim with body 0 → clean blink until the next swing event. Fix: HUD_WeaponsPostThink
+seeds g_TSGun.pev->body from the restored bloody for blades. RE note: the original CLIENT also
+keeps a per-swing bloody global (DAT_10189e08, katana handler @0x44230: stores iparam2, forces 1 on
+texture 'F' flesh) — refs are handler-local (swing anim body), matching our ev_ts.cpp handlers.
+OPEN: user to confirm WHICH client showed the blink — if the ORIGINAL client (not xash), there is a
+further seam (what feeds ITS predicted idle body vs our server) still to RE.
+
+**OPEN: xash client "Press Fire To Play" sometimes never spawns (sticky per session).** Analysis:
+fire-to-play = the CLIENT sends `respawn` (TS_SpectateFireCheck, cl_dll/ts_spectate.cpp:83) gated on
+`in_attack.state & 1` AND `!m_TSBuyMenu.IsUp()`; CHudSpectate::Draw always runs while g_iUser1!=0.
+Sticky-per-session candidates: (a) buy menu logically up (eats fire by design), (b) cursor-state
+desync (clicks go to VGUI, +attack never sets — PRIME suspect), (c) server respawn gate. User
+discriminator asked: menu visible? cursor free? does console `respawn` spawn? native vs browser
+xash (browser has the known pointer-lock issue).
+
 *(Entry updated as work lands — see below for cont.95's blow-by-blow.)*
 
 ## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
