@@ -128,8 +128,8 @@ void CTSGameRules::InitObjectives()
 
 	// rules+0 promotion (@0x68693): a team map becomes mode 3 with objectives present, 2 without
 	// (the original gates the scan on the byte already being 2/3; our team detect is
-	// entity-driven, so the equivalent gate is IsTeamMode()). g_teamplay mirrors it.
-	if (IsTeamMode())
+	// entity-driven, so the equivalent gate is g_teamplay). g_teamplay mirrors it.
+	if (g_teamplay)
 	{
 		m_iGameMode = (m_iManagerCount != 0) ? 3 : 2;
 		g_teamplay = true;
@@ -228,7 +228,7 @@ void CTSGameRules::CallCheckDeads()
 // or one-sided warmup doesn't instantly "win").
 void CTSGameRules::CheckDeads()
 {
-	if (m_flRoundRestart != 0.0f || !IsTeamMode())
+	if (m_flRoundRestart != 0.0f || !g_teamplay)
 		return;
 
 	int alive[TS_MAX_TEAMS] = {};
@@ -317,7 +317,7 @@ void CTSGameRules::RespawnEntities(bool bFirst)
 	for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "info_breakable")) != nullptr;)
 		((CInfoBreakable *)e)->RespawnThink();
 
-	if (IsTeamMode() || lms)
+	if (g_teamplay || lms)
 		for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "ts_groundweapon")) != nullptr;)
 			((CTSGroundWeapon *)e)->Fall();
 
@@ -343,7 +343,7 @@ void CTSGameRules::RestartRound()
 	// can't be detected there (IsTeamMode keys off a ts_objective_manager entity). By the time this runs the
 	// entities exist, so gate here: in plain deathmatch there are no rounds, and respawning/teleporting every
 	// player 5s into the map (the old unconditional behaviour) was the "~5s teleport + redeploy" bug.
-	const bool roundBased = IsTeamMode() || g_lastManStanding != 0;
+	const bool roundBased = g_teamplay || g_lastManStanding != 0;
 
 	// (c) reset the objective subsystem — a no-op on a map with no objective entities (e.g. plain DM).
 	InitObjectives();
@@ -370,7 +370,7 @@ void CTSGameRules::RestartRound()
 		}
 
 		// (d) team banner.
-		if (IsTeamMode())
+		if (g_teamplay)
 			TSHudMessageAll(0, 0xff, 0, 8, 30, "Defeat the opposite team");
 
 		// (e) respawn the players into the fresh round. SLICE: the original instead refunds the loadout's
@@ -392,8 +392,8 @@ void CTSGameRules::RestartRound()
 		}
 	}
 
-	// (f) recount teams, (g) respawn the map's resettable entities.
-	RecountTeams();
+	// (f) respawn the map's resettable entities. (Team roster is stable after SetTeamList —
+	// the invented RecountTeams re-tokenize was removed, R1 item-9.)
 	RespawnEntities(true);
 }
 
@@ -401,7 +401,7 @@ void CTSGameRules::RestartRound()
 // depth > 1 it also wipes the per-team round scores/cash. Replaces the ad-hoc restart scheduling.
 void CTSGameRules::ResetRestartRound(int depth)
 {
-	if (!IsTeamMode() && CVAR_GET_FLOAT("lms") == 0.0f)
+	if (!g_teamplay && CVAR_GET_FLOAT("lms") == 0.0f)
 		return;
 	m_flRoundRestart = gpGlobals->time + 1.0f;
 	m_flRoundEnd = 0;
@@ -680,7 +680,7 @@ void CTSGameRules::Think()
 	// The round system (RestartRound / round timer / CheckDeads-on-expiry) runs ONLY for
 	// last-man-standing (m_iGameMode==0 + g_lastManStanding) and the dead objective modes
 	// (m_iGameMode>=2, §4.6). PLAIN DEATHMATCH (mode 0) and PLAIN TEAMPLAY/TDM (mode 1) are
-	// FREE-RESPAWN — no rounds. (Fixes cont.94's over-broad `roundBased = IsTeamMode() || lms`
+	// FREE-RESPAWN — no rounds. (Fixes cont.94's over-broad `roundBased = g_teamplay || lms`
 	// gate, which made mode-1 TDM round-based: "wait til next round" while alive, timer restarts.)
 	if (m_iGameMode < 2)
 	{
@@ -714,10 +714,10 @@ void CTSGameRules::Think()
 	if (gpGlobals->time < m_flNextPowerupSpawn)
 		return;
 
-	// Only deathmatch maps get dynamic powerups. IsTeamplay() now resolves to the team-mode
+	// Only deathmatch maps get dynamic powerups. g_teamplay now resolves to the team-mode
 	// proxy (a ts_objective_manager present — see CTSGameRules::IsTeamMode), so the old
 	// explicit objective-manager scan is folded into it.
-	if (IsTeamplay())
+	if (g_teamplay)
 	{
 		m_flNextPowerupSpawn = gpGlobals->time + 20.0f;
 		return;
@@ -807,23 +807,10 @@ void CTSGameRules::SetGlobalSlowMotion(float scale, float duration)
 }
 
 
-// @ IsTeamMode — is this a team-play map? Faithful gate is the TS game-mode member;
-// functional proxy is the presence of a ts_objective_manager (placed only by tm_ maps).
-// Resolved lazily and cached: the rules object is installed at worldspawn, before the
-// objective entities spawn, so we can't decide at construction time.
-bool CTSGameRules::IsTeamMode()
-{
-	// R1 phase 3 FIX (ground-truth dossier §4.6): the live team gate is the GAME MODE
-	// (m_iGameMode >= 1 — seeded from DecideGamePlay's g_teamplay; 2/3 are dead objective-mode
-	// leftovers the original never reaches). The old lazy objective-manager proxy CACHED 0 at
-	// ctor time (no entities spawned yet) and disabled the whole team layer on team servers.
-	return m_iGameMode >= 1;
-}
-
-bool CTSGameRules::IsTeamplay()
-{
-	return IsTeamMode();
-}
+// (IsTeamMode + IsTeamplay DELETED — R1 item-9 convergence: invented CTSGameRules stand-ins.
+// The original's team gate at each site is the global `g_teamplay != 0` (== m_iGameMode>=1, since
+// m_iGameMode = (byte)g_teamplay and modes 2/3 are dead §4.6); callers now read g_teamplay directly.
+// The team-play VIRTUAL is stock CHalfLifeTeamplay::IsTeamplay (g_pGameRules->IsTeamplay()).)
 
 // GetGameDescription is inherited from CHalfLifeMultiplay (theOne->LMS->DM, no teamplay branch) —
 // the original defines no CTSGameRules override. See multiplay_gamerules.cpp.
@@ -837,12 +824,37 @@ void CTSGameRules::InitTeams()
 	SetTeamModelList("spec|merc");                 // -> the per-team player models
 }
 
-// @0x680dc SetTeamList — parse a ";"-separated team list into the roster (then RecountTeams).
+// @0x680dc SetTeamList — parse a ";"-separated team list DIRECTLY into the 4 name slots (R1 item-9
+// convergence, dossier §4.5): clear the slots, strtok on ";" (deduped), with The-ONE insertion
+// (slot 0 forced "The ONE" when g_theOneMode; real teams start at slot 1), an ALERT per team, and
+// cap = g_theOneMode ? 2 : 4. No m_szTeamList / no RecountTeams — those were invented.
 void CTSGameRules::SetTeamList(const char *pList)
 {
-	strncpy(m_szTeamList, pList ? pList : "", sizeof(m_szTeamList) - 1);
-	m_szTeamList[sizeof(m_szTeamList) - 1] = '\0';
-	RecountTeams();
+	for (int i = 0; i < TS_MAX_TEAMS; i++)
+		m_teamNames[i][0] = '\0';
+	m_numTeams = 0;
+
+	if (g_theOneMode)
+	{
+		strncpy(m_teamNames[0], "The ONE", TS_TEAMNAME_LEN - 1);
+		m_teamNames[0][TS_TEAMNAME_LEN - 1] = '\0';
+		m_numTeams = 1; // real teams start at slot 1 in The-One mode
+	}
+	const int cap = g_theOneMode ? 2 : TS_MAX_TEAMS;
+
+	char buf[256];
+	strncpy(buf, pList ? pList : "", sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = '\0';
+	for (char *pName = strtok(buf, ";"); pName && *pName && m_numTeams < cap; pName = strtok(nullptr, ";"))
+	{
+		if (GetTeamIndex(pName) < 0) // skip duplicates
+		{
+			strncpy(m_teamNames[m_numTeams], pName, TS_TEAMNAME_LEN - 1);
+			m_teamNames[m_numTeams][TS_TEAMNAME_LEN - 1] = '\0';
+			ALERT(at_console, "created team %s\n", m_teamNames[m_numTeams]);
+			m_numTeams++;
+		}
+	}
 }
 
 // @0x68258 SetTeamModelList — parse a "|"-separated model list into the per-team model slots
@@ -878,7 +890,7 @@ int CTSGameRules::GetTeamsNum()
 // economy is hard-OFF in the shipped game, so this returns 0 in practice.
 int CTSGameRules::GetTeamCash(CBasePlayer *pPlayer)
 {
-	if (!IsTeamMode() || !pPlayer)
+	if (!g_teamplay || !pPlayer)
 		return 0;
 	int team = GetTeamIndex(pPlayer->TeamID());
 	if (team < 0 || team >= TS_MAX_TEAMS)
@@ -911,26 +923,10 @@ void CTSGameRules::TogglePlayerFromSlow(CBasePlayer *pPlayer)
 		pPlayer->GoSlow(1.0f, 0);
 }
 
-// @ RecountTeams — re-tokenize m_szTeamList (";"-separated) into m_teamNames/m_numTeams.
-// Mirrors CHalfLifeTeamplay::RecountTeams' parse half (strtok is destructive → copy first).
-void CTSGameRules::RecountTeams()
-{
-	char teamlist[256];
-	strncpy(teamlist, m_szTeamList, sizeof(teamlist) - 1);
-	teamlist[sizeof(teamlist) - 1] = '\0';
-
-	m_numTeams = 0;
-	for (char *pName = strtok(teamlist, ";"); pName && *pName; pName = strtok(nullptr, ";"))
-	{
-		if (m_numTeams >= TS_MAX_TEAMS)
-			break;
-		if (GetTeamIndex(pName) < 0) // skip duplicates
-		{
-			strncpy(m_teamNames[m_numTeams], pName, TS_TEAMNAME_LEN - 1);
-			m_numTeams++;
-		}
-	}
-}
+// (RecountTeams DELETED — R1 item-9: invented CTSGameRules helper. Its ";"-tokenize now lives
+// inline in SetTeamList (§4.5); the team roster is stable after SetTeamList, so RestartRound no
+// longer re-tokenizes. The stock team recount is CHalfLifeTeamplay::RecountTeams on the installed
+// Teamplay object.)
 
 // @ GetTeamIndex — 0-based index of `pTeamName` in the roster, or -1. Case-insensitive,
 // matching the .so's strcasecmp over the team-name fields.
@@ -952,41 +948,10 @@ const char *CTSGameRules::GetIndexedTeamName(int teamIndex)
 	return m_teamNames[teamIndex];
 }
 
-const char *CTSGameRules::GetTeamID(CBaseEntity *pEntity)
-{
-	if (pEntity == nullptr || pEntity->pev == nullptr)
-		return "";
-	return pEntity->TeamID();
-}
-
-// @ TeamWithFewestPlayers — the team currently holding the fewest live players (auto-balance
-// pick). Mirrors CHalfLifeTeamplay::TeamWithFewestPlayers.
-const char *CTSGameRules::TeamWithFewestPlayers()
-{
-	int teamCount[TS_MAX_TEAMS] = {};
-
-	for (int i = 1; i <= gpGlobals->maxClients; i++)
-	{
-		CBaseEntity *plr = UTIL_PlayerByIndex(i);
-		if (!plr)
-			continue;
-		int team = GetTeamIndex(plr->TeamID());
-		if (team >= 0)
-			teamCount[team]++;
-	}
-
-	int minPlayers = TS_MAX_TEAMS + 1;
-	const char *pTeamName = m_numTeams > 0 ? m_teamNames[0] : "";
-	for (int i = 0; i < m_numTeams; i++)
-	{
-		if (teamCount[i] < minPlayers)
-		{
-			minPlayers = teamCount[i];
-			pTeamName = m_teamNames[i];
-		}
-	}
-	return pTeamName;
-}
+// (GetTeamID + TeamWithFewestPlayers DELETED — R1 item-9 convergence: invented CTSGameRules
+// stand-ins with no callers. Team assignment / auto-balance lives on the installed TS-patched
+// CHalfLifeTeamplay (SetDefaultPlayerTeam/ChangePlayerTeam/TeamWithFewestPlayers); an entity's
+// team string is read via its own TeamID().)
 
 // (AssignToTeam DELETED — R1 phase 3: the original assigns teams in the TS-patched
 // CHalfLifeTeamplay::SetDefaultPlayerTeam @0xd44ac / ChangePlayerTeam @0xd488c
@@ -1068,7 +1033,7 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	// the STOCK CHalfLifeTeamplay::InitHUD @0xd45d8, which runs on team maps now that Teamplay
 	// is installed as g_pGameRules. Dossier §2.3/§2.5.)
 
-	if (!IsTeamMode())
+	if (!g_teamplay)
 		return;
 
 	// @0x69134 (fold-plan G3, decompile-exact — inv_C lines 163-177): catch the new client up on
