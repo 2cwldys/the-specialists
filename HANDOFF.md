@@ -47,6 +47,184 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.95, 2026-07-07) — INTEROP playtest: latent bugs surface, the FindEntityByString crash, and the LIVE-RE toolkit (client watchpoint)
+
+**You ARE the orchestrator — continue as if you never stopped, and you will BE the orchestrator next
+session too.** Branch `restructure-source-parity`. Read the cont.94/cont.93/cont.90/cont.89 blocks below —
+SAME method/law, sharpened each round. The cont.95 ledger entry has the blow-by-blow; the RE recipes +
+unfinished-bug findings are in **`reference/dossiers/cont95/README.md`** (+ preserved gdb scripts in
+`reference/dossiers/cont95/decompiles/`).
+
+### 🎯 THE PARITY MANDATE — the user's LAW (verbatim intent; this is the whole point of the project)
+**GOAL: DROP-IN BOTH DIRECTIONS.** Our client must be a drop-in swap for the original client (against the
+ORIGINAL server), AND our server a drop-in swap for the original server (against the ORIGINAL client) —
+identical + compatible behaviour. The contract is the EXTERNAL interface (engine-facing C API + the
+client↔server protocol: user-message NAMES + WIRE FORMATS, event names + param packing, command names,
+cvar names) + behaviour. NOT the internal C++ ABI. But we DO mirror the original's STRUCTURE so the
+machine-checkable inventory matches 1:1:
+- **Mirror the original 1:1 — files → classes → methods → members → globals → free functions —
+  NAME-MATCHED.** Nothing the original has that we lack; nothing we invented that the original doesn't
+  have. The audit/coverage match BY NAME (`scripts/coverage/audit.py`, `coverage.py`; `filemap.py`
+  recovers the original `.cpp` per function).
+- **A MISSING symbol = a HIDDEN-LOGIC GAP → re-RE it.** An **INVENTED/renamed** symbol = DRIFT and a
+  **SIGNAL of a potential logic mismatch → re-RE it.** Names are not cosmetic — a wrong/renamed field
+  usually means the logic around it diverged. (memories: `members-globals-signal-hidden-logic`,
+  `match-original-names-for-coverage`, `inventory-then-refactor-goal`.)
+- **A mismatch FLAGS NEIGHBOURING mismatches.** When you find one wrong field/offset/value/name, the logic
+  AROUND it is suspect — check the neighbourhood, don't fix in isolation. (`base-sdk-divergence-check`.)
+- **The logic is OFTEN ALREADY IMPLEMENTED — MOVE/RENAME it, don't rewrite.** Frequently the behaviour
+  exists but in the wrong place / under a different name / on the wrong member. cont.93: `DropWeapon`
+  already did akimbo→two-singles; the death loop just bypassed it. cont.94: the invented-method folds were
+  almost all pure MOVES into the original's home method.
+- **If they do it another way, MIMIC THEIRS** — even when our way "works," drop-in needs the exact
+  mechanism + wire (which side computes/sends what). **Verify WHICH SIDE does what FIRST** (cont.91's whole
+  shotgun fix was on the server's clientdata pack that the ORIGINAL client reads).
+- **ASSETS must ALL be wired.** Every model/sprite/sound/sequence/event referenced INSIDE a decompile must
+  be referenced (precached + played) in OUR code. When you touch a class, diff its asset-path strings +
+  event names against our `PRECACHE_*`/`PLAYBACK_EVENT`/`SetModel` sites (`scripts/coverage/precache.py`).
+  A missing asset = an un-reconstructed code path → re-RE it. (cont.93 kSil PDW model; cont.90 uzi
+  `akimbo_draw` seq + `glassfrag.spr`.)
+- **"The decompile is COMPLETE" ≠ "every method is faithfully reconstructed."** The inventory/decompile was
+  called complete EARLY, but EVERY bug this session (and cont.90–94) revealed a method that was stubbed,
+  inherited-from-stock-HL where TS is custom, mis-RE'd, or a DUPLICATE. That's NORMAL — expect it.
+- **FLAG-DON'T-IGNORE, but FINISH FIRST.** A bug fix routinely surfaces a NEIGHBOURING gap. Flag it (tell
+  the user + `// VERIFY` in code + a ledger note) but FINISH THE CURRENT ISSUE, THEN report. (`flag-unfound-re-early`.)
+- **Sweep the TODO / `// VERIFY` / `// SLICE` / `FIXME` comments** — known-uncertain spots. When you touch
+  an area, resolve its VERIFYs against the binary. `grep -rn "VERIFY\|TODO\|SLICE\|FIXME" dlls cl_dll`.
+
+### 🔬 THE METHOD (cont.95 = interop; cont.90–94 = decompile-diff + live-trace)
+1. **Reproduce** (user playtest report — user runs the ORIGINAL client vs OUR ReHLDS server). 2. **RE the
+original** function (typed Ghidra: `re.sh <Class>` / `dc.sh {server|client|mp} 0x<addr>`; MCP for xrefs).
+3. **COMPARE our code to it LINE-BY-LINE — the mismatch IS the bug.** Dominant archetype: our code inherited
+STOCK HALF-LIFE behaviour where TS is CUSTOM (cont.93 TraceAttack), OR a DUPLICATE reconstruction diverged
+(cont.95 TSCheckRunThrough vs CheckForBreakables). 4. **When static RE dead-ends (virtual/indirect calls,
+packed conventions, "which branch"), LIVE-TRACE — don't guess:** `scripts/live.py` on the running original
+(`hl.exe` under Proton = mp.dll server + client.dll client). 5. **For CLIENT-side reception/global state, a
+HARDWARE WATCHPOINT on the client global** (cont.95 — recipe in `reference/dossiers/cont95/README.md`:
+find the live `hl.exe` PID, client.dll base = first r-xp mapping, live addr = base + PE_RVA, poison then
+`watch`). 6. Fix in the SHARED `dlls/`+`cl_dll/` code so BOTH libs move (`dropin-both-directions`). 7. Build
+both, user re-playtests.
+
+### ✅ WHAT cont.95 SHIPPED (all user-CONFIRMED except where noted; ALL LOCAL/unpushed)
+- `2e8ebf2` **crouch-jump insta-kill + kung-fu bar red** — (a) `TSCheckRunThrough` (a DUPLICATE recon of
+  `CTSStunt::CheckForBreakables` @0x9bd9c) dealt RAW velocity (200-350) to AIRBORNE players; excluded
+  players like its faithful sister. (b) WStatus melee bar sent clip 0 for kung-fu → the original client
+  reds any cell <1; kung-fu has NO clip → send -1 (byte 255). **CONFIRMED.**
+- `ce04557` **buy menu empty at join** — the client's restriction global defaults to 0 (=empty), and our
+  InitHUD MSG_ONE SrvSett is dropped during the spawn sequence. Our ENCODING + structure are CORRECT (user
+  + watchpoint verified: 0x1f=all, 0x1=knives; we replicate all 3 original SrvSett senders). WORKAROUND
+  (marked invented): a 0.75s per-player re-broadcast (`m_flSrvSettResendTime`, PreThink). **CONFIRMED works;
+  root-cause finish pending — see cont.95 dossier item #2.**
+- ReHLDS **FindEntityByString crash FIXED** (the long-open bot-crash task) — 64-bit `string_t` truncation
+  from the rcbot amd64 plugin; 6-line bounds guard in `PF_find_Shared`. Committed ReHLDS `quic` (`a8d6c8d`)
+  + cherry-picked to `64bit` (`411c42b`).
+
+### 📋 OPEN — the task list (mirror of my TaskCreate entries; PICK UP HERE)
+The Task tool entries this session: the standing set (bot-crash #1 now FIXED via the engine guard, doors-
+glass #2, floating-weapons #4, push #7) PLUS the cont.95 gameplay bugs. Full detail in the cont.95 ledger
+entry + `reference/dossiers/cont95/README.md`:
+1. **Knife auto-pickup + arsenal corruption (UNFIXED — needs a LIVE SERVER TRACE).** Death-dropped knife
+   auto-grabs on run-over (should need E) + half-pickup corruption (deploys but not in bar, empty-click,
+   kung-fu red). STATIC RE CONTRADICTS the auto-pickup (a type-25 knife CTSWorldGun's WaitTouch needs
+   0x1d/FLAG or IN_USE — faithful to @0xa1250). → break on the rig's `CTSWorldGun::WaitTouch`/`GetWeapon`/
+   `PickUpWeapon` when the user runs over the knife; see the actual path; fix. Dossier item #4a.
+2. **Melee knockback/disarm (UNFIXED).** Kicks/punches should send victims FLYING BACK (not just on death);
+   punches maybe DISARM. RE `CloseCombatAttack @0x85f88` >30 knockback gate + `m_flDisarmPressure`. Item #4b.
+3. **Buy-menu ROOT CAUSE finish** — one no-workaround build to confirm InitHUD-drop vs remove the
+   workaround. Watchpoint recipe preserved. Item #2.
+4. **Broad audit.py/coverage.py parity sweep** (the STANDING structural task) — drive the inventory to 1:1:
+   `scripts/coverage/audit.py` (MISSING = re-RE, INVENTED = drift/review) + `coverage.py all` (external
+   contract). cont.94's regen is the baseline; 12 invented methods remain (the R1 cluster).
+5. **R1 — the CTSGameRules STANDALONE-class split** (the biggest deferred structural item; owns the 12
+   remaining invented methods — team quintet, PlayerKilled/PlayerSpawn splits, TSEnterSpectate). The
+   original CTSGameRules is `base:null`, NO vtable, a 22.7KB static object COEXISTING with a patched stock
+   `g_pGameRules`. Full plan: `reference/dossiers/cont94/invented_method_folds.md`. Its OWN session w/
+   playtest checkpoints — do NOT land it blind.
+6. **Deferred consumer seams** (documented in their cont.94 dossiers): fog pass + ts_fog BSP-lump parse,
+   cl_gore TSP template fields, cl_motionblur render-time own-ghost gate, cl_wavedetail/realbullet, TSPSys
+   wind pass, `CBaseEntity::GoSlow` virtual + DefaultDeploy draw.wav, the D14 8-arg EMIT_SOUND_DYN overload,
+   Y2 stored slot counter + Y1(c) m_lastType member, the 6 client globals.
+7. **PUSH everything** after the user is satisfied (all mod-ts + ReHLDS quic/64bit commits are LOCAL).
+
+### 🤖 THE SUBAGENT ORCHESTRATION PATTERN (how I ran the fan-out — you'll do the same)
+- **Read-only RE-dossier agents IN PARALLEL** (cont.94 workhorse): spawn `general-purpose` agents that ONLY
+  read + write a dossier (`reference/dossiers/cont9X/<x>.md`) and RETURN a DENSE fix spec — **no code edits,
+  no build.** They can't conflict with each other or a code-editor. Give each a DISJOINT Ghidra project
+  (server `re`/`mpdll` to one, `clientdll` to another) so headless `analyzeHeadless` never hits the same
+  `.lock`. Used cont.94 for: TraceAttack follow-ups, client-display cvars, parity sweep, client message
+  hooks, EMIT_SOUND_DYN census, server strips, invented-method folds — each nailed a precise apply-without-
+  re-RE spec.
+- **Then APPLY sequentially:** ONE code-editing agent (or you) touches the working tree at a time (shared
+  tree, no worktrees). Verify each agent's KEY claim yourself (re-decompile the load-bearing function)
+  before committing. Bundle disjoint dossiers into one apply agent to save build cycles.
+- **Keep in the MAIN loop:** integration, builds, commits, the user report, and anything needing the user
+  in the loop each round (live-trace → implement → user-playtest → re-trace — that stays solo/main).
+- **Agent brief template** (what worked): repo path + branch; the PARITY LAW verbatim; the symptom(s) + code
+  sites + original addresses you already found; the tooling recipe; the read-only constraint + dossier
+  output path; "mirror don't rewrite, MOVE existing logic, name-match the original, mark `// VERIFY` where
+  uncertain, wire all assets, build (hl-only or both), remove debug, DON'T commit, return a DENSE fix spec
+  consumed by the orchestrator not the user." Launch parallel independent agents in ONE message.
+- ⚠ cont.95 was driven mostly SOLO in the main loop (the interop bugs were tightly coupled: reproduce →
+  RE/live-trace → implement → user-playtest → re-trace, needing the user each round). Delegate the
+  self-contained "RE X + spec the fix" work; keep the interactive loop in main.
+
+### 🛠️ TOOLING (full detail CLAUDE.md §4/§4a/§4b + cont.90/94 blocks)
+- **Ghidra typed decompile:** `scripts/ghidra/re.sh <Class|0xaddr>` (server, ApplyInventory-typed:
+  this/args/pev/vtable) · `re.sh refs/vrefs <X>` (direct/virtual callers) · `re.sh members` · `re.sh export`
+  · `dc.sh {server|client|mp} 0x<addr>` (server = nm addr; client/mp = PE RVA, Ghidra = 0x10000000+RVA).
+- **Ghidra MCP** (`mcp__ghidra-mcp__*`, on the typed `re` project) — FIRST reach for "read this + who calls
+  it / xrefs", ~1s. `scripts/ghidra/mcp-up.sh` to attach. ⚠ `.lock`: while the GUI holds a project you
+  can't run headless `re.sh`/`dc.sh` against it — drive via MCP (reads) or close the program first.
+- **`scripts/live.py`** — drive the running ORIGINAL under Proton: `pid`/`base <mod>`/`resolve`/`bt`/`read`/
+  `readabs`/`vmethod`/`watch … --go`/`break … --go`. When static RE is uncertain, TRACE.
+- **CLIENT hardware watchpoint** (cont.95 NEW) — for client.dll global state: recipe in
+  `reference/dossiers/cont95/README.md` + `decompiles/client_watchpoint.gdb`. POISON the addr first (gdb
+  `watch` suppresses same-value writes).
+- **`scripts/binmap.py <Name>`** (server) / `binmap_client.tsv` (client) — name→live RVA. `nm reference/
+  ts_i386.so | grep`. `objdump -d`/`readelf -W -r` for the last mile + the `.data` pointers that read 0.
+- **Build:** `scripts/build.sh amd64 {hl|client|all}` (GLIBC_2.14 floor). `scripts/check-source-lists.py`
+  after any file add/remove (4 build systems). Deploy to the rig: `NOMETAMOD= scripts/setup-rehlds-mod.sh`
+  (with bots) or `NOMETAMOD=1` (no bots). Rig at `~/Containers/hlds/hlds-linux64-test`; rcon via
+  `reference/dossiers/cont91/decompiles/rcon.py "<cmd>"` (rcon_password `lol`). **rcbot auto-fills to
+  maxplayers — kick bots by name (`kick "<name>"`) to leave room for the user; rcbot rcon subcmds are
+  console-only, they don't work over rcon.**
+- **ReHLDS engine:** rebuild `hlds64-buildchain/ReHLDS/build-quic-amd64` (`make -j8`), copy `engine_i486.so`
+  to the rig. The engine repo has `quic` (deploy) + `64bit` branches — engine fixes go on `quic` AND
+  cherry-pick to `64bit`.
+
+### 🗒️ SCRATCHPADS / RE OUTPUT (preserve for the next agent)
+Loose RE lives in **`reference/dossiers/cont9X/`** (committed, durable) + the persistent Ghidra projects
+`recovered/ghidra/{re,clientdll,mpdll}` (gitignored, on THIS box; a fresh clone rebuilds via `re.sh setup`).
+cont.95's live-RE recipes + unfinished-bug findings + gdb scripts are in `reference/dossiers/cont95/`. If
+you generate loose notes in `scratchpad/` (session-temp, gitignored), COPY the keepers into a cont dossier
+before the session ends — that's how they survive.
+
+### ⚠️ SERENA LEDGER GOTCHA (unchanged — critical)
+Read the ledger with the **Read tool on `.serena/memories/ledger.md`** (newest on top). Do **NOT**
+`read_memory("ledger")` via the Serena MCP — it returns one giant single-line JSON (`{"result":"…"}`, now
+~500 KB) that OVERFLOWS the read limit. If forced, `jq -r '.result' <savedfile>`. **First job when picking
+up: append your ledger entry** (I wrote cont.95; you write cont.96).
+
+### 💬 MESSAGE TO HAND THE USER (paste to the next agent so it can consult me)
+> You're picking up mod-ts as the orchestrator on branch `restructure-source-parity`. Read `HANDOFF.md`
+> top-down — the **cont.95 START-HERE block** is your brief (cont.94/cont.93/cont.90/cont.89 below it are the
+> same method/law, more detail each round). Read the ledger with the **Read tool on
+> `.serena/memories/ledger.md`** — do NOT `read_memory("ledger")` via the Serena MCP, it returns one ~500 KB
+> single-line JSON that overflows the read limit. **First job:** append a cont.96 ledger entry. The
+> cont.89–cont.95 orchestrator (me) is **available for consult** — before re-RE'ing anything I already
+> covered (the damage model / TraceAttack, the buy-menu SrvSett delivery + client watchpoint, the interop
+> fixes, the FindEntityByString crash, the invented-method folds), have the user relay the question. My RE is
+> in the commit messages, the `reference/dossiers/cont91-95/` dossiers, the preserved decompiles + gdb
+> scripts, and the persistent typed Ghidra `re`/`clientdll`/`mpdll` projects (use the Ghidra MCP for xrefs).
+> The user is hands-on (playtests the ORIGINAL client vs our ReHLDS server — the true drop-in test) but not
+> always available. The live test server is deployed (rcon_password `lol`); the `game/ts/` worktree deletions
+> are INTENTIONAL — ignore them. The LAW: mirror the original 1:1 (files→classes→methods→members→globals→
+> free-fns), NAME-MATCHED — a missing/invented/renamed symbol signals a logic mismatch to re-RE; the logic is
+> often already implemented and just needs MOVING (don't rewrite; mimic THEIRS); wire ALL assets; drop-in must
+> work BOTH directions. Next up: the knife auto-pickup live-trace + melee knockback/disarm (cont.95 dossier).
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.94, 2026-07-07) — dossier-driven closes: TraceAttack FULL parity, display cvars wired, sweep small-closes; goldsrc.net web-join fixes
 
 **You ARE the orchestrator — continue as if you never stopped.** Branch `restructure-source-parity`. Read the
