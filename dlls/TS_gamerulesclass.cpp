@@ -116,6 +116,15 @@ void CTSGameRules::ShowObjectiveOnHud(CTSObjective *pObj, bool show)
 // objective DISABLED (a manager's Reset, via SetObjective, enables the chosen subset).
 void CTSGameRules::InitObjectives()
 {
+	// @0x68602 ENTRY GATE (§4.6): the objective subsystem is the team modes 2/3, which the shipped
+	// game NEVER reaches — DecideGamePlay caps at 1 and this only re-flips 2<->3 when the mode is
+	// ALREADY 2/3. It does NOT promote plain teamplay (mode 1). Our old `if (g_teamplay) mode=2/3`
+	// was INVENTED and turned regular TDM into the dead round-based objective mode -> "wait til next
+	// round" on a free-respawn team map. So for mode 0/1 this is a no-op (objectives stay dead;
+	// teamplay stays mode 1 = free respawn). CTF/CTB works at mode 1 via the briefcase/flag entities.
+	if ((unsigned char)(m_iGameMode - 2) > 1)
+		return;
+
 	m_iManagerCount = 0;
 	for (int i = 0; i < 32; i++)
 		m_managers[i] = nullptr;
@@ -126,14 +135,9 @@ void CTSGameRules::InitObjectives()
 		if (m_iManagerCount < 32)
 			m_managers[m_iManagerCount++] = (CTSObjectiveManager *)pEnt;
 
-	// rules+0 promotion (@0x68693): a team map becomes mode 3 with objectives present, 2 without
-	// (the original gates the scan on the byte already being 2/3; our team detect is
-	// entity-driven, so the equivalent gate is g_teamplay). g_teamplay mirrors it.
-	if (g_teamplay)
-	{
-		m_iGameMode = (m_iManagerCount != 0) ? 3 : 2;
-		g_teamplay = true;
-	}
+	// @0x68693 — flip 2<->3 by objective-manager presence (mode is already 2/3 to be here).
+	m_iGameMode = (m_iManagerCount != 0) ? 3 : 2;
+	g_teamplay = true;
 	if (m_iManagerCount == 0)
 		return;
 
