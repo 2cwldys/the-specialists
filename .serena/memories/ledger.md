@@ -135,6 +135,15 @@ ORIGINAL server keeps its client's idle bloody — maybe the ORIGINAL sends the 
 or the idle anim choice differs; live-compare vs the original server (user has it) or RE the
 original client's SendWeaponAnim wrapper.
 
+**Glass shards CLIENT-side (v2-v7, final `8acde7b` — user: "very close to original").** All in
+cl_dll/ts_debris.cpp only (wire untouched — no drop-in risk). Journey: formulas were RE-correct;
+the motion was wrong. Facts learned: xash delegates tempent physics to OUR HUD_TempEntUpdate
+(entity.cpp — pfnTempEntUpdate), xash alloc defaults bounceFactor=1 (elastic "bouncy balls" —
+now 0.2), and the ORIGINAL's custom shard integrator (@0x47cb0 alloc FUN_1004ffe0 / commit
+FUN_10050b60) works in PER-FRAME units + time-scaled gravity (slow-mo = moon-grav). Final approx:
+velocities x10, FTENT_GRAVITY full-g, bounceFactor 0.2. VERIFY: exact-match RE of the original
+integrator remains queued.
+
 *(Entry updated as work lands — see below for cont.95's blow-by-blow.)*
 
 ## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
