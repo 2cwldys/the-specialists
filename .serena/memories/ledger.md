@@ -5,6 +5,65 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-07 (cont. 94) — TraceAttack full parity; client-display cvars RE'd; parity sweep regenerated; goldsrc.net web-join fixes
+
+New orchestrator session from the cont.93 START-HERE. Baseline `04a6a23`. Ran the cont.93 subagent pattern:
+3 parallel read-only RE-dossier agents (dossiers in `reference/dossiers/cont94/`), then sequential apply.
+
+- **`4b7c421` TraceAttack FULL parity (RE @0x801cc; dossier `traceattack_followups.md`).** The two cont.93
+  VERIFYs resolved: (a) player+0x524 is NOT a direct member — it decomposes to CTSStunt+0x34 = our EXISTING
+  `m_flBulletTimeEnd` (only writer GoBulletTime = time+0.55, the standing matrix-dodge — the "roll-dodge"
+  framing was wrong); added the TraceAttack read: BULLET taken in the window ×0.7, stacks with iuser4 ×0.7.
+  (b) player+0x71c is the SPAWN-PROTECTION deadline — renamed m_flDisarmTime→m_flSpawnProtectTime (one
+  member, four consumers, our writer already exact); added the TraceAttack first-statement no-damage gate
+  @0x801eb + DefaultDeploy's push-out @0x902f0. Plus the line-by-line diff fixes D3–D13: friendly-fire
+  early return; corpse BulletDance + airborne drift; feedback (msg+sounds) moved INSIDE the 0.3s throttle;
+  hit-sound mask BULLET|BLAST (not CLUB); headshot.wav/headshot2.wav only (headshot1.wav doesn't exist —
+  removed its failing precache); one bArmoredHit flag drives kevlarhit + the +128 wire bit; sound params
+  1.0/1.25/95+rand31; pain2/3/4 voice (3/7) added; dmgreport alert; REMOVED the invented TakeDamage Pain()
+  call + m_flNextPainTime (original Pain @0xc847c has ZERO call sites — dead code kept for symbol parity).
+  FLAGGED not done: D14 the TS 8-arg EMIT_SOUND_DYN overload (trailing slow-mo pitch-floor float; 0.5 body /
+  0.15 pain) — repo-wide separate item; SpawnBlood/TraceBleed kept TODO-invented until the client TSTakeDamage
+  handler exists. Both libs build. Playtest protocol in the dossier §end.
+- **Client-display cvars RE complete (dossier `client_display_cvars.md`).** All 10 registration defaults
+  already matched the ORIGINAL binary (cl_thirdtransparency IS "1" — the .scr's 0 is GUI-only; do NOT
+  change). Exact gates recovered: cl_thirdtransparency (@0x678e6, (int)!=0 with the aim flag),
+  cl_showequipment (passive weapon-bar alpha ×0.25/×0.5/×1/hide), cl_solidcross (0 additive cross_e /
+  >0 solid cross2, >1 BLACK), cl_thirdpersonswitch (==1.0 exact, WeaponInfo handler toggles), cl_fx
+  muzzle-smoke gate, cl_laser=style + cl_lasercolor=announce-only (ALL render color incl. local comes from
+  the server-echoed byte). DEFERRED (consumers un-reconstructed): cl_gore (PTakeDam blood multiplier table),
+  cl_motionblur (TSMBlur ghost trails), cl_wavedetail (realbullet trails). Apply-agent ran after this entry.
+- **Parity sweep regenerated at HEAD (dossier `parity_sweep.md`).** Headline: external contract close
+  (0 wire-size mismatches/64 msgs, 12/12 events, 0 missing server cmds, 0 cvar-default mismatches, binary
+  factories 0 missing). Real gaps: 7 client message hooks (TSMBlur/NextStunt/TSPSys/TSFlag/Objective/
+  ShowObj/TSHVoice), 11 missing client cvars (gl_fog×6, cl_drawnames, cl_thirdperson, m_accel×3),
+  specmode/special mechanism swap (original registers them CLIENT-side), HUD_DirectorEvent export rename,
+  ~23 invented methods to fold (CTSGameRules ×11, CTSGun ×7, CBasePlayer ×5), 6 invented globals, and one
+  small MISSING: CTSGun::Holster @0x75674 (forwarder to HolsterWeapon — best small close). Known-false
+  metrics documented in the dossier (RECONSTRUCTION_COVERAGE's TS_RE filter artifact).
+- **goldsrc.net web-join debugging (user live-testing, separate repos):** (1) "login required" while
+  logged in — the rejection is ReHLDS webauth failing CLOSED; the LOCAL rig had no GAME_SERVER_SECRET and
+  the ticket check ignored sv_lan. Fixed ReHLDS (sv_main.cpp): the WT ticket requirement now applies only
+  when sv_lan==0 (LAN admits web clients at SteamID 0 like any LAN client); rebuilt build-quic-amd64 +
+  hot-swapped the rig engine (wrapper respawned it). Cloud path unverified — if the user was joining the
+  cloud server, need DevTools /api/game-token status + box logs. (2) React /play harness kept the engine
+  ALIVE after route-away (audio + SDL key handlers ate the login form) — XashGame.tsx now forces a full
+  reload on unmount when the route left /play (StrictMode-safe); user added a hover top-bar with a plain
+  <a> exit link. tsc clean.
+
+**Later in the session:** `7faa1e6` the cvar apply landed (reviewed, both libs build); `829fae4`
+CTSGun::Holster override (@0x75674 forwarder — we fell through to STOCK Holster) + HUD_DirectorEvent
+export rename (HUD_DirectorMessage kept as the xash by-name alias, documented ours-only); `44b964a`
+dropped the ViewMode/SpecFade/ResetFade client hooks (HL leftovers; viewport methods kept for the
+spectator code's internal calls); `37b0491` coverage regen + dossiers committed. A further RE agent was
+dispatched for the 7 missing client message hooks + cl_gore blood tail + specmode/special mechanism
+(dossier `client_message_hooks.md` when done). HANDOFF cont.94 START-HERE written.
+
+**NEXT:** apply client_message_hooks.md; the parity-sweep remainder (invented-method folds, invented
+globals, tsbuy*/HL-leftover command strip, sk_* strip w/ gSkillData caution, 11 missing client cvars);
+D14 EMIT_SOUND_DYN overload; user playtest (traceattack dossier §end protocol); cloud web-join datapoint;
+the still-blocked items (bot-crash gdb repro, doors-glass, floating-weapons probe, push).
+
 ## 2026-07-07 (cont. 93) — Interactive playtest round 2: damage model, kill feed, death drop, globalslow
 
 User back at the keyboard reporting more playtest issues; RE-grounded fixes (commits `45c8253..2ff251c`).

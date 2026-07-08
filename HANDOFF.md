@@ -47,6 +47,58 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.94, 2026-07-07) — dossier-driven closes: TraceAttack FULL parity, display cvars wired, sweep small-closes; goldsrc.net web-join fixes
+
+**You ARE the orchestrator — continue as if you never stopped.** Branch `restructure-source-parity`. Read the
+cont.93/cont.90/cont.89 blocks below — SAME method/law. The cont.94 ledger entry has the detail; dossiers in
+`reference/dossiers/cont94/` (`traceattack_followups.md`, `client_display_cvars.md`, `parity_sweep.md`, and —
+if the last RE agent finished — `client_message_hooks.md`).
+
+### ✅ WHAT cont.94 SHIPPED (all LOCAL/unpushed, on top of cont.93's 13; none playtest-confirmed)
+- `4b7c421` **TraceAttack FULL parity** (@0x801cc): spawn-protect gate (+0x71c = m_flSpawnProtectTime,
+  renamed from m_flDisarmTime — one member, 4 consumers incl. DefaultDeploy push-out @0x902f0); bullet-time
+  ×0.7 (+0x524 = CTSStunt+0x34 m_flBulletTimeEnd — matrix-dodge, NOT roll); FF early-return; corpse
+  BulletDance+drift; feedback inside the 0.3s throttle; mask BULLET|BLAST; headshot.wav/headshot2.wav only
+  (headshot1.wav doesn't exist — its precache FAILED at map load, removed); bArmoredHit drives kevlarhit +
+  the +128 wire bit; params 1.0/1.25/95+rand31; pain2/3/4 voice; dmgreport; REMOVED invented TakeDamage
+  Pain() call (original Pain @0xc847c = dead code, 0 call sites). FLAGGED-not-done: **D14 the TS 8-arg
+  EMIT_SOUND_DYN overload** (trailing slow-mo pitch-floor float, 0.5 body/0.15 pain — REPO-WIDE item);
+  SpawnBlood/TraceBleed kept TODO-invented until the client TSTakeDamage handler exists.
+- `7faa1e6` **client-display cvars wired** (dossier has exact addrs): cl_thirdtransparency gate ((int)!=0;
+  default "1" IS the original's — the .scr 0 is GUI-only), cl_showequipment (passive bar ×0.25/×0.5/×1/hide),
+  cl_solidcross (0 additive cross_e / >0 solid cross2, >1 BLACK), cl_thirdpersonswitch (==1.0f exact,
+  WeaponInfo toggles), cl_fx muzzle-smoke gate, cl_laser style + ALL laser colour from the server-echoed
+  byte (local cl_lasercolor read dropped). DEFERRED w/ consumers: cl_gore/cl_motionblur/cl_wavedetail.
+- `829fae4` CTSGun::Holster override (@0x75674 forwarder→HolsterWeapon; we fell through to STOCK Holster)
+  + cldll export renamed **HUD_DirectorEvent** (original name; HUD_DirectorMessage kept as the xash
+  by-name alias — deliberate ours-only, documented). `44b964a` dropped ViewMode/SpecFade/ResetFade hooks
+  (HL leftovers; viewport methods stay for internal spectator calls). `37b0491` coverage regen + dossiers.
+- **goldsrc.net (user was live-testing, other repos):** ReHLDS `ddfe56a` (quic) — the WT ticket requirement
+  now applies only when sv_lan==0 (the LOCAL RIG had no GAME_SERVER_SECRET and webauth FAILS CLOSED →
+  every browser join got "goldsrc.net login required" regardless of login). Rig engine hot-swapped +
+  respawned. website `7b95302` — /play unmounts force a full reload (the emscripten engine SURVIVED route
+  changes: audio kept playing, SDL key handlers ate the login form). **Cloud web-join still unverified** —
+  if the user was joining the CLOUD server, get DevTools /api/game-token status + box journalctl.
+
+### 📋 OPEN — pick up here
+1. **`client_message_hooks.md` dossier → APPLY** (agent may still be running / just finished): the 7 missing
+   client hooks (TSMBlur/NextStunt/TSPSys/TSFlag/Objective/ShowObj/TSHVoice) + cl_gore's PTakeDam blood tail
+   + the specmode/special client-side mechanism swap. These are the biggest drop-in gaps vs an original server.
+2. Parity-sweep remainder (`parity_sweep.md`): ~23 invented methods to fold (CTSGameRules ×11, CTSGun ×7,
+   CBasePlayer ×5), 6 invented globals (+ missing `TSGameRules` global var), 11 missing client cvars
+   (gl_fog×6, cl_drawnames, cl_thirdperson, m_accel×3), extra server ClientCommand branches (HL leftovers +
+   the invented tsbuy* dev stand-ins — verify `buy`+`weapon_%d` cover them first), server sk_*×252 strip
+   (CAREFUL: check nothing TS-relevant still reads gSkillData), client cvar leftovers ×21.
+3. D14 EMIT_SOUND_DYN 8-arg overload (repo-wide slow-mo pitch floor).
+4. Blocked-on-user: playtest protocol (traceattack dossier §end + the cvar set), bot-crash gdb repro,
+   doors-glass, floating-weapons probe, the PUSH (user pushes after playtest), cloud web-join datapoint.
+
+### ⚠️ unchanged: Serena ledger via Read tool on .serena/memories/ledger.md (NOT read_memory — ~500 KB JSON).
+First job: append YOUR ledger entry (cont.95). The cont.89–94 orchestrator RE is in the commit messages,
+dossiers, preserved decompiles (cont91/decompiles/), and the persistent Ghidra projects.
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.93, 2026-07-07) — interactive playtest parity: the DAMAGE MODEL, kill feed, death drop, cvars
 
 **You ARE the orchestrator — continue as if you never stopped.** Branch `restructure-source-parity`. The
