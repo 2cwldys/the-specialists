@@ -5,6 +5,89 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-07 (cont. 96) — session open: knife auto-pickup live-trace + melee knockback/disarm
+
+New orchestrator picked up from the cont.95 START-HERE (HANDOFF.md) at HEAD `336b501`, branch
+`restructure-source-parity`. Tree clean apart from the INTENTIONAL `game/ts/` deletions. Previous
+orchestrator (cont.89–95) available for consult via the user.
+
+**Session plan (from the cont.95 open list + dossier `reference/dossiers/cont95/README.md`):**
+1. **Knife auto-pickup + arsenal corruption (#4a)** — static RE contradicts the observed auto-grab
+   (type-25 CTSWorldGun WaitTouch needs TSW_FLAG or IN_USE; ours is byte-identical to @0xa1250).
+   Needs a LIVE SERVER TRACE on the rig: gdb break on CTSWorldGun::WaitTouch / GetWeapon /
+   CBasePlayer::PickUpWeapon while the user runs over a death-dropped knife; then fix the
+   half-pickup (stackable-knife PickUpWeapon not registering m_items/WStatus).
+2. **Melee knockback/disarm (#4b)** — RE CloseCombatAttack @0x85f88 (>30-dmg knockback gate,
+   |attacker vel|·dir, z=235) for grounded living victims; RE m_flDisarmPressure (player+0x7b4)
+   / DropWeapon(-2) accumulation on kicks/punches.
+3. **Buy-menu root-cause finish (#2)** — one no-workaround build + client watchpoint
+   (recipe preserved in the cont.95 dossier) to decide whether the 0.75s re-broadcast stays.
+4. Standing: audit.py/coverage.py parity sweep; R1 CTSGameRules split (own session); push after
+   user sign-off (ALL mod-ts + ReHLDS quic/64bit commits still LOCAL).
+
+**#1 knife auto-pickup — RESOLVED at HEAD (user-confirmed, no code change).** Live gdb trace on the
+rig (`reference/dossiers/cont96/decompiles/knife_trace.gdb` — non-stop logging breakpoints on
+CreateWeapon/WaitTouch/Use/GetWeapon/PickUpWeapon/TakeWeapon, RelWithDebInfo hl.so): death-dropped
+knife confirmed CTSWorldGun type 25 clip=1 (TSDropWeaponsOnDeath→DropWeapon→ThrowWeapon); **23 bot
+run-overs + the user's own run-over all REFUSED by the WaitTouch gate** (button=0x0, zero GetWeapon
+calls); E-pickup path correct (Use needs IN_USE, cooldown blocks the dropper, carried clip restored).
+User re-tested with the ORIGINAL client: no auto-grab, deliberate E-pickup registers + fires normally.
+Likely the cont.95 symptoms were partly the WStatus melee-clip encoding bug fixed in `2e8ebf2`
+(kung-fu/melee cell red = clip<1). Reopen only if it recurs — the trace recipe names the path.
+
+**#3 buy-menu ROOT CAUSE — CLOSED: InitHUD's MSG_ONE SrvSett IS dropped at connect; the 0.75s
+re-broadcast (ce04557) is LOAD-BEARING, kept.** Method: built with the workaround disabled (`0 &&`),
+armed the hardware watchpoint on the original client's restriction global (base 0x0c070000 unchanged,
+target 0x0c1fd174, poisoned 0x6f6f6f6f), user reconnected → **ZERO writes through the whole join +
+spectate + buy-menu open**. Positive control: rcon `weaponrestriction 1`/`0` fired WRITE #1 = 0 and
+WRITE #2 = 0x1f instantly at the known handler (caller 0xc0bb8bc = RVA 0x4b8bc) — watchpoint, wire and
+handler all proven good, so the connect-time send genuinely never arrives. NB the poisoned global made
+the menu RENDER as unrestricted during the test (0x6f6f6f6f has the category bits set) — the menu look
+was the poison, not a landed message; the real-world symptom needs a fresh client (global defaults 0).
+Workaround comment in player.cpp PreThink upgraded to CONFIRMED/load-bearing; `0 &&` reverted; Release
+rebuilt + redeployed + rig restarted. **Wine-gdb recipe fix preserved:** batch gdb attached to hl.exe
+dies on Wine's SIGUSR1 — `handle SIGUSR1/SIGUSR2/SIG33/SIG34 nostop noprint pass` required
+(`reference/dossiers/cont96/decompiles/client_watchpoint_v2.gdb`).
+
+**#2 melee knockback/disarm — `7c7788c` the RUN-THROUGH attack reconstructed (pending playtest).**
+RE dossier (read-only agent, user-resumed): `reference/dossiers/cont96/melee_knockback_disarm.md`.
+The find: our direct-hit CloseCombatAttack @0x85f88 was ALREADY byte-faithful (gate `bKnockback &&
+flDamage>30` on RAW pre-multiplier damage; velocity += |attacker vel|·dir, z=235 hard-set; grounded
+living victims included) — the bug was the original's SECOND melee channel, the whiff/run-through:
+a missed swing arms player+0x79c/0x7a0/0x7a4 (window / ±flat dmg 35/45/55 / type) and
+CheckForBreakables @0x8bd9c (per PreThink tick) makes the attacker's moving hull the weapon —
+Victim*Hold deflect, spawn-protect-gated DropWeapon(-2) disarm, the same >30 knockback at full
+sprint speed, per-type sound, TraceAttack halving per hit. We had (a) the WRONG two values stored on
+a whiff (whiffT into the window, scaled ≤30 into the force → knockback could never fire), (b) the
+whole player branch of CheckForBreakables deferred, (c) a DUPLICATE recon (TSCheckRunThrough,
+ts_gun.cpp) of the same original function — DELETED (it also broke the one-hit-per-victim dedupe by
+NULLing m_hRunThroughLast when grounded), (d) invented CTSStunt::m_pLastBreakVictim — removed.
+Verified myself before applying: the 3 (only) 235.0f sites, the @0x76d02-0x76d50 store slots, and
+the flat-vs-scaled // VERIFY settled by 3 agreeing reads (Ghidra dataflow, cont.93's slot note in
+our own comment, >30 semantics) — playtest step 2 discriminates regardless. GUNS have NO knockback
+in the original (TakeDamage ×2 re-verified velocity-free; ColdCock passes bKnockback=false) — only
+the death launch (DamageForce). Disarm: kicks DO disarm (thr 30/25/clamp(slotCost,20,50) vs
+accumulated pressure, ×5/s decay) — core was already faithful; the run-through was its only missing
+feeder. Both libs build; rig + xash redeployed. Playtest protocol: dossier §5.6.
+
+**#1 (reopened + TRULY closed) — `40fab88`: the "knife pickup corruption" is the BRIEFCASE
+(TSW_FLAG=29).** The corruption cluster (kung-fu red + knife viewmodel + empty-click) came BACK
+after the melee commit; trace v2 (`cont96/decompiles/knife2.gdb`, +SelectWeapon/WStatus/EMPTY-CLICK
+state) caught the truth: the grabbed object is weapon slot 29 — the briefcase (map ts_groundweapon
+on hammertime / CTF flag), `PickUpWeapon(29, NULL, bSelect=0)`. 29 = 0x1d = the WaitTouch
+auto-pickup gate value (that's what the gate is FOR) + bare-handed grabs auto-wield — both
+faithful. It LOOKS like a knife because the ORIGINAL's Write_flag @0x64804 gives the held
+briefcase v_knife/p_knife/w_knife.mdl (keep — wire contract; loose flag = briefcase.mdl,
+separate + faithful). OUR bug: PrimaryAttack had no fire-type-11 branch → briefcase fire fell
+into the standard-gun path (one phantom bullet, clip 1→0, then 398 logged dry-clicks). Original
+@0x71ac2: firetype 11 → fresh-press gate (player+0x814&1) → altMode=0 → KnifeFire slash
+(secondary already faithfully no-ops @0x717e6). Implemented + deployed. Retro-solves cont.95 #4a
+("death-dropped knife" = a briefcase in the corpse pile — the static RE was right). Followups in
+the cont96 dossier: the @0x758c8 melee-bar byte for firetype 11; items[29] lifecycle on DropFlag.
+Pending user confirm (briefcase slash + no red/empty-click).
+
+*(Entry updated as work lands — see below for cont.95's blow-by-blow.)*
+
 ## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
 
 User playtested the ORIGINAL TS client against our ReHLDS server (the true drop-in test) and surfaced

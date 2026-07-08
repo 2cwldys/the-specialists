@@ -3,7 +3,37 @@
 Continuation of the cont.95 interop work (original TS client under Proton vs OUR ReHLDS server).
 Two of the cont.95 open items closed this session; artifacts preserved in `decompiles/`.
 
-## 1. Knife auto-pickup + arsenal corruption — NOT REPRODUCIBLE at HEAD (no code change)
+## 1b. ⭐ THE REAL "knife" ANSWER (found later this session): it's the BRIEFCASE (TSW_FLAG=29)
+
+The recurring "picked up a knife → kung-fu red + empty-click + arsenal corruption" (cont.95 #4a,
+re-reproduced after §1 below was written) was NEVER a knife. Trace v2 (`decompiles/knife2.gdb` —
+adds SelectWeapon + WStatus-bytes + EMPTY-CLICK-state breakpoints) caught it:
+
+- `PickUpWeapon(type=29, pStatus=NULL, bSelect=0)` — weapon slot **29 = TSW_FLAG, the briefcase**
+  (map-placed `ts_groundweapon` tsweaponid 29 on ts_hammertime / the CTF flag).
+- **29 = 0x1d — the `WaitTouch` auto-pickup gate value.** Briefcases auto-grab on run-over BY
+  DESIGN (that is what the 0x1d gate exists for), and auto-wield when grabbed bare-handed
+  (`PickUpWeapon` selects when `!m_pActiveItem` — faithful).
+- **It looks like a knife because the ORIGINAL says so**: `Write_flag @0x64804` gives the held
+  briefcase `v_knife/p_knife/w_knife.mdl` (do NOT "fix" this — the server's `pev->viewmodel`
+  string is the wire contract; the loose flag entity separately uses `briefcase.mdl`, also
+  faithful).
+- **The real bug (ours):** `PrimaryAttack` had no fire-type-11 branch → briefcase fire fell into
+  the standard-gun path → one phantom bullet (clip 1→0) → endless dry-click (398 `EMPTY-CLICK
+  wt=29` in one session) + the HUD red/corruption around that broken state. The ORIGINAL
+  (`PrimaryAttack @0x71ac2`): fire-type 11 → fresh-press gate (`player+0x814 & 1`) → `altMode=0` →
+  **`KnifeFire` (slash)**. `SecondaryAttack @0x717e6` no-ops for 11 (was already faithful).
+  Fixed in `40fab88`.
+- Retro-solves cont.95 #4a: the "death-dropped knife" was a briefcase in the corpse pile. The
+  static RE ("a type-25 knife cannot auto-grab") was CORRECT all along — §1 below (the gate
+  verification) stands.
+
+Open followups: whether the original's `UpdateClientData @0x758c8` melee-bar branch includes
+fire-type 11 (we send the plain clip byte for the flag; watch the bar while carrying); whether
+`items[29]` should be cleared when the flag is dropped/captured (`DropFlag` clears only
+`m_flagStatus`) — check the original's `DropFlag @0x8334c` tail.
+
+## 1. Knife auto-pickup + arsenal corruption — the WaitTouch gate itself is faithful (no code change)
 
 cont.95 item #4a claimed a death-dropped knife auto-grabbed on run-over (no E) and corrupted the
 arsenal. Live server trace (`decompiles/knife_trace.gdb` — non-stop logging breakpoints on
