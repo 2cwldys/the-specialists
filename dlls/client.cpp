@@ -239,6 +239,12 @@ void ClientPutInServer(edict_t* pEntity)
 	// flag before Spawn so PlayerSpawn skips the loadout and Spawn ends by entering
 	// free-look spectate-wait (countdown + buy menu + "Press fire to play").
 	pPlayer->m_fInSpectateWait = true;
+	// cont.96 (live-gdb'd): m_flTSRespawnTime is stamped in MAP time, and gpGlobals->time RESETS
+	// on changelevel — a deadline from the previous map (e.g. 300s) vs the new clock (~1s) made
+	// the "respawn" gate (0 < deadline < time) refuse for minutes ("Press Fire To Play" dead,
+	// sticky, mostly after changelevel; TSEnterSpectate deliberately keeps a future deadline).
+	// Reconnect = a fresh map clock: clear it so TSEnterSpectate stamps a fresh one.
+	pPlayer->m_flTSRespawnTime = 0.0f;
 
 	// Allocate a CBasePlayer for pev, and call spawn
 	pPlayer->Spawn();
