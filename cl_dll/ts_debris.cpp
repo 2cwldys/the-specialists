@@ -41,6 +41,13 @@ static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Ve
 	if (spriteModel <= 0)
 		return;
 
+	// the original's shard gravity coefficient is 0.05 (@0x47cb0 tempent+0x38) — near-floating,
+	// so the outward velocity carries; the engine's FTENT_GRAVITY (full g) is ~20x too strong.
+	struct L { static void TSGlassShardThink(struct tempent_s* ent, float frametime, float) {
+		ent->entity.baseline.origin[2] -= 40.0f * frametime; // 0.05 * sv_gravity(800)
+	} };
+	void (*TSGlassShardThink)(struct tempent_s*, float, float) = L::TSGlassShardThink;
+
 	// Drop the smallest dimension (the pane normal): lay the grid on the two largest (the face).
 	// Mirrors the original's "zero the smallest of param_4/5/6" branch.
 	int normal;
@@ -92,10 +99,15 @@ static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Ve
 					(&vel.x)[c] = gEngfuncs.pfnRandomFloat(d[c] * velMag * 0.5f, d[c] * velMag + 15.0f);
 			}
 
+			// cont.96: the original's shards use GRAVITY 0.05 (@0x47cb0: tempent+0x38 = 0.05 — a
+			// custom shard system, NOT the engine tempent's full gravity). FTENT_GRAVITY (full g)
+			// made every shard arc straight down and pool at the pane base; the original's near-
+			// floating shards carry OUTWARD on the scatter/cluster velocity. Emulate via a
+			// CLIENTCUSTOM callback applying 0.05 * 800 = 40 u/s².
 			TEMPENTITY* t = gEngfuncs.pEfxAPI->R_TempSprite(pos, vel, scale, spriteModel,
 				kRenderTransAdd, kRenderFxNone, 1.0f, // glassfrag.spr is SPR_ADDITIVE
 				gEngfuncs.pfnRandomFloat(2.0f, 5.0f),
-				FTENT_FADEOUT | FTENT_GRAVITY | FTENT_COLLIDEWORLD | FTENT_ROTATE);
+				FTENT_FADEOUT | FTENT_CLIENTCUSTOM | FTENT_COLLIDEWORLD | FTENT_ROTATE);
 			if (t)
 			{
 				// pick one of the 9 shard SHAPES (frames) at random — the original varies the frame
@@ -105,6 +117,7 @@ static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Ve
 				t->entity.curstate.frame = (float)gEngfuncs.pfnRandomLong(0, 8);
 				t->entity.angles[2] = gEngfuncs.pfnRandomFloat(0.0f, 360.0f);
 				t->entity.baseline.angles[2] = gEngfuncs.pfnRandomFloat(-500.0f, 500.0f);
+				t->callback = TSGlassShardThink; // the 0.05-gravity integrator
 			}
 		}
 	}

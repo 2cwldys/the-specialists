@@ -193,6 +193,13 @@ bool CHudTSBuyMenu::VidInit()
 {
 	m_firstOpen = true; // first open on a fresh map randomizes (FUN_10036200 sets obj+0x2f10)
 
+	// cont.96: CHANGELEVEL state reset ([[map-change-state-reset]]) — if the menu was logically
+	// up when the level changed, m_active stayed true on the new map with nothing drawn: the
+	// spectate fire-to-play gate (`IsUp()` in TS_SpectateFireCheck) then ATE every fire click,
+	// so "Press Fire To Play" never spawned you — sticky for the whole session. Close resets
+	// m_active + the cursor state.
+	Close();
+
 	// Load the bought-weapon preview icons (same sprites the weapon-select bar uses).
 	char path[64];
 	memset(m_hIcon, 0, sizeof(m_hIcon));
