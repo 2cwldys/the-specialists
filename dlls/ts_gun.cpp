@@ -1671,9 +1671,13 @@ void CTSGun::CCombatAttack()
 		// 0x7a0 ← ±the FLAT damage (reach 35/45/55, [esp+0x1c]; sign flags the back-kick's
 		// behind-sweep). cont.96: we had whiffT (the BlockPlayer scalar) in the window and the
 		// scaled value in the force — so the run-through >30 knockback could never fire.
-		if (pHit == nullptr && lunge > 0.001f)
+		if (pHit == nullptr && whiffT > 0.001f)
 		{
-			m_pPlayer->m_flWhiffLungeTime = lunge;
+			// cont.96 CORRECTION (user: a whiffed punch stayed armed ~10-30s and auto-hit anyone
+			// approached later): the WINDOW is the SHORT whiffT (0.1-0.35s — same magnitude as the
+			// katana 0.25 / wheel 0.3 windows), NOT the scaled 10-30 value (that reading made the
+			// run-through a latent landmine). Force stays the FLAT ±reach (the >30 knockback gate).
+			m_pPlayer->m_flWhiffLungeTime = whiffT;
 			m_pPlayer->m_flWhiffLungeForce = (bVar9 == 3) ? -reach : reach; // VERIFY flat-vs-scaled: 3 reads agree flat (Ghidra dataflow, cont.93 slot note above, >30 gate semantics)
 			m_pPlayer->m_iWhiffLungeType = 0;
 		}
