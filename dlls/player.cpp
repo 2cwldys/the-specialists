@@ -1903,6 +1903,34 @@ void CBasePlayer::PreThink()
 {
 	UpdatePlayerState(); // @0x82a08 — refresh the networked pose state each frame
 
+	// One-shot SrvSett re-broadcast (see m_flSrvSettResendTime in player.h): the InitHUD MSG_ONE
+	// catch-up can be dropped during the spawn sequence, leaving the buy menu empty (weaponrestriction
+	// never applied). Re-send once the client is active — this fires during spectate-wait, before the
+	// buy menu is opened. Sent MSG_ONE to the now-active joiner (idempotent; change-detected client-side).
+	if (m_flSrvSettResendTime != 0.0f && gpGlobals->time >= m_flSrvSettResendTime)
+	{
+		m_flSrvSettResendTime = 0.0f;
+#ifndef CLIENT_DLL
+		if (TSGameRules)
+		{
+			extern int gmsgTSServerSetting;
+			struct { int id, val; } s[4] = {
+				{0, (int)(CVAR_GET_FLOAT("realbullet") + 0.5f)},
+				{1, CVAR_GET_FLOAT("usecash") != 0.0f ? 1 : 0},
+				{2, (int)(CVAR_GET_FLOAT("ammocount") + 0.5f)},
+				{3, TSGameRules->m_iWeaponRestriction},
+			};
+			for (int i = 0; i < 4; i++)
+			{
+				MESSAGE_BEGIN(MSG_ONE, gmsgTSServerSetting, NULL, ENT(pev));
+				WRITE_BYTE(s[i].id);
+				WRITE_SHORT(s[i].val);
+				MESSAGE_END();
+			}
+		}
+#endif
+	}
+
 	// @0x81412 (right after UpdatePlayerState): on mode-3 (objective team) maps, refresh the
 	// nearby-bomb wire triple every 0.5 s (player+0x794 throttle) — the Wires HUD source.
 	if (TSGameRules && TSGameRules->m_iGameMode == 3 && m_flNextWiresCheck < gpGlobals->time)

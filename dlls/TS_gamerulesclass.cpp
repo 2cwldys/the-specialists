@@ -1136,6 +1136,11 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	WRITE_SHORT(m_iWeaponRestriction);
 	MESSAGE_END();
 
+	// These MSG_ONE catch-ups fire during the spawn sequence and the original client can drop them
+	// (its restriction global stays 0 -> empty buy menu). Schedule a one-shot re-broadcast once the
+	// client is active (PreThink honours m_flSrvSettResendTime). See the member note in player.h.
+	pPlayer->m_flSrvSettResendTime = gpGlobals->time + 0.75f;
+
 	// custom-weapons catch-up (@0x691d8): a joiner on a customized server gets the whole table.
 	if (m_bWeaponParamsCustom)
 		InformClientsOnWeaponsParams(pPlayer);

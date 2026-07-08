@@ -525,6 +525,14 @@ public:
 	                                                      // 1 out-of-round, 2/3/4 kill tiers, 10 The One, 11 respawning
 	byte m_iClientAward = 0;                              // 0x74d — last TSPAward value broadcast
 	float m_flNextPTakeDamTime = 0;                       // 0x750 (invented name) — PTakeDam send throttle (+0.3 s)
+	// One-shot: re-broadcast the SrvSett settings shortly after connect. The InitHUD MSG_ONE catch-up
+	// fires during the spawn sequence, before the joining client's netchannel is fully active, so the
+	// original client drops it (its restriction global stays 0 = empty buy menu). A re-send once the
+	// client is active (this timer, ~0.75s later, during spectate-wait before the menu is opened)
+	// lands — mirroring the on-change command broadcast that reliably updates a connected client.
+	// (invented member — no original counterpart; the original client applies our InitHUD send fine,
+	//  suggesting a subtle connect-sequence difference we work around here. VERIFY vs a client trace.)
+	float m_flSrvSettResendTime = 0;
 	byte m_iWires[3] = {};                                // 0x78c-0x78e — the nearby armed bomb's wire ROLE codes
 	                                                      // (0 cut / 1 defuse / 2 boobytrap / 3 intact)
 	byte m_iClientWires[3] = {};                          // 0x78f-0x791 — the last-sent Wires triple
