@@ -47,6 +47,48 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.96, 2026-07-08) — YOUR FIRST JOB IS R1 (user mandate), then the client-RE dossier
+
+**You ARE the orchestrator.** Branch `restructure-source-parity`, all LOCAL through `bc8a16e`+. Read the
+cont.96 ledger entry (Read tool on `.serena/memories/ledger.md` — NEVER Serena read_memory) — the full
+blow-by-blow of ~10 landed fixes (briefcase = the "knife" mystery, buy-menu root cause CONFIRMED
+load-bearing, kill-feed names, melee run-through + the whiffT window correction, glass shards v7, the
+changelevel respawn-deadline + buy-menu resets, bloody-blade client seed). The cont.95 block below has
+the LAW/method — unchanged, reread it.
+
+### 🎯 FIRST JOB — R1: the CTSGameRules STANDALONE-class split (USER MANDATE 2026-07-08)
+The user: "R1 may break more, so as long as you're committed do that first — I don't want to chase shit
+we fix over and over." Full plan: `reference/dossiers/cont94/invented_method_folds.md` (YELLOW/RED
+sections). Owns the 12 remaining invented methods (team quintet, PlayerKilled/PlayerSpawn splits,
+TSEnterSpectate). Playtest checkpoints with the user; do NOT land blind. Note cont.96 touched
+PlayerKilled/DeathNotice (kill-feed names — the 4-arg T2Pc DeathNotice signature move is PARKED for R1;
+see the 5f6940d commit message). Only after R1 lands: the queue below.
+
+### 📋 THEN (in order)
+1. **The client-RE dossier** — an async agent (running at handoff) writes
+   `reference/dossiers/cont96/client_bloody_and_shards.md`: (a) the ORIGINAL client bloody-blade idle
+   channel (fake pev->body = FUN_10007110(type, attach) = attachment sum; find what the ORIGINAL server
+   feeds — likely an attach bit for blades) + (b) the exact glass-shard integrator
+   (FUN_1004ffe0/FUN_10050b60/DAT_1018bde8) replacing our x10/full-g/bounce-0.2 approximation in
+   cl_dll/ts_debris.cpp. Verify its key claims, then apply.
+2. User retests: melee sprint-kick knockback + disarm (cont96 melee dossier §5.6); anything not yet
+   confirmed in the cont.96 ledger entry.
+3. Standing: audit.py/coverage.py parity sweep; the cont.94 deferred consumer seams; PUSH everything
+   (mod-ts + ReHLDS quic a8d6c8d / 64bit 411c42b) after user sign-off.
+
+### 🛠️ new tooling notes (cont.96)
+- xash live-gdb needs `sysctl kernel.yama.ptrace_scope=0` (Proton sets a ptracer allowance; xash does
+  not). Debug builds: `BUILDTYPE=RelWithDebInfo scripts/build.sh amd64 {hl|client}`.
+- Wine/hl.exe batch gdb DIES on SIGUSR1 — `handle SIGUSR1/SIGUSR2/SIG33/SIG34 nostop noprint pass`
+  (`reference/dossiers/cont96/decompiles/client_watchpoint_v2.gdb`).
+- Server acquisition-chain trace kit: `reference/dossiers/cont96/decompiles/knife_trace.gdb`.
+- xash tempent physics runs in OUR cl_dll HUD_TempEntUpdate (entity.cpp; xash delegates
+  pfnTempEntUpdate); xash alloc defaults bounceFactor=1 (elastic).
+- rcon: `python3 reference/dossiers/cont91/decompiles/rcon.py "<cmd>"` (password lol); rcbot REFILLS
+  kicked slots — kick right before the user joins.
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.95, 2026-07-07) — INTEROP playtest: latent bugs surface, the FindEntityByString crash, and the LIVE-RE toolkit (client watchpoint)
 
 **You ARE the orchestrator — continue as if you never stopped, and you will BE the orchestrator next
