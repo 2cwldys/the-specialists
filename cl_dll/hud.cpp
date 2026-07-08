@@ -109,12 +109,6 @@ int __MsgFunc_InitHUD(const char* pszName, int iSize, void* pbuf)
 	return 1;
 }
 
-int __MsgFunc_ViewMode(const char* pszName, int iSize, void* pbuf)
-{
-	gHUD.MsgFunc_ViewMode(pszName, iSize, pbuf);
-	return 1;
-}
-
 int __MsgFunc_SetFOV(const char* pszName, int iSize, void* pbuf)
 {
 	return static_cast<int>(gHUD.MsgFunc_SetFOV(pszName, iSize, pbuf));
@@ -261,20 +255,6 @@ int __MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 	return gHUD.m_Spectate.MsgFunc_Spectator(pszName, iSize, pbuf);
 }
 
-int __MsgFunc_SpecFade(const char* pszName, int iSize, void* pbuf)
-{
-	if (gViewPort)
-		return static_cast<int>(gViewPort->MsgFunc_SpecFade(pszName, iSize, pbuf));
-	return 0;
-}
-
-int __MsgFunc_ResetFade(const char* pszName, int iSize, void* pbuf)
-{
-	if (gViewPort)
-		return static_cast<int>(gViewPort->MsgFunc_ResetFade(pszName, iSize, pbuf));
-	return 0;
-}
-
 int __MsgFunc_AllowSpec(const char* pszName, int iSize, void* pbuf)
 {
 	if (gViewPort)
@@ -289,7 +269,9 @@ void CHud::Init()
 	HOOK_MESSAGE(ResetHUD);
 	HOOK_MESSAGE(GameMode);
 	HOOK_MESSAGE(InitHUD);
-	HOOK_MESSAGE(ViewMode);
+	// (ViewMode / SpecFade / ResetFade hooks removed — not in the original client's
+	// pfnHookUserMsg set (HL spectator leftovers); the viewport MsgFunc_*Fade methods
+	// stay for the spectator code's internal calls.)
 	HOOK_MESSAGE(SetFOV);
 	HOOK_MESSAGE(Concuss);
 	HOOK_MESSAGE(TSFade); // the TS screen fade (slow-time-stretched ScreenFade)
@@ -315,9 +297,6 @@ void CHud::Init()
 
 	HOOK_MESSAGE(Spectator);
 	HOOK_MESSAGE(AllowSpec);
-
-	HOOK_MESSAGE(SpecFade);
-	HOOK_MESSAGE(ResetFade);
 
 	// VGUI Menus
 	HOOK_MESSAGE(VGUIMenu);

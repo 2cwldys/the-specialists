@@ -58,13 +58,6 @@ bool CHud::MsgFunc_ResetHUD(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
-void CAM_ToFirstPerson();
-
-void CHud::MsgFunc_ViewMode(const char* pszName, int iSize, void* pbuf)
-{
-	CAM_ToFirstPerson();
-}
-
 void CHud::MsgFunc_InitHUD(const char* pszName, int iSize, void* pbuf)
 {
 	// prepare all hud data

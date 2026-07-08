@@ -608,7 +608,6 @@ public:
 	bool MsgFunc_Logo(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_ResetHUD(const char* pszName, int iSize, void* pbuf);
 	void MsgFunc_InitHUD(const char* pszName, int iSize, void* pbuf);
-	void MsgFunc_ViewMode(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_SetFOV(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_Concuss(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_TSFade(const char* pszName, int iSize, void* pbuf); // TS slow-stretched screen fade
