@@ -103,11 +103,11 @@ static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Ve
 			// dir*velMag+15 cluster) are units/frame. Engine tempents integrate per SECOND, so
 			// scale by a nominal frame rate. // VERIFY the original's tick (30 assumed; slow-mo
 			// couples to it — the moon-grav observation).
-			vel = vel * 30.0f;
+			vel = vel * 10.0f; // v7: x30 overshot (user: 'ridiculous'); x10. // VERIFY vs the original integrator
 			TEMPENTITY* t = gEngfuncs.pEfxAPI->R_TempSprite(pos, vel, scale, spriteModel,
 				kRenderTransAdd, kRenderFxNone, 1.0f, // glassfrag.spr is SPR_ADDITIVE
 				gEngfuncs.pfnRandomFloat(2.0f, 5.0f),
-				FTENT_FADEOUT | FTENT_SLOWGRAVITY | FTENT_COLLIDEWORLD | FTENT_ROTATE);
+				FTENT_FADEOUT | FTENT_GRAVITY | FTENT_COLLIDEWORLD | FTENT_ROTATE); // v7: full g (half-g read as slow-motion fall)
 			if (t)
 			{
 				// pick one of the 9 shard SHAPES (frames) at random — the original varies the frame
