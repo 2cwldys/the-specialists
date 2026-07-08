@@ -356,6 +356,31 @@ void CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeam
 //=========================================================
 // ClientUserInfoChanged
 //=========================================================
+// INVENTED-INTEROP (cont.96, same class as the SrvSett re-broadcast): the connect-window
+// MSG_ONE drop also eats Teamplay::InitHUD's TeamNames/TeamInfo catch-up on the ORIGINAL
+// client -> blank team headings until some MSG_ALL rebroadcast. Resend the roster to the
+// now-active joiner (idempotent; the client just re-stores names/teams).
+void CHalfLifeTeamplay::ResendTeamRoster(CBasePlayer* pPlayer)
+{
+	MESSAGE_BEGIN(MSG_ONE, gmsgTeamNames, NULL, pPlayer->edict());
+	WRITE_BYTE(num_teams);
+	for (int i = 0; i < num_teams; i++)
+		WRITE_STRING(team_names[i]);
+	MESSAGE_END();
+
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBaseEntity* plr = UTIL_PlayerByIndex(i);
+		if (plr && plr->TeamID() && plr->TeamID()[0] && IsValidTeam(plr->TeamID()))
+		{
+			MESSAGE_BEGIN(MSG_ONE, gmsgTeamInfo, NULL, pPlayer->edict());
+			WRITE_BYTE(plr->entindex());
+			WRITE_STRING(plr->TeamID());
+			MESSAGE_END();
+		}
+	}
+}
+
 // R1 phase 3 — TS-patched @0xd4d18 (dossier §3.3): calls the TS-relocated MP::CUIC first;
 // the live path (m_teamLimit==1 always) RE-STAMPS the model from GetPlayerModel — the stock
 // model-as-team change mechanism is DEAD in TS (team changes go through `jointeam` ->

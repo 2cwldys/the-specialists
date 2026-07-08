@@ -50,6 +50,11 @@ public:
 
 private:
 	void RecountTeams(bool bResendInfo = false);
+
+public:
+	void ResendTeamRoster(CBasePlayer* pPlayer); // INVENTED-INTEROP: connect-window MSG_ONE drop workaround
+
+private:
 	const char* TeamWithFewestPlayers();
 
 	bool m_DisableDeathMessages;

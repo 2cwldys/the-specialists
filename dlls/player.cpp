@@ -42,7 +42,8 @@
 #include "UserMessages.h"
 #include "client.h"
 #include "ts_utils.h" // TSHudMessageOne (the `respawn`-gate "wait" message)
-#include "ts_gamerules.h" // TSGameRules — armor_absorb (kevlar damage reduction)
+#include "ts_gamerules.h"
+#include "teamplay_gamerules.h" // ResendTeamRoster (connect-window workaround) // TSGameRules — armor_absorb (kevlar damage reduction)
 #include "ts_weapons.h" // TS weapon helpers
 #include "ts_gun.h" // CTSGun::Reset (StartObserver arsenal wipe), GetPlayerTSGun
 #include "ts_shared.h" // InterpolateSlowMotion (the fuser1 slow-motion ease)
@@ -1940,6 +1941,10 @@ void CBasePlayer::PreThink()
 				MESSAGE_END();
 			}
 		}
+		// INVENTED-INTEROP (cont.96): the same connect-window drop eats the TeamNames/TeamInfo
+		// roster catch-up -> blank team headings on the original client until a later MSG_ALL.
+		if (g_pGameRules && g_pGameRules->IsTeamplay())
+			((CHalfLifeTeamplay*)g_pGameRules)->ResendTeamRoster(this);
 #endif
 	}
 
