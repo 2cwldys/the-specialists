@@ -157,6 +157,8 @@ cmd /c ""$(ProjectDir)..\..\filecopy.bat" "$(SolutionDir)../../network" "" "delt
     <ClCompile Include="..\..\cl_dll\ts_scope.cpp" />
     <ClCompile Include="..\..\cl_dll\ts_debris.cpp" />
     <ClCompile Include="..\..\cl_dll\ts_particles.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_motionblur.cpp" />
+    <ClCompile Include="..\..\cl_dll\ts_objectives.cpp" />
     <ClCompile Include="..\..\cl_dll\ts_attachments.cpp" />
     <ClCompile Include="..\..\cl_dll\ts_status.cpp" />
     <ClCompile Include="..\..\cl_dll\ts_ammo.cpp" />

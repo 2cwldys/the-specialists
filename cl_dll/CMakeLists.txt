@@ -124,6 +124,8 @@ target_sources(client PRIVATE
 	ts_scope.cpp
 	ts_debris.cpp
 	ts_particles.cpp
+	ts_motionblur.cpp
+	ts_objectives.cpp
 	ts_attachments.cpp
 	ts_status.cpp
 	ts_ammo.cpp

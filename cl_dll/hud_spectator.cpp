@@ -92,6 +92,24 @@ void SpectatorMode()
 		gHUD.m_Spectator.SetModes(atoi(gEngfuncs.Cmd_Argv(1)), atoi(gEngfuncs.Cmd_Argv(2)));
 }
 
+// "specmode" — the ORIGINAL TS client command (RE dossier cont94 §9: registered in the
+// spectator init @0x22cd5, callback 0x10022c10). HLTV-ONLY: outside HLTV it just errors —
+// the original never forwards specmode to the server (and original servers don't handle it).
+void SpectatorSpecMode()
+{
+	if (0 == gEngfuncs.IsSpectateOnly())
+	{
+		gEngfuncs.Con_Printf("specmode only in HLTV mode available.\n");
+		return;
+	}
+	if (gEngfuncs.Cmd_Argc() < 2)
+	{
+		gEngfuncs.Con_Printf("usage:  specmode < modenumber >\n");
+		return;
+	}
+	gHUD.m_Spectator.SetModes(atoi(gEngfuncs.Cmd_Argv(1)), 0);
+}
+
 void SpectatorSpray()
 {
 	Vector forward;
@@ -183,6 +201,10 @@ bool CHudSpectator::Init()
 	gEngfuncs.pfnAddCommand("spec_help", SpectatorHelp);
 	gEngfuncs.pfnAddCommand("spec_menu", SpectatorMenu);
 	gEngfuncs.pfnAddCommand("togglescores", ToggleScores);
+	// TS original spectator init block (@0x22cd5): cl_drawnames "1", then the "specmode"
+	// client command right after it (HLTV-only; see SpectatorSpecMode above).
+	gEngfuncs.pfnRegisterVariable("cl_drawnames", "1", 0);
+	gEngfuncs.pfnAddCommand("specmode", SpectatorSpecMode);
 
 	m_drawnames = gEngfuncs.pfnRegisterVariable("spec_drawnames", "1", 0);
 	m_drawcone = gEngfuncs.pfnRegisterVariable("spec_drawcone", "1", 0);
@@ -1144,15 +1166,12 @@ void CHudSpectator::SetModes(int iNewMainMode, int iNewInsetMode)
 	// main mode settings will override inset window settings
 	if (iNewMainMode != g_iUser1)
 	{
-		// if we are NOT in HLTV mode, main spectator mode is set on server
+		// NOT in HLTV mode: main-mode changes stay HLTV-local. The stock SDK forwarded
+		// `specmode %i` to the server here — the original TS client never sends that (and
+		// the original TS server has no "specmode" handler; RE dossier cont94 §9), so the
+		// forward was dropped for drop-in parity.
 		if (0 == gEngfuncs.IsSpectateOnly())
-		{
-			char cmdstring[32];
-			// forward command to server
-			sprintf(cmdstring, "specmode %i", iNewMainMode);
-			gEngfuncs.pfnServerCmd(cmdstring);
 			return;
-		}
 
 		if (0 == g_iUser2 && (iNewMainMode != OBS_ROAMING)) // make sure we have a target
 		{

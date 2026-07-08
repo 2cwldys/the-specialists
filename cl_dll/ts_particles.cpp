@@ -11,6 +11,7 @@
 ***/
 #include "hud.h"
 #include "cl_util.h"
+#include "parsemsg.h" // TSPSys handler
 #include "const.h"
 #include "entity_state.h"
 #include "cl_entity.h"
@@ -572,4 +573,164 @@ void TS_MeleeImpact(const float* origin, const float* normal, char texChar, int 
 		return;
 	TSP_Scintille(origin, normal, "sprites/scintille_metal.spr", 5, glints);
 	TSP_SparkShower(origin, normal, 7, 1.15f, 25.0f);
+}
+
+//-----------------------------------------------------------------------------
+// TSPSys — the particle-system trigger message (RE dossier cont94 §3, handler
+// FUN_1004bfd0). Only subtype 3 (wind) exists client-side; every other subtype
+// is ignored by the original client. Wire: BYTE 3, LONG seed, LONG yawDeg,
+// COORD strength (byte-for-byte our dlls/ts_emitter.cpp CTSWind::BlowThink).
+//-----------------------------------------------------------------------------
+TSWindState g_tsWindState = {};
+
+static int __MsgFunc_TSPSys(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	const int subtype = READ_BYTE();
+	if (subtype != 3)
+		return 1; // read-and-ignore (the original returns without parsing further)
+
+	const int seed = READ_LONG();
+	const int yawDeg = READ_LONG();
+	const float strength = READ_COORD();
+
+	Vector angles(0.0f, (float)yawDeg, 0.0f);
+	Vector fwd;
+	gEngfuncs.pfnAngleVectors(angles, fwd, NULL, NULL);
+
+	// Current + target set EQUAL on receive (the per-frame wind pass lerps them apart later).
+	g_tsWindState.seed = seed;
+	g_tsWindState.dirCurrent = fwd;
+	g_tsWindState.dirTarget = fwd;
+	g_tsWindState.strengthCurrent = strength;
+	g_tsWindState.strengthTarget = strength;
+	g_tsWindState.changeTime = gEngfuncs.GetClientTime();
+	// CONSUMER DEFERRED: the TSP wind pass (~FUN@0x10051aa0) that applies this to the
+	// particles is un-reconstructed — g_tsWindState is the seam it will read.
+	return 1;
+}
+
+void TSParticles_Init()
+{
+	memset(&g_tsWindState, 0, sizeof(g_tsWindState));
+	gEngfuncs.pfnHookUserMsg("TSPSys", __MsgFunc_TSPSys);
+}
+
+//-----------------------------------------------------------------------------
+// PTakeDam blood tail (FUN_10048840) — the bloodfrag2.spr spray on the TSP pool.
+// Called from CHudHealth::MsgFunc_PTakeDam (cl_dll/health.cpp). The original does
+// NOTHING but blood here (no pain-direction indicator).
+//-----------------------------------------------------------------------------
+void TSP_BloodSpray(const float* point, const float* dir, int encByte)
+{
+	// (The original first runs view-relative visibility culls — FUN_100570b0 +
+	// FUN_10057270/FUN_100572a0 — and skips unseen sprays; our pool simply doesn't
+	// render what's offscreen, so the cull is omitted.)
+
+	Vector bloodvel(-dir[0], -dir[1], -dir[2]); // inverted hit dir (dir * -1.0)
+	const bool armored = encByte > 127;         // bit7 = armored/upper-body hit
+	int enc = encByte;
+	if (armored)
+		enc -= 128;
+	float base = (float)enc * 2.0f; // server encodes dmg*0.5 -> base ≈ original damage
+
+	if (armored)
+	{
+		// Armored: jitter bloodvel per component + normalize, and spawn a gun_smoke_add
+		// dust puff INSTEAD of extra blood (FUN_100464f0, count 5, near point + dir*6 —
+		// exact params decompiler-elided, VERIFY).
+		Vector jit(bloodvel.x + gEngfuncs.pfnRandomFloat(-1.0f, 1.0f),
+			bloodvel.y + gEngfuncs.pfnRandomFloat(-1.0f, 1.0f),
+			bloodvel.z + gEngfuncs.pfnRandomFloat(-1.0f, 1.0f));
+		jit = jit.Normalize();
+		Vector puffAt(point[0] + dir[0] * 6.0f, point[1] + dir[1] * 6.0f, point[2] + dir[2] * 6.0f);
+		TSP_Smoke(puffAt, jit, "sprites/gun_smoke_add.spr", 5, 5, 16, 50.0f);
+		// base is further randomized + halved (decompiler-elided; VERIFY the jitter form).
+		base *= 0.5f;
+	}
+
+	// Blood particle count from cl_gore (client_display_cvars §3 table, confirmed):
+	// 0 -> 0 · 1 -> base*0.5 · 2 -> base · 3 -> base*2.5 · 4 -> base*5 · 5..10 -> base*10 ·
+	// >10 -> base*min(v,33).
+	static cvar_t* s_cl_gore = nullptr;
+	if (s_cl_gore == nullptr)
+		s_cl_gore = gEngfuncs.pfnGetCvarPointer("cl_gore");
+	const int gore = (int)(s_cl_gore != nullptr ? s_cl_gore->value : 2.0f);
+	float fcount;
+	if (gore <= 0)
+		return;
+	else if (gore == 1)
+		fcount = base * 0.5f;
+	else if (gore == 2)
+		fcount = base;
+	else if (gore == 3)
+		fcount = base * 2.5f;
+	else if (gore == 4)
+		fcount = base * 5.0f;
+	else if (gore <= 10)
+		fcount = base * 10.0f;
+	else
+		fcount = base * (float)(gore < 33 ? gore : 33);
+	const int count = (int)fcount;
+	if (count <= 0)
+		return;
+
+	// Template (FUN_1004ffe0 + FUN_100509d0, texture sprites/bloodfrag2.spr). Rendermode
+	// VERIFY: bloodfrag2 is indexalpha — kRenderTransAlpha(4) masks it in our TriAPI (the
+	// debris_concrete3 precedent); the template's unmapped dword [0x48]=2 may be the
+	// original registration mode (kRenderTransTexture).
+	const int idx = TSP_RegisterSprite("sprites/bloodfrag2.spr", 4 /*kRenderTransAlpha*/);
+	if (idx < 0)
+		return;
+
+	// size = clamp(base * 0.075, 1..5)  (template dword [0x42])
+	float size = base * 0.075f;
+	if (size < 1.0f) size = 1.0f;
+	if (size > 5.0f) size = 5.0f;
+
+	Vector pos(point[0], point[1], point[2]);
+	float droop = 0.0f; // the accumulating streak droop
+	for (int i = 0; i < count; i++)
+	{
+		if (i > 0)
+		{
+			// the spawn pos WALKS a streak along bloodvel, drooping as it goes.
+			pos = pos + bloodvel * (size * 0.3f);
+			droop += size * 0.1f;
+			pos.z -= droop / (float)count;
+		}
+
+		// skip particles inside solid (PM_PointContents == CONTENTS_SOLID(-2)).
+		if (gEngfuncs.PM_PointContents((float*)&pos, NULL) == CONTENTS_SOLID)
+			continue;
+
+		TSParticle* p = TSP_Scratch();
+		p->spriteIdx = (short)idx;
+		p->active = true;   // byte@0 = 1
+		p->collide = 3;     // byte@4 = 3 (VERIFY field mapping — collide/orient ambiguity)
+		p->gravity = 0.5f;  // [0x34]
+		p->bright = 1.0f;   // [0x37]
+		p->fadeRate = 0.0f; // [0x38]
+		p->frameRate = 0.0f;// [0x3f]
+		p->size = size;     // [0x42]
+		p->stretch = 2.0f;  // [0x4a]
+		p->accelRate = 0.075f; // per-particle [0x39] — the droplet grows as it flies
+		p->life = gEngfuncs.pfnRandomFloat(0.0f, 1.0f); // per-particle [0x36] = RandomFloat (range elided, VERIFY)
+		if (i == 0)
+		{
+			// the main spurt: straight along the HIT direction.
+			p->vel = Vector(dir[0], dir[1], dir[2]) * 32.0f;
+			p->pos = Vector(point[0], point[1], point[2]);
+		}
+		else
+		{
+			p->vel = bloodvel * gEngfuncs.pfnRandomFloat(0.0f, 1.0f); // VERIFY range (elided)
+			p->vel.x += gEngfuncs.pfnRandomFloat(-2.0f, 2.0f); // xy jitter (range elided, VERIFY)
+			p->vel.y += gEngfuncs.pfnRandomFloat(-2.0f, 2.0f);
+			p->pos = pos;
+		}
+		p->frame = TSP_RandomFrame(idx);
+		if (TSP_Commit(p) == -1)
+			return;
+	}
 }

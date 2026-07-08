@@ -173,6 +173,7 @@ private:
 #include "ts_powerup_hud.h"
 #include "ts_reticle.h"
 #include "ts_debris.h"
+#include "ts_objectives.h"
 
 
 #define FADE_TIME 100
@@ -592,6 +593,7 @@ public:
 	CHudTSPowerUp m_TSPowerUp;
 	CHudTSReticle m_TSReticle;
 	CHudTSDebris m_TSDebris;
+	CHudTSObjectives m_TSObjectives;
 
 	void Init();
 	void VidInit();

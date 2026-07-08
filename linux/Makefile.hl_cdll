@@ -66,6 +66,8 @@ HL1_OBJS = \
 	$(HL1_OBJ_DIR)/ts_scope.o \
 	$(HL1_OBJ_DIR)/ts_debris.o \
 	$(HL1_OBJ_DIR)/ts_particles.o \
+	$(HL1_OBJ_DIR)/ts_motionblur.o \
+	$(HL1_OBJ_DIR)/ts_objectives.o \
 	$(HL1_OBJ_DIR)/ts_attachments.o \
 	$(HL1_OBJ_DIR)/ts_status.o \
 	$(HL1_OBJ_DIR)/ts_ammo.o \

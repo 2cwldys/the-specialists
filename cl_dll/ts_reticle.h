@@ -17,10 +17,16 @@ public:
 	bool Init() override;
 	bool VidInit() override;
 	bool Draw(float flTime) override;
+	bool MsgFunc_NextStunt(const char* pszName, int iSize, void* pbuf); // stunt-meter byte (x0.1 s)
 
 private:
 	HSPRITE m_hCrossE = 0, m_hCross2 = 0, m_hCrossT = 0; // 64x64 center crosshair pieces
 	HSPRITE m_hDiveT = 0, m_hDiveC = 0, m_hDiveB = 0;    // 40x80 dive-step arc (top/center/bottom)
+
+	// NextStunt (RE FUN_1004fac0, weaponbar+0x34): the pending stunt/dive timer in seconds.
+	// The client NEVER ticks it down — the server re-sends on every change including ->0.
+	// While >= 0.01 the whole dive arc draws RED (0xc3,0x2d,0x2d).
+	float m_flStuntTime = 0;
 };
 
 #endif // TS_RETICLE_H

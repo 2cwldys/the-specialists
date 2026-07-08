@@ -201,6 +201,12 @@
     <ClCompile Include="..\..\cl_dll\ts_particles.cpp">
       <Filter>Source Files\cl_dll</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\cl_dll\ts_motionblur.cpp">
+      <Filter>Source Files\cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\cl_dll\ts_objectives.cpp">
+      <Filter>Source Files\cl_dll</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\cl_dll\ts_attachments.cpp">
       <Filter>Source Files\cl_dll</Filter>
     </ClCompile>

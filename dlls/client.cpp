@@ -785,11 +785,9 @@ void ClientCommand(edict_t* pEntity)
 		else
 			ClientPrint(pev, HUD_PRINTCONSOLE, "Spectator mode is disabled.\n");
 	}
-	else if (FStrEq(pcmd, "specmode")) // new spectator mode
-	{
-		if (player->IsObserver())
-			player->Observer_SetMode(atoi(CMD_ARGV(1)));
-	}
+	// ("specmode" removed: ts_i386.so has NO "specmode" string — in the original TS it is a
+	// CLIENT command (HLTV-only, cl_dll/hud_spectator.cpp); the original server lets it fall
+	// through to the unknown-command tail. RE dossier cont94 §9.)
 	else if (FStrEq(pcmd, "closemenus"))
 	{
 		// just ignore it
@@ -800,13 +798,15 @@ void ClientCommand(edict_t* pEntity)
 			player->Observer_FindNextPlayer(atoi(CMD_ARGV(1)) != 0);
 	}
 	else if (FStrEq(pcmd, "+alt1") || FStrEq(pcmd, "-alt1") ||
-			 FStrEq(pcmd, "+break") || FStrEq(pcmd, "-break") ||
-			 FStrEq(pcmd, "special"))
+			 FStrEq(pcmd, "+break") || FStrEq(pcmd, "-break"))
 	{
 		// The remaining Specialists alt-fire / action inputs, forwarded by the client (or
 		// xash built-ins). Accepted here so they don't print "Unknown command"; the gameplay
 		// behind them (silencer/scope toggle, stunts) is follow-on work.
 		// See reference/API_SURFACE.md.
+		// ("special" removed from this accept list: the client's `special` command forwards
+		// "_special" to the server, which the original IGNORES — a dead TFC leftover that
+		// falls through to the unknown-command tail. RE dossier cont94 §9.)
 	}
 	else if (FStrEq(pcmd, "vote"))
 	{

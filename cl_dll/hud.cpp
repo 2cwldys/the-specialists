@@ -25,6 +25,7 @@
 #include "parsemsg.h"
 #include "ts_attachments.h" // TS_Attachments_Init — the per-player laser/flashlight attach state
 #include "ts_particles.h"   // TSParticles_Reset — drop stale per-map sprite handles on VidInit
+#include "ts_motionblur.h"  // TS_MotionBlur_Init — the TSMBlur ghost-trail hook
 #include "vgui_int.h"
 #include "vgui_TeamFortressViewport.h"
 
@@ -361,7 +362,10 @@ void CHud::Init()
 	m_TSPowerUp.Init();
 	m_TSReticle.Init();
 	m_TSDebris.Init();
+	m_TSObjectives.Init(); // TSFlag / Objective / ShowObj / TSHVoice (the original's one CHudTS element)
 	TS_Attachments_Init(); // hook the ActItems message (per-player laser/flashlight attach state)
+	TS_MotionBlur_Init();  // hook the TSMBlur message (slow-motion ghost trails)
+	TSParticles_Init();    // hook the TSPSys message (particle-system triggers; subtype 3 = wind)
 	GetClientVoiceMgr()->Init(&g_VoiceStatusHelper, (vgui::Panel**)&gViewPort);
 
 	m_Menu.Init();
@@ -546,6 +550,7 @@ void CHud::VidInit()
 	m_TSPowerUp.VidInit();
 	m_TSReticle.VidInit();
 	m_TSDebris.VidInit();
+	m_TSObjectives.VidInit();
 	TSParticles_Reset();     // drop stale per-map sprite handles (impact particle pool)
 	TS_Attachments_VidInit(); // drop stale per-map laser/flashlight sprite handles
 	GetClientVoiceMgr()->VidInit();

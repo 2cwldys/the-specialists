@@ -15,6 +15,7 @@
 ***/
 #include "hud.h"
 #include "cl_util.h"
+#include "parsemsg.h"   // NextStunt (the stunt-meter byte)
 #include "cl_entity.h"  // cl_entity_t (GetLocalPlayer)
 #include "pmtrace.h"    // pmtrace_t (laser distance trace)
 #include "triangleapi.h" // pTriAPI->WorldToScreen (3rd-person reticle projection)
@@ -64,9 +65,25 @@ void TS_UpdateAimTarget()
 
 static inline int clampc(int v) { return v < 0 ? 0 : (v > 255 ? 255 : v); }
 
+DECLARE_MESSAGE(m_TSReticle, NextStunt)
+
 bool CHudTSReticle::Init()
 {
+	m_flStuntTime = 0;
+	// The original hooks NextStunt on CHudTSWeaponBar (thunk 0x4c880 → FUN_1004fac0); the
+	// consumer is the dive-arc color, which lives here in our split of that object.
+	HOOK_MESSAGE(NextStunt);
 	gHUD.AddHudElem(this);
+	m_iFlags |= HUD_ACTIVE;
+	return true;
+}
+
+// NextStunt (FUN_1004fac0): m_flStuntTime = READ_BYTE * 0.1f. No client-side decay — the
+// server re-sends on every change including ->0 (TS_SendNextStunt, dlls/ts_stunt.cpp).
+bool CHudTSReticle::MsgFunc_NextStunt(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pbuf, iSize);
+	m_flStuntTime = READ_BYTE() * 0.1f;
 	m_iFlags |= HUD_ACTIVE;
 	return true;
 }
@@ -221,8 +238,18 @@ bool CHudTSReticle::Draw(float flTime)
 		int r, g, b;
 		if (avail[i])
 		{
-			r = 45; g = 85; b = 150; // blue = this dive tier is available
-			if (i == aimStep) { r = clampc(r + 55); g = clampc(g + 55); b = clampc(b + 55); } // aimed third brightens (only when available)
+			// NextStunt gate (RE FUN_1004ef50): while a stunt/dive timer is pending
+			// (m_flStuntTime >= 0.01) the WHOLE arc draws the original's RED (0xc3,0x2d,0x2d)
+			// — it replaces the blue for available tiers (unavailable tiers are red anyway).
+			if (m_flStuntTime >= 0.01f)
+			{
+				r = 0xc3; g = 0x2d; b = 0x2d; // stunt pending — no highlight while red
+			}
+			else
+			{
+				r = 45; g = 85; b = 150; // blue = this dive tier is available
+				if (i == aimStep) { r = clampc(r + 55); g = clampc(g + 55); b = clampc(b + 55); } // aimed third brightens (only when available)
+			}
 		}
 		else
 		{

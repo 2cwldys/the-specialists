@@ -13,6 +13,7 @@
 #include "pmtrace.h"
 #include "pm_shared.h"
 #include "Exports.h"
+#include "ts_motionblur.h" // TS_UpdateMotionBlur (the TSMBlur ghost spawner)
 
 #include "particleman.h"
 extern IParticleMan* g_pParticleMan;
@@ -312,6 +313,10 @@ void DLLEXPORT HUD_CreateEntities()
 
 	// Add in any game specific objects
 	Game_AddObjects();
+
+	// TS slow-motion ghost trails — the original calls its blur spawner from here
+	// (HUD_CreateEntities export @0x1bce0 → FUN_10034e80 → FUN_10029780).
+	TS_UpdateMotionBlur();
 
 	GetClientVoiceMgr()->CreateEntities();
 }

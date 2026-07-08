@@ -55,9 +55,34 @@ struct TSParticle
 
 // Public client API (the byte-port front-end). Origin/normal are world-space.
 
+// Hook the TSPSys user message (call once from CHud::Init). Subtype 3 = wind: the state
+// lands in g_tsWindState below; every other subtype is read-and-ignored (like the original).
+void TSParticles_Init();
+
 // Per-frame update + render — call once from HUD_DrawTransparentTriangles.
 void TSParticles_Update();
 void TSParticles_Reset();  // drop cached sprite handles + particles on a map change (call from VidInit)
+
+// TSPSys subtype-3 WIND state (RE dossier cont94 §3: the original stores seed @DAT_10189438,
+// dir current/target @DAT_10189454/DAT_10189460, strength current/target @DAT_10189440/44,
+// change time @DAT_1018946c). THE SEAM: the consumer — the TSP per-frame wind update that
+// lerps current toward target and applies it to particles (~FUN@0x10051aa0) — is
+// un-reconstructed; this struct is where that pass will read from.
+struct TSWindState
+{
+	int seed;               // wind RNG seed (0..30000)
+	Vector dirCurrent;      // AngleVectors({0, yaw, 0}).forward — current
+	Vector dirTarget;       //   … and target (set equal on receive)
+	float strengthCurrent;  // wind strength — current
+	float strengthTarget;   //   … and target (set equal on receive)
+	float changeTime;       // GetClientTime() at receive
+};
+extern TSWindState g_tsWindState;
+
+// PTakeDam blood tail (RE dossier cont94 §8, original FUN_10048840): the bloodfrag2.spr
+// spray at the hit point. point/dir = the wire's hit point + hit direction; encByte = the
+// encoded damage byte (bit7 = armored hit -> dust puff variant, low 7 bits = dmg*0.5).
+void TSP_BloodSpray(const float* point, const float* dir, int encByte);
 
 // The per-surface visual dispatcher (original FUN_10048f60). texChar is a CHAR_TEX_*
 // material class (pm_materials.h). mode: 0 = normal, 1/2 = forced (skip throttle).

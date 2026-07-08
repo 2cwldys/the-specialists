@@ -24,6 +24,7 @@
 #include "hud.h"
 #include "cl_util.h"
 #include "parsemsg.h"
+#include "ts_particles.h" // TSP_BloodSpray (the PTakeDam blood tail)
 #include <string.h>
 
 
@@ -139,10 +140,11 @@ bool CHudHealth::MsgFunc_Damage(const char* pszName, int iSize, void* pbuf)
 }
 
 
-// PTakeDam — the TS pain/hit-feedback wire (dossier-gmsg U4a): hit point (3 COORDs), hit
-// direction (3 COORDs), encoded damage byte (bit7 = upper-body hit, low 7 bits = dmg*0.5,
-// x8 pre-scale under damage bit 25). Feeds the directional pain indicator from the hit
-// point; the bit7 decode + the hit-point client effect are a VERIFY tail (FUN_10048840).
+// PTakeDam — the TS pain/hit-feedback wire (RE dossier cont94 §8, handler FUN_1004bcd0):
+// hit point (3 COORDs), hit direction (3 COORDs), encoded damage byte (bit7 = armored/
+// upper-body hit, low 7 bits = dmg*0.5, x8 pre-scale under damage bit 25). The original
+// does NOTHING but the blood spray (FUN_10048840) — it does NOT feed a pain-direction
+// indicator (the earlier CalcDamageDirection call here was an invention; removed).
 bool CHudHealth::MsgFunc_PTakeDam(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
@@ -152,8 +154,7 @@ bool CHudHealth::MsgFunc_PTakeDam(const char* pszName, int iSize, void* pbuf)
 	for (int i = 0; i < 3; i++)
 		vecDir[i] = READ_COORD();
 	const int enc = READ_BYTE();
-	if (enc != 0)
-		CalcDamageDirection(vecPoint);
+	TSP_BloodSpray(vecPoint, vecDir, enc); // the bloodfrag2.spr spray (cl_gore consumer)
 	m_iFlags |= HUD_ACTIVE;
 	return true;
 }

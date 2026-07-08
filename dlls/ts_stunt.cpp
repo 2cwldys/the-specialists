@@ -20,7 +20,7 @@
 #include "ts_player.h"  // KungFu()
 #include "ts_gun.h"     // GetPlayerTSGun / CTSGun::m_weaponType (jump-kick active-weapon gate)
 
-int gmsgTSNextStunt = 0; // "NextStunt" 1 (registered centrally in LinkUserMessages) — stunt-meter byte (HUD; client handler deferred)
+int gmsgTSNextStunt = 0; // "NextStunt" 1 (registered centrally in LinkUserMessages) — stunt-meter byte (client: CHudTSReticle::MsgFunc_NextStunt)
 extern int gmsgTSMotionBlur;
 
 // ---- helpers --------------------------------------------------------------
@@ -43,12 +43,17 @@ bool CTSStunt::CanDiveLow()    { return TSPlayerFreeSlots(m_pPlayer) > 19; } // 
 int  CTSStunt::SlotBonus() { return 0; }     // @0x8a480 — returns 0 in the shipped binary
 float CTSStunt::NextDive()  { return 0.0f; } // @0x8a59c — returns 0 (dive stunt-meter time)
 
-// gmsgTSNextStunt drives the client stunt-meter HUD (byte = ROUND(10*time)). The original
-// inlines this MessageBegin at each launch; no client handler yet, so it stays a no-op send.
+// gmsgTSNextStunt drives the client stunt-meter HUD (byte = ROUND(10*time); the client reads
+// it back as byte*0.1 and never decays it — we re-send on every change including ->0). The
+// original inlines this MessageBegin at each launch.
 static void TS_SendNextStunt(CBasePlayer *pl, float stuntTime)
 {
-	// SLICE: gmsgTSNextStunt has no client handler yet — deferred so we don't emit an unhooked msg.
-	(void)pl; (void)stuntTime;
+	int b = (int)(10.0f * stuntTime + 0.5f);
+	if (b < 0) b = 0;
+	if (b > 255) b = 255;
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSNextStunt, NULL, pl->edict());
+	WRITE_BYTE(b);
+	MESSAGE_END();
 }
 
 // gmsgTSMotionBlur (TSMBlur) — slow-motion blur wash; sent on a random roll the way the
