@@ -117,7 +117,7 @@ void CBasePlayer::AddItem(int itemBits)
 	}
 	else if ((itemBits & TS_ITEM_GRENADE) != 0)
 	{
-		if (TSGameRules->IsTeamMode()) // grenades are team-mode only
+		if (g_teamplay) // grenades are team-mode only
 			BuyWeapon(TSW_M61);
 	}
 	else
@@ -155,7 +155,7 @@ bool CBasePlayer::BuyWeapon(int type, int iAttach)
 
 	if (type == TSW_M61)
 	{
-		if (!TSGameRules->IsTeamMode()) // grenades are team-mode only
+		if (!g_teamplay) // grenades are team-mode only
 			return false;
 		if (m_iGrenadeBuys >= 2) // cap 2 per life
 			return false;

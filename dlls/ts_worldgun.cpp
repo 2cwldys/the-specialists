@@ -581,7 +581,7 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 	if (CashBased() && buyable)
 	{
 		CTSGameRules *gr = TSGameRules;
-		if (gr && gr->IsTeamMode() && attackerteam != -1 &&
+		if (gr && g_teamplay && attackerteam != -1 &&
 			attackerteam != gr->GetTeamIndex(pPlayer->TeamID()))
 		{
 			ClientPrint(pPlayer->pev, HUD_PRINTCENTER, "Your team cannot buy this weapon.");
