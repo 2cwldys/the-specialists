@@ -177,6 +177,20 @@ Think checks → GoToIntermission; ChangeLevel consumes + Init). (d) ~13 in-plac
 mapteams/teammodels). (e) Full CTSGameRules::InitHUD 15-statement dissolution table + the TS-patched
 Teamplay pair typed bodies — ready to apply. PLAYTEST CHECKPOINT 2 pending (DM loop + a team map).
 
+**R1 phase 3 LANDED (`72a6761`)** — the TS-patched CHalfLifeTeamplay (ctor/SetDefaultPlayerTeam/
+ChangePlayerTeam/CUIC/RecountTeams-CTB-tail per dossier §3, all decompile-anchored);
+CTSGameRules::AssignToTeam DELETED (jointeam → ChangePlayerTeam per @0x9e4b0; Y9-4 interim gone);
+CTSGameRules::InitHUD dissolved per §2.5 (cheats/damagemult notices added, SrvSett byte-0 = Think
+cache, TeamNames/TeamInfo roster now the stock Teamplay::InitHUD's); worldspawn gamemode/teammodels
+keys added. Shims tagged: pev->team stamp in ChangePlayerTeam (objectives gate — VERIFY original
+CanInteract source). Rig restarted with +teamplay 1. CHECKPOINT 3 = the team experience (ally dot,
+Tab teams, team VGUI, jointeam→spectate→5s, team models, FF). Phase-4 remainder: MP ctor Init call
++ ClientDisconnected/ChangeLevel patches + m_szEndMap vote machinery + CanPlayerHearPlayer LMS +
+quintet retirement tail (IsTeamplay/GetTeamID/RecountTeams/TeamWithFewestPlayers members on
+CTSGameRules still standing, callers to converge) + the dmcashbased/usecash naming VERIFY + the
+Wires mode==3 divergence re-RE. Client dossier fixes (bloody SVC_WEAPONANIM skiplocal + glass exact
+integrator) QUEUED behind R1 per user mandate.
+
 *(Entry updated as work lands — see below for cont.95's blow-by-blow.)*
 
 ## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
