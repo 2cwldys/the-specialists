@@ -127,6 +127,28 @@ Retired 5 of the 6 invented CTSGameRules quintet stand-ins:
 Verified via LIVE client-memory read after the convergence: m_Teamplay=1, TeamNames count 4, labels team1-4,
 per-player teams intact — the new SetTeamList produces the same roster. Builds clean; check-source-lists agrees.
 
+**Convergence scare = the DM-boot transient, NOT the refactor (reverted then re-applied `690f156`→`03ec435`).**
+The "spectators-only / empty roster" after the convergence deploy was the SAME thing that happens on ANY fresh
+restart: the rig boots in DEATHMATCH because `mp_teamplay` defaults to 0 (not in server.cfg; `+mp_teamplay` on
+the command line doesn't stick — resets before the game dll registers cvars), so the FIRST InstallGameRules
+installs CHalfLifeMultiplay (no roster). rcon `mp_teamplay 1` sets the cvar but the loaded map keeps its DM
+rules object; only a `changelevel` re-runs InstallGameRules with teamplay=1 → CHalfLifeTeamplay → roster built.
+**FIX (rig-local test convenience): `~/Containers/hlds/.../ts/game.cfg` = `mp_teamplay 1`** — InstallGameRules
+does `exec game.cfg` right before DecideGamePlay, so it sticks from the first map (no changelevel). NOT a mod
+change / not in the repo (a real server sets teamplay per-map). The reconstruction was always correct.
+
+**`6e7ce98` — team NAMES lagged colors ~1s on join → fixed.** gmsgGameMode(1) (the m_Teamplay gate) was only in
+the 3s periodic rebroadcast, so the roster arrived at +0.75s (ResendTeamRoster) but names sat un-rendered until
+the next 3s tick (colors came fast via frag ScoreInfo). Folded gmsgGameMode(1) into ResendTeamRoster too. Note:
+the value is a CONSTANT 1 (the game-mode enum: 0=DM/1=teamplay, per class, mirrors CHalfLifeTeamplay::UpdateGameMode),
+NOT mp_teamplay.value and NOT m_iGameMode(0-3) — the client only understands 0/1.
+
+**XASH CLIENT TEAMPLAY SCOREBOARD — CONFIRMED FINE (user).** No cl_dll work needed: `vgui_ScorePanel.cpp` (the
+VGUI TeamFortress ScorePanel — SortTeams winner-on-top, team headers, spectators section, TS "WAITING" class-11
+status) already renders teamplay correctly once the server feeds the data (m_Teamplay + roster). The client RE
+this session (FUN_1005d5f0 layout / FUN_1005da20 rebuild / MsgFunc_GameMode·TeamNames·TeamInfo·ScoreInfo /
+the scoreboard object at *(client.dll base+0xd5cb0)) is the reference if the Xash look ever needs matching.
+
 **STILL OPEN:** re-grade the remaining §4.6 IsTeamMode-turned-g_teamplay sites if any need IsCTB/lms specifically
 (the round-gate site was already fixed `19309bb`; others are behaviour-preserving g_teamplay reads); the powerup
 Think gate (`if (g_teamplay) skip` — original gives dynamic powerups in mode<2 i.e. teamplay too — a // VERIFY
