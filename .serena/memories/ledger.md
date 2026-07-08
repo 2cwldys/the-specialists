@@ -121,6 +121,20 @@ desync (clicks go to VGUI, +attack never sets — PRIME suspect), (c) server res
 discriminator asked: menu visible? cursor free? does console `respawn` spawn? native vs browser
 xash (browser has the known pointer-lock issue).
 
+**`a5cc737` two CLIENT fixes (user screenshot pair proved client-side):** (1) glass shards pooled
+at the pane base on OUR client — velocity formulas were RE-correct all along; the bug was GRAVITY:
+the original shard system (@client 0x47cb0) uses 0.05 (tempent+0x38), we passed FTENT_GRAVITY
+(full g) → now a FTENT_CLIENTCUSTOM 40 u/s² integrator. (2) xash "Press Fire To Play" eaten after
+CHANGELEVEL: buy-menu m_active survived the level change invisibly; TS_SpectateFireCheck's IsUp()
+gate ate every fire click → CHudTSBuyMenu::VidInit now Close()s ([[map-change-state-reset]]).
+**STILL OPEN — katana bloody blink on the ORIGINAL client (dc118b0 fixed only ours):** RE state:
+original client's fake pev->body = FUN_10007110(type, attachMask) = ATTACHMENT submodel sum (no
+bloody!); its weaponanim replay (HUD_WeaponsPostThink @0x3830 line~183) sends that body (or 2 for
+non-tsgun). CheckForBreakables dir=g_vecZero VERIFIED faithful (GOT 0x167698). Next lead: how the
+ORIGINAL server keeps its client's idle bloody — maybe the ORIGINAL sends the katana attach bit /
+or the idle anim choice differs; live-compare vs the original server (user has it) or RE the
+original client's SendWeaponAnim wrapper.
+
 *(Entry updated as work lands — see below for cont.95's blow-by-blow.)*
 
 ## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
