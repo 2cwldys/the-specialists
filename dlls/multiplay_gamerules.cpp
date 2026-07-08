@@ -50,12 +50,25 @@ class CMultiplayGameMgrHelper : public IVoiceGameMgrHelper
 public:
 	bool CanPlayerHearPlayer(CBasePlayer* pListener, CBasePlayer* pTalker) override
 	{
+		// @0xc0ed0 — teamplay: you can only hear teammates.
 		if (g_teamplay)
 		{
 			if (g_pGameRules->PlayerRelationship(pListener, pTalker) != GR_TEAMMATE)
 			{
 				return false;
 			}
+		}
+
+		// TS DELTA: last-man-standing (and the dead objective modes 2/3 — unreachable in the
+		// shipped game, §4.6) isolate the dead — a dead talker (not alive + past-respawn) is
+		// heard only by dead listeners; the living never hear the dead.
+		if (TSGameRules
+			&& ((unsigned char)(TSGameRules->m_iGameMode - 2) < 2 || g_lastManStanding != 0)
+			&& !pTalker->IsAlive() && pTalker->m_flTSRespawnTime < 0.0f)
+		{
+			if (!pListener->IsAlive() && pListener->m_flTSRespawnTime < 0.0f)
+				return true; // the dead hear the dead
+			return false;    // the living cannot hear the dead
 		}
 
 		return true;
@@ -69,6 +82,12 @@ static CMultiplayGameMgrHelper g_GameMgrHelper;
 
 CHalfLifeMultiplay::CHalfLifeMultiplay()
 {
+	// TS DELTA (@0xbee05): the MP ctor (re)initializes the standalone TS rules object for the map.
+	// On a teamplay map the CHalfLifeTeamplay ctor body then Init()s it a second time (§3.4) —
+	// harmless, and reproduced. Null on the deathmatch-0 / busters path (guarded).
+	if (TSGameRules)
+		TSGameRules->Init(); // @0x67d6c — per-map setup (InitTeams + objectives + arm round 1)
+
 	g_VoiceGameMgr.Init(&g_GameMgrHelper, gpGlobals->maxClients);
 
 	RefreshSkillData();
@@ -184,12 +203,6 @@ void CHalfLifeMultiplay::RefreshSkillData()
 //=========================================================
 void CHalfLifeMultiplay::Think()
 {
-	// R1 phase 2: the TS-patched MP::Think calls the standalone rules object's non-virtual
-	// Think (@0xbf302; Teamplay::Think has its own call @0xd439a — ours chains to MP, so this
-	// single site covers both paths).
-	if (TSGameRules)
-		TSGameRules->Think();
-
 	g_VoiceGameMgr.Update(gpGlobals->frametime);
 
 	///// Check game rules /////
@@ -275,6 +288,16 @@ void CHalfLifeMultiplay::Think()
 
 	last_frags = frags_remaining;
 	last_time = time_remaining;
+
+	// TS DELTA (@0xbf302): drive the standalone rules object's non-virtual Think AFTER the stock
+	// fragsleft/timeleft update, then end the map if a vote/objective set the forced next map
+	// (@0xbf30a). (Reached only in the !g_fGameOver path — the intermission block returns above.)
+	if (TSGameRules)
+	{
+		TSGameRules->Think();
+		if (TSGameRules->m_szEndMap[0] != '\0')
+			GoToIntermission();
+	}
 }
 
 
@@ -474,6 +497,12 @@ void CHalfLifeMultiplay::ClientDisconnected(edict_t* pClient)
 			}
 
 			pPlayer->RemoveAllItems(true); // destroy all of the players weapons and items
+
+			// TS deltas (@0xbf960): drop the leaver's flag/votes/edict + re-check the round win
+			// condition, then force a fresh The-One selection (the leaver may have been The One).
+			TSPlayerDisconnect(pPlayer);        // @0x8f94c
+			if (TSGameRules)
+				TSGameRules->m_flNextTheOneSelect = 0; // @0xbfacf (+0x587c)
 		}
 	}
 }
@@ -1810,6 +1839,20 @@ void CHalfLifeMultiplay::ChangeLevel()
 
 		ExtractCommandString(item->rulebuffer, szCommands);
 		strcpy(szRules, item->rulebuffer);
+	}
+
+	// TS DELTA (@0xc097b): a forced next map (a vote winner, or an objective set it) overrides
+	// the mapcycle pick — unless it is the literal "nextmap", which means "end this map, use the
+	// mapcycle". Then clear it and reset the TS rules for the level change (@0xc09ce).
+	if (TSGameRules)
+	{
+		if (TSGameRules->m_szEndMap[0] != '\0')
+		{
+			if (strncmp(TSGameRules->m_szEndMap, "nextmap", 8) != 0)
+				strcpy(szNextMap, TSGameRules->m_szEndMap);
+			TSGameRules->m_szEndMap[0] = '\0';
+		}
+		TSGameRules->Init(); // pre-changelevel state reset (unconditional in the original)
 	}
 
 	if (!IS_MAP_VALID(szNextMap))

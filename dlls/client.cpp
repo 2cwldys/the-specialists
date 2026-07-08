@@ -152,7 +152,8 @@ void ClientDisconnect(edict_t* pEntity)
 
 	if (pPlayer)
 	{
-		TSPlayerDisconnect(pPlayer); // @0x8f94c — flag drop + vote-block clear + edict park + CheckDeads
+		// TSPlayerDisconnect is NOT called here — its original home is
+		// CHalfLifeMultiplay::ClientDisconnected @0xbf960 (reached via g_pGameRules below).
 		if (pPlayer->m_pTank != NULL)
 		{
 			pPlayer->m_pTank->Use(pPlayer, pPlayer, USE_OFF, 0);

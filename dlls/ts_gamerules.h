@@ -166,7 +166,9 @@ public:
 	byte m_voteFF[32] = {};            // each player's friendly-fire vote (0 none / 1 on / 2 off) [field_0x6c4]
 	byte m_voteTP[32] = {};            // each player's teamplay vote (0 none / 1 on / 2 off) [field_0x6c5]
 	float m_flNextVoteCheck = 0;       // CheckVotes throttle (every ~10s) [field_0xf84]
-	char m_szNextMap[32] = {};         // the map a majority voted for (applied at map end) [field_0x1824]
+	char m_szEndMap[0x40] = {};        // @+0x1824 — the forced next map (a vote winner, or an objective
+	                                   // set it); MP/Teamplay::Think end the map when byte 0 is set,
+	                                   // MP::ChangeLevel @0xc0784 consumes it (unless it's "nextmap")
 
 	// --- Objective subsystem (the HUD objective list + the round's objective managers). The cluster
 	// entities (ts_objective_ptr/hack/wingiver/bomb) drive the HUD through these. ---

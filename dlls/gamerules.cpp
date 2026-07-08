@@ -238,8 +238,8 @@ CGameRules* InstallGameRules()
 		// reached via the GOT pointer PTR_TSGameRules = our `TSGameRules`).
 		static CTSGameRules s_TSGameRules;
 		TSGameRules = &s_TSGameRules;
-		TSGameRules->m_iGameMode = g_teamplay ? 1 : 0;
-		TSGameRules->Init(); // @0x67d6c — per-map setup (InitTeams + objectives + arm round 1)
+		// Init() (which seeds m_iGameMode from g_teamplay) runs from the rules-object ctor below —
+		// the MP ctor @0xbee05, and again from the Teamplay ctor on team maps (§4.4/§4.7).
 		if (g_teamplay)
 			return new CHalfLifeTeamplay;
 		return new CHalfLifeMultiplay;

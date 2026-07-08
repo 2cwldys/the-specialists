@@ -141,19 +141,41 @@ void CHalfLifeTeamplay::Think()
 		int bestfrags = 9999;
 		int remain;
 
-		// check if any team is over the frag limit
-		for (int i = 0; i < num_teams; i++)
+		// TS DELTA (@0xd4236): capture-the-briefcase reads the TSGameRules 4-team score table
+		// (TeamWin bumps m_teamScore) instead of the stock global team_scores[].
+		if (TSGameRules && TSGameRules->IsCTB())
 		{
-			if (team_scores[i] >= flFragLimit)
+			for (int i = 0; i < 4; i++)
 			{
-				GoToIntermission();
-				return;
-			}
+				if (TSGameRules->m_teamNames[i][0] && TSGameRules->m_teamScore[i] >= flFragLimit)
+				{
+					GoToIntermission();
+					return;
+				}
 
-			remain = flFragLimit - team_scores[i];
-			if (remain < bestfrags)
+				remain = flFragLimit - TSGameRules->m_teamScore[i];
+				if (remain < bestfrags)
+				{
+					bestfrags = remain;
+				}
+			}
+		}
+		else
+		{
+			// stock: any team over the frag limit ends the map
+			for (int i = 0; i < num_teams; i++)
 			{
-				bestfrags = remain;
+				if (team_scores[i] >= flFragLimit)
+				{
+					GoToIntermission();
+					return;
+				}
+
+				remain = flFragLimit - team_scores[i];
+				if (remain < bestfrags)
+				{
+					bestfrags = remain;
+				}
 			}
 		}
 		frags_remaining = bestfrags;
@@ -173,6 +195,15 @@ void CHalfLifeTeamplay::Think()
 
 	last_frags = frags_remaining;
 	last_time = time_remaining;
+
+	// TS DELTA (@0xd439a): drive the standalone rules object's non-virtual Think, then end the
+	// map if a vote/objective set the forced next map (@0xd43a2).
+	if (TSGameRules)
+	{
+		TSGameRules->Think();
+		if (TSGameRules->m_szEndMap[0] != '\0')
+			GoToIntermission();
+	}
 }
 
 //=========================================================

@@ -282,11 +282,14 @@ CTSGameRules::CTSGameRules()
 
 void CTSGameRules::Init()
 {
+	m_iGameMode = g_teamplay ? 1 : 0; // @0x67d83 — m_iGameMode = (byte)g_teamplay (0/1; 2/3 dead §4.6)
 	InitTeams();
 	InitTeamScore(m_teamScore); // (no-op in the original)
 	m_flRoundEnd = 0;
 	m_flRoundRestart = gpGlobals->time + 5.0f; // first round fires 5s into the map
 	m_bRoundTimerEnabled = true;
+	m_flNextTheOneSelect = gpGlobals->time + 10.0f; // @0x67eab (+0x587c) — first The-One crown 10s in
+	m_szEndMap[0] = '\0';                            // @0x67e73 (+0x1824) — clear any pending forced map
 	InitObjectives(); // (finds nothing at construction-time; the +5s RestartRound re-runs it)
 	SetObjective();
 }
@@ -610,7 +613,7 @@ void CTSGameRules::CheckVotes()
 	for (int m = 0; m < nMaps; m++)
 		if (mapVotes[m] > bestVotes) { bestVotes = mapVotes[m]; best = m; }
 	if (best != -1 && bestVotes >= need)
-		strncpy(m_szNextMap, maps[best], sizeof(m_szNextMap) - 1);
+		strncpy(m_szEndMap, maps[best], sizeof(m_szEndMap) - 1);
 }
 
 

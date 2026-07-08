@@ -34,6 +34,7 @@
 #include "gamerules.h"
 #include "ts_weapons.h"
 #include "teamplay_gamerules.h"
+#include "ts_gamerules.h" // TSGameRules->SetTeamList for the "mapteams" worldspawn key
 
 CGlobalState gGlobalState;
 
@@ -759,6 +760,12 @@ bool CWorld::KeyValue(KeyValueData* pkvd)
 	else if (FStrEq(pkvd->szKeyName, "mapteams"))
 	{
 		pev->team = ALLOC_STRING(pkvd->szValue);
+		// @0xe4cd9 — install the map's team list immediately. (The Teamplay ctor re-reads
+		// STRING(world->pev->team) for the DURABLE path, gated on teamoverride; this pre-install
+		// call is wiped by the rules ctor's Init/InitTeams — vestigial but reproduced. TSGameRules
+		// is the static object in the original; our pointer can be null pre-install on map 1.)
+		if (TSGameRules && !FStringNull(pev->team))
+			TSGameRules->SetTeamList(STRING(pev->team));
 		return true;
 	}
 	// R1 phase 3 — the TS worldspawn keys (dossier §5.3): "gamemode" (1-4 = DM/TDM/LMS/TheOne,
