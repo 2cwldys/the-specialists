@@ -208,6 +208,17 @@ reconstruction item — needs the original client Tab renderer RE); the DM empty
 cosmetics on the original client (queued client RE); "created team %s" ALERT missing in our
 SetTeamList (cosmetic).
 
+**SESSION END (cont.96 FINAL).** R1 phase 4 was IN PROGRESS when the session ended — the specs are
+all read + pinned (r1_rules_split_groundtruth.md §1.2-§1.4/§5.1): Think call POSITION (ours is at
+the TOP of MP::Think, original = END + m_szEndMap check), Teamplay::Think reshape (own body + IsCTB
+fraglimit fork), m_szEndMap[0x40] vote/ChangeLevel machinery, MP ctor Init, MP::ClientDisconnected
+patch (move TSPlayerDisconnect from client.cpp + FireTargets game_playerleave + +0x587c clear),
+CanPlayerHearPlayer LMS dead-talk, CWorld mapteams→SetTeamList call, InitHUD-log cosmetic, quintet
+convergence tail, the flagged VERIFYs (UCD flag order / dmcashbased / InitHUD items 9-13 homes /
+the Wires mode==3 divergence). Full numbered list + the queue (bloody blades, glass integrator,
+xash scoreboard sections, DM team-box) in the HANDOFF cont.96 FINAL block. Trace kits preserved in
+reference/dossiers/cont96/decompiles/. ALL LOCAL through f27a7d6 — push on user sign-off.
+
 *(Entry updated as work lands — see below for cont.95's blow-by-blow.)*
 
 ## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
