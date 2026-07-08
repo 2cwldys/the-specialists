@@ -25,6 +25,11 @@ extern bool glast_closecombat;
 extern bool glast_coldcock;
 extern bool glast_headshot;
 
+// The TS close-combat damage marker bit riding TraceAttack's bitsDamageType alongside
+// DMG_CLUB|DMG_NEVERGIB (RE CloseCombatAttack @0x8646c: bits 0x4001080). Shared by
+// CloseCombatAttack (ts_player.cpp) and the run-through resolver (ts_stunt.cpp).
+#define DMG_TSCLOSECOMBAT 0x4000000
+
 // "KFuPower" (1, CHAR 0..100) — the melee stamina bar; sent ONLY from CBasePlayer::UpdateMeleeBar.
 extern int gmsgKFuPower;
 

@@ -606,7 +606,7 @@ void CBasePlayer::TSInit()
 	m_bHasKevlar = false;  // 0x718
 	m_flTSRespawnTime = 0; // 0x770
 	// player+0x7bc = 0 (unnamed)
-	m_hRunThroughLast = NULL; // 0x788 region
+	m_hRunThroughLast = NULL; // 0x798
 	m_iWires[0] = m_iWires[1] = m_iWires[2] = 0;                   // 0x78c-0x78e
 	m_iClientWires[0] = m_iClientWires[1] = m_iClientWires[2] = 0; // 0x78f-0x791
 	m_flNextWiresCheck = 0; // 0x794
@@ -740,9 +740,7 @@ void CBasePlayer::CheckHull(Vector vecSrc, Vector vecEnd, TraceResult &tr, int i
 	}
 }
 
-// The TS close-combat damage marker bit riding TraceAttack's bitsDamageType alongside
-// DMG_CLUB|DMG_NEVERGIB (RE CloseCombatAttack @0x8646c: bits 0x4001080).
-#define DMG_TSCLOSECOMBAT 0x4000000
+// DMG_TSCLOSECOMBAT (0x4000000) lives in ts_player.h — shared with the run-through resolver.
 
 // NB: the -2 disarm path is now folded into the single CBasePlayer::DropWeapon(int type, float
 // flDamage) in ts_gun.cpp (the faithful merge of the original's one @0x84900 function) — the split

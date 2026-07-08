@@ -1904,9 +1904,11 @@ void CBasePlayer::PreThink()
 	UpdatePlayerState(); // @0x82a08 — refresh the networked pose state each frame
 
 	// One-shot SrvSett re-broadcast (see m_flSrvSettResendTime in player.h): the InitHUD MSG_ONE
-	// catch-up can be dropped during the spawn sequence, leaving the buy menu empty (weaponrestriction
-	// never applied). Re-send once the client is active — this fires during spectate-wait, before the
-	// buy menu is opened. Sent MSG_ONE to the now-active joiner (idempotent; change-detected client-side).
+	// catch-up IS dropped during the connect sequence — CONFIRMED cont.96 by a hardware watchpoint
+	// on the original client's restriction global (0 writes during a no-workaround join; the later
+	// MSG_ALL on-change sender lands fine at the same handler). LOAD-BEARING: without this the buy
+	// menu is empty at join (weaponrestriction never applied). Fires during spectate-wait, before
+	// the buy menu opens. MSG_ONE to the now-active joiner (idempotent; change-detected client-side).
 	if (m_flSrvSettResendTime != 0.0f && gpGlobals->time >= m_flSrvSettResendTime)
 	{
 		m_flSrvSettResendTime = 0.0f;
@@ -2073,10 +2075,10 @@ void CBasePlayer::PreThink()
 				pev->iuser4 &= ~TSSTUNT_STOP;
 			}
 		}
-		// whiff-lunge window (+0x79c): countdown; on expiry zero the force/type + the kungfu
-		// window (RE +0x547..+0x59d; exact expiry condition VERIFY — force==0 also collapses it).
-		// NOTE: the lunge EXECUTION (applying m_flWhiffLungeForce to velocity inside the window)
-		// is stunt-cluster scope — lands with the CTSStunt reconcile.
+		// run-through window (+0x79c): countdown; expiry (<0.01, or force==0 — the halving in
+		// CheckForBreakables collapses it) zeroes the triple. The window's CONSUMER is
+		// CTSStunt::CheckForBreakables (the run-through melee resolver, cont.96) — the fields are
+		// NOT an attacker velocity lunge (@0x808cc + dossier cont96 §2c).
 		if (m_flWhiffLungeTime != 0.0f)
 		{
 			m_flWhiffLungeTime -= flDecay;
@@ -2085,8 +2087,10 @@ void CBasePlayer::PreThink()
 				m_flWhiffLungeTime = 0.0f;
 				m_flWhiffLungeForce = 0.0f;
 				m_iWhiffLungeType = 0;
-				m_flKungFuBlock = 0.0f; // the @+0x599 clear rides the whiff expiry
 			}
+			// @0x80e5e: EVERY frame the window is live (not only on expiry) — you cannot hold a
+			// kung-fu block mid-window.
+			m_flKungFuBlock = 0.0f;
 		}
 	}
 
@@ -2128,9 +2132,11 @@ void CBasePlayer::PreThink()
 	// double-jump into a wall = wall-climb / wall-jump.
 	m_TSStunt.Play();
 
-	// TS run/dive-into-breakable melee sweep (orig CheckForBreakables, per-tick in PreThink): diving
-	// fast into a world breakable shatters it. Players are NOT run-damaged here (that close-combat
-	// path uses unbuilt Victim*Hold state — deferred).
+	// TS run-through / breakable-barge sweep (orig CheckForBreakables @0x8bd9c, per-tick in
+	// PreThink): diving fast into a world breakable shatters it; with the whiff window live
+	// (armed by a missed melee swing) it delivers the full close-combat package to PLAYERS —
+	// disarm + >30 knockback (cont.96; dossier melee_knockback_disarm.md). The former duplicate
+	// TSCheckRunThrough (ts_gun.cpp) is deleted — the original has ONE function.
 	m_TSStunt.CheckForBreakables();
 
 	// TS health-powerup over-heal decay (RE PreThink @0x808cc, player+0x73c = m_flHealthRegen): the
@@ -2148,10 +2154,6 @@ void CBasePlayer::PreThink()
 			pev->health -= 1.0f;
 		}
 	}
-
-	// TS: barge through breakables — diving/running fast into glass shatters it (clean dive-through),
-	// into a person shoves them (orig CTSStunt::CheckForBreakables, called every PreThink).
-	TSCheckRunThrough(this);
 
 	m_TSAnim.UpdateTimers(this); // TS: decay the gait aim/leg/grenade hold timers
 

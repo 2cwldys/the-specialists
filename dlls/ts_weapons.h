@@ -53,11 +53,7 @@ int TSRecordedSlowPitch(CBasePlayer *p);
 float GetSpeedBySlots(CBasePlayer *pPlayer);
 int TSPlayerFreeSlots(CBasePlayer *pPlayer);
 
-// Barge through breakables (orig CTSStunt::CheckForBreakables @0x9bd9c, called every PreThink):
-// when moving fast, trace forward along the VELOCITY direction and damage what's there (damage =
-// speed) — so diving/running into glass shatters it (clean dive-through), and into a person shoves
-// them. Distinct from the jump-kick (no kick anim). Server only.
-void TSCheckRunThrough(CBasePlayer *pPlayer);
+// (TSCheckRunThrough removed cont.96 — duplicate of CTSStunt::CheckForBreakables @0x8bd9c.)
 
 // Cycle the held weapon's fire-mode (the `firemode` command -> CTSGun::SwitchFireMode).
 void TSSwitchFireMode(CBasePlayer *pPlayer);

@@ -1653,11 +1653,16 @@ void CTSGun::CCombatAttack()
 		CBaseEntity *pHit = m_pPlayer->CloseCombatAttack(vecSrc, vecEnd, gpGlobals->v_forward,
 			iHull, reach, moveId, true, false, true, false);
 
-		// on a MISS, arm the forward whiff-lunge (PreThink consumes +0x79c/0x7a0/0x7a4); backkick reverses.
-		if (pHit == nullptr && whiffT > 0.001f)
+		// on a MISS, arm the RUN-THROUGH window (@0x76d02-0x76d50; consumed by CTSStunt::
+		// CheckForBreakables each PreThink tick — the attacker's moving hull becomes the weapon).
+		// 0x79c ← the SCALED per-move value (lunge, [esp+0x20] — also the >0.001 gate);
+		// 0x7a0 ← ±the FLAT damage (reach 35/45/55, [esp+0x1c]; sign flags the back-kick's
+		// behind-sweep). cont.96: we had whiffT (the BlockPlayer scalar) in the window and the
+		// scaled value in the force — so the run-through >30 knockback could never fire.
+		if (pHit == nullptr && lunge > 0.001f)
 		{
-			m_pPlayer->m_flWhiffLungeTime = whiffT;
-			m_pPlayer->m_flWhiffLungeForce = (bVar9 == 3) ? -lunge : lunge;
+			m_pPlayer->m_flWhiffLungeTime = lunge;
+			m_pPlayer->m_flWhiffLungeForce = (bVar9 == 3) ? -reach : reach; // VERIFY flat-vs-scaled: 3 reads agree flat (Ghidra dataflow, cont.93 slot note above, >30 gate semantics)
 			m_pPlayer->m_iWhiffLungeType = 0;
 		}
 
@@ -1857,66 +1862,11 @@ void CTSGun::ColdCock()
 #endif
 }
 
-#ifndef CLIENT_DLL
-
-// @ CTSStunt::CheckForBreakables (@0x9bd9c) — the dive/run-THROUGH-breakables barge, called every
-// PreThink. When moving fast (speed ≥ 64), trace a hull forward ALONG THE VELOCITY direction (64u)
-// and damage whatever is there (damage = speed), so flying/running into glass shatters it (a clean
-// dive-through, NO kick anim — distinct from the jump-kick) and into a person shoves them. RE'd
-// constants: speed/reach 64 (DAT_00107ea0), grounded damage ×0.1 vs full airborne (DAT_00107138).
-void TSCheckRunThrough(CBasePlayer *pPlayer)
-{
-	// AIRBORNE only — the original (CheckForBreakables @0x9bd9c, line ~46) returns early when the player
-	// is ON GROUND, so only a mid-air dive barges through breakables. (This was the "walking up to glass
-	// breaks it" bug — walking is grounded.)
-	if ((pPlayer->pev->flags & FL_ONGROUND) != 0)
-	{
-		pPlayer->m_hRunThroughLast = NULL;
-		return;
-	}
-
-	const float speed = pPlayer->pev->velocity.Length();
-	if (speed < 64.0f) // must be moving fast enough (orig DAT_00107ea0)
-	{
-		pPlayer->m_hRunThroughLast = NULL;
-		return;
-	}
-
-	// trace forward along the VELOCITY direction (orig velocity-mode), reach 64u, head hull.
-	Vector dir = pPlayer->pev->velocity.Normalize();
-	Vector src = pPlayer->pev->origin;
-	Vector end = src + dir * 64.0f;
-
-	TraceResult tr;
-	UTIL_TraceHull(src, end, dont_ignore_monsters, head_hull, ENT(pPlayer->pev), &tr);
-	if (tr.flFraction >= 1.0f)
-		return;
-
-	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
-	if (!pHit || pHit == pPlayer || pHit->pev->takedamage == DAMAGE_NO || !pHit->IsAlive())
-		return;
-	// DEFER the player-barge (interop insta-kill fix): this function and CTSStunt::CheckForBreakables
-	// are two reconstructions of the SAME original (@0x9bd9c); the sister EXCLUDES players because the
-	// faithful player path is the gated close-combat run-through (CloseCombatAttack + Victim*Hold),
-	// NOT this raw `dmg = speed` TraceAttack — which insta-killed any airborne dive into a player
-	// (crouch-jump = 200-350 dmg). Match the sister: only world breakables barge here until the gated
-	// player path is reconstructed. VERIFY the original's exact player branch (@0x9bd9c ~line 46+).
-	if (pHit->IsPlayer())
-		return;
-	if ((CBaseEntity *)pPlayer->m_hRunThroughLast == pHit)
-		return; // already barged through this one (don't re-hit every frame)
-
-	// damage = speed; reduced when grounded (running), full when airborne (diving) — orig 0.1 factor.
-	const float dmg = (pPlayer->pev->flags & FL_ONGROUND) ? speed * 0.1f : speed;
-
-	ClearMultiDamage();
-	gMultiDamage.type = DMG_CLUB | DMG_NEVERGIB;
-	pHit->TraceAttack(pPlayer->pev, dmg, dir, &tr, DMG_CLUB | DMG_NEVERGIB);
-	ApplyMultiDamage(pPlayer->pev, pPlayer->pev);
-
-	pPlayer->m_hRunThroughLast = pHit;
-}
-#endif // !CLIENT_DLL
+// (TSCheckRunThrough DELETED cont.96 — it was a second reconstruction of the SAME original
+// function as CTSStunt::CheckForBreakables @0x8bd9c (the "0x9bd9c" in its old comment was a
+// typo; nm has ONE symbol). The faithful, window-aware version lives in ts_stunt.cpp; keeping
+// both broke the one-hit-per-victim dedupe: this one NULLed m_hRunThroughLast when grounded,
+// letting the sister re-hit the same victim every other tick.)
 
 // Reload the active weapon from its own per-slot reserve (the original draws from
 // the per-caliber armament; here each arsenal slot carries its own spare rounds).

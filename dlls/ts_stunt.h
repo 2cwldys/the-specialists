@@ -108,7 +108,8 @@ private:
 	float m_flLastStunt = 0;        // player+0xb88 — time of last stunt (HandleStunt window)
 	float m_flGetupTime = 0;        // getup transition end (0 = not getting up); two-stage view raise
 	float m_flNextBreakCheck = 0;   // +0x18 — CheckForBreakables throttle (next-check time)
-	CBaseEntity *m_pLastBreakVictim = nullptr; // CheckForBreakables dedupe (orig player+0x798)
+	// (the CheckForBreakables dedupe lives on the PLAYER: m_hRunThroughLast @0x798 — the
+	// former CTSStunt::m_pLastBreakVictim here was invented; removed cont.96)
 
 	// NB: the original's TimeScale/SendNextStunt/MotionBlur/ResetStuntState are INLINED (not
 	// methods) and GetDirection is a FREE function — see the file-local statics in ts_stunt.cpp.

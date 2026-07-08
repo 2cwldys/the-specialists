@@ -17,8 +17,11 @@
 #include "weapons.h"     // Clear/ApplyMultiDamage, DMG_CLUB
 #include "ts_stunt.h"
 #include "ts_weapons.h" // TSPlayerFreeSlots
-#include "ts_player.h"  // KungFu()
+#include "ts_player.h"  // KungFu(), glast_closecombat, DMG_TSCLOSECOMBAT
 #include "ts_gun.h"     // GetPlayerTSGun / CTSGun::m_weaponType (jump-kick active-weapon gate)
+#include "game.h"       // friendlyfire (run-through teammate gate)
+#include "gamerules.h"  // g_pGameRules->PlayerRelationship / GR_TEAMMATE
+#include "ts_gamerules.h" // Victim{Kungfu,Katana,Knife}Hold (run-through deflects)
 
 int gmsgTSNextStunt = 0; // "NextStunt" 1 (registered centrally in LinkUserMessages) — stunt-meter byte (client: CHudTSReticle::MsgFunc_NextStunt)
 extern int gmsgTSMotionBlur;
@@ -89,7 +92,6 @@ void CTSStunt::Init(CBasePlayer *pPlayer)
 	m_iWallClimbCount = 0;
 	m_flLastStunt = 0;
 	m_flNextBreakCheck = 0;
-	m_pLastBreakVictim = nullptr;
 }
 
 
@@ -211,6 +213,12 @@ void CTSStunt::HandleStunt()
 	// only when no stunt is mid-flight
 	if (m_flStuntTime > 0.0f || m_flRollTime > 0.001f || (pev->iuser4 & 0xc30))
 		return;
+
+	// @0x8b04b — a stunt input cancels the armed run-through window (the whiff triple).
+	// VERIFY exact gate placement (the original clears ~0x4b in, behind one jne).
+	m_pPlayer->m_flWhiffLungeTime = 0.0f;
+	m_pPlayer->m_flWhiffLungeForce = 0.0f;
+	m_pPlayer->m_iWhiffLungeType = 0;
 
 	const bool altPressed = (m_pPlayer->m_afButtonPressed & IN_ALT1) != 0; // +alt1 edge
 	const bool jumpHeld = (pev->button & IN_JUMP) != 0;
@@ -795,12 +803,19 @@ int CTSStunt::CloseAttack()
 	return 1;
 }
 
-// @0x8bd9c CheckForBreakables — per-tick (CBasePlayer::PreThink) sweep: running/diving into a
-// surface at speed counts as a melee hit. TWO modes in the original: a non-melee BREAKABLE sweep
-// (this, faithful) and a close-combat hold-deflection path against PLAYERS that calls
-// CBasePlayer::CloseCombatAttack + Victim{Kungfu,Katana,Knife}Hold — those subsystems aren't built
-// yet, so the player/melee branch is DEFERRED (VERIFY). The non-melee branch deliberately skips
-// players, so it only ever shatters world breakables — safe to run each frame.
+// @0x8bd9c CheckForBreakables — per-tick (CBasePlayer::PreThink) sweep with TWO modes (cont.96,
+// decompile-exact — reference/dossiers/cont96/melee_knockback_disarm.md §2a):
+//  - NO window (m_flWhiffLungeTime==0): the run/dive BREAKABLE sweep — airborne, ≥64 u/s, 64u along
+//    the velocity; players are SKIPPED; dmg = IsAlive ? 0.1*speed : speed (a hurled corpse does
+//    full speed).
+//  - RUN-THROUGH window live (armed by a whiffed kung-fu swing / knife / katana / wheel-kick): the
+//    attacker's own moving hull is the weapon — works GROUNDED, sweeps ±32u along v_angle (the sign
+//    of m_flWhiffLungeForce flags the back-kick's behind-sweep), hits PLAYERS, and delivers the full
+//    close-combat package: Victim*Hold deflect, spawn-protect-gated DropWeapon(-2) disarm, the
+//    >30-dmg knockback (velocity += |attacker vel|·dir, z=235 @0x8c3fb), per-type hit sound, and a
+//    TraceAttack whose damage HALVES per landed hit (45→22.5→…<5→0 kills the window).
+// This is the classic TS "kick sends them flying": the instant 45u swing whiffs, the window arms,
+// and your sprinting body carries the hit in at full speed.
 void CTSStunt::CheckForBreakables()
 {
 	entvars_t *pev = m_pPlayer->pev;
@@ -812,42 +827,124 @@ void CTSStunt::CheckForBreakables()
 		return;
 	m_flNextBreakCheck = gpGlobals->time;
 
-	// grounded & not in close-combat melee mode -> clear the last victim and bail.
-	if (pev->flags & FL_ONGROUND)
+	// grounded with NO window -> reset the once-per-victim memory and bail. Grounded WITH a live
+	// window keeps going (a grounded kicker's run-through must still sweep).
+	if ((pev->flags & FL_ONGROUND) && m_pPlayer->m_flWhiffLungeTime == 0.0f)
 	{
-		m_pLastBreakVictim = nullptr;
+		m_pPlayer->m_hRunThroughLast = NULL;
 		return;
 	}
 
 	const float speed = pev->velocity.Length();
-	if (speed < 100.0f)
+	if (speed < 64.0f && m_pPlayer->m_flWhiffLungeTime == 0.0f) // fc_64; bypassed while the window is live
 		return;
 
-	// sweep 100u along the velocity and hull-trace for what we're about to hit.
-	Vector dir = pev->velocity * (1.0f / speed);
-	Vector end = pev->origin + dir * 100.0f;
+	// the sweep: velocity·64u (no window) vs v_angle ±32u (window; back-kick sweeps BEHIND).
+	Vector end;
+	if (m_pPlayer->m_flWhiffLungeTime == 0.0f)
+	{
+		Vector dir = (speed != 0.0f) ? pev->velocity * (1.0f / speed) : Vector(0, 0, 1);
+		end = pev->origin + dir * 64.0f;
+	}
+	else
+	{
+		UTIL_MakeVectors(pev->v_angle);
+		end = pev->origin + gpGlobals->v_forward *
+			((m_pPlayer->m_flWhiffLungeForce < 0.0f) ? -32.0f : 32.0f); // -32.0 dbl @0x109af4
+	}
 	TraceResult tr;
 	UTIL_TraceHull(pev->origin, end, dont_ignore_monsters, head_hull, ENT(pev), &tr);
 	if (tr.flFraction >= 1.0f)
 		return;
 
-	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit ? tr.pHit : ENT(0));
 	if (!pHit)
 		return;
-	// non-melee mode never run-damages players (the close-combat player path is deferred).
-	if (pHit->IsPlayer())
-		return;
+	if (pHit->IsPlayer() && m_pPlayer->m_flWhiffLungeTime == 0.0f)
+		return; // players need the window
 	if (pHit->pev->takedamage == DAMAGE_NO)
+		return;
+	if (pHit->pev->flags & FL_WORLDBRUSH)
 		return;
 	if (pHit->pev->effects & EF_NODRAW)
 		return;
-	if (m_pLastBreakVictim == pHit)
-		return; // already hit this pass
 
-	// damage = the impact speed (the original gates speed vs 0.1*speed on a player virtual at
-	// vtable+0xb4 — VERIFY; for a world breakable either value just shatters it).
-	ClearMultiDamage();
-	pHit->TraceAttack(pev, speed, dir, &tr, DMG_CLUB | DMG_NEVERGIB);
-	ApplyMultiDamage(pev, pev);
-	m_pLastBreakVictim = pHit;
+	// base damage (the breakable/run case): a LIVING runner does 0.1*speed; a hurled corpse full speed.
+	float dmg = m_pPlayer->IsAlive() ? 0.1f * speed : speed;
+
+	if ((CBaseEntity *)m_pPlayer->m_hRunThroughLast == pHit)
+		return; // one hit per victim per window
+
+	int bits = DMG_CLUB | DMG_NEVERGIB;
+	bool bApply = true;
+	if (m_pPlayer->m_flWhiffLungeTime != 0.0f)
+	{
+		// ---- the window-active close-combat package ----
+		if (m_pPlayer->m_iWhiffLungeType == 0)
+		{
+			glast_closecombat = true; // kung-fu kill flavor
+			bits |= DMG_TSCLOSECOMBAT;
+		}
+		dmg = fabsf(m_pPlayer->m_flWhiffLungeForce); // window dmg OVERRIDES speed
+		m_pPlayer->m_flWhiffLungeForce *= 0.5f;      // halves per landed hit
+		if (fabsf(m_pPlayer->m_flWhiffLungeForce) < 5.0f)
+			m_pPlayer->m_flWhiffLungeForce = 0.0f;   // PreThink's force==0 arm then kills the window
+
+		if (pHit->IsPlayer() && dmg > 0.0f)
+		{
+			if (friendlyfire.value == 0.0f &&
+				g_pGameRules->PlayerRelationship(pHit, m_pPlayer) == GR_TEAMMATE)
+			{
+				bApply = false;
+			}
+			else if (m_pPlayer->m_iWhiffLungeType == 0) // KUNG-FU — the only branch with disarm+knockback
+			{
+				if (!VictimKungfuHold(m_pPlayer, pHit, dmg, &tr))
+				{
+					CBasePlayer *pVictim = (CBasePlayer *)pHit;
+					if (pVictim->m_flSpawnProtectTime < gpGlobals->time)
+						pVictim->DropWeapon(-2, dmg); // disarm pressure (spawn-protect gates the CALL)
+					if (dmg > 30.0f)
+					{
+						// same formula as CloseCombatAttack @0x863a3: += |attacker vel|·dir, z hard-set
+						float aspeed = pev->velocity.Length();
+						Vector kdir = pHit->pev->origin - pev->origin;
+						kdir = kdir.Length() > 0.0f ? kdir.Normalize() : Vector(0, 0, 1);
+						pHit->pev->velocity = pHit->pev->velocity + kdir * aspeed;
+						pHit->pev->velocity.z = 235.0f; // @0x8c3fb
+					}
+					EMIT_SOUND_DYN(ENT(pHit->pev), CHAN_BODY, "player/kungfuhit.wav", VOL_NORM, 0.8f, 0,
+						95 + RANDOM_LONG(0, 31));
+				}
+				else
+					bApply = false; // deflected
+			}
+			else if (m_pPlayer->m_iWhiffLungeType == 2) // KATANA — hold check + sound only
+			{
+				if (!VictimKatanaHold(m_pPlayer, pHit, dmg))
+					EMIT_SOUND_DYN(ENT(pHit->pev), CHAN_BODY, "weapons/katana/hit-body.wav", VOL_NORM,
+						0.8f, 0, 95 + RANDOM_LONG(0, 31));
+				else
+					bApply = false;
+			}
+			else // KNIFE (1)
+			{
+				if (!VictimKnifeHold(m_pPlayer, pHit, dmg))
+					EMIT_SOUND_DYN(ENT(pHit->pev), CHAN_BODY, "weapons/knife/knife_hitbody.wav", VOL_NORM,
+						0.8f, 0, 95 + RANDOM_LONG(0, 31));
+				else
+					bApply = false;
+			}
+			// the original's PunchScreen(dmg*0.5, …) branch is dead code (empty stub) — omitted
+		}
+	}
+
+	if (bApply)
+	{
+		ClearMultiDamage();
+		pHit->TraceAttack(pev, dmg, g_vecZero, &tr, bits); // dir = g_vecZero (decompile-exact)
+		ApplyMultiDamage(pev, pev);
+	}
+	glast_closecombat = false;
+	m_pPlayer->m_hRunThroughLast = pHit; // remember until the grounded-no-window reset
 }
