@@ -122,8 +122,7 @@ void PrecacheAllTSWeapons()
 		for (int i = 1; i <= 4; i++) { sprintf(p, "player/bodyhit%d.wav", i); PRECACHE_SOUND(p); }
 		for (int i = 1; i <= 4; i++) { sprintf(p, "player/pain%d.wav", i); PRECACHE_SOUND(p); }
 		PRECACHE_SOUND("player/headshot.wav");
-		PRECACHE_SOUND("player/headshot1.wav");
-		PRECACHE_SOUND("player/headshot2.wav");
+		PRECACHE_SOUND("player/headshot2.wav"); // only headshot.wav + headshot2.wav exist (no headshot1.wav)
 		PRECACHE_SOUND("player/kevlarhit.wav");
 	}
 

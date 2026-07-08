@@ -431,12 +431,15 @@ public:
 	float m_flKatanaBlock = 0;        // 0x7b0 — katana block window (also deflects a knife); same decay law
 	float m_flBlockTime = 0;          // 0x4dc — BlockPlayer() self-root timer (pairs w/ iuser4 STOP bit); PreThink-decayed
 	float m_flLastMeleeRate = 0;      // 0x4f8 — last melee refire interval (written by every melee fire; consumer VERIFY)
-	float m_flDisarmTime = 0;         // 0x71c — disarm-immunity gate for DropWeapon(-2) in the melee twins
+	// 0x71c — the SPAWN-PROTECTION deadline (name invented, VERIFY: transient/unnamed in the
+	// binary). Written ONLY by TSInit (= time + 1.0). Four RE'd consumers: TraceAttack's
+	// no-damage early-out (@0x801eb), the PreThink shimmer clear (@0x81460), the melee twins'
+	// disarm-immunity gate (@0x8622c/@0x86806), and DefaultDeploy's next-attack push-out (@0x902f0).
+	float m_flSpawnProtectTime = 0;
 	float m_flDisarmPressure = 0;     // 0x7b4 — accumulated melee disarm pressure; PreThink decays x5; DropWeapon(-2) threshold
 	// NOTE: the original's player+0x78 (.so) / +0x68 (mp.dll) getup/anim flag is the STOCK
 	// CBaseAnimating::m_fSequenceFinished (live-trace cont.86) — no TS-specific member here.
 	float m_flSuperJumpFuel = 0;      // super-jump remaining lift time (refills on the ground)
-	float m_flNextPainTime = 0;       // cooldown for the TS pain voice (player/pain1-4)
 	byte m_bSuperJumpAir = 0;         // super-jump: was airborne last frame (to detect the landing thud)
 	int m_bSuperJumpArmed = 0;      // the flight LAUNCHED as duck+jump (round 8: a plain jump followed
 	                                // by a mid-air duck — the climb motion — must NOT engage the lift)

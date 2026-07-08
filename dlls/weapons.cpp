@@ -814,7 +814,14 @@ bool CBasePlayerWeapon::DefaultDeploy(const char* szViewModel, const char* szWea
 	strcpy(m_pPlayer->m_szAnimExtention, szAnimExt);
 	SendWeaponAnim(iAnim, body);
 
-	m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.5;
+	// RE DefaultDeploy @0x902f0: deploying while spawn-protected pushes next-attack out
+	// to the end of the protection window instead of the stock 0.5 s. (Server-only file;
+	// the original client predicted the plain 0.5 s path — m_flNextAttack reaches the
+	// client via clientdata.)
+	if (m_pPlayer->m_flSpawnProtectTime > gpGlobals->time)
+		m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + (m_pPlayer->m_flSpawnProtectTime - gpGlobals->time);
+	else
+		m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.5;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 1.0;
 	m_flLastFireTime = 0.0;
 

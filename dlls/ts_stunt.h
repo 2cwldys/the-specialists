@@ -100,7 +100,9 @@ private:
 	float m_flWheelNextTime = 0;    // +0x10 earliest next wheel
 	float m_flWallClimbNextTime = 0;// +0x14 wall-climb retry cooldown
 	float m_flSlideTime = 0;        // +0x30 slide/bullet-time timer
-	float m_flBulletTimeEnd = 0;    // +0x34 bullet-time end
+	float m_flBulletTimeEnd = 0;    // +0x34 bullet-time end (player+0x524). Only writer: GoBulletTime
+	                                //   (= time + 0.55); consumer: CBasePlayer::TraceAttack x0.7 bullet
+	                                //   damping @0x80228. Init deliberately does NOT clear it.
 	float m_flWallClimbFuel = 0;    // +0x38 climb budget
 	int   m_iWallClimbCount = 0;    // +0x3c climbs this airtime
 	float m_flLastStunt = 0;        // player+0xb88 — time of last stunt (HandleStunt window)

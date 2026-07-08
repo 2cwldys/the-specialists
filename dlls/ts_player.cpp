@@ -657,7 +657,7 @@ bool CBasePlayer::PickUpWeapon(int type, TSItem *pStatus, int iAttach, bool bSel
 // the original's Spawn (@0x7f586). Everything TS about a player resets here: the anim/stunt
 // machines, slow-motion, posture + the client change-detect caches (0xff = force the first
 // resend), speed, SPAWN PROTECTION (a 1-second grace: the renderfx shimmer + the (200,200,250)
-// screen fade + the m_flDisarmTime deadline that TraceAttack, the melee disarm twins and
+// screen fade + the m_flSpawnProtectTime deadline that TraceAttack, the melee disarm twins and
 // PreThink's shimmer-clear all consume, @0x801eb/@0x81458), powerups, the map-global superjump
 // mode, the spectate clear, the whole melee/whiff/block/wires/flag block, and the anim state.
 void CBasePlayer::TSInit()
@@ -678,14 +678,14 @@ void CBasePlayer::TSInit()
 	// free-slot counter reset (the original's player+0x548 = 81; ours derives from the arsenal)
 	m_iClientTSSpace = -1; // 0x54c — force the first TSSpace send
 	// player+0x544 = -1 / +0x534 = 0 (unnamed transients)
-	m_flDisarmTime = gpGlobals->time + 1.0f; // 0x71c — the SPAWN-PROTECTION deadline
+	m_flSpawnProtectTime = gpGlobals->time + 1.0f; // 0x71c — the SPAWN-PROTECTION deadline
 	m_flNextAttack = UTIL_WeaponTimeBase() + 1.0f; // 0x12c (the stock Spawn tail re-arms it later)
 	// the spawn-protection shimmer — PreThink clears it once the deadline passes (@0x81458)
 	pev->renderamt = 125.0f;
 	pev->rendermode = kRenderTransColor;
 	pev->rendercolor = Vector(0, 0, 0);
 	pev->renderfx = kRenderFxDistort; // 0xe
-	UTIL_ScreenFade(this, Vector(200, 200, 250), 0.2f, m_flDisarmTime - gpGlobals->time, 25, 0);
+	UTIL_ScreenFade(this, Vector(200, 200, 250), 0.2f, m_flSpawnProtectTime - gpGlobals->time, 25, 0);
 	m_flUseDoubleTap = 0; // 0x164
 	// player+0x720 = 0 (unnamed)
 	m_iPowerups = 0;
@@ -919,7 +919,7 @@ CBaseEntity *CBasePlayer::CloseCombatAttack(Vector vecSrc, Vector vecEnd, Vector
 			return nullptr; // deflected (the Hold plays the clack + stamps the locks)
 
 		CBasePlayer *pPlayerVictim = (CBasePlayer *)pVictim;
-		if (bDisarm && pPlayerVictim->m_flDisarmTime < gpGlobals->time)
+		if (bDisarm && pPlayerVictim->m_flSpawnProtectTime < gpGlobals->time)
 			pPlayerVictim->DropWeapon(-2, flDamage); // -2 = active weapon (roll VERIFY-gated)
 
 		if (bKnockback && flDamage > 30.0f)
@@ -997,7 +997,7 @@ CBaseEntity *CBasePlayer::ColdCockAttack(Vector vecSrc, Vector vecEnd, Vector ve
 		else
 		{
 			CBasePlayer *pPlayerVictim = (CBasePlayer *)pVictim;
-			if (bDisarm && pPlayerVictim->m_flDisarmTime < gpGlobals->time)
+			if (bDisarm && pPlayerVictim->m_flSpawnProtectTime < gpGlobals->time)
 				pPlayerVictim->DropWeapon(-2, flDamage);
 
 			if (bKnockback && flDamage > 30.0f) // not exercised by coldcock (bKnockback=false)

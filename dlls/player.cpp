@@ -158,7 +158,9 @@ LINK_ENTITY_TO_CLASS(player, CBasePlayer);
 
 void CBasePlayer::Pain()
 {
-	// TS player pain voice (player/pain1..4.wav), CHAN_VOICE — replaces the stock pl_pain5..7.
+	// DEAD CODE in the original (@0xc847c has ZERO call sites and is not
+	// vtable-dispatched) — kept for symbol parity only. The live TS pain voice is
+	// the throttled pain2/3/4 block inside TraceAttack. Body VERIFY (unread).
 	char snd[20];
 	sprintf(snd, "player/pain%d.wav", RANDOM_LONG(1, 4));
 	EMIT_SOUND(ENT(pev), CHAN_VOICE, snd, 1, ATTN_NORM);
@@ -302,93 +304,158 @@ Vector CBasePlayer::GetGunPosition()
 //=========================================================
 void CBasePlayer::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vecDir, TraceResult* ptr, int bitsDamageType)
 {
-	if (0 != pev->takedamage)
-	{
-		m_LastHitGroup = ptr->iHitgroup;
+	// Spawn protection (RE @0x801eb, first statement): a freshly-spawned player
+	// (TSInit sets m_flSpawnProtectTime = time + 1.0) takes NO trace damage, and the
+	// early path does nothing else — no blood, no sound, no message.
+	if (gpGlobals->time < m_flSpawnProtectTime)
+		return;
 
-		// TS damage damping (RE CBasePlayer::TraceAttack @0x901cc): while the victim is in a
-		// slow-mo / stunt lock state (pev->iuser4 & 0x10c10) incoming damage is x0.7. (The original
-		// also x0.7's a BULLET taken during the roll-dodge i-frame window at player+0x524 — that
-		// member isn't modeled here yet; VERIFY / follow-up.)
-		if (pev->iuser4 & 0x10c10)
-			flDamage *= 0.7f;
+	// TS damage damping (RE @0x80203): while the victim is in a slow-mo / stunt lock
+	// state (pev->iuser4 & 0x10c10) incoming damage is x0.7.
+	if (pev->iuser4 & 0x10c10)
+		flDamage *= 0.7f;
 
-		// TS hitgroup multipliers (RE @0x901cc) — these REPLACE the stock gSkillData plr* values,
-		// which were wrong for TS and caused the player-damage complaints:
-		//  - HEAD (1): doubles ONLY for bullet-type damage (mask 0x8000002 = DMG_BULLET|0x8000000),
-		//    or x1.5 for the 0x2000000 type (shotgun pellets). A MELEE headshot gets NO bonus — the
-		//    stock plrHead x3 on a club hit was the jumping-kick INSTA-KILL. Sets glast_headshot.
-		//  - LEGS (6/7): x0.5.
-		//  - Chest/stomach/arms/generic: x1 (TS has NO torso multiplier; stock plrChest/etc inflated
-		//    pistol damage -> the "2-shot beretta").
-		switch (ptr->iHitgroup)
-		{
-		case HITGROUP_HEAD: // 1
-			if (bitsDamageType & 0x8000002)
-			{
-				flDamage *= (bitsDamageType & 0x2000000) ? 1.5f : 2.0f;
-				glast_headshot = true;
-			}
-			break;
-		case HITGROUP_LEFTLEG:  // 6
-		case HITGROUP_RIGHTLEG: // 7
-			flDamage *= 0.5f;
-			break;
-		default: // generic / chest / stomach / arms — no multiplier in TS
-			break;
-		}
-
-		SpawnBlood(ptr->vecEndPos, BloodColor(), flDamage); // a little surface blood.
-		TraceBleed(flDamage, vecDir, ptr, bitsDamageType);
-		AddMultiDamage(pevAttacker, this, flDamage, bitsDamageType);
+	// Bullet-time matrix-dodge window (RE @0x80228): CTSStunt::GoBulletTime (standing
+	// +alt1 dodge) sets m_flBulletTimeEnd = time + 0.55; a BULLET taken inside the
+	// window is x0.7. Stacks with the iuser4 damping above (0.49x combined).
+	if (gpGlobals->time < m_TSStunt.m_flBulletTimeEnd && (bitsDamageType & DMG_BULLET) != 0)
+		flDamage *= 0.7f;
 
 #ifndef CLIENT_DLL
-		// TS body-impact sound on the victim (RE TraceAttack@0x901cc: EMIT_SOUND_DYN on the victim,
-		// CHAN_BODY). A HEAD hit -> headshot; a torso hit while wearing kevlar -> kevlarhit (the round
-		// smacks the vest); otherwise a random bodyhit. CHAN_BODY collapses a multi-pellet shot to one
-		// audible hit. Bullet/club impacts only (explosions/falls have their own feedback).
-		if (bitsDamageType & (DMG_BULLET | DMG_CLUB))
+	// Friendly fire (RE @0x8024f): a teammate's trace hit does nothing at all when
+	// mp_friendlyfire is off (no blood, no sound, no damage).
+	{
+		CBaseEntity* pAtt = GetClassPtr((CBaseEntity*)pevAttacker);
+		if (pAtt && pAtt->IsPlayer() && g_pGameRules->PlayerRelationship(pAtt, this) == GR_TEAMMATE &&
+			friendlyfire.value == 0)
+			return;
+	}
+#endif
+
+	if (0 == pev->takedamage)
+		return;
+
+	m_LastHitGroup = ptr->iHitgroup;
+
+	// TS hitgroup multipliers (RE @0x901cc) — these REPLACE the stock gSkillData plr* values,
+	// which were wrong for TS and caused the player-damage complaints:
+	//  - HEAD (1): doubles ONLY for bullet-type damage (mask 0x8000002 = DMG_BULLET|0x8000000),
+	//    or x1.5 for the 0x2000000 type (shotgun pellets). A MELEE headshot gets NO bonus — the
+	//    stock plrHead x3 on a club hit was the jumping-kick INSTA-KILL. Sets glast_headshot.
+	//  - LEGS (6/7): x0.5.
+	//  - Chest/stomach/arms/generic: x1 (TS has NO torso multiplier; stock plrChest/etc inflated
+	//    pistol damage -> the "2-shot beretta").
+	bool bHead = false;
+	switch (ptr->iHitgroup)
+	{
+	case HITGROUP_HEAD: // 1
+		if (bitsDamageType & 0x8000002)
+		{
+			flDamage *= (bitsDamageType & 0x2000000) ? 1.5f : 2.0f;
+			glast_headshot = true;
+			bHead = true;
+		}
+		break;
+	case HITGROUP_LEFTLEG:  // 6
+	case HITGROUP_RIGHTLEG: // 7
+		flDamage *= 0.5f;
+		break;
+	default: // generic / chest / stomach / arms — no multiplier in TS
+		break;
+	}
+
+	// One flag (RE decompile l.80–83) drives BOTH the kevlarhit sound AND the +128
+	// upper-body mark on the TSTakeDamage wire byte: an armored, LIVING victim hit by
+	// a BULLET in chest..right-arm (GENERIC excluded, arms included).
+	const bool bArmoredHit = pev->armorvalue != 0 && (bitsDamageType & DMG_BULLET) != 0 && IsAlive() &&
+							 m_LastHitGroup >= HITGROUP_CHEST && m_LastHitGroup <= HITGROUP_RIGHTARM;
+
+#ifndef CLIENT_DLL
+	// A shot corpse twitches (RE decompile l.84–100): bullet-dance the body, and an
+	// airborne one drifts with the shot.
+	if (!IsAlive())
+	{
+		m_TSAnim.BulletDance(this);
+		if ((pev->flags & FL_ONGROUND) == 0)
+			pev->velocity = pev->velocity + vecDir * 50.0f;
+	}
+
+	// The throttled feedback block — the PTakeDam wire report AND all the victim
+	// sounds live INSIDE the one 0.3 s gate (RE: one `m_flNextPTakeDamTime < time`
+	// test wraps message + hit sound + pain voice).
+	if (m_flNextPTakeDamTime < gpGlobals->time)
+	{
+		m_flNextPTakeDamTime = gpGlobals->time + 0.3f;
+
+		// PTakeDam — the TS pain/hit-feedback wire (disassembled verbatim, dossier-gmsg U4a):
+		// damage encoded as dmg*0.5 (x8 first when damage bit 25 is set), capped at 127,
+		// +128 marks an ARMORED upper-body hit (bArmoredHit). MSG_PVS at the victim's
+		// origin: hit point (3 COORDs) + hit direction (3 COORDs) + the encoded byte.
+		float enc = flDamage * (((bitsDamageType & (1 << 25)) != 0) ? 8.0f : 1.0f) * 0.5f;
+		if (enc > 127.0f)
+			enc = 127.0f;
+		if (bArmoredHit)
+			enc += 128.0f;
+		MESSAGE_BEGIN(MSG_PVS, gmsgTSTakeDamage, pev->origin);
+		WRITE_COORD(ptr->vecEndPos.x);
+		WRITE_COORD(ptr->vecEndPos.y);
+		WRITE_COORD(ptr->vecEndPos.z);
+		WRITE_COORD(vecDir.x);
+		WRITE_COORD(vecDir.y);
+		WRITE_COORD(vecDir.z);
+		WRITE_BYTE((int)enc);
+		MESSAGE_END();
+
+		// TS body-impact sound on the victim (CHAN_BODY; bullet/BLAST only — RE mask
+		// 0x42, not DMG_CLUB): a bullet-type headshot, kevlarhit off the vest
+		// (bArmoredHit), or a random bodyhit. Only headshot.wav / headshot2.wav exist
+		// (there is no headshot1.wav). vol 1.0, attn 1.25, pitch 95+rand(0,31).
+		// (The original's EMIT_SOUND_DYN is a TS 8-arg overload whose trailing float
+		// is a slow-motion pitch floor — 0.5 here, 0.15 for the pain voice; see the
+		// D14 work item in reference/dossiers/cont94/traceattack_followups.md.)
+		if (bitsDamageType & (DMG_BULLET | DMG_BLAST))
 		{
 			char snd[24];
-			const int hg = ptr->iHitgroup;
-			const bool torso = (hg == HITGROUP_GENERIC || hg == HITGROUP_CHEST || hg == HITGROUP_STOMACH);
-			if (hg == HITGROUP_HEAD)
-			{
-				const int n = RANDOM_LONG(0, 2);
-				if (n == 0) strcpy(snd, "player/headshot.wav");
-				else sprintf(snd, "player/headshot%d.wav", n); // headshot1 / headshot2
-			}
-			else if (m_bHasKevlar && torso)
+			if (bHead)
+				strcpy(snd, RANDOM_LONG(0, 1) == 0 ? "player/headshot.wav" : "player/headshot2.wav");
+			else if (bArmoredHit)
 				strcpy(snd, "player/kevlarhit.wav"); // round stopped by the vest
 			else
 				sprintf(snd, "player/bodyhit%d.wav", RANDOM_LONG(1, 4));
-			EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, snd, VOL_NORM, ATTN_NORM, 0, PITCH_NORM);
+			EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, snd, 1.0f, 1.25f, 0, 95 + RANDOM_LONG(0, 0x1f));
 		}
 
-		// PTakeDam — the TS pain/hit-feedback wire (disassembled verbatim, dossier-gmsg U4a):
-		// throttled to one send per 0.3 s; damage encoded as dmg*0.5 (x8 first when damage bit 25
-		// is set), capped at 127, +128 marks an upper-body hit (chest..right arm). MSG_PVS at the
-		// victim's origin: hit point (3 COORDs) + hit direction (3 COORDs) + the encoded byte.
-		if (m_flNextPTakeDamTime <= gpGlobals->time)
+		// TS pain voice (RE: same throttle, after the hit sound, no damage-type mask):
+		// ~3/7 of throttled hits grunt pain2/3/4 on CHAN_VOICE.
+		if (IsAlive())
 		{
-			m_flNextPTakeDamTime = gpGlobals->time + 0.3f;
-			float enc = flDamage * (((bitsDamageType & (1 << 25)) != 0) ? 8.0f : 1.0f) * 0.5f;
-			if (enc > 127.0f)
-				enc = 127.0f;
-			if (m_LastHitGroup >= HITGROUP_CHEST && m_LastHitGroup <= HITGROUP_RIGHTARM)
-				enc += 128.0f;
-			MESSAGE_BEGIN(MSG_PVS, gmsgTSTakeDamage, pev->origin);
-			WRITE_COORD(ptr->vecEndPos.x);
-			WRITE_COORD(ptr->vecEndPos.y);
-			WRITE_COORD(ptr->vecEndPos.z);
-			WRITE_COORD(vecDir.x);
-			WRITE_COORD(vecDir.y);
-			WRITE_COORD(vecDir.z);
-			WRITE_BYTE((int)enc);
-			MESSAGE_END();
+			const char* pain = NULL;
+			switch (RANDOM_LONG(1, 7))
+			{
+			case 1: pain = "player/pain2.wav"; break;
+			case 2: pain = "player/pain3.wav"; break;
+			case 3: pain = "player/pain4.wav"; break;
+			}
+			if (pain)
+				EMIT_SOUND_DYN(ENT(pev), CHAN_VOICE, pain, 1.0f, 1.25f, 0, 100);
 		}
-#endif
 	}
+#endif
+
+	// INVENTED vs the original (stock-SDK leftovers): the original TraceAttack has no
+	// SpawnBlood/TraceBleed — hit blood is the CLIENT's TSTakeDamage handler, which our
+	// cl_dll doesn't implement yet. TODO: remove both once that handler exists (ripping
+	// them out now would leave players with zero blood).
+	SpawnBlood(ptr->vecEndPos, BloodColor(), flDamage); // a little surface blood.
+	TraceBleed(flDamage, vecDir, ptr, bitsDamageType);
+
+	AddMultiDamage(pevAttacker, this, flDamage, bitsDamageType);
+
+#ifndef CLIENT_DLL
+	// dmgreport (RE @0x80842): with cheats on and dmgreport set, log each hit.
+	if (CVAR_GET_FLOAT("sv_cheats") != 0 && CVAR_GET_FLOAT("dmgreport") != 0)
+		ALERT(at_console, "%s damaged %s (%f hp)\n", STRING(pevAttacker->netname), STRING(pev->netname), flDamage);
+#endif
 }
 
 /*
@@ -485,14 +552,9 @@ bool CBasePlayer::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, fl
 	fmajor = (m_lastDamageAmount > 25);
 	fcritical = (pev->health < 30);
 
-	// TS pain VOICE (player/pain1-4) — the player grunts when hit, throttled so a burst doesn't spam it.
-	// Separate from the body-impact sound in TraceAttack (the round smacking flesh/vest). Skips trivial
-	// scratches; the death cry is handled by DeathSound.
-	if (fTookDamage && pev->health > 0 && !ftrivial && gpGlobals->time >= m_flNextPainTime)
-	{
-		Pain();
-		m_flNextPainTime = gpGlobals->time + 0.7f;
-	}
+	// NOTE: no Pain() call here — the original's CBasePlayer::Pain (@0xc847c) has ZERO
+	// call sites (not vtable-dispatched either); the real TS pain voice is the throttled
+	// pain2/3/4 block inside TraceAttack. (An invented Pain() call used to live here.)
 
 	// handle all bits set in this damage message,
 	// let the suit give player the diagnosis
@@ -1915,7 +1977,7 @@ void CBasePlayer::PreThink()
 
 	// @0x81458 (TSInit's counterpart): once the spawn-protection deadline passes, drop the
 	// translucent shimmer TSInit applied.
-	if (m_flDisarmTime < gpGlobals->time && pev->rendermode != kRenderNormal)
+	if (m_flSpawnProtectTime < gpGlobals->time && pev->rendermode != kRenderNormal)
 	{
 		pev->rendermode = kRenderNormal;
 		pev->renderfx = kRenderFxNone;
