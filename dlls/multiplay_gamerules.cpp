@@ -517,33 +517,59 @@ void CHalfLifeMultiplay::PlayerThink(CBasePlayer* pPlayer)
 
 //=========================================================
 //=========================================================
+// R1/Y9: the TS-patched CHalfLifeMultiplay::PlayerSpawn @0x790ac (body @0x890b8,
+// TS_multiplay_gamerules.cpp) — the original CTSGameRules has NO PlayerSpawn; this replaced the
+// stock crowbar+9mmhandgun loadout. Shape: weapons flag → game_player_equip loop → if none:
+// GiveNamedItem("weapon_tsgun") + BuyArmament (its ONLY caller, @0x79122) → spawn-cash snapshot.
+// Tagged local shims kept from the dissolved override: SetHasSuit (stock-derived HUD needs the
+// suit bit), the spectate-wait no-equip gate (coupled to Y7), RemoveAllItems (round-restart
+// double-tsgun guard), TSDeployArsenal (engine auto-deploy skips kung-fu).
 void CHalfLifeMultiplay::PlayerSpawn(CBasePlayer* pPlayer)
 {
-	bool addDefault;
+	pPlayer->pev->weapons |= 0x80000000; // @0x890c4 — the suit/weapons marker bit
+	pPlayer->SetHasSuit(true);           // local shim (see header comment)
+
+	// INTERIM (fold-plan Y9-3): team-cash seed — inert (GetTeamCash returns 0; the cash
+	// economy is compiled out of the shipped game).
+	if (TSGameRules)
+	{
+		if (int teamCash = TSGameRules->GetTeamCash(pPlayer))
+			pPlayer->m_iCash = teamCash;
+	}
+
+	bool addDefault = true;
 	CBaseEntity* pWeaponEntity = NULL;
-
-	//Ensure the player switches to the Glock on spawn regardless of setting
-	const int originalAutoWepSwitch = pPlayer->m_iAutoWepSwitch;
-	pPlayer->m_iAutoWepSwitch = 1;
-
-	pPlayer->SetHasSuit(true);
-
-	addDefault = true;
-
-	while (pWeaponEntity = UTIL_FindEntityByClassname(pWeaponEntity, "game_player_equip"))
+	while ((pWeaponEntity = UTIL_FindEntityByClassname(pWeaponEntity, "game_player_equip")) != NULL)
 	{
 		pWeaponEntity->Touch(pPlayer);
 		addDefault = false;
 	}
 
-	if (addDefault)
+	// TS (cont.65): a player entering free-look spectate-wait gets NO weapons — they equip
+	// on fire-to-play (the next Spawn runs with m_fInSpectateWait clear).
+	if (addDefault && !pPlayer->m_fInSpectateWait)
 	{
-		pPlayer->GiveNamedItem("weapon_crowbar");
-		pPlayer->GiveNamedItem("weapon_9mmhandgun");
-		pPlayer->GiveAmmo(68, "9mm", _9MM_MAX_CARRY); // 4 full reloads
+		// Round restart respawns STILL-ALIVE players and Spawn does NOT strip items — clear
+		// first so the re-equip is clean (one tsgun; the old double fought over WStatus).
+		pPlayer->RemoveAllItems(false);
+		pPlayer->GiveNamedItem("weapon_tsgun");
+		pPlayer->BuyArmament();
+		// force the arsenal active + deployed (auto-deploy skips kung-fu; a kung-fu-only
+		// loadout otherwise has no viewmodel and can't fire).
+		TSDeployArsenal(pPlayer);
 	}
 
-	pPlayer->m_iAutoWepSwitch = originalAutoWepSwitch;
+	// (initial_cash moved to ClientPutInServer — its original home @0xacf44; the old
+	// "re-seed any 0-cash respawn" behavior was ours-only. Fold-plan Y9-2.)
+
+	// INTERIM (fold-plan Y9-4/R1): the original assigns teams in the TS-patched
+	// CHalfLifeTeamplay::SetDefaultPlayerTeam/ChangePlayerTeam (@0xd44ac/@0xd488c); until the
+	// rules split installs Teamplay on team maps, the auto-balance stand-in lives here.
+	if (TSGameRules && TSGameRules->IsTeamMode())
+	{
+		if (TSGameRules->GetTeamIndex(pPlayer->m_szTeamName) < 0)
+			TSGameRules->AssignToTeam(pPlayer, TSGameRules->TeamWithFewestPlayers());
+	}
 }
 
 //=========================================================
@@ -725,6 +751,14 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 		// resets right after ApplyMultiDamage, not here; here it went stale on non-kill hits.)
 
 		FireTargets("game_playerkill", ktmp, ktmp, USE_TOGGLE, 0);
+
+		// R1/Y8-1: "The One" hand-off lives HERE in the original (@0x795e4 line ~444, after the
+		// frag/cash accounting) — moved from the deleted CTSGameRules::PlayerKilled override.
+		if (pVictim->m_bTheOne && TSGameRules)
+		{
+			CBaseEntity* pK = pKiller ? CBaseEntity::Instance(ENT(pKiller)) : nullptr;
+			TSGameRules->TheOneIsDead(pVictim, (pK && pK->IsPlayer()) ? (CBasePlayer*)pK : nullptr);
+		}
 	}
 	else
 	{ // killed by the world
@@ -761,6 +795,11 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 
 	// NB: stock `if (HasNamedPlayerItem("weapon_satchel")) DeactivateSatchels(...)` removed —
 	// DeactivateSatchels/CSatchel are absent from the original (TS has no satchel weapon; uses CTSGun).
+
+	// R1/Y8-1: the deads-check schedule is the LAST statement of the original PlayerKilled
+	// (@0x795e4 line ~730) — a death may have eliminated a team; resolve the round.
+	if (TSGameRules)
+		TSGameRules->CallCheckDeads();
 }
 
 //=========================================================

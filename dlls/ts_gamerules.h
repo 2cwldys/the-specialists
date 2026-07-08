@@ -95,8 +95,8 @@ public:
 	// faithful client class-selection menu (cl_dll, not built).
 	void  AssignToTeam(CBasePlayer *pPlayer, const char *pTeamName);
 
-	// Auto-balance assignment is driven from spawn (override of the MP spawn).
-	void  PlayerSpawn(CBasePlayer *pPlayer) override;
+	// (PlayerSpawn override DELETED — R1/Y9: the virtual is the TS-patched
+	// CHalfLifeMultiplay::PlayerSpawn @0x790ac; equip core + tagged interims live there.)
 	void  InitHUD(CBasePlayer *pPlayer) override;           // send the team roster to a client
 
 	char  m_szTeamList[256] = {};
@@ -112,7 +112,8 @@ public:
 
 	// On death: the MP scoring, plus the TS death effects (drop the arsenal as world guns +
 	// leave a fading corpse).
-	void PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor) override;
+	// (PlayerKilled override DELETED — R1/Y8: the virtual is the TS-patched
+	// CHalfLifeMultiplay::PlayerKilled @0x795e4; scatter lives in CBasePlayer::Killed @0x7ed5c.)
 
 	// @ TeamWin — declare `team` the round winner: bump its score, announce, and schedule a
 	// round restart (respawn everyone + re-arm objectives). Called by CTSWinGiver.

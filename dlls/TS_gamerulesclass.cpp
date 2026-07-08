@@ -181,31 +181,13 @@ CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime);
 void TSDropWeaponsOnDeath(CBasePlayer *pPlayer);
 void TSDropAmmoOnDeath(CBasePlayer *pPlayer);
 
-// @ PlayerKilled — run the inherited MP scoring/death-notice, then the TS death effects:
-// scatter the dead player's weapons into the world + leave a fading corpse.
-void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvars_t *pInflictor)
-{
-	CHalfLifeMultiplay::PlayerKilled(pVictim, pKiller, pInflictor);
-	pVictim->DropFlag(false); // CTF: a killed carrier drops the flag where they fell (spawns a loose flag)
-	TSDropWeaponsOnDeath(pVictim);
-	TSDropAmmoOnDeath(pVictim);
-	// (the corpse is NOT spawned here — @0x7eaec spawns it in PlayerDeathThink at the
-	// spectate transition, AFTER the death anim settles: spawning at kill time froze the
-	// still-standing pose half-sunk at the dead origin — the round-8 'second model stuck
-	// in the floor'.)
-	// (TogglePlayerFromSlow call DELETED, fold-plan Y8-4: @0x696c8 has ZERO callers in the
-	// original — dead code; the dead player's slow-state coverage is StartObserver's
-	// iuser4/fuser1 clears at the spectate transition.)
-
-	// "The One" mode: if the dead player was The One, clear/hand off the role (the killer inherits it).
-	if (pVictim->m_bTheOne)
-	{
-		CBaseEntity *pK = pKiller ? CBaseEntity::Instance(ENT(pKiller)) : nullptr;
-		TheOneIsDead(pVictim, (pK && pK->IsPlayer()) ? (CBasePlayer *)pK : nullptr);
-	}
-
-	CallCheckDeads(); // team mode: a death may have eliminated a team → resolve the round
-}
+// (CTSGameRules::PlayerKilled DELETED — R1/Y8: the original CTSGameRules is a STANDALONE class
+// with NO PlayerKilled; the virtual is the TS-patched CHalfLifeMultiplay::PlayerKilled @0x795e4
+// (multiplay_gamerules.cpp — TheOneIsDead + CallCheckDeads live there now). The weapon/ammo
+// death-scatter moved to its @0x7ed5c home in CBasePlayer::Killed. The DropFlag(false) call was
+// a DOUBLE mechanism — the original drops the carrier's flag at the StartObserver spectate
+// transition (@0x8975f), which our StartObserver already does; a killed carrier's flag now drops
+// ~3 s later than before — original-faithful timing. The corpse spawns in PlayerDeathThink.)
 
 // @ TeamWin — record the win + announce it, then schedule a round restart 3s out (the .so
 // uses param_1+0xc = time+3). // SLICE: faithful TeamWin also awards victory/defeat cash to
@@ -1036,59 +1018,10 @@ void CTSGameRules::AssignToTeam(CBasePlayer *pPlayer, const char *pTeamName)
 	MESSAGE_END();
 }
 
-// @ PlayerSpawn — the MP spawn, then (team mode only) auto-balance any not-yet-assigned
-// player onto the team with the fewest players. Idempotent: a player who already holds a
-// valid team keeps it across respawns/round restarts.
-void CTSGameRules::PlayerSpawn(CBasePlayer *pPlayer)
-{
-	// Faithful to the original CHalfLifeMultiplay::PlayerSpawn @0x790ac (the TS build
-	// replaced the stock crowbar+9mmhandgun loadout): honour game_player_equip, else give
-	// the unified TS weapon (weapon_tsgun — the arsenal, which defaults to TSW_MELEE / fists)
-	// and apply the player's armament (cont.36 BuyArmament). NO stock HL weapons.
-	pPlayer->SetHasSuit(true); // VERIFY: the .so does an early virtual here; our stock-derived HUD needs the suit bit
-
-	// In team modes the player's starting wallet seeds from the team pool (0 in the shipped game,
-	// where the cash economy is compiled out — so this is inert; GetTeamCash returns 0).
-	if (int teamCash = GetTeamCash(pPlayer))
-		pPlayer->m_iCash = teamCash;
-
-	bool addDefault = true;
-	CBaseEntity *pEquip = NULL;
-	while ((pEquip = UTIL_FindEntityByClassname(pEquip, "game_player_equip")) != NULL)
-	{
-		pEquip->Touch(pPlayer);
-		addDefault = false;
-	}
-
-	// TS (cont.65): a player entering free-look spectate-wait gets NO weapons — they
-	// equip on fire-to-play (the next Spawn runs with m_fInSpectateWait clear).
-	if (addDefault && !pPlayer->m_fInSpectateWait)
-	{
-		// Round restart (TSRestartRound) respawns STILL-ALIVE players, but CBasePlayer::Spawn does
-		// NOT strip items — so without this the old weapon_tsgun survives and GiveNamedItem creates a
-		// SECOND one. The two tsguns then fight over active/WStatus and the arsenal "disappears"
-		// inconsistently on round restart. Clear first so the re-equip is clean (one tsgun).
-		pPlayer->RemoveAllItems(false);
-		pPlayer->GiveNamedItem("weapon_tsgun");
-		pPlayer->BuyArmament();
-		// The tsgun is the player's single weapon entity, but the engine's auto-deploy skips
-		// kung-fu, so force it active + deployed (else a kung-fu-only loadout has no viewmodel
-		// and can't fire — ItemPostFrame only runs on the active item).
-		TSDeployArsenal(pPlayer);
-	}
-
-	// `initial_cash` cvar: the player's starting cash. Given once (when they have none) so
-	// it doesn't accumulate across respawns. (CashBased() is off — cont.36 — so cash isn't
-	// charged; this seeds the cash HUD / the win/lose economy cvars.)
-	if (pPlayer->m_iCash == 0)
-		pPlayer->GiveCash((int)CVAR_GET_FLOAT("initial_cash"));
-
-	if (!IsTeamMode())
-		return;
-
-	if (GetTeamIndex(pPlayer->m_szTeamName) < 0)
-		AssignToTeam(pPlayer, TeamWithFewestPlayers());
-}
+// (CTSGameRules::PlayerSpawn DELETED — R1/Y9: the original CTSGameRules has NO PlayerSpawn;
+// the virtual is the TS-patched CHalfLifeMultiplay::PlayerSpawn @0x790ac (multiplay_gamerules.cpp,
+// where the equip core now lives). initial_cash moved to its ClientPutInServer home @0xacf44;
+// the auto-balance tail is the tagged Y9-4/R1 interim in MP::PlayerSpawn.)
 
 // @ InitHUD — send the team roster to a connecting client (so a real HUD can colour the
 // scoreboard). The MP base does the rest of the HUD setup.

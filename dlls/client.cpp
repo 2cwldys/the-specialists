@@ -246,6 +246,12 @@ void ClientPutInServer(edict_t* pEntity)
 	// Reconnect = a fresh map clock: clear it so TSEnterSpectate stamps a fresh one.
 	pPlayer->m_flTSRespawnTime = 0.0f;
 
+	// R1/Y9-2: initial_cash is given HERE in the original (ClientPutInServer @0xacf44,
+	// GiveCash) — NOT in PlayerSpawn. Once per connect; the old PlayerSpawn placement also
+	// re-seeded any player whose cash hit 0 mid-map (ours-only behavior, now gone).
+	pPlayer->m_iCash = 0;
+	pPlayer->GiveCash((int)CVAR_GET_FLOAT("initial_cash"));
+
 	// Allocate a CBasePlayer for pev, and call spawn
 	pPlayer->Spawn();
 

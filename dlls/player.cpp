@@ -1006,6 +1006,13 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	if (pev->velocity.z < 10)
 		pev->velocity.z += RANDOM_FLOAT(0, 300);
 
+	// R1/Y8-2: the death weapon/ammo scatter lives HERE in the original — all 11 ThrowWeapon
+	// call sites are inside CBasePlayer::Killed @0x7ed5c (0x7f085-0x7f185), NOT in any
+	// PlayerKilled (caller census, cont.94 fold plan). Moved from the deleted
+	// CTSGameRules::PlayerKilled override.
+	TSDropWeaponsOnDeath(this);
+	TSDropAmmoOnDeath(this);
+
 	// clear out the suit message cache so we don't keep chattering
 	SetSuitUpdate(NULL, false, 0);
 
