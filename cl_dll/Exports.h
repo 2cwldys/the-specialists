@@ -21,7 +21,8 @@ extern "C"
 	int DLLEXPORT HUD_GetHullBounds( int hullnumber, float *mins, float *maxs );
 	void DLLEXPORT HUD_Frame( double time );
 	void DLLEXPORT HUD_VoiceStatus(int entindex, qboolean bTalking);
-	void DLLEXPORT HUD_DirectorMessage( int iSize, void *pbuf );
+	void DLLEXPORT HUD_DirectorEvent( int iSize, void *pbuf );   // the original's export name (swap contract)
+	void DLLEXPORT HUD_DirectorMessage( int iSize, void *pbuf ); // xash by-name alias -> HUD_DirectorEvent
 	void DLLEXPORT HUD_ChatInputPosition( int *x, int *y );
 
 	// From demo

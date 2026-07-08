@@ -138,6 +138,8 @@ public:
 	// grant and NO auto-wield — reserve comes from BuyAmmo/packs; PickUpWeapon selects.
 	bool TakeWeapon(tsweapon_t type, const TSItem *pStatus = nullptr, int iAttach = 0);
 	int  SlotsUsed() const;           // sum of slotCost over owned items (CBasePlayer+0x548 = 81 - this)
+	void Holster() override;      // @Holster @0x75674 — pure forwarder to HolsterWeapon() (0x21 bytes;
+	                              //   without it we fell through to the stock CBasePlayerWeapon::Holster)
 	void HolsterWeapon();         // @HolsterWeapon @0x85698 — park state + reset to bare hands (kungfu draw)
 	void SelectWeapon(int type);  // @SelectWeapon — wield an owned type (HolsterWeapon->deploy)
 	void GetBetterWeapon(int exclude);// @GetBetterWeapon — auto-select next owned by priority

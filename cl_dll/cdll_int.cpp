@@ -284,17 +284,27 @@ void DLLEXPORT HUD_VoiceStatus(int entindex, qboolean bTalking)
 
 /*
 ==========================
-HUD_DirectorMessage
+HUD_DirectorEvent
 
-Called when a director event message was received
+Called when a director event message was received. The ORIGINAL client.dll
+exports this under the pre-rename SDK name HUD_DirectorEvent (the export-name
+swap contract); GoldSrc receives it via the F() table so the name is free.
 ==========================
 */
 
-void DLLEXPORT HUD_DirectorMessage(int iSize, void* pbuf)
+void DLLEXPORT HUD_DirectorEvent(int iSize, void* pbuf)
 {
 	//	RecClDirectorMessage(iSize, pbuf);
 
 	gHUD.m_Spectator.DirectorMessage(iSize, pbuf);
+}
+
+// xash3d-fwgs resolves this callback BY NAME as "HUD_DirectorMessage"
+// (engine/client/dll_int/cl_game.c) — keep a thin alias export for it.
+// Deliberate ours-only export; the original has no such symbol.
+void DLLEXPORT HUD_DirectorMessage(int iSize, void* pbuf)
+{
+	HUD_DirectorEvent(iSize, pbuf);
 }
 
 void CL_UnloadParticleMan()
@@ -359,7 +369,7 @@ extern "C" void DLLEXPORT F(void* pv)
 			HUD_TempEntUpdate,
 			HUD_GetUserEntity,
 			HUD_VoiceStatus,
-			HUD_DirectorMessage,
+			HUD_DirectorEvent, // the real handler (HUD_DirectorMessage is the xash alias export)
 			HUD_GetStudioModelInterface,
 			HUD_ChatInputPosition,
 		};

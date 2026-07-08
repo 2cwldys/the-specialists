@@ -626,6 +626,14 @@ static const int s_drawSeq[TSW_COUNT] = {
 // FEV_NOTHOST iparam1=0), and zero the kung-fu combo counters. SelectWeapon calls this, then the
 // caller Deploy()s the incoming weapon (so every switch carries the kungfu draw on the wire,
 // exactly like the original).
+// @ Holster__6TSGuni (@0x75674, 0x21 bytes) — the virtual Holster is a pure forwarder to
+// HolsterWeapon(). Without the override we fell through to the STOCK CBasePlayerWeapon::Holster
+// (viewmodel strip only — no state park, no kung-fu reset).
+void CTSGun::Holster()
+{
+	HolsterWeapon();
+}
+
 void CTSGun::HolsterWeapon()
 {
 	SyncActiveToItem(); // park the live clip/fire-mode (the original mutates the item in place)
