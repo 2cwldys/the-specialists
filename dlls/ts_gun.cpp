@@ -1895,6 +1895,14 @@ void TSCheckRunThrough(CBasePlayer *pPlayer)
 	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
 	if (!pHit || pHit == pPlayer || pHit->pev->takedamage == DAMAGE_NO || !pHit->IsAlive())
 		return;
+	// DEFER the player-barge (interop insta-kill fix): this function and CTSStunt::CheckForBreakables
+	// are two reconstructions of the SAME original (@0x9bd9c); the sister EXCLUDES players because the
+	// faithful player path is the gated close-combat run-through (CloseCombatAttack + Victim*Hold),
+	// NOT this raw `dmg = speed` TraceAttack — which insta-killed any airborne dive into a player
+	// (crouch-jump = 200-350 dmg). Match the sister: only world breakables barge here until the gated
+	// player path is reconstructed. VERIFY the original's exact player branch (@0x9bd9c ~line 46+).
+	if (pHit->IsPlayer())
+		return;
 	if ((CBaseEntity *)pPlayer->m_hRunThroughLast == pHit)
 		return; // already barged through this one (don't re-hit every frame)
 
@@ -2509,8 +2517,11 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	for (int t = 0; t < TSW_COUNT; t++)
 	{
 		const int owned = m_items[t].owned ? 1 : 0;
-		// the live active clip is in m_iClip, not yet synced into its item
-		int clip = owned ? ((t == m_weaponType) ? m_iClip : m_items[t].clip) : 0;
+		// the live active clip is in m_iClip, not yet synced into its item.
+		// TSW_MELEE (kung-fu / bare hands) has NO clip: send -1 (WEAPON_NOCLIP) always — neither
+		// m_iClip (0 while wielded) nor it.clip (0) is -1, so without this the kung-fu bar cell
+		// went RED against the original client (it reds any cell with clip < 1). Interop fix.
+		int clip = !owned ? 0 : (t == TSW_MELEE) ? -1 : (t == m_weaponType) ? m_iClip : m_items[t].clip;
 		// Send the RAW clip byte. MELEE (kung-fu) has clip -1 (WEAPON_NOCLIP); the original writes it raw
 		// (-1 -> byte 0xFF = 255), and the client reds a cell only when clip < 1, so 255 renders NORMAL (not
 		// red). Clamping <0 to 0 (the old "a bar clip is never negative" assumption) made kung-fu red. Guns
