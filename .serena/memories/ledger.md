@@ -59,7 +59,19 @@ spectator code's internal calls); `37b0491` coverage regen + dossiers committed.
 dispatched for the 7 missing client message hooks + cl_gore blood tail + specmode/special mechanism
 (dossier `client_message_hooks.md` when done). HANDOFF cont.94 START-HERE written.
 
-**NEXT:** apply client_message_hooks.md; the parity-sweep remainder (invented-method folds, invented
+**Final round:** `739a599` the client_message_hooks RE dossier + `6f7b147` its FULL implementation —
+the 7 dark hooks are live (TSMBlur ghosts via TentEntAllocCustom w/ the exact curstate contract;
+NextStunt red dive-arc + the server sender UNPARKED; TSPSys wind handler w/ deferred consumer seam;
+TSFlag/Objective/ShowObj/TSHVoice as ONE CHudTSObjectives element mirroring the original CHudTS;
+PTakeDam blood spray w/ the cl_gore table — the invented CalcDamageDirection call removed;
+specmode/special swapped to the original mechanism: client-side HLTV command + cl_drawnames, server
+accept-branches removed). New files ts_motionblur.cpp/.h + ts_objectives.cpp/.h, all four source lists
+synced. Both libs build; rig + xash roots redeployed (rig respawned on the new build). ALSO resolved
+outside this session (parent CLAUDE.md 2026-07-08): the CLOUD web-join bugs — a stale prod schema 500'd
+the ticket burn, and map-change reconnects re-demanded the burned ticket (fixed: SteamID reuse on
+reconnect). With the rig sv_lan fix + the /play teardown fix, the whole login saga is closed.
+
+**NEXT:** the parity-sweep remainder (invented-method folds, invented
 globals, tsbuy*/HL-leftover command strip, sk_* strip w/ gSkillData caution, 11 missing client cvars);
 D14 EMIT_SOUND_DYN overload; user playtest (traceattack dossier §end protocol); cloud web-join datapoint;
 the still-blocked items (bot-crash gdb repro, doors-glass, floating-weapons probe, push).
