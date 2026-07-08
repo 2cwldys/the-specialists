@@ -47,45 +47,159 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
-## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.96, 2026-07-08) — YOUR FIRST JOB IS R1 (user mandate), then the client-RE dossier
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.96 FINAL, 2026-07-08) — R1 phases 1-3 LANDED + checkpoint 3 PASSED; FINISH R1 PHASE 4 (user: "finish R1"), then the queued client fixes
 
-**You ARE the orchestrator.** Branch `restructure-source-parity`, all LOCAL through `bc8a16e`+. Read the
-cont.96 ledger entry (Read tool on `.serena/memories/ledger.md` — NEVER Serena read_memory) — the full
-blow-by-blow of ~10 landed fixes (briefcase = the "knife" mystery, buy-menu root cause CONFIRMED
-load-bearing, kill-feed names, melee run-through + the whiffT window correction, glass shards v7, the
-changelevel respawn-deadline + buy-menu resets, bloody-blade client seed). The cont.95 block below has
-the LAW/method — unchanged, reread it.
+**You ARE the orchestrator — continue as if you never stopped, and you will BE the orchestrator next
+session too.** Branch `restructure-source-parity`, ALL LOCAL (mod-ts through `18b691e`+docs; ReHLDS
+quic `a8d6c8d` / 64bit `411c42b`). The cont.96 ledger entry (TOP of `.serena/memories/ledger.md`,
+READ tool — see the Serena gotcha below) is the blow-by-blow: ~14 landed fixes + R1 phases 1-3.
 
-### 🎯 FIRST JOB — R1: the CTSGameRules STANDALONE-class split (USER MANDATE 2026-07-08)
-The user: "R1 may break more, so as long as you're committed do that first — I don't want to chase shit
-we fix over and over." Full plan: `reference/dossiers/cont94/invented_method_folds.md` (YELLOW/RED
-sections). Owns the 12 remaining invented methods (team quintet, PlayerKilled/PlayerSpawn splits,
-TSEnterSpectate). Playtest checkpoints with the user; do NOT land blind. Note cont.96 touched
-PlayerKilled/DeathNotice (kill-feed names — the 4-arg T2Pc DeathNotice signature move is PARKED for R1;
-see the 5f6940d commit message). Only after R1 lands: the queue below.
+### 🎯 THE PARITY MANDATE — the user's LAW (verbatim intent; reread every session)
+**GOAL: DROP-IN BOTH DIRECTIONS.** Our client vs the ORIGINAL server AND our server vs the ORIGINAL
+client must behave identically + compatibly. Mirror the original 1:1 — **files → classes → methods →
+members → globals → free functions — NAME-MATCHED.** Nothing the original has that we lack; nothing
+we invented that it doesn't have (`scripts/coverage/audit.py` + `coverage.py` match BY NAME).
+- **A MISSING symbol = a HIDDEN-LOGIC GAP → re-RE it. An INVENTED/renamed one = DRIFT and a SIGNAL
+  of a logic mismatch → re-RE it.** Names are not cosmetic — a wrong/renamed field usually means the
+  logic around it diverged (cont.96 proof: `IsTeamMode`'s invented objective-manager proxy was
+  silently disabling the ENTIRE team layer).
+- **A mismatch FLAGS NEIGHBOURING mismatches** — check the neighbourhood, don't fix in isolation.
+- **The logic is OFTEN ALREADY IMPLEMENTED — MOVE/RENAME it, don't rewrite** (cont.96: Y8/Y9 were
+  almost pure moves; the kill-feed chain existed in pieces).
+- **If they do it another way, MIMIC THEIRS** — even when ours "works". Verify WHICH SIDE
+  computes/sends what FIRST (cont.96: the scoreboard name/color keys off the ScoreINFO teamid column,
+  not TeamNames — assumed wrong twice before tracing).
+- **ASSETS must ALL be wired** — every model/sprite/sound/sequence/event named inside a decompile
+  must be precached + played in our code (`scripts/coverage/precache.py`); a missing asset = an
+  un-reconstructed code path.
+- **"The decompile is COMPLETE" ≠ "every method is faithfully reconstructed"** — EVERY cont.90-96 bug
+  was a stubbed/stock-inherited/mis-RE'd/duplicate method. Expect it.
+- **FLAG-DON'T-IGNORE, but FINISH FIRST.** Fixes surface neighbouring gaps: flag (user + `// VERIFY`
+  + ledger) and finish the current issue, THEN report.
+- **Sweep TODO/VERIFY/SLICE/FIXME** when touching an area: `grep -rn "VERIFY\|TODO\|SLICE\|FIXME" dlls cl_dll`.
 
-### 📋 THEN (in order)
-1. **The client-RE dossier** — an async agent (running at handoff) writes
-   `reference/dossiers/cont96/client_bloody_and_shards.md`: (a) the ORIGINAL client bloody-blade idle
-   channel (fake pev->body = FUN_10007110(type, attach) = attachment sum; find what the ORIGINAL server
-   feeds — likely an attach bit for blades) + (b) the exact glass-shard integrator
-   (FUN_1004ffe0/FUN_10050b60/DAT_1018bde8) replacing our x10/full-g/bounce-0.2 approximation in
-   cl_dll/ts_debris.cpp. Verify its key claims, then apply.
-2. User retests: melee sprint-kick knockback + disarm (cont96 melee dossier §5.6); anything not yet
-   confirmed in the cont.96 ledger entry.
-3. Standing: audit.py/coverage.py parity sweep; the cont.94 deferred consumer seams; PUSH everything
-   (mod-ts + ReHLDS quic a8d6c8d / 64bit 411c42b) after user sign-off.
+### 📌 WHERE R1 STANDS (the user's mandate: FINISH IT FIRST)
+DONE (user-confirmed checkpoints 1-3): Y8/Y9 splits (`b827dea`); the two-object architecture
+(`23cbb04` — CTSGameRules STANDALONE base:null/no-vtable static object + stock TS-patched
+MP/Teamplay as g_pGameRules; Think + InitHUD wires disasm-proven); the TS-patched Teamplay
+(`72a6761` ctor/SetDefaultPlayerTeam/ChangePlayerTeam/CUIC/RecountTeams-CTB-tail; AssignToTeam dead;
+jointeam → ChangePlayerTeam; worldspawn gamemode/teammodels); checkpoint-3 fixes (`8b31b93`..
+`18b691e`: InitHUD recursion guard, IsTeamMode = m_iGameMode>=1, StartObserver TeamInfo(TeamID()),
+ResendTeamRoster INVENTED-INTEROP incl. per-player ScoreInfo-teamid rows).
 
-### 🛠️ new tooling notes (cont.96)
-- xash live-gdb needs `sysctl kernel.yama.ptrace_scope=0` (Proton sets a ptracer allowance; xash does
-  not). Debug builds: `BUILDTYPE=RelWithDebInfo scripts/build.sh amd64 {hl|client}`.
-- Wine/hl.exe batch gdb DIES on SIGUSR1 — `handle SIGUSR1/SIGUSR2/SIG33/SIG34 nostop noprint pass`
-  (`reference/dossiers/cont96/decompiles/client_watchpoint_v2.gdb`).
-- Server acquisition-chain trace kit: `reference/dossiers/cont96/decompiles/knife_trace.gdb`.
-- xash tempent physics runs in OUR cl_dll HUD_TempEntUpdate (entity.cpp; xash delegates
-  pfnTempEntUpdate); xash alloc defaults bounceFactor=1 (elastic).
-- rcon: `python3 reference/dossiers/cont91/decompiles/rcon.py "<cmd>"` (password lol); rcbot REFILLS
-  kicked slots — kick right before the user joins.
+**R1 PHASE 4 — THE REMAINING WORK LIST (specs all in
+`reference/dossiers/cont96/r1_rules_split_groundtruth.md`, decompile-anchored; I was mid-read when
+the session ended):**
+1. **Think call POSITION** (§1.2/§1.4): ours calls TSGameRules->Think() at the TOP of MP::Think —
+   the original calls it at the END (after the fragsleft/timeleft updates) followed by
+   `if (TSGameRules.m_szEndMap[0]) GoToIntermission()`. Move + add the check.
+2. **Teamplay::Think reshape** (§1.3): game-over → base Think; otherwise its OWN
+   timelimit/fraglimit body with the IsCTB fork (CTB reads the TSGameRules 4-slot score table);
+   then the same two-line TS tail. Ours currently just chains to MP::Think.
+3. **`m_szEndMap[0x40]`** (+0x1824, §1.2): add to CTSGameRules; Init clears byte 0; CheckVotes'
+   winning-map strcpy writes it (our CheckVotes @TS_gamerulesclass.cpp:566 — check what it does
+   with the winner today); **MP::ChangeLevel @0xc0784 consumes it** (forced next map unless the
+   literal "nextmap"), clears it, then calls `TSGameRules->Init()` (the pre-changelevel reset).
+4. **MP ctor** (§4.4): calls TSGameRules->Init() (ours Inits in InstallGameRules — near-identical
+   order; align + the Teamplay ctor then Inits a 2nd time like the original).
+5. **MP::ClientDisconnected @0xbf960** (§5.1): FireTargets "game_playerleave"; teamplay log w/
+   model; RemoveAllItems(pl,1); TSPlayerDisconnect(pl) (ours calls it from client.cpp:155 — MOVE
+   to the MP method, the original home); `TSGameRules.+0x587c = 0` (identify that member).
+6. **CMultiplayGameMgrHelper::CanPlayerHearPlayer @0xc0ed0** (§5.1): teamplay →
+   PlayerRelationship==1 gate; (mode-2U<2 || g_lastManStanding) && both-dead → dead can only hear
+   dead (LMS dead-talk isolation).
+7. **CWorld::KeyValue "mapteams"** also calls `TSGameRules->SetTeamList(STRING(team))` @0xe4cd9 —
+   I only stored pev->team.
+8. **MP::InitHUD log format** (§2.2, cosmetic): model field when g_teamplay.
+9. Quintet convergence tail: CTSGameRules::{IsTeamplay,GetTeamID,RecountTeams,TeamWithFewestPlayers,
+   InitTeams} still exist as members (the original has InitTeams/GetTeamIndex/GetTeamsNum/
+   SetTeamList/SetTeamModelList/GetTeamCash/GetPlayerModel — those are REAL; the rest are invented
+   stand-ins whose remaining callers should converge on the Teamplay virtuals / slot reads).
+10. VERIFYs flagged this session: UCD @0x81d00 m_fGameHUDInitialized flag ORDER (my recursion guard
+    reordered it); SrvSett byte-1 cvar naming (`dmcashbased` vs our "usecash", §2.4 item 4);
+    the InitHUD items 9-13 (StartObserver/join resets/respawn gate/ResetArmament belong IN
+    CTSGameRules::InitHUD per §2.4 — ours does them via TSEnterSpectate, cont.94 Y7);
+    ⚠ **the Wires HUD gates on m_iGameMode==3 which the original NEVER reaches** (modes 2/3 are
+    dead leftovers, §4.6) — re-RE the wires gate; "created team %s" ALERT missing in SetTeamList.
+11. Playtest checkpoint 4 after 1-7 (map vote end-to-end, LMS dead talk, disconnect flow), then
+    re-run `scripts/coverage/audit.py` — INVENTED should drop sharply.
+
+### 📋 THEN (the queue after R1)
+1. **Bloody blades** (`reference/dossiers/cont96/client_bloody_and_shards.md` §A, apply-ready):
+   the channel is the SVC_WEAPONANIM body byte — the original sends idle/deploy anims with
+   skiplocal=0 (repaints body=1 every ~3s); ours skips predicting clients. Fix: server
+   m_ForceSendAnimations around CTSGun WeaponIdle/Deploy sends; client: remove the invented
+   per-frame view.cpp:734 body overwrite; optionally drop the dc118b0 hl_weapons seed (strict).
+2. **Glass shard exact integrator** (same dossier §B): replace the v7 approximation in
+   cl_dll/ts_debris.cpp — dt=frametime×g_flClientSlow; vel.z -= dt×0.1×800; x/y drag ×(1-min(1,
+   0.1dt)); pos += vel×dt×10; collision damp 0.3 + settle-freeze <0.3u; fade 5α/s. Also material 2
+   = metal sparks (our handler ignores — VERIFY server sends it).
+3. **Xash client scoreboard team sections** (user: headings + winner-on-top missing entirely) —
+   cl_dll reconstruction; RE the original client's Tab renderer. Related: the DM empty-team-box/
+   "Spectate" cosmetics on the original client vs OUR server (queued RE).
+4. Standing: parity sweep (audit.py/coverage.py), cont.94 deferred seams, **PUSH after user
+   sign-off** (everything is local).
+
+### 🤖 THE SUBAGENT ORCHESTRATION PATTERN (used heavily this session — keep it)
+- **Read-only RE-dossier agents IN PARALLEL** (general-purpose): they ONLY read + write a dossier
+  (`reference/dossiers/cont9X/<x>.md`) and return a DENSE apply-without-re-RE fix spec — no code
+  edits, no builds, no commits. Give each a DISJOINT Ghidra project (server `re`/`mpdll` vs
+  `clientdll`) so headless runs never fight a `.lock`. cont.96 examples: the melee dossier, the
+  client bloody+shards dossier, the R1 ground-truth dossier (which REFUTED a planned interim —
+  agents finding your plan wrong is the system working).
+- **Apply sequentially in the MAIN loop** — verify each agent's KEY claim yourself (re-decompile the
+  load-bearing function; cont.96: I disasm-verified the 235.0 sites, the g_vecZero GOT slot, the
+  TeamInfo(TeamID()) send before applying). Keep builds/commits/user-reports/live-traces in main.
+- **Agent brief template**: repo+branch; the LAW verbatim; the symptom + code sites + addresses you
+  already have; the tooling recipe; read-only constraint + dossier path; "mirror don't rewrite,
+  MOVE existing logic, name-match, // VERIFY where unpinned, wire all assets, DENSE fix spec for
+  the orchestrator". Launch independent agents in ONE message.
+
+### 🛠️ TOOLING (full detail CLAUDE.md §4/§4a/§4b + this block)
+- `scripts/ghidra/re.sh <Class|0xaddr>` (typed server decompile; +0x10000), `re.sh refs/vrefs`,
+  `dc.sh {server|client|mp} 0x<addr>` (client/mp = PE RVA). **Ghidra MCP** on the typed `re`
+  project for interactive xrefs (⚠ `.lock`: GUI-open blocks headless; read-only there).
+- `scripts/live.py` — live-trace the ORIGINAL under Proton. **xash live-gdb needs
+  `sysctl kernel.yama.ptrace_scope=0`** (Proton sets a ptracer allowance; xash doesn't). Wine
+  batch-gdb needs `handle SIGUSR1/SIGUSR2/SIG33/SIG34 nostop noprint pass`.
+- Server-trace kits (preserved): `reference/dossiers/cont96/decompiles/knife_trace.gdb`
+  (weapon-acquisition chain), `pickup_wstatus_emptyclick_trace.gdb` (+SelectWeapon/WStatus/
+  EMPTY-CLICK), `client_watchpoint_v2.gdb` (original-client global watchpoint, poison first),
+  `w96.gdb` (the SrvSett watchpoint). Debug builds: `BUILDTYPE=RelWithDebInfo scripts/build.sh`.
+- Build `scripts/build.sh amd64 {hl|client|all}`; `scripts/check-source-lists.py` after any file
+  add/remove. Deploy rig `NOMETAMOD= scripts/setup-rehlds-mod.sh`; xash root
+  `scripts/setup-xash-mod.sh`. rcon: `python3 reference/dossiers/cont91/decompiles/rcon.py "<cmd>"`
+  (password `lol`). ⚠ game-dll cvars (mp_teamplay!) do NOT stick from the command line — set via
+  rcon + changelevel. rcbot refills kicked slots (its quota drops bots when humans join — normal).
+- xash tempent physics runs in OUR cl_dll HUD_TempEntUpdate (entity.cpp — xash delegates
+  pfnTempEntUpdate; its alloc defaults bounceFactor=1).
+
+### ⚠️ SERENA LEDGER GOTCHA (critical, unchanged)
+Read the ledger with the **Read tool on `.serena/memories/ledger.md`** (newest on top). Do **NOT**
+`read_memory("ledger")` via the Serena MCP — it returns ONE giant single-line JSON (~500 KB+) that
+OVERFLOWS the read limit. **First job on pickup: append YOUR ledger entry (cont.97).**
+
+### 💬 MESSAGE TO HAND THE USER (paste to the next agent so it can consult me)
+> You're picking up mod-ts as the orchestrator on branch `restructure-source-parity`. Read
+> `HANDOFF.md` top-down — the **cont.96 FINAL START-HERE block** is your brief (cont.95/94/93 below
+> are the same LAW/method, more background). Read the ledger with the **Read tool on
+> `.serena/memories/ledger.md`** — do NOT `read_memory("ledger")` via the Serena MCP, it returns one
+> ~500 KB single-line JSON that overflows the read limit. **First job:** append a cont.97 ledger
+> entry. **Your mandate: FINISH R1 PHASE 4** (the numbered list in the START-HERE block; specs in
+> `reference/dossiers/cont96/r1_rules_split_groundtruth.md`), then the queued client fixes (bloody
+> blades + glass integrator — `client_bloody_and_shards.md`, apply-ready). The cont.89-96
+> orchestrator (me) is **available for consult** — before re-RE'ing anything covered (the R1 split,
+> the team-wire fixes, the briefcase/kill-feed/melee-run-through/glass work, the connect-window
+> MSG_ONE drop pattern), have the user relay the question. My RE is in the commit messages, the
+> `reference/dossiers/cont91-96/` dossiers, the preserved gdb kits, and the persistent typed Ghidra
+> `re`/`clientdll`/`mpdll` projects (Ghidra MCP for xrefs). The LAW: mirror the original 1:1
+> (files→classes→methods→members→globals→free-fns), NAME-MATCHED — a missing/invented/renamed symbol
+> signals a logic mismatch to re-RE; the logic is often already implemented and just needs MOVING
+> (don't rewrite; mimic THEIRS); wire ALL assets; drop-in must work BOTH directions; a found mismatch
+> flags its neighbourhood; flag-don't-ignore but finish the current issue first. The user playtests
+> the ORIGINAL client vs our rig server (rcon `lol`); game-dll cvars need rcon (+command line does
+> NOT set mp_teamplay); the `game/ts/` deletions are INTENTIONAL. Everything is LOCAL — push only on
+> the user's word.
 
 ---
 
