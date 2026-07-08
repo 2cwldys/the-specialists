@@ -252,6 +252,8 @@ void CBulletManager::UpdateBulletTimeSlice(int slot)
 		ClearMultiDamage();
 		pHit->TraceAttack(owner->pev, dmg, b.dir, &tr, DMG_BULLET | DMG_NEVERGIB);
 		ApplyMultiDamage(owner->pev, owner->pev);
+		glast_weaponid = -1; // @0x5f311 — reset RIGHT after the damage window (PlayerKilled runs
+		                     // inside ApplyMultiDamage); leaving it armed misattributes later kills
 	}
 	char ric[20];
 	sprintf(ric, "debris/ric%d.wav", RANDOM_LONG(1, 5));

@@ -721,7 +721,8 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 		bool bSlideKill = false, bStuntKill = false;
 		pKiller->frags += TSGetPointsForFrag(NULL, pKiller, pInflictor,
 			IPointsForKill(peKiller, pVictim), &bSlideKill, &bStuntKill);
-		glast_weaponid = -1; // consumed — re-arm for the next tracked-bullet hit
+		// (glast_weaponid reset moved to CBulletManager::UpdateBullet @0x5f311 — the original
+		// resets right after ApplyMultiDamage, not here; here it went stale on non-kill hits.)
 
 		FireTargets("game_playerkill", ktmp, ktmp, USE_TOGGLE, 0);
 	}
@@ -767,15 +768,17 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 //=========================================================
 void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, entvars_t* pevInflictor)
 {
-	// Work out what killed the player, and send a message to all clients about it
+	// Work out what killed the player, and send a message to all clients about it.
+	// The weapon-name chain is decompile-exact to the ORIGINAL PlayerKilled @0x795e4 (which
+	// computes this buffer and hands it to a 4-arg DeathNotice @0x78f7c — that STRUCTURAL move
+	// [T2Pc signature across the rules classes] is parked for the R1 gamerules session; the WIRE
+	// string below is byte-faithful now).
 	CBaseEntity* Killer = CBaseEntity::Instance(pKiller);
 
-	const char* killer_weapon_name = "world"; // by default, the player is killed by the world
+	char killer_weapon_buf[64];
+	strcpy(killer_weapon_buf, "world"); // by default, the player is killed by the world
+	const char* killer_weapon_name = killer_weapon_buf;
 	int killer_index = 0;
-
-	// Hack to fix name change
-	const char* tau = "tau_cannon";
-	const char* gluon = "gluon gun";
 
 	if ((pKiller->flags & FL_CLIENT) != 0)
 	{
@@ -785,36 +788,64 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 		{
 			if (pevInflictor == pKiller)
 			{
-				// If the inflictor is the killer,  then it must be their current weapon doing the damage
+				// direct kill — the original's priority chain (@0x798da..0x7999b):
 				CBasePlayer* pPlayer = (CBasePlayer*)CBaseEntity::Instance(pKiller);
-
-				if (pPlayer->m_pActiveItem)
+				CTSGun* pGun = GetPlayerTSGun(pPlayer);
+				if (glast_weaponid != -1)
 				{
-					killer_weapon_name = pPlayer->m_pActiveItem->pszName();
-					// TS: the unified weapon reports "tsgun" for the whole arsenal. The ORIGINAL
-					// PlayerKilled @0x795e4 instead names the ACTIVE weapon type (s_weapon_info+0x44 =
-					// pszName, e.g. "Beretta 92F") so the kill feed shows the real gun, not "tsgun". The
-					// weapon_/monster_/func_ stripping below is a no-op on these prefix-less names, and a
-					// kung-fu/coldcock kill is still overridden to "Kung Fu"/" Stock" further down.
-					CTSGun* pGun = GetPlayerTSGun(pPlayer);
-					if (pGun && (CBaseEntity*)pGun == (CBaseEntity*)pPlayer->m_pActiveItem)
+					// a tracked slow-mo bullet landed the blow: name what FIRED it (the killer may
+					// have switched weapons while the bullet flew)
+					strncpy(killer_weapon_buf, get_weapon_info((tsweapon_t)glast_weaponid)->pszName,
+						sizeof(killer_weapon_buf) - 1);
+				}
+				else if (glast_closecombat)
+				{
+					strcpy(killer_weapon_buf, "Kung Fu"); // literal @0x1087f5
+				}
+				else if (pGun && (CBaseEntity*)pGun == (CBaseEntity*)pPlayer->m_pActiveItem &&
+						 pGun->m_pActiveItem)
+				{
+					const s_weapon_info* wi = get_weapon_info((tsweapon_t)pGun->m_weaponType);
+					if (glast_coldcock)
 					{
-						const s_weapon_info* wi = get_weapon_info((tsweapon_t)pGun->m_weaponType);
-						if (wi && wi->pszName)
-							killer_weapon_name = wi->pszName;
+						// pistol-whip: "<gun> Stock" (@0x79954-0x79981)
+						snprintf(killer_weapon_buf, sizeof(killer_weapon_buf), "%s Stock", wi->pszName);
+						char msg[128];
+						snprintf(msg, sizeof(msg), "#TS_Coldcock #TS_FrgFr %s!", STRING(pVictim->pev->netname));
+						TSHudMessageAll(0, 0xff, 0, 1, 0x14, msg);
+					}
+					else
+					{
+						strncpy(killer_weapon_buf, wi->pszName, sizeof(killer_weapon_buf) - 1);
 					}
 				}
+				// else: bare fists with no glast marker — stays "world" (original leaves the buffer)
 			}
 			else
 			{
-				killer_weapon_name = STRING(pevInflictor->classname); // it's just that easy
+				// a foreign inflictor: a thrown blade ("knife" classname) names itself via its
+				// GetDescription (@0x7994x: "Throwing Combat Knife"/"Throwing Seal Knife"/
+				// "Throwing Katana"); everything else is the classname.
+				if (strncmp(STRING(pevInflictor->classname), "knife", 6) == 0)
+				{
+					CBaseEntity* pInf = CBaseEntity::Instance(pevInflictor);
+					strncpy(killer_weapon_buf, pInf ? TSKnifeGetDescription(pInf) : "",
+						sizeof(killer_weapon_buf) - 1);
+				}
+				else
+					strncpy(killer_weapon_buf, STRING(pevInflictor->classname), sizeof(killer_weapon_buf) - 1);
 			}
 		}
 	}
 	else
 	{
-		killer_weapon_name = STRING(pevInflictor->classname);
+		// non-client killer: targetname first, else classname (@0x79xxx pre-strcpy)
+		if (!FStringNull(pevInflictor->targetname))
+			strncpy(killer_weapon_buf, STRING(pevInflictor->targetname), sizeof(killer_weapon_buf) - 1);
+		else
+			strncpy(killer_weapon_buf, STRING(pevInflictor->classname), sizeof(killer_weapon_buf) - 1);
 	}
+	killer_weapon_buf[sizeof(killer_weapon_buf) - 1] = 0;
 
 	// strip the monster_* or weapon_* from the inflictor's classname
 	if (strncmp(killer_weapon_name, "weapon_", 7) == 0)
@@ -824,20 +855,13 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 	else if (strncmp(killer_weapon_name, "func_", 5) == 0)
 		killer_weapon_name += 5;
 
-	// TS kill-flavor rewrite (RE dossier-melee §1.4: glast_* set around the killing TraceAttack,
-	// still true here): a close-combat kill reads "Kung Fu"; a coldcock kill appends " Stock"
-	// and broadcasts the #TS_Coldcock HUD line. Wire-visible (the kill feed) — byte-faithful.
-	char tsWeaponFlavor[64];
-	if (glast_closecombat)
-		killer_weapon_name = "Kung Fu";
-	else if (glast_coldcock)
-	{
-		snprintf(tsWeaponFlavor, sizeof(tsWeaponFlavor), "%s Stock", killer_weapon_name);
-		killer_weapon_name = tsWeaponFlavor;
-		char msg[128];
-		snprintf(msg, sizeof(msg), "#TS_Coldcock #TS_FrgFr %s!", STRING(pVictim->pev->netname));
-		TSHudMessageAll(0, 0xff, 0, 1, 0x14, msg);
-	}
+	// the original's tail remaps (@0x79a97..): raw code names → display names
+	if (strncmp(killer_weapon_name, "knife", 6) == 0)
+		killer_weapon_name = "Throwing Knife";
+	else if (strncmp(killer_weapon_name, "shrapnel", 9) == 0)
+		killer_weapon_name = "Shrapnel";
+	else if (strncmp(killer_weapon_name, "grenade", 8) == 0) // @0x10c734 = "handgrenade"+4
+		killer_weapon_name = "M61 Grenade";
 
 	MESSAGE_BEGIN(MSG_ALL, gmsgDeathMsg);
 	WRITE_BYTE(killer_index);				// the killer
@@ -845,11 +869,19 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 	WRITE_STRING(killer_weapon_name);		// what they were killed by (should this be a string?)
 	MESSAGE_END();
 
-	// replace the code names with the 'real' names
-	if (0 == strcmp(killer_weapon_name, "egon"))
-		killer_weapon_name = gluon;
-	else if (0 == strcmp(killer_weapon_name, "gauss"))
-		killer_weapon_name = tau;
+	// the original's post-DeathMsg log transform (@0x79aa0 loop): the LOG gets the name
+	// lowercased with spaces → underscores ("M61 Grenade" → "m61_grenade").
+	char log_weapon_name[64];
+	strncpy(log_weapon_name, killer_weapon_name, sizeof(log_weapon_name) - 1);
+	log_weapon_name[sizeof(log_weapon_name) - 1] = 0;
+	for (char* p = log_weapon_name; *p; p++)
+	{
+		if (*p >= 'A' && *p <= 'Z')
+			*p += 'a' - 'A';
+		else if (*p == ' ')
+			*p = '_';
+	}
+	killer_weapon_name = log_weapon_name;
 
 	if (pVictim->pev == pKiller)
 	{
