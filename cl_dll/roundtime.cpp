@@ -17,7 +17,7 @@
 //
 // The Specialists round-time countdown HUD.
 //
-// The server (CTSGameRules::StartRoundTimer / RestartRound) registers a user
+// The server (CTSGameRules::RestartRound (inline round-timer arm)) registers a user
 // message named "RoundTime" (fixed size 2) and writes two bytes: the seconds
 // remaining in the round, then a flag byte (0 at start/restart, 2 at timeout —
 // matches the original CTSGameRules wire format). We turn the remaining

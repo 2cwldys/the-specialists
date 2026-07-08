@@ -20,7 +20,7 @@
 // the original networks its own TSHealth / TSArmor / TSCash user messages from
 // CBasePlayer::UpdateClientData and draws them here rather than via the stock
 // CHudHealth/CHudBattery. See reference/HUD_MESSAGES.md for the wire formats and
-// dlls/ts_player.cpp (CBasePlayer::TSUpdateClientData) for the server side.
+// the TS send block in CBasePlayer::UpdateClientData (dlls/player.cpp) for the server side.
 //
 
 #pragma once

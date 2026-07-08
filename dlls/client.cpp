@@ -43,7 +43,7 @@
 #include "gamerules.h"
 #include "ts_playeramount.h"
 #include "ts_sharedemitter.h" // CTSPlayerAmount connect/disconnect relays
-#include "ts_gamerules.h" // TSGameRules() (the `motd` re-send passthrough)
+#include "ts_gamerules.h" // TSGameRules (the `motd` re-send passthrough)
 #include "ts_utils.h"     // TSPlayerDisconnect (ClientDisconnected)
 #include "game.h"
 #include "customentity.h"
@@ -448,7 +448,7 @@ void Host_Say(edict_t* pEntity, bool teamonly)
 			if (*pc >= 'A' && *pc <= 'Z')
 				*pc += 'a' - 'A';
 		}
-		if (0 != TSGameRules()->PlayerVote(pEntity, p + 4))
+		if (0 != TSGameRules->PlayerVote(pEntity, p + 4))
 			return;
 	}
 
@@ -631,11 +631,33 @@ void ClientCommand(edict_t* pEntity)
 	}
 	else if (FStrEq(pcmd, "respawn")) // TS: request a respawn from spectate-wait (gate-checked)
 	{
-		player->TSTryRespawn();
+		// @ the "respawn" branch of ClientCommand @0x9d9fc (fold-plan G6, decompile-exact gates,
+		// dossier-invented B2 — was the invented helper TSTryRespawn; the original's home IS this
+		// branch): the wait line shows ONLY when the gate is NEGATIVE (the -4.0 wait-next-round
+		// sentinel — LMS lockout / round logic; NEVER set in plain DM). Firing during a normal
+		// countdown is SILENT (neither branch). The wait line is 1 Hz-throttled off the same
+		// +0x754 clock as the countdown.
+		if (player->m_fInSpectateWait) // original: requires iuser2 != 0
+		{
+			if (player->m_flTSRespawnTime < 0)
+			{
+				if (gpGlobals->time > player->m_flSpecMsgTime)
+				{
+					player->m_flSpecMsgTime = gpGlobals->time + 1.0f;
+					TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", player->pev);
+				}
+			}
+			else if (player->m_flTSRespawnTime > 0 && player->m_flTSRespawnTime < gpGlobals->time)
+			{
+				player->m_flTSRespawnTime = 0;
+				player->StopObserver();
+				player->pev->impulse = 0;
+			}
+		}
 	}
 	else if (FStrEq(pcmd, "motd")) // TS: re-send the MOTD to this client
 	{
-		TSGameRules()->ResendMOTD(player->edict());
+		TSGameRules->ResendMOTD(player->edict());
 	}
 	else if (FStrEq(pcmd, "changeteam")) // TS: open the team-select VGUI menu (original pushes gmsgVGUIMenu)
 	{
@@ -647,10 +669,10 @@ void ClientCommand(edict_t* pEntity)
 	{
 		if (CMD_ARGC() > 1)
 		{
-			const char *name = TSGameRules()->GetIndexedTeamName(atoi(CMD_ARGV(1)));
+			const char *name = TSGameRules->GetIndexedTeamName(atoi(CMD_ARGV(1)));
 			if (name && name[0])
 			{
-				TSGameRules()->AssignToTeam(player, name);
+				TSGameRules->AssignToTeam(player, name);
 				respawn(&pEntity->v, false); // spawn onto the chosen team
 			}
 		}

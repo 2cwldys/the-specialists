@@ -71,7 +71,7 @@ static const char *const g_szRestrictions[6] = {
 
 static void display_weaponrestriction()
 {
-	CTSGameRules *rules = TSGameRules();
+	CTSGameRules *rules = TSGameRules;
 	if (!rules)
 		return;
 	if (rules->m_iWeaponRestriction == 0)
@@ -89,7 +89,7 @@ static void display_weaponrestriction()
 
 static void cmd_weaponrestriction()
 {
-	CTSGameRules *rules = TSGameRules();
+	CTSGameRules *rules = TSGameRules;
 	if (!rules)
 		return;
 	if (CMD_ARGC() < 2)
@@ -120,7 +120,7 @@ static void cmd_weaponrestriction()
 // existed — only the command binding was missing.
 static void cmd_globalslow()
 {
-	CTSGameRules *rules = TSGameRules();
+	CTSGameRules *rules = TSGameRules;
 	if (!rules)
 		return;
 	if (CMD_ARGC() < 2)

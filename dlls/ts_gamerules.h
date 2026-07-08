@@ -129,11 +129,11 @@ public:
 	void  CallCheckDeads();
 	float m_flCheckDeads = 0;     // >0 = a deads-check is pending at this time (the .so's +0x5880)
 
-	// @ round timer — team rounds time out. StartRoundTimer arms it (roundtime clamped [30,180]) +
-	// sends the remaining seconds (gmsgTSRoundTime); when it expires, RoundTimeLeft fires the
-	// objective manager's `targetontimeleft` and declares a draw (TeamWin(2)).
-	void  StartRoundTimer();
-	void  SendRoundTime(CBasePlayer *pPlayer); // catch a joining client up on the round clock
+	// @ round timer — team rounds time out. RestartRound arms it INLINE (roundtime clamped
+	// [30,180]) + broadcasts the remaining seconds (gmsgTSRoundTime); InitHUD catches a joiner
+	// up inline; when it expires, RoundTimeLeft fires the objective manager's `targetontimeleft`
+	// and declares a draw (TeamWin(2)). (StartRoundTimer/SendRoundTime helpers deleted — no
+	// original counterparts; fold-plan G3/G4.)
 	void  RoundTimeLeft();
 	float m_flRoundEnd = 0;       // >0 = the round ends at this time (the .so's +0x8); 0 = not armed
 	bool  m_bRoundTimerEnabled = true; // the .so's field_0x10 — gates the RoundTime HUD message
@@ -211,12 +211,12 @@ public:
 	float m_flArmorAbsorb = 0.5f;
 };
 
-// In this mod the active rules object is always a CTSGameRules (see
-// InstallGameRules). Mirrors the original's global `TSGameRules` instance.
-inline CTSGameRules* TSGameRules()
-{
-	return static_cast<CTSGameRules*>(g_pGameRules);
-}
+// The global TS rules pointer (set in InstallGameRules; defined in ts_player.cpp — the
+// original's home file). INTERIM: the original `TSGameRules` is a static OBJECT @0x1681a0
+// (22,676 bytes, standalone class — no vtable, base null) that COEXISTS with g_pGameRules;
+// the object-ness lands with the rules split (fold-plan R1). Null outside the CTSGameRules
+// branch (deathmatch 0 / busters).
+extern CTSGameRules *TSGameRules;
 
 // ---- melee deflect gates (free functions, TS_gamerules.cpp; RE dossier-melee §1.3) ----
 // true = the swing was blocked (caller aborts damage); the attacker pays 33 stamina.

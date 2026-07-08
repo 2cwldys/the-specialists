@@ -2,7 +2,7 @@
 *  ts_spectate.h — The Specialists free-look spectate HUD (cont.65).
 *
 *  Reads the server's "Spectator" user message (gmsgSpectator, 2 bytes: state,
-*  secondsLeft — see dlls/player.cpp TSSpectateThink) and draws the join/respawn
+*  secondsLeft — see the PreThink spectate block, dlls/player.cpp) and draws the join/respawn
 *  free-look overlay: a centre-screen countdown (5..1) that becomes "Press fire to
 *  play" once the spawn gate elapses, plus the free-look control help line. The
 *  player is held in free-look by the server until they pick a loadout + press fire.

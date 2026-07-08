@@ -29,7 +29,7 @@
 #include "cbase.h"
 #include "player.h"
 #include "weapons.h"
-#include "ts_gamerules.h" // TS_PWUP_* + TSGameRules()
+#include "ts_gamerules.h" // TS_PWUP_* + TSGameRules
 #include "ts_player.h"
 #include "ts_utils.h"     // TSHudMessageOne
 #include "ts_weapons.h"   // GiveTSWeapon (SLICE grenade/inf-clip hooks)
@@ -143,9 +143,9 @@ void CTSPowerUp::SetupPowerUp(int type, int duration, float fallDelay, bool resp
 	{
 		// No explicit type: roll a random one out of the permitted set (spawnflags),
 		// falling back to "any" if the flags select nothing.
-		poweruptype = TSGameRules()->GetRandomPowerup(pev->spawnflags);
+		poweruptype = TSGameRules->GetRandomPowerup(pev->spawnflags);
 		if (poweruptype == 0)
-			poweruptype = TSGameRules()->GetRandomPowerup(TS_PWUP_ALL);
+			poweruptype = TSGameRules->GetRandomPowerup(TS_PWUP_ALL);
 		m_bRandom = true;
 	}
 	else
@@ -155,7 +155,7 @@ void CTSPowerUp::SetupPowerUp(int type, int duration, float fallDelay, bool resp
 		if (((char)type >= 0) && !(type & TS_PWUP_LOWGRAV))
 			poweruptype = type;
 		else
-			poweruptype = TSGameRules()->GetRandomPowerup(TS_PWUP_ALL);
+			poweruptype = TSGameRules->GetRandomPowerup(TS_PWUP_ALL);
 		m_bRandom = false;
 	}
 

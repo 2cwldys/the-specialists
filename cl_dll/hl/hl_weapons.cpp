@@ -62,7 +62,8 @@ void TS_SetPredictedWeaponType(int type)
 	if (type < 0 || type >= TSW_COUNT)
 		return;
 	g_TSGun.m_weaponType = type;
-	g_TSGun.UpdateActivePointers();
+	g_TSGun.m_pActiveInfo = get_weapon_info((tsweapon_t)type); // inline (fold-plan G5)
+	g_TSGun.m_pActiveItem = (type > TSW_MELEE && type < TSW_COUNT) ? &g_TSGun.m_items[type] : nullptr;
 }
 
 // The local viewmodel's BODY, from the PREDICTED weapon state — the original refreshes it
@@ -620,7 +621,8 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 			const int wt = (int)from->client.vuser3[0];
 			g_TSGun.m_weaponType = wt;
 			g_TSGun.m_fireMode = (int)from->client.vuser3[1];
-			g_TSGun.UpdateActivePointers();
+			g_TSGun.m_pActiveInfo = get_weapon_info((tsweapon_t)wt); // inline (fold-plan G5)
+			g_TSGun.m_pActiveItem = (wt > TSW_MELEE && wt < TSW_COUNT) ? &g_TSGun.m_items[wt] : nullptr;
 			if (wt >= 0 && wt < TSW_COUNT)
 			{
 				const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
@@ -647,8 +649,8 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 				it.leftClip = (int)from->client.ammo_nails;            // cd+0x70 = akimbo LEFT barrel clip
 				it.active = (int)from->client.vuser1[2];
 				it.holdPosition = (from->client.vuser2[2] != 0.0f);   // cd+0x1c0 = hold-position stance
-				g_TSGun.m_bHoldPosition = it.holdPosition;            // seed the PREDICTED base (UpdateActivePointers
-				                                                      //   ran above off the stale item) so SecondaryAttack
+				g_TSGun.m_bHoldPosition = it.holdPosition;            // seed the PREDICTED base (the active-pointer
+				                                                      //   reseed above ran off the stale item) so SecondaryAttack
 				                                                      //   toggles from the server truth -> no stance blink
 				it.owned = true; // the wielded item is owned (predicted-event gate)
 				// cd+0x6c (ammo_shells) = the PAIRED akimbo/single variant's clip (server pack @0xb0294). Store

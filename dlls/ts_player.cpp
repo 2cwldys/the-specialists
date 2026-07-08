@@ -21,6 +21,11 @@
 
 extern int gmsgTSHaveFlag; // wire name "TSFlag" (4) — defined in ts_flag.cpp
 
+// The global TS rules pointer (set in InstallGameRules). INTERIM: the original is a static
+// OBJECT `TSGameRules` @0x1681a0 in TS_player.cpp (see fold-plan R1 — the rules split turns
+// this back into the real standalone object).
+CTSGameRules *TSGameRules = nullptr;
+
 // Kill-flavor globals (@0x104480/81/82 in the original .data) — set around TraceAttack/
 // ApplyMultiDamage on a melee/coldcock/headshot kill blow; read by TSGetPointsForFrag +
 // PlayerKilled (death-notice weapon string "Kung Fu"/"<weapon> Stock" + #TS_Coldcock HUD)
@@ -42,8 +47,9 @@ int gmsgTSKickAlign = 0;    // "TSKickAlign" — DEAD in the original: the globa
 // TS custom-HUD user messages — registered centrally in LinkUserMessages (UserMessages.cpp).
 // Names + fixed sizes are byte-faithful to the original (star_LinkUserMessages.md): TSHealth/
 // TSArmor are a single byte, TSCash a short. The original sends these (not the stock Health/
-// Battery) from CBasePlayer::UpdateClientData; we do the same from TSUpdateClientData() below.
-// GLOBALS like the original's (.data D symbols), defined here (their original TS_player.cpp home).
+// Battery) from CBasePlayer::UpdateClientData (player.cpp — the send block lives inline there,
+// fold-plan G2). GLOBALS like the original's (.data D symbols), defined here (their original
+// TS_player.cpp home).
 int gmsgTSHealth = 0;
 int gmsgTSArmor = 0;
 int gmsgTSCash = 0;
@@ -53,138 +59,9 @@ int gmsgTSBulletTime = 0; // "TSBTime" 1 — the bullet-time variant flag (byte 
 int gmsgTSPlayerAward = 0; // "TSPAward" 2 — MSG_ALL: entindex + award byte 0x74c (star_TSPAward.md)
 int gmsgTSWires = 0;       // "Wires" 3 — the nearby-bomb wire triple, MSG_ONE on change (star_Wires.md)
 
-// @ part of CBasePlayer::UpdateClientData @0x81d00 — the TS per-frame HUD sends. Each
-// message is throttled-by-change (only sent when the cached value differs) exactly as
-// the original does. Health/armor are rounded and clamped to a byte; cash is a short.
-void CBasePlayer::TSUpdateClientData()
-{
-	// TSHealth — round(health), clamped to >= 0 (the original ROUNDs pev->health and
-	// floors negatives at 0 before the WRITE_BYTE).
-	int health = (int)(pev->health + 0.5f);
-	if (health < 0)
-		health = 0;
-	if (health != m_iClientTSHealth)
-	{
-		m_iClientTSHealth = health;
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSHealth, NULL, ENT(pev));
-		WRITE_BYTE(health);
-		MESSAGE_END();
-	}
-
-	// TSArmor — round(armorvalue).
-	int armor = (int)(pev->armorvalue + 0.5f);
-	if (armor < 0)
-		armor = 0;
-	if (armor != m_iClientTSArmor)
-	{
-		m_iClientTSArmor = armor;
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSArmor, NULL, ENT(pev));
-		WRITE_BYTE(armor);
-		MESSAGE_END();
-	}
-
-	// TSState — the posture byte (0 stand / 1 duck / 2 stunt-prone), source 0x498 / cache 0x499.
-	// Plain on-change, NO ResetHUD-forced resend (the original's InitHUD memset deliberately
-	// starts at 0x49A and skips this cache). Original send order: TSArmor -> TSState -> TSCash.
-	if (m_iPlayerState != m_iClientTSState)
-	{
-		m_iClientTSState = m_iPlayerState;
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSState, NULL, ENT(pev));
-		WRITE_BYTE(m_iPlayerState);
-		MESSAGE_END();
-	}
-
-	// TSCash — the player's cash (a short).
-	if (m_iCash != m_iClientTSCash)
-	{
-		m_iClientTSCash = m_iCash;
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSCash, NULL, ENT(pev));
-		WRITE_SHORT(m_iCash);
-		MESSAGE_END();
-	}
-
-	// TSSpace — the free carry slots. The original sends the MAINTAINED int at 0x548 directly
-	// (no clamp at the write); our slots derive from the arsenal, so the recompute IS the member.
-	const int freeSlots = TSPlayerFreeSlots(this);
-	if (freeSlots != m_iClientTSSpace)
-	{
-		m_iClientTSSpace = freeSlots;
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSSpace, NULL, ENT(pev));
-		WRITE_BYTE(freeSlots);
-		MESSAGE_END();
-	}
-
-	// PwUp — the HELD powerup HUD (the green top-left icon + "seconds available"). The original
-	// sends gmsgTSPowerUp on change from UpdateClientData: WriteShort(held type 0x728) +
-	// WriteByte(duration 0x730). The client shows the icon for the held type and the seconds
-	// available; double-tap +use activates it (then PwUpTime drives the live countdown).
-	int heldDur = (int)m_flPowerupTime;
-	if (m_iHeldPowerup != m_iClientHeldType || heldDur != m_iClientHeldDur)
-	{
-		m_iClientHeldType = m_iHeldPowerup;
-		m_iClientHeldDur = heldDur;
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, ENT(pev));
-		WRITE_SHORT(m_iHeldPowerup);
-		WRITE_BYTE(heldDur);
-		MESSAGE_END();
-	}
-
-	// TSSlowMo — the PERCEIVED WORLD slow amount (100 = normal). Drives the client sound-pitch + green
-	// overlay. This is NOT the activator's move factor (0.6/0.8 = pev->fuser1, which only governs how
-	// fast THEY move/fire); it's the slowdown of the world they perceive: 0.35 slowmo / 0.225 slowpause
-	// (RE values 35 / 22.5 / 100). For a LOS VICTIM that's their own applied slow (fuser1); for the
-	// ACTIVATOR it's the others-scale they impose (m_flSlowMotionRamp) — so both hear/see the same wash.
-	float perceived = pev->fuser1; // victim's applied slow (or 1.0 normal)
-	if ((m_iPowerups & (TS_PWUP_SLOWMO | TS_PWUP_SLOWPAUSE)) && m_flSlowMotionRamp > 0.0f && m_flSlowMotionRamp < perceived)
-		perceived = m_flSlowMotionRamp; // the activator perceives the world at the others-scale
-	float slowAmt = perceived * 100.0f;
-	if (slowAmt != m_flClientSlowAmt)
-	{
-		m_flClientSlowAmt = slowAmt;
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSSlowAmt, NULL, ENT(pev));
-		WRITE_COORD(slowAmt);
-		MESSAGE_END();
-	}
-
-	// TSBTime — the bullet-time variant flag: source byte 0x175 (m_bSlowBullets — the SAME byte,
-	// by construction; star addendum settles the 0x175-vs-[0x5d] ambiguity), cache 0x174.
-	// Client consumer: the recoil x0.66667 reduction while in bullet-time.
-	if ((int)m_bSlowBullets != m_iClientBulletTime)
-	{
-		m_iClientBulletTime = m_bSlowBullets;
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSBulletTime, NULL, ENT(pev));
-		WRITE_BYTE(m_bSlowBullets);
-		MESSAGE_END();
-	}
-
-	// TSPAward — the broadcast award/status byte (source 0x74c, cache 0x74d): MSG_ALL keyed by
-	// entindex so every client tracks all players' status (scoreboard/observer UI). On-change
-	// only, no forced resend (star_TSPAward.md — the sole send site in the original).
-	if (m_iAward != m_iClientAward)
-	{
-		m_iClientAward = m_iAward;
-		MESSAGE_BEGIN(MSG_ALL, gmsgTSPlayerAward);
-		WRITE_BYTE(entindex());
-		WRITE_BYTE(m_iAward);
-		MESSAGE_END();
-	}
-
-	// Wires — the nearby-bomb wire ROLE triple (source 0x78c-0x78e, cache 0x78f-0x791):
-	// MSG_ONE on any change of the three bytes (star_Wires.md). CheckForWires (PreThink,
-	// mode-3 maps, 0.5 s throttle) maintains the source; zeros = walked away.
-	if (m_iWires[0] != m_iClientWires[0] || m_iWires[1] != m_iClientWires[1] ||
-		m_iWires[2] != m_iClientWires[2])
-	{
-		m_iClientWires[0] = m_iWires[0];
-		m_iClientWires[1] = m_iWires[1];
-		m_iClientWires[2] = m_iWires[2];
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSWires, NULL, ENT(pev));
-		WRITE_BYTE(m_iWires[0]);
-		WRITE_BYTE(m_iWires[1]);
-		WRITE_BYTE(m_iWires[2]);
-		MESSAGE_END();
-	}
-}
+// (TSUpdateClientData DELETED, fold-plan G2: the original has no such method — the TS
+// per-frame HUD send block IS part of CBasePlayer::UpdateClientData @0x81d00 and now lives
+// inline there, player.cpp.)
 
 // @0x82f08 CheckForWires — clear the wire triple, then sphere-64 scan for an ACTIVE ts_bomb
 // this player CanInteract with; the LAST match in the sphere wins (no break). The copied bytes

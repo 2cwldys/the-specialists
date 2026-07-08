@@ -117,7 +117,7 @@ void CBasePlayer::AddItem(int itemBits)
 	}
 	else if ((itemBits & TS_ITEM_GRENADE) != 0)
 	{
-		if (TSGameRules()->IsTeamMode()) // grenades are team-mode only
+		if (TSGameRules->IsTeamMode()) // grenades are team-mode only
 			BuyWeapon(TSW_M61);
 	}
 	else
@@ -150,12 +150,12 @@ bool CBasePlayer::BuyWeapon(int type, int iAttach)
 	// the restriction gate (@0x84606): the category-bitmask filter over the server's
 	// weaponrestriction mask (default 0x1f allows everything — stock behavior unchanged).
 	extern bool IsRestrictedWeapon(tsweapon_t w, int mask);
-	if (TSGameRules() && IsRestrictedWeapon((tsweapon_t)type, TSGameRules()->m_iWeaponRestriction))
+	if (TSGameRules && IsRestrictedWeapon((tsweapon_t)type, TSGameRules->m_iWeaponRestriction))
 		return false;
 
 	if (type == TSW_M61)
 	{
-		if (!TSGameRules()->IsTeamMode()) // grenades are team-mode only
+		if (!TSGameRules->IsTeamMode()) // grenades are team-mode only
 			return false;
 		if (m_iGrenadeBuys >= 2) // cap 2 per life
 			return false;

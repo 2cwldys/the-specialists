@@ -467,12 +467,11 @@ public:
 	// pm_shared predicts the small hull + low view + launch velocity. See ts_stunt.h.
 	CTSStunt m_TSStunt;
 
-	// TS custom-HUD networking (ts_player.cpp). The original sends its OWN per-frame
-	// HUD messages (TSHealth/TSArmor/TSCash/...) from CBasePlayer::UpdateClientData
-	// instead of the stock Health/Battery — TS ships a fully custom client HUD. We
-	// mirror that from TSUpdateClientData(), cached + sent only on change. See
-	// reference/HUD_MESSAGES.md for the recovered wire formats.
-	void TSUpdateClientData();
+	// TS custom-HUD networking. The original sends its OWN per-frame HUD messages
+	// (TSHealth/TSArmor/TSCash/...) from CBasePlayer::UpdateClientData instead of the
+	// stock Health/Battery — TS ships a fully custom client HUD. The send block lives
+	// INLINE in UpdateClientData (player.cpp, @0x81d00 — fold-plan G2), cached + sent
+	// only on change. See reference/HUD_MESSAGES.md for the recovered wire formats.
 	int m_iClientTSHealth = -1;       // last TSHealth byte sent (round(health), >=0)
 	int m_iClientTSArmor = -1;        // last TSArmor byte sent (round(armorvalue))
 	int m_iClientTSCash = -1;         // last TSCash short sent (m_iCash)
@@ -579,13 +578,13 @@ public:
 	int m_iClientSpecSecs = -1;     // last Spectator countdown byte sent (resend on change)
 	void TSEnterSpectate();         // enter free-look spectate-wait (called at end of Spawn)
 	void StopObserver();         // press-fire: leave spectate -> respawn into play
-	void TSSpectateThink();         // per-frame while waiting: countdown msg + fire check
-	void TSTryRespawn();            // `respawn` cmd: leave spectate if the gate elapsed; wait line only when gate < 0
+	// (TSSpectateThink/TSTryRespawn/TSSendScoreInfo deleted — no original counterparts; their
+	// logic lives inline in PlayerPreThink / the ClientCommand "respawn" branch, and the WAITING
+	// scoreboard status rides the award byte. Fold-plan G6/G7/Y6.)
 	float m_flSpecMsgTime = 0;      // +0x754 — the 1 Hz spectate HUD-line throttle clock (countdown + wait line)
 	float m_flDeathCamTime = 0;     // +0x768 — the death-cam hold deadline (Killed: time+3.0; any button skips)
 	Vector m_vecDeathBodyAngles;    // the body yaw frozen at death (the original's body doesn't mouse-rotate
 	                                // during the death cam — VERIFY its mechanism, likely a dead gate in pm)
-	void TSSendScoreInfo();         // broadcast this player's scoreboard row (class=WAITING while spectating)
 };
 
 inline void CBasePlayer::SetWeaponBit(int id)

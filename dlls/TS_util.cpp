@@ -268,8 +268,8 @@ void AdjustSpecificWeapon(tsweapon_t id, float acc, float vkick, float akick, fl
 	wi->iPrice = cost;
 	SendWeaponParams(id, NULL);
 	UTIL_ClientPrintAll(HUD_PRINTTALK, UTIL_VarArgs("%s behaviour changed\n", wi->pszName));
-	if (TSGameRules())
-		TSGameRules()->m_bWeaponParamsCustom = 1;
+	if (TSGameRules)
+		TSGameRules->m_bWeaponParamsCustom = 1;
 }
 
 // @0x8eca4 adjust_weapon_value — load + apply a weapons config file from the game dir.
@@ -308,8 +308,8 @@ int adjust_weapon_value(char *pszFile)
 			{
 				if (v < 0)
 					v = 0;
-				if (TSGameRules())
-					TSGameRules()->m_flArmorAbsorb = v; // rules+0x588c
+				if (TSGameRules)
+					TSGameRules->m_flArmorAbsorb = v; // rules+0x588c
 			}
 			continue;
 		}
@@ -319,8 +319,8 @@ int adjust_weapon_value(char *pszFile)
 			{
 				if (v < 0)
 					v = 0;
-				if (TSGameRules())
-					TSGameRules()->m_flHealthAbsorb = v; // rules+0x5888
+				if (TSGameRules)
+					TSGameRules->m_flHealthAbsorb = v; // rules+0x5888
 			}
 			continue;
 		}
@@ -347,8 +347,8 @@ int adjust_weapon_value(char *pszFile)
 	}
 	fclose(fp);
 	UTIL_ClientPrintAll(HUD_PRINTTALK, UTIL_VarArgs("weapons behaviour changed by %s\n", pszFile));
-	if (TSGameRules())
-		TSGameRules()->m_bWeaponParamsCustom = 1;
+	if (TSGameRules)
+		TSGameRules->m_bWeaponParamsCustom = 1;
 	return 1;
 }
 
@@ -385,7 +385,7 @@ int save_weapon_value(char *pszFile)
 	}
 	// footer: armor_absorb ONLY (health_absorb is parseable by the loader but never saved —
 	// the original's asymmetry, kept). .rodata format "armor_absorb %f".
-	fprintf(fp, "armor_absorb %f\n", TSGameRules() ? TSGameRules()->m_flArmorAbsorb : 0.0f);
+	fprintf(fp, "armor_absorb %f\n", TSGameRules ? TSGameRules->m_flArmorAbsorb : 0.0f);
 	fclose(fp);
 	return 1;
 }

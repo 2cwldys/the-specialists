@@ -57,11 +57,9 @@ public:
 	void Precache() override;
 	bool GetItemInfo(ItemInfo *p) override;
 	int iItemSlot() override { return 1; } // @ iItemSlot__6CTSGun returns slot 1
-	// TS weapons keep their ammo in our own per-caliber reserve (m_ammoReserve), NOT the stock
-	// m_rgAmmo that CBasePlayerWeapon::CanDeploy() checks. So the stock CanDeploy would refuse to
-	// deploy any empty-clip TS weapon — notably kung-fu (always 0 clip), which then kept the
-	// PREVIOUS weapon's viewmodel. The tsgun is always deployable.
-	bool CanDeploy() override { return true; }
+	// (CanDeploy override deleted, fold-plan Y3: the original CTSGun does NOT override it —
+	// VTABLES.md slot 0x124 = CBasePlayerWeapon::CanDeploy. With GetItemInfo's original values
+	// (pszAmmo1 == NULL, @0x75dd0) the stock CanDeploy returns true unconditionally.)
 	bool Deploy() override;
 	bool UpdateClientData(CBasePlayer *pPlayer) override; // sends the TS WeaponInfo HUD message
 	// NB: the per-frame driver is the BASE CBasePlayerWeapon::ItemPostFrame (weapons_shared.cpp) —
@@ -76,9 +74,9 @@ public:
 	void EmptySound();    // @ EmptySound__6CTSGun @0x71be4 — dry-fire click via events/empty.sc + 0.1s re-arm
 	void ShotgunReload(); // @ ShotgunReload__6CTSGun @0x74aac — pump shell-by-shell 3-phase machine
 	void WeaponIdle() override;
-	// Shadow the base SendWeaponAnim: EVERY CTSGun viewmodel anim carries the attachment BODY
-	// (silencer/scope submodels) — the base default body=0 wiped the deploy body on each anim.
-	void SendWeaponAnim(int iAnim);
+	// (SendWeaponAnim(int) shadow deleted, fold-plan Y4: the original CTSGun uses the base
+	// CBasePlayerWeapon::SendWeaponAnim(iAnim, body) — slot 0x174 @0x900d0 — with callers
+	// passing pev->body (Deploy stores GetBodyByItems there) or an explicit 0 in HolsterWeapon.)
 	int  AddItem(int bits); // @ AddItem__6CTSGuni @0x80794 — attach a gun item (silencer/laser/.. bits 1/2/4/8) to the active weapon
 #ifndef CLIENT_DLL
 	void Zoom(int fov);     // @ Zoom__6CTSGuni @0x71710 — scope: set pev->fov (+ hide viewmodel for high-mag scopes)
@@ -130,14 +128,15 @@ public:
 
 	// arsenal (the items-by-tsweapon_t array). @ TakeWeapon/SelectWeapon/DropWeapon__6CTSGun.
 	bool IsOwned(int type) const { return type >= 0 && type < TSW_COUNT && m_items[type].owned; }
-	int  OwnedCount() const;          // number of owned weapon types
+	// (OwnedCount deleted — no original counterpart; fold-plan Y1.)
 	// @TakeWeapon @0x70a04 — install into the arsenal: akimbo combine (attach/active unions),
 	// the STACKABLE merge (+1 per take, capped at wi->iPellets — knife 5 / sealknife 10), or a
 	// fresh slot (pStatus = the dropped gun's full carried state). iAttach = the BOUGHT
 	// attachment mask (ORed with the integral ones, clamped to the mountable set). NO ammo
 	// grant and NO auto-wield — reserve comes from BuyAmmo/packs; PickUpWeapon selects.
 	bool TakeWeapon(tsweapon_t type, const TSItem *pStatus = nullptr, int iAttach = 0);
-	int  SlotsUsed() const;           // sum of slotCost over owned items (CBasePlayer+0x548 = 81 - this)
+	// (SlotsUsed deleted — demoted to the file-static TSSlotsUsed in ts_gun.cpp; the original
+	// maintains a STORED counter at player+0x548 instead. Fold-plan Y2.)
 	void Holster() override;      // @Holster @0x75674 — pure forwarder to HolsterWeapon() (0x21 bytes;
 	                              //   without it we fell through to the stock CBasePlayerWeapon::Holster)
 	void HolsterWeapon();         // @HolsterWeapon @0x85698 — park state + reset to bare hands (kungfu draw)
@@ -148,7 +147,9 @@ public:
 	bool AddAmmo(int caliber, int count); // @AddAmmo__6CTSGun — add reserve rounds (capped)
 	void SyncActiveToItem();          // park the live active clip/mode back into its item
 	void LoadActiveFromItem();        // load the active item's clip/mode into the live state
-	void UpdateActivePointers();      // refresh m_pActiveItem/m_pActiveInfo from m_weaponType
+	// (UpdateActivePointers deleted — no original helper; the m_pActiveItem/m_pActiveInfo
+	// assignments live inline at each m_weaponType-change site, like Deploy @0x71030 /
+	// HolsterWeapon @0x75698 do. Fold-plan G5.)
 
 	int m_weaponType = TSW_MELEE; // ACTIVE tsweapon_t (gun+0xc8). Default = kung-fu: a bare
 	                              // weapon_tsgun (GiveNamedItem) is just fists; the loadout
@@ -156,8 +157,8 @@ public:
 	TSItem m_items[TSW_COUNT] = {};            // the arsenal, indexed by tsweapon_t
 	// Cached active-weapon pointers (the original's gun+0xcc/0xd0). m_pActiveItem = &m_items[m_weaponType]
 	// or NULL for kung-fu (TSW_MELEE) — the original's `m_pActiveItem != NULL` guard == our
-	// `m_weaponType != TSW_MELEE`. m_pActiveInfo = get_weapon_info(m_weaponType). Transient (recomputed
-	// by UpdateActivePointers, not saved). Keep them in sync wherever m_weaponType is assigned.
+	// `m_weaponType != TSW_MELEE`. m_pActiveInfo = get_weapon_info(m_weaponType). Transient
+	// (reassigned inline wherever m_weaponType is assigned, not saved — fold-plan G5).
 	TSItem *m_pActiveItem = nullptr;             // +0xcc — the active arsenal slot (NULL = kung-fu)
 	const s_weapon_info *m_pActiveInfo = nullptr; // +0xd0 — the active weapon's static template
 	int m_ammoReserve[TS_NUM_CALIBERS] = {};   // spare rounds PER CALIBER (gun+0xd4 in the .so)

@@ -158,7 +158,7 @@ void CTSFlag::RespawnFlag()
 		pBriefcase->pev->nextthink = gpGlobals->time + 1.0f;
 		if (m_flagStatus.team < 4)
 		{
-			const char *who = TSGameRules()->GetIndexedTeamName(m_flagStatus.team);
+			const char *who = TSGameRules->GetIndexedTeamName(m_flagStatus.team);
 			TSHudMessageAll(0, 0xff, 0, 4, 20,
 				UTIL_VarArgs("%s briefcase returned.", (who && who[0]) ? who : "The"));
 		}
@@ -234,7 +234,7 @@ bool CTSFlag::CanInteract(CBasePlayer *pPlayer)
 {
 	if (m_flagStatus.team == -1)
 		return true;
-	return m_flagStatus.team == TSGameRules()->GetTeamIndex(pPlayer->TeamID());
+	return m_flagStatus.team == TSGameRules->GetTeamIndex(pPlayer->TeamID());
 }
 
 // @0x9e330 PlayerTakeFlag — a player touched the loose flag. An ENEMY/NEUTRAL flag is picked up
@@ -248,7 +248,7 @@ void CTSFlag::PlayerTakeFlag(CBaseEntity *pOther)
 		return;
 
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	int pt = TSGameRules()->GetTeamIndex(pPlayer->TeamID());
+	int pt = TSGameRules->GetTeamIndex(pPlayer->TeamID());
 
 	if (m_flagStatus.team == -1 || m_flagStatus.team != pt)
 	{
@@ -277,7 +277,7 @@ void CTSFlag::PlayerTakeFlag(CBaseEntity *pOther)
 		Destroy();
 		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
 
-		if (TSGameRules()->CountPlayers() > 1)
+		if (TSGameRules->CountPlayers() > 1)
 		{
 			pPlayer->pev->frags += 5;
 			const char *who = (pPlayer->pev->netname) ? STRING(pPlayer->pev->netname) : "Someone";
@@ -291,7 +291,7 @@ void CTSFlag::PlayerTakeFlag(CBaseEntity *pOther)
 				WRITE_SHORT((int)pPlayer->pev->frags);
 				WRITE_SHORT(pPlayer->m_iDeaths);
 				WRITE_SHORT(0);
-				WRITE_SHORT(TSGameRules()->GetTeamIndex(pPlayer->m_szTeamName) + 1);
+				WRITE_SHORT(TSGameRules->GetTeamIndex(pPlayer->m_szTeamName) + 1);
 				MESSAGE_END();
 			}
 		}

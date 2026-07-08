@@ -580,7 +580,7 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 	// (base price + per-attachment surcharge + extra clips), deducted from the player's wallet.
 	if (CashBased() && buyable)
 	{
-		CTSGameRules *gr = TSGameRules();
+		CTSGameRules *gr = TSGameRules;
 		if (gr && gr->IsTeamMode() && attackerteam != -1 &&
 			attackerteam != gr->GetTeamIndex(pPlayer->TeamID()))
 		{

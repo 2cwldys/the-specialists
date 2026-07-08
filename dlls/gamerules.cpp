@@ -215,12 +215,14 @@ CGameRules* InstallGameRules()
 	if (1 == sv_busters.value)
 	{
 		g_teamplay = false;
+		TSGameRules = nullptr;
 		return new CMultiplayBusters;
 	}
 	else if (0 == gpGlobals->deathmatch)
 	{
 		// generic half-life
 		g_teamplay = false;
+		TSGameRules = nullptr;
 		return new CHalfLifeRules;
 	}
 	else
@@ -232,6 +234,7 @@ CGameRules* InstallGameRules()
 		g_teamplay = DecideGamePlay((char *)STRING(gpGlobals->mapname), teamplay.value > 0 ? 1 : 0) != 0;
 		CTSGameRules *pRules = new CTSGameRules;
 		pRules->m_iGameMode = g_teamplay ? 1 : 0;
+		TSGameRules = pRules; // the original's global TSGameRules object (interim pointer, fold-plan G1/R1)
 		return pRules;
 	}
 }

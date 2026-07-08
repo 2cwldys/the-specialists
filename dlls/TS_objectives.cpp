@@ -19,7 +19,7 @@
 #include "player.h"
 #include "ts_utils.h"     // TSHudMessageAll
 #include "gamerules.h"
-#include "ts_gamerules.h" // TSGameRules()->TeamWin
+#include "ts_gamerules.h" // TSGameRules->TeamWin
 #include "ts_objectives.h" // CTSObjective (the cluster base, shared with ts_bomb/ts_escape)
 #include "ts_hack.h"       // CTSHack
 #include "ts_wingiver.h"   // CTSWinGiver / CTSScoreGiver
@@ -59,15 +59,15 @@ bool CTSObjective::CanInteract(int team)
 // @0x8c344 CanInteract — resolve a player's team index, then gate.
 bool CTSObjective::CanInteract(CBasePlayer *pPlayer)
 {
-	return CanInteract(TSGameRules()->GetTeamIndex(pPlayer->TeamID()));
+	return CanInteract(TSGameRules->GetTeamIndex(pPlayer->TeamID()));
 }
 
 // @0x8c310 Freeze — enable/disable the objective + re-render it on the HUD.
 void CTSObjective::Freeze(bool bFreeze)
 {
 	m_bActive = !bFreeze;
-	if (TSGameRules())
-		TSGameRules()->ShowObjectiveOnHud(this, !bFreeze);
+	if (TSGameRules)
+		TSGameRules->ShowObjectiveOnHud(this, !bFreeze);
 }
 
 //============================================================================
@@ -168,7 +168,7 @@ void CTSObjectivePointer::Spawn()
 // to the HUD objective list carrying this pointer's per-team labels, and send it to every client.
 void CTSObjectivePointer::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
 {
-	if (FStringNull(pev->target) || !TSGameRules())
+	if (FStringNull(pev->target) || !TSGameRules)
 		return;
 	CBaseEntity *pEnt = nullptr;
 	while ((pEnt = UTIL_FindEntityByTargetname(pEnt, STRING(pev->target))) != nullptr)
@@ -179,14 +179,14 @@ void CTSObjectivePointer::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE
 		pObj->EnableObjective(true);
 		// the 4 per-team labels (spec/merc/team3/team4) — the 5th (objmsgall) isn't part of the list entry.
 		int labels[4] = { (int)m_objMsg[0], (int)m_objMsg[1], (int)m_objMsg[2], (int)m_objMsg[3] };
-		int idx = TSGameRules()->AddObjectiveInList(pObj, labels);
+		int idx = TSGameRules->AddObjectiveInList(pObj, labels);
 		if (idx == -1)
 			continue;
 		for (int i = 1; i <= gpGlobals->maxClients; i++)
 		{
 			CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
 			if (p)
-				TSGameRules()->SendObjectiveToHud(idx, p);
+				TSGameRules->SendObjectiveToHud(idx, p);
 		}
 	}
 }
@@ -260,7 +260,7 @@ void CTSHack::EnableObjective(bool enable)
 		pev->flags |= FL_WORLDBRUSH;   // RE flags |= 0x2000000
 		if (!FStringNull(pev->model))
 			SET_MODEL(ENT(pev), STRING(pev->model));
-		CTSGameRules *gr = TSGameRules();
+		CTSGameRules *gr = TSGameRules;
 		m_flObjTimer = (gr && gr->m_flRoundEnd > 0) ? (gr->m_flRoundEnd - gpGlobals->time) : 0; // round seconds left
 		m_flHackProgress = 0;
 		m_flLastUse = 0;
@@ -395,8 +395,8 @@ void CTSWinGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE us
 		TSHudMessageAll(0, 0xff, 0, 8, 50, STRING(pev->message));
 
 	// Declare the win through the game rules: scores the team + announces + restarts the round.
-	if (TSGameRules())
-		TSGameRules()->TeamWin(winnerteam);
+	if (TSGameRules)
+		TSGameRules->TeamWin(winnerteam);
 	// SLICE: faithful TeamWin also awards victory/defeat cash (cash_for_winner/cash_for_loser).
 }
 
@@ -438,7 +438,7 @@ void CTSScoreGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE 
 	// Score the team directly (no round restart — a score giver gives points without ending the
 	// round, unlike the win giver's TeamWin). // SLICE: the .so routes through TeamWin with the
 	// team-subsystem cash; the "Respawn Players" spawnflag isn't applied.
-	CTSGameRules *gr = TSGameRules();
+	CTSGameRules *gr = TSGameRules;
 	if (gr && winnerteam >= 0 && winnerteam < 4)
 		gr->m_teamScore[winnerteam]++;
 	if (!FStringNull(pev->message))
@@ -726,7 +726,7 @@ void CTSTeamEscape::WaitTouch(CBaseEntity *pOther)
 		for (int i = 1; i <= gpGlobals->maxClients; i++)
 		{
 			CBaseEntity *p = UTIL_PlayerByIndex(i);
-			if (p && p->IsAlive() && TSGameRules()->GetTeamIndex(p->TeamID()) == attacker_team)
+			if (p && p->IsAlive() && TSGameRules->GetTeamIndex(p->TeamID()) == attacker_team)
 				teamSize++;
 		}
 
@@ -871,7 +871,7 @@ bool CTSBriefcase::CanInteract(CBasePlayer *pPlayer)
 {
 	if (m_iOwnerTeam == -1)
 		return true;
-	return m_iOwnerTeam == TSGameRules()->GetTeamIndex(pPlayer->TeamID());
+	return m_iOwnerTeam == TSGameRules->GetTeamIndex(pPlayer->TeamID());
 }
 
 // @0x7db9c CaptureTouch — a living player carrying the enemy flag who reaches their OWN briefcase
@@ -899,9 +899,9 @@ void CTSBriefcase::CaptureTouch(CBaseEntity *pOther)
 	if (!FStringNull(pev->target))
 		FireTargets(STRING(pev->target), pPlayer, this, USE_TOGGLE, 0);
 
-	int team = TSGameRules()->GetTeamIndex(pPlayer->TeamID());
+	int team = TSGameRules->GetTeamIndex(pPlayer->TeamID());
 
-	if (TSGameRules()->CountPlayers() < 2)
+	if (TSGameRules->CountPlayers() < 2)
 	{
 		TSHudMessageAll(0xff, 0x80, 0, 4, 20, "Waiting for other players.");
 		return; // no scoring solo
@@ -929,14 +929,14 @@ void CTSBriefcase::CaptureTouch(CBaseEntity *pOther)
 
 	// Team score +1 and broadcast the team scoreboard.
 	if (team >= 0 && team < 4)
-		TSGameRules()->m_teamScore[team]++;
+		TSGameRules->m_teamScore[team]++;
 	if (gmsgTeamScore)
 	{
-		for (int t = 0; t < TSGameRules()->GetTeamsNum(); t++)
+		for (int t = 0; t < TSGameRules->GetTeamsNum(); t++)
 		{
 			MESSAGE_BEGIN(MSG_ALL, gmsgTeamScore);
-			WRITE_STRING(TSGameRules()->GetIndexedTeamName(t));
-			WRITE_SHORT(TSGameRules()->m_teamScore[t]);
+			WRITE_STRING(TSGameRules->GetIndexedTeamName(t));
+			WRITE_SHORT(TSGameRules->m_teamScore[t]);
 			WRITE_SHORT(0);
 			MESSAGE_END();
 		}
@@ -948,7 +948,7 @@ void CTSBriefcase::CaptureTouch(CBaseEntity *pOther)
 		CBaseEntity *p = UTIL_PlayerByIndex(i);
 		if (!p || !p->IsPlayer() || !p->IsAlive())
 			continue;
-		int pteam = TSGameRules()->GetTeamIndex(((CBasePlayer *)p)->TeamID());
+		int pteam = TSGameRules->GetTeamIndex(((CBasePlayer *)p)->TeamID());
 		MESSAGE_BEGIN(MSG_ONE, gmsgTSVoiceMessage, NULL, p->edict());
 		WRITE_BYTE((pteam != team) ? 1 : 0);
 		MESSAGE_END();

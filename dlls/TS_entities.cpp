@@ -184,7 +184,7 @@ void CTSSlowMotion::DeactivateSlow()
 	}
 	else
 	{
-		TSGameRules()->GlobalSlowMotion2(0, 0);
+		TSGameRules->GlobalSlowMotion2(0, 0);
 		for (int i = 0; i < TS_SLOMO_MAX_PLAYERS; i++)
 			m_hPlayers[i] = NULL;
 	}
@@ -221,7 +221,7 @@ void CTSSlowMotion::WaitThink()
 		if (!m_iAllMap)
 			CheckPlayersDistance();
 		else
-			TSGameRules()->GlobalSlowMotion2(slow_ammount, m_bSlowBullets);
+			TSGameRules->GlobalSlowMotion2(slow_ammount, m_bSlowBullets);
 	}
 
 	if (m_flStopTime != 0.0f)
@@ -237,7 +237,7 @@ void CTSSlowMotion::WaitThink()
 		}
 		else
 		{
-			TSGameRules()->GlobalSlowMotion2(slow_ammount, m_bSlowBullets);
+			TSGameRules->GlobalSlowMotion2(slow_ammount, m_bSlowBullets);
 		}
 	}
 }
@@ -407,7 +407,7 @@ void CTSDMHill::Spawn()
 	pev->movetype = MOVETYPE_NONE;
 	UTIL_SetOrigin(pev, pev->origin);
 
-	const bool team = TSGameRules() && TSGameRules()->IsTeamMode();
+	const bool team = TSGameRules && TSGameRules->IsTeamMode();
 	if ((!team || fragseverycheckteam > 0) && (!team || fragseverycheck > 0))
 		SetTouch(&CTSDMHill::WaitTouch);
 	else
@@ -463,9 +463,9 @@ void CTSDMHill::WaitTouch(CBaseEntity *pOther)
 		// a DIFFERENT player touched — a teammate keeps the hold, an enemy steals/resets it
 		CBaseEntity *pKing = m_hKing;
 		bool sameTeam = false;
-		if (pKing && TSGameRules() && TSGameRules()->IsTeamMode())
-			sameTeam = TSGameRules()->GetTeamIndex(((CBasePlayer *)pKing)->TeamID()) ==
-				TSGameRules()->GetTeamIndex(pPlayer->TeamID());
+		if (pKing && TSGameRules && TSGameRules->IsTeamMode())
+			sameTeam = TSGameRules->GetTeamIndex(((CBasePlayer *)pKing)->TeamID()) ==
+				TSGameRules->GetTeamIndex(pPlayer->TeamID());
 		if (!sameTeam)
 		{
 			m_hKing = NULL;
@@ -478,7 +478,7 @@ void CTSDMHill::WaitTouch(CBaseEntity *pOther)
 		return; // held, but not long enough yet
 
 	// --- PAYOUT ---
-	const bool team = TSGameRules() && TSGameRules()->IsTeamMode();
+	const bool team = TSGameRules && TSGameRules->IsTeamMode();
 	char kingMsg[128] = {0};
 	if (!FStringNull(pev->message))
 	{
@@ -717,7 +717,7 @@ void CTSSellZone::SellTouch(CBaseEntity *pOther)
 		CBaseEntity *pEnt = UTIL_PlayerByIndex(i);
 		if (!pEnt || !pEnt->IsAlive())
 			continue;
-		if (m_attackerTeam != -1 && TSGameRules()->GetTeamIndex(pEnt->TeamID()) != m_attackerTeam)
+		if (m_attackerTeam != -1 && TSGameRules->GetTeamIndex(pEnt->TeamID()) != m_attackerTeam)
 			continue;
 		float d = (pEnt->pev->origin - pOther->pev->origin).LengthSquared();
 		if (d < flBest)

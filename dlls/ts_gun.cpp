@@ -221,6 +221,39 @@ CTSGun *GetPlayerTSGun(CBasePlayer *pPlayer)
 	return NULL;
 }
 
+// INTERIM (fold-plan Y2): the original has NO slots recompute anywhere — TSSpace is a STORED
+// counter (player+0x548, init 81 in TSInit @0x82a4c) mutated inline in PickUpWeapon @0x8314c
+// (cost = info+0xd0 x units, newSpace < 0 -> refuse) and the drop path; GetSpeedBySlots @0x66bd4
+// just READS it. Our self-healing recompute (derives used slots from the owned set) is demoted
+// to this file-static helper until the stored-counter swap lands with the buy/pickup pass
+// (counter-drift risk; ledger). Sum of slotCost over owned items = 81 - player+0x548.
+static int TSSlotsUsed(const CTSGun *pGun)
+{
+	int used = 0;
+	for (int t = 0; t < TSW_COUNT; t++)
+		if (pGun->m_items[t].owned)
+		{
+			// Kung-fu (TSW_MELEE) is the always-free unarmed weapon BuyArmament gives every player —
+			// it does NOT consume inventory slots (the buy menu's "slots left" excludes it too). Counting
+			// its slotCost(10) wrongly ate 10 slots, pushing a full loadout over 81 and silently dropping
+			// the last bought weapon on spawn (e.g. sawed-off). Skip it. [[map-change-state-reset]]
+			if (t == TSW_MELEE)
+				continue;
+			const s_weapon_info *wi = get_weapon_info((tsweapon_t)t);
+			// STACKABLES (knife/sealknife/m61) charge slotCost PER UNIT — the original's
+			// PickUpWeapon multiplies the deduction by the stack's clip (@0x8314c) and
+			// MultiplyClips funds added units from free slots (@0x71308).
+			int units = 1;
+			if (wi->iStackable)
+			{
+				const int count = (t == pGun->m_weaponType) ? pGun->m_iClip : pGun->m_items[t].clip;
+				units = (count > 1) ? count : 1;
+			}
+			used += wi->slotCost * units;
+		}
+	return used;
+}
+
 // @ GetSpeedBySlots__FP11CBasePlayer (@0x66bd4) — slot-based base movement speed. The player has 81
 // inventory slots (CBasePlayer+0x548 init 0x51); every CARRIED weapon deducts its slotCost, and the
 // remaining capacity sets the base maxspeed = 210 + (120/81)*remaining → empty ~330, fully loaded ~210.
@@ -231,7 +264,7 @@ float GetSpeedBySlots(CBasePlayer *pPlayer)
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	if (!pGun)
 		return 330.0f; // empty hands = 81 free slots → the original's `free > 80 → 330` branch (@0x66bd4)
-	int remaining = 81 - pGun->SlotsUsed();
+	int remaining = 81 - TSSlotsUsed(pGun);
 	if (pPlayer->m_flagStatus.active)
 		remaining -= 20; // carrying the CTF flag costs 20 slot-weight (CBasePlayer::TakeFlag -0x14)
 	if (remaining < 0) remaining = 0;
@@ -248,7 +281,7 @@ float GetSpeedBySlots(CBasePlayer *pPlayer)
 int TSPlayerFreeSlots(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	int remaining = pGun ? (81 - pGun->SlotsUsed()) : 81;
+	int remaining = pGun ? (81 - TSSlotsUsed(pGun)) : 81;
 	if (pPlayer->m_flagStatus.active)
 		remaining -= 20; // carrying the CTF flag costs 20 slot-weight (CBasePlayer::TakeFlag -0x14)
 	if (remaining < 0) remaining = 0;
@@ -295,7 +328,8 @@ void CTSGun::Reset()
 	m_iClientEquip = -1;
 	m_bWStatusInit = false;
 
-	UpdateActivePointers();
+	m_pActiveInfo = get_weapon_info((tsweapon_t)m_weaponType); // gun+0xd0 (inline, fold-plan G5)
+	m_pActiveItem = (m_weaponType > TSW_MELEE && m_weaponType < TSW_COUNT) ? &m_items[m_weaponType] : nullptr; // gun+0xcc — NULL = kung-fu
 }
 
 // @ Spawn__6CTSGun — classname weapon_tsgun, id 16, fall-init as a pickup.
@@ -332,19 +366,13 @@ void CTSGun::Spawn()
 	SET_MODEL(ENT(pev), "models/w_glock18.mdl");
 
 	m_iDefaultAmmo = wi->iClip; // SLICE: stock ammo; TS runs its own ammo system
-	UpdateActivePointers();
+	m_pActiveInfo = get_weapon_info((tsweapon_t)m_weaponType); // gun+0xd0 (inline, fold-plan G5)
+	m_pActiveItem = (m_weaponType > TSW_MELEE && m_weaponType < TSW_COUNT) ? &m_items[m_weaponType] : nullptr; // gun+0xcc — NULL = kung-fu
 	FallInit();
 }
 
-// Number of owned weapon types in the arsenal.
-int CTSGun::OwnedCount() const
-{
-	int n = 0;
-	for (int t = 0; t < TSW_COUNT; t++)
-		if (m_items[t].owned)
-			n++;
-	return n;
-}
+// (OwnedCount DELETED, fold-plan Y1: the original has no arsenal-count helper — the `lastinv`
+// dispatch @0x9e3bc-0x9e454 gates only on "holding a real weapon"; see TSLastInv.)
 
 // Park the live active clip/mode back into its item (HolsterWeapon side).
 void CTSGun::SyncActiveToItem()
@@ -378,15 +406,9 @@ void CTSGun::LoadActiveFromItem()
 	m_fInSpecialReload = it.pumpToggle; // restore the parked rack/barrel step
 }
 
-// Refresh the cached active-weapon pointers (the original's gun+0xcc/0xd0) from m_weaponType. Call
-// after any m_weaponType change. m_pActiveItem is NULL for kung-fu (TSW_MELEE) — matching the
-// original's `m_pActiveItem != NULL` "a real weapon is wielded" guard.
-void CTSGun::UpdateActivePointers()
-{
-	m_pActiveInfo = get_weapon_info((tsweapon_t)m_weaponType);
-	m_pActiveItem = (m_weaponType >= 0 && m_weaponType < TSW_COUNT && m_weaponType != TSW_MELEE)
-		? &m_items[m_weaponType] : nullptr;
-}
+// (UpdateActivePointers DELETED, fold-plan G5: the original has no helper — Deploy @0x71030
+// sets m_pActiveItem/m_pActiveInfo inline and HolsterWeapon @0x75698 nulls them inline; the
+// two assignments now live at each m_weaponType-change site, both libs.)
 
 // @ TakeWeapon__6CTSGun (@0x80a04) — add a weapon to the arsenal (fresh world pickup / buy),
 // then wield it. The faithful akimbo OWNERSHIP model (reference/WEAPON_SELECT.md):
@@ -395,34 +417,8 @@ void CTSGun::UpdateActivePointers()
 //    single item is NOT cleared (both stay owned: scroll skips the single, slot1-5 still picks it).
 //  - a fresh akimbo (fire-type 4) reads its single base; a gold-colts only-akimbo (fire-type 5)
 //    splits its clip into two barrels; a normal single/weapon just loads its full clip.
-// Sum the inventory slots the carried weapons occupy (the original tracks remaining = CBasePlayer+0x548;
-// we derive used from the owned set). Drives encumbrance: maxspeed + the pickup capacity gate.
-int CTSGun::SlotsUsed() const
-{
-	int used = 0;
-	for (int t = 0; t < TSW_COUNT; t++)
-		if (m_items[t].owned)
-		{
-			// Kung-fu (TSW_MELEE) is the always-free unarmed weapon BuyArmament gives every player —
-			// it does NOT consume inventory slots (the buy menu's "slots left" excludes it too). Counting
-			// its slotCost(10) wrongly ate 10 slots, pushing a full loadout over 81 and silently dropping
-			// the last bought weapon on spawn (e.g. sawed-off). Skip it. [[map-change-state-reset]]
-			if (t == TSW_MELEE)
-				continue;
-			const s_weapon_info *wi = get_weapon_info((tsweapon_t)t);
-			// STACKABLES (knife/sealknife/m61) charge slotCost PER UNIT — the original's
-			// PickUpWeapon multiplies the deduction by the stack's clip (@0x8314c) and
-			// MultiplyClips funds added units from free slots (@0x71308).
-			int units = 1;
-			if (wi->iStackable)
-			{
-				const int count = (t == m_weaponType) ? m_iClip : m_items[t].clip;
-				units = (count > 1) ? count : 1;
-			}
-			used += wi->slotCost * units;
-		}
-	return used;
-}
+// (CTSGun::SlotsUsed DELETED, fold-plan Y2: demoted to the file-static TSSlotsUsed above —
+// the original has no such method.)
 
 bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iAttach)
 {
@@ -448,7 +444,7 @@ bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iAttach)
 	{
 		// The STACKABLE merge (knife/sealknife/m61): an owned stack gains exactly ONE unit per
 		// take (@0x70b9b -> +1), gated on the carry cap — wi->iPellets (+0x24: knife 5,
-		// sealknife 10, m61 2) (@0x70a8e). Slot cost charges per unit through SlotsUsed.
+		// sealknife 10, m61 2) (@0x70a8e). Slot cost charges per unit through TSSlotsUsed.
 		if (wi->iStackable)
 		{
 			TSItem &it = m_items[type];
@@ -479,7 +475,7 @@ bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iAttach)
 			return false;
 		// The encumbrance gate: refuse it if it won't fit the 81 slots (GetSpeedBySlots
 		// capacity). Akimbo COMBINES above bypass this (you already carry the single).
-		if (SlotsUsed() + wi->slotCost > 81)
+		if (TSSlotsUsed(this) + wi->slotCost > 81)
 			return false;
 	}
 
@@ -582,7 +578,7 @@ bool CTSGun::MultiplyClips()
 		if (wi->slotCost > 0 && take > 0)
 		{
 			m_iClip += take / wi->slotCost; // the free-slot deduction is implicit: stackables
-			it.clip = m_iClip;              // charge slotCost PER UNIT in SlotsUsed
+			it.clip = m_iClip;              // charge slotCost PER UNIT in TSSlotsUsed
 			m_pPlayer->SetPlayerSpeed(GetSpeedBySlots(m_pPlayer));
 		}
 	}
@@ -671,11 +667,13 @@ void CTSGun::HolsterWeapon()
 	}
 
 	m_weaponType = TSW_MELEE; // bare hands
-	UpdateActivePointers();
+	// @0x75698 nulls the active pointers inline (cont81 holster.c; fold-plan G5)
+	m_pActiveInfo = get_weapon_info((tsweapon_t)m_weaponType); // gun+0xd0
+	m_pActiveItem = nullptr;                                   // gun+0xcc — kung-fu has no item
 	LoadActiveFromItem();
 	const s_weapon_info *kf = get_weapon_info(TSW_MELEE);
 	m_pPlayer->pev->viewmodel = MAKE_STRING(kf->pszViewModel); // v_melee
-	SendWeaponAnim(s_drawSeq[TSW_MELEE]);                      // kungfu anim block [2] (draw)
+	SendWeaponAnim(s_drawSeq[TSW_MELEE], 0);                   // kungfu anim block [2] (draw) — @0x75698 passes body 0 EXPLICITLY (fold-plan Y4)
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usDraw, 0.0, g_vecZero, g_vecZero,
 		0.0, 0.0, m_weaponType, 0, 0, 0);
 	m_kickCombo = 0;
@@ -699,7 +697,9 @@ void CTSGun::SelectWeapon(int type)
 	m_lastType = outgoing;     // remember the outgoing type (for `lastinv`)
 
 	m_weaponType = type;
-	UpdateActivePointers();
+	// @0x71030 (Deploy) sets the active pointers inline (cont81 deploy.c; fold-plan G5)
+	m_pActiveInfo = get_weapon_info((tsweapon_t)m_weaponType); // gun+0xd0 (inline, fold-plan G5)
+	m_pActiveItem = (m_weaponType > TSW_MELEE && m_weaponType < TSW_COUNT) ? &m_items[m_weaponType] : nullptr; // gun+0xcc — NULL = kung-fu
 	LoadActiveFromItem();
 
 	// --- Deploy (@0x81030): re-deploy the new active weapon (draw anim + deploy delay). ---
@@ -753,16 +753,20 @@ void CTSGun::Precache()
 	PRECACHE_SOUND("player/breathe2.wav");    // exhausted breathing (block spam, stamina empty)
 }
 
-// @ GetItemInfo__6CTSGun — recovered: slot 1, pos 2, id 16, weight 1.
+// @ GetItemInfo__6CTSGun (disasm-verified @0x75dd0, fold-plan Y3): pszAmmo1 = NULL,
+// iMaxAmmo1 = -1, pszAmmo2 = NULL, iMaxAmmo2 = -1, iMaxClip = -1 (WEAPON_NOCLIP), slot 1,
+// pos 2, flags 0, id 0x10. NO ammo types: TS runs its own per-caliber reserve, and with
+// pszAmmo1 == NULL the stock CanDeploy (weapons_shared.cpp) returns true unconditionally —
+// which is why the original CTSGun does NOT override CanDeploy (VTABLES.md slot 0x124 =
+// CBasePlayerWeapon::CanDeploy). This also puts the gmsgWeaponList wire on the original values.
 bool CTSGun::GetItemInfo(ItemInfo *p)
 {
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	p->pszName = STRING(pev->classname);
-	p->pszAmmo1 = "9mm"; // SLICE
-	p->iMaxAmmo1 = 200;  // SLICE
+	p->pszAmmo1 = NULL;
+	p->iMaxAmmo1 = -1;
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
-	p->iMaxClip = wi->iClip;
+	p->iMaxClip = -1; // WEAPON_NOCLIP — the TS clip rides WeaponInfo, not CurWeapon
 	p->iSlot = 1;
 	p->iPosition = 2;
 	p->iFlags = 0;
@@ -913,7 +917,7 @@ void CTSGun::SecondaryAttack()
 			// re-point the active anim set (the original swaps item+0x28 between info+0x252/+0x28c).
 			m_bHoldPosition = !m_bHoldPosition;
 			it.holdPosition = m_bHoldPosition;
-			SendWeaponAnim(m_bHoldPosition ? wi->iHoldChange : wi->iHoldRechange);
+			SendWeaponAnim(m_bHoldPosition ? wi->iHoldChange : wi->iHoldRechange, pev->body);
 		}
 		m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.3f; // dc_0_3 @LAB_000819f3
 		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 1.0f;      // dc_1
@@ -1101,7 +1105,7 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	// In the hold-position stance the fire anim comes from the held shoot seq (the "b"/"c"/"2" set).
 	const int fireAnim = (m_bHoldPosition && wi->iHoldFireAnim >= 0) ? wi->iHoldFireAnim : wi->iFireAnim;
 	if (fireAnim >= 0)
-		SendWeaponAnim(fireAnim);
+		SendWeaponAnim(fireAnim, pev->body);
 
 	// events/fire.sc → EV_TSFire: predicted fire sound + brass shell + viewmodel muzzleflash. Played
 	// with FEV_NOTHOST so the predicting host plays its OWN predicted copy (and isn't sent the server
@@ -1417,7 +1421,7 @@ void CTSGun::KnifeFire()
 		else
 		{
 			// redraw the next knife: model-derived draw seq + draw.sc + a short idle.
-			SendWeaponAnim(s_drawSeq[m_weaponType]);
+			SendWeaponAnim(s_drawSeq[m_weaponType], pev->body);
 			PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usDraw, 0.0, g_vecZero, g_vecZero,
 				0.0, 0.0, m_weaponType, it.attach, 0, 0);
 			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
@@ -1920,7 +1924,7 @@ void CTSGun::GrenadeFire()
 	if (m_burstOrPhase != 0 || m_iClip <= 0) // item+0x8 phase busy / no grenade
 		return;
 
-	SendWeaponAnim(2); // m61 anim block [19] = seq 2 (pin pull; record+0x26)
+	SendWeaponAnim(2, pev->body); // m61 anim block [19] = seq 2 (pin pull; record+0x26)
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usGrenade, 0.0, g_vecZero, g_vecZero,
 		0.0, 0.0, 19, 0, 0, 0);
 	m_burstOrPhase = 1; // item+0x8 = COOKED (the pin is out)
@@ -1994,7 +1998,7 @@ void CTSGun::GrenadeIdle(int fForce)
 			}
 		}
 
-		SendWeaponAnim(it.altMode == 0 ? 3 : 4); // m61 block [20]/[21] (record+0x28/+0x2a)
+		SendWeaponAnim(it.altMode == 0 ? 3 : 4, pev->body); // m61 block [20]/[21] (record+0x28/+0x2a)
 		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usGrenade, 0.0, g_vecZero, g_vecZero,
 			0.0, 0.0, (it.altMode != 0) + 0x14, 0, 0, 0); // iparam1 = 20 overhand / 21 underhand
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, 0x35); // 3rd-person grenade throw
@@ -2034,7 +2038,7 @@ void CTSGun::GrenadeIdle(int fForce)
 		}
 		else
 		{
-			SendWeaponAnim(s_drawSeq[m_weaponType]); // block [2] = 1 — redraw the next grenade
+			SendWeaponAnim(s_drawSeq[m_weaponType], pev->body); // block [2] = 1 — redraw the next grenade
 			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
 		}
 	}
@@ -2367,12 +2371,11 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 // bit — the client buy menu's AttachAvailable already gates which weapons can be sold a silencer, and
 // EV_TSFire only swaps the SOUND for weapons that have a `-sil` variant, so an unsupported attach is inert.
 // The attach mask travels to the client in the fire event (iparam2 — see StandardFire/AkimboFire).
-void CTSGun::SendWeaponAnim(int iAnim)
-{
-	const int body = (m_weaponType >= 0 && m_weaponType < TSW_COUNT)
-		? GetBodyByItems(m_weaponType, m_items[m_weaponType].attach) : 0;
-	CBasePlayerWeapon::SendWeaponAnim(iAnim, body);
-}
+// (CTSGun::SendWeaponAnim(int) shadow DELETED, fold-plan Y4: the original has no such method —
+// slot 0x174 = CBasePlayerWeapon::SendWeaponAnim(int,int,int) @0x900d0. Callers pass the body
+// they already hold: Deploy @0x71030 computes GetBodyByItems ONCE into pev->body, later sites
+// pass pev->body; HolsterWeapon @0x75698 passes 0 explicitly. pev->body is refreshed at every
+// attach mutation point (Deploy; AddItem redeploys) — verified before the fold.)
 
 int CTSGun::AddItem(int bits)
 {
@@ -2792,7 +2795,7 @@ void CTSGun::CCombatIdle()
 		return;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
 	const s_weapon_info *wi = get_weapon_info(TSW_MELEE);
-	SendWeaponAnim(wi ? wi->iIdleAnim : 0);
+	SendWeaponAnim(wi ? wi->iIdleAnim : 0, pev->body);
 }
 
 // @ WeaponIdle__6CTSGun (@0x754dc, decompile-exact) — runs EVERY frame (the base ItemPostFrame
@@ -2842,7 +2845,7 @@ void CTSGun::WeaponIdle()
 			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
 			const int idleAnim = (m_bHoldPosition && m_pActiveInfo->iIdleAnimHold >= 0)
 				? m_pActiveInfo->iIdleAnimHold : m_pActiveInfo->iIdleAnim; // stance block [0]
-			SendWeaponAnim(idleAnim); // the CTSGun shadow computes the attachment body itself
+			SendWeaponAnim(idleAnim, pev->body); // pev->body carries the attachment/bloody submodel (fold-plan Y4)
 		}
 	}
 }
@@ -2883,7 +2886,9 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
 
 	CTSGun *pGun = (CTSGun *)CBaseEntity::Instance(pent);
 	pGun->m_weaponType = type;
-	pGun->UpdateActivePointers();
+	pGun->m_pActiveInfo = get_weapon_info((tsweapon_t)pGun->m_weaponType); // inline (fold-plan G5)
+	pGun->m_pActiveItem = (pGun->m_weaponType > TSW_MELEE && pGun->m_weaponType < TSW_COUNT)
+		? &pGun->m_items[pGun->m_weaponType] : nullptr;
 	pGun->pev->origin = pPlayer->pev->origin;
 	pGun->pev->spawnflags |= SF_NORESPAWN;
 	DispatchSpawn(pent);
@@ -2922,15 +2927,18 @@ void TSSelectWeaponType(CBasePlayer *pPlayer, int type)
 		pGun->SelectWeapon(type);
 }
 
-// @ the ClientCommand `lastinv` block (@0xae433, the SelectWeapon+Deploy path): toggle back
-// to the previously-wielded type (player+0xa1c). SelectWeapon itself records m_lastType.
+// @ the ClientCommand `lastinv` block (disasm-verified @0x9e3bc-0x9e454, fold-plan Y1): toggle
+// back to the previously-wielded type (player+0xa1c). The ONLY gate is "holding a real weapon"
+// (gun+0xc8 != 0 — no arsenal count, no owned pre-check: SelectWeapon @0x70fb8 gates owned
+// itself). The original records the outgoing type in the COMMAND on the PLAYER (+0xa1c); ours
+// records it in SelectWeapon on the gun (m_lastType) — same value, member re-home deferred to
+// the members pass (Y1(c), ledger).
 void TSLastInv(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	if (!pGun || pGun->OwnedCount() <= 1)
+	if (!pGun || pGun->m_weaponType == TSW_MELEE) // @0x9e407: must be ARMED (m_weaponType != 0)
 		return;
-	if (pGun->IsOwned(pGun->m_lastType) || pGun->m_lastType == TSW_MELEE)
-		pGun->SelectWeapon(pGun->m_lastType);
+	pGun->SelectWeapon(pGun->m_lastType);
 }
 
 // Infinite-clip powerup hook (PlayerAddPowerUp) — multiply the held weapon's reserve.

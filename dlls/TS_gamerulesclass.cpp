@@ -29,20 +29,8 @@ int gmsgTSVoiceMessage = 0;   // "TSHVoice" (1): per-player capture taunt (sent 
 int gmsgTSObjective = 0;      // "Objective" (-1, variable): one HUD objective entry (coord+idx+label)
 int gmsgTSShowObjective = 0;  // "ShowObj" (2): toggle a HUD objective entry's visibility
 
-// @ StartRoundTimer — arm the round timer for a fresh round and tell clients the time left.
-void CTSGameRules::StartRoundTimer()
-{
-	// The .so reads the `roundtime` cvar (default 150), clamped [30,180].
-	float t = CVAR_GET_FLOAT("roundtime");
-	if (t < 30.0f) t = 30.0f;
-	if (t > 180.0f) t = 180.0f;
-	m_flRoundEnd = gpGlobals->time + t;
-
-	MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime); // "RoundTime" 2 — registered centrally in LinkUserMessages
-	WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
-	WRITE_BYTE(0);                                     // flag: 0 = round start/restart
-	MESSAGE_END();
-}
+// (StartRoundTimer DELETED, fold-plan G4: the original has no such method — the round-timer
+// arm is INLINE in RestartRound @0x67920; Think @0x77204 never arms. See both call sites.)
 
 //============================================================================
 // Objective subsystem — the HUD objective list + the round's objective managers.
@@ -178,19 +166,8 @@ void CTSGameRules::SetObjective()
 	}
 }
 
-// @ SendRoundTime — send the current remaining round time to one player. StartRoundTimer only
-// broadcasts at arm-time, so a client that joins mid-round needs this to populate its round-time
-// HUD. No-op if the timer isn't armed (m_flRoundEnd in the past / 0).
-void CTSGameRules::SendRoundTime(CBasePlayer *pPlayer)
-{
-	if (gmsgTSRoundTime == 0 || m_flRoundEnd <= gpGlobals->time)
-		return;
-
-	MESSAGE_BEGIN(MSG_ONE, gmsgTSRoundTime, NULL, pPlayer->edict());
-	WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
-	WRITE_BYTE(0);                                     // flag (0 = mid-round join)
-	MESSAGE_END();
-}
+// (SendRoundTime DELETED, fold-plan G3: the original has no such method — the joiner
+// round-clock catch-up is INLINE in CTSGameRules::InitHUD @0x69134, where it now lives.)
 
 // @ RoundTimeLeft — the round ran out of time: fire the objective manager's targetontimeleft, then
 // declare a draw (the .so's TeamWin(2)). The draw schedules the round restart.
@@ -216,7 +193,9 @@ void CTSGameRules::PlayerKilled(CBasePlayer *pVictim, entvars_t *pKiller, entvar
 	// spectate transition, AFTER the death anim settles: spawning at kill time froze the
 	// still-standing pose half-sunk at the dead origin — the round-8 'second model stuck
 	// in the floor'.)
-	TogglePlayerFromSlow(pVictim); // a dead player drops out of slow-motion
+	// (TogglePlayerFromSlow call DELETED, fold-plan Y8-4: @0x696c8 has ZERO callers in the
+	// original — dead code; the dead player's slow-state coverage is StartObserver's
+	// iuser4/fuser1 clears at the spectate transition.)
 
 	// "The One" mode: if the dead player was The One, clear/hand off the role (the killer inherits it).
 	if (pVictim->m_bTheOne)
@@ -385,12 +364,23 @@ void CTSGameRules::RestartRound()
 
 	if (roundBased)
 	{
-		// (a)+(b) arm the round timer + tell clients the new clock. MUST go through StartRoundTimer —
-		// it owns the clock-send; arming m_flRoundEnd inline here (the old code) skipped the send AND
-		// kept Think's `if (m_flRoundEnd==0) StartRoundTimer()` from ever firing (playtest bug #1).
-		// (Registration is central in LinkUserMessages now, so the old registered-too-late leg is gone.)
-		if (m_bRoundTimerEnabled)
-			StartRoundTimer();
+		// (a)+(b) @0x67920 (fold-plan G4, decompile-exact): arm the round timer INLINE — the
+		// `roundtime` cvar clamped [30,180]; the ARM is unconditional, only the clock BROADCAST
+		// is gated on the round-timer flag (field_0x10).
+		{
+			float t = CVAR_GET_FLOAT("roundtime");
+			if (t < 30.0f) t = 30.0f;
+			if (t > 180.0f) t = 180.0f;
+			m_flRoundEnd = gpGlobals->time + t;
+
+			if (m_bRoundTimerEnabled)
+			{
+				MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime); // "RoundTime" 2 — registered centrally in LinkUserMessages
+				WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
+				WRITE_BYTE(0);                                     // flag: 0 = round start/restart
+				MESSAGE_END();
+			}
+		}
 
 		// (d) team banner.
 		if (IsTeamMode())
@@ -708,7 +698,20 @@ void CTSGameRules::Think()
 	if (IsTeamMode() && m_flRoundRestart == 0)
 	{
 		if (m_flRoundEnd == 0)
-			StartRoundTimer();
+		{
+			// INVENTED ARM (no original counterpart in Think @0x77204): kept because our first-round
+			// bootstrap doesn't run the original's Init(m_flRoundRestart=time+5) -> Think -> RestartRound
+			// chain yet. Remove when the Init/RestartRound bootstrap is made faithful. (fold-plan G4)
+			float t = CVAR_GET_FLOAT("roundtime");
+			if (t < 30.0f) t = 30.0f;
+			if (t > 180.0f) t = 180.0f;
+			m_flRoundEnd = gpGlobals->time + t;
+
+			MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
+			WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
+			WRITE_BYTE(0);                                     // flag: 0 = round start/restart
+			MESSAGE_END();
+		}
 		else if (gpGlobals->time >= m_flRoundEnd)
 			RoundTimeLeft();
 	}
@@ -1028,7 +1031,7 @@ void CTSGameRules::AssignToTeam(CBasePlayer *pPlayer, const char *pTeamName)
 	WRITE_BYTE(clientIndex);
 	WRITE_SHORT((int)pPlayer->pev->frags);
 	WRITE_SHORT(pPlayer->m_iDeaths);
-	WRITE_SHORT(pPlayer->pev->playerclass); // 11=WAITING while spectate-waiting, else 0
+	WRITE_SHORT(0); // playerclass is a CONSTANT 0 in every original ScoreInfo (fold-plan Y6)
 	WRITE_SHORT(team + 1); // scoreboard team column is 1-based
 	MESSAGE_END();
 }
@@ -1160,6 +1163,18 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 		}
 	}
 
-	// catch the new client up on the round clock (StartRoundTimer only broadcasts at arm-time)
-	SendRoundTime(pPlayer);
+	// @0x69134 (fold-plan G3, decompile-exact — inv_C lines 163-177): catch the new client up on
+	// the round clock (the round-start broadcast only happens at arm-time). Gated on the timer
+	// being ARMED (m_flRoundEnd != 0) AND the round-timer flag (field_0x10); an EXPIRED clock
+	// sends a CLAMPED 0, it is not skipped.
+	if (m_flRoundEnd != 0.0f && m_bRoundTimerEnabled)
+	{
+		float left = m_flRoundEnd - gpGlobals->time;
+		if (left < 0)
+			left = 0;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSRoundTime, NULL, pPlayer->edict());
+		WRITE_BYTE((int)(left + 0.5f));
+		WRITE_BYTE(0);
+		MESSAGE_END();
+	}
 }

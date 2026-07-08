@@ -42,7 +42,7 @@
 #include "UserMessages.h"
 #include "client.h"
 #include "ts_utils.h" // TSHudMessageOne (the `respawn`-gate "wait" message)
-#include "ts_gamerules.h" // TSGameRules() — armor_absorb (kevlar damage reduction)
+#include "ts_gamerules.h" // TSGameRules — armor_absorb (kevlar damage reduction)
 #include "ts_weapons.h" // TS weapon helpers
 #include "ts_gun.h" // CTSGun::Reset (StartObserver arsenal wipe), GetPlayerTSGun
 #include "ts_shared.h" // InterpolateSlowMotion (the fuser1 slow-motion ease)
@@ -518,7 +518,7 @@ bool CBasePlayer::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, fl
 	constexpr int TS_ARMOR_BYPASS = 0x80040e4;
 	if (0 != pev->armorvalue && (bitsDamageType & TS_ARMOR_BYPASS) == 0)
 	{
-		float absorb = TSGameRules()->m_flArmorAbsorb;
+		float absorb = TSGameRules->m_flArmorAbsorb;
 		if (absorb > 1.0f)
 			absorb = 1.0f;
 		if (absorb < 0.0f)
@@ -1389,6 +1389,23 @@ void CBasePlayer::StartDeathCam()
 
 void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 {
+	// @0x89634 FIRST act (fold-plan cont94 #13, found gap — decompile inv_BC lines 36-42): flush
+	// the cash HUD (client cache +0x544 = cash +0x540 + a direct TSCash MSG_ONE) and clear the
+	// slow-motion state (iuser4 lock bits, fuser1/Go/Target back to 1.0). The original also
+	// zeroes the unnamed transient player+0x764 — not carried in our tree (VERIFY if a consumer
+	// surfaces).
+	{
+		extern int gmsgTSCash; // ts_player.cpp global
+		m_iClientTSCash = m_iCash;
+		MESSAGE_BEGIN(MSG_ONE, gmsgTSCash, NULL, ENT(pev));
+		WRITE_SHORT(m_iCash);
+		MESSAGE_END();
+	}
+	pev->iuser4 = 0;
+	pev->fuser1 = 1.0f;
+	m_flSlowMotionTarget = 1.0f;
+	m_flSlowMotionGo = 1.0f;
+
 	DropFlag(false); // CTF: entering spectate drops a carried flag (spawns a loose flag)
 
 	// @0x8972b — wipe the TS arsenal to bare kung-fu (round restart / death→spectate). The next
@@ -1470,22 +1487,12 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 // SetPlayerRespawnTime + "Press Fire To Play!" path. The buy/config menu opens on
 // entry. Called at the end of CBasePlayer::Spawn when m_fInSpectateWait is set.
 //=========================================================
-// Scoreboard "class" column value meaning "spectate-waiting" — the original scoreboard
-// (client.dll FUN_1005db70) renders class 0xb as "WAITING".
-#define TS_SCORE_WAITING 11
-
-// Broadcast this player's ScoreInfo row (frags/deaths/class/team). Sent on spectate enter+leave
-// so the scoreboard "class" column flips to/from WAITING immediately (DM + teamplay).
-void CBasePlayer::TSSendScoreInfo()
-{
-	MESSAGE_BEGIN(MSG_ALL, gmsgScoreInfo);
-	WRITE_BYTE(entindex());
-	WRITE_SHORT((int)pev->frags);
-	WRITE_SHORT(m_iDeaths);
-	WRITE_SHORT(pev->playerclass);
-	WRITE_SHORT(g_pGameRules->GetTeamIndex(m_szTeamName) + 1); // 1-based; 0 = no team (DM)
-	MESSAGE_END();
-}
+// (TSSendScoreInfo + the TS_SCORE_WAITING ScoreInfo-playerclass mechanism DELETED, fold-plan
+// Y6: the original has NO ScoreInfo helper — its ScoreInfo senders are all inline and write a
+// CONSTANT 0 for playerclass (AddPoints @0xc9e18); the scoreboard's WAITING (client case 0xb)
+// travels on the AWARD byte (player+0x74c = m_iAward, stamped 1/11 by SetPlayerRespawnTime
+// @0x65ff4 and broadcast via TSPAward from UpdateClientData). Ours already runs that faithful
+// pipeline; the ScoreInfo-playerclass WAITING was an invented parallel wire.)
 
 void CBasePlayer::TSEnterSpectate()
 {
@@ -1497,10 +1504,8 @@ void CBasePlayer::TSEnterSpectate()
 	m_fInSpectateWait = true;
 	m_iClientSpecSecs = -1;
 
-	// scoreboard "class" column shows WAITING while spectate-waiting (class value 11 — the
-	// original's scoreboard case 0xb). Works in DM (no team) and teamplay. See TSSendScoreInfo.
-	pev->playerclass = TS_SCORE_WAITING;
-	TSSendScoreInfo();
+	// (fold-plan Y6: the WAITING scoreboard status travels on the award byte via
+	// SetPlayerRespawnTime -> TSPAward, not on ScoreInfo playerclass — see below.)
 
 	// @0x69511 (InitHUD): the JOIN/none-running path sets the gate here; a DEATH gate is set
 	// in Killed (@0x7ef8c) BEFORE the death-cam and must NOT be re-anchored at spectate entry
@@ -1530,7 +1535,8 @@ void CBasePlayer::TSEnterSpectate()
 	WRITE_BYTE(1);
 	MESSAGE_END();
 
-	TSSpectateThink(); // paint the initial countdown line
+	// fold-plan G7: the original has no entry-time paint — the PreThink spectate block
+	// paints the countdown on the next frame (≤0.1 s later, behaviorally invisible).
 }
 
 // (TSSendBuyMenu/TSCloseMenu/TSMenuSelect DELETED, dossier-invented B3: the original has NO
@@ -1538,62 +1544,10 @@ void CBasePlayer::TSEnterSpectate()
 // purchases arrive as tkw/tki/tka console commands and the server's "menuselect" is a dead
 // swallow in the gamerules ClientCommand. Fire-to-play is the client's "respawn" command.)
 
-// Per-frame while held in spectate-wait: drive the countdown + the fire-to-play.
-void CBasePlayer::TSSpectateThink()
-{
-	int secs;
-	if (m_flTSRespawnTime < 0)
-		secs = 1; // LMS: out of respawns — hold at COUNTDOWN until the round restarts
-	else
-		secs = (int)ceil(m_flTSRespawnTime - gpGlobals->time);
-	if (secs < 0)
-		secs = 0;
-	int state = (secs > 0) ? TSSPEC_COUNTDOWN : TSSPEC_READY;
-
-	// Fire-to-play is the CLIENT's "respawn" console command (the original mechanism —
-	// TSTryRespawn gates it); the server watches no buttons here.
-
-	// once per second: the menu/scoreboard upkeep + the ORIGINAL's countdown HUD texts.
-	if (secs != m_iClientSpecSecs)
-	{
-		m_iClientSpecSecs = secs;
-		// Re-assert the WAITING scoreboard row (a connect-time ScoreInfo can land after the
-		// spectate-enter send and reset the class to 0).
-		if (pev->playerclass != TS_SCORE_WAITING)
-			pev->playerclass = TS_SCORE_WAITING;
-		TSSendScoreInfo();
-
-	}
-
-	// @0x81458 (PreThink iuser1-block): the 1 Hz lines throttle on the +0x754 CLOCK
-	// (m_flSpecMsgTime), NOT on the displayed-second change — the original computes
-	// ROUND(gate−time), so its LAST tick inside the final half-second paints
-	// "Press Fire To Play!" (hold 30); a change-based throttle never reaches it
-	// (round-7f: the countdown stalled at 1).
-	if (m_flTSRespawnTime > 0.0f && m_flSpecMsgTime < gpGlobals->time)
-	{
-		m_flSpecMsgTime = gpGlobals->time + 1.0f;
-		float rem = m_flTSRespawnTime - gpGlobals->time;
-		int r = (int)(rem + 0.5f);
-		if (r < 1)
-			// gate reached (or the final sub-second tick): the prompt — painted while the
-			// player remains in the wait (the sub-second-only window a strict decompile read
-			// gives cannot survive per-tick frame drift; the live original SHOWS the prompt
-			// after "1" — observed behavior wins, VERIFY the original's exact carrier)
-			TSHudMessageOne(0, 0, 0, 16, 30, "Press Fire To Play!", pev);
-		else
-			TSHudMessageOne(0, 0, 0, 16, 20, UTIL_VarArgs("%i", r > 30 ? 30 : r), pev);
-	}
-	// the LMS re-entry window paints its own 1 Hz line while it runs (expiry lives in PreThink)
-	else if (m_flRespawnHoldTime != 0.0f && gpGlobals->time <= m_flRespawnHoldTime &&
-		m_flSpecMsgTime < gpGlobals->time)
-	{
-		m_flSpecMsgTime = gpGlobals->time + 1.0f;
-		TSHudMessageOne(0, 0, 0, 16, 20,
-			UTIL_VarArgs("%i seconds left for respawn, press Fire to Play!",
-				(int)(m_flRespawnHoldTime - gpGlobals->time + 0.5f)), pev);
-	}
-}
+// (TSSpectateThink DELETED, fold-plan G7: the original has no such method — the spectate
+// countdown/prompt block IS the pev->iuser1 != 0 block of CBasePlayer::PreThink @0x808cc,
+// region ~0x81458, and now lives inline in PlayerPreThink. Its 1 Hz ScoreInfo WAITING
+// reassert was the invented Y6 wire and is gone with it.)
 
 // Press-fire: leave free-look and enter play with the chosen loadout.
 void CBasePlayer::StopObserver()
@@ -1601,8 +1555,8 @@ void CBasePlayer::StopObserver()
 	m_fInSpectateWait = false;
 	m_iClientSpecSecs = -1;
 
-	pev->playerclass = 0; // entering play: clear the WAITING scoreboard status
-	TSSendScoreInfo();
+	// (fold-plan Y6: no ScoreInfo/playerclass here — the original StopObserver @0x89a14 sends
+	// none; the WAITING status clears via the award byte when TSInit resets m_iAward on Spawn.)
 
 	// leave observer mode
 	ClearBits(m_afPhysicsFlags, PFLAG_OBSERVER);
@@ -1632,29 +1586,9 @@ void CBasePlayer::StopObserver()
 	pev->nextthink = -1;
 }
 
-// @ ClientCommand "respawn" (decompile-exact gates, dossier-invented B2): the wait line shows
-// ONLY when the gate is NEGATIVE (the -4.0 wait-next-round sentinel — LMS lockout / round
-// logic; NEVER set in plain DM). Firing during a normal countdown is SILENT (neither branch).
-// The wait line is 1 Hz-throttled off the same +0x754 clock as the countdown.
-void CBasePlayer::TSTryRespawn()
-{
-	if (!m_fInSpectateWait)
-		return; // original: requires iuser2 != 0
-	if (m_flTSRespawnTime < 0)
-	{
-		if (gpGlobals->time > m_flSpecMsgTime)
-		{
-			m_flSpecMsgTime = gpGlobals->time + 1.0f;
-			TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
-		}
-	}
-	else if (m_flTSRespawnTime > 0 && m_flTSRespawnTime < gpGlobals->time)
-	{
-		m_flTSRespawnTime = 0;
-		StopObserver();
-		pev->impulse = 0;
-	}
-}
+// (TSTryRespawn DELETED, fold-plan G6: the original has no such method — the gates live
+// INLINE in the "respawn" branch of ClientCommand @0x9d9fc, dlls/client.cpp, where they now
+// are. StopObserver @0x89a14 additionally carries its OWN redundant elapsed-gate — Y7 follow-up.)
 
 //
 // PlayerUse - handles USE keypress
@@ -1971,7 +1905,7 @@ void CBasePlayer::PreThink()
 
 	// @0x81412 (right after UpdatePlayerState): on mode-3 (objective team) maps, refresh the
 	// nearby-bomb wire triple every 0.5 s (player+0x794 throttle) — the Wires HUD source.
-	if (TSGameRules() && TSGameRules()->m_iGameMode == 3 && m_flNextWiresCheck < gpGlobals->time)
+	if (TSGameRules && TSGameRules->m_iGameMode == 3 && m_flNextWiresCheck < gpGlobals->time)
 	{
 		m_flNextWiresCheck = gpGlobals->time + 0.5f;
 		CheckForWires();
@@ -2017,20 +1951,56 @@ void CBasePlayer::PreThink()
 	{
 		// @0x81458 expiry (decompile-exact): window 0, gate -4.0 (wait-next-round sentinel),
 		// award 1 (out-of-round), the red wait line, and a deads recount (a lockout can end
-		// the round). V11 CLOSED — the per-second window line is painted in TSSpectateThink.
+		// the round). V11 CLOSED — the per-second window line is painted in the spectate
+		// block below (fold-plan G7).
 		m_flRespawnHoldTime = 0;
 		m_flTSRespawnTime = -4.0f;
 		m_iAward = 1;
 		TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
-		if (TSGameRules())
-			TSGameRules()->CallCheckDeads();
+		if (TSGameRules)
+			TSGameRules->CallCheckDeads();
 	}
 
 	// TS (cont.65): while held in free-look spectate, run the countdown + fire-to-play
 	// check and skip the normal in-play think (no items/water/weapons yet).
-	if (m_fInSpectateWait)
+	// @ the pev->iuser1 != 0 block of CBasePlayer::PreThink @0x808cc, region ~0x81458
+	// (fold-plan G7 — was the invented helper TSSpectateThink; the original has no such
+	// method, this IS the PreThink spectate block: the 1 Hz HUD-line throttles off +0x754,
+	// then the observer upkeep). The original sends NO ScoreInfo here (the WAITING status
+	// rides the award byte — fold-plan Y6).
+	if (m_fInSpectateWait) // original gate: pev->iuser1 != 0 (converge with Y7's iuser1/iuser2 pass)
 	{
-		TSSpectateThink();
+		// Fire-to-play is the CLIENT's "respawn" console command (the original mechanism —
+		// the ClientCommand "respawn" branch gates it); the server watches no buttons here.
+
+		// @0x81458 (PreThink iuser1-block): the 1 Hz lines throttle on the +0x754 CLOCK
+		// (m_flSpecMsgTime), NOT on the displayed-second change — the original computes
+		// ROUND(gate−time), so its LAST tick inside the final half-second paints
+		// "Press Fire To Play!" (hold 30); a change-based throttle never reaches it
+		// (round-7f: the countdown stalled at 1).
+		if (m_flTSRespawnTime > 0.0f && m_flSpecMsgTime < gpGlobals->time)
+		{
+			m_flSpecMsgTime = gpGlobals->time + 1.0f;
+			float rem = m_flTSRespawnTime - gpGlobals->time;
+			int r = (int)(rem + 0.5f);
+			if (r < 1)
+				// gate reached (or the final sub-second tick): the prompt — painted while the
+				// player remains in the wait (the sub-second-only window a strict decompile read
+				// gives cannot survive per-tick frame drift; the live original SHOWS the prompt
+				// after "1" — observed behavior wins, VERIFY the original's exact carrier)
+				TSHudMessageOne(0, 0, 0, 16, 30, "Press Fire To Play!", pev);
+			else
+				TSHudMessageOne(0, 0, 0, 16, 20, UTIL_VarArgs("%i", r > 30 ? 30 : r), pev);
+		}
+		// the LMS re-entry window paints its own 1 Hz line while it runs (expiry lives in PreThink)
+		else if (m_flRespawnHoldTime != 0.0f && gpGlobals->time <= m_flRespawnHoldTime &&
+			m_flSpecMsgTime < gpGlobals->time)
+		{
+			m_flSpecMsgTime = gpGlobals->time + 1.0f;
+			TSHudMessageOne(0, 0, 0, 16, 20,
+				UTIL_VarArgs("%i seconds left for respawn, press Fire to Play!",
+					(int)(m_flRespawnHoldTime - gpGlobals->time + 0.5f)), pev);
+		}
 		return;
 	}
 
@@ -4600,7 +4570,144 @@ void CBasePlayer::UpdateClientData()
 
 	// The Specialists custom-HUD messages (TSHealth/TSArmor/TSCash/...). The original
 	// drives its own HUD from here instead of relying on the stock Health/Battery.
-	TSUpdateClientData();
+	// @ the TS block of CBasePlayer::UpdateClientData @0x81d00 (fold-plan G2 — was the invented
+	// helper TSUpdateClientData; the original has no such method, this IS part of UCD). Each
+	// message is throttled-by-change (only sent when the cached value differs) exactly as the
+	// original does. Health/armor are rounded and clamped to a byte; cash is a short.
+	// NB (G2 follow-ups, ledger): the original ORDERS these differently and interleaves them
+	// with the stock sends (InitHUD-block -> HideWeapon -> TSHealth -> TSArmor -> Train ->
+	// TSState -> TSCash -> TSSpace ...), and appears to send NO stock Health/Battery (VERIFY).
+	{
+		extern int gmsgTSHealth, gmsgTSArmor, gmsgTSState, gmsgTSCash, gmsgTSSpace; // ts_player.cpp globals
+		extern int gmsgTSPowerUp, gmsgTSSlowAmt, gmsgTSBulletTime, gmsgTSPlayerAward, gmsgTSWires;
+
+		// TSHealth — round(health), clamped to >= 0 (the original ROUNDs pev->health and
+		// floors negatives at 0 before the WRITE_BYTE).
+		int health = (int)(pev->health + 0.5f);
+		if (health < 0)
+			health = 0;
+		if (health != m_iClientTSHealth)
+		{
+			m_iClientTSHealth = health;
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSHealth, NULL, ENT(pev));
+			WRITE_BYTE(health);
+			MESSAGE_END();
+		}
+
+		// TSArmor — round(armorvalue).
+		int armor = (int)(pev->armorvalue + 0.5f);
+		if (armor < 0)
+			armor = 0;
+		if (armor != m_iClientTSArmor)
+		{
+			m_iClientTSArmor = armor;
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSArmor, NULL, ENT(pev));
+			WRITE_BYTE(armor);
+			MESSAGE_END();
+		}
+
+		// TSState — the posture byte (0 stand / 1 duck / 2 stunt-prone), source 0x498 / cache 0x499.
+		// Plain on-change, NO ResetHUD-forced resend (the original's InitHUD memset deliberately
+		// starts at 0x49A and skips this cache). Original send order: TSArmor -> TSState -> TSCash.
+		if (m_iPlayerState != m_iClientTSState)
+		{
+			m_iClientTSState = m_iPlayerState;
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSState, NULL, ENT(pev));
+			WRITE_BYTE(m_iPlayerState);
+			MESSAGE_END();
+		}
+
+		// TSCash — the player's cash (a short).
+		if (m_iCash != m_iClientTSCash)
+		{
+			m_iClientTSCash = m_iCash;
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSCash, NULL, ENT(pev));
+			WRITE_SHORT(m_iCash);
+			MESSAGE_END();
+		}
+
+		// TSSpace — the free carry slots. The original sends the MAINTAINED int at 0x548 directly
+		// (no clamp at the write); our slots derive from the arsenal, so the recompute IS the member.
+		const int freeSlots = TSPlayerFreeSlots(this);
+		if (freeSlots != m_iClientTSSpace)
+		{
+			m_iClientTSSpace = freeSlots;
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSSpace, NULL, ENT(pev));
+			WRITE_BYTE(freeSlots);
+			MESSAGE_END();
+		}
+
+		// PwUp — the HELD powerup HUD (the green top-left icon + "seconds available"). The original
+		// sends gmsgTSPowerUp on change from UpdateClientData: WriteShort(held type 0x728) +
+		// WriteByte(duration 0x730). The client shows the icon for the held type and the seconds
+		// available; double-tap +use activates it (then PwUpTime drives the live countdown).
+		int heldDur = (int)m_flPowerupTime;
+		if (m_iHeldPowerup != m_iClientHeldType || heldDur != m_iClientHeldDur)
+		{
+			m_iClientHeldType = m_iHeldPowerup;
+			m_iClientHeldDur = heldDur;
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, ENT(pev));
+			WRITE_SHORT(m_iHeldPowerup);
+			WRITE_BYTE(heldDur);
+			MESSAGE_END();
+		}
+
+		// TSSlowMo — the PERCEIVED WORLD slow amount (100 = normal). Drives the client sound-pitch + green
+		// overlay. This is NOT the activator's move factor (0.6/0.8 = pev->fuser1, which only governs how
+		// fast THEY move/fire); it's the slowdown of the world they perceive: 0.35 slowmo / 0.225 slowpause
+		// (RE values 35 / 22.5 / 100). For a LOS VICTIM that's their own applied slow (fuser1); for the
+		// ACTIVATOR it's the others-scale they impose (m_flSlowMotionRamp) — so both hear/see the same wash.
+		float perceived = pev->fuser1; // victim's applied slow (or 1.0 normal)
+		if ((m_iPowerups & (TS_PWUP_SLOWMO | TS_PWUP_SLOWPAUSE)) && m_flSlowMotionRamp > 0.0f && m_flSlowMotionRamp < perceived)
+			perceived = m_flSlowMotionRamp; // the activator perceives the world at the others-scale
+		float slowAmt = perceived * 100.0f;
+		if (slowAmt != m_flClientSlowAmt)
+		{
+			m_flClientSlowAmt = slowAmt;
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSSlowAmt, NULL, ENT(pev));
+			WRITE_COORD(slowAmt);
+			MESSAGE_END();
+		}
+
+		// TSBTime — the bullet-time variant flag: source byte 0x175 (m_bSlowBullets — the SAME byte,
+		// by construction; star addendum settles the 0x175-vs-[0x5d] ambiguity), cache 0x174.
+		// Client consumer: the recoil x0.66667 reduction while in bullet-time.
+		if ((int)m_bSlowBullets != m_iClientBulletTime)
+		{
+			m_iClientBulletTime = m_bSlowBullets;
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSBulletTime, NULL, ENT(pev));
+			WRITE_BYTE(m_bSlowBullets);
+			MESSAGE_END();
+		}
+
+		// TSPAward — the broadcast award/status byte (source 0x74c, cache 0x74d): MSG_ALL keyed by
+		// entindex so every client tracks all players' status (scoreboard/observer UI). On-change
+		// only, no forced resend (star_TSPAward.md — the sole send site in the original).
+		if (m_iAward != m_iClientAward)
+		{
+			m_iClientAward = m_iAward;
+			MESSAGE_BEGIN(MSG_ALL, gmsgTSPlayerAward);
+			WRITE_BYTE(entindex());
+			WRITE_BYTE(m_iAward);
+			MESSAGE_END();
+		}
+
+		// Wires — the nearby-bomb wire ROLE triple (source 0x78c-0x78e, cache 0x78f-0x791):
+		// MSG_ONE on any change of the three bytes (star_Wires.md). CheckForWires (PreThink,
+		// mode-3 maps, 0.5 s throttle) maintains the source; zeros = walked away.
+		if (m_iWires[0] != m_iClientWires[0] || m_iWires[1] != m_iClientWires[1] ||
+			m_iWires[2] != m_iClientWires[2])
+		{
+			m_iClientWires[0] = m_iWires[0];
+			m_iClientWires[1] = m_iWires[1];
+			m_iClientWires[2] = m_iWires[2];
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSWires, NULL, ENT(pev));
+			WRITE_BYTE(m_iWires[0]);
+			WRITE_BYTE(m_iWires[1]);
+			WRITE_BYTE(m_iWires[2]);
+			MESSAGE_END();
+		}
+	}
 
 	//Handled anything that needs resetting
 	m_bRestored = false;

@@ -16,7 +16,7 @@
 // roundtime.h
 //
 // The Specialists round-time countdown HUD (reads the server's "RoundTime"
-// message; see CTSGameRules::StartRoundTimer / RoundTimeLeft on the server).
+// message; see CTSGameRules::RestartRound / RoundTimeLeft on the server).
 //
 
 #pragma once
