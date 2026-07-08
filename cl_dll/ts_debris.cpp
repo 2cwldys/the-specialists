@@ -34,6 +34,17 @@ bool CHudTSDebris::VidInit()
 	return true;
 }
 
+// cont.96 v4: xash implements neither FTENT_SLOWGRAVITY nor per-tempent gravity, so the shard
+// motion is fully self-integrated (FTENT_CLIENTCUSTOM = the engine skips its own motion): fly on
+// the scatter/cluster velocity, fall at half-g (VERIFY: the original integrator time-scales its
+// 0.05 coefficient — slow-mo goes floaty; match exactly in a future RE of FUN_10050b60).
+static void TSGlassShardThink(struct tempent_s* ent, float frametime, float)
+{
+	ent->entity.baseline.origin[2] -= 400.0f * frametime; // half sv_gravity
+	ent->entity.origin = ent->entity.origin + ent->entity.baseline.origin * frametime;
+	ent->entity.angles[2] += ent->entity.baseline.angles[2] * frametime; // keep the tumble
+}
+
 // Reconstruct FUN_10047cb0: spray the 9x9 glass-fragment grid across the pane face.
 static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Vector& dir,
 	const Vector& refPoint, int spriteModel, float velMag, int dmgType)
@@ -101,7 +112,7 @@ static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Ve
 			TEMPENTITY* t = gEngfuncs.pEfxAPI->R_TempSprite(pos, vel, scale, spriteModel,
 				kRenderTransAdd, kRenderFxNone, 1.0f, // glassfrag.spr is SPR_ADDITIVE
 				gEngfuncs.pfnRandomFloat(2.0f, 5.0f),
-				FTENT_FADEOUT | FTENT_SLOWGRAVITY | FTENT_COLLIDEWORLD | FTENT_ROTATE);
+				FTENT_FADEOUT | FTENT_CLIENTCUSTOM | FTENT_COLLIDEWORLD | FTENT_ROTATE);
 			if (t)
 			{
 				// pick one of the 9 shard SHAPES (frames) at random — the original varies the frame
@@ -111,6 +122,7 @@ static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Ve
 				t->entity.curstate.frame = (float)gEngfuncs.pfnRandomLong(0, 8);
 				t->entity.angles[2] = gEngfuncs.pfnRandomFloat(0.0f, 360.0f);
 				t->entity.baseline.angles[2] = gEngfuncs.pfnRandomFloat(-500.0f, 500.0f);
+				t->callback = TSGlassShardThink; // v4: full self-integration (see above)
 			}
 		}
 	}
