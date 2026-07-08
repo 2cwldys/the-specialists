@@ -2215,7 +2215,7 @@ void CTSGun::KatanaThrow()
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_CC_KNIFELAUNCH); // 3rd-person launch gesture, not mid-stunt
 
 	EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_BODY, "weapons/katana/miss.wav",
-		VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 31)); // orig 8-arg EMIT_SOUND_DYN slowmo arg 0.5 (VERIFY L12)
+		VOL_NORM, 0.8f, 0, 95 + RANDOM_LONG(0, 31)); // orig 8-arg EMIT_SOUND_DYN, w 0.5 = the default (verified, census @0x73fb3)
 
 	if (!InfiniteClips(m_pPlayer))
 	{

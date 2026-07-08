@@ -30,7 +30,9 @@
 //===================grenade
 
 
-LINK_ENTITY_TO_CLASS(grenade, CGrenade);
+// (no LINK_ENTITY_TO_CLASS(grenade, ...): the original ts_i386.so exports no `grenade`
+// factory — internal spawns are GetClassPtr-direct and the "grenade" classname string is
+// stored on pev directly, which the FIND_ENTITY_BY_CLASSNAME scans still match. cont94 SS3.)
 
 // Grenades flagged with this will be triggered when the owner calls detonateSatchelCharges
 #define SF_DETONATE 0x0001

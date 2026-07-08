@@ -437,6 +437,21 @@ void Host_Say(edict_t* pEntity, bool teamonly)
 	if (!p || '\0' == p[0] || !Q_UnicodeValidate(p))
 		return; // no character found, so say nothing
 
+	// TS voting rides on CHAT text, not a console command (RE Host_Say @0x9d46c): text
+	// beginning "vote" is lowercased past the prefix and handed to the gamerules, gated on
+	// the sender being alive (the original's vtable-0xcc IsAlive-shaped check); a HANDLED
+	// vote (nonzero return) suppresses the chat broadcast. An unhandled one chats normally.
+	if (!strncmp(p, "vote", 4) && player->IsAlive())
+	{
+		for (char* pc = p + 4; '\0' != *pc; pc++) // in-place strlwr(p+4), as the original
+		{
+			if (*pc >= 'A' && *pc <= 'Z')
+				*pc += 'a' - 'A';
+		}
+		if (0 != TSGameRules()->PlayerVote(pEntity, p + 4))
+			return;
+	}
+
 	// turn on color set 2  (color on,  no sound)
 	// turn on color set 2  (color on,  no sound)
 	if (player->IsObserver() && (teamonly))
@@ -546,8 +561,6 @@ void ClientCommand(edict_t* pEntity)
 	if (!pEntity->pvPrivateData)
 		return;
 
-	entvars_t* pev = &pEntity->v;
-
 	auto player = GetClassPtr<CBasePlayer>(reinterpret_cast<CBasePlayer*>(&pEntity->v));
 
 	if (FStrEq(pcmd, "say"))
@@ -656,16 +669,11 @@ void ClientCommand(edict_t* pEntity)
 		// two singles; a single dropped while its akimbo is owned leaves the other barrel).
 		player->DropWeapon(-1, 0.0f);
 	}
-	else if (FStrEq(pcmd, "tsbuy")) // TS: buy a weapon (free; restriction-gated). SLICE: cl_dll menu
-	{
-		if (CMD_ARGC() > 1)
-			player->BuyWeapon(atoi(CMD_ARGV(1)));
-	}
-	else if (FStrEq(pcmd, "tsbuyammo")) // TS: buy ammo for a caliber (fills to the cap). `tsbuyammo <caliber>`
-	{
-		if (CMD_ARGC() > 1)
-			player->BuyAmmo(atoi(CMD_ARGV(1)));
-	}
+	// ("tsbuy"/"tsbuyammo"/"tsbuyarmament" removed: invented dev stand-ins, not in the original
+	// dispatch @0x9d838. The original has NO direct-buy command — BuyWeapon @0x845bc / BuyAmmo
+	// @0x841e8 are called only from BuyArmament @0x83f10, whose only caller is
+	// CHalfLifeMultiplay::PlayerSpawn @0x79122: the queued loadout (tkw/tki/tka/rst_cfg)
+	// applies on spawn, which CTSGameRules::PlayerSpawn already does. RE dossier cont94 §2.)
 	else if (FStrEq(pcmd, "tkw")) // TS "take weapon": queue weapons into the armament. ONE batched
 	{                             // command of "%i_%i" tokens (apply FUN_10039400). The second number
 		// is the ATTACH MASK for a gun / the COUNT for a stackable (wi+0xdc) — BuyArmament
@@ -698,19 +706,9 @@ void ClientCommand(edict_t* pEntity)
 	{
 		player->ResetArmament();
 	}
-	else if (FStrEq(pcmd, "tsbuyarmament")) // apply the queued loadout (dev stand-in; original applies
-	{                                       // via the `cashala*` config-string command — see reference/BUY.md)
-		player->BuyArmament();
-	}
-	// --- TS join buy/config menu (cont.65, Phase 3): the compact gmsgShowMenu list,
-	// selected by number key (menuselect N) or "click anywhere" (+attack -> slot 1). ---
-	else if (FStrEq(pcmd, "menuselect"))
-	{
-		// dossier-invented B3: the original PARSES the slot and DISCARDS it (a stock-SDK
-		// leftover shape in the gamerules ClientCommand) — the buy menu is client-side.
-		if (CMD_ARGC() > 1)
-			(void)atoi(CMD_ARGV(1));
-	}
+	// ("menuselect" moved to CHalfLifeMultiplay::ClientCommand — its original home; @0xfd78f
+	// is referenced only by the CHalfLifeMultiplay/CHalfLifeTeamplay ClientCommand. Reached
+	// via the g_pGameRules->ClientCommand fallthrough below. RE dossier cont94 §2.)
 	else if (!strncmp(pcmd, "cutwire_", 8) && pcmd[8] >= '0' && pcmd[8] <= '9')
 	{
 		// TS bomb: cut a wire — the original is the prefix command `cutwire_<n>` (ClientCommand
@@ -733,20 +731,10 @@ void ClientCommand(edict_t* pEntity)
 	{
 		player->ForceClientDllUpdate();
 	}
-	else if (FStrEq(pcmd, "give"))
-	{
-		if (0 != g_psv_cheats->value)
-		{
-			int iszItem = ALLOC_STRING(CMD_ARGV(1)); // Make a copy of the classname
-			player->GiveNamedItem(STRING(iszItem));
-		}
-	}
-
-	else if (FStrEq(pcmd, "drop"))
-	{
-		// player is dropping an item.
-		player->DropPlayerItem((char*)CMD_ARGV(1));
-	}
+	// ("give" removed: not in the original dispatch @0x9d838 — a `give` falls to the
+	// "Unknown command" tail, exactly what the original server prints. The second, shadowed
+	// stock `drop` branch (DropPlayerItem) removed too — the live TS `drop` branch above
+	// matches first. RE dossier cont94 §2.)
 	else if (FStrEq(pcmd, "fov"))
 	{
 		if (0 != g_psv_cheats->value && CMD_ARGC() > 1)
@@ -766,53 +754,16 @@ void ClientCommand(edict_t* pEntity)
 	{
 		player->SelectItem(pcmd);
 	}
-	else if (FStrEq(pcmd, "lastinv"))
-	{
-		player->SelectLastItem();
-	}
-	else if (FStrEq(pcmd, "spectate")) // clients wants to become a spectator
-	{
-		// always allow proxies to become a spectator
-		if ((pev->flags & FL_PROXY) != 0 || 0 != allow_spectators.value)
-		{
-			edict_t* pentSpawnSpot = g_pGameRules->GetPlayerSpawnSpot(player);
-			player->StartObserver(pev->origin, VARS(pentSpawnSpot)->angles);
-
-			// notify other clients of player switching to spectator mode
-			UTIL_ClientPrintAll(HUD_PRINTNOTIFY, UTIL_VarArgs("%s switched to spectator mode\n",
-													 (!FStringNull(pev->netname) && STRING(pev->netname)[0] != 0) ? STRING(pev->netname) : "unconnected"));
-		}
-		else
-			ClientPrint(pev, HUD_PRINTCONSOLE, "Spectator mode is disabled.\n");
-	}
-	// ("specmode" removed: ts_i386.so has NO "specmode" string — in the original TS it is a
-	// CLIENT command (HLTV-only, cl_dll/hud_spectator.cpp); the original server lets it fall
-	// through to the unknown-command tail. RE dossier cont94 §9.)
-	else if (FStrEq(pcmd, "closemenus"))
-	{
-		// just ignore it
-	}
-	else if (FStrEq(pcmd, "follownext")) // follow next player
-	{
-		if (player->IsObserver())
-			player->Observer_FindNextPlayer(atoi(CMD_ARGV(1)) != 0);
-	}
-	else if (FStrEq(pcmd, "+alt1") || FStrEq(pcmd, "-alt1") ||
-			 FStrEq(pcmd, "+break") || FStrEq(pcmd, "-break"))
-	{
-		// The remaining Specialists alt-fire / action inputs, forwarded by the client (or
-		// xash built-ins). Accepted here so they don't print "Unknown command"; the gameplay
-		// behind them (silencer/scope toggle, stunts) is follow-on work.
-		// See reference/API_SURFACE.md.
-		// ("special" removed from this accept list: the client's `special` command forwards
-		// "_special" to the server, which the original IGNORES — a dead TFC leftover that
-		// falls through to the unknown-command tail. RE dossier cont94 §9.)
-	}
-	else if (FStrEq(pcmd, "vote"))
-	{
-		// `vote reset|stats|map <name>` — the TS voting system.
-		TSGameRules()->PlayerVote(pEntity, CMD_ARGS() ? CMD_ARGS() : "");
-	}
+	// (Shadowed second "lastinv" (SelectLastItem) removed — the live TS lastinv branch above
+	// matches first. "spectate"/"closemenus"/"follownext" removed with their cl_dll senders:
+	// none is in the original dispatch @0x9d838 (TS spectate is the ts_spectate/StartObserver
+	// flow; spectator control is client-local specmode/HLTV). "specmode" already removed:
+	// ts_i386.so has NO "specmode" string — original client command, server lets it fall
+	// through. "+alt1/-alt1/+break/-break" accept-branch removed: the original server has no
+	// branch for them (they fall to the unknown-command tail); the original client.dll
+	// REGISTERS all four, as ours already does (cl_dll/input.cpp). "vote" is NOT a console
+	// command in the original — it is parsed out of chat text in Host_Say @0x9d46c (see
+	// above); console `vote` falls to "Unknown command". RE dossier cont94 §2.)
 	else if (g_pGameRules->ClientCommand(player, pcmd))
 	{
 		// MenuSelect returns true only if the command is properly handled,  so don't print a warning

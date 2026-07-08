@@ -219,14 +219,14 @@ class CItemBattery : public CItem
 			return false;
 		}
 
-		if ((pPlayer->pev->armorvalue < MAX_NORMAL_BATTERY) &&
-			pPlayer->HasSuit())
+		// TS (RE @0xbb74c): gate is armorvalue < 100 only (no suit check); grant is
+		// TakeArmor(50) — the TS kevlar method, which caps at 100 — not a gSkillData read.
+		if (pPlayer->pev->armorvalue < MAX_NORMAL_BATTERY)
 		{
 			int pct;
 			char szcharge[64];
 
-			pPlayer->pev->armorvalue += gSkillData.batteryCapacity;
-			pPlayer->pev->armorvalue = V_min(pPlayer->pev->armorvalue, MAX_NORMAL_BATTERY);
+			pPlayer->TakeArmor(50);
 
 			EMIT_SOUND(pPlayer->edict(), CHAN_ITEM, "items/gunpickup2.wav", 1, ATTN_NORM);
 

@@ -107,6 +107,18 @@ bool CHalfLifeMultiplay::ClientCommand(CBasePlayer* pPlayer, const char* pcmd)
 	if (g_VoiceGameMgr.ClientCommand(pPlayer, pcmd))
 		return true;
 
+	// "menuselect" lives HERE in the original ("menuselect" @0xfd78f is referenced only by
+	// CHalfLifeMultiplay::ClientCommand + CHalfLifeTeamplay::ClientCommand): the slot is
+	// parsed and DISCARDED (stock-SDK leftover shape) — the TS buy menu is client-side.
+	// CTSGameRules inherits this. RE dossier cont94 §2.
+	if (FStrEq(pcmd, "menuselect"))
+	{
+		if (CMD_ARGC() < 2)
+			return true;
+		(void)atoi(CMD_ARGV(1));
+		return true;
+	}
+
 	return CGameRules::ClientCommand(pPlayer, pcmd);
 }
 
@@ -133,8 +145,8 @@ void CHalfLifeMultiplay::RefreshSkillData()
 	// Glock Round
 	gSkillData.plrDmg9MM = 12;
 
-	// 357 Round
-	gSkillData.plrDmg357 = 50;
+	// 357 Round — TS uses 40, not stock 50 (ts_i386.so @0xbefb8 = 0x42200000)
+	gSkillData.plrDmg357 = 40;
 
 	// MP5 Round
 	gSkillData.plrDmgMP5 = 12;

@@ -913,10 +913,9 @@ void CHudSpectator::FindNextPlayer(bool bReverse)
 	// if we are NOT in HLTV mode, spectator targets are set on server
 	if (0 == gEngfuncs.IsSpectateOnly())
 	{
-		char cmdstring[32];
-		// forward command to server
-		sprintf(cmdstring, "follownext %i", bReverse ? 1 : 0);
-		gEngfuncs.pfnServerCmd(cmdstring);
+		// ("follownext" server-forward removed: neither the original client.dll nor the
+		// original server dispatch @0x9d838 has a "follownext" string — original spectator
+		// control is client-local specmode/HLTV. RE dossier cont94 §2.)
 		return;
 	}
 

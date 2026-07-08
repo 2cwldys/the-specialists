@@ -158,6 +158,7 @@ void CTSShrapnel::Spawn()
 	pev->solid = SOLID_BBOX;
 	pev->gravity = 1.0f;
 	pev->friction = 1.0f;
+	pev->fuser1 = 1.0f; // TS timescale init (RE @0x6c186) — feeds the EMIT_SOUND_DYN slow-pitch
 	SET_MODEL(ENT(pev), SHRAPNEL_MODEL);
 	UTIL_SetSize(pev, Vector(0, 0, 0), Vector(0, 0, 0));
 
@@ -480,6 +481,7 @@ void CTSKnife::Spawn()
 	pev->solid = SOLID_BBOX;
 	pev->gravity = Gravity();   // 0.75 knife / 0.3 sealknife / 0.85 katana
 	pev->friction = 0.8f;       // RE pev+0x120 = 0x3f4ccccd
+	pev->fuser1 = 1.0f;         // TS timescale init (RE @0x6dca4) — feeds the EMIT_SOUND_DYN slow-pitch
 	const char *mdl = (m_knifeType == TSW_KATANA) ? "models/w_katana.mdl"
 		: (m_knifeType == TSW_SEALKNIFE) ? "models/w_sealknife.mdl"
 		: "models/w_knife.mdl";
@@ -551,15 +553,11 @@ void CTSKnife::WaitThink()
 	}
 }
 
-// Pitch a thrown-knife impact sound by the THROWER's slow factor (slow-motion deepens it, like every
-// other normal-recorded combat sound — see TSSlowPitch). 100 (normal) if the thrower isn't a player.
-static int KnifeHitPitch(CBaseEntity *knife)
-{
-	CBaseEntity *thrower = knife->pev->owner ? CBaseEntity::Instance(knife->pev->owner) : nullptr;
-	if (thrower && thrower->IsPlayer())
-		return TSSlowPitch((CBasePlayer *)thrower);
-	return 100;
-}
+// (KnifeHitPitch removed — an ad-hoc thrower-slow emulation invented before the TS 8-arg
+// EMIT_SOUND_DYN overload was RE'd. The original keys the deepening off the KNIFE ENTITY's
+// own pev->fuser1 (init 1.0 at Spawn @0x6dca4, slowed via CBaseEntity::GoSlow), applied
+// inside EMIT_SOUND_DYN with the default 0.5 weight — NOT a play-time thrower read.
+// cont94 emit_sound_dyn_overload.md §4.3.)
 
 // @ CTSKnife::BounceTouch (@0x6decc, decompile-exact) — the contact handler. It NEVER breaks anything
 // (the swept WaitThink is the sole breaker). Branches: stab PLAYERS (per-type damage, -0.25 bounce-off),
@@ -629,7 +627,7 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 					if (UTIL_PointContents(pev->origin) != CONTENTS_SKY)
 						UTIL_Sparks(pev->origin);
 					EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "weapons/knife/knife_hit.wav", VOL_NORM, 0.8f, 0,
-						(int)(100 + RANDOM_FLOAT(0, 10)) * KnifeHitPitch(this) / 100);
+						(int)(100 + RANDOM_FLOAT(0, 10))); // orig fp-computed pitch @0x6e4f1; slow-deepening = the overload + our fuser1
 					pev->velocity = pev->velocity * 0.5f; // RE: /2; engine clip already slid it
 					return;
 				}
@@ -640,7 +638,7 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 				// slow world touch: embed too, with an extra softer hit note before the tail.
 				embed();
 				EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "weapons/knife/knife_hit.wav", VOL_NORM, 0.8f, 0,
-					(int)(100 + RANDOM_FLOAT(-10, 0)) * KnifeHitPitch(this) / 100);
+					(int)(100 + RANDOM_FLOAT(-10, 0))); // orig fp-computed pitch @0x6e6a2; slow-deepening = the overload + our fuser1
 			}
 		}
 		else
@@ -654,7 +652,7 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 	// --- the common settle tail (@LAB_0007e985) ---
 	if (tailSparks && UTIL_PointContents(pev->origin) != CONTENTS_SKY)
 		UTIL_Sparks(pev->origin);
-	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, tailSnd, VOL_NORM, 0.8f, 0, KnifeHitPitch(this)); // orig pitch 100 + 0.5 slowmo arg
+	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, tailSnd, VOL_NORM, 0.8f, 0, 100); // orig @0x6e9a4: vol 1.0, attn 0.8, pitch 100, w 0.5 (default)
 	SetTouch(&CTSKnife::WaitTouch);
 	SetThink(&CTSKnife::WaitThink); // the swept-break/expire think keeps running after settle
 	m_bInFlight = false;

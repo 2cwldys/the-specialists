@@ -32,11 +32,11 @@ _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI
 
 _Commands the server accepts from a client (exact strcmp dispatch). EXTRA = the prime 'invented/HL-leftover' signal. NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths (strstr/sscanf), not captured here — so `weapon_<N>` is not flagged._
 
-- matched: **20**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **13**
+- matched: **20**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **1**
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `+alt1`, `+break`, `-alt1`, `-break`, `closemenus`, `follownext`, `give`, `menuselect`, `spectate`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `vote`
+  `menuselect`
 
 ### Client console commands (pfnAddCommand)
 
@@ -92,11 +92,11 @@ _Source = pfnRegisterVariable sites in client.dll (authoritative — NOT config.
 
 _Source = cvar_t structs in ts_i386.so .data (authoritative). MISSING = a gameplay/mp_ cvar the original registers that we don't; EXTRA = ours-only (invented or HL-leftover)._
 
-- matched: **43**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **258**
+- matched: **43**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **5**
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `sk_*` (252 — stock-HL skill cvars, bulk leftover), `allow_spectators`, `mp_flashlight`, `mp_teamlist`, `sv_allowbunnyhopping`, `sv_busters`, `sv_pushable_fixed_tick_fudge`
+  `mp_flashlight`, `mp_teamlist`, `sv_allowbunnyhopping`, `sv_busters`, `sv_pushable_fixed_tick_fudge`
 
 ---
 ## Coverage status / remaining gaps

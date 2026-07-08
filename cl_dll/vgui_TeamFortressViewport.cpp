@@ -940,7 +940,8 @@ CommandButton* TeamFortressViewport::CreateCustomButton(char* pButtonText, char*
 
 		// Spectate button
 		m_pTeamButtons[5] = new SpectateButton(CHudTextMessage::BufferedLocaliseTextString("#Menu_Spectate"), 0, BUTTON_SIZE_Y, CMENU_SIZE_X, BUTTON_SIZE_Y, false);
-		m_pTeamButtons[5]->addActionSignal(new CMenuHandler_StringCommand("spectate"));
+		// ("spectate" sender removed: the original client.dll has NO "spectate" string and the
+		// original server has no such branch. RE dossier cont94 §2.)
 		pMenu->AddButton(m_pTeamButtons[5]);
 	}
 	// ChangeClass
@@ -1365,7 +1366,9 @@ void TeamFortressViewport::SetCurrentMenu(CMenuPanel* pMenu)
 	}
 	else
 	{
-		gEngfuncs.pfnClientCmd("closemenus;");
+		// ("closemenus;" send removed: the original client.dll has NO "closemenus" string and
+		// the original server has no such branch — it would just print "Unknown command".
+		// RE dossier cont94 §2.)
 	}
 }
 

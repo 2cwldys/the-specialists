@@ -33,10 +33,13 @@ only `argv(1)` drops all but the first weapon (the cont.69p loadout bug). Confir
 @0x9dd5d shows it's a **cheat** (`g_flWeaponCheat`-gated → `GiveCash(player, 30000)`), and the
 `weapon_%i` parse right after it (@0x9dd98, strstr `"weapon_"` + sscanf `"%i"`) is just the
 numeric weapon-select transport (`weapon_<N>`), already handled. The original BUYS by **queue
-(tkw/tki/tka) → apply**; the exact apply-trigger command is still TBD (the menu's "Use New
-Config"). Our `tsbuy`/`tsbuyammo`/`tsbuyarmament` are dev/console stand-ins with no 1:1 original
-command — kept for testing, flagged "extra" by the harness (honest). `lasclr_` (laser colour) is
-unimplemented (a cl_dll cosmetic).
+(tkw/tki/tka) → apply**; **RESOLVED (cont.94):** there is NO apply-trigger command at all —
+`BuyArmament` @0x83f10's ONLY caller is `CHalfLifeMultiplay::PlayerSpawn` @0x790ac (call
+@0x79122): the queued loadout applies **on spawn** (which our `CTSGameRules::PlayerSpawn` →
+`BuyArmament()` already mirrors). The `tsbuy`/`tsbuyammo`/`tsbuyarmament` dev stand-ins were
+therefore STRIPPED (cont.94 server_strips) — `BuyWeapon` @0x845bc / `BuyAmmo` @0x841e8 are
+called only from inside BuyArmament in the original too. `lasclr_` (laser colour) is
+implemented server-side (client.cpp rebroadcast).
 
 ## Remaining work (the buy UI)
 

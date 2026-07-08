@@ -1411,8 +1411,17 @@ int SENTENCEG_Lookup(const char* sample, char* sentencenum)
 }
 
 void EMIT_SOUND_DYN(edict_t* entity, int channel, const char* sample, float volume, float attenuation,
-	int flags, int pitch)
+	int flags, int pitch, float flSlowWeight)
 {
+	// TS 8-arg overload (RE @0xd0a8c): pitch follows the EMITTING entity's timescale
+	// (pev->fuser1). scale = (1-w) + w*fuser1; fuser1 == 0 (never set) => scale 1.0;
+	// at fuser1 == 1 (normal time) scale == 1.0 for every w. TRUNCATING int cast (the
+	// original's fldcw round-toward-zero idiom), applied ONCE before the sentence branch.
+	float scale = 1.0f;
+	if (entity->v.fuser1 != 0.0f)
+		scale = (1.0f - flSlowWeight) + flSlowWeight * entity->v.fuser1;
+	pitch = (int)(scale * pitch);
+
 	if (sample && *sample == '!')
 	{
 		char name[32];

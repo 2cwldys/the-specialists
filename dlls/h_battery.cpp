@@ -93,6 +93,9 @@ void CRecharge::Spawn()
 	UTIL_SetOrigin(pev, pev->origin); // set size and link into world
 	UTIL_SetSize(pev, pev->mins, pev->maxs);
 	SET_MODEL(ENT(pev), STRING(pev->model));
+	// VERIFY: original CRecharge::Spawn stores m_iJuice = 1 @0xb6f6e, but the MP
+	// RefreshSkillData hardcode also fills suitchargerCapacity = 30 (@0xbef78) —
+	// confirm in-game which the original suit charger effectively uses. Low stakes.
 	m_iJuice = gSkillData.suitchargerCapacity;
 	pev->frame = 0;
 }

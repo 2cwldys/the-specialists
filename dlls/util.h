@@ -530,9 +530,15 @@ float TEXTURETYPE_PlaySound(TraceResult* ptr, Vector vecSrc, Vector vecEnd, int 
 // down to 1 is a lower pitch.   150 to 70 is the realistic range.
 // EMIT_SOUND_DYN with pitch != 100 should be used sparingly, as it's not quite as
 // fast as EMIT_SOUND (the pitchshift mixer is not native coded).
+//
+// TS 8-arg overload (RE @0xd0a8c): flSlowWeight is the slow-motion pitch WEIGHT —
+// effective pitch = pitch * ((1 - w) + w * emitting entity's pev->fuser1); fuser1 == 0
+// (never set) forces scale 1.0. One defaulted parameter, NOT a second overload: 149/156
+// original call sites (incl. all untouched stock-SDK code) compile to the 0.5 default;
+// only CBreakable::Die (0.9) and the TraceAttack pain voice (0.15) pass it explicitly.
 
 void EMIT_SOUND_DYN(edict_t* entity, int channel, const char* sample, float volume, float attenuation,
-	int flags, int pitch);
+	int flags, int pitch, float flSlowWeight = 0.5f);
 
 
 inline void EMIT_SOUND(edict_t* entity, int channel, const char* sample, float volume, float attenuation)

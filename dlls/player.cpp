@@ -410,9 +410,11 @@ void CBasePlayer::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vec
 		// 0x42, not DMG_CLUB): a bullet-type headshot, kevlarhit off the vest
 		// (bArmoredHit), or a random bodyhit. Only headshot.wav / headshot2.wav exist
 		// (there is no headshot1.wav). vol 1.0, attn 1.25, pitch 95+rand(0,31).
-		// (The original's EMIT_SOUND_DYN is a TS 8-arg overload whose trailing float
-		// is a slow-motion pitch floor — 0.5 here, 0.15 for the pain voice; see the
-		// D14 work item in reference/dossiers/cont94/traceattack_followups.md.)
+		// (EMIT_SOUND_DYN is the TS 8-arg overload; the trailing float is the slow-motion
+		// pitch WEIGHT (floor = 1-w): body-hit uses the 0.5 default (no explicit arg),
+		// pain voice below passes 0.15 — it barely deepens. RE @0x8079a/@0x80828; the
+		// weight-vs-floor roles in the older D14 note were swapped — cont94
+		// emit_sound_dyn_overload.md §1 is the corrected model.)
 		if (bitsDamageType & (DMG_BULLET | DMG_BLAST))
 		{
 			char snd[24];
@@ -437,7 +439,7 @@ void CBasePlayer::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vec
 			case 3: pain = "player/pain4.wav"; break;
 			}
 			if (pain)
-				EMIT_SOUND_DYN(ENT(pev), CHAN_VOICE, pain, 1.0f, 1.25f, 0, 100);
+				EMIT_SOUND_DYN(ENT(pev), CHAN_VOICE, pain, 1.0f, 1.25f, 0, 100, 0.15f); // 0.15f @0xF7F10 (RE @0x80828)
 		}
 	}
 #endif

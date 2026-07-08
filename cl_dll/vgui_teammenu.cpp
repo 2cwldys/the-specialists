@@ -147,7 +147,9 @@ CTeamMenuPanel::CTeamMenuPanel(int iTrans, bool iRemoveMe, int x, int y, int wid
 	// Create the Spectate button
 	m_pSpectateButton = new SpectateButton(CHudTextMessage::BufferedLocaliseTextString("#Menu_Spectate"), TEAMMENU_TOPLEFT_BUTTON_X, 0, TEAMMENU_BUTTON_SIZE_X, TEAMMENU_BUTTON_SIZE_Y, true);
 	m_pSpectateButton->setParent(this);
-	m_pSpectateButton->addActionSignal(new CMenuHandler_StringCommand("spectate", true));
+	// ("spectate" sender removed: the original client.dll has NO "spectate" string and the
+	// original server has no such branch — TS spectate is the ts_spectate/StartObserver flow.
+	// RE dossier cont94 §2.)
 	m_pSpectateButton->setBoundKey('6');
 	m_pSpectateButton->addInputSignal(new CHandler_MenuButtonOver(this, 6));
 

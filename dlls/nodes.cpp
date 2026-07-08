@@ -1482,7 +1482,8 @@ public:
 	Vector vecBadNodeOrigin;
 };
 
-LINK_ENTITY_TO_CLASS(testhull, CTestHull);
+// (no LINK_ENTITY_TO_CLASS(testhull, ...): the original exports no `testhull` factory;
+// the only spawn is GetClassPtr-direct (nodes.cpp). cont94 SS3.)
 
 //=========================================================
 // CTestHull::Spawn

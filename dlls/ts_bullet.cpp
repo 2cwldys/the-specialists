@@ -255,7 +255,11 @@ void CBulletManager::UpdateBulletTimeSlice(int slot)
 	}
 	char ric[20];
 	sprintf(ric, "debris/ric%d.wav", RANDOM_LONG(1, 5));
-	EMIT_SOUND_DYN(ENT(owner->pev), CHAN_AUTO, ric, VOL_NORM, ATTN_NORM, 0, TSRecordedSlowPitch(owner));
+	// NO original counterpart (the census of all 156 EMIT_SOUND_DYN sites has no bullet-manager
+	// ric — the original's ric is client-side event playback). Explicit weight 0.0f => scale = 1
+	// so the TS overload leaves this untouched: the ad-hoc TSRecordedSlowPitch already encodes
+	// the slow. Flag for a later RE pass of whether the server should emit this at all.
+	EMIT_SOUND_DYN(ENT(owner->pev), CHAN_AUTO, ric, VOL_NORM, ATTN_NORM, 0, TSRecordedSlowPitch(owner), 0.0f);
 	DecalGunshot(&tr, BULLET_PLAYER_9MM);
 	DestroyBullet(slot);
 	b.active = 0;
