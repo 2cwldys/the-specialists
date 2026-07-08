@@ -68,7 +68,8 @@ fi
 echo ">>> done."
 echo
 echo "Run the DEDICATED SERVER (kill the hlds_run wrapper, not just hlds_linux, to stop it):"
-echo "    cd $RIG && ./hlds_run -game ts +sv_lan 1 +maxplayers 8 +map tm_avana"
+echo "    cd $RIG && ./hlds_run -game ts +sv_lan 1 +maxplayers 8 +map ts_hammertime"
+echo "    (real maps live in $RIG/ts/maps — ts_* + ctb_deadheat; ctb_deadheat is a team/CTB map)"
 echo
 echo "Then JOIN with our xash client (server side of the drop-in test):"
 echo "    scripts/setup-xash-mod.sh          # refresh the client with our client.so"

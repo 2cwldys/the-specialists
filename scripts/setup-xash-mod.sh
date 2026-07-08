@@ -101,7 +101,8 @@ done
 echo ">>> done."
 echo
 echo "Launch (graphical, OpenGL renderer) — LD_LIBRARY_PATH lets the client find vgui.so:"
-echo "    cd $XROOT && LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +map tm_avana"
+echo "    cd $XROOT && LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +map ts_hammertime"
 echo
-echo "tm_avana is a team map (the round timer arms + sends RoundTime → the new HUD)."
-echo "Add bots/players or run +sv_lan 1 and connect a second client to see the round run."
+echo "Real maps live in $XROOT/ts/maps (ts_* + ctb_deadheat). ctb_deadheat is a team/CTB map"
+echo "(the round timer arms + sends RoundTime → the HUD). Add bots/players or run +sv_lan 1 and"
+echo "connect a second client to see the round run."

@@ -882,8 +882,8 @@ inventory matches 1:1.
   # 2. deploy OUR hl.so (+ merged network/delta.lst) into the rig (via metamod, keeps rcbot):
   scripts/setup-rehlds-mod.sh                 # NOMETAMOD=1 scripts/setup-rehlds-mod.sh = bypass metamod/rcbot
   # 3. launch the ReHLDS dedicated server (kill the hlds_run WRAPPER, not hlds_linux, or it respawns):
-  cd ~/Containers/hlds/hlds-linux64-test && ./hlds_run -game ts +sv_lan 1 +maxplayers 8 +map tm_avana
-  #    (maps used: tm_avana, ts_bikini; add +sv_maxspeed 330 for kungfu-movement tests. sv_lan 1 = LAN join, no Steam ticket.)
+  cd ~/Containers/hlds/hlds-linux64-test && ./hlds_run -game ts +sv_lan 1 +maxplayers 8 +map ts_hammertime
+  #    (maps used: ts_hammertime, ts_bikini, ctb_deadheat [team/CTB]; add +sv_maxspeed 330 for kungfu-movement tests. sv_lan 1 = LAN join, no Steam ticket.)
   # 4. (optional) join with OUR xash client = full drop-in (our server + our client):
   scripts/setup-xash-mod.sh
   cd ~/Projects/goldsrc.net/xash3d-fwgs/dist/client-x64 && LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +connect 127.0.0.1:27015
@@ -3821,13 +3821,13 @@ the user. The loop:
 scripts/build.sh amd64 client          # (and amd64 for the server)
 scripts/setup-xash-mod.sh              # assemble the native xash game root (re-run after every rebuild)
 cd ~/Projects/goldsrc.net/xash3d-fwgs/dist/client-x64
-LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +map tm_avana +sv_lan 1 +maxplayers 4 &
+LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +map ts_hammertime +sv_lan 1 +maxplayers 4 &
 # wait for "client connected" in the log, then:  import -window root /tmp/shot.png
 # crop the game window's top-centre (window @ 1280,180, 2560x1080):
 #   convert /tmp/shot.png -crop 1000x220+2060+180 +repage /tmp/clock.png
 ```
 gdb the client the same way as hl.so when it crashes (it found the cont.48 CGlock/AllocString crash):
-`LD_LIBRARY_PATH=. gdb -batch -nx -ex run -ex bt --args ./xash3d -game ts +map tm_avana`.
+`LD_LIBRARY_PATH=. gdb -batch -nx -ex run -ex bt --args ./xash3d -game ts +map ts_hammertime`.
 
 **→ The 5-phase reconstruction — STATUS THROUGH cont.64** (full chronological detail in the Serena ledger
 cont.51–64; the recovered contracts are in `reference/ENGINE_INTERFACE.md` / `API_SURFACE.md` /

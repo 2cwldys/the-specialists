@@ -155,7 +155,7 @@ Two engines run the mod:
 - **xash3d-fwgs (graphical client + server, for visual testing).** `scripts/setup-xash-mod.sh`
   assembles a native game root at `~/Projects/goldsrc.net/xash3d-fwgs/dist/client-x64` with
   our `client.so` + `hl.so` (re-run after every rebuild). Launch:
-  `cd …/dist/client-x64 && LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +deathmatch 1 +maxplayers 8 +map tm_avana`.
+  `cd …/dist/client-x64 && LD_LIBRARY_PATH=. ./xash3d -dev 2 -game ts +deathmatch 1 +maxplayers 8 +map ts_hammertime`.
   **`+deathmatch 1 +maxplayers 8` is REQUIRED** — without it the listenserver runs single-player
   rules, so stock `respawn()` (dlls/client.cpp) does `SERVER_COMMAND("reload")` instead of
   re-spawning, and pressing fire-to-play bounces you straight back to spectate in an endless
