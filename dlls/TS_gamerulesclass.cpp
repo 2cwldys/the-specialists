@@ -669,39 +669,40 @@ void CTSGameRules::Think()
 	}
 
 	// A scheduled deads-check (from CallCheckDeads, on a player death) resolves the round.
+	// (@0x67204 — unconditional; m_flCheckDeads is only armed in round modes.)
 	if (m_flCheckDeads != 0 && gpGlobals->time >= m_flCheckDeads)
 	{
 		m_flCheckDeads = 0;
 		CheckDeads();
 	}
 
-	// A scheduled round restart (from TeamWin) fires once its delay elapses.
-	if (m_flRoundRestart != 0 && gpGlobals->time >= m_flRoundRestart)
+	// Round control — MODE-GATED exactly like the original Think (@0x67204, tsthink.c lines 96-121).
+	// The round system (RestartRound / round timer / CheckDeads-on-expiry) runs ONLY for
+	// last-man-standing (m_iGameMode==0 + g_lastManStanding) and the dead objective modes
+	// (m_iGameMode>=2, §4.6). PLAIN DEATHMATCH (mode 0) and PLAIN TEAMPLAY/TDM (mode 1) are
+	// FREE-RESPAWN — no rounds. (Fixes cont.94's over-broad `roundBased = IsTeamMode() || lms`
+	// gate, which made mode-1 TDM round-based: "wait til next round" while alive, timer restarts.)
+	if (m_iGameMode < 2)
 	{
-		RestartRound(); // sets m_flRoundRestart = 0 itself
-	}
-
-	// Team-round timer: arm it on the first team-mode frame (and after each restart), and end the
-	// round in a draw when it expires (unless a win is already pending).
-	if (IsTeamMode() && m_flRoundRestart == 0)
-	{
-		if (m_flRoundEnd == 0)
+		if (g_lastManStanding != 0 && m_iGameMode == 0) // last-man-standing only
 		{
-			// INVENTED ARM (no original counterpart in Think @0x77204): kept because our first-round
-			// bootstrap doesn't run the original's Init(m_flRoundRestart=time+5) -> Think -> RestartRound
-			// chain yet. Remove when the Init/RestartRound bootstrap is made faithful. (fold-plan G4)
-			float t = CVAR_GET_FLOAT("roundtime");
-			if (t < 30.0f) t = 30.0f;
-			if (t > 180.0f) t = 180.0f;
-			m_flRoundEnd = gpGlobals->time + t;
-
-			MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
-			WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
-			WRITE_BYTE(0);                                     // flag: 0 = round start/restart
-			MESSAGE_END();
+			if (m_flRoundRestart != 0 && gpGlobals->time >= m_flRoundRestart)
+				RestartRound(); // arms m_flRoundEnd + broadcasts RoundTime + respawns; clears m_flRoundRestart
+			if (gpGlobals->time >= m_flRoundEnd && m_flRoundRestart == 0)
+				CheckDeads();
 		}
-		else if (gpGlobals->time >= m_flRoundEnd)
-			RoundTimeLeft();
+	}
+	else // m_iGameMode >= 2 — dead objective modes (unreachable in 2.1.x, §4.6; kept for fidelity)
+	{
+		if (gpGlobals->time >= m_flRoundEnd && m_flRoundRestart == 0 && m_bRoundTimerEnabled)
+		{
+			if (m_iGameMode == 2)
+				TeamWin(2);
+			else
+				RoundTimeLeft();
+		}
+		if (m_flRoundRestart != 0 && gpGlobals->time >= m_flRoundRestart)
+			RestartRound();
 	}
 
 	// "The One" juggernaut mode: keep a buffed One designated (unless it's capture-the-briefcase).
