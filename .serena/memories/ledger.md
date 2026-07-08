@@ -153,6 +153,30 @@ clock). Also `269ca64`: the run-through window is the SHORT whiffT (0.1-0.35s) �
 scaled-10-30 reading made a whiffed melee a ~30s landmine (user-caught: auto-hit on approach).
 NOTE for xash live-gdb: ptrace_scope needed 0 (Proton sets a ptracer allowance, xash doesn't).
 
+**R1 (USER MANDATE: do first) — phases 1+2 LANDED (`b827dea`, `23cbb04`); ground truth `753bc10`.**
+Phase 1 (Y8/Y9): PlayerKilled + PlayerSpawn overrides dissolved to their original homes (scatter →
+CBasePlayer::Killed @0x7ed5c; TheOneIsDead+CallCheckDeads → TS-patched MP::PlayerKilled @0x795e4;
+kill-time DropFlag deleted (StartObserver owns it — flag drops ~3s later, faithful); equip core →
+MP::PlayerSpawn @0x790ac (stock crowbar/9mm path GONE); initial_cash → ClientPutInServer @0xacf44,
+once per connect). USER CONFIRMED checkpoint 1 (kill/spawn/cash all fine).
+Phase 2: **CTSGameRules is STANDALONE** (base:null, no vtable — every override now a plain method);
+g_pGameRules = stock TS-patched CHalfLifeTeamplay (team) / CHalfLifeMultiplay (DM); static object +
+ctor/Init split; disasm-proven wires: MP::Think → TSGameRules->Think() (@0xbf302; Teamplay chains),
+UCD InitHUD block → TSGameRules->InitHUD() (@0x81dfa). motd → public SendMOTDToClient (VERIFY
+original path). Both libs build; source lists agree; server boots + bots play.
+**Ground-truth dossier (r1_rules_split_groundtruth.md) — phase 3 drivers:** (a) ⚠ modes 2/3 are DEAD
+in the original (InitObjectives' 2/3 promotion unreachable; DecideGamePlay returns ONLY 0/1;
+worldspawn `gamemode` 1-4 = DM/TDM/LMS/TheOne) → the IsTeamMode>=2 interim is REFUTED; live gates:
+mode==1 / g_teamplay / IsCTB = mode==1 && ts_briefcase (cached +0x5890/91). ⚠ OUR Wires HUD gates on
+m_iGameMode==3 — the original never reaches 3 → re-RE the wires gate. (b) TSGameRules.Init called
+from the MP+Teamplay CTORS + ChangeLevel (not InstallGameRules — ours calls it there, near-identical
+order; align in phase 3). (c) TSGameRules+0x1824 = m_szEndMap[0x40] vote buffer (CheckVotes writes →
+Think checks → GoToIntermission; ChangeLevel consumes + Init). (d) ~13 in-place stock patches census
+(MP ctor/Think✓/InitHUD-log/ClientDisconnected/ChangeLevel; Teamplay ctor/Think✓/SetDefaultPlayerTeam
+/ChangePlayerTeam/CUIC/RecountTeams; CanPlayerHearPlayer LMS dead-talk; CWorld::KeyValue gamemode/
+mapteams/teammodels). (e) Full CTSGameRules::InitHUD 15-statement dissolution table + the TS-patched
+Teamplay pair typed bodies — ready to apply. PLAYTEST CHECKPOINT 2 pending (DM loop + a team map).
+
 *(Entry updated as work lands — see below for cont.95's blow-by-blow.)*
 
 ## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
