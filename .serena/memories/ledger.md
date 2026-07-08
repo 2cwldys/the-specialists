@@ -5,6 +5,60 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
+
+User playtested the ORIGINAL TS client against our ReHLDS server (the true drop-in test) and surfaced
+THREE latent bugs (all predate this session; masked because our own client shared the same flaws). All
+RE-grounded, all fixed, 2 of 3 user-CONFIRMED in-engine.
+
+- **`2e8ebf2` crouch-jump insta-kill + kung-fu bar red.** (a) `TSCheckRunThrough` (ts_gun.cpp, @0x9bd9c)
+  dealt RAW velocity (200-350) as damage to AIRBORNE players → any crouch-jump into someone = instant
+  kill. It's a DUPLICATE reconstruction of `CTSStunt::CheckForBreakables`, whose sister correctly EXCLUDES
+  players (the faithful player-barge is the gated close-combat run-through, NOT this raw dmg=speed
+  TraceAttack). Fix = exclude players here too (VERIFY the original's exact player branch). (b) WStatus
+  melee bar sent clip 0 for kung-fu (TSW_MELEE); the original client reds any cell with clip<1. Kung-fu
+  has NO clip → send -1 (WEAPON_NOCLIP → byte 255) so it renders normal. **kung-fu red CONFIRMED fixed;
+  insta-kill NOT yet user-confirmed.**
+- **`ce04557` buy menu empty at join (SrvSett delivery WORKAROUND).** The buy menu showed only kevlar (a
+  Player Accessory, not a weapon CATEGORY) — all 5 weapon categories appeared restricted. **Our ENCODING
+  is CORRECT** (0x1f=all, 0x1=knives, 0x3=knives+pistols — user verified live; IsRestrictedWeapon @0x770c8
+  matches). Root: the client's restriction global (client.dll DAT_1018d174) defaults to 0 (=nothing
+  allowed = empty), and our InitHUD MSG_ONE SrvSett catch-up fires during the spawn sequence, which the
+  original client DROPS. A later send lands (proven: the on-change command MSG_ALL updates a connected
+  client fine). We replicate ALL THREE original SrvSett senders (Think on-change @0x675f6, InitHUD
+  catch-up @0x691e0, cmd @0xb595f), register at ServerActivate, defer InitHUD via m_fInitHUD — STRUCTURALLY
+  IDENTICAL to the original. So it's a client-side RECEPTION issue at connect. **WORKAROUND (marked
+  invented in code):** a one-shot re-broadcast of the 4 SrvSett settings ~0.75s after connect
+  (CBasePlayer::PreThink honours m_flSrvSettResendTime, set in InitHUD), landing during spectate-wait
+  before the menu opens. **CONFIRMED fixed** by the user. ⚠ TODO ROOT-CAUSE: watchpoint on the CLIENT's
+  DAT_1018d174 (client.dll + 0x18d174, the ONLY writer @0x1004b8b7) during a join to see why our InitHUD
+  MSG_ONE is dropped — then remove the workaround.
+- **weaponrestriction + bots = FAITHFUL, NOT a bug.** User: bots spawn with weapons under weaponrestriction 1.
+  RE-confirmed: weaponrestriction restricts ONLY the BUY path (our BuyWeapon checks IsRestrictedWeapon;
+  the original PickUpWeapon @0x83318 has NO restriction check). Real players are correctly gated (user
+  verified). Bots bypass because rcbot direct-gives weapons (or grabs map weapons) — never through
+  BuyWeapon. Restricting pickups would be a DELIBERATE DIVERGENCE (the original has none) — only do it if
+  the user explicitly wants it. (Did NOT verify rcbot-give vs map-pickup as the exact source.)
+
+- **ReHLDS `FindEntityByString` crash FIXED (the long-open bot-crash task).** Caught live under gdb TWICE:
+  `__strcmp_avx2 ← PF_find_Shared ← FindEntityByString ← rcbot_mm_amd64.so`, scanning
+  "info_player_deathmatch" on bot respawn. **64-bit-specific:** string_t is a 32-bit offset from pr_strings;
+  the rcbot amd64 plugin computes MAKE_STRING as a raw pointer diff from its OWN memory → out-of-pool
+  offset written to an edict field → PF_find_Shared resolves pr_strings+garbage → SIGSEGV. Added a 6-line
+  bounds guard (skip offsets outside the Ed_StrPool hunk) — the READ-side counterpart of the write-side
+  truncation SV_SpawnServer already guards on 64-bit. Committed ReHLDS `quic` (`a8d6c8d`) + cherry-picked
+  to `64bit` (`411c42b`). Server survived ~25min bot combat where it died twice in ~2min before.
+
+**ALL mod-ts commits LOCAL/unpushed** (user pushes after full playtest). This session's fixes sit on top of
+cont.94's 32-commit autonomous clear-out (baseline was 04a6a23; now at ce04557).
+
+**OPEN / NEXT:**
+1. User to confirm the crouch-jump insta-kill fix (2e8ebf2) in-engine.
+2. Buy-menu ROOT CAUSE (client watchpoint on client.dll+0x18d174) → drop the m_flSrvSettResendTime workaround.
+3. Decide: restrict bot/pickup weapons under weaponrestriction? (divergence — only if user wants).
+4. The cont.94 deferred structural set (R1 CTSGameRules standalone-class split, etc. — see cont.94 entry).
+5. Push everything after the user is satisfied.
+
 ## 2026-07-07 (cont. 94) — TraceAttack full parity; client-display cvars RE'd; parity sweep regenerated; goldsrc.net web-join fixes
 
 New orchestrator session from the cont.93 START-HERE. Baseline `04a6a23`. Ran the cont.93 subagent pattern:
