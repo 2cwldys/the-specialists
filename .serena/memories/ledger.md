@@ -53,11 +53,43 @@ RE-grounded, all fixed, 2 of 3 user-CONFIRMED in-engine.
 cont.94's 32-commit autonomous clear-out (baseline was 04a6a23; now at ce04557).
 
 **OPEN / NEXT:**
-1. User to confirm the crouch-jump insta-kill fix (2e8ebf2) in-engine.
-2. Buy-menu ROOT CAUSE (client watchpoint on client.dll+0x18d174) → drop the m_flSrvSettResendTime workaround.
-3. Decide: restrict bot/pickup weapons under weaponrestriction? (divergence — only if user wants).
-4. The cont.94 deferred structural set (R1 CTSGameRules standalone-class split, etc. — see cont.94 entry).
-5. Push everything after the user is satisfied.
+1. ✅ crouch-jump insta-kill fix (2e8ebf2) — user CONFIRMED fixed. (all 3 interop fixes now confirmed.)
+2. Buy-menu ROOT CAUSE — **watchpoint DONE (client.dll+0x18d174 = live 0x0c1fd174 in hl.exe; the ONLY
+   writer, the SrvSett handler @RVA 0x4b8bc, DID fire).** Proven: our SrvSett REACHES + APPLIES on the
+   original client; the applied value tracks m_iWeaponRestriction exactly (wrote 0 when weaponrestriction 1,
+   0x1f when weaponrestriction 0). gdb suppresses same-value writes, so I could NOT tell if InitHUD's early
+   send or the 0.75s re-broadcast is the one that lands. TO FINISH: build with the workaround DISABLED
+   (comment out the m_flSrvSettResendTime block in player.cpp PreThink + the InitHUD set), reconnect, watch
+   — if 0x1f still lands, InitHUD works and the workaround can be removed; if empty, InitHUD is dropped and
+   the workaround is load-bearing (keep it). Watchpoint recipe: hl.exe PID (was 22494, CHANGES), client.dll
+   base = first r-xp mapping (was 0x0c070000), target = base + 0x18d174; `set *(int*)ADDR=0x6f6f6f6f` poison
+   then `watch`. Scripts in scratchpad/w4.gdb.
+3. weaponrestriction + bots = FAITHFUL (user accepted). No action.
+4. **NEW GAMEPLAY BUGS from interop playtest (NOT yet fixed — need a fresh session):**
+   a. **Death-dropped knife auto-picks-up on run-over (should need E) + CORRUPTS the arsenal.** User ran
+      over another player's death-dropped knife (no E) → it auto-grabbed. Symptoms = HALF-PICKUP: the knife
+      viewmodel deploys (m_weaponType=knife) but it's NOT in the WStatus weapon bar (m_items[knife].owned
+      wrong), firing gives EMPTY-CLICK, and the kung-fu bar cell goes RED. STATIC RE CONTRADICTS the
+      behavior: a death-dropped knife = CTSWorldGun type 25 (TSW_KNIFE); every WaitTouch (CTSWorldGun @257,
+      CTSGroundWeapon @544) gates auto-pickup on type 0x1d (TSW_FLAG=29) || (button & IN_USE 0x20) — BOTH
+      our WaitTouch AND the original's @0xa1250 are identical/faithful. ThrowWeapon always makes a
+      CTSWorldGun (no knife special-case). CTSKnife::WaitTouch (thrown-knife) only damps velocity, no
+      pickup. So a type-25 knife auto-grabbing is UNEXPECTED per the static code → **NEEDS A LIVE SERVER
+      TRACE**: break on the running rig's CTSWorldGun::WaitTouch / GetWeapon / PickUpWeapon when the user
+      runs over the knife, to see the ACTUAL path + why it fires without IN_USE, then fix the half-pickup
+      (PickUpWeapon of a stackable knife not registering m_items/WStatus). File: dlls/ts_worldgun.cpp
+      (WaitTouch/Use/GetWeapon), dlls/ts_gun.cpp (PickUpWeapon/TakeWeapon for stackables).
+   b. **Melee knockback wrong.** Kicks/punches should send the victim FLYING BACK; currently they only fly
+      back on death (or mid-air), and it "doesn't match the original." RE the melee knockback: CloseCombatAttack
+      @0x85f88 has the >30-dmg knockback (|attacker vel|·dir, z=235) — check why it's not firing for grounded
+      living victims (the >30 gate? the flDamage passed? faithful vel source?). Also user wants punches to
+      possibly DISARM (knock weapons out of hands) — RE whether melee disarm (DropWeapon(-2), the
+      m_flDisarmPressure / player+0x7b4 accumulator) applies to kicks/punches vs only the melee twins.
+5. The cont.94 deferred structural set (R1 CTSGameRules standalone-class split, etc. — see cont.94 entry).
+6. Push everything after the user is satisfied (all mod-ts commits + ReHLDS quic/64bit still LOCAL).
+
+**CONTEXT NOTE:** this session ended at ~70% context. Items 2(finish)/4/5 are fresh-session work. The knife
+bug (4a) specifically needs a LIVE gdb trace on the rig, not more static reading.
 
 ## 2026-07-07 (cont. 94) — TraceAttack full parity; client-display cvars RE'd; parity sweep regenerated; goldsrc.net web-join fixes
 
