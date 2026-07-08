@@ -93,16 +93,15 @@ static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Ve
 					(&vel.x)[c] = gEngfuncs.pfnRandomFloat(d[c] * velMag * 0.5f, d[c] * velMag + 15.0f);
 			}
 
-			// cont.96 v2: the original's shard gravity is 0.05 (@0x47cb0 tempent+0x38) — over a
-			// 2-5s life that is nearly ZERO fall, and the shards fly OUT on the scatter/cluster
-			// velocity. FTENT_GRAVITY (full g) buried them at the pane base; FTENT_CLIENTCUSTOM
-			// made the engine skip motion entirely (slow straight drop). So: NO gravity flag —
-			// the engine integrates the outward velocity; the tiny 0.05g droop is visually
-			// negligible within the fade life. // VERIFY vs the original's exact fall/settle.
+			// cont.96 v3: the original's custom shard integrator (@0x47cb0 tempent+0x38 = 0.05)
+			// scales gravity by the TIME FACTOR (user: slow-mo = moon-grav, normal = real fall).
+			// FTENT_GRAVITY (full g) buried the spread; SLOWGRAVITY (half g) lets the scatter
+			// velocity carry while the shards still land. // VERIFY the exact curve vs the
+			// original integrator (FUN_10050b60 side) + slow-mo scaling — future RE.
 			TEMPENTITY* t = gEngfuncs.pEfxAPI->R_TempSprite(pos, vel, scale, spriteModel,
 				kRenderTransAdd, kRenderFxNone, 1.0f, // glassfrag.spr is SPR_ADDITIVE
 				gEngfuncs.pfnRandomFloat(2.0f, 5.0f),
-				FTENT_FADEOUT | FTENT_COLLIDEWORLD | FTENT_ROTATE);
+				FTENT_FADEOUT | FTENT_SLOWGRAVITY | FTENT_COLLIDEWORLD | FTENT_ROTATE);
 			if (t)
 			{
 				// pick one of the 9 shard SHAPES (frames) at random — the original varies the frame
