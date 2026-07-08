@@ -5,7 +5,117 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
-## 2026-07-07 (cont. 96) — session open: knife auto-pickup live-trace + melee knockback/disarm
+## 2026-07-08 (cont. 97) — session open: FINISH R1 PHASE 4 (rules-split tail), then queued client fixes
+
+New orchestrator picked up from the cont.96 FINAL START-HERE (HANDOFF.md) at HEAD `520cd92`, branch
+`restructure-source-parity`. Tree clean apart from the INTENTIONAL `game/ts/` deletions + `.serena/project.yml`.
+Previous orchestrator (cont.89–96) available for consult via the user.
+
+**Mandate:** finish R1 phase 4 (the 11-item list in the START-HERE block; specs in
+`reference/dossiers/cont96/r1_rules_split_groundtruth.md`), then the queued client fixes (bloody blades +
+glass integrator — `reference/dossiers/cont96/client_bloody_and_shards.md`).
+
+**State survey (before edits):** the two-object split (phases 1-3) is in — `InstallGameRules` @gamerules.cpp:210
+news a stock CHalfLifeMultiplay/Teamplay as g_pGameRules and keeps the standalone static `CTSGameRules
+s_TSGameRules` reached via `TSGameRules`. Interim deltas found vs the dossier phase-4 target:
+- MP::Think calls `TSGameRules->Think()` at the TOP (line 190), original calls it at the END + an
+  m_szEndMap GoToIntermission check (§1.2). **Item 1.**
+- Teamplay::Think has its OWN body (not chaining to MP except game-over) but NEVER calls TSGameRules->Think()
+  and has no IsCTB fraglimit fork — so on team maps the TS round/vote/powerup machine never ticks. The MP::Think
+  comment "Teamplay chains to MP" is STALE. **Item 2** (add IsCTB fork + the two-line TS tail).
+- `m_szEndMap` already exists as `m_szNextMap[32]` @field_0x1824 (ts_gamerules.h:169); CheckVotes writes it
+  (TS_gamerulesclass.cpp:613); Init does NOT clear it; ChangeLevel does NOT consume it. **Item 3.**
+- Init call currently in InstallGameRules, not the ctors (§4.4/§4.7). **Item 4.**
+
+**R1 PHASE-4 BEHAVIORAL CORE LANDED — `da0f099` (items 1-8; pending checkpoint-4 playtest).** Each
+load-bearing site re-verified by a FRESH typed Ghidra decompile this session before applying (not
+trusting the archived /tmp batches): ChangeLevel @0xd0784, ClientDisconnected @0xcf960,
+CanPlayerHearPlayer @0xd0ed0, Teamplay::Think @0xe412c, CWorld::KeyValue @0xf4a18.
+1. **MP::Think** — TSGameRules->Think() moved from the TOP to the END (after fragsleft/timeleft),
+   + `if (m_szEndMap[0]) GoToIntermission()` (@0xbf30a). Only in the !g_fGameOver path.
+2. **Teamplay::Think** — added the IsCTB fraglimit fork (reads the TSGameRules 4-team table
+   m_teamScore/m_teamNames, the score field is slot+8 = +0x24+i*0x8c) + the two-line TS tail. FIX:
+   the TS round/vote/powerup machine NEVER ticked on team maps before (Teamplay::Think had its own
+   body but never called TSGameRules->Think(); the MP::Think "chains to MP" comment was stale).
+3. **m_szEndMap[0x40]** — renamed from m_szNextMap[32] (@+0x1824); Init clears byte 0; CheckVotes
+   writes it (already); MP::ChangeLevel consumes (forced map unless "nextmap"), clears, then
+   UNCONDITIONAL TSGameRules->Init() (decompile: Init is OUTSIDE the if-nonempty block).
+4. **Init timing** — TSGameRules->Init() moved to the MP ctor (@0xbee05; + the Teamplay ctor's 2nd
+   call on team maps = the original double-Init); m_iGameMode = (byte)g_teamplay seeded INSIDE Init
+   (@0x67d83); InstallGameRules' explicit Init + m_iGameMode seed retired. Ordering verified safe:
+   InstallGameRules runs in CWorld::Precache (world.cpp:528), AFTER worldspawn KeyValue.
+5. **MP::ClientDisconnected** — MOVED TSPlayerDisconnect(pl) here from the engine ClientDisconnect
+   callback (client.cpp — its original home, after RemoveAllItems) + `m_flNextTheOneSelect = 0`
+   (@0xbfacf, +0x587c). Identified +0x587c = m_flNextTheOneSelect via the accessor census (Think
+   @0x673f2/@0x674a2, SelectRandomTheOne @0x6af4e/@0x6af70, Init time+10 @0x67eab, disconnect =0).
+   Init now arms m_flNextTheOneSelect = time+10 (was 0 → fired immediately).
+6. **CanPlayerHearPlayer** — LMS/dead-mode dead-talk isolation: dead talker (!IsAlive [player
+   vt+0xb4] && m_flTSRespawnTime<0 [+0x770]) heard only by dead listeners. Gate
+   `(byte)(m_iGameMode-2)<2 || g_lastManStanding`.
+7. **CWorld::KeyValue "mapteams"** — also TSGameRules->SetTeamList(STRING(pev->team)) (@0xe4cd9),
+   guarded (our TSGameRules pointer can be null pre-install on map 1; vestigial, wiped by Init).
+   Added `#include "ts_gamerules.h"` to world.cpp.
+8. **MP::InitHUD** log model field — already faithful (no change).
+
+**VERIFY resolved:** SrvSett byte-1 cvar = **"usecash"** (confirmed from the binary: the cvar_t at
+.data 0x108f10 — C symbol `dmcashbased` — has name field → 0xfcddb "usecash"; "dmcashbased" is only
+the SYMBOL name, not a registered cvar). Our `cvar_t dmcashbased = {"usecash",...}` is exact.
+
+**DEFERRED to the item-9 convergence pass (post-checkpoint-4 playtest, per START-HERE item 11 + dossier
+§6 apply-order which gates convergence AFTER the playtest):** retire the **6 invented CTSGameRules team
+stand-ins** (IsTeamMode, IsTeamplay, GetTeamID, RecountTeams, TeamWithFewestPlayers, GetIndexedTeamName
+— audit.py: exactly these 6 remain as INVENTED methods) onto the installed Teamplay virtuals / 0x8c-stride
+slot reads; the per-site §4.6 IsTeamMode regrade (15+ sites, each needs its ORIGINAL gate — g_teamplay
+vs IsCTB vs dead — do NOT sed to one predicate); SetTeamList's full reconstruction (direct slot tokenize +
+The-ONE insertion + "created team %s" ALERT + cap, dropping the invented m_szTeamList/RecountTeams);
+and the deeper item-10 VERIFYs needing a live trace/RE (UCD m_fGameHUDInitialized flag ORDER — the cont.96
+recursion guard set it BEFORE the InitHUD calls, original sets AFTER §2.1; the Wires HUD m_iGameMode==3
+gate which §4.6 says the original NEVER reaches; InitHUD items 9-13 placement). This is a coherent,
+risky per-site refactor best done with the checkpoint-4 playtest confirming the foundation first.
+
+**LIVE PLAYTEST (user, original client vs the local rig at 10.23.23.254:27015) — 3 more fixes landed:**
+
+1. **`19309bb` — TDM is FREE-RESPAWN, not round-based.** User: `mp_teamplay 1` said "wait til next
+   round" while alive + periodic round restarts. The original Think (@0x67204, tsthink.c 96-121) gates
+   the round system STRICTLY by mode: round work only inside `if (g_lastManStanding && m_iGameMode==0)`
+   (LMS) or `m_iGameMode>=2` (dead objective modes) — plain DM (0) AND plain teamplay/TDM (1) are
+   free-respawn. Our Think used cont.94's over-broad `roundBased = IsTeamMode() || lms`. Replaced with
+   the decompile-exact mode gate; dropped the invented Think round-timer arm (RestartRound owns it).
+   This IS a §4.6 IsTeamMode regrade (item-9 territory) surfaced by playtest. USER CONFIRMED.
+
+2. **`bdb229b` — teamplay teams/colors were intermittent → periodic team-roster rebroadcast.** The
+   connect-window MSG_ONE drop eats the joiner's InitHUD TeamNames/TeamInfo; the +0.75s ResendTeamRoster
+   races the client's player-NAME sync. Added a MSG_ALL TeamNames + per-player TeamInfo rebroadcast every
+   3s in CHalfLifeTeamplay::Think (INVENTED-INTEROP, same class as cont.96). Stabilized teams/colors but
+   NOT the headers (that was a red herring — see #3).
+
+3. **`eb117a6` — THE fix: teamplay HUD/scoreboard all rendered DM-style → rebroadcast gmsgGameMode(1).**
+   Deep Ghidra RE of client.dll (via the MCP xref + dc.sh) found the single gate: the client's
+   **m_Teamplay flag @0x100cf97c**, set ONLY by MsgFunc_GameMode (FUN_1001fe60→FUN_10021a10 stores the
+   msg byte at obj 0x100cf920+0x5c). The scoreboard layout FUN_1005d5f0 branches on it (0 → DM flat
+   layout FUN_1005d8f0, team-column count stays 0 → no headers; !=0 → team layout FUN_1005d6a0), and
+   EVERY team-HUD element gates on `flag==1`. Our server sent gmsgGameMode(1) only at InitHUD (MSG_ONE,
+   dropped in the connect window) and never re-sent it → flag stuck at 0. **Diagnosed by live-reading
+   the original client's memory** (/proc/pid/mem, client.dll base 0xc070000): team DATA all present
+   (TeamNames count 4, labels team1-4, per-player teams) but flag=0. Folded gmsgGameMode(1) into the #2
+   rebroadcast. **USER CONFIRMED** ("yep you did it") — headers + team-name-over-health + green teammate
+   dots all came alive; live read shows flag flipped 0→1.
+
+**Live-RE technique proven this session:** read the ORIGINAL client's live memory at
+`base(client.dll)+RVA` to inspect its HUD/scoreboard state directly (g_PlayerInfoList, teamname/teamnum
+arrays, the scoreboard object at *(base+0xd5cb0), the m_Teamplay flag) — decisive when static RE stalls.
+Get client.dll RVAs via the HOOK_MESSAGE registration (push handler; push name; call) + dc.sh. Also:
+**objdump misses computed stores** (`*(obj+0x5c)=x` never shows as a write to the absolute addr) — the
+Ghidra MCP xref (or following the dispatch) is required. The connect-window MSG_ONE drop (cont.96) is a
+RECURRING root cause — anything sent once at InitHUD as MSG_ONE to the joiner needs a rebroadcast.
+
+**Also `b480098` — fixed stale `tm_avana` map refs** (CLAUDE.md §3, setup-*.sh, HANDOFF launch examples):
+that map does NOT exist in TS; real maps are `ts_*` + `ctb_deadheat`. mp_teamplay on a DM map like
+`ts_hammertime` is an INTENTIONAL config (how the original dev ran them), NOT degenerate.
+
+**STILL OPEN:** the R1 item-9 convergence (6 invented CTSGameRules stand-ins + the SetTeamList/per-site
+§4.6 regrade) + re-run audit.py; then the queued client fixes (bloody blades + glass integrator). The
+DM "Spectate-as-team" was stale client state (cleared on fresh connect) — not a persistent bug.
 
 New orchestrator picked up from the cont.95 START-HERE (HANDOFF.md) at HEAD `336b501`, branch
 `restructure-source-parity`. Tree clean apart from the INTENTIONAL `game/ts/` deletions. Previous
