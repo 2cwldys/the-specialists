@@ -638,8 +638,19 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 				// ShotgunReload runs shell-by-shell against the ORIGINAL server too. [[dropin-both-directions]]
 				const bool awBlade = (awi->iFireType == TSFT_KNIFE || awi->iFireType == TSFT_KATANA);
 				const bool awPump  = (awi->iFireType == TSFT_PUMP);
-				if (awBlade) it.bloody = (int)from->client.vuser2[0];
-				else         g_TSGun.m_burstOrPhase = (int)from->client.vuser2[0];
+				if (awBlade)
+				{
+					it.bloody = (int)from->client.vuser2[0];
+					// cont.96: seed the PREDICTED weapon entvars' body too — the bloody blade is a
+					// viewmodel SUBMODEL (body 1) and the predicted WeaponIdle sends
+					// SendWeaponAnim(idle, pev->body). The server-side bloody writes (KatanaFire/
+					// KnifeFire, ts_gun.cpp) are #ifndef CLIENT_DLL, so without this the predicted
+					// idle re-sent body 0 ~3s after a flesh hit and the blade BLINKED CLEAN.
+					if (g_TSGun.pev)
+						g_TSGun.pev->body = it.bloody;
+				}
+				else
+					g_TSGun.m_burstOrPhase = (int)from->client.vuser2[0];
 				it.mode = (int)from->client.vuser3[1];
 				it.attach = (int)from->client.vuser3[2];
 				if (awPump) g_TSGun.m_fInSpecialReload = (int)from->client.vuser4[0];
