@@ -4365,13 +4365,18 @@ void CBasePlayer::UpdateClientData()
 			MESSAGE_BEGIN(MSG_ONE, gmsgInitHUD, NULL, pev);
 			MESSAGE_END();
 
+			// R1 phase 3 FIX: set the guard BEFORE the InitHUD calls — the TS-patched
+			// Teamplay::InitHUD assigns the team via ChangePlayerTeam, whose no-kill path
+			// calls StartObserver, which re-arms m_fInitHUD/UpdateClientData; with the
+			// guard set after (stock order) that recursed to stack overflow (live-gdb'd).
+			// VERIFY the original UCD @0x81d00 flag ordering.
+			m_fGameHUDInitialized = true;
 			g_pGameRules->InitHUD(this);
 			// R1 phase 2: the TS InitHUD content is the standalone object's NON-VIRTUAL
 			// InitHUD @0x69134, called from THIS UpdateClientData block in the original
 			// (@0x81d00) — spectator-state catch-up, roster, SrvSett, round clock, MOTD gate.
 			if (TSGameRules)
 				TSGameRules->InitHUD(this);
-			m_fGameHUDInitialized = true;
 
 			m_iObserverLastMode = OBS_ROAMING;
 
