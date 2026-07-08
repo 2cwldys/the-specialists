@@ -143,6 +143,33 @@ the next 3s tick (colors came fast via frag ScoreInfo). Folded gmsgGameMode(1) i
 the value is a CONSTANT 1 (the game-mode enum: 0=DM/1=teamplay, per class, mirrors CHalfLifeTeamplay::UpdateGameMode),
 NOT mp_teamplay.value and NOT m_iGameMode(0-3) — the client only understands 0/1.
 
+**`1378b79` — TEAMPLAY HAD ROUNDS (regression the user hit: "wait til next round" on death + "DEAD" flashing on
+LIVE players after a round restart). Root: `InitObjectives` (TS_gamerulesclass.cpp) INVENTED an
+`if (g_teamplay) m_iGameMode = 2/3` promotion → promoted plain teamplay (mode 1) into the DEAD objective mode 2
+→ the Think round gate ran the round machinery. The original NEVER promotes 1→2/3 here — entry gate
+`if ((byte)(mode-2) > 1) return;` (only re-flips 2↔3 when ALREADY 2/3, never reached). Restored the entry gate;
+teamplay stays mode 1 = free-respawn regular TDM. HOW TO DIFFERENTIATE (RE): the mode is decided ONCE at map
+load by DecideGamePlay — mp_teamplay→mode 1 (free respawn), lastmanstanding→mode 0+g_lastManStanding (rounds,
+individual LMS), objective modes 2/3 (rounds, DEAD/never reached). There is NO "round TDM" in the shipped game.
+USER-DRIVEN discovery — this is the InitObjectives §4.6 VERIFY that was flagged "still open" and IS the culprit.
+
+**`538142a` — slow-mo tint + motion-blur "shadows" persist on reconnect (CLIENT, our cl_dll only — see caveat).**
+Reset `g_flClientSlow` (+ m_flSlowAmt) in `CHudTSPowerUp::VidInit` (cl_dll/ts_powerup_hud.cpp) to match the
+original `CHud::VidInit` (@0x100206c0) resetting the slow CURRENT (DAT_100963e8=1.0) on connect. Our current is
+only eased in Draw (doesn't run while spectating) → stale <1 drove the view.cpp tint + ts_motionblur ghost
+spawner (both gate on the slow current). ⚠ **CAVEAT: the USER TESTS THE ORIGINAL CLIENT (hl.exe), so this
+cl_dll fix does NOT reach them — their tint is SERVER-side and STILL OPEN. See
+`reference/dossiers/cont97/slowmo_connect_bug.md` for the full RE + next steps.**
+
+**SLOW-MO-ON-CONNECT — IN PROGRESS / UNFINISHED (server-side, original-client bug).** RE'd this session:
+original `SlowMotionFlow` @0x86bb0 slows LOS-visible players with NO spectator gate (⇒ slowing spectators IS
+original; my spectator-skip guess was WRONG and reverted — `dlls/ts_player.cpp` SlowMotionFlow now matches the
+original). Client `CHud::VidInit` resets the slow CURRENT but NOT the TARGET (DAT_1009ff04, message-driven). The
+"no players" reconnect tint ⇒ our SERVER isn't pushing a `TSSlowMo`(normal) reset on connect to clear the
+client's stale target (send is change-detected @player.cpp:4719 on m_flClientSlowAmt). **NEXT: RE whether UCD
+runs for spectators + whether the ORIGINAL server force-sends the slow reset on connect/spawn/StartObserver;
+find + mimic that mechanism (don't invent). Full dossier: cont97/slowmo_connect_bug.md.**
+
 **XASH CLIENT TEAMPLAY SCOREBOARD — CONFIRMED FINE (user).** No cl_dll work needed: `vgui_ScorePanel.cpp` (the
 VGUI TeamFortress ScorePanel — SortTeams winner-on-top, team headers, spectators section, TS "WAITING" class-11
 status) already renders teamplay correctly once the server feeds the data (m_Teamplay + roster). The client RE

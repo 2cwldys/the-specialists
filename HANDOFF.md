@@ -47,6 +47,167 @@ touching that area):**
   shower vs TE_BREAKMODEL), dive-through-glass (`CheckForBreakables`), CBulletManager slow-mo bullets,
   knife→glass (`WaitThink` swept-break), + the sound-pitch TODO. Read before touching weapons/breakables.
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.97 FINAL, 2026-07-08) — R1 PHASE 4 + item-9 convergence LANDED & user-confirmed; teamplay works (rounds fixed); FINISH the slow-mo-on-connect bug (IN PROGRESS), then queued client fixes
+
+**You ARE the orchestrator — continue as if you never stopped, and you will BE the orchestrator next session
+too.** Branch `restructure-source-parity`, EVERYTHING LOCAL (push only on the user's word). Read the cont.97
+ledger entry (TOP of `.serena/memories/ledger.md`, **Read tool — see the Serena gotcha below**) for the
+blow-by-blow. The cont.96/95/94/93 blocks below are the SAME LAW/method, more background.
+
+### 🎯 THE PARITY MANDATE — the user's LAW (verbatim intent; reread EVERY session)
+**GOAL: DROP-IN BOTH DIRECTIONS.** Our client vs the ORIGINAL server AND our server vs the ORIGINAL client must
+behave identically + compatibly. **Mirror the original 1:1 — files → classes → methods → members → globals →
+free functions — NAME-MATCHED.** The user is emphatic (cont.97): I want to know that every filename, the
+classes within them, their methods + members, the globals, and free functions are implemented; that **nothing
+the original has is missing from our code, and nothing we invented is absent from the original.**
+- **A MISSING symbol = a HIDDEN-LOGIC GAP → re-RE it. An INVENTED/renamed one = DRIFT + a SIGNAL of a logic
+  mismatch → re-RE it.** Variable/member/method NAMES are not cosmetic — a wrong/renamed name usually means the
+  logic AROUND it diverged. (cont.97 proof: the invented `InitObjectives` mode-2/3 promotion silently turned
+  teamplay into a round mode; the invented `IsTeamMode` proxy earlier disabled the whole team layer.)
+- **A found mismatch FLAGS its NEIGHBOURHOOD** — check the surrounding code, don't fix in isolation.
+- **The logic is OFTEN ALREADY IMPLEMENTED — MOVE/RENAME it, don't rewrite.** (cont.97: the round gate, the
+  team roster, the slow reset — all existed in pieces / needed the right gate, not a rewrite.)
+- **If they do it another way, MIMIC THEIRS** — even when ours "works." Verify WHICH SIDE computes/sends what
+  FIRST (cont.97: the teamplay HUD gates on the client `m_Teamplay` flag set by `gmsgGameMode`, not the roster).
+- **ASSETS must ALL be wired** — every model/sprite/sound/sequence/event NAMED inside a decompile must be
+  precached + played in our code (`scripts/coverage/precache.py`). A missing asset = an un-reconstructed path.
+- **"The decompile is COMPLETE" ≠ every method faithfully reconstructed.** I called the TS decompile complete
+  EARLY; every cont.90-97 bug was a stubbed / stock-inherited / mis-RE'd / invented / duplicate method. Expect
+  it. **Discovery while fixing a bug surfaces NEIGHBOURING gaps: FLAG them (user + `// VERIFY` + ledger) but
+  FINISH THE CURRENT ISSUE FIRST, then report.**
+- **Sweep TODO / `// VERIFY` / `// SLICE` / `FIXME`** when you touch an area:
+  `grep -rn "VERIFY\|TODO\|SLICE\|FIXME" dlls cl_dll`. Resolve them against the binary.
+
+### 📌 WHAT LANDED THIS SESSION (cont.97 — all user-confirmed unless noted)
+**R1 PHASE 4 behavioural tail (`da0f099`):** MP/Teamplay::Think drive the standalone `TSGameRules->Think()` at
+the END + `m_szEndMap` GoToIntermission; `m_szEndMap[0x40]`@+0x1824 (renamed from m_szNextMap) with
+Init-clear + MP::ChangeLevel consume (@0xc0784, Init UNCONDITIONAL); `TSGameRules->Init()` moved to the MP ctor
+(@0xbee05) seeding `m_iGameMode=(byte)g_teamplay`; MP::ClientDisconnected TSPlayerDisconnect + `+0x587c`
+(=m_flNextTheOneSelect) moved from client.cpp; CanPlayerHearPlayer LMS dead-talk; CWorld::KeyValue "mapteams"
+SetTeamList. **VERIFY resolved:** SrvSett byte-1 cvar is `"usecash"` (cvar_t @.data 0x108f10, C-sym
+`dmcashbased`, name→0xfcddb "usecash").
+**Round fix (`19309bb` + `1378b79`):** TDM is FREE-RESPAWN. `19309bb` regraded the Think round gate to the
+original's mode logic; **`1378b79` killed the INVENTED `InitObjectives` mode-1→2 promotion** that was the real
+"wait til next round" / "DEAD on live players" cause. Rounds run ONLY for LMS (mode 0 + g_lastManStanding) or
+modes ≥2 (dead §4.6). No round-TDM exists in the shipped game.
+**Teamplay HUD/scoreboard (`bdb229b` + `eb117a6` + `6e7ce98`):** the whole team-identity cluster (scoreboard
+headers, team-name-over-health, green teammate dots) was blank because the client's `m_Teamplay` flag
+(@client.dll 0x100cf97c, set ONLY by `MsgFunc_GameMode`) stayed 0 — our `gmsgGameMode(1)` was sent once at
+InitHUD (eaten by the **connect-window MSG_ONE drop** — see the memory) and never re-sent. Fix: periodic MSG_ALL
+team-roster rebroadcast (TeamNames+TeamInfo+**gmsgGameMode(1)**) in CHalfLifeTeamplay::Think + fold gmsgGameMode
+into the +0.75s ResendTeamRoster so names snap in with colors. **Diagnosed by LIVE-READING the original client's
+memory** (`/proc/<pid>/mem`, client.dll base 0xc070000; live addr = base+RVA) — see the technique below.
+**R1 item-9 convergence (`03ec435`, audit INVENTED methods 9→4):** retired 5 of 6 invented CTSGameRules quintet
+stand-ins (GetTeamID, TeamWithFewestPlayers, IsTeamMode, IsTeamplay, RecountTeams+m_szTeamList) —
+behaviour-preserving, live-verified. IsTeamMode/IsTeamplay → the global `g_teamplay != 0` at all 19 sites;
+SetTeamList reconstructed per §4.5 (direct slot tokenize + The-ONE + "created team %s" ALERT). **KEPT (documented):
+`CTSGameRules::GetIndexedTeamName`** — a thin name-by-index slot accessor at ~8 sites; removing = 8 duplicated
+bounds-checks for an INTERNAL helper (not the external-interface target). Other 3 audit-invented
+(TSEnterSpectate, LoadActiveFromItem, SyncActiveToItem) are unrelated helpers, out of the quintet's scope.
+**game.cfg / DM-boot (rig-local, NOT in repo):** the rig boots DEATHMATCH because `mp_teamplay` defaults 0
+(not in server.cfg; `+mp_teamplay` on the command line doesn't stick). InstallGameRules `exec game.cfg` runs
+before the DM-vs-teamplay decision, so `~/Containers/hlds/hlds-linux64-test/ts/game.cfg` = `mp_teamplay 1` boots
+straight into teamplay (no rcon changelevel). This was the "why changelevel" confusion — a config artifact, not
+a reconstruction bug.
+**Xash teamplay scoreboard — user-confirmed FINE** (no cl_dll work; the TFC-style vgui_ScorePanel just needed
+the server to feed the data). **Client slow-tint fix (`538142a`) — Xash only** (see below caveat).
+
+### 🚧 THE ONE UNFINISHED THING — slow-mo tint + motion-blur "shadows" on connect/spectate (SERVER-SIDE)
+**Read `reference/dossiers/cont97/slowmo_connect_bug.md` — the full RE + next steps.** Symptom: reconnecting
+into press-fire-to-play spectate shows the teal slow-mo tint + accumulating ghost "shadows" of players + frozen
+muzzle-flashes; **resets on spawn; happens EVEN WITH NO PLAYERS on the server.** ⚠ **The user tests the ORIGINAL
+client (hl.exe), which is faithful — so `538142a` (our cl_dll VidInit reset) does NOT reach them. Their bug is
+SERVER-SIDE.** RE done: original `SlowMotionFlow` @0x86bb0 slows LOS spectators with NO spectator gate (⇒ slowing
+spectators is ORIGINAL — a spectator-skip is WRONG, already reverted); client `CHud::VidInit` @0x100206c0 resets
+the slow CURRENT (DAT_100963e8) but NOT the TARGET (DAT_1009ff04, message-driven). So the "no players" reconnect
+tint = our server not pushing a `gmsgTSSlowAmt`(normal) reset on connect (send is change-detected on
+`m_flClientSlowAmt` @player.cpp:4719). **NEXT:** RE whether UCD runs for spectators + whether the ORIGINAL server
+force-sends the slow reset on connect/spawn/StartObserver (@0x89634) — find + MIMIC that mechanism, don't invent.
+
+### 📋 THEN (queued, apply-ready)
+1. **Bloody blades** (`reference/dossiers/cont96/client_bloody_and_shards.md` §A) — server m_ForceSendAnimations
+   around CTSGun WeaponIdle/Deploy; client: drop the invented view.cpp:734 body overwrite.
+2. **Glass shard exact integrator** (same dossier §B) — replace the v7 approximation in cl_dll/ts_debris.cpp.
+3. **Standing:** parity sweep (`scripts/coverage/audit.py` + `coverage.py`), the cont.94 deferred seams, the
+   §4.6 `// VERIFY`s left this session (the powerup Think gate — original gives dynamic powerups in mode<2 i.e.
+   teamplay too; UCD m_fGameHUDInitialized flag ORDER; the Wires m_iGameMode==3 gate). PUSH after user sign-off.
+
+### 🤖 SUBAGENT ORCHESTRATION PATTERN (used every session — KEEP IT)
+- **Read-only RE-dossier agents IN PARALLEL** (general-purpose subagent): they ONLY read + write a dossier
+  (`reference/dossiers/cont9X/<x>.md`) and return a DENSE apply-without-re-RE fix spec — no code edits, no
+  builds, no commits. Give each a **DISJOINT Ghidra project** (server `re`/`mpdll` vs client `clientdll`) so
+  headless `analyzeHeadless`/`re.sh`/`dc.sh` never fight a `.lock`.
+- **Apply sequentially in the MAIN loop** — verify each agent's KEY claim yourself (re-decompile the load-bearing
+  function). Keep builds/commits/user-reports/**live-traces** in the main loop.
+- **Agent brief template:** repo+branch; the LAW verbatim; the symptom + code sites + addresses you already have;
+  the tooling recipe; read-only constraint + dossier path; "mirror don't rewrite, MOVE existing logic,
+  name-match, `// VERIFY` where unpinned, wire all assets, DENSE fix spec for the orchestrator." Launch
+  independent agents in ONE message.
+
+### 🛠️ TOOLING (full detail CLAUDE.md §4/§4a/§4b)
+- `scripts/ghidra/re.sh <Class|0xghidraaddr>` (typed SERVER decompile; ghidra addr = nm+0x10000), `re.sh refs/vrefs`.
+- `scripts/ghidra/dc.sh {client|mp|server} 0x<rva>` (client/mp = PE RVA straight from a trace).
+- **Ghidra MCP** (`mcp__ghidra-mcp__*`, 184 tools) on the live GUI `re`/`clientdll`/`mpdll` projects — interactive
+  `decompile_function` / `get_xrefs_to` / callgraph. ⚠ **`.lock`: while the MCP or GUI holds a project, `re.sh`/
+  `dc.sh` headless on THAT project FAIL — this bit me this session (had the MCP on `re` → `re.sh 0x96bb0` returned
+  nothing until freed). Disconnect the MCP / close the GUI program before headless runs (or just use the MCP).
+  objdump MISSES computed stores (`*(obj+0x5c)=x` never shows as a write to the abs addr) — use the MCP xref /
+  follow the message dispatch (that's how the cont.97 `m_Teamplay`/gmsgGameMode fix was found).**
+- **★ LIVE-READ the original client's MEMORY** (the technique that cracked the teamplay HUD this session):
+  `pid=$(pgrep -f 'Half-Life/hl.exe')` (the big-RSS Wine proc); client.dll base = `python3 scripts/live.py base
+  client.dll` (≈0xc070000); **live addr = base + RVA**. Then `open('/proc/<pid>/mem','rb')` + seek. Inspected:
+  the m_Teamplay flag @base+0xcf97c, the scoreboard obj = `*(base+0xd5cb0)` (TeamNames count @obj+0x8b0, name
+  labels @obj+0x8fc stride 0x40), g_PlayerInfoList @base+0x18fbec (stride 0x14), the teamname/teamnum extrainfo
+  @base+0x1901f4 (stride 0x20; teamnum@+8, teamname@+10). Get client.dll RVAs from the HOOK_MESSAGE table
+  (`push handler; push "MsgName"; call`) then `dc.sh client`. **Decisive when static RE stalls.**
+- `scripts/live.py` — drive the running ORIGINAL under Proton (`pid`/`base`/`resolve`/`bt`/`read`/`break`/`watch`).
+  xash live-gdb needs `sysctl kernel.yama.ptrace_scope=0`. Wine batch-gdb needs
+  `handle SIGUSR1/SIGUSR2/SIG33/SIG34 nostop noprint pass`.
+- `scripts/binmap.py <name>` → mp.dll/client.dll RVA (env `BINMAP_SO/MP/…` for the client pair) — to
+  `live.py break` a non-exported fn.
+- `scripts/coverage/{audit.py,coverage.py,reconstruction.py,precache.py,extract_vtables.py}` — the parity/gap
+  harness. `audit.py` = INTERNAL structure (missing/invented per file/class/method/member/global). `coverage.py`
+  = EXTERNAL swap contract (classes/exports/commands/cvars/messages/events/keyvalues). Run BOTH after any change.
+- Build `scripts/build.sh amd64 {hl|client|all}`; `scripts/check-source-lists.py` after any file add/remove.
+  Deploy rig `NOMETAMOD= scripts/setup-rehlds-mod.sh`; xash root `scripts/setup-xash-mod.sh`. rcon
+  `python3 reference/dossiers/cont91/decompiles/rcon.py "<cmd>"` (pw `lol`). ⚠ game-dll cvars (mp_teamplay!) do
+  NOT stick from the command line — set via rcon+changelevel OR ts/game.cfg (rig-local). Server launch: real
+  maps are `ts_*` + `ctb_deadheat` (NOT tm_avana — that doesn't exist; fixed the stale refs `b480098`).
+- **RIG RESTART GOTCHA (cont.97):** background `hlds_run` launches via a plain `&` kept dying/failing to persist;
+  use the Bash tool's `run_in_background: true` instead. Kill with `pkill -9 -x hlds_linux; pkill -9 -f hlds_run`
+  (kill the wrapper too or it respawns). Port 27015 = hex `0x6987` (NOT 690F). The user connects via their LAN IP
+  `10.23.23.254:27015`, not loopback — so `/proc/<pid>/net/udp` won't show a `127.0.0.1:27015` peer.
+
+### ⚠️ SERENA LEDGER GOTCHA (critical, unchanged)
+Read the ledger with the **Read tool on `.serena/memories/ledger.md`** (newest on top). Do **NOT**
+`read_memory("ledger")` via the Serena MCP — it returns ONE giant single-line JSON (`{"result":"…"}`, ~500 KB+)
+that OVERFLOWS the read limit. **First job on pickup: append YOUR ledger entry (cont.98).**
+
+### 💬 MESSAGE TO HAND THE USER (paste to the next agent so it can consult me)
+> You're picking up mod-ts as the orchestrator on branch `restructure-source-parity`. Read `HANDOFF.md`
+> top-down — the **cont.97 FINAL START-HERE block** is your brief (cont.96/95/94/93 below are the same LAW/method,
+> more background). Read the ledger with the **Read tool on `.serena/memories/ledger.md`** — do NOT
+> `read_memory("ledger")` via the Serena MCP, it returns one ~500 KB single-line JSON that overflows the read
+> limit. **First job:** append a cont.98 ledger entry. **Your immediate mandate: FINISH the slow-mo-on-connect
+> bug** (`reference/dossiers/cont97/slowmo_connect_bug.md` — server-side; the user tests the ORIGINAL client so
+> our cl_dll fix `538142a` doesn't reach them; RE whether the original server force-sends the slow reset on
+> connect/spawn/StartObserver and MIMIC it — don't invent). Then the queued client fixes (bloody blades + glass
+> integrator, `client_bloody_and_shards.md`). The cont.89-97 orchestrator (me) is **available for consult** —
+> before re-RE'ing anything covered (the R1 split, the team-wire/gmsgGameMode fixes, the round-gate/InitObjectives
+> fix, the connect-window MSG_ONE drop pattern, the live-client-memory-read technique), have the user relay the
+> question. My RE is in the commit messages, `reference/dossiers/cont91-97/`, the preserved gdb kits +
+> `cont97/decompiles/scoreboard_FUN_1005db70.c`, and the persistent typed Ghidra `re`/`clientdll`/`mpdll`
+> projects (Ghidra MCP for xrefs — mind the `.lock`). **The LAW:** mirror the original 1:1
+> (files→classes→methods→members→globals→free-fns), NAME-MATCHED — a missing/invented/renamed symbol signals a
+> logic mismatch to re-RE (a wrong variable NAME often means the surrounding logic diverged — a mismatch flags
+> its neighbourhood); the logic is often already implemented and just needs MOVING (don't rewrite; mimic THEIRS);
+> wire ALL assets referenced in decompiles; drop-in must work BOTH directions; flag-don't-ignore but finish the
+> current issue first; sweep TODO/VERIFY. The user playtests the ORIGINAL client vs our rig server (rcon `lol`);
+> game-dll cvars need rcon or ts/game.cfg (+command line does NOT set mp_teamplay); the `game/ts/` deletions are
+> INTENTIONAL. Everything is LOCAL — push only on the user's word.
+
+---
+
 ## ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ START HERE (cont.96 FINAL, 2026-07-08) — R1 phases 1-3 LANDED + checkpoint 3 PASSED; FINISH R1 PHASE 4 (user: "finish R1"), then the queued client fixes
 
 **You ARE the orchestrator — continue as if you never stopped, and you will BE the orchestrator next
