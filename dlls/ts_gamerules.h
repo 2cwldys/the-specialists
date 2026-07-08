@@ -107,7 +107,6 @@ public:
 	char  m_teamModels[TS_MAX_TEAMS][TS_TEAMNAME_LEN] = {};
 	int   m_teamCash[TS_MAX_TEAMS] = {}; // per-team cash pool (GetTeamCash; the cash economy is dead in the shipped game)
 	int   m_numTeams = 0;
-	int   m_iTeamMode = -1;              // tri-state cache: -1 unknown, 0 DM, 1 team
 
 	// Per-frame: drives the dynamic deathmatch powerup spawner (PutPowerUp) on top of the
 	// inherited CHalfLifeMultiplay round/spawn logic.

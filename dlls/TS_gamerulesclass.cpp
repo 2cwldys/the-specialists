@@ -809,14 +809,11 @@ void CTSGameRules::SetGlobalSlowMotion(float scale, float duration)
 // objective entities spawn, so we can't decide at construction time.
 bool CTSGameRules::IsTeamMode()
 {
-	if (m_iTeamMode == -1)
-	{
-		bool bTeam = UTIL_FindEntityByClassname(nullptr, "ts_objective_manager") != nullptr;
-		m_iTeamMode = bTeam ? 1 : 0;
-		if (bTeam)
-			InitTeams();
-	}
-	return m_iTeamMode == 1;
+	// R1 phase 3 FIX (ground-truth dossier §4.6): the live team gate is the GAME MODE
+	// (m_iGameMode >= 1 — seeded from DecideGamePlay's g_teamplay; 2/3 are dead objective-mode
+	// leftovers the original never reaches). The old lazy objective-manager proxy CACHED 0 at
+	// ctor time (no entities spawned yet) and disabled the whole team layer on team servers.
+	return m_iGameMode >= 1;
 }
 
 bool CTSGameRules::IsTeamplay()

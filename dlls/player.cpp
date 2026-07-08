@@ -1470,10 +1470,13 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	// Clear out the status bar
 	m_fInitHUD = true;
 
-	pev->team = 0;
+	pev->team = 0; // @0x898d3 — the original zeroes entvars team here too
+	// @0x89922-0x8997a (disasm-verified this session): the original sends the player's REAL
+	// team name (TeamID()) — NOT "" — so a dead/spectating player KEEPS their scoreboard team.
+	// The stock hlu "" emptied it -> dead players flapped into the "Spectate" group (user bug).
 	MESSAGE_BEGIN(MSG_ALL, gmsgTeamInfo);
 	WRITE_BYTE(ENTINDEX(edict()));
-	WRITE_STRING("");
+	WRITE_STRING(TeamID());
 	MESSAGE_END();
 
 	// Remove all the player's stuff
