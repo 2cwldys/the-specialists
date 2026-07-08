@@ -144,6 +144,15 @@ FUN_10050b60) works in PER-FRAME units + time-scaled gravity (slow-mo = moon-gra
 velocities x10, FTENT_GRAVITY full-g, bounceFactor 0.2. VERIFY: exact-match RE of the original
 integrator remains queued.
 
+**`86f6fe8` "Press Fire To Play" dead after changelevel — FIXED, user-confirmed.** Live gdb on the
+running xash client proved the CLIENT innocent (in_attack.state=4 clicks registered; g_iUser1=3
+spectating; respawn WAS being sent). The SERVER refused: m_flTSRespawnTime stores an ABSOLUTE map
+time; the clock resets at changelevel, so the wait equaled the previous map's whole uptime
+(TSEnterSpectate deliberately keeps a future deadline). Fix: ClientPutInServer clears it (fresh map
+clock). Also `269ca64`: the run-through window is the SHORT whiffT (0.1-0.35s) — the dossier's
+scaled-10-30 reading made a whiffed melee a ~30s landmine (user-caught: auto-hit on approach).
+NOTE for xash live-gdb: ptrace_scope needed 0 (Proton sets a ptracer allowance, xash doesn't).
+
 *(Entry updated as work lands — see below for cont.95's blow-by-blow.)*
 
 ## 2026-07-07 (cont. 95) — INTEROP playtest (original client vs our ReHLDS): 3 latent bugs + the FindEntityByString crash
