@@ -967,6 +967,18 @@ void CTSGun::PrimaryAttack()
 		GrenadeFire();
 		return;
 	}
+	// @0x71ac2 fire-type 11 (the CTF BRIEFCASE — knife models, Write_flag): primary is a KNIFE
+	// SLASH, gated on a FRESH attack press (orig player+0x814 & 1 = the press-edge bitfield),
+	// altMode=0 (slash, never throw). cont.96: without this branch the flag fell through to the
+	// standard-gun path — one phantom bullet then endless dry-click ("knife" pickup corruption).
+	if (wi->iFireType == TSFT_FLAG)
+	{
+		if ((m_pPlayer->m_afButtonPressed & IN_ATTACK) == 0)
+			return;
+		m_items[m_weaponType].altMode = 0;
+		KnifeFire();
+		return;
+	}
 
 	// Bullet/akimbo/pellet weapons: the current FIRE-MODE gates the trigger (the fire
 	// *function* is still chosen by fire-type inside Fire()). m_pActiveItem+2 in the .so.
