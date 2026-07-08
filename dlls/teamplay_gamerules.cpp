@@ -133,6 +133,17 @@ void CHalfLifeTeamplay::Think()
 	{
 		s_flNextTeamRebroadcast = gpGlobals->time + 3.0f;
 
+		// THE load-bearing one: gmsgGameMode(1) sets the client's m_Teamplay flag (client.dll
+		// MsgFunc_GameMode stores the byte at the flag @0x100cf97c). That flag gates the ENTIRE
+		// team HUD + team-mode scoreboard (headers, team name over health, green teammate dots) —
+		// with it 0 the scoreboard renders deathmatch-style even with full team data present. It's
+		// sent once at InitHUD (MSG_ONE, eaten by the connect-window drop) and never re-sent, so
+		// without this rebroadcast the joiner is stuck in DM-scoreboard mode. (RE-confirmed:
+		// client.dll FUN_10021a10 -> *(0x100cf920+0x5c)=byte; FUN_1005d5f0 branches on it.)
+		MESSAGE_BEGIN(MSG_ALL, gmsgGameMode);
+		WRITE_BYTE(1);
+		MESSAGE_END();
+
 		MESSAGE_BEGIN(MSG_ALL, gmsgTeamNames);
 		WRITE_BYTE(num_teams);
 		for (int i = 0; i < num_teams; i++)
