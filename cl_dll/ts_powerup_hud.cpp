@@ -45,6 +45,14 @@ bool CHudTSPowerUp::Init()
 
 bool CHudTSPowerUp::VidInit()
 {
+	// Reset the slow-motion state on connect / level-change — the original CHud::VidInit (@0x100206c0)
+	// resets the slow CURRENT (DAT_100963e8) to 1.0 there. Our smoothed current g_flClientSlow is only
+	// eased in Draw(), which does NOT run while spectating (press-fire-to-play), so without this a
+	// stale <1 value from the previous session persists → the view.cpp slow-mo tint stays up on EVERY
+	// reconnect (even with no players on), clearing only once you spawn and the HUD draws again.
+	extern float g_flClientSlow;
+	g_flClientSlow = 1.0f; // current (matches the original's VidInit reset)
+	m_flSlowAmt = 100.0f;  // target  (ours isn't otherwise reset on connect — belt-and-suspenders)
 	return true;
 }
 
