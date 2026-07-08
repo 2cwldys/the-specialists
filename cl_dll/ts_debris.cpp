@@ -98,6 +98,12 @@ static void SpawnGlassShatter(const Vector& origin, const Vector& size, const Ve
 			// FTENT_GRAVITY (full g) buried the spread; SLOWGRAVITY (half g) lets the scatter
 			// velocity carry while the shards still land. // VERIFY the exact curve vs the
 			// original integrator (FUN_10050b60 side) + slow-mo scaling — future RE.
+			// cont.96 v6: the original integrates its shard velocities PER FRAME (its own particle
+			// list, not engine tempents) — the RE'd magnitudes (±9 base, velMag/(dist+1)*10 bias,
+			// dir*velMag+15 cluster) are units/frame. Engine tempents integrate per SECOND, so
+			// scale by a nominal frame rate. // VERIFY the original's tick (30 assumed; slow-mo
+			// couples to it — the moon-grav observation).
+			vel = vel * 30.0f;
 			TEMPENTITY* t = gEngfuncs.pEfxAPI->R_TempSprite(pos, vel, scale, spriteModel,
 				kRenderTransAdd, kRenderFxNone, 1.0f, // glassfrag.spr is SPR_ADDITIVE
 				gEngfuncs.pfnRandomFloat(2.0f, 5.0f),
