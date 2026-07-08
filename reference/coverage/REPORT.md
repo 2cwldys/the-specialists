@@ -22,11 +22,7 @@ _Original = the TS FGD's mapper-facing entity set; ours = LINK_ENTITY_TO_CLASS c
 
 _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI decoration; cross-check by base name._
 
-- matched: **41**  |  missing (orig→not ours): **1**  |  extra (ours→not orig): **26**
-
-**MISSING (in original, not in ours — implement / RE):**
-
-  `HUD_DirectorEvent`
+- matched: **42**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **26**
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
@@ -36,21 +32,17 @@ _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI
 
 _Commands the server accepts from a client (exact strcmp dispatch). EXTRA = the prime 'invented/HL-leftover' signal. NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths (strstr/sscanf), not captured here — so `weapon_<N>` is not flagged._
 
-- matched: **20**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **15**
+- matched: **20**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **13**
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `+alt1`, `+break`, `-alt1`, `-break`, `closemenus`, `follownext`, `give`, `menuselect`, `special`, `specmode`, `spectate`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `vote`
+  `+alt1`, `+break`, `-alt1`, `-break`, `closemenus`, `follownext`, `give`, `menuselect`, `spectate`, `tsbuy`, `tsbuyammo`, `tsbuyarmament`, `vote`
 
 ### Client console commands (pfnAddCommand)
 
 _Commands the client registers. Many are stock HL (shared); focus on TS-specific gaps._
 
-- matched: **58**  |  missing (orig→not ours): **1**  |  extra (ours→not orig): **8**
-
-**MISSING (in original, not in ours — implement / RE):**
-
-  `specmode`
+- matched: **59**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **8**
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
@@ -60,15 +52,11 @@ _Commands the client registers. Many are stock HL (shared); focus on TS-specific
 
 _Original = names hooked in client.dll (pfnHookUserMsg); ours = HOOK_MESSAGE in cl_dll. These are the client↔server message NAMES (the wire contract). MISSING = a message the original client reads that ours doesn't; EXTRA = ours-only (invented or inherited-HL)._
 
-- matched: **69**  |  missing (orig→not ours): **7**  |  extra (ours→not orig): **4**
-
-**MISSING (in original, not in ours — implement / RE):**
-
-  `NextStunt`, `Objective`, `ShowObj`, `TSFlag`, `TSHVoice`, `TSMBlur`, `TSPSys`
+- matched: **76**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **1**
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `ResetFade`, `SpecFade`, `ViewMode`, `x`
+  `x`
 
 ### Entity keyvalue coverage (FGD keys vs our KeyValue handlers)
 
@@ -98,15 +86,7 @@ _Every command the original binds should be answered by our client/server (or be
 
 _Source = pfnRegisterVariable sites in client.dll (authoritative — NOT config.cfg). MISSING = a client cvar the original registers that we don't. EXTRA = ours-only (invented, or a SERVER cvar — server-side registrations aren't in this client list yet, TODO)._
 
-- matched: **96**  |  missing (orig→not ours): **11**  |  extra (ours→not orig): **21**
-
-**MISSING (in original, not in ours — implement / RE):**
-
-  `cl_drawnames`, `cl_thirdperson`, `gl_fog`, `gl_fog_blue`, `gl_fog_end`, `gl_fog_green`, `gl_fog_red`, `gl_fog_start`, `m_accel`, `m_accelexp`, `m_accelmax`
-
-**EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
-
-  `cl_autowepswitch`, `cl_bobtilt`, `cl_chasedist`, `cl_pitchdown`, `cl_pitchup`, `cl_pmanstats`, `cl_rollangle`, `cl_rollspeed`, `hud_draw`, `hud_saytext`, `joysupported`, `m_customaccel`, `m_customaccel_exponent`, `m_customaccel_max`, `m_customaccel_scale`, `m_mousethread_sleep`, `spec_autodirector`, `spec_drawcone`, `spec_drawnames`, `spec_drawstatus`, `spec_pip`
+- matched: **107**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **0**
 
 ### Server cvars (original cvar_t scan vs ours)
 

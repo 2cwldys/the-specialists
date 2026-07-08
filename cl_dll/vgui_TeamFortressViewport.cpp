@@ -1189,7 +1189,7 @@ void TeamFortressViewport::UpdateSpectatorPanel()
 	if (!m_pSpectatorPanel)
 		return;
 
-	if (0 != g_iUser1 && 0 != gHUD.m_pCvarDraw->value && !gHUD.m_iIntermission) // don't draw in dev_overview mode
+	if (0 != g_iUser1 && 0 == gHUD.m_pCvarNoHud->value && !gHUD.m_iIntermission) // don't draw in dev_overview mode (nohud == 0 = HUD on)
 	{
 		char bottomText[128];
 		char helpString2[128];

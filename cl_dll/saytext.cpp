@@ -55,7 +55,11 @@ bool CHudSayText::Init()
 
 	InitHUDData();
 
-	m_HUD_saytext = gEngfuncs.pfnRegisterVariable("hud_saytext", "1", 0);
+	// TS parity: the original client has no `hud_saytext` cvar (only hud_saytext_time).
+	// Keep an UNREGISTERED instance so the SDK spectator chat-mode code (hud_spectator.cpp)
+	// that reads it keeps working, without the console/config surface.
+	static cvar_t s_hud_saytext = {"hud_saytext", "1", 0, 1.0f, nullptr};
+	m_HUD_saytext = &s_hud_saytext;
 	m_HUD_saytext_time = gEngfuncs.pfnRegisterVariable("hud_saytext_time", "5", 0);
 	m_con_color = gEngfuncs.pfnGetCvarPointer("con_color");
 
@@ -99,7 +103,7 @@ bool CHudSayText::Draw(float flTime)
 {
 	int y = Y_START;
 
-	if ((gViewPort && !gViewPort->AllowedToPrintText()) || 0 == m_HUD_saytext->value)
+	if (gViewPort && !gViewPort->AllowedToPrintText())
 		return true;
 
 	// make sure the scrolltime is within reasonable bounds,  to guard against the clock being reset

@@ -25,8 +25,6 @@
 
 static bool g_iRenderMode = true;
 
-static cvar_t* cl_pmanstats = nullptr;
-
 static std::vector<ForceMember> g_pForceList;
 
 EXPOSE_INTERFACE(IParticleMan_Active, IParticleMan, PARTICLEMAN_INTERFACE);
@@ -64,7 +62,7 @@ void IParticleMan_Active::SetUp(cl_enginefunc_t* pEnginefuncs)
 	//Note: disabled because we're in the client dll.
 	//std::memcpy(&gEngfuncs, pEnginefuncs, sizeof(gEngfuncs));
 
-	cl_pmanstats = gEngfuncs.pfnRegisterVariable("cl_pmanstats", "0", 0);
+	// TS parity: no cl_pmanstats in the original client (debug-only SDK addition; removed).
 }
 
 CBaseParticle* IParticleMan_Active::CreateParticle(Vector org, Vector normal, model_s* sprite, float size, float brightness, const char* classname)
@@ -128,11 +126,4 @@ void IParticleMan_Active::Update()
 	g_cFrustum.CalculateFrustum();
 
 	memory->ProcessAll();
-
-	if (nullptr != cl_pmanstats && cl_pmanstats->value == 1)
-	{
-		//TODO: engine doesn't support printing size_t, use local printf
-		gEngfuncs.Con_NPrintf(15, "Number of Particles: %d", static_cast<int>(CMiniMem::Instance()->GetTotalParticles()));
-		gEngfuncs.Con_NPrintf(16, "Particles Drawn: %d", static_cast<int>(CMiniMem::Instance()->GetDrawnParticles()));
-	}
 }

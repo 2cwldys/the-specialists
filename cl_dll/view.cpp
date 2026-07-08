@@ -60,9 +60,6 @@ extern cvar_t* cl_forwardspeed;
 extern cvar_t* chase_active;
 extern cvar_t *scr_ofsx, *scr_ofsy, *scr_ofsz;
 extern cvar_t* cl_vsmoothing;
-extern cvar_t* cl_rollangle;
-extern cvar_t* cl_rollspeed;
-extern cvar_t* cl_bobtilt;
 
 // TS over-the-shoulder 3rd-person camera preset cvars (defined in in_camera.cpp)
 extern cvar_t* cl_camtype;
@@ -99,7 +96,11 @@ cvar_t* cl_bobcycle;
 cvar_t* cl_bob;
 cvar_t* cl_bobup;
 cvar_t* cl_waterdist;
-cvar_t* cl_chasedist;
+
+// TS parity: the original client registers no cl_chasedist. 112 = the SDK default distance.
+// VERIFY: original chase distance un-RE'd (its spectator refdef hardcodes it; RE with the
+// spectator subsystem — cont94 client_cvar_parity.md B#12).
+constexpr float V_CHASE_DISTANCE = 112.0f;
 
 // These cvars are not registered (so users can't cheat), so set the ->value field directly
 // Register these cvars in V_Init() if needed for easy tweaking
@@ -418,7 +419,11 @@ void V_CalcViewRoll(struct ref_params_s* pparams)
 	if (!viewentity)
 		return;
 
-	side = V_CalcRoll(viewentity->angles, pparams->simvel, cl_rollangle->value, cl_rollspeed->value);
+	// TS parity (HL25 drift): the HL25 SDK's cl_rollangle "2.0" ADDED a view roll the original
+	// doesn't have — the original client registers neither cl_rollangle nor cl_rollspeed. Revert
+	// to the SDK-2.3 form: roll comes from movevars (server rollangle default 0 → no roll).
+	// VERIFY (low risk): confirm FUN_10067890 sources roll from movevars when next in Ghidra.
+	side = V_CalcRoll(viewentity->angles, pparams->simvel, pparams->movevars->rollangle, pparams->movevars->rollspeed);
 
 	pparams->viewangles[ROLL] += side;
 
@@ -951,15 +956,6 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 				up = 6.0f;             // cap
 			view->angles[PITCH] += up; // aim the muzzle UP (viewmodel pitch convention)
 		}
-	}
-
-	if (0 != cl_bobtilt->value)
-	{
-		// throw in a little tilt.
-		view->angles[YAW] -= bob * 0.5;
-		view->angles[ROLL] -= bob * 1;
-		view->angles[PITCH] -= bob * 0.3;
-		VectorCopy(view->angles, view->curstate.angles);
 	}
 
 	// pushing the view origin down off of the same X/Z plane as the ent's origin will give the
@@ -1588,7 +1584,7 @@ void V_GetChasePos(int target, float* cl_angles, float* origin, float* angles)
 
 		VectorAdd(origin, VEC_VIEW, origin); // some offset
 
-		V_GetChaseOrigin(angles, origin, cl_chasedist->value, origin);
+		V_GetChaseOrigin(angles, origin, V_CHASE_DISTANCE, origin);
 	}
 
 	v_resetCamera = false;
@@ -2053,7 +2049,6 @@ void V_Init()
 	cl_bob = gEngfuncs.pfnRegisterVariable("cl_bob", "0.01", FCVAR_ARCHIVE); // best default for my experimental gun wag (sjb)
 	cl_bobup = gEngfuncs.pfnRegisterVariable("cl_bobup", "0.5", 0);
 	cl_waterdist = gEngfuncs.pfnRegisterVariable("cl_waterdist", "4", 0);
-	cl_chasedist = gEngfuncs.pfnRegisterVariable("cl_chasedist", "112", 0);
 }
 
 

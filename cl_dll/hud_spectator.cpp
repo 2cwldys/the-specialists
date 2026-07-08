@@ -206,17 +206,21 @@ bool CHudSpectator::Init()
 	gEngfuncs.pfnRegisterVariable("cl_drawnames", "1", 0);
 	gEngfuncs.pfnAddCommand("specmode", SpectatorSpecMode);
 
-	m_drawnames = gEngfuncs.pfnRegisterVariable("spec_drawnames", "1", 0);
-	m_drawcone = gEngfuncs.pfnRegisterVariable("spec_drawcone", "1", 0);
-	m_drawstatus = gEngfuncs.pfnRegisterVariable("spec_drawstatus", "1", 0);
-	m_autoDirector = gEngfuncs.pfnRegisterVariable("spec_autodirector", "1", 0);
-	m_pip = gEngfuncs.pfnRegisterVariable("spec_pip", "0", 0); // TS: inset pip OFF by default (no top-left overlay)
-
-	if (!m_drawnames || !m_drawcone || !m_drawstatus || !m_autoDirector || !m_pip)
-	{
-		gEngfuncs.Con_Printf("ERROR! Couldn't register all spectator variables.\n");
-		return false;
-	}
+	// TS parity: the original spectator registers ONLY cl_drawnames (above) — none of the
+	// SDK-2.3 spec_* cvars exist in client.dll. Keep UNREGISTERED file-static instances so
+	// the stock spectator code (and ev_common.cpp's IS_FIRSTPERSON_SPEC) keeps working with
+	// today's defaults, without the console/config surface. NOT aliased to cl_drawnames — the
+	// original's cl_drawnames consumer (in-eye name drawing) is a separate RE item.
+	static cvar_t s_spec_drawnames = {"spec_drawnames", "1", 0, 1.0f, nullptr};
+	static cvar_t s_spec_drawcone = {"spec_drawcone", "1", 0, 1.0f, nullptr};
+	static cvar_t s_spec_drawstatus = {"spec_drawstatus", "1", 0, 1.0f, nullptr};
+	static cvar_t s_spec_autodirector = {"spec_autodirector", "1", 0, 1.0f, nullptr};
+	static cvar_t s_spec_pip = {"spec_pip", "0", 0, 0.0f, nullptr}; // TS: inset pip forced OFF (no top-left overlay)
+	m_drawnames = &s_spec_drawnames;
+	m_drawcone = &s_spec_drawcone;
+	m_drawstatus = &s_spec_drawstatus;
+	m_autoDirector = &s_spec_autodirector;
+	m_pip = &s_spec_pip;
 
 	return true;
 }

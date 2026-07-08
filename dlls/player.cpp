@@ -5143,16 +5143,12 @@ void CBasePlayer::EquipWeapon()
 
 void CBasePlayer::SetPrefsFromUserinfo(char* infobuffer)
 {
-	const char* value = g_engfuncs.pfnInfoKeyValue(infobuffer, "cl_autowepswitch");
-
-	if ('\0' != *value)
-	{
-		m_iAutoWepSwitch = atoi(value);
-	}
-	else
-	{
-		m_iAutoWepSwitch = 1;
-	}
+	// TS parity: the original server never reads cl_autowepswitch (no such string in
+	// ts_i386.so) and the original client never registers/sends it — the whole userinfo
+	// preference read is an SDK addition, removed. Auto-switch keeps the stock always-on
+	// behavior (m_iAutoWepSwitch = 1 = the SDK-2.3 weight rule; CTSGameRules' own switch
+	// logic is the original mechanism).
+	m_iAutoWepSwitch = 1;
 }
 
 //=========================================================

@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include "parsemsg.h"
 #include "ts_attachments.h" // TS_Attachments_Init — the per-player laser/flashlight attach state
+#include "ts_hud.h"			// TSHud_RegisterCvars — registers `nohud` (the original's HUD-off cvar)
 #include "ts_particles.h"   // TSParticles_Reset — drop stale per-map sprite handles on VidInit
 #include "ts_motionblur.h"  // TS_MotionBlur_Init — the TSMBlur ghost-trail hook
 #include "vgui_int.h"
@@ -85,9 +86,6 @@ extern client_sprite_t* GetSpriteList(client_sprite_t* pList, const char* psz, i
 
 extern float IN_GetMouseSensitivity();
 cvar_t* cl_lw = NULL;
-cvar_t* cl_rollangle = nullptr;
-cvar_t* cl_rollspeed = nullptr;
-cvar_t* cl_bobtilt = nullptr;
 cvar_t* r_decals = nullptr;
 
 void ShutdownInput();
@@ -310,14 +308,26 @@ void CHud::Init()
 	m_iFOV = 0;
 
 	CVAR_CREATE("zoom_sensitivity_ratio", "1.2", FCVAR_ARCHIVE);
-	CVAR_CREATE("cl_autowepswitch", "1", FCVAR_ARCHIVE | FCVAR_USERINFO);
+	// TS fog cvars — the original registers all six HERE, right after zoom_sensitivity_ratio
+	// (client.dll CHud::Init, sites 0x20372–0x203d4); only gl_fog is ARCHIVE, and every read is
+	// by-name (pfnGetCvarFloat), so the returned pointers are unused. Semantics: gl_fog 0
+	// (default) = fog OFF even on fog maps; 1 = honor the map's ts_fog; 2 = (single-player only)
+	// force user fog from gl_fog_red/green/blue/start/end. Consumer seam: the un-reconstructed
+	// client fog pass (FUN_10056c20, called from the V_CalcRefdef tail) + the ts_fog BSP
+	// entity-lump parse — see reference/dossiers/cont94/client_cvar_parity.md §A1.
+	CVAR_CREATE("gl_fog", "0", FCVAR_ARCHIVE);
+	gEngfuncs.pfnRegisterVariable("gl_fog_start", "0", 0);
+	gEngfuncs.pfnRegisterVariable("gl_fog_end", "2048", 0);
+	gEngfuncs.pfnRegisterVariable("gl_fog_red", ".5", 0);
+	gEngfuncs.pfnRegisterVariable("gl_fog_green", ".5", 0);
+	gEngfuncs.pfnRegisterVariable("gl_fog_blue", ".5", 0);
 	default_fov = CVAR_CREATE("default_fov", "80", FCVAR_ARCHIVE); // TS default FOV is 80 (user-confirmed vs the original)
 	m_pCvarStealMouse = CVAR_CREATE("hud_capturemouse", "1", FCVAR_ARCHIVE);
-	m_pCvarDraw = CVAR_CREATE("hud_draw", "1", FCVAR_ARCHIVE);
+	// TS parity: no `hud_draw` in the original client — its HUD-off switch is the `nohud` cvar
+	// (registered in TSHud_RegisterCvars); the draw gates test nohud == 0.
+	TSHud_RegisterCvars();
+	m_pCvarNoHud = gEngfuncs.pfnGetCvarPointer("nohud");
 	cl_lw = gEngfuncs.pfnGetCvarPointer("cl_lw");
-	cl_rollangle = CVAR_CREATE("cl_rollangle", "2.0", FCVAR_ARCHIVE);
-	cl_rollspeed = CVAR_CREATE("cl_rollspeed", "200", FCVAR_ARCHIVE);
-	cl_bobtilt = CVAR_CREATE("cl_bobtilt", "0", FCVAR_ARCHIVE);
 	r_decals = gEngfuncs.pfnGetCvarPointer("r_decals");
 
 	m_pSpriteList = NULL;

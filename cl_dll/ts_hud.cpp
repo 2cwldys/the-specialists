@@ -43,7 +43,8 @@ void TSHud_RegisterCvars()
 	// The remaining TS-specific client cvars, with the exact defaults recovered from
 	// client.dll (reference/API_SURFACE.md). Registering them stops the "Unknown
 	// command" spam when the player's TS config sets them, and lets the HUD/effects
-	// read them later. (Stock-HL / engine cvars like cl_bob, cl_thirdperson, gl_fog*,
+	// read them later. (gl_fog* are MOD cvars registered in CHud::Init — the original's
+	// slot; cl_thirdperson is registered below. Stock-HL / engine cvars like cl_bob,
 	// hud_centerid, sensitivity are already registered by the engine/base client.)
 	CVAR_CREATE("cl_realhud", "0", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_motionblur", "1", FCVAR_ARCHIVE);
@@ -59,6 +60,10 @@ void TSHud_RegisterCvars()
 	CVAR_CREATE("cl_camtype", "0", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_attackswitch", "0", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_thirdpersonswitch", "0", FCVAR_ARCHIVE);
+	// Preferred camera on (re)spawn/unspectate — 1 forces third person, 0 (default) forces
+	// first person, anything else keeps the current camera; applied on the spectate edges in
+	// ts_spectate.cpp. (Original provenance: input.cpp InitInput @0x2719a, "0" ARCHIVE.)
+	CVAR_CREATE("cl_thirdperson", "0", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_wavedetail", "0", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_fx", "1", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_slowfade", "1", FCVAR_ARCHIVE);

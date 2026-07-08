@@ -54,8 +54,6 @@ extern cvar_t* m_side;
 
 extern cvar_t* lookstrafe;
 extern cvar_t* lookspring;
-extern cvar_t* cl_pitchdown;
-extern cvar_t* cl_pitchup;
 extern cvar_t* cl_yawspeed;
 extern cvar_t* cl_sidespeed;
 extern cvar_t* cl_forwardspeed;
@@ -88,19 +86,13 @@ static bool m_bMouseThread = false;
 cvar_t* m_filter;
 cvar_t* sensitivity;
 
-// Custom mouse acceleration (0 disable, 1 to enable, 2 enable with separate yaw/pitch rescale)
-static cvar_t* m_customaccel;
-//Formula: mousesensitivity = ( rawmousedelta^m_customaccel_exponent ) * m_customaccel_scale + sensitivity
-// If mode is 2, then x and y sensitivity are scaled by m_pitch and m_yaw respectively.
-// Custom mouse acceleration value.
-static cvar_t* m_customaccel_scale;
-//Max mouse move scale factor, 0 for no limit
-static cvar_t* m_customaccel_max;
-//Mouse move is raised to this power before being scaled by scale factor
-static cvar_t* m_customaccel_exponent;
-
-// if threaded mouse is enabled then the time to sleep between polls
-static cvar_t* m_mousethread_sleep;
+// TS mouse acceleration — the original's own model (client.dll FUN_10028320 registers these
+// three in the slot where the stock SDK registers m_customaccel*; it REPLACED that mechanism).
+// Per axis: mx += sign(raw int delta) * min(pow(fabs(mx), m_accelexp) * m_accel, m_accelmax),
+// m_accelmax 0 = no cap, then mx *= sensitivity. Zoomed: only the zoom sensitivity is applied.
+static cvar_t* m_accel;
+static cvar_t* m_accelexp;
+static cvar_t* m_accelmax;
 
 int mouse_buttons;
 int mouse_oldbuttonstate;
@@ -161,7 +153,6 @@ cvar_t* joy_advaxisz;
 cvar_t* joy_advaxisr;
 cvar_t* joy_advaxisu;
 cvar_t* joy_advaxisv;
-cvar_t* joy_supported;
 cvar_t* joy_forwardthreshold;
 cvar_t* joy_sidethreshold;
 cvar_t* joy_pitchthreshold;
@@ -224,10 +215,11 @@ void MousePos_ThreadFunction()
 		{
 			std::unique_lock lock{s_MouseThread.Mutex};
 
-			//TODO: accessing the cvar value is a race condition
+			// TS parity: m_mousethread_sleep removed (an HL25 cvar the original client never
+			// registers) — the optional -mousethread path keeps its default 10 ms poll.
 			if (s_MouseThread.Condition.wait_for(
 					lock,
-					std::chrono::milliseconds{(int)m_mousethread_sleep->value},
+					std::chrono::milliseconds{10},
 					[]()
 					{ return s_MouseThread.QuittingTime; }))
 			{
@@ -482,52 +474,37 @@ void DLLEXPORT IN_MouseEvent(int mstate)
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Allows modulation of mouse scaling/senstivity value and application
-//  of custom algorithms.
-// Input  : *x -
-//			*y -
+// Purpose: Mouse scaling/acceleration — the ORIGINAL TS model (client.dll
+//  IN_MouseMove = FUN_100274d0). Zoomed (gHUD.GetSensitivity() != 0): scale by
+//  the zoom sensitivity ONLY — no accel, no sensitivity cvar. Not zoomed: per
+//  axis ADDITIVE accel — fabs of the FILTERED float feeds pow, the SIGN comes
+//  from the raw int delta, m_accelmax clamps only when non-zero — then the
+//  sensitivity cvar is applied AFTER accel.
+// Input  : ix, iy - the raw (unfiltered) int mouse deltas
+//			*x, *y - the filtered float deltas, scaled in place
 //-----------------------------------------------------------------------------
-void IN_ScaleMouse(float* x, float* y)
+void IN_ScaleMouse(int ix, int iy, float* x, float* y)
 {
-	float mx = *x;
-	float my = *y;
-
-	// This is the default sensitivity
-	float mouse_senstivity = (gHUD.GetSensitivity() != 0) ? gHUD.GetSensitivity() : IN_GetMouseSensitivity();
-
-	// Using special accleration values
-	if (m_customaccel->value != 0)
+	float zoomSens = gHUD.GetSensitivity();
+	if (zoomSens != 0)
 	{
-		float raw_mouse_movement_distance = sqrt(mx * mx + my * my);
-		float acceleration_scale = m_customaccel_scale->value;
-		float accelerated_sensitivity_max = m_customaccel_max->value;
-		float accelerated_sensitivity_exponent = m_customaccel_exponent->value;
-		float accelerated_sensitivity = ((float)pow(raw_mouse_movement_distance, accelerated_sensitivity_exponent) * acceleration_scale + mouse_senstivity);
-
-		if (accelerated_sensitivity_max > 0.0001f &&
-			accelerated_sensitivity > accelerated_sensitivity_max)
-		{
-			accelerated_sensitivity = accelerated_sensitivity_max;
-		}
-
-		*x *= accelerated_sensitivity;
-		*y *= accelerated_sensitivity;
-
-		// Further re-scale by yaw and pitch magnitude if user requests alternate mode 2
-		// This means that they will need to up their value for m_customaccel_scale greatly (>40x) since m_pitch/yaw default
-		//  to 0.022
-		if (m_customaccel->value == 2)
-		{
-			*x *= m_yaw->value;
-			*y *= m_pitch->value;
-		}
+		*x *= zoomSens;
+		*y *= zoomSens;
+		return;
 	}
-	else
-	{
-		// Just apply the default
-		*x *= mouse_senstivity;
-		*y *= mouse_senstivity;
-	}
+
+	float ax = powf(fabsf(*x), m_accelexp->value) * m_accel->value;
+	if (m_accelmax->value != 0 && m_accelmax->value <= ax)
+		ax = m_accelmax->value;
+	*x += (ix > 0 ? 1.0f : -1.0f) * ax;
+
+	float ay = powf(fabsf(*y), m_accelexp->value) * m_accel->value;
+	if (m_accelmax->value != 0 && m_accelmax->value <= ay)
+		ay = m_accelmax->value;
+	*y += (iy > 0 ? 1.0f : -1.0f) * ay;
+
+	*x *= sensitivity->value;
+	*y *= sensitivity->value;
 }
 
 /*
@@ -609,8 +586,8 @@ void IN_MouseMove(float frametime, usercmd_t* cmd)
 		old_mouse_x = pos.x;
 		old_mouse_y = pos.y;
 
-		// Apply custom mouse scaling/acceleration
-		IN_ScaleMouse(&mouse_x, &mouse_y);
+		// Apply mouse scaling/acceleration (the raw int deltas carry the sign for the accel term)
+		IN_ScaleMouse(pos.x, pos.y, &mouse_x, &mouse_y);
 
 		// add mouse X/Y movement to cmd
 		if ((in_strafe.state & 1) != 0 || (0 != lookstrafe->value && (in_mlook.state & 1) != 0))
@@ -621,10 +598,12 @@ void IN_MouseMove(float frametime, usercmd_t* cmd)
 		if ((in_mlook.state & 1) != 0 && (in_strafe.state & 1) == 0)
 		{
 			viewangles[PITCH] += m_pitch->value * mouse_y;
-			if (viewangles[PITCH] > cl_pitchdown->value)
-				viewangles[PITCH] = cl_pitchdown->value;
-			if (viewangles[PITCH] < -cl_pitchup->value)
-				viewangles[PITCH] = -cl_pitchup->value;
+			// TS parity: HARDCODED +/-89 — the original registers no cl_pitchup/cl_pitchdown
+			// (client.dll FUN_100274d0 clamps to the literals).
+			if (viewangles[PITCH] > 89.0f)
+				viewangles[PITCH] = 89.0f;
+			if (viewangles[PITCH] < -89.0f)
+				viewangles[PITCH] = -89.0f;
 		}
 		else
 		{
@@ -1130,11 +1109,11 @@ void IN_JoyMove(float frametime, usercmd_t* cmd)
 		}
 	}
 
-	// bounds check pitch
-	if (viewangles[PITCH] > cl_pitchdown->value)
-		viewangles[PITCH] = cl_pitchdown->value;
-	if (viewangles[PITCH] < -cl_pitchup->value)
-		viewangles[PITCH] = -cl_pitchup->value;
+	// bounds check pitch — hardcoded +/-89 (no cl_pitchup/cl_pitchdown in the original)
+	if (viewangles[PITCH] > 89.0f)
+		viewangles[PITCH] = 89.0f;
+	if (viewangles[PITCH] < -89.0f)
+		viewangles[PITCH] = -89.0f;
 
 	gEngfuncs.SetViewAngles((float*)viewangles);
 }
@@ -1164,6 +1143,12 @@ void IN_Init()
 	m_filter = gEngfuncs.pfnRegisterVariable("m_filter", "0", FCVAR_ARCHIVE);
 	sensitivity = gEngfuncs.pfnRegisterVariable("sensitivity", "3", FCVAR_ARCHIVE | FCVAR_FILTERSTUFFTEXT); // user mouse sensitivity setting.
 
+	// TS mouse accel — registered here in the original (client.dll FUN_10028320, right after
+	// m_filter/sensitivity, before the joystick block; replaces the stock m_customaccel*).
+	m_accel = gEngfuncs.pfnRegisterVariable("m_accel", "0", FCVAR_ARCHIVE);
+	m_accelexp = gEngfuncs.pfnRegisterVariable("m_accelexp", "1.2", FCVAR_ARCHIVE);
+	m_accelmax = gEngfuncs.pfnRegisterVariable("m_accelmax", "0", FCVAR_ARCHIVE);
+
 	in_joystick = gEngfuncs.pfnRegisterVariable("joystick", "0", FCVAR_ARCHIVE);
 	joy_name = gEngfuncs.pfnRegisterVariable("joyname", "joystick", 0);
 	joy_advanced = gEngfuncs.pfnRegisterVariable("joyadvanced", "0", 0);
@@ -1173,7 +1158,6 @@ void IN_Init()
 	joy_advaxisr = gEngfuncs.pfnRegisterVariable("joyadvaxisr", "0", 0);
 	joy_advaxisu = gEngfuncs.pfnRegisterVariable("joyadvaxisu", "0", 0);
 	joy_advaxisv = gEngfuncs.pfnRegisterVariable("joyadvaxisv", "0", 0);
-	joy_supported = gEngfuncs.pfnRegisterVariable("joysupported", "1", 0);
 	joy_forwardthreshold = gEngfuncs.pfnRegisterVariable("joyforwardthreshold", "0.15", 0);
 	joy_sidethreshold = gEngfuncs.pfnRegisterVariable("joysidethreshold", "0.15", 0);
 	joy_pitchthreshold = gEngfuncs.pfnRegisterVariable("joypitchthreshold", "0.15", 0);
@@ -1185,17 +1169,11 @@ void IN_Init()
 	joy_wwhack1 = gEngfuncs.pfnRegisterVariable("joywwhack1", "0.0", 0);
 	joy_wwhack2 = gEngfuncs.pfnRegisterVariable("joywwhack2", "0.0", 0);
 
-	m_customaccel = gEngfuncs.pfnRegisterVariable("m_customaccel", "0", FCVAR_ARCHIVE);
-	m_customaccel_scale = gEngfuncs.pfnRegisterVariable("m_customaccel_scale", "0.04", FCVAR_ARCHIVE);
-	m_customaccel_max = gEngfuncs.pfnRegisterVariable("m_customaccel_max", "0", FCVAR_ARCHIVE);
-	m_customaccel_exponent = gEngfuncs.pfnRegisterVariable("m_customaccel_exponent", "1", FCVAR_ARCHIVE);
-
 #ifdef WIN32
 	m_rawinput = gEngfuncs.pfnGetCvarPointer("m_rawinput");
 	m_bMouseThread = gEngfuncs.CheckParm("-mousethread", NULL) != NULL;
-	m_mousethread_sleep = gEngfuncs.pfnRegisterVariable("m_mousethread_sleep", "10", FCVAR_ARCHIVE);
 
-	if (!IN_UseRawInput() && m_bMouseThread && m_mousethread_sleep)
+	if (!IN_UseRawInput() && m_bMouseThread)
 	{
 		s_mouseDelta = Point{};
 

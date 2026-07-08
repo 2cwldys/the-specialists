@@ -50,8 +50,6 @@ cvar_t* m_side;
 
 cvar_t* lookstrafe;
 cvar_t* lookspring;
-cvar_t* cl_pitchup;
-cvar_t* cl_pitchdown;
 cvar_t* cl_upspeed;
 cvar_t* cl_forwardspeed;
 cvar_t* cl_backspeed;
@@ -638,10 +636,11 @@ void CL_AdjustAngles(float frametime, float* viewangles)
 	if (0 != up || 0 != down)
 		V_StopPitchDrift();
 
-	if (viewangles[PITCH] > cl_pitchdown->value)
-		viewangles[PITCH] = cl_pitchdown->value;
-	if (viewangles[PITCH] < -cl_pitchup->value)
-		viewangles[PITCH] = -cl_pitchup->value;
+	// TS parity: hardcoded +/-89 — the original registers no cl_pitchup/cl_pitchdown
+	if (viewangles[PITCH] > 89.0f)
+		viewangles[PITCH] = 89.0f;
+	if (viewangles[PITCH] < -89.0f)
+		viewangles[PITCH] = -89.0f;
 
 	if (viewangles[ROLL] > 50)
 		viewangles[ROLL] = 50;
@@ -1019,8 +1018,6 @@ void InitInput()
 	cl_backspeed = gEngfuncs.pfnRegisterVariable("cl_backspeed", "400", FCVAR_ARCHIVE);
 	cl_sidespeed = gEngfuncs.pfnRegisterVariable("cl_sidespeed", "400", 0);
 	cl_movespeedkey = gEngfuncs.pfnRegisterVariable("cl_movespeedkey", "0.3", 0);
-	cl_pitchup = gEngfuncs.pfnRegisterVariable("cl_pitchup", "89", 0);
-	cl_pitchdown = gEngfuncs.pfnRegisterVariable("cl_pitchdown", "89", 0);
 
 	cl_vsmoothing = gEngfuncs.pfnRegisterVariable("cl_vsmoothing", "0.05", FCVAR_ARCHIVE);
 
