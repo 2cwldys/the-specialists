@@ -119,6 +119,39 @@ void CHalfLifeTeamplay::Think()
 
 	g_VoiceGameMgr.Update(gpGlobals->frametime);
 
+	// INVENTED-INTEROP (cont.97): the connect-window MSG_ONE drop eats the joiner's team roster, and
+	// the +0.75s ResendTeamRoster can still race the client's player-NAME sync. The client's team
+	// list is (re)built ONLY on a TeamInfo message (the scoreboard paint does NOT rebuild it — the
+	// rebuild's paint-side caller @0x1005e633 is past the paint fn), so once an early rebuild counts
+	// 0 teams (names absent) nothing re-fires it -> scoreboard team headers + team HUD stay blank
+	// even though colors work (frag-driven ScoreInfo keeps teamnumber fresh). Periodically
+	// MSG_ALL-rebroadcast TeamNames + per-player TeamInfo so every client's rebuild re-runs with the
+	// now-present names. Verified via a live client-memory sim: the roster data is valid (4 teams),
+	// only the count was stuck at 0. Cheap (~num_teams + N tiny messages every few seconds).
+	static float s_flNextTeamRebroadcast = 0;
+	if (gpGlobals->time >= s_flNextTeamRebroadcast)
+	{
+		s_flNextTeamRebroadcast = gpGlobals->time + 3.0f;
+
+		MESSAGE_BEGIN(MSG_ALL, gmsgTeamNames);
+		WRITE_BYTE(num_teams);
+		for (int i = 0; i < num_teams; i++)
+			WRITE_STRING(team_names[i]);
+		MESSAGE_END();
+
+		for (int i = 1; i <= gpGlobals->maxClients; i++)
+		{
+			CBaseEntity* plr = UTIL_PlayerByIndex(i);
+			if (plr && plr->TeamID() && plr->TeamID()[0] && IsValidTeam(plr->TeamID()))
+			{
+				MESSAGE_BEGIN(MSG_ALL, gmsgTeamInfo);
+				WRITE_BYTE(plr->entindex());
+				WRITE_STRING(plr->TeamID());
+				MESSAGE_END();
+			}
+		}
+	}
+
 	if (g_fGameOver) // someone else quit the game already
 	{
 		CHalfLifeMultiplay::Think();
