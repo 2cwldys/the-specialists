@@ -8,42 +8,72 @@
 # This is how it was done in the original Linux makefiles as well
 # DO NOT DO THIS FOR ANY OTHER LIBRARIES YOU USE! If you must ship a dynamic library you should use the same approach used for OpenAL.
 
-if(NOT HALFLIFE_EMSCRIPTEN)
+# VGUI linkage — 32-bit (i386/win32) load-time links Valve's / the classic shared vgui
+# (the real GoldSrc engine hosts vgui and has no client-hosted path). The 64-bit xash
+# targets static-link openvgui instead — see the VGUI_STATIC block further below.
+# SDL2 is gone entirely: input is now fed by the engine's push callbacks (IN_ClientLookEvent
+# / IN_ClientMoveEvent in inputw32.cpp), so the client links no libSDL2 on any target.
+set(HALFLIFE_VGUI_STATIC OFF)
+if(NOT HALFLIFE_EMSCRIPTEN AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+	set(HALFLIFE_VGUI_STATIC ON)
+endif()
+
+if(NOT HALFLIFE_EMSCRIPTEN AND NOT HALFLIFE_VGUI_STATIC)
+	# 32-bit: dynamic Valve/classic vgui, load-time linked (unchanged).
 	add_library(vgui SHARED IMPORTED)
-	add_library(SDL2 SHARED IMPORTED)
-
 	target_include_directories(vgui INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../utils/vgui/include)
-	target_include_directories(SDL2 INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../external)
 
-if (WIN32)
-	set_target_properties(vgui PROPERTIES IMPORTED_IMPLIB "${CMAKE_CURRENT_SOURCE_DIR}/../utils/vgui/lib/win32_vc16/vgui.lib")
-	set_target_properties(SDL2 PROPERTIES IMPORTED_IMPLIB "${CMAKE_CURRENT_SOURCE_DIR}/../lib/public/SDL2.lib")
-else()
-	# Pick the arch-appropriate bundled deps. 32-bit links Valve's vgui.so (Steam HL); 64-bit
-	# links openvgui's ABI-compatible libvgui.so (vendored per-arch: x86-64 vgui64.so, aarch64
-	# vgui-aarch64.so), which a 64-bit xash engine provides at runtime. SDL2 likewise — both are
-	# only load-time linked (the engine supplies the real libs); we keep the build-dir filenames
-	# identical so DT_NEEDED stays vgui.so / libSDL2-2.0.so.0 for every arch.
-	if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-		if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
-			set(MOD_VGUI_SRC ../linux/release/vgui-aarch64${CMAKE_SHARED_LIBRARY_SUFFIX})
-			set(MOD_SDL2_SRC ../linux/libSDL2-2.0-arm64${CMAKE_SHARED_LIBRARY_SUFFIX}.0)
-		else()
-			set(MOD_VGUI_SRC ../linux/release/vgui64${CMAKE_SHARED_LIBRARY_SUFFIX})
-			set(MOD_SDL2_SRC ../linux/libSDL2-2.0-x64${CMAKE_SHARED_LIBRARY_SUFFIX}.0)
-		endif()
+	if (WIN32)
+		set_target_properties(vgui PROPERTIES IMPORTED_IMPLIB "${CMAKE_CURRENT_SOURCE_DIR}/../utils/vgui/lib/win32_vc16/vgui.lib")
 	else()
 		set(MOD_VGUI_SRC ../linux/release/vgui${CMAKE_SHARED_LIBRARY_SUFFIX})
-		set(MOD_SDL2_SRC ../linux/libSDL2-2.0${CMAKE_SHARED_LIBRARY_SUFFIX}.0)
-	endif()
-
-	# Copy libraries provided by the game to the build directory so we can point the compiler and linker to the files.
-	configure_file(${MOD_VGUI_SRC} ${CMAKE_CURRENT_BINARY_DIR}/vgui${CMAKE_SHARED_LIBRARY_SUFFIX} COPYONLY)
-	configure_file(${MOD_SDL2_SRC} ${CMAKE_CURRENT_BINARY_DIR}/libSDL2-2.0${CMAKE_SHARED_LIBRARY_SUFFIX}.0 COPYONLY)
-
+		# Copy the game-provided vgui next to the client so the embedded DT_NEEDED path
+		# resolves relative to the engine at runtime.
+		configure_file(${MOD_VGUI_SRC} ${CMAKE_CURRENT_BINARY_DIR}/vgui${CMAKE_SHARED_LIBRARY_SUFFIX} COPYONLY)
 		set_target_properties(vgui PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/vgui${CMAKE_SHARED_LIBRARY_SUFFIX}")
-		set_target_properties(SDL2 PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/libSDL2-2.0${CMAKE_SHARED_LIBRARY_SUFFIX}.0")
 	endif()
+endif()
+
+# SDL2 — GoldSrc Linux reads mouse-look via SDL_GetRelativeMouseState (matches valve's client.so;
+# see inputw32.cpp TS_INPUT_SDL). ONLY i386 Linux: GoldSrc is 32-bit; Windows uses Win32 GetCursorPos
+# (and we deliberately ship NO SDL2.lib, so any SDL leak into the Windows link FAILS — a build-time
+# proof Windows is SDL-free), while amd64/aarch64 (Xash) and wasm use the engine push. Load-time
+# linked like vgui — the real libSDL2 is supplied by the engine at runtime; DT_NEEDED points at the
+# vendored stub's SONAME (libSDL2-2.0.so.0).
+if(UNIX AND NOT HALFLIFE_EMSCRIPTEN AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+	add_library(SDL2 SHARED IMPORTED)
+	target_include_directories(SDL2 INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../external)
+	set(MOD_SDL2_SRC ../linux/libSDL2-2.0${CMAKE_SHARED_LIBRARY_SUFFIX}.0)
+	configure_file(${MOD_SDL2_SRC} ${CMAKE_CURRENT_BINARY_DIR}/libSDL2-2.0${CMAKE_SHARED_LIBRARY_SUFFIX}.0 COPYONLY)
+	set_target_properties(SDL2 PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/libSDL2-2.0${CMAKE_SHARED_LIBRARY_SUFFIX}.0")
+endif()
+
+if(HALFLIFE_VGUI_STATIC)
+	# 64-bit xash targets: static-link VGUI so the client carries no vgui DT_NEEDED.
+	# openvgui builds as libvgui.a, and the vgui_support shim (compiled with
+	# INTERNAL_VGUI_SUPPORT) is linked in so the CLIENT itself exports InitVGUISupportAPI
+	# — the engine then hosts VGUI *inside* the client (Xash3D FWGS client-hosted path)
+	# rather than loading a separate vgui.so/vgui.dll.
+	set(VGUI_STATIC ON CACHE BOOL "" FORCE)
+	add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/openvgui ${CMAKE_BINARY_DIR}/openvgui EXCLUDE_FROM_ALL)
+	# openvgui's static archive gets linked into a shared object -> needs PIC.
+	set_target_properties(vgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+	# The shim is compiled in ISOLATION: its own include dirs (vendored xash engine
+	# headers + VGUI headers) so it never resolves the HL SDK's same-named headers.
+	add_library(vgui_support STATIC
+		${CMAKE_SOURCE_DIR}/third_party/vgui_support/vgui_int.cpp
+		${CMAKE_SOURCE_DIR}/third_party/vgui_support/vgui_surf.cpp
+		${CMAKE_SOURCE_DIR}/third_party/vgui_support/vgui_input.cpp
+		${CMAKE_SOURCE_DIR}/third_party/vgui_support/vgui_clip.cpp)
+	target_compile_definitions(vgui_support PRIVATE INTERNAL_VGUI_SUPPORT $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:stricmp=strcasecmp _vsnprintf=vsnprintf>)
+	target_include_directories(vgui_support PRIVATE
+		${CMAKE_SOURCE_DIR}/third_party/vgui_support
+		${CMAKE_SOURCE_DIR}/third_party/xash_headers
+		${CMAKE_SOURCE_DIR}/third_party/openvgui/include
+		${CMAKE_SOURCE_DIR}/utils/vgui/include)
+	set_target_properties(vgui_support PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_VISIBILITY_PRESET default)
+	target_link_libraries(vgui_support PUBLIC vgui)
 endif()
 
 # End special case stuff for dynamic libraries included with the game
@@ -74,18 +104,31 @@ target_compile_definitions(client PRIVATE
 
 if(HALFLIFE_EMSCRIPTEN)
 	target_include_directories(client PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/../utils/vgui/include
-		${CMAKE_CURRENT_SOURCE_DIR}/../external)
+		${CMAKE_CURRENT_SOURCE_DIR}/../utils/vgui/include)
 else()
 	target_link_libraries(client PRIVATE
-		vgui
 		$<$<PLATFORM_ID:Windows>:delayimp>
-		$<$<PLATFORM_ID:Windows>:wsock32>
-		SDL2)
+		$<$<PLATFORM_ID:Windows>:wsock32>)
 
-	if (UNIX)
-		# Tell the linker to search for vgui.so and SDL2-2.0.so.0 in here
-		target_link_directories(client PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+	if(NOT HALFLIFE_VGUI_STATIC)
+		# 32-bit: dynamic vgui, load-time linked (the .so lives next to the client).
+		target_link_libraries(client PRIVATE vgui)
+		if (UNIX)
+			# Tell the linker to search for vgui.so in here
+			target_link_directories(client PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+			# i386 Linux (GoldSrc): load-time link SDL2 for mouse-look. Windows uses Win32
+			# GetCursorPos and ships no SDL2.lib, so it never links SDL.
+			target_link_libraries(client PRIVATE SDL2)
+		endif()
+	else()
+		# 64-bit: static openvgui + the vgui_support shim -> the client exports
+		# InitVGUISupportAPI and carries no vgui DT_NEEDED. Nothing in the client
+		# references InitVGUISupportAPI, so force the linker to keep it (otherwise it's
+		# GC'd out of the static archive and the engine can't find the entry point).
+		target_link_libraries(client PRIVATE vgui_support vgui)
+		target_link_options(client PRIVATE
+			$<$<PLATFORM_ID:Linux>:-Wl,-u,InitVGUISupportAPI>
+			$<$<PLATFORM_ID:Windows>:/INCLUDE:InitVGUISupportAPI>)
 	endif()
 endif()
 

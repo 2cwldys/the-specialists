@@ -18,7 +18,6 @@
 // this implementation handles the linking of the engine to the DLL
 //
 
-#include <SDL2/SDL_messagebox.h>
 
 #include "hud.h"
 #include "cl_util.h"
@@ -122,9 +121,8 @@ static bool CL_InitClient()
 
 	if (UTIL_IsValveGameDirectory())
 	{
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Fatal Error",
-			"This mod has detected that it is being run from a Valve game directory which is not supported\n"
-			"Run this mod from its intended location\n\nThe game will now shut down", nullptr);
+		gEngfuncs.Con_Printf("Fatal Error: this mod is being run from a Valve game directory, which is not supported.\n"
+			"Run this mod from its intended location. The game will now shut down.\n");
 		return false;
 	}
 

@@ -2,49 +2,60 @@ name: CI/CD
 
 on: [push, pull_request]
 
+# Every arch builds through the SAME CMake authority now — the legacy i386 Makefile
+# and the MSVC .vcxproj/.sln are gone. CMake carries the i386 toolchain (classic
+# -m32 -mfpmath=387 flags), the aarch64 cross toolchain, the MSVC config, and the
+# Emscripten side-module setup. 64-bit targets static-link openvgui (+ the vgui_support
+# shim, both git submodules) so the client exports InitVGUISupportAPI and carries no
+# vgui/SDL2 dependency; 32-bit (i386/win32) keeps dynamic Valve vgui. Input on every
+# target is fed by the engine's push callbacks (no SDL2 anywhere).
+
 jobs:
-  # Linux i386 — legacy Makefile path. Kept for the master-branch
-  # workflow; reproduces the original CI's matrix behaviour. Output
-  # paths: linux/release/{hl.so,client.so}.
+  # Linux i386 — CMake + the in-tree i386 toolchain. 32-bit keeps dynamic Valve vgui.
   linux-i386:
     name: Linux-i386
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        compiler: [g++, clang++]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
-      - name: Install G++ Multilib, Clang++ & OpenGL library
+      - name: Install G++ Multilib & OpenGL library
         run: |
           sudo apt update
-          sudo apt install -y g++-multilib clang libgl1-mesa-dev
+          sudo apt install -y g++-multilib cmake libgl1-mesa-dev
 
-      - name: Build (Makefile, i386)
+      - name: Configure (i386)
         run: |
-          cd linux
-          make COMPILER=${{ matrix.compiler }} CFG=release -j2
+          cmake -B build-i386 -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/LinuxToolchain.cmake
+
+      - name: Build (hl gamedll + client)
+        run: cmake --build build-i386 --target hl client -j$(nproc)
+
+      - name: Stage per-arch
+        run: |
+          mkdir -p staged-i386/dlls staged-i386/cl_dlls
+          cp build-i386/dlls/hl.so staged-i386/dlls/hl.so
+          cp build-i386/cl_dll/client.so staged-i386/cl_dlls/client.so
 
       - name: Deploy
         uses: actions/upload-artifact@v4
         with:
-          name: Linux-i386-${{ matrix.compiler }}
-          path: |
-            linux/release/client.so
-            linux/release/client.so.dbg
-            linux/release/hl.so
-            linux/release/hl.so.dbg
+          name: Linux-i386
+          path: staged-i386/**
 
-  # Linux amd64 — CMake (top-level) build. The 64bit-branch CMakeLists
-  # gates -m32 / -mfpmath=387 to "x86-32 target", so a default cmake
-  # invocation on amd64 produces real 64-bit binaries.
+  # Linux amd64 — CMake. 64-bit static-links openvgui (submodule) + the vgui_support
+  # shim, so the client has no vgui/SDL2 DT_NEEDED and exports InitVGUISupportAPI.
   linux-amd64:
     name: Linux-amd64
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - name: Install dependencies
         run: |
@@ -52,15 +63,9 @@ jobs:
           sudo apt install -y build-essential cmake libgl1-mesa-dev
 
       - name: Configure (amd64)
-        run: |
-          cmake -B build-amd64 -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build-amd64 -DCMAKE_BUILD_TYPE=Release
 
       - name: Build (hl gamedll + client)
-        # The client links openvgui's ABI-compatible vgui + SDL2, both
-        # vendored per-arch (x86-64: linux/release/vgui64.so +
-        # linux/libSDL2-2.0-x64.so.0). There's no native 64-bit GoldSrc
-        # client engine to LOAD the result, so this is a 64-bit compile+link
-        # check of the reconstruction; the shipping client is the wasm build.
         run: cmake --build build-amd64 --target hl client -j$(nproc)
 
       - name: Stage per-arch
@@ -75,20 +80,17 @@ jobs:
           name: Linux-amd64
           path: staged-amd64/**
 
-  # Linux aarch64 — cross-compiled via the in-tree toolchain file.
-  # cmake/LinuxToolchain-aarch64.cmake probes for an unversioned
-  # aarch64-linux-gnu-gcc first, then falls back to -13.
+  # Linux aarch64 — CMake cross-compiled via the in-tree toolchain file.
   linux-aarch64:
     name: Linux-aarch64
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - name: Install aarch64 cross-toolchain
-        # Ubuntu 22.04 ships gcc-11 as the newest aarch64 cross-toolchain.
-        # The toolchain file probes for the unversioned binary first, so
-        # symlinking gcc-11 → unversioned lets cmake find it.
         run: |
           sudo apt update
           sudo apt install -y \
@@ -104,11 +106,6 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE=cmake/LinuxToolchain-aarch64.cmake
 
       - name: Build (hl gamedll + client)
-        # The client links openvgui's ABI-compatible vgui + SDL2, vendored
-        # per-arch (aarch64: linux/release/vgui-aarch64.so +
-        # linux/libSDL2-2.0-arm64.so.0). cl_dll/CMakeLists.txt selects them by
-        # CMAKE_SYSTEM_PROCESSOR. Compile+link check only — no native 64-bit
-        # GoldSrc client engine loads the result.
         run: cmake --build build-aarch64 --target hl client -j$(nproc)
 
       - name: Stage per-arch
@@ -123,84 +120,64 @@ jobs:
           name: Linux-aarch64
           path: staged-aarch64/**
 
+  # Win32 — CMake/MSVC. 32-bit keeps dynamic Valve vgui (utils/vgui/lib/win32_vc16/vgui.lib).
   win32:
     name: Win32
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
         with:
-          msbuild-architecture: x86
+          submodules: recursive
 
-      - name: Build
-        run: msbuild projects/vs2019/projects.sln -t:rebuild -property:Configuration=Release -maxcpucount:2
+      - name: Configure (Win32)
+        run: cmake -B build-win32 -A Win32
+
+      - name: Build (hl gamedll + client)
+        run: cmake --build build-win32 --config Release --target hl client --parallel 2
+
+      - name: Stage per-arch
+        shell: bash
+        run: |
+          mkdir -p staged-win32/dlls staged-win32/cl_dlls
+          cp build-win32/dlls/Release/hl.dll        staged-win32/dlls/hl.dll
+          cp build-win32/cl_dll/Release/client.dll  staged-win32/cl_dlls/client.dll
+          cp build-win32/dlls/Release/hl.pdb        staged-win32/dlls/       2>/dev/null || true
+          cp build-win32/cl_dll/Release/client.pdb  staged-win32/cl_dlls/    2>/dev/null || true
 
       - name: Deploy
         uses: actions/upload-artifact@v4
         with:
           name: Win32
-          path: |
-            projects/vs2019/Release/hl_cdll/client.dll
-            projects/vs2019/Release/hl_cdll/client.pdb
-            projects/vs2019/Release/hldll/hl.dll
-            projects/vs2019/Release/hldll/hl.pdb
+          path: staged-win32/**
 
-  # Win64 — MSBuild-driven, full solution (hl gamedll + client), mirroring
-  # the win32 job. The x64 client links an x64 vgui import lib, which is not
-  # vendored anywhere (only the original x86 vgui.lib is). openvgui — the
-  # ABI-compatible VGUI reimplementation the 64-bit engine ships (its Linux
-  # build, vgui64.so, is what the local amd64 client links) — builds a matching
-  # x64 vgui.dll + vgui.lib under MSVC, so this job builds it from source and
-  # points the x64 client config at it (utils/vgui/lib/win64/vgui.lib). SDL2's
-  # x64 import lib is vendored (lib/public/x64/SDL2.lib), like the x86 one.
-  # There's no native 64-bit GoldSrc engine to LOAD the result — this is a
-  # 64-bit compile+link check of the reconstruction on MSVC.
+  # Win64 — CMake/MSVC. 64-bit static-links openvgui (submodule, built as part of the
+  # client via VGUI_STATIC) + the vgui_support shim: no vgui.dll companion to ship, and
+  # the client exports InitVGUISupportAPI. Compile+link check (no native 64-bit GoldSrc
+  # engine loads the result).
   win64:
     name: Win64
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
         with:
-          msbuild-architecture: x64
+          submodules: recursive
 
-      # openvgui declares no __declspec(dllexport), so CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS
-      # is what populates the import library. Pin the public FWGS commit — the
-      # goldsrc-net fork differs only by a waf wscript, irrelevant to this CMake
-      # build. Produces vgui.lib (link-time) + vgui.dll (runtime companion).
-      - name: Build openvgui x64 (produces vgui.lib)
-        shell: bash
-        run: |
-          git clone --recursive https://github.com/FWGS/openvgui.git openvgui-src
-          git -C openvgui-src checkout 1b89d197c4e443b9df3923cfe60a3a873ca94d7d
-          # miniutl is a submodule (FWGS/MiniUTL) — re-sync it to the pinned
-          # commit's recorded pointer so miniutl/utlmemory.cpp is present.
-          git -C openvgui-src submodule update --init --recursive
-          cmake -S openvgui-src -B openvgui-src/build -A x64 -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON
-          cmake --build openvgui-src/build --config Release -j 2
-          mkdir -p utils/vgui/lib/win64
-          cp openvgui-src/build/Release/vgui.lib utils/vgui/lib/win64/vgui.lib
+      - name: Configure (x64)
+        run: cmake -B build-win64 -A x64
 
-      - name: Build (MSBuild, x64 — hl + client)
-        run: msbuild projects/vs2019/projects.sln -t:rebuild -property:Configuration=Release -property:Platform=x64 -maxcpucount:2
+      - name: Build (hl gamedll + client)
+        run: cmake --build build-win64 --config Release --target hl client --parallel 2
 
       - name: Stage per-arch
         shell: bash
         run: |
           mkdir -p staged-win64/dlls staged-win64/cl_dlls
-          cp projects/vs2019/x64/Release/hldll/hl.dll        staged-win64/dlls/hl.dll
-          cp projects/vs2019/x64/Release/hl_cdll/client.dll  staged-win64/cl_dlls/client.dll
-          # vgui.dll is the runtime companion of the import lib the client links.
-          cp openvgui-src/build/Release/vgui.dll             staged-win64/cl_dlls/vgui.dll
-          # PDBs are optional but useful for debugging.
-          cp projects/vs2019/x64/Release/hldll/hl.pdb        staged-win64/dlls/       2>/dev/null || true
-          cp projects/vs2019/x64/Release/hl_cdll/client.pdb  staged-win64/cl_dlls/    2>/dev/null || true
+          cp build-win64/dlls/Release/hl.dll        staged-win64/dlls/hl.dll
+          cp build-win64/cl_dll/Release/client.dll  staged-win64/cl_dlls/client.dll
+          cp build-win64/dlls/Release/hl.pdb        staged-win64/dlls/       2>/dev/null || true
+          cp build-win64/cl_dll/Release/client.pdb  staged-win64/cl_dlls/    2>/dev/null || true
 
       - name: Deploy
         uses: actions/upload-artifact@v4
@@ -208,12 +185,10 @@ jobs:
           name: Win64
           path: staged-win64/**
 
-  # Package — fan in every build job into ONE combined artifact. Both game
-  # libraries for every arch, laid out the way the engine expects to find
-  # them: dlls/ (server) + cl_dlls/ (client), i386 keeps the plain name and
-  # every non-i386 build gets its arch suffixed on the end (xash convention:
-  # hl_amd64.so / hl_aarch64.so / hl_amd64.dll, likewise client_*). The i386
-  # variant is taken from the g++ leg of the linux-i386 matrix.
+  # Package — fan in every build job into ONE combined artifact. Both game libraries
+  # for every arch, laid out the way the engine expects: dlls/ (server) + cl_dlls/
+  # (client). i386 keeps the plain name; every non-i386 build gets its arch suffixed
+  # (xash convention: hl_amd64.so / hl_aarch64.so / hl_amd64.dll, likewise client_*).
   package:
     name: Package (all arches, one zip)
     runs-on: ubuntu-latest
@@ -237,19 +212,17 @@ jobs:
             echo "$f"
           }
           # server libraries -> dlls/
-          cp "$(pick Linux-i386-g++ hl.so)"     dist/dlls/hl.so
+          cp "$(pick Linux-i386     hl.so)"     dist/dlls/hl.so
           cp "$(pick Linux-amd64    hl.so)"     dist/dlls/hl_amd64.so
           cp "$(pick Linux-aarch64  hl.so)"     dist/dlls/hl_aarch64.so
           cp "$(pick Win32          hl.dll)"    dist/dlls/hl.dll
           cp "$(pick Win64          hl.dll)"    dist/dlls/hl_amd64.dll
           # client libraries -> cl_dlls/
-          cp "$(pick Linux-i386-g++ client.so)"  dist/cl_dlls/client.so
+          cp "$(pick Linux-i386     client.so)"  dist/cl_dlls/client.so
           cp "$(pick Linux-amd64    client.so)"  dist/cl_dlls/client_amd64.so
           cp "$(pick Linux-aarch64  client.so)"  dist/cl_dlls/client_aarch64.so
           cp "$(pick Win32          client.dll)" dist/cl_dlls/client.dll
           cp "$(pick Win64          client.dll)" dist/cl_dlls/client_amd64.dll
-          # Win64 client's runtime companion (openvgui import lib -> real DLL)
-          cp "$(pick Win64          vgui.dll)"   dist/cl_dlls/vgui.dll
           echo "=== combined tree ==="
           find dist -type f | sort
 
