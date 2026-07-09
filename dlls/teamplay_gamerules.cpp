@@ -282,6 +282,17 @@ void CHalfLifeTeamplay::UpdateGameMode(CBasePlayer* pPlayer)
 	MESSAGE_END();
 }
 
+// @0xd5a04 (decompile-exact): identical to CHalfLifeMultiplay's but the DEFAULT is Teamplay, not DM —
+// TheOne -> (The One); else LMS -> (LMS); else (Teamplay). Keyed off the runtime mode globals.
+const char* CHalfLifeTeamplay::GetGameDescription()
+{
+	if (g_theOneMode != 0)
+		return g_szTOMDescription;
+	if (g_lastManStanding != 0)
+		return g_szLMSDescription;
+	return g_szTDMDescription;
+}
+
 
 // R1 phase 3 — TS-patched @0xd44ac (dossier §3.1): the team comes from the "team" INFOKEY
 // (not the model), The-One mode forces the TSGameRules slot names, RecountTeams(true).

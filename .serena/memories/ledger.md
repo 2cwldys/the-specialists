@@ -5,6 +5,153 @@ what changed, how verified, what's next. See `CLAUDE.md` for mission/method.
 
 ---
 
+## 2026-07-08 (cont. 98) — session open: FINISH slow-mo-on-connect (server-side), then queued client fixes
+
+New orchestrator picked up from the cont.97 FINAL START-HERE (HANDOFF.md), branch
+`restructure-source-parity`, HEAD `113339e`. Tree = the INTENTIONAL `game/ts/` deletions +
+`.serena/project.yml`. Read HANDOFF top-down + `reference/dossiers/cont97/slowmo_connect_bug.md` +
+`cont96/client_bloody_and_shards.md`. cont.89-97 orchestrator available for consult via the user.
+
+**Mandate:** (1) FINISH the slow-mo tint/blur-on-connect bug — SERVER-side (user tests the ORIGINAL
+client, so `538142a` cl_dll fix doesn't reach them). RE whether the original server force-sends the
+slow reset on connect/spawn/StartObserver and MIMIC it. (2) Then the queued client fixes (bloody
+blades §A + glass integrator §B).
+
+**State survey (slow-mo, before edits):** `gmsgTSSlowAmt` → wire `"TSSlowMo"` (2, coord) →
+client `MsgFunc_TSSlowMo` sets the TARGET `DAT_1009ff04` (client VidInit resets only the CURRENT
+`DAT_100963e8`, per dossier). Our send (`player.cpp:4719`) is change-detected on `m_flClientSlowAmt`
+(init -1 @player.h:419; reset -1 in `TSInit` @ts_player.cpp:547 = first call in Spawn). **Our
+`StartObserver` (player.cpp:1398) resets `fuser1`/`m_flSlowMotionGo`/`m_flSlowMotionTarget`=1.0 but
+does NOT reset the `m_flClientSlowAmt` change-detect cache** → the reset-to-100 send is emitted once
+in the connect window (MSG_ONE, dropped — the connect-window MSG_ONE drop pattern) and never re-fires
+until Spawn re-arms the cache (=why it "resets on spawn"). Working hypothesis to confirm against RE.
+
+**RE (fresh typed Ghidra decompiles this session):**
+- **Original UCD @0x91d00 (ghidra):** the ENTIRE TS send body (incl. SlowAmt) is wrapped in a 0.1s
+  throttle (`field_0x534`: `if (0<=field_0x534<=time){field_0x534=time+0.1; …}`), **no observer gate**
+  → the SlowAmt send runs during spectate too. The SlowAmt block is decompile-exact:
+  `fVar1=0.225; if(!(m_iPowerups&8)){fVar1=0.35; if(!(m_iPowerups&1)) fVar1=m_flSlowMotionTarget;}
+   if(fVar1!=m_flClientSlowAmt){m_flClientSlowAmt=fVar1; WRITE_COORD(100*fVar1);}` — i.e. slowpause(0x8)
+  →0.225, slowmo(0x1)→0.35, else the networked **m_flSlowMotionTarget** (NOT fuser1). Cache holds the
+  FACTOR, not ×100.
+- **Original StartObserver @0x99634 (ghidra):** resets `iuser4=0; fuser1=1; m_flSlowMotionTarget=1;
+  m_flSlowMotionGo=1` — but does NOT reset the m_flClientSlowAmt cache (same as ours). So the original
+  relies on the ONE change-detect send landing (it does, on GoldSrc); our ReHLDS rig drops it.
+- **Live-read the original client (pid 1295795, client.dll base 0x0c070000):** target `DAT_1009ff04`
+  @+0x9ff04 and current `DAT_100963e8` @+0x963e8 both read 1.0 when NOT stuck (confirmed the right
+  globals + base; the fresh-process BSS default is the slow value the client eases toward until the
+  server lands a reset).
+
+**FIX LANDED (server-side, matches original + defeats the drop):**
+1. **player.cpp UCD SlowAmt block rewritten to the decompile-exact original** (was the cont.94
+   `pev->fuser1` + invented `m_flSlowMotionRamp` override — a real logic divergence flagged by the LAW):
+   slowpause→0.225, slowmo→0.35, else `m_flSlowMotionTarget`; cache the FACTOR; `WRITE_COORD(100*factor)`.
+   `m_flSlowMotionRamp` stays live (LOS-victim slowing in ts_player.cpp SlowMotionFlow); player.h:419
+   comment updated ("last-sent FACTOR").
+2. **player.cpp PreThink one-shot: re-arm `m_flClientSlowAmt = -1`** in the same proven
+   post-connect-window `m_flSrvSettResendTime` block (armed for EVERY joiner @TS_gamerulesclass.cpp:1034,
+   before the `!g_teamplay` return) that already re-sends SrvSett/TeamRoster → the next UCD re-fires the
+   SlowAmt reset at ~+0.75s, past the connect window. Idempotent (UCD change-detects).
+Built amd64 hl.so clean (glibc 2.14), deployed to the rig (NOMETAMOD= setup-rehlds-mod.sh), rig
+restarted (ts_hammertime, deathmatch, +rcon_password lol).
+**PLAYTEST #1 — STILL BROKEN** (my first read was a false positive; the user re-showed the teal tint +
+stacked ghost "echoes" of the diving player + no "WAITING" on the scoreboard).
+
+**REAL ROOT CAUSE (gdb-confirmed on the live rig server, NOT guessed):**
+- Live-read the ORIGINAL CLIENT while stuck (pid, client.dll base 0x0c070000): slow TARGET `DAT_1009ff04`
+  @+0x9ff04 = **0.0** AND current `DAT_100963e8` @+0x963e8 = **0.0** → the client target defaults SLOW
+  on a fresh process and NO TSSlowMo reset ever reached it.
+- Added SLOWDBG ALERTs to the UCD SlowAmt send + the re-arm; **neither fired** for the human, yet a gdb
+  breakpoint on `CBasePlayer::UpdateClientData` (hl.so base + 0xdc770) showed it IS called — but only for
+  the 6 BOTS, all with `spec=0`. **No UCD call ever had spec=1** → our UCD does NOT run for a spectating
+  player. (First gdb read used the header's *original-binary* provenance offsets = garbage; got the REAL
+  compiled offsets from `objdump` of our hl.so — m_flSlowMotionTarget@0x898, m_flSlowMotionGo@0x89c,
+  m_flClientSlowAmt@0xbbc, m_iPowerups@0x87c — then re-read: bots all target/cache=1.0, correct.)
+- **The bug:** our per-frame `UpdateClientData()` is driven from the END of `CBasePlayer::PreThink`
+  (player.cpp:2255, the stock hlu tail), but our reconstruction ADDED an early `if (m_fInSpectateWait)
+  {…return;}` block (player.cpp:2026) that returns BEFORE line 2255. So a spectate-waiting player NEVER
+  ran UCD → the client's slow TARGET was never reset (stuck slow tint/sound/blur) AND the AWARD/WAITING
+  byte was never sent (missing "WAITING"). ONE root cause, BOTH symptoms (the user's "not WAITING" hint
+  was the key). Confirmed vs the ORIGINAL: `PreThink` @0x808cc calls `UpdateClientData()` near the TOP
+  (line 62) — BEFORE its iuser1 spectate block (line 202, which returns) — so the original runs the whole
+  TS UCD send every frame for spectators.
+
+**REAL FIX LANDED (player.cpp):** call `UpdateClientData()` inside the `m_fInSpectateWait` block just
+before its `return;` (mirrors the original running UCD for spectators). Kept: the SlowAmt block rewrite
+(mirror original: powerup→0.225/0.35 else m_flSlowMotionTarget) + the +0.75s cache re-arm (now EFFECTIVE:
+UCD runs during spectate so the re-armed cache re-sends past the connect-window MSG_ONE drop). Removed the
+SLOWDBG debug ALERTs. Built clean, deployed, rig restarted.
+**VERIFY flagged (deferred):** for full parity the spectate handling should move AFTER
+UCD/UpdatePowerUpState/SlowMotionFlow like the original's iuser1 block (spectators should also run
+SlowMotionFlow/UpdatePowerUpState). **SLOW-MO USER-CONFIRMED FIXED** (original client, fresh join: no
+tint/sound/echoes). ⚠ **BUT the scoreboard "WAITING" is STILL MISSING** — so UCD now runs during spectate
+(slow-mo proves it) yet the AWARD/WAITING byte is still not landing. Separate leg of the same UCD path
+(gmsgTSPlayerAward, MSG_ALL change-detect on m_iAward): either m_iAward isn't being SET to the WAITING
+code (0xb=11 per SetPlayerRespawnTime) for the joiner, or a wire/client-case mismatch. **DIAGNOSED:** same connect-window drop — gmsgTSPlayerAward (MSG_ALL,
+change-detect on m_iClientAward @0xeb4/0xeb5 compiled offsets; m_iAward=11=WAITING set by
+SetPlayerRespawnTime, confirmed set for teamplay joiners too since mode!=0) sends ONCE during
+spectate-wait and is eaten by the joiner's connect window; no re-arm existed. **FIX:** re-arm
+`m_iClientAward = 0xff` in the SAME +0.75s one-shot as the SlowAmt re-arm → next UCD re-broadcasts past
+the window. Baseline confirmed by the user's ORIGINAL listenserver screenshot (shows "WAITING" in the
+team scoreboard). NB the rig IS teamplay (ts/game.cfg `mp_teamplay 1`; +deathmatch on the cmdline is
+overridden by game.cfg exec). Built/deployed/restarted. WAITING then USER-CONFIRMED showing.
+
+## 2026-07-08 (cont. 98 cont.) — connect-window drop ROOT CAUSE nailed + FAITHFUL single-send fix (user-confirmed)
+
+The user pushed for true parity ("is this how the original did it?"). Full RE, not guessed:
+- **Send sites (RE-verified, unstripped ts_i386.so):** gmsgTSPlayerAward @0x1034b4, gmsgTSSlowAmt @0x103498.
+  Each has EXACTLY ONE send site — `UpdateClientData`'s change-detect (award @0x8245d MSG_ALL after
+  `cmp m_iAward[0x74c] vs m_iClientAward[0x74d]`; slow @0x822f9 MSG_ONE after `flds m_flSlowMotionTarget
+  [0x170]; fcoms m_flClientSlowAmt[0x16c]`). The 0xc8xxx refs are `LinkUserMessages` REG_USER_MSG. We match.
+- **Client hook (live gdb on the ORIGINAL client vs a KNOWN-GOOD remote server):** MsgFunc_TSSlowMo @client.dll
+  RVA 0x49a00, MsgFunc_TSPAward @0x49a20 (from the HOOK_MESSAGE table `push handler; push "name"`). On
+  reconnect the client received BOTH, each ONCE, together (17:53:27.943/.947) and they LANDED → the original
+  delivers a SINGLE post-active send to a remote joiner. So it's NOT an unavoidable drop.
+- **Server trace (file-write /tmp/slowdbg.log bypassing ALERT/metamod buffering; compiled offsets from
+  objdump: slowT@0x898, slowGo@0x89c, slowCache@0xbbc, m_iPowerups@0x87c, m_iAward@0xeb4, m_iClientAward
+  @0xeb5, m_fInSpectateWait@0xedc):** the joiner's connect burst (ClientPutInServer→Spawn→RemoveAllItems→UCD,
+  ALL at the same frame, BEFORE active) sends slow(1.0)+award(0)+award(11) — **dropped by SV_Multicast's
+  `!client->active` gate (sv_main.cpp:958)** because ReHLDS sets `client->active=TRUE` only at the END of the
+  spawn handler (sv_main.cpp:1504), AFTER `pfnClientPutInServer` (1436) — but the change-detect still LATCHES
+  slowCache=1.0 / awdCache=11. The first post-active PreThink UCD then sees no change → never re-sends →
+  perma-slow + no WAITING. `RemoveAllItems` calls UCD in the ORIGINAL too (@0xd8cec line 89), so the game-DLL
+  code matches; the delivering difference is the engine's active-timing.
+- **⚠ FLAGGED (engine, NOT touched — user: flag don't fix, ask first, notify if 64-bit): NOT a 64-bit bug**
+  (the !active gate + ClientPutInServer-before-active are unconditional standard-GoldSrc flow, no pointer/size
+  math). Suspected ReHLDS-vs-GoldSrc difference: whether GoldSrc set `client->active` BEFORE ClientPutInServer
+  (making the original's identical burst land). Unconfirmed (no GoldSrc source); left for the user to decide.
+- **FAITHFUL FIX (replaces the throttled retry — user-confirmed "matches what I see on other servers"):** the
+  PreThink spectate block runs ONLY post-active, and reliable msgs retransmit until acked → a ONE-SHOT re-arm
+  of the slow/award caches on the first post-active frame makes UCD emit exactly ONE post-active send that
+  lands. `m_flSpecResyncTime` armed to <0 in TSEnterSpectate; consumed once in the spectate block. Not a
+  throttle. Matches the original's observable single send. All SLOWDBG instrumentation stripped; built clean
+  (no SLOWDBG strings), deployed, rig pid 1455254. **Still local, not committed.**
+
+**RE-VERIFIED the send sites (user pushed: "did we RE-verify we send it when/where they do?").** From the
+unstripped `ts_i386.so`: gmsgTSPlayerAward @0x1034b4, gmsgTSSlowAmt @0x103498; GOT base 0x165e10 →
+award slot ref `0x18cc(%ebx)`, slow `0x1a28(%ebx)`. Each global has EXACTLY TWO refs: one in
+`LinkUserMessages__Fv` @0xc7db0 (the `REG_USER_MSG` registration store `gmsg… = REG_USER_MSG(...)`, NOT a
+send) and one in `UpdateClientData` (award @0x8245d = MSG_ALL after `cmp m_iAward[0x74c] vs m_iClientAward
+[0x74d]`; slow @0x822f9 = MSG_ONE after `flds m_flSlowMotionTarget[0x170]; fcoms m_flClientSlowAmt[0x16c]`).
+**CONCLUSION: the original sends each from EXACTLY ONE site — the UCD change-detect — and nowhere else. We
+now send from the identical site (same members, same MSG_ALL/MSG_ONE). We are NOT missing a callsite.** So
+the re-arm is engine-compensation for the ReHLDS connect-window drop (empirically confirmed cont.96 via a
+HW watchpoint on the original client), NOT a faithful-send gap.
+
+**REFINED FIX (replaces the fragile fixed +0.75s one-shot):** a single timed re-fire is a GUESS that fails
+if a client's connect window outlasts the delay (high latency / slow load — the user flagged 1000ms). Since
+the sole send site is UCD and UCD now runs every spectate frame, re-arm the slow+award change-detect caches
+on a 0.25s throttle INSIDE the spectate-wait block (new member `m_flSpecResyncTime`) → UCD re-broadcasts
+until the client is past its window. Immediate when it can be, definitive at any latency, self-terminating
+on spawn. Removed the one-shot slow/award re-arm from the m_flSrvSettResendTime block (SrvSett resend
+itself kept; it has the same latency fragility — FLAGGED for the same treatment later). Built/deployed/
+restarted (pid 1340947, teamplay). **PENDING user re-test of the retry version.**
+Not yet committed (all local, per the push-only-on-word rule).
+
+**NEXT:** commit on user sign-off; then the queued client fixes (bloody blades §A + glass integrator §B,
+`reference/dossiers/cont96/client_bloody_and_shards.md`); then the deferred parity VERIFY above (move the
+spectate-wait handling after UCD/UpdatePowerUpState/SlowMotionFlow to match the original iuser1 block).
+
 ## 2026-07-08 (cont. 97) — session open: FINISH R1 PHASE 4 (rules-split tail), then queued client fixes
 
 New orchestrator picked up from the cont.96 FINAL START-HERE (HANDOFF.md) at HEAD `520cd92`, branch

@@ -323,13 +323,22 @@ bool CHalfLifeMultiplay::IsValidTeam(const char* pTeamName)
 // @0xc0c68 — the server-browser game description per active mode. The original order is theOne ->
 // LMS -> DM with NO teamplay branch (team mode is orthogonal; it still reports its DM/LMS/theOne
 // sub-mode). CTSGameRules inherits this verbatim (the original defines no CTSGameRules override).
+// @.data — the mode-dependent server-browser game-name strings (defined once here; the Teamplay
+// override reads g_szTDMDescription instead of g_szDMDescription). Match the original .data globals.
+char g_szDMDescription[]  = "The Specialists (DM)";
+char g_szTDMDescription[] = "The Specialists (Teamplay)";
+char g_szTOMDescription[] = "The Specialists (The One)";
+char g_szLMSDescription[] = "The Specialists (LMS)";
+
+// @0xc0c68 (decompile-exact): TheOne -> (The One); else LMS -> (LMS); else (DM). Keyed off the runtime
+// mode GLOBALS (g_theOneMode/g_lastManStanding set by DecideGamePlay), NOT the cvars.
 const char* CHalfLifeMultiplay::GetGameDescription()
 {
-	if (CVAR_GET_FLOAT("mp_theonemode") != 0.0f)
-		return "The Specialists (The One)";
-	if (CVAR_GET_FLOAT("lastmanstanding") != 0.0f)
-		return "The Specialists (LMS)";
-	return "The Specialists (DM)";
+	if (g_theOneMode != 0)
+		return g_szTOMDescription;
+	if (g_lastManStanding != 0)
+		return g_szLMSDescription;
+	return g_szDMDescription;
 }
 
 //=========================================================
