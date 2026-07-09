@@ -1514,6 +1514,7 @@ void CBasePlayer::TSEnterSpectate()
 	ResetArmament(); // no weapons until they pick a loadout + press fire
 	m_fInSpectateWait = true;
 	m_iClientSpecSecs = -1;
+	m_flSpecResyncTime = -1.0f; // arm the one-shot post-active slow/award re-sync (PreThink spectate block)
 
 	// (fold-plan Y6: the WAITING scoreboard status travels on the award byte via
 	// SetPlayerRespawnTime -> TSPAward, not on ScoreInfo playerclass — see below.)
@@ -1924,6 +1925,16 @@ void CBasePlayer::PreThink()
 	{
 		m_flSrvSettResendTime = 0.0f;
 #ifndef CLIENT_DLL
+		// Slow-mo target reset (cont.98): the client's slow TARGET (gmsgTSSlowMo-driven; the client's
+		// VidInit resets only the eased CURRENT, not the target) defaults SLOW on a fresh process, and
+		// UCD's change-detected gmsgTSSlowAmt reset is ALSO eaten by the connect-window MSG_ONE drop ->
+		// the joiner is stuck in the slow-mo screen tint + sound-pitch + motion-blur ghosts until they
+		// spawn (Spawn->TSInit re-arms this cache, which is why fire-to-play clears it). Re-arm the cache
+		// here — the same proven post-connect-window one-shot that re-sends SrvSett/TeamRoster — so the
+		// (cont.98: the slow/award connect-window catch-up is NOT a one-shot here anymore — a single
+		// timed re-fire is a GUESS that fails for a high-latency/slow-loading client whose connect window
+		// outlasts it. It's a throttled per-frame re-sync in the spectate-wait block below, which retries
+		// from UCD until the client is genuinely past its window. RE-verified the sole send site is UCD.)
 		if (TSGameRules)
 		{
 			extern int gmsgTSServerSetting;
@@ -2046,6 +2057,36 @@ void CBasePlayer::PreThink()
 				UTIL_VarArgs("%i seconds left for respawn, press Fire to Play!",
 					(int)(m_flRespawnHoldTime - gpGlobals->time + 0.5f)), pev);
 		}
+		// cont.98 ROOT-CAUSE FIX: the original PreThink @0x808cc calls UpdateClientData() near the TOP
+		// (line 62) — BEFORE its iuser1 spectate block (line 202, which returns). So the original runs
+		// the WHOLE TS UCD send (TSHealth/TSArmor/**TSSlowMo**/TSPAward-WAITING/…) EVERY frame for a
+		// spectating player. Our reconstruction added THIS early m_fInSpectateWait return, which sits
+		// BEFORE our per-frame UCD call (the stock tail, ~line 2255) — so a spectate-waiting player never
+		// ran UCD: the client's slow TARGET was never reset (→ stuck slow-mo tint/sound/blur on join) AND
+		// the AWARD/WAITING byte was never sent (→ no "WAITING" on the scoreboard). Run UCD here so the
+		// spectator gets its TS HUD updates like the original. (VERIFY: for FULL parity the spectate
+		// handling should move AFTER UCD/UpdatePowerUpState/SlowMotionFlow like the original's iuser1
+		// block — spectators should also run SlowMotionFlow/UpdatePowerUpState; deferred — this closes
+		// the reported stuck-slow + missing-WAITING bug.)
+		//
+		// Connect-window drop — ONE-SHOT post-active re-sync (cont.98). RE-CONFIRMED by a live server+client
+		// trace: the joiner's connect sequence (ClientPutInServer → Spawn → RemoveAllItems → UCD, all BEFORE
+		// the engine sets client->active at sv_main.cpp:1504) sends gmsgTSSlowAmt(normal) + gmsgTSPlayerAward
+		// (WAITING) while !active, so SV_Multicast's !active gate (sv_main.cpp:958) DROPS them — but the
+		// change-detect still LATCHES the caches to the final values (slowCache=1.0, awdCache=11). The first
+		// post-active PreThink UCD then sees no change and never re-sends → perma-slow + no WAITING. (The
+		// original's identical burst evidently lands — suspected ReHLDS-vs-GoldSrc active-timing difference,
+		// FLAGGED, engine left untouched.) Fix without a retry: this PreThink spectate block only runs AFTER
+		// active is set, and reliable messages retransmit until acked — so a SINGLE re-arm here, on the first
+		// post-active frame (m_flSpecResyncTime armed to <0 in TSEnterSpectate), makes UCD emit exactly ONE
+		// post-active send that lands, matching the original's observable single send. Not a throttle.
+		if (m_flSpecResyncTime < 0.0f)
+		{
+			m_flSpecResyncTime = 0.0f;   // one-shot: consume it
+			m_flClientSlowAmt = -1.0f;   // un-latch → UCD re-sends TSSlowMo(normal) once, now post-active
+			m_iClientAward = 0xff;       // un-latch → UCD re-sends TSPAward(WAITING) once (0xff matches TSInit)
+		}
+		UpdateClientData();
 		return;
 	}
 
@@ -4707,20 +4748,26 @@ void CBasePlayer::UpdateClientData()
 			MESSAGE_END();
 		}
 
-		// TSSlowMo — the PERCEIVED WORLD slow amount (100 = normal). Drives the client sound-pitch + green
-		// overlay. This is NOT the activator's move factor (0.6/0.8 = pev->fuser1, which only governs how
-		// fast THEY move/fire); it's the slowdown of the world they perceive: 0.35 slowmo / 0.225 slowpause
-		// (RE values 35 / 22.5 / 100). For a LOS VICTIM that's their own applied slow (fuser1); for the
-		// ACTIVATOR it's the others-scale they impose (m_flSlowMotionRamp) — so both hear/see the same wash.
-		float perceived = pev->fuser1; // victim's applied slow (or 1.0 normal)
-		if ((m_iPowerups & (TS_PWUP_SLOWMO | TS_PWUP_SLOWPAUSE)) && m_flSlowMotionRamp > 0.0f && m_flSlowMotionRamp < perceived)
-			perceived = m_flSlowMotionRamp; // the activator perceives the world at the others-scale
-		float slowAmt = perceived * 100.0f;
-		if (slowAmt != m_flClientSlowAmt)
+		// TSSlowMo — the PERCEIVED WORLD slow amount sent to the client (WRITE_COORD(100 * factor); the
+		// client normalizes 100 -> 1.0 = normal). @0x81d00 (UCD, decompile-exact): the factor is a FIXED
+		// value per active powerup bit — slowpause (0.225) OR slowmo (0.35) — else the player's own slow
+		// TARGET (m_flSlowMotionTarget @0x170). slowpause is tested FIRST, so it wins when both bits are
+		// set. m_flClientSlowAmt caches the FACTOR (not the ×100 wire value), change-detected. NB the
+		// original keys off the networked TARGET here — NOT pev->fuser1 (the eased CURRENT) and NOT the
+		// invented m_flSlowMotionRamp (the others-scale); those were a cont.94-era divergence, fixed to
+		// match the original exactly (cont.98).
+		float slowFactor = 0.225f; // TS_PWUP_SLOWPAUSE
+		if (!(m_iPowerups & TS_PWUP_SLOWPAUSE))
 		{
-			m_flClientSlowAmt = slowAmt;
+			slowFactor = 0.35f; // TS_PWUP_SLOWMO
+			if (!(m_iPowerups & TS_PWUP_SLOWMO))
+				slowFactor = m_flSlowMotionTarget; // default: the networked target (1.0 normal)
+		}
+		if (slowFactor != m_flClientSlowAmt)
+		{
+			m_flClientSlowAmt = slowFactor;
 			MESSAGE_BEGIN(MSG_ONE, gmsgTSSlowAmt, NULL, ENT(pev));
-			WRITE_COORD(slowAmt);
+			WRITE_COORD(100.0f * slowFactor);
 			MESSAGE_END();
 		}
 

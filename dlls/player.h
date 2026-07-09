@@ -416,7 +416,7 @@ public:
 	char m_iSlowedEntCount = 0;          // 0x288
 	int m_iClientHeldType = -1;       // 0x738 — last-sent held powerup type (gmsgTSPowerUp change-detect)
 	int m_iClientHeldDur = -1;        // 0x734 — last-sent held powerup duration
-	float m_flClientSlowAmt = -1;     // 0x16c — last-sent slow amount (gmsgTSSlowAmt change-detect)
+	float m_flClientSlowAmt = -1;     // 0x16c — last-sent slow FACTOR (gmsgTSSlowAmt change-detect; wire = 100×)
 	int m_iClientBulletTime = 0;      // 0x174 — last-sent bullet-time flag (gmsgTSBulletTime; byte cache, init 0 like the original)
 	byte m_iKungFu = 0;               // 0x74e — kung-fu state (kung-fu powerup)
 	byte m_bLowGravity = 0;           // 0x74f — super-jump powerup active (engine physinfo "mj")
@@ -533,6 +533,14 @@ public:
 	// (invented member — no original counterpart; the original client applies our InitHUD send fine,
 	//  suggesting a subtle connect-sequence difference we work around here. VERIFY vs a client trace.)
 	float m_flSrvSettResendTime = 0;
+	// INVENTED (cont.98) — connect-window MSG-drop ONE-SHOT re-sync sentinel for the slow/award UCD
+	// sends. The joiner's pre-active connect burst (RemoveAllItems→UCD) latches gmsgTSSlowAmt/
+	// gmsgTSPlayerAward's change-detect caches to their final values while SV_Multicast drops the send
+	// (client !active); the first post-active UCD then sees no change. Armed to <0 in TSEnterSpectate;
+	// the PreThink spectate block (which runs only post-active) consumes it once to un-latch the caches
+	// → exactly ONE post-active send that lands reliably (netchan retransmits). RE-verified sole send
+	// sites are UpdateClientData @0x822f9/@0x8245d.
+	float m_flSpecResyncTime = 0;
 	byte m_iWires[3] = {};                                // 0x78c-0x78e — the nearby armed bomb's wire ROLE codes
 	                                                      // (0 cut / 1 defuse / 2 boobytrap / 3 intact)
 	byte m_iClientWires[3] = {};                          // 0x78f-0x791 — the last-sent Wires triple
