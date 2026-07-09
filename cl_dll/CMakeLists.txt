@@ -20,13 +20,18 @@ if (WIN32)
 	set_target_properties(SDL2 PROPERTIES IMPORTED_IMPLIB "${CMAKE_CURRENT_SOURCE_DIR}/../lib/public/SDL2.lib")
 else()
 	# Pick the arch-appropriate bundled deps. 32-bit links Valve's vgui.so (Steam HL); 64-bit
-	# links openvgui's ABI-compatible libvgui.so (vendored as vgui64.so), which a 64-bit xash
-	# engine provides at runtime. SDL2 likewise — both are only load-time linked (the engine
-	# supplies the real libs); we keep the build-dir filenames identical so DT_NEEDED stays
-	# vgui.so / libSDL2-2.0.so.0 for both arches.
+	# links openvgui's ABI-compatible libvgui.so (vendored per-arch: x86-64 vgui64.so, aarch64
+	# vgui-aarch64.so), which a 64-bit xash engine provides at runtime. SDL2 likewise — both are
+	# only load-time linked (the engine supplies the real libs); we keep the build-dir filenames
+	# identical so DT_NEEDED stays vgui.so / libSDL2-2.0.so.0 for every arch.
 	if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-		set(MOD_VGUI_SRC ../linux/release/vgui64${CMAKE_SHARED_LIBRARY_SUFFIX})
-		set(MOD_SDL2_SRC ../linux/libSDL2-2.0-x64${CMAKE_SHARED_LIBRARY_SUFFIX}.0)
+		if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+			set(MOD_VGUI_SRC ../linux/release/vgui-aarch64${CMAKE_SHARED_LIBRARY_SUFFIX})
+			set(MOD_SDL2_SRC ../linux/libSDL2-2.0-arm64${CMAKE_SHARED_LIBRARY_SUFFIX}.0)
+		else()
+			set(MOD_VGUI_SRC ../linux/release/vgui64${CMAKE_SHARED_LIBRARY_SUFFIX})
+			set(MOD_SDL2_SRC ../linux/libSDL2-2.0-x64${CMAKE_SHARED_LIBRARY_SUFFIX}.0)
+		endif()
 	else()
 		set(MOD_VGUI_SRC ../linux/release/vgui${CMAKE_SHARED_LIBRARY_SUFFIX})
 		set(MOD_SDL2_SRC ../linux/libSDL2-2.0${CMAKE_SHARED_LIBRARY_SUFFIX}.0)

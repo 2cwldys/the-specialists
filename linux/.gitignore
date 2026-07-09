@@ -13,3 +13,6 @@
 # 64-bit client deps: openvgui (ABI-compatible vgui) + a 64-bit SDL2, for amd64 client builds
 !release/vgui64.so
 !libSDL2-2.0-x64.so.0
+# aarch64 client deps: cross-built openvgui + arm64 SDL2, for aarch64 client builds
+!release/vgui-aarch64.so
+!libSDL2-2.0-arm64.so.0

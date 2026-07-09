@@ -55,17 +55,19 @@ jobs:
         run: |
           cmake -B build-amd64 -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build (hl gamedll only)
-        # cl_dll/client.so links against the prebuilt x86-32 vgui.so
-        # and there's no native 64-bit GoldSrc client engine to load
-        # the result anyway — only build the server-side hl gamedll
-        # on non-i386, matching the buildchain Makefile pattern.
-        run: cmake --build build-amd64 --target hl -j$(nproc)
+      - name: Build (hl gamedll + client)
+        # The client links openvgui's ABI-compatible vgui + SDL2, both
+        # vendored per-arch (x86-64: linux/release/vgui64.so +
+        # linux/libSDL2-2.0-x64.so.0). There's no native 64-bit GoldSrc
+        # client engine to LOAD the result, so this is a 64-bit compile+link
+        # check of the reconstruction; the shipping client is the wasm build.
+        run: cmake --build build-amd64 --target hl client -j$(nproc)
 
       - name: Stage per-arch
         run: |
-          mkdir -p staged-amd64/dlls
+          mkdir -p staged-amd64/dlls staged-amd64/cl_dlls
           cp build-amd64/dlls/hl.so staged-amd64/dlls/hl.so
+          cp build-amd64/cl_dll/client.so staged-amd64/cl_dlls/client.so
 
       - name: Deploy
         uses: actions/upload-artifact@v4
@@ -101,16 +103,19 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=cmake/LinuxToolchain-aarch64.cmake
 
-      - name: Build (hl gamedll only)
-        # Same rationale as Linux-amd64: no native 64-bit GoldSrc
-        # client engine, and the prebuilt linux/release/vgui.so is
-        # x86 only. Server-side hl.so is all that's needed.
-        run: cmake --build build-aarch64 --target hl -j$(nproc)
+      - name: Build (hl gamedll + client)
+        # The client links openvgui's ABI-compatible vgui + SDL2, vendored
+        # per-arch (aarch64: linux/release/vgui-aarch64.so +
+        # linux/libSDL2-2.0-arm64.so.0). cl_dll/CMakeLists.txt selects them by
+        # CMAKE_SYSTEM_PROCESSOR. Compile+link check only — no native 64-bit
+        # GoldSrc client engine loads the result.
+        run: cmake --build build-aarch64 --target hl client -j$(nproc)
 
       - name: Stage per-arch
         run: |
-          mkdir -p staged-aarch64/dlls
+          mkdir -p staged-aarch64/dlls staged-aarch64/cl_dlls
           cp build-aarch64/dlls/hl.so staged-aarch64/dlls/hl.so
+          cp build-aarch64/cl_dll/client.so staged-aarch64/cl_dlls/client.so
 
       - name: Deploy
         uses: actions/upload-artifact@v4
@@ -143,12 +148,16 @@ jobs:
             projects/vs2019/Release/hldll/hl.dll
             projects/vs2019/Release/hldll/hl.pdb
 
-  # Win64 — CMake-driven, gamedll only. The projects/vs2019 .sln is
-  # Win32-locked (links the prebuilt x86 vgui.lib for cl_dll), so the
-  # x64 path uses the top-level CMakeLists.txt with cmake -A x64 and
-  # builds just the hl target — same scope as Linux-amd64/aarch64,
-  # since there's no native 64-bit GoldSrc client engine to load
-  # client.dll on Win64 anyway.
+  # Win64 — MSBuild-driven, full solution (hl gamedll + client), mirroring
+  # the win32 job. The x64 client links an x64 vgui import lib, which is not
+  # vendored anywhere (only the original x86 vgui.lib is). openvgui — the
+  # ABI-compatible VGUI reimplementation the 64-bit engine ships (its Linux
+  # build, vgui64.so, is what the local amd64 client links) — builds a matching
+  # x64 vgui.dll + vgui.lib under MSVC, so this job builds it from source and
+  # points the x64 client config at it (utils/vgui/lib/win64/vgui.lib). SDL2's
+  # x64 import lib is vendored (lib/public/x64/SDL2.lib), like the x86 one.
+  # There's no native 64-bit GoldSrc engine to LOAD the result — this is a
+  # 64-bit compile+link check of the reconstruction on MSVC.
   win64:
     name: Win64
     runs-on: windows-latest
@@ -156,24 +165,93 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Configure (Win64)
-        run: cmake -B build-win64 -A x64
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+        with:
+          msbuild-architecture: x64
 
-      - name: Build (hl gamedll only)
-        run: cmake --build build-win64 --config Release --target hl -j 2
+      # openvgui declares no __declspec(dllexport), so CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS
+      # is what populates the import library. Pin the public FWGS commit — the
+      # goldsrc-net fork differs only by a waf wscript, irrelevant to this CMake
+      # build. Produces vgui.lib (link-time) + vgui.dll (runtime companion).
+      - name: Build openvgui x64 (produces vgui.lib)
+        shell: bash
+        run: |
+          git clone https://github.com/FWGS/openvgui.git openvgui-src
+          git -C openvgui-src checkout 1b89d197c4e443b9df3923cfe60a3a873ca94d7d
+          cmake -S openvgui-src -B openvgui-src/build -A x64 -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON
+          cmake --build openvgui-src/build --config Release -j 2
+          mkdir -p utils/vgui/lib/win64
+          cp openvgui-src/build/Release/vgui.lib utils/vgui/lib/win64/vgui.lib
+
+      - name: Build (MSBuild, x64 — hl + client)
+        run: msbuild projects/vs2019/projects.sln -t:rebuild -property:Configuration=Release -property:Platform=x64 -maxcpucount:2
 
       - name: Stage per-arch
         shell: bash
         run: |
-          mkdir -p staged-win64/dlls
-          cp build-win64/dlls/Release/hl.dll staged-win64/dlls/hl.dll
-          # PDB is optional but useful for debugging.
-          if [ -f build-win64/dlls/Release/hl.pdb ]; then
-            cp build-win64/dlls/Release/hl.pdb staged-win64/dlls/hl.pdb
-          fi
+          mkdir -p staged-win64/dlls staged-win64/cl_dlls
+          cp projects/vs2019/x64/Release/hldll/hl.dll        staged-win64/dlls/hl.dll
+          cp projects/vs2019/x64/Release/hl_cdll/client.dll  staged-win64/cl_dlls/client.dll
+          # vgui.dll is the runtime companion of the import lib the client links.
+          cp openvgui-src/build/Release/vgui.dll             staged-win64/cl_dlls/vgui.dll
+          # PDBs are optional but useful for debugging.
+          cp projects/vs2019/x64/Release/hldll/hl.pdb        staged-win64/dlls/       2>/dev/null || true
+          cp projects/vs2019/x64/Release/hl_cdll/client.pdb  staged-win64/cl_dlls/    2>/dev/null || true
 
       - name: Deploy
         uses: actions/upload-artifact@v4
         with:
           name: Win64
           path: staged-win64/**
+
+  # Package — fan in every build job into ONE combined artifact. Both game
+  # libraries for every arch, laid out the way the engine expects to find
+  # them: dlls/ (server) + cl_dlls/ (client), i386 keeps the plain name and
+  # every non-i386 build gets its arch suffixed on the end (xash convention:
+  # hl_amd64.so / hl_aarch64.so / hl_amd64.dll, likewise client_*). The i386
+  # variant is taken from the g++ leg of the linux-i386 matrix.
+  package:
+    name: Package (all arches, one zip)
+    runs-on: ubuntu-latest
+    needs: [linux-i386, linux-amd64, linux-aarch64, win32, win64]
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Assemble combined tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/dlls dist/cl_dlls
+          # pick <artifact-dir> <filename> -> first matching file (robust to nesting)
+          pick() {
+            local f
+            f=$(find "artifacts/$1" -type f -name "$2" | head -1)
+            if [ -z "$f" ]; then echo "MISSING: $2 in artifact $1" >&2; exit 1; fi
+            echo "$f"
+          }
+          # server libraries -> dlls/
+          cp "$(pick Linux-i386-g++ hl.so)"     dist/dlls/hl.so
+          cp "$(pick Linux-amd64    hl.so)"     dist/dlls/hl_amd64.so
+          cp "$(pick Linux-aarch64  hl.so)"     dist/dlls/hl_aarch64.so
+          cp "$(pick Win32          hl.dll)"    dist/dlls/hl.dll
+          cp "$(pick Win64          hl.dll)"    dist/dlls/hl_amd64.dll
+          # client libraries -> cl_dlls/
+          cp "$(pick Linux-i386-g++ client.so)"  dist/cl_dlls/client.so
+          cp "$(pick Linux-amd64    client.so)"  dist/cl_dlls/client_amd64.so
+          cp "$(pick Linux-aarch64  client.so)"  dist/cl_dlls/client_aarch64.so
+          cp "$(pick Win32          client.dll)" dist/cl_dlls/client.dll
+          cp "$(pick Win64          client.dll)" dist/cl_dlls/client_amd64.dll
+          # Win64 client's runtime companion (openvgui import lib -> real DLL)
+          cp "$(pick Win64          vgui.dll)"   dist/cl_dlls/vgui.dll
+          echo "=== combined tree ==="
+          find dist -type f | sort
+
+      - name: Upload combined artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ts-gamelibs-all
+          path: dist/**
