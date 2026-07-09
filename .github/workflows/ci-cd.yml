@@ -177,8 +177,11 @@ jobs:
       - name: Build openvgui x64 (produces vgui.lib)
         shell: bash
         run: |
-          git clone https://github.com/FWGS/openvgui.git openvgui-src
+          git clone --recursive https://github.com/FWGS/openvgui.git openvgui-src
           git -C openvgui-src checkout 1b89d197c4e443b9df3923cfe60a3a873ca94d7d
+          # miniutl is a submodule (FWGS/MiniUTL) — re-sync it to the pinned
+          # commit's recorded pointer so miniutl/utlmemory.cpp is present.
+          git -C openvgui-src submodule update --init --recursive
           cmake -S openvgui-src -B openvgui-src/build -A x64 -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON
           cmake --build openvgui-src/build --config Release -j 2
           mkdir -p utils/vgui/lib/win64
