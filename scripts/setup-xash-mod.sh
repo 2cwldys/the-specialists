@@ -79,16 +79,12 @@ nomodels "0"
 gamedll_linux "dlls/hl.so"
 EOF
 
-# --- client runtime dep: vgui.so ---------------------------------------------
-# The cont.46 client links DT_NEEDED `vgui.so` (the 64-bit openvgui). The engine
-# ships the exact same lib as `libvgui.so`; expose it under the name the client
-# wants so the dynamic loader resolves it (run with LD_LIBRARY_PATH=$XROOT).
-# (libSDL2-2.0.so.0 already resolves from the system loader path.)
-if [ -f "$XROOT/libvgui.so" ]; then
-	ln -sfn libvgui.so "$XROOT/vgui.so"
-else
-	cp -f "$MODTS/linux/release/vgui64.so" "$XROOT/vgui.so"
-fi
+# --- client vgui: nothing to stage -------------------------------------------
+# The modernize-build-sdl2-vgui client STATIC-links its own VGUI (openvgui,
+# hidden visibility) and DT_NEEDEDs no external vgui.so — verified: client.so
+# needs only libc/libm/libdl/libgcc. The engine also no longer ships an amd64
+# libvgui.so (openvgui is wasm-only now), so VGui_LoadProgs(NULL) fails and the
+# engine falls back to the client's InitVGUISupportAPI. Nothing to provision.
 
 # --- complete the valve fallback ---------------------------------------------
 mkdir -p "$XROOT/valve"
