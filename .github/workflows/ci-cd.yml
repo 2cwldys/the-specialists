@@ -15,10 +15,10 @@ jobs:
   linux-i386:
     name: Linux-i386
     runs-on: ubuntu-latest
-    # Build inside the buildchain image (debian10/glibc-2.28 floor, gcc-multilib + cmake 3.29)
-    # so the .so runs on any glibc >= 2.28 — Ubuntu runners link 2.34+. Published by
-    # goldsrc-net/buildchain (.github/workflows/publish-image.yml); pull-only, nobody builds it.
-    container: ghcr.io/goldsrc-net/buildchain:debian10
+    # Build inside the goldsrc-net build image (debian10 / glibc-2.28 floor, gcc-multilib +
+    # aarch64 cross + cmake 3.29) so the .so runs on any glibc >= 2.28 — Ubuntu runners link
+    # 2.34+. Published by goldsrc-net/build-containers (its 64bit branch); pull-only.
+    container: ghcr.io/goldsrc-net/build-containers/debian10:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -55,7 +55,7 @@ jobs:
   linux-amd64:
     name: Linux-amd64
     runs-on: ubuntu-latest
-    container: ghcr.io/goldsrc-net/buildchain:debian10
+    container: ghcr.io/goldsrc-net/build-containers/debian10:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -89,7 +89,7 @@ jobs:
   linux-aarch64:
     name: Linux-aarch64
     runs-on: ubuntu-latest
-    container: ghcr.io/goldsrc-net/buildchain:debian10
+    container: ghcr.io/goldsrc-net/build-containers/debian10:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
