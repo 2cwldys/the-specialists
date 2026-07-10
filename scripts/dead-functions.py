@@ -44,7 +44,12 @@ ENGINE_EXACT = {
     "Initialize", "ClientFactory", "InitVGUISupportAPI", "F", "GetStudioModelInterface",
     "Draw", "Init", "VidInit", "Shutdown", "Reset",  # common HUD element engine hooks
     "GetClientColor", "ClientMoveEvent", "ClientLookEvent",
+    # engine input PUSH callbacks (inputw32.cpp) — the engine calls these
+    "IN_ClientMoveEvent", "IN_ClientLookEvent",
 }
+# a TS-reconstruction symbol: uncalled here usually means PENDING WIRING, not dead —
+# never propose deleting these (that would remove reconstruction work, not clean it).
+TS_SYMBOL_RE = re.compile(r'(?i)(^|_)ts|^CTS|weaponid|slowmotion|specialist')
 
 
 def blank_strings_comments(lines):
@@ -212,14 +217,19 @@ def main():
                     out.append(m.group(1))
         return out
 
-    dead_free = []
+    def is_ts(name, rel):
+        return bool(TS_SYMBOL_RE.search(name)) or "ts_" in os.path.basename(rel).lower()
+
+    dead_free = []          # stock-HL uncalled -> safe cleanup
+    ts_pending = []         # TS-symbol uncalled -> pending wiring, DO NOT delete
     for sp in free_defs:
-        if engine_hook(sp["name"]):
-            continue
+        if engine_hook(sp["name"]) or sp["name"].startswith("~"):
+            continue        # engine/macro entry points + destructors (implicit calls)
         u = uses_of(sp["name"], sp["file"], sp["start"], sp["end"])
         if u == 0:
             refs = asset_refs(sp["file"], sp["open"], sp["end"])
-            dead_free.append((sp["file"], sp["start"], sp["name"], sorted(set(refs))))
+            row = (sp["file"], sp["start"], sp["name"], sorted(set(refs)))
+            (ts_pending if is_ts(sp["name"], sp["file"]) else dead_free).append(row)
 
     # ---- [B] entity classes: registered + hierarchy -------------------------
     registered = set()
@@ -275,12 +285,23 @@ def main():
           f"registered entities: {len(registered)}")
 
     print("\n" + "-" * 78)
-    print(f"[A] UNCALLED FREE FUNCTIONS  ({len(dead_free)})  — HIGH confidence, gut like ev_hldm")
+    print(f"[A] UNCALLED STOCK-HL FREE FUNCTIONS  ({len(dead_free)})  — safe cleanup, "
+          "gut like ev_hldm (build verifies)")
     print("-" * 78)
     if not dead_free:
-        print("  (none — every compiled free function is called/address-taken)")
+        print("  (none — every compiled stock free function is called/address-taken)")
     for fl, ln, name, refs in sorted(dead_free):
         astr = ("  assets: " + ", ".join(refs)) if refs else "  (no asset refs)"
+        print(f"  {fl}:{ln}  {name}(){astr}")
+
+    print("\n" + "-" * 78)
+    print(f"[A2] UNCALLED TS-RECONSTRUCTION FUNCTIONS  ({len(ts_pending)})  — do NOT delete: "
+          "uncalled usually = PENDING WIRING, not dead. For the owner to triage.")
+    print("-" * 78)
+    if not ts_pending:
+        print("  (none)")
+    for fl, ln, name, refs in sorted(ts_pending):
+        astr = ("  assets: " + ", ".join(refs)) if refs else ""
         print(f"  {fl}:{ln}  {name}(){astr}")
 
     print("\n" + "-" * 78)
