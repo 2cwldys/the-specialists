@@ -14,7 +14,11 @@ jobs:
   # Linux i386 — CMake + the in-tree i386 toolchain. 32-bit keeps dynamic Valve vgui.
   linux-i386:
     name: Linux-i386
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    # Build inside the buildchain image (debian10/glibc-2.28 floor, gcc-multilib + cmake 3.29)
+    # so the .so runs on any glibc >= 2.28 — Ubuntu runners link 2.34+. Published by
+    # goldsrc-net/buildchain (.github/workflows/publish-image.yml); pull-only, nobody builds it.
+    container: ghcr.io/goldsrc-net/buildchain:debian10
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -25,11 +29,6 @@ jobs:
           # this repo only and can't clone another private repo). Set the secret in
           # repo/org settings; used for the main checkout + recursive submodule auth.
           token: ${{ secrets.SUBMODULES_TOKEN }}
-
-      - name: Install G++ Multilib & OpenGL library
-        run: |
-          sudo apt update
-          sudo apt install -y g++-multilib cmake libgl1-mesa-dev
 
       - name: Configure (i386)
         run: |
@@ -55,7 +54,8 @@ jobs:
   # shim, so the client has no vgui/SDL2 DT_NEEDED and exports InitVGUISupportAPI.
   linux-amd64:
     name: Linux-amd64
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container: ghcr.io/goldsrc-net/buildchain:debian10
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -66,11 +66,6 @@ jobs:
           # this repo only and can't clone another private repo). Set the secret in
           # repo/org settings; used for the main checkout + recursive submodule auth.
           token: ${{ secrets.SUBMODULES_TOKEN }}
-
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y build-essential cmake libgl1-mesa-dev
 
       - name: Configure (amd64)
         run: cmake -B build-amd64 -DCMAKE_BUILD_TYPE=Release
@@ -93,7 +88,8 @@ jobs:
   # Linux aarch64 — CMake cross-compiled via the in-tree toolchain file.
   linux-aarch64:
     name: Linux-aarch64
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container: ghcr.io/goldsrc-net/buildchain:debian10
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -105,16 +101,12 @@ jobs:
           # repo/org settings; used for the main checkout + recursive submodule auth.
           token: ${{ secrets.SUBMODULES_TOKEN }}
 
-      - name: Install aarch64 cross-toolchain
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            build-essential cmake \
-            gcc-11-aarch64-linux-gnu g++-11-aarch64-linux-gnu
-          sudo ln -sf /usr/bin/aarch64-linux-gnu-gcc-11 /usr/bin/aarch64-linux-gnu-gcc
-          sudo ln -sf /usr/bin/aarch64-linux-gnu-g++-11 /usr/bin/aarch64-linux-gnu-g++
-
       - name: Configure (aarch64 cross)
+        # The image ships a gcc-8.3 aarch64 cross-toolchain; point CC/CXX at it (matches
+        # scripts/build.sh) so the toolchain file picks it over the image's default clang.
+        env:
+          CC: aarch64-linux-gnu-gcc
+          CXX: aarch64-linux-gnu-g++
         run: |
           cmake -B build-aarch64 \
             -DCMAKE_BUILD_TYPE=Release \
