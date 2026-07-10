@@ -1699,46 +1699,20 @@ void V_GetMapChasePosition(int target, float* cl_angles, float* origin, float* a
 
 int V_FindViewModelByWeaponModel(int weaponindex)
 {
-
-	static const char* modelmap[][2] = {
-
-		{"models/p_crossbow.mdl", "models/v_crossbow.mdl"},
-		{"models/p_crowbar.mdl", "models/v_crowbar.mdl"},
-		{"models/p_egon.mdl", "models/v_egon.mdl"},
-		{"models/p_gauss.mdl", "models/v_gauss.mdl"},
-		{"models/p_9mmhandgun.mdl", "models/v_9mmhandgun.mdl"},
-		{"models/p_grenade.mdl", "models/v_grenade.mdl"},
-		{"models/p_hgun.mdl", "models/v_hgun.mdl"},
-		{"models/p_9mmAR.mdl", "models/v_9mmAR.mdl"},
-		{"models/p_357.mdl", "models/v_357.mdl"},
-		{"models/p_rpg.mdl", "models/v_rpg.mdl"},
-		{"models/p_shotgun.mdl", "models/v_shotgun.mdl"},
-		{"models/p_squeak.mdl", "models/v_squeak.mdl"},
-		{"models/p_tripmine.mdl", "models/v_tripmine.mdl"},
-		{"models/p_satchel_radio.mdl", "models/v_satchel_radio.mdl"},
-		{"models/p_satchel.mdl", "models/v_satchel.mdl"},
-		{NULL, NULL}};
-
-	struct model_s* weaponModel = IEngineStudio.GetModelByIndex(weaponindex);
-
-	if (weaponModel)
-	{
-		int len = strlen(weaponModel->name);
-		int i = 0;
-
-		while (modelmap[i] != NULL)
-		{
-			if (!strnicmp(weaponModel->name, modelmap[i][0], len))
-			{
-				return gEngfuncs.pEventAPI->EV_FindModelIndex(modelmap[i][1]);
-			}
-			i++;
-		}
-
-		return 0;
-	}
-	else
-		return 0;
+	// Spectator in-eye: given the spectated player's WORLD weapon model, return the
+	// VIEW model index to draw in first person. The stock Half-Life weapon rows
+	// (p_crossbow/p_egon/p_gauss/p_357/... -> v_*) were removed: TS players carry TS
+	// world models (p_glock18/p_beretta/p_uzi/..., see ts_weapon_info.cpp), which never
+	// matched the HL table, so this already returned 0 (no spectator viewmodel) for
+	// every TS weapon. Removing the HL rows is behaviour-neutral and drops the HL model
+	// references.
+	//
+	// TODO(reconstruction): to actually draw TS viewmodels in spectator in-eye, resolve
+	// the spectated player's TS weapon -> its viewmodel index here. RE the original TS
+	// client first — it likely keys off the weapon TYPE (weapon_tsgun's predicted state),
+	// not a model-name string match — before reintroducing a mapping.
+	(void)weaponindex;
+	return 0;
 }
 
 

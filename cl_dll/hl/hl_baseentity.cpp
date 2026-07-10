@@ -240,7 +240,6 @@ void CBasePlayer::DeathSound() {}
 bool CBasePlayer::TakeHealth(float flHealth, int bitsDamageType) { return false; }
 void CBasePlayer::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vecDir, TraceResult* ptr, int bitsDamageType) {}
 bool CBasePlayer::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, float flDamage, int bitsDamageType) { return false; }
-void CBasePlayer::PackDeadPlayerItems() {}
 void CBasePlayer::RemoveAllItems(bool removeSuit) {}
 void CBasePlayer::SetAnimation(PLAYER_ANIM playerAnim) {}
 void CBasePlayer::WaterMove() {}
@@ -290,7 +289,6 @@ Vector CBasePlayer::AutoaimDeflection(Vector& vecSrc, float flDist, float flDelt
 void CBasePlayer::ResetAutoaim() {}
 void CBasePlayer::SetCustomDecalFrames(int nFrames) {}
 int CBasePlayer::GetCustomDecalFrames() { return -1; }
-void CBasePlayer::DropPlayerItem(char* pszItemName) {}
 bool CBasePlayer::HasPlayerItem(CBasePlayerItem* pCheckItem) { return false; }
 bool CBasePlayer::SwitchWeapon(CBasePlayerItem* pWeapon) { return false; }
 Vector CBasePlayer::GetGunPosition() { return g_vecZero; }
