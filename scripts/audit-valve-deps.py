@@ -194,12 +194,104 @@ CODE_EXTS = (".cpp", ".c", ".h", ".hpp", ".cc", ".cxx")
 CODE_ASSET_RE = re.compile(
     r'"([A-Za-z0-9_][A-Za-z0-9_\-/\.]*\.(?:mdl|spr|wav|bmp|tga|bsp))"', re.I
 )
+# identifier immediately preceding a '(' — used to name the enclosing function
+FUNC_NAME_RE = re.compile(r'([A-Za-z_~][A-Za-z0-9_:]*)\s*\(')
+_FUNC_SKIP = {"if", "for", "while", "switch", "return", "sizeof", "defined",
+              "else", "do", "case", "static_cast", "reinterpret_cast"}
+# enclosing-symbol names that mark a stock-HL weapon TS doesn't have -> DEAD hint.
+# (shotgun/grenade deliberately OMITTED — TS has its own, so they're ambiguous.)
+HL_WEAPON_RE = re.compile(
+    r'(?i)(glock|python|\bmp5\b|mp52|gauss|egon|crossbow|\brpg\b|hornet|\bhgun\b|'
+    r'satchel|tripmine|snark|squeak|crowbar|\bbolt\b|9mmar|\b357\b|hldm)')
+# asset paths that are SHARED effects/world-entity audio TS genuinely plays ->
+# LIVE (replace with generic, do NOT delete): player movement, gibs, breakable
+# debris, and the door/button/platform/fan sounds every GoldSrc map triggers.
+LIVE_SHARED_RE = re.compile(
+    r'(?i)(player/pl_|/pl_|_step|step\d|npc_step|gibs?\.mdl|debris|bullet_hit|'
+    r'ambience/|\bric\d|doors?/|buttons?/|fans?/|wheels?/|plats?/|/bodysplat)')
+
+
+def _blank_strings_comments(lines):
+    """Return each line with string/char-literal contents and comments blanked
+    (so brace counting isn't corrupted by `{`/`}` inside them). Tracks block
+    comments across lines."""
+    out = []
+    in_block = False
+    for raw in lines:
+        res = []
+        i, n, in_str = 0, len(raw), None
+        while i < n:
+            c = raw[i]
+            two = raw[i:i + 2]
+            if in_block:
+                if two == "*/":
+                    in_block = False
+                    i += 2
+                    continue
+                i += 1
+                continue
+            if in_str:
+                if c == "\\":
+                    i += 2
+                    continue
+                if c == in_str:
+                    in_str = None
+                i += 1
+                continue
+            if two == "/*":
+                in_block = True
+                i += 2
+                continue
+            if two == "//":
+                break
+            if c == '"' or c == "'":
+                in_str = c
+                i += 1
+                continue
+            res.append(c)
+            i += 1
+        out.append("".join(res))
+    return out
+
+
+def enclosing_functions(lines):
+    """Approximate the enclosing top-level function name for each line (brace
+    depth walk over string/comment-stripped code; good enough for HL-SDK
+    column-0 function style). Returns a list parallel to `lines` of name-or-None."""
+    code = _blank_strings_comments(lines)
+    out = [None] * len(lines)
+    depth = 0
+    cur = None
+    sig = []
+    for i, cl in enumerate(code):
+        if depth == 0:
+            s = cl.strip()
+            if s and not s.startswith(("#", "}")):
+                sig.append(s)
+        before = depth
+        depth += cl.count("{") - cl.count("}")
+        if before == 0 and depth > 0 and cur is None:
+            joined = " ".join(sig)
+            if "(" in joined:
+                cand = [m for m in FUNC_NAME_RE.findall(joined) if m not in _FUNC_SKIP]
+                cur = cand[0] if cand else None
+        out[i] = cur
+        if depth < 0:
+            depth = 0
+        if before > 0 and depth == 0:
+            # a top-level block just closed -> we left the function
+            cur, sig = None, []
+        elif before == 0 and depth == 0 and sig and sig[-1].rstrip().endswith(";"):
+            # a complete file-scope statement (prototype, LINK_ENTITY_TO_CLASS,
+            # global) — not a pending function signature; drop the accumulation
+            sig = []
+    return out
 
 
 def scan_code(roots):
-    """Return {ref(normalized): [(relpath, lineno), ...]} for concrete asset
-    literals (every reference SITE), and a separate set of dynamic
-    (format-string) literals for eyeballing."""
+    """Return {ref(normalized): [(relpath, lineno, func), ...]} for concrete asset
+    literals (every reference SITE, with its enclosing function), and a separate
+    set of dynamic (format-string) literals for eyeballing."""
     refs = defaultdict(list)
     dynamic = set()
     for root in roots:
@@ -216,6 +308,7 @@ def scan_code(roots):
                 except OSError:
                     continue
                 rel = os.path.relpath(ap)
+                func_at = enclosing_functions(lines)
                 for lineno, text in enumerate(lines, 1):
                     for m in CODE_ASSET_RE.finditer(text):
                         lit = m.group(1)
@@ -223,7 +316,7 @@ def scan_code(roots):
                         if "%" in lit:
                             dynamic.add(ref)
                         else:
-                            refs[ref].append((rel, lineno))
+                            refs[ref].append((rel, lineno, func_at[lineno - 1]))
     return refs, dynamic
 
 
@@ -481,7 +574,7 @@ def main():
         for ref, locs in code_missing.items():
             ok = in_valve(ref, valve_files)
             cls = "HL-asset" if ok else ("dangling" if ok is False else "?")
-            for (fl, ln) in locs:
+            for (fl, ln, _fn) in locs:
                 by_file[fl].append((ln, ref, cls))
         n_sites = sum(len(v) for v in by_file.values())
         emit()
@@ -497,6 +590,64 @@ def main():
             emit(f"\n  {fl}  ({len(rows)} sites)")
             for ln, ref, cls in rows:
                 emit(f"    L{ln:<6} [{cls:<8}] {ref}")
+
+    # ---- [2c] CHARACTERIZED: grouped by enclosing function, DEAD vs LIVE ---- #
+    # Collapse the loose sites into their enclosing functions and tag each group:
+    #   DELETE?  the function is a stock-HL weapon TS doesn't have (name match)
+    #   REPLACE? every asset is a shared HL effect TS actually plays (footstep/
+    #            gib/debris/ambience) -> swap for generic art, do NOT delete
+    #   REVIEW   neither signal fired -> read the function, decide by hand
+    # Heuristic triage only: the actual cut still goes through a per-subsystem
+    # verify + build (like ev_hldm), so a mis-tag can prioritize wrong but never
+    # cause a bad cut.
+    if args.code:
+        groups = defaultdict(list)    # (file, func) -> [(line, ref), ...]
+        for ref, locs in code_missing.items():
+            for (fl, ln, fn) in locs:
+                groups[(fl, fn or "<file-scope>")].append((ln, ref))
+
+        def classify(func, refs_in_group):
+            # DELETE?: the enclosing fn is a stock-HL weapon, OR every asset in the
+            # group is an HL-weapon asset (v_egon.mdl, weapons/gauss2.wav, …).
+            if func and HL_WEAPON_RE.search(func):
+                return "DELETE?"
+            if refs_in_group and all(HL_WEAPON_RE.search(r) for r in refs_in_group):
+                return "DELETE?"
+            if refs_in_group and all(LIVE_SHARED_RE.search(r) for r in refs_in_group):
+                return "REPLACE?"
+            return "REVIEW"
+
+        tagged = []
+        for (fl, fn), rows in groups.items():
+            refs_in = [r for _ln, r in rows]
+            tagged.append((classify(fn, refs_in), fl, fn, sorted(rows)))
+        order = {"DELETE?": 0, "REVIEW": 1, "REPLACE?": 2}
+        tagged.sort(key=lambda t: (order[t[0]], t[1], t[2]))
+
+        counts = defaultdict(lambda: [0, 0])   # tag -> [funcs, sites]
+        for tag, _fl, _fn, rows in tagged:
+            counts[tag][0] += 1
+            counts[tag][1] += len(rows)
+        emit()
+        emit("-" * 78)
+        emit(f"[2c] CHARACTERIZED BY ENCLOSING FUNCTION  ({len(tagged)} functions)")
+        emit("-" * 78)
+        for tag in ("DELETE?", "REVIEW", "REPLACE?"):
+            f, s = counts[tag]
+            emit(f"    {tag:<9} {f:>3} functions, {s:>3} sites")
+        emit("  DELETE? = enclosing fn is a stock-HL weapon TS lacks (gut it, like ev_hldm).")
+        emit("  REPLACE? = shared HL effect TS plays (footstep/gib/debris/ambience) -> swap")
+        emit("             for generic assets; do NOT delete. REVIEW = read + decide.")
+        for tag in ("DELETE?", "REVIEW", "REPLACE?"):
+            members = [t for t in tagged if t[0] == tag]
+            if not members:
+                continue
+            emit(f"\n  === {tag} ===")
+            for _tag, fl, fn, rows in members:
+                assets = sorted({r for _ln, r in rows})
+                shown = ", ".join(assets[:4]) + (" …" if len(assets) > 4 else "")
+                emit(f"    {fl} :: {fn}  ({len(rows)} sites)")
+                emit(f"        {shown}")
 
     # ---- HUD sprites ------------------------------------------------------- #
     emit()
