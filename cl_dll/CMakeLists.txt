@@ -247,7 +247,6 @@ target_sources(client PRIVATE
 	com_weapons.h
 	demo.h
 	eventscripts.h
-	ev_hldm.h
 	GameStudioModelRenderer.h
 	health.h
 	hud.h
