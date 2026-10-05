@@ -279,6 +279,17 @@ confirm the gap closed.
   original methods touching each spec offset (0 = stale row). `--all` joins every named original member
   (`members.tsv` + `members_re.tsv`) to reTS by name, for layout-drift work. Re-run it after any layout
   change; reTSX's offsets for reTS come from it.
+- **`dlls/rets_api.{h,cpp}`** export `ReTS_GetInterface(int version)`: a versioned struct of get/set
+  functions for the player fields AMX Mod X's TSX module (reTSX) touches (cash, free slots, kevlar, slow
+  motion, powerups, award, melee bar, lunge, gun ammo reserve). Not in the original; TSX uses it instead of
+  offsets whenever the game library exports it. AMX Mod X keeps an identical copy of `rets_api.h`
+  (`modules/ts/tsx/rets_api.h`); change both together and bump `RETS_INTERFACE_VERSION` on any change.
+- **`scripts/coverage/hamdata.py`** writes AMX Mod X's Ham Sandwich gamedata for reTS
+  (`gamedata/common.games/virtual.games/ts/offsets-rets.txt`, selected by the `gamedll_export`
+  `ReTS_GetInterface` condition) from reTS's own `_ZTV` vtables: each stock TS key is named by the
+  original's vtable (`vtables_original.json`) and matched to reTS's slot. Pass every built arch
+  (`--so i386=… --so amd64=…`); it fails if the slots differ by arch or a key has no reTS virtual.
+  Re-run it after any vtable change.
 - **`divergence.py`** defaults to the fork point (`upstream/64bit-demo`, exported to a temp dir), not
   the buildchain's halflife-updated working tree. **`baseline.py`** still needs a built base SDK and
   uses the buildchain's `halflife-updated` build; it records which commit that is and warns when it is
