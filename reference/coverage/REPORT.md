@@ -8,7 +8,7 @@ scope (not a drop-in requirement — see CLAUDE.md).
 
 _Original = the TS FGD's mapper-facing entity set; ours = LINK_ENTITY_TO_CLASS classnames. MISSING = an FGD entity we don't implement (the reconstruction work-list). EXTRA = we link an entity the FGD omits (stock HL helpers / non-mapper entities — low signal)._
 
-- matched: **144**  |  missing (orig→not ours): **4**  |  extra (ours→not orig): **62**
+- matched: **144**  |  missing (orig→not ours): **4**  |  extra (ours→not orig): **61**
 
 **MISSING (in original, not in ours — implement / RE):**
 
@@ -16,17 +16,17 @@ _Original = the TS FGD's mapper-facing entity set; ours = LINK_ENTITY_TO_CLASS c
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `DelayedUse`, `TSAmmoPack`, `TSWorldGun`, `ammo_9mmAR`, `ammo_ARgrenades`, `ammo_buckshot`, `ammo_crossbow`, `ammo_gaussclip`, `ammo_rpgclip`, `beam`, `bodyque`, `cycler_prdroid`, `deadcorpse`, `env_debris`, `env_lightning`, `fireanddie`, `func_vip_safetyzone`, `grenade`, `info_breakable`, `item_sodacan`, `knife`, `m61_grenade`, `mapClassName`, `monster_furniture`, `monster_hevsuit_dead`, `monster_player`, `my_monster`, `node_viewer`, `node_viewer_fly`, `node_viewer_human`, `node_viewer_large`, `player`, `shrapnel`, `soundent`, `spark_shower`, `test_effect`, `testhull`, `trigger`, `trip_beam`, `ts_flag`, `ts_slowmotionpoint`, `weapon_9mmAR`, `weapon_crossbow`, `weapon_egon`, `weapon_gauss`, `weapon_handgrenade`, `weapon_hornetgun`, `weapon_rpg`, `weapon_satchel`, `weapon_shotgun`, `weapon_snark`, `weapon_tsgun`, `weaponbox`, `world_items`, `xen_hair`, `xen_hull`, `xen_plantlight`, `xen_spore_large`, `xen_spore_medium`, `xen_spore_small`, `xen_tree`, `xen_ttrigger`
+  `DelayedUse`, `TSAmmoPack`, `TSWorldGun`, `ammo_9mmAR`, `ammo_ARgrenades`, `ammo_buckshot`, `ammo_crossbow`, `ammo_gaussclip`, `ammo_rpgclip`, `beam`, `bodyque`, `cycler_prdroid`, `deadcorpse`, `env_debris`, `env_lightning`, `fireanddie`, `func_vip_safetyzone`, `info_breakable`, `item_sodacan`, `knife`, `m61_grenade`, `mapClassName`, `monster_furniture`, `monster_hevsuit_dead`, `monster_player`, `my_monster`, `node_viewer`, `node_viewer_fly`, `node_viewer_human`, `node_viewer_large`, `player`, `shrapnel`, `soundent`, `spark_shower`, `test_effect`, `testhull`, `trigger`, `trip_beam`, `ts_flag`, `ts_slowmotionpoint`, `weapon_9mmAR`, `weapon_crossbow`, `weapon_egon`, `weapon_gauss`, `weapon_handgrenade`, `weapon_hornetgun`, `weapon_rpg`, `weapon_satchel`, `weapon_shotgun`, `weapon_snark`, `weapon_tsgun`, `weaponbox`, `world_items`, `xen_hair`, `xen_hull`, `xen_plantlight`, `xen_spore_large`, `xen_spore_medium`, `xen_spore_small`, `xen_tree`, `xen_ttrigger`
 
 ### Client cldll exports
 
 _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI decoration; cross-check by base name._
 
-- matched: **42**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **26**
+- matched: **0**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **72**
 
 **EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
 
-  `F`, `HUD_ChatInputPosition`, `HUD_DirectorMessage`, `__cxa_allocate_dependent_exception`, `__cxa_allocate_exception`, `__cxa_begin_catch`, `__cxa_call_terminate`, `__cxa_call_unexpected`, `__cxa_current_exception_type`, `__cxa_deleted_virtual`, `__cxa_demangle`, `__cxa_end_catch`, `__cxa_free_dependent_exception`, `__cxa_free_exception`, `__cxa_get_exception_ptr`, `__cxa_get_globals`, `__cxa_get_globals_fast`, `__cxa_guard_abort`, `__cxa_guard_acquire`, `__cxa_guard_release`, `__cxa_init_primary_exception`, `__cxa_pure_virtual`, `__cxa_rethrow`, `__cxa_throw`, `__gcclibcxx_demangle_callback`, `__gxx_personality_v0`
+  `CAM_Think`, `CL_CameraOffset`, `CL_CreateMove`, `CL_IsThirdPerson`, `CreateInterface`, `Demo_ReadBuffer`, `F`, `HUD_AddEntity`, `HUD_ChatInputPosition`, `HUD_ConnectionlessPacket`, `HUD_CreateEntities`, `HUD_DirectorEvent`, `HUD_DirectorMessage`, `HUD_DrawNormalTriangles`, `HUD_DrawTransparentTriangles`, `HUD_Frame`, `HUD_GetHullBounds`, `HUD_GetStudioModelInterface`, `HUD_GetUserEntity`, `HUD_Init`, `HUD_Key_Event`, `HUD_PlayerMove`, `HUD_PlayerMoveInit`, `HUD_PlayerMoveTexture`, `HUD_PostRunCmd`, `HUD_ProcessPlayerState`, `HUD_Redraw`, `HUD_Reset`, `HUD_Shutdown`, `HUD_StudioEvent`, `HUD_TempEntUpdate`, `HUD_TxferLocalOverrides`, `HUD_TxferPredictionData`, `HUD_UpdateClientData`, `HUD_VidInit`, `HUD_VoiceStatus`, `IN_Accumulate`, `IN_ActivateMouse`, `IN_ClearStates`, `IN_ClientLookEvent`, `IN_ClientMoveEvent`, `IN_DeactivateMouse`, `IN_MouseEvent`, `InitVGUISupportAPI`, `Initialize`, `KB_Find`, `V_CalcRefdef`, `__cxa_allocate_dependent_exception`, `__cxa_allocate_exception`, `__cxa_begin_catch`, `__cxa_call_terminate`, `__cxa_call_unexpected`, `__cxa_current_exception_type`, `__cxa_deleted_virtual`, `__cxa_demangle`, `__cxa_end_catch`, `__cxa_free_dependent_exception`, `__cxa_free_exception`, `__cxa_get_exception_ptr`, `__cxa_get_globals`, `__cxa_get_globals_fast`, `__cxa_guard_abort`, `__cxa_guard_acquire`, `__cxa_guard_release`, `__cxa_init_primary_exception`, `__cxa_pure_virtual`, `__cxa_rethrow`, `__cxa_throw`, `__dynamic_cast`, `__gcclibcxx_demangle_callback`, `__gxx_personality_v0`, `weapon_tsgun`
 
 ### Server console commands (ClientCommand dispatch)
 

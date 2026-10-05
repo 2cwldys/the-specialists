@@ -8,70 +8,70 @@ Legend: ✅ implemented · ⬜ not yet · ⚠️ name-drift (our method names di
 
 | original file | class | methods (impl/total) | our file(s) |
 |---|---|--:|---|
-| `TS_TSFlag.cpp` | 🔶⚠️ `CTSFlag` | 4/15 | `dlls/ts_flag.cpp` |
-| `TS_animation.cpp` | 🔶⚠️ `CTSAnimation` | 3/13 | `cl_dll/ts_gun_stubs.cpp`, `dlls/ts_animation.cpp` |
-| `TS_bullet.cpp` | ⬜ `CBulletManager` | 0/6 | `dlls/ts_bulletmgr.cpp` |
-| `TS_combat.cpp` | 🔶⚠️ `CBasePlayer` | 15/40 | `dlls/client.cpp`, `dlls/observer.cpp`, `dlls/player.cpp`, `dlls/ts_buy.cpp`, `dlls/ts_groundweapon.cpp`, `dlls/ts_gun.cpp`, `dlls/ts_player.cpp`, `dlls/ts_powerup.cpp`, `dlls/weapons_shared.cpp` |
-| `TS_deadcorpse.cpp` | 🔶⚠️ `CTSDeadCorpse` | 2/5 | `dlls/ts_corpse.cpp` |
-| `TS_emitter.cpp` | ⬜ `CTSEmitter` | 0/4 | — |
-| `TS_emitter.cpp` | ✅ `CTSFog` | 1/1 | `dlls/ts_fog.cpp` |
-| `TS_emitter.cpp` | ⬜ `CTSParticle` | 0/3 | — |
-| `TS_emitter.cpp` | ⬜ `CTSWind` | 0/3 | — |
-| `TS_entities.cpp` | ✅ `CTSCustomTarget` | 5/5 | `dlls/ts_customtarget.cpp` |
-| `TS_entities.cpp` | 🔶⚠️ `CTSDMHill` | 3/7 | `dlls/ts_dmhill.cpp` |
-| `TS_entities.cpp` | 🔶 `CTSMapGlobals` | 5/7 | `dlls/ts_mapglobals.cpp` |
-| `TS_entities.cpp` | ✅ `CTSModel` | 2/2 | `dlls/ts_model.cpp` |
-| `TS_entities.cpp` | 🔶⚠️ `CTSPlayerAmount` | 2/4 | `dlls/ts_playeramount.cpp` |
-| `TS_entities.cpp` | ✅ `CTSSellZone` | 3/3 | `dlls/ts_sellzone.cpp` |
-| `TS_entities.cpp` | ✅ `CTSSlowMotion` | 11/11 | `dlls/ts_slowmotion.cpp` |
-| `TS_entities.cpp` | 🔶⚠️ `CTSSlowMotionPoint` | 4/5 | `dlls/ts_slowmotionpoint.cpp` |
-| `TS_entities.cpp` | ✅ `CTSTimer` | 5/5 | `dlls/ts_timer.cpp` |
-| `TS_entities.cpp` | 🔶 `CTSTrigger` | 3/5 | `dlls/ts_objectives.cpp` |
-| `TS_func_break.cpp` | ⬜⚠️ `CBreakable` | 0/2 | `dlls/combat.cpp`, `dlls/effects.cpp`, `dlls/func_break.cpp` |
-| `TS_func_break.cpp` | ⬜ `CInfoBreakable` | 0/1 | — |
-| `TS_gamerulesclass.cpp` | 🔶⚠️ `CTSGameRules` | 12/39 | `dlls/ts_gamerules.cpp`, `dlls/ts_objectives.cpp`, `dlls/ts_powerup.cpp`, `dlls/ts_teams.cpp` |
-| `TS_grenades.cpp` | ⬜⚠️ `CM61Grenade` | 0/6 | `dlls/ts_grenade.cpp` |
-| `TS_grenades.cpp` | ⬜ `CTSGrenade` | 0/2 | — |
-| `TS_grenades.cpp` | 🔶⚠️ `CTSKnife` | 3/9 | `dlls/ts_knife.cpp` |
-| `TS_grenades.cpp` | ⬜ `CTSPhysicObject` | 0/5 | — |
-| `TS_grenades.cpp` | 🔶⚠️ `CTSShrapnel` | 5/6 | `dlls/ts_grenade.cpp` |
-| `TS_gun.cpp` | 🔶⚠️ `CTSGun` | 28/47 | `cl_dll/ts_ammo.cpp`, `dlls/ts_groundammo.cpp`, `dlls/ts_gun.cpp`, `dlls/ts_knife.cpp`, `dlls/ts_weapon_info.cpp` |
-| `TS_multiplay_gamerules.cpp` | ⬜⚠️ `CHalfLifeMultiplay` | 0/3 | `dlls/multiplay_gamerules.cpp`, `dlls/teamplay_gamerules.cpp`, `dlls/ts_gamerules.cpp`, `dlls/ts_teams.cpp` |
-| `TS_objectives.cpp` | 🔶⚠️ `CTSBomb` | 9/11 | `dlls/ts_bomb.cpp` |
-| `TS_objectives.cpp` | ✅ `CTSBriefcase` | 6/6 | `dlls/ts_briefcase.cpp` |
-| `TS_objectives.cpp` | 🔶⚠️ `CTSHack` | 4/9 | `dlls/ts_objectives.cpp` |
-| `TS_objectives.cpp` | 🔶 `CTSObjective` | 1/7 | `dlls/ts_objectives.cpp` |
-| `TS_objectives.cpp` | 🔶 `CTSObjectiveManager` | 3/5 | `dlls/ts_objectives.cpp` |
-| `TS_objectives.cpp` | 🔶 `CTSObjectivePointer` | 2/3 | `dlls/ts_objectives.cpp` |
-| `TS_objectives.cpp` | 🔶 `CTSScoreGiver` | 1/3 | `dlls/ts_objectives.cpp` |
-| `TS_objectives.cpp` | 🔶⚠️ `CTSTeamEscape` | 5/9 | `dlls/ts_escape.cpp` |
-| `TS_objectives.cpp` | 🔶 `CTSWinGiver` | 3/7 | `dlls/ts_objectives.cpp` |
-| `TS_objectives.cpp` | 🔶 `CVipEscape` | 1/3 | — |
-| `TS_powerup.cpp` | ✅ `CTSPowerUp` | 11/11 | `dlls/ts_powerup.cpp` |
-| `TS_sharedemitter.cpp` | ⬜ `CTSSharedEmitter` | 0/10 | — |
-| `TS_stuntmanager.cpp` | 🔶⚠️ `CTSStunt` | 21/25 | `dlls/ts_gun.cpp`, `dlls/ts_stunt.cpp` |
-| `TS_weapons.cpp` | ⬜⚠️ `CBasePlayerWeapon` | 0/2 | `dlls/hornetgun.cpp`, `dlls/satchel.cpp`, `dlls/shotgun.cpp`, `dlls/weapons.cpp`, `dlls/weapons_shared.cpp` |
-| `TS_worldgun.cpp` | 🔶⚠️ `CTSAmmoPack` | 3/7 | `dlls/ts_ammopack.cpp` |
-| `TS_worldgun.cpp` | 🔶 `CTSGroundAmmo` | 9/11 | `dlls/ts_groundammo.cpp` |
-| `TS_worldgun.cpp` | 🔶⚠️ `CTSGroundWeapon` | 5/14 | `dlls/ts_groundweapon.cpp` |
-| `TS_worldgun.cpp` | 🔶⚠️ `CTSWorldGun` | 4/13 | `dlls/ts_worldgun.cpp` |
-| `hldmcompat.cpp` | ⬜ `CTSBigPistolAmmo` | 0/1 | — |
-| `hldmcompat.cpp` | ⬜ `CTSBigPistolWeapon` | 0/3 | — |
-| `hldmcompat.cpp` | ⬜ `CTSGrenadeWeapon` | 0/1 | — |
-| `hldmcompat.cpp` | ⬜ `CTSKatanaWeapon` | 0/1 | — |
-| `hldmcompat.cpp` | ⬜ `CTSKnifeWeapon` | 0/3 | — |
-| `hldmcompat.cpp` | ⬜ `CTSMGWeapon` | 0/1 | — |
-| `hldmcompat.cpp` | ⬜ `CTSPistolAmmo` | 0/1 | — |
-| `hldmcompat.cpp` | ⬜ `CTSPistolWeapon` | 0/3 | — |
-| `hldmcompat.cpp` | ⬜ `CTSRifleAmmo` | 0/1 | — |
-| `hldmcompat.cpp` | ⬜ `CTSRifleWeapon` | 0/3 | — |
-| `hldmcompat.cpp` | ⬜ `CTSSMGAmmo` | 0/1 | — |
-| `hldmcompat.cpp` | ⬜ `CTSSMGWeapon` | 0/3 | — |
-| `hldmcompat.cpp` | ⬜ `CTSShotgunAmmo` | 0/1 | — |
-| `hldmcompat.cpp` | ⬜ `CTSShotgunWeapon` | 0/3 | — |
-| `hldmcompat.cpp` | ⬜ `CTSSniperAmmo` | 0/1 | — |
-| `hldmcompat.cpp` | ⬜ `CTSSniperWeapon` | 0/1 | — |
-| `hldmcompat.cpp` | ✅ `CTSSuperJump` | 1/1 | `dlls/ts_powerup.cpp` |
+| `TS_TSFlag.cpp` | ✅ `CTSFlag` | 15/15 | `dlls/TS_objectives.cpp`, `dlls/ts_flag.cpp`, `dlls/ts_player.cpp` |
+| `TS_animation.cpp` | ✅ `CTSAnimation` | 13/13 | `cl_dll/ts_gun_stubs.cpp`, `dlls/player.cpp`, `dlls/ts_animation.cpp` |
+| `TS_bullet.cpp` | ✅ `CBulletManager` | 6/6 | `dlls/ts_bullet.cpp` |
+| `TS_combat.cpp` | 🔶⚠️ `CBasePlayer` | 39/40 | `cl_dll/ts_gun_stubs.cpp`, `dlls/TS_combat.cpp`, `dlls/client.cpp`, `dlls/combat.cpp`, `dlls/observer.cpp`, `dlls/player.cpp`, `dlls/ts_buy.cpp`, `dlls/ts_grenades.cpp`, `dlls/ts_gun.cpp`, `dlls/ts_player.cpp`, `dlls/ts_powerup.cpp`, `dlls/ts_worldgun.cpp`, `dlls/weapons_shared.cpp` |
+| `TS_deadcorpse.cpp` | ✅ `CTSDeadCorpse` | 5/5 | `dlls/ts_deadcorpse.cpp` |
+| `TS_emitter.cpp` | ✅ `CTSEmitter` | 4/4 | `dlls/ts_emitter.cpp` |
+| `TS_emitter.cpp` | ✅ `CTSFog` | 1/1 | `dlls/ts_emitter.cpp` |
+| `TS_emitter.cpp` | ✅ `CTSParticle` | 3/3 | `dlls/ts_emitter.cpp` |
+| `TS_emitter.cpp` | ✅ `CTSWind` | 3/3 | `dlls/ts_emitter.cpp` |
+| `TS_entities.cpp` | ✅ `CTSCustomTarget` | 5/5 | `dlls/TS_entities.cpp` |
+| `TS_entities.cpp` | ✅ `CTSDMHill` | 7/7 | `dlls/TS_entities.cpp` |
+| `TS_entities.cpp` | ✅ `CTSMapGlobals` | 7/7 | `dlls/TS_entities.cpp`, `dlls/TS_gamerules.cpp` |
+| `TS_entities.cpp` | ✅ `CTSModel` | 2/2 | `dlls/TS_entities.cpp` |
+| `TS_entities.cpp` | ✅ `CTSPlayerAmount` | 4/4 | `dlls/TS_entities.cpp` |
+| `TS_entities.cpp` | ✅ `CTSSellZone` | 3/3 | `dlls/TS_entities.cpp` |
+| `TS_entities.cpp` | ✅ `CTSSlowMotion` | 11/11 | `dlls/TS_entities.cpp` |
+| `TS_entities.cpp` | ✅ `CTSSlowMotionPoint` | 5/5 | `dlls/TS_entities.cpp`, `dlls/ts_grenades.cpp` |
+| `TS_entities.cpp` | ✅ `CTSTimer` | 5/5 | `dlls/TS_entities.cpp` |
+| `TS_entities.cpp` | ✅ `CTSTrigger` | 5/5 | `dlls/TS_entities.cpp` |
+| `TS_func_break.cpp` | ✅ `CBreakable` | 2/2 | `dlls/combat.cpp`, `dlls/doors.cpp`, `dlls/effects.cpp`, `dlls/func_break.cpp`, `dlls/ts_func_break.cpp` |
+| `TS_func_break.cpp` | ✅ `CInfoBreakable` | 1/1 | `dlls/TS_gamerulesclass.cpp`, `dlls/ts_func_break.cpp` |
+| `TS_gamerulesclass.cpp` | ✅ `CTSGameRules` | 39/39 | `cl_dll/roundtime.cpp`, `dlls/TS_combat.cpp`, `dlls/TS_gamerulesclass.cpp`, `dlls/game.cpp`, `dlls/teamplay_gamerules.cpp`, `dlls/ts_powerup.cpp` |
+| `TS_grenades.cpp` | ✅ `CM61Grenade` | 6/6 | `dlls/ts_grenades.cpp` |
+| `TS_grenades.cpp` | ✅ `CTSGrenade` | 2/2 | `dlls/ts_grenades.cpp` |
+| `TS_grenades.cpp` | ✅ `CTSKnife` | 9/9 | `dlls/ts_grenades.cpp`, `dlls/ts_player.cpp` |
+| `TS_grenades.cpp` | ✅ `CTSPhysicObject` | 5/5 | `dlls/ts_flag.cpp`, `dlls/ts_grenades.cpp`, `dlls/ts_worldgun.cpp` |
+| `TS_grenades.cpp` | ✅ `CTSShrapnel` | 6/6 | `dlls/ts_grenades.cpp` |
+| `TS_gun.cpp` | ✅ `CTSGun` | 47/47 | `cl_dll/ts_ammo.cpp`, `dlls/client.cpp`, `dlls/player.cpp`, `dlls/ts_grenades.cpp`, `dlls/ts_gun.cpp`, `dlls/ts_stunt.cpp`, `dlls/ts_weapon_info.cpp` |
+| `TS_multiplay_gamerules.cpp` | 🔶⚠️ `CHalfLifeMultiplay` | 2/3 | `dlls/multiplay_gamerules.cpp`, `dlls/teamplay_gamerules.cpp` |
+| `TS_objectives.cpp` | ✅ `CTSBomb` | 11/11 | `dlls/TS_objectives.cpp`, `dlls/ts_player.cpp` |
+| `TS_objectives.cpp` | ✅ `CTSBriefcase` | 6/6 | `dlls/TS_objectives.cpp` |
+| `TS_objectives.cpp` | ✅ `CTSHack` | 9/9 | `dlls/TS_objectives.cpp` |
+| `TS_objectives.cpp` | ✅ `CTSObjective` | 7/7 | `dlls/TS_entities.cpp`, `dlls/TS_objectives.cpp` |
+| `TS_objectives.cpp` | ✅ `CTSObjectiveManager` | 5/5 | `dlls/TS_objectives.cpp` |
+| `TS_objectives.cpp` | ✅ `CTSObjectivePointer` | 3/3 | `dlls/TS_objectives.cpp` |
+| `TS_objectives.cpp` | ✅ `CTSScoreGiver` | 3/3 | `dlls/TS_objectives.cpp` |
+| `TS_objectives.cpp` | ✅ `CTSTeamEscape` | 9/9 | `dlls/TS_objectives.cpp` |
+| `TS_objectives.cpp` | ✅ `CTSWinGiver` | 7/7 | `dlls/TS_objectives.cpp` |
+| `TS_objectives.cpp` | ✅ `CVipEscape` | 3/3 | `dlls/TS_objectives.cpp` |
+| `TS_powerup.cpp` | ✅ `CTSPowerUp` | 11/11 | `dlls/TS_gamerulesclass.cpp`, `dlls/hldmcompat.cpp`, `dlls/ts_powerup.cpp` |
+| `TS_sharedemitter.cpp` | ✅ `CTSSharedEmitter` | 10/10 | `dlls/ts_sharedemitter.cpp` |
+| `TS_stuntmanager.cpp` | ✅ `CTSStunt` | 25/25 | `dlls/player.cpp`, `dlls/ts_player.cpp`, `dlls/ts_stunt.cpp` |
+| `TS_weapons.cpp` | ✅ `CBasePlayerWeapon` | 2/2 | `dlls/ts_gun.cpp`, `dlls/weapons.cpp`, `dlls/weapons_shared.cpp` |
+| `TS_worldgun.cpp` | ✅ `CTSAmmoPack` | 7/7 | `dlls/ts_gun.cpp`, `dlls/ts_player.cpp`, `dlls/ts_worldgun.cpp` |
+| `TS_worldgun.cpp` | ✅ `CTSGroundAmmo` | 11/11 | `dlls/hldmcompat.cpp`, `dlls/ts_worldgun.cpp` |
+| `TS_worldgun.cpp` | ✅ `CTSGroundWeapon` | 14/14 | `dlls/TS_gamerulesclass.cpp`, `dlls/hldmcompat.cpp`, `dlls/ts_player.cpp`, `dlls/ts_worldgun.cpp` |
+| `TS_worldgun.cpp` | ✅ `CTSWorldGun` | 13/13 | `dlls/ts_gun.cpp`, `dlls/ts_player.cpp`, `dlls/ts_worldgun.cpp` |
+| `hldmcompat.cpp` | ✅ `CTSBigPistolAmmo` | 1/1 | — |
+| `hldmcompat.cpp` | ✅ `CTSBigPistolWeapon` | 3/3 | — |
+| `hldmcompat.cpp` | ✅ `CTSGrenadeWeapon` | 1/1 | — |
+| `hldmcompat.cpp` | ✅ `CTSKatanaWeapon` | 1/1 | — |
+| `hldmcompat.cpp` | ✅ `CTSKnifeWeapon` | 3/3 | — |
+| `hldmcompat.cpp` | ✅ `CTSMGWeapon` | 1/1 | — |
+| `hldmcompat.cpp` | ✅ `CTSPistolAmmo` | 1/1 | — |
+| `hldmcompat.cpp` | ✅ `CTSPistolWeapon` | 3/3 | — |
+| `hldmcompat.cpp` | ✅ `CTSRifleAmmo` | 1/1 | — |
+| `hldmcompat.cpp` | ✅ `CTSRifleWeapon` | 3/3 | — |
+| `hldmcompat.cpp` | ✅ `CTSSMGAmmo` | 1/1 | — |
+| `hldmcompat.cpp` | ✅ `CTSSMGWeapon` | 3/3 | — |
+| `hldmcompat.cpp` | ✅ `CTSShotgunAmmo` | 1/1 | — |
+| `hldmcompat.cpp` | ✅ `CTSShotgunWeapon` | 3/3 | — |
+| `hldmcompat.cpp` | ✅ `CTSSniperAmmo` | 1/1 | — |
+| `hldmcompat.cpp` | ✅ `CTSSniperWeapon` | 1/1 | — |
+| `hldmcompat.cpp` | ✅ `CTSSuperJump` | 1/1 | `dlls/hldmcompat.cpp` |
 
 ## 2. Method NAME-drift (fix or mark as deliberate additions)
 
@@ -81,32 +81,8 @@ Two categories to read differently: (a) genuine renames to FIX — e.g. our `Hil
 
 | class | original file | missing (orig names) | our extra names |
 |---|---|---|---|
-| `CBaseDoor` | `doors.cpp` | BreakableRespawn, TraceAttack | Blocked, DoorActivate, DoorGoDown, DoorGoUp, DoorHitBottom, DoorHitTop, DoorTouch, KeyValue, ObjectCaps, Precache, Restore, Save, SetToggleState, Spawn, Use |
-| `CBaseEntity` | `bmodels.cpp` | BreakableRespawn, CanUsedTroughWalls, EnableObjective, GiveSlowMul, GoSlow, InSlow, IsObjective, OnFreeEntPrivateData, ShouldCollide, eoffset | Activate, AddPlayerItem, AddPoints, AddPointsToTeam, Blocked, BloodColor, BodyTarget, Center, Classify, Create, DamageDecal, DeathNotice, EarPosition, EyePosition, FBecomeProne, FVisible, FireBullets, FireBulletsPlayer, GetDelay, GetNextTarget, GetToggleState, GiveAmmo, HasTarget, Illumination, Intersects, IsAlive, IsBSPModel, IsDormant, IsInWorld, IsMoving, IsNetClient, IsPlayer, IsSneaking, IsTriggered, KeyValue, Killed, MakeDormant, MyMonsterPointer, MySquadMonsterPointer, MyTogglePointer, ObjectCaps, OnControls, OverrideReset, Precache, ReflectGauss, RemovePlayerItem, Respawn, Restore, SUB_CallUseToggle, SUB_DoNothing, SUB_FadeOut, SUB_Remove, SUB_StartFadeOut, SUB_UseTargets, Save, SetObjectCollisionBox, SetToggleState, ShouldToggle, Spawn, StartSneaking, StopSneaking, TakeDamage, TakeHealth, TeamID, Think, Touch, TraceAttack, TraceBleed, UpdateOnRemove, UpdateOwner, Use |
-| `CBasePlayer` | `TS_combat.cpp` | BlockPlayer, CheckForWires, CheckHull, CloseCombatAttack, ColdCockAttack, CutWire, DropAmmo, DropArmor, DropFlag, DropWeapon, GetMeleeMultiplier, GiveSlowMul, Observer_Idle, PickUpWeapon, PunchScreen, SetPlayerGravity, SetPlayerSpeed, ShootBulletsPlayer, StopObserver, TSInit, TSUse, TakeFlag, ThrowWeapon, UpdateMeleeBar, UpdatePlayerState | AddPlayerItem, AddPoints, AddPointsToTeam, AmmoInventory, AutoaimDeflection, BarnacleVictimBitten, BarnacleVictimReleased, BodyTarget, CheatImpulseCommands, CheckSuitUpdate, CheckTimeBasedDamage, Classify, DeathSound, DropPlayerItem, Duck, EnableControl, EquipWeapon, FBecomeProne, FlashlightIsOn, FlashlightTurnOff, FlashlightTurnOn, ForceClientDllUpdate, GetAmmoIndex, GetAutoaimVector, GetCustomDecalFrames, GetGunPosition, GiveAmmo, GiveNamedItem, HasNamedPlayerItem, HasPlayerItem, HasPlayerItemFromID, HasWeapons, Illumination, ImpulseCommands, InitStatusBar, InternalSendSingleAmmoUpdate, IsAlive, IsNetClient, IsOnLadder, IsPlayer, IsSneaking, ItemPostFrame, ItemPreFrame, Jump, Killed, ObjectCaps, Observer_CheckProperties, Observer_CheckTarget, Observer_FindNextPlayer, Observer_HandleButtons, Observer_SetMode, PackDeadPlayerItems, Pain, PlayerDeathThink, PlayerUse, PostThink, PreThink, Precache, RemoveAllItems, RemovePlayerItem, RenewItems, ResetAutoaim, Restore, Save, SelectItem, SelectLastItem, SelectNextItem, SelectPrevItem, SendAmmoUpdate, SendSingleAmmoUpdate, SetAnimation, SetCustomDecalFrames, SetPrefsFromUserinfo, SetSuitUpdate, ShouldFadeOnDeath, Spawn, StartDeathCam, StartObserver, StartSneaking, StopSneaking, SwitchWeapon, TSCloseMenu, TSEnterSpectate, TSLeaveSpectate, TSMenuSelect, TSSendBuyMenu, TSSendScoreInfo, TSSpectateThink, TSTryRespawn, TSUpdateClientData, TabulateAmmo, TakeDamage, TakeHealth, TeamID, TraceAttack, UpdateClientData, UpdateGeigerCounter, UpdatePlayerSound, UpdateStatusBar, WaterMove |
-| `CBasePlayerWeapon` | `TS_weapons.cpp` | AddWeapon, AlternateAttack | AddDuplicate, AddPrimaryAmmo, AddSecondaryAmmo, AddToPlayer, CallDoRetireWeapon, CanDeploy, DefaultDeploy, DefaultReload, DoRetireWeapon, ExtractAmmo, ExtractClipAmmo, GetNextAttackDelay, GetWeaponPtr, Holster, IsUseable, ItemPostFrame, PlayEmptySound, PrimaryAmmoIndex, PrimaryAttack, PrintState, Reload, ResetEmptySound, Restore, RetireWeapon, Save, SecondaryAmmoIndex, SecondaryAttack, SendWeaponAnim, ShouldWeaponIdle, UpdateClientData, UpdateItemInfo, UseDecrement, WeaponIdle |
-| `CBreakable` | `TS_func_break.cpp` | BreakableRespawn, Killed | BreakTouch, DamageDecal, DamageSound, Die, IsBreakable, KeyValue, MaterialSoundList, MaterialSoundPrecache, MaterialSoundRandom, ObjectCaps, Precache, Restore, Save, Spawn, TakeDamage, TraceAttack, Use |
-| `CFuncPlat` | `plats.cpp` | KeyValue, Restore, Save | Blocked, CallGoDown, CallHitBottom, CallHitTop, GoDown, GoUp, HitBottom, HitTop, PlatUse, Precache, Setup, Spawn |
-| `CHalfLifeMultiplay` | `TS_multiplay_gamerules.cpp` | GetGameDescription, GetNextBestWeapon, IsValidTeam | AllowAutoTargetCrosshair, AmmoShouldRespawn, CanHaveItem, CanHavePlayerItem, ChangeLevel, ClientCommand, ClientConnected, ClientDisconnected, ClientUserInfoChanged, DeadPlayerAmmo, DeadPlayerWeapons, DeathNotice, EndMultiplayerGame, FAllowFlashlight, FAllowMonsters, FPlayerCanRespawn, FPlayerCanTakeDamage, FShouldSwitchWeapon, FlAmmoRespawnTime, FlHEVChargerRechargeTime, FlHealthChargerRechargeTime, FlItemRespawnTime, FlPlayerFallDamage, FlPlayerSpawnTime, FlWeaponRespawnTime, FlWeaponTryRespawn, GetPlayerSpawnSpot, GetTeamID, GoToIntermission, IPointsForKill, InitHUD, IsAllowedToSpawn, IsCoOp, IsDeathmatch, IsMultiplayer, ItemShouldRespawn, PlayFootstepSounds, PlayTextureSounds, PlayerGotAmmo, PlayerGotItem, PlayerGotWeapon, PlayerKilled, PlayerRelationship, PlayerSpawn, PlayerThink, RefreshSkillData, SendMOTDToClient, Think, UpdateGameMode, VecAmmoRespawnSpot, VecItemRespawnSpot, VecWeaponRespawnSpot, WeaponShouldRespawn |
+| `CBasePlayer` | `TS_combat.cpp` | GiveSlowMul | AddPlayerItem, AddPoints, AddPointsToTeam, AmmoInventory, AutoaimDeflection, BarnacleVictimBitten, BarnacleVictimReleased, BodyTarget, CheatImpulseCommands, CheckSuitUpdate, CheckTimeBasedDamage, Classify, DeathSound, DropPlayerItem, Duck, EnableControl, EquipWeapon, FBecomeProne, FlashlightIsOn, FlashlightTurnOff, FlashlightTurnOn, ForceClientDllUpdate, GetAmmoIndex, GetAutoaimVector, GetCustomDecalFrames, GetGunPosition, GiveAmmo, GiveNamedItem, HasNamedPlayerItem, HasPlayerItem, HasPlayerItemFromID, HasWeapons, Illumination, ImpulseCommands, InitStatusBar, InternalSendSingleAmmoUpdate, IsAlive, IsNetClient, IsOnLadder, IsPlayer, IsSneaking, ItemPostFrame, ItemPreFrame, Jump, Killed, ObjectCaps, Observer_CheckProperties, Observer_CheckTarget, Observer_FindNextPlayer, Observer_HandleButtons, Observer_SetMode, PackDeadPlayerItems, Pain, PlayerDeathThink, PlayerUse, PostThink, PreThink, Precache, RemoveAllItems, RemovePlayerItem, RenewItems, ResetAutoaim, Restore, Save, SelectItem, SelectLastItem, SelectNextItem, SelectPrevItem, SendAmmoUpdate, SendSingleAmmoUpdate, SetAnimation, SetCustomDecalFrames, SetPrefsFromUserinfo, SetSuitUpdate, ShouldFadeOnDeath, Spawn, StartDeathCam, StartObserver, StartSneaking, StopSneaking, SwitchWeapon, TSEnterSpectate, TabulateAmmo, TakeDamage, TakeHealth, TeamID, TraceAttack, UpdateClientData, UpdateGeigerCounter, UpdatePlayerSound, UpdateStatusBar, WaterMove |
+| `CHalfLifeMultiplay` | `TS_multiplay_gamerules.cpp` | GetNextBestWeapon | AllowAutoTargetCrosshair, AmmoShouldRespawn, CanHaveItem, CanHavePlayerItem, ChangeLevel, ClientCommand, ClientConnected, ClientDisconnected, ClientUserInfoChanged, DeadPlayerAmmo, DeadPlayerWeapons, DeathNotice, EndMultiplayerGame, FAllowFlashlight, FAllowMonsters, FPlayerCanRespawn, FPlayerCanTakeDamage, FShouldSwitchWeapon, FlAmmoRespawnTime, FlHEVChargerRechargeTime, FlHealthChargerRechargeTime, FlItemRespawnTime, FlPlayerFallDamage, FlPlayerSpawnTime, FlWeaponRespawnTime, FlWeaponTryRespawn, GetPlayerSpawnSpot, GetTeamID, GoToIntermission, IPointsForKill, InitHUD, IsAllowedToSpawn, IsCoOp, IsDeathmatch, IsMultiplayer, ItemShouldRespawn, PlayFootstepSounds, PlayTextureSounds, PlayerGotAmmo, PlayerGotItem, PlayerGotWeapon, PlayerKilled, PlayerRelationship, PlayerSpawn, PlayerThink, RefreshSkillData, SendMOTDToClient, Think, UpdateGameMode, VecAmmoRespawnSpot, VecItemRespawnSpot, VecWeaponRespawnSpot, WeaponShouldRespawn |
 | `CLadder` | `triggers.cpp` | KeyValue | Precache, Spawn |
-| `CM61Grenade` | `TS_grenades.cpp` | BounceTouch, CreateGrenade, ObjectCaps, Spawn, Use, WaitThink | M61WaitThink, Throw |
 | `CMultiManager` | `triggers.cpp` | IsClone, ShouldClone | Clone, HasTarget, KeyValue, ManagerThink, ManagerUse, ObjectCaps, Restore, Save, Spawn |
-| `CRotDoor` | `doors.cpp` | BreakableRespawn | SetToggleState, Spawn |
-| `CTSAmmoPack` | `TS_worldgun.cpp` | CreateAmmoPack, Fall, OnGround, WaitThink | FallThink, ObjectCaps |
-| `CTSAnimation` | `TS_animation.cpp` | BlendAnimationsByDir, BlendAnimationsForSlide, BlendJumpAnimations, BulletDance, DisableBulletDance, EnableBulletDance, GaitCloseCombat, HandleCloseCombat, IsInCloseCombat, SetAnim | GetMoveDirection, PlayKungFu, SetBodySequence, SetGaitSequence |
-| `CTSBomb` | `TS_objectives.cpp` | Restore, Save | Explode |
-| `CTSDMHill` | `TS_entities.cpp` | Restore, Save, WaitThink, WaitTouch | Award, HillThink |
-| `CTSDeadCorpse` | `TS_deadcorpse.cpp` | Precache, TraceAttack, WaitThink | FadeThink |
-| `CTSFlag` | `TS_TSFlag.cpp` | BounceTouch, CanUsedTroughWalls, CreateFlag, Destroy, Fall, OnGround, PlayerTakeFlag, RespawnFlag, Use, WaitThink, WaitTouch | AttachTo, CarryThink, Create, DropAt, FlagTouch, ReturnThink, ReturnToBase |
-| `CTSGameRules` | `TS_gamerulesclass.cpp` | AddObjectiveInList, CheckVotes, ClearObjectiveList, CountPlayers, FindIndexByObjective, GetPlayerModel, GetTeamCash, GetTeamsNum, Init, InitObjectives, InitTeamScore, IsCTB, PlayerVote, ResetRestartRound, RespawnEntities, RestartRound, SelectRandomTheOne, SendObjectiveList, SendObjectiveToHud, SetObjective, SetPlayerTheOne, SetTeamList, SetTeamModelList, ShowObjectiveOnHud, TheOneIsDead, TogglePlayerFromSlow, UpdateTeamScores | AssignToTeam, GetGameDescription, GetIndexedTeamName, GetTeamID, IsTeamMode, IsTeamplay, PlayerKilled, PlayerSpawn, RecountTeams, SendRoundTime, StartRoundTimer, TeamWithFewestPlayers |
-| `CTSGroundWeapon` | `TS_worldgun.cpp` | CanUsedTroughWalls, Fall, OnGround, PutOnWall, Restore, Save, Use, WaitThink, WaitTouch | MaterializeThink |
-| `CTSGun` | `TS_gun.cpp` | CCombatAttack, CCombatBlock, CCombatIdle, DropWeapon, EmptySound, GrenadeFire, GrenadeIdle, Holster, HolsterWeapon, KatanaFire, KatanaThrow, KnifeFire, ReloadWeapon, Reset, SecondaryAttack, SelectWeapon, ShouldWeaponIdle, StopReload, TakeWeapon | AddWeapon, CanDeploy, CloseCombatAttack, CloseCombatBlock, DropType, GetWeaponData, GrenadeThrow, ItemPostFrame, LoadActiveFromItem, MeleeAttack, OwnedCount, RegenBlockBar, SelectWeaponType, SendWeaponStatus, SetWeaponData, SlotsUsed, SwitchBarrel, SyncActiveToItem, ThrowKnife |
-| `CTSHack` | `TS_objectives.cpp` | EnableObjective, ObjectCaps, Restore, Save, Use | HackTouch |
-| `CTSKnife` | `TS_grenades.cpp` | CreateKnife, GetDescription, ObjectCaps, ShouldCollide, Use, WaitTouch | BecomePickup, Classify, PickupTouch, SettleThink, StartSettle, StickAt, Throw |
-| `CTSPlayerAmount` | `TS_entities.cpp` | ClientConnect, ClientDisconnect | CountConnectedPlayers, CountThink |
-| `CTSShrapnel` | `TS_grenades.cpp` | WaitThink | FadeThink |
-| `CTSSlowMotionPoint` | `TS_entities.cpp` | CreateSlowMotionPoint | Create, ObjectCaps |
-| `CTSStunt` | `TS_stuntmanager.cpp` | CheckForBreakables, CloseAttack, NextDive, SlotBonus | GetDirection, MotionBlur, ResetStuntState, SendNextStunt, TimeScale |
-| `CTSTeamEscape` | `TS_objectives.cpp` | ObjectCaps, Precache, Restore, Save | AttackerTeamSize |
-| `CTSWorldGun` | `TS_worldgun.cpp` | BounceTouch, CanUsedTroughWalls, CreateWeapon, Fall, GetWeapon, OnGround, ShouldCollide, Use, WaitThink | FallThink |
 | `CTriggerPush` | `triggers.cpp` | KeyValue | Spawn, Touch |
