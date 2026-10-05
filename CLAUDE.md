@@ -272,6 +272,13 @@ confirm the gap closed.
   missing/extra virtuals (tagged Valve SDK / halflife-updated / reTS), order, and which class supplies
   each override, each reported at the class that introduces it. Run against a `BUILDTYPE=Debug` i386
   build: at `-O2` gcc folds identical functions and slot names come out wrong.
+- **`scripts/coverage/offsets.py`** maps original member offsets to reTS's, per arch, from `BUILDTYPE=Debug`
+  builds (pahole reads the DWARF; `--root <tree>` or `--so arch=path`). The original side is the checked-in
+  spec `reference/coverage/offset_map.tsv` (the fields TSX/TSE/ARP_TS touch, each with its evidence); the
+  tool also reads each class's original object size from its `GetClassPtr` and counts the class's own
+  original methods touching each spec offset (0 = stale row). `--all` joins every named original member
+  (`members.tsv` + `members_re.tsv`) to reTS by name, for layout-drift work. Re-run it after any layout
+  change; reTSX's offsets for reTS come from it.
 - **`divergence.py`** defaults to the fork point (`upstream/64bit-demo`, exported to a temp dir), not
   the buildchain's halflife-updated working tree. **`baseline.py`** still needs a built base SDK and
   uses the buildchain's `halflife-updated` build; it records which commit that is and warns when it is
@@ -284,7 +291,10 @@ confirm the gap closed.
   single-threaded `re-base`; each `re.sh setup` COPIES it (pins the analysis = reproducible AND faster, no
   re-analyze). `-max-cpu 1` on setup/members pins the member SET; `DumpMembers` canonicalizes the type column
   (Ghidra's decompiler integer-type inference wobbles, unreachable by -max-cpu; float/double/ptr stable). Re-run
-  `re.sh analyze` only on a binary/analysis change.
+  `re.sh analyze` only on a binary/analysis change. The reports are byte-stable too: `baseline.py` and
+  `export.py` no longer depend on Python's hash seed, so a diff in `reference/coverage/` is a real change.
+  Known type gap: curated names on offsets Ghidra typed `int` keep `int` even when the name is a float
+  (37 `m_fl*` members as of 2026-10-05).
 - **`scripts/coverage/setup-ghidra.sh`** builds persistent projects under `recovered/ghidra/{server,client}`
   (gitignored, reboot-safe) with the noreturn truncation disabled + the gcc2 signatures/entvars_t/MSVC
   return types applied (`scripts/ghidra/{DisableNoReturn,FixNoReturn,ApplyTypes,DecompAt,DecompRefs}.java`),
@@ -318,7 +328,11 @@ scripts/ghidra/re.sh export <Class>   # write the class's decompile to recovered
   (`g_engfuncs->pfnSetModel(...)`), typed `.rodata` FP constants relabelled with their value (`dc_0_1`/`fc_64`),
   clean demangled per-class names, and a plate comment per function (its `.cpp` + assets/cvars/commands it refs).
   It consumes `hierarchy.tsv`, so projects built before the 2026-10-05 hierarchy fix merged member
-  structs up the wrong chains for the affected classes: re-run `re.sh setup`.
+  structs up the wrong chains for the affected classes: re-run `re.sh setup`. The chain merge takes
+  named members (saved, curated) from the whole chain before any `members_auto` placeholder, so an
+  intermediate class's `field_0xNN` can't hide an ancestor's real name (it hid `m_pPlayer` in `CTSGun`).
+  `re.sh export <Class>` matches the namespaced name (`CTSGun::Deploy`), skips PLT thunks, and rewrites
+  each `<Class>.c` per run; before 2026-10-05 it only found functions ApplyInventory had not renamed.
 - **Not idempotent** — ApplyInventory *renames* functions, so re-applying breaks the mangled-name lookup.
   That's why `re.sh setup` always rebuilds the project FRESH; the decompile/refs/export paths only read it (fast).
 - **`DumpMembers.java`** recovers transient (unsaved) members: their names aren't in the binary, but their
@@ -503,7 +517,9 @@ Keep the ledger factual: what was reconstructed, how it was verified, what's nex
   goldsrc-net repos).
 - Match the SDK's surrounding code style when writing reconstructed source.
 - `reference/` is read-only source-of-truth — never modify the original
-  binaries; regenerate derived data with `dump-signatures.sh`.
+  binaries; regenerate derived data with `dump-signatures.sh` (MSVC signatures, raw gcc2 symbols) and,
+  for `signatures-gcc2.{map,txt}`, run `scripts/gnv2demangle.py` over `symbols-gcc2.txt` (map = the
+  parsed `name  =>  signature` lines in input order, txt = `--sig` output sorted unique).
 - A class is "built" when it compiles + links + exports its entity factory; it's
   "done" when its **behaviour** is verified in the engine — not just when it
   compiles. Be honest about which.
