@@ -3,18 +3,17 @@
 **Mission: produce a functional, source-faithful reconstruction of the original
 "ts" (The Specialists) Half-Life mod — both the server and client game libraries
 — as clean modern C++ on the HL SDK, that compiles, loads in the engine, and
-behaves identically to the original.**
+behaves identically to the original.** The project's public name is **reTS**.
 
 We recover the SOURCE that produced the shipped binaries (not a port). The bar
 is behavioural fidelity: same entities (`LINK_ENTITY_TO_CLASS`), keyvalues, game
-mechanics, save fields — verified by **build + run + behaviour**, NOT byte/vtable
-match.
+mechanics, save fields — verified by **build + run + behaviour** — plus the
+internal structure that server plugins see (below).
 
-**The compatibility target is the EXTERNAL INTERFACE, not the internal C++ ABI.**
-The real goal: our server and our client must each be a **drop-in swap** for the
-original — run our client against the original server (or vice-versa) and behaviour
-is identical. That makes the *interface* the contract that must match the original
-exactly:
+**The swap contract is the EXTERNAL INTERFACE.** Our server and our client must each
+be a **drop-in swap** for the original — run our client against the original server
+(or vice-versa) and behaviour is identical. That makes the *interface* the contract
+that must match the original exactly:
 - the engine-facing **C interface** (`GetEntityAPI2`/`DLL_FUNCTIONS`/
   `LINK_ENTITY_TO_CLASS` entity factories, `HUD_*`/`ClientFactory` on the client);
 - the **client↔server protocol**: user-message **names + wire formats** (e.g.
@@ -23,13 +22,29 @@ exactly:
   them byte-faithful (this is why the inherited `TSRoundTime` had to become the
   original's `RoundTime`).
 
-**NOT a target: the internal C++ ABI or gcc-2.x quirks.** The original used the
-GCC 2.x old ABI (vtable ptr @0x60, `gnu-v2` mangling, `cdecl`-this, `int`-returning
-virtuals); we build on the Itanium-ABI `halflife-updated` SDK (vptr @0, `bool`
-`KeyValue`/`Save`, …), which is intentionally newer than the original's 2007 SDK.
-So we do **not** chase member offsets, vtable layout, or old-compiler quirks —
-recovered offsets are provenance notes only; write members naturally in modern-SDK
-style. Behaviour + interface match, verified by **build + run + behaviour**.
+**The internal structure is now a target too (changed 2026-10-05).** AMX Mod X plugins
+reach into the game DLL (Ham Sandwich hooks by vtable slot, `get/set_pdata` and TSX by
+member offset), so the original's internal shape matters for plugin compatibility:
+- **Class set: remove only what TS removed.** Keep every SDK class/entity/function the
+  original `ts_i386.so` still contains, even if TS never uses it (stock Valve maps load
+  under TS through `fallback_dir valve` and place `item_battery`, `xen_*`, …). Remove only
+  what the original lacks. `nm -D reference/ts_i386.so` is the test for entities.
+- **Base classes** match the original (`reference/coverage/hierarchy.tsv`, read from the
+  binary's typeinfo functions).
+- **Vtables**: same virtuals, same order, same overrides as the original, EXCEPT the
+  halflife-updated shapes we keep on purpose: the virtual destructor (`delete` frees
+  entities), `MyTogglePointer`, the HL25 sentence virtuals on `CBaseToggle`, the
+  client-prediction virtuals on `CBasePlayerItem`, and `DoRetireWeapon`. Those are the
+  same in every halflife-updated mod, which is the planned basis for an AMX Mod X gamedata
+  layer for halflife-updated-derived mods.
+- **Member offsets**: move them toward the original where feasible. This can only match
+  on i386 (64-bit pointers change every later offset), and gcc-2.x put the vptr at +0x60
+  where any modern compiler puts it at 0, so exact layout is not reachable; recovered
+  offsets in comments stay as provenance and as the target to approach.
+
+We build on the Itanium-ABI `halflife-updated` SDK (vptr @0, `bool` `KeyValue`/`Save`, …),
+which is intentionally newer than the original's 2007 SDK. Do not chase gcc-2.x quirks
+that cannot be expressed in modern C++.
 
 This repo is part of the **goldsrc.net** effort (see `../CLAUDE.md` in the
 parent for the wider browser-playable GoldSrc architecture). It is **private**;
@@ -44,9 +59,10 @@ modern open HL SDK we reconstruct *onto*. Remotes:
 
 - `origin`   → `git@github.com:goldsrc-net/mod-ts.git` (private)
 - `upstream` → `git@github.com:goldsrc-net/halflife-updated.git` (pull SDK fixes
-  via `git merge upstream/64bit-demo`)
+  via `git merge upstream/64bit-demo`). The fork point is `upstream/64bit-demo` @ `8282fa7`.
 
-Work happens on `main`.
+Work happens on `main` (all earlier branches were merged into it on 2026-10-05; local
+`backup/*` tags keep the pre-merge states).
 
 The mod ships as a **standalone game directory** `ts/` (`-game ts`,
 `fallback_dir "valve"`). The manifest lives at `game/ts/liblist.gam`; only files
@@ -100,8 +116,10 @@ Biggest TS-specific classes by recovered function count: `CTSGun` (44),
    in `reference/ts_fgd.fgd`.
 5. Write the class into `dlls/` (server) / `cl_dll/` (client) in **modern-SDK
    style** — natural member declarations, `bool`-returning `KeyValue`/`Save`,
-   `SetThink`/`SetTouch`, `pev->`. Recovered offsets are provenance comments, not
-   targets. Mark uncertain spots with `VERIFY`.
+   `SetThink`/`SetTouch`, `pev->`. Take the base class from
+   `reference/coverage/hierarchy.tsv` and declare virtuals in the original's slot order
+   (`reference/coverage/VTABLES.md`). Recovered offsets are provenance comments and the
+   layout to approach. Mark uncertain spots with `VERIFY`.
 6. Add the file(s) to `dlls/CMakeLists.txt` (explicit source list), then
    **build + verify**: `scripts/build.sh amd64`, then
    `nm -D build-amd64/dlls/hl.so | grep <entity_name>` shows the `T <entity>`
@@ -125,29 +143,28 @@ Docker image so binaries keep the glibc-2.28 floor (run on glibc ≥ 2.28).
 scripts/build.sh amd64        # → build-amd64/dlls/hl.so
 scripts/build.sh aarch64
 scripts/build.sh i386
+BUILDTYPE=Debug scripts/build.sh i386   # -O0 + DWARF; use for vtable/layout comparison
 ```
 
 Always build deployables through the image, never natively (a native build on
 this host links glibc 2.38+ and won't run on Debian 12 / AL2023). Verify:
 `objdump -T build-<arch>/dlls/hl.so | grep -oE 'GLIBC_[0-9.]+' | sort -V | tail -1`.
 
-The base SDK **builds clean** (`build-amd64/dlls/hl.so`, glibc floor 2.14), and
-reconstructed classes are added to `dlls/CMakeLists.txt` and built into it. The
-image `hlds64-buildchain:debian10` is already built on this host.
+**CMake is the only build system** (`dlls/CMakeLists.txt`, `cl_dll/CMakeLists.txt`). The legacy
+`linux/Makefile*`, the `projects/vs2019/*` MSVC projects and `scripts/check-source-lists.py` were
+removed in `94c0bba`. The submodules (`third_party/openvgui` with its `miniutl`,
+`third_party/vgui_support` with its `vgui-dev`) must be cloned recursively.
 
-The **client** builds too: `scripts/build.sh <arch> client` (i386 → Valve `vgui.so`,
-amd64 → openvgui; see HANDOFF cont.46). `scripts/build.sh <arch> all` builds both.
-
-**Keep the 4 build source lists in sync.** We compile `hl.so`/`client.so` through four
-parallel build systems, each with its OWN explicit `.cpp` list: the CMake authority
-(`dlls/CMakeLists.txt` + `cl_dll/CMakeLists.txt`, used by the amd64/aarch64/win64 CI),
-the legacy i386 Makefiles (`linux/Makefile.hldll` + `Makefile.hl_cdll`, the `linux-i386`
-CI job), and the MSVC projects (`projects/vs2019/hldll.vcxproj` + `hl_cdll.vcxproj` +
-their `.filters`, the `win32` CI job). Adding a reconstructed file to CMake ONLY (the
-default habit) silently breaks the Makefile/MSBuild CI jobs. **Whenever you add/remove a
-source file, run `scripts/check-source-lists.py`** — it normalizes every `.cpp` each build
-compiles and set-compares the Makefile+vcxproj against the CMake authority, printing a
-per-file MISSING/EXTRA report and exiting non-zero on any drift (CI/pre-commit friendly).
+The **client** builds too: `scripts/build.sh <arch> client`, `scripts/build.sh <arch> all` for both.
+Per-target client linkage:
+- **i386** (real GoldSrc): load-time links Valve's `vgui.so`; mouse-look via SDL
+  (`SDL_GetRelativeMouseState` + relative-mode grab, guard `TS_INPUT_SDL` in `cl_dll/inputw32.cpp`),
+  with `libSDL2` supplied by the engine at runtime. The relative-mode grab is load-bearing: without it
+  yaw locks at ±90° and VGUI panels get no cursor.
+- **Windows**: Win32 `GetCursorPos`/`SetCursorPos`, no SDL (no `SDL2.lib` is shipped, so any SDL
+  reference fails the link).
+- **amd64 / aarch64 / wasm** (Xash): static openvgui + the `vgui_support` shim; input pushed by the
+  engine (`IN_ClientLookEvent`/`IN_ClientMoveEvent`), no SDL.
 
 ### Running / testing (this box HAS a GPU + display — not headless)
 
@@ -191,10 +208,13 @@ for gdb the moment a runtime test crashes — don't guess from the symptom.
 - **`llvm-undname-17`** — MSVC demangler (used by `dump-signatures.sh`) for the
   `mp.dll`/`client.dll` exports.
 - **`scripts/gnv2demangle.py`** — our own GNU g++ 2.x demangler (this host's
-  `c++filt` dropped `gnu-v2`). Recovers typed C++ signatures for **all** server
+  `c++filt` dropped `gnu-v2`). Recovers typed C++ signatures for the server
   functions including the TS-specific classes that `mp.dll` never exported.
-  ~74% of the 2426 `.so` symbols (1788) resolve; the rest are plain C/CRT or
-  rare array/edge-case mangling. Output: `reference/signatures-gcc2.{map,txt}`.
+  Back-references (`T<n>`, `N<count><n>`) are indexed as libiberty does: the class is entry 0
+  for members/constructors, the list is empty for free functions, and a multi-digit index ends in
+  `_` (so `T18USE_TYPE` is `T1` + `8USE_TYPE`). Validated 2026-10-05: all 159 `mp.dll` typed
+  signatures match argument for argument. Unparsed names are C/CRT symbols and gcc runtime
+  internals. Output: `reference/signatures-gcc2.{map,txt}`.
   `scripts/decompile.sh` feeds the map into Ghidra so each decompiled function
   is annotated with its real prototype (`// CTSSlowMotion::Spawn()`).
 - **`scripts/extract_weapons.py`** — pulls the full `s_weapon_info` weapon table
@@ -219,18 +239,44 @@ The reconstruction is now **gap-driven by a coverage harness** and the Ghidra de
 The loop: `coverage.py` finds a gap → Ghidra (typed) REs it → implement → re-run the harness to
 confirm the gap closed.
 
+- **`scripts/coverage/run.py`** regenerates every report under `reference/coverage/` in dependency
+  order. It reads `build-amd64/{dlls/hl.so,cl_dll/client.so}`, so build `scripts/build.sh amd64 all`
+  first, and it needs the `upstream` remote (`stock_methods.py` and `divergence.py` read
+  `upstream/64bit-demo`). The committed reports go stale between runs (`INVENTORY.md` had not been
+  regenerated since 2026-06-28 when checked on 2026-10-05); regenerate before trusting a number.
 - **`scripts/coverage/coverage.py all`** → `reference/coverage/REPORT.md`: diffs the EXTERNAL swap
   contract (entity classes, cldll exports, server+client commands, server+client cvars w/ default +
   message wire-size mismatch, user messages, events, entity keyvalues + a default.cfg cross-check).
   MISSING = implement/RE; EXTRA = invented/HL-leftover. Cvars/sizes come from the BINARY, not config.cfg.
   Pure objdump/nm/readelf — no Ghidra dep. Also `reconstruction.py` (per-class method %) + `extract_vtables.py`
   (all 226 vtables → slot→method) + `vtcall.py` (resolve/annotate vtable-dispatch offsets).
+- **`extract_vtables.py`** bounds each `__vt_` vtable by its symbol size (bounding by the next vtable
+  ran `CMultiSource` into the engine's `DLL_FUNCTIONS` table) and labels the gcc2 header word
+  `(typeinfo)` and abstract slots `(pure virtual)`. Validated slot-for-slot against an independent
+  relocation decode.
+- **`hierarchy.py`** reads each class's base from the original's typeinfo code: gcc2's
+  `__tf<Class>()` calls `__tf<Base>()` before registering itself, so these are the declared bases.
+  The earlier slot-ownership heuristic was wrong for 83 classes (e.g. `CTSKnife`, `CTSShrapnel`,
+  `CM61Grenade` derive from `CTSGrenade`; `CTSGun` from `CBasePlayerWeapon`; `CTSTrigger` from
+  `CBaseTrigger`), and some of reTS's class declarations still follow the old answers.
 - **`scripts/coverage/audit.py`** (cont.72) → `reference/coverage/AUDIT.md`: the INTERNAL-structure audit —
   diffs OUR build vs the original (`ts_inventory.json`) BOTH directions at file/class/method/member/global level.
   **MISSING** (orig has, we don't = work-list) + **INVENTED** (we have, orig doesn't = review for drift) + FILE
   mismatches. `audit.py <Class>` = one class's full bidirectional view; `audit.py --strict` = CI gate (exit 1 on
   any invention). TS-scoped (stock-SDK diffs are `divergence.py`'s job). This is the DRIVER for the code-restructure
   to source parity. `coverage.py` audits the EXTERNAL contract; the two together make the whole json checkable.
+  It matches methods by NAME: it cannot see that a method is non-virtual where the original's is
+  virtual, or that slots are out of order. The vtable audit covers that (below).
+- **Vtable audit** (`~/stignored/rets-audit/vtable_audit.py`, not yet in the repo): compares every
+  original vtable with an i386 build of ours, class by class, slot by slot: missing/extra classes,
+  missing/extra virtuals (tagged Valve SDK / halflife-updated / reTS), order, and which class supplies
+  each override, each reported at the class that introduces it. Run against a `BUILDTYPE=Debug` i386
+  build: at `-O2` gcc folds identical functions and slot names come out wrong.
+- **`divergence.py`** defaults to the fork point (`upstream/64bit-demo`, exported to a temp dir), not
+  the buildchain's halflife-updated working tree. **`baseline.py`** still needs a built base SDK and
+  uses the buildchain's `halflife-updated` build; it records which commit that is and warns when it is
+  not `8282fa7`. Its TS-STRIPPED list (stock classes/methods absent from the original) is the
+  "remove only what TS removed" work-list.
 - **`scripts/coverage/client_members.py`** (cont.72): member skeletons for the CLIENT HUD/prediction classes
   (client.dll has no symbols/RTTI) — binmap-matches our built `client.so` → `client.dll`, types `this`
   (`ApplyClientThis.java`), runs `DumpMembers` → `members_auto_client.tsv`. See §4b.
@@ -271,6 +317,8 @@ scripts/ghidra/re.sh export <Class>   # write the class's decompile to recovered
   prototypes, `entvars_t` (`this->pev->takedamage`, `gpGlobals->time`), `enginefuncs_t` + the PIC GOT slots
   (`g_engfuncs->pfnSetModel(...)`), typed `.rodata` FP constants relabelled with their value (`dc_0_1`/`fc_64`),
   clean demangled per-class names, and a plate comment per function (its `.cpp` + assets/cvars/commands it refs).
+  It consumes `hierarchy.tsv`, so projects built before the 2026-10-05 hierarchy fix merged member
+  structs up the wrong chains for the affected classes: re-run `re.sh setup`.
 - **Not idempotent** — ApplyInventory *renames* functions, so re-applying breaks the mangled-name lookup.
   That's why `re.sh setup` always rebuilds the project FRESH; the decompile/refs/export paths only read it (fast).
 - **`DumpMembers.java`** recovers transient (unsaved) members: their names aren't in the binary, but their
@@ -308,9 +356,12 @@ The whole client/server RE + live-debug toolchain, at a glance: `re.sh` (server 
   goes through `this->vtbl[slot]` and NEVER references the method's address, so `re.sh refs`/`DecompRefs.java`
   AND Ghidra's `get_function_callers` all find NOTHING for an overridden method (this is why tracing
   `CTSGun::PrimaryAttack`'s callers returned empty). `vrefs` inverts `vtables_original.json` (method→slots),
-  scans the objdump disasm for `call *0xSLOT(%reg)` sites, and ranks: **self-dispatch** (the calling fn's own
-  class has the method at that slot — high confidence, e.g. `vrefs PrimaryAttack` → `CBasePlayerWeapon::ItemPostFrame`)
-  vs same-slot-other-class (possible). Use `refs` for non-virtual/direct, `vrefs` for virtual. (Neither is the
+  scans the objdump disasm for `call *0xSLOT(%reg)` sites (and `mov 0xSLOT(%vptr),%r` + `call *%r`), and ranks:
+  **self-dispatch** (the calling fn's own class has the method at that slot — high confidence, e.g.
+  `vrefs PrimaryAttack` → `CBasePlayerWeapon::ItemPostFrame`) vs same-slot-other-class (possible). Calls
+  through a register loaded from the PIC GOT (`X(%ebx)`, i.e. `g_engfuncs` and other global tables) are
+  dropped: before 2026-10-05 they were reported as virtual calls (`REMOVE_ENTITY` at `0x58` showed up as
+  a `TakeDamage` caller). Use `refs` for non-virtual/direct, `vrefs` for virtual. (Neither is the
   receiver-exact truth that a live gdb bt gives — see §4b — but `vrefs` is the static first cut.)
 - **`scripts/coverage/curate_members.py`** — the **producer for `members_re.tsv`** (which was an ORPHAN: no
   script made it, so it stayed empty and every transient member rendered as `this->field_0xNN`). It scrapes our
@@ -456,12 +507,14 @@ Keep the ledger factual: what was reconstructed, how it was verified, what's nex
 - A class is "built" when it compiles + links + exports its entity factory; it's
   "done" when its **behaviour** is verified in the engine — not just when it
   compiles. Be honest about which.
+- This repo's `.git/config` sets `commit.gpgsign = false` (overriding the global `true`), so
+  commits here are unsigned.
 
 ---
 
 ## 7. Picking this up
 
-`CLAUDE.md` is **local-only** (matched by the user's global `~/.gitignore`), so a
-fresh clone won't have this file. The durable, tracked pickup doc is
+`CLAUDE.md` is **tracked in this repo** (it was force-added past the user's global
+`~/.gitignore`, which matches it), so edits here are commits. The running pickup doc is
 **`HANDOFF.md`** (repo root) — read it first. Current progress lives in the
 Serena ledger (`.serena/memories/ledger.md`) and `reference/RECONSTRUCTION.md`.
