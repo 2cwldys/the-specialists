@@ -123,14 +123,22 @@ public class ApplyInventory extends GhidraScript {
     DataType classStruct(String cls) {
         if (built.containsKey(cls)) return built.get(cls);
         TreeMap<Integer, String[]> fields = new TreeMap<>();   // offset -> member row
-        Set<String> seen = new HashSet<>();
-        String c = cls;
-        while (c != null && seen.add(c)) {
-            for (String[] m : members.getOrDefault(c, Collections.emptyList())) {
-                int off = (int) Long.parseLong(m[1].replace("0x", ""), 16);
-                fields.putIfAbsent(off, m);   // derived wins over base on offset clash (shouldn't happen)
+        // Two passes over the chain: named members (saved + curated) first, then the members_auto
+        // field_0xNN placeholders only where no ancestor names the offset. A single nearest-class-wins pass
+        // let an intermediate class's placeholder hide a real ancestor name: CBasePlayerWeapon's auto
+        // field_0x80 hid CBasePlayerItem's saved m_pPlayer in every CTSGun decompile.
+        for (int pass = 0; pass < 2; pass++) {
+            Set<String> seen = new HashSet<>();
+            String c = cls;
+            while (c != null && seen.add(c)) {
+                for (String[] m : members.getOrDefault(c, Collections.emptyList())) {
+                    boolean placeholder = m[4].startsWith("field_0x");
+                    if (placeholder != (pass == 1)) continue;
+                    int off = (int) Long.parseLong(m[1].replace("0x", ""), 16);
+                    fields.putIfAbsent(off, m);   // within a pass, derived wins over base on offset clash
+                }
+                c = base.get(c);
             }
-            c = base.get(c);
         }
         int size = 4;   // at least room for pev
         for (Map.Entry<Integer, String[]> e : fields.entrySet())
