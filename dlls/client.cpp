@@ -12,6 +12,8 @@
 *   without written permission from Valve LLC.
 *
 ****/
+// Robin, 4-22-98: Moved set_suicide_frame() here from player.cpp to allow us to
+//				   have one without a hardcoded player.mdl in tf_client.cpp
 
 /*
 
@@ -63,6 +65,23 @@ DLL_GLOBAL unsigned int g_ulFrameCount;
 extern void CopyToBodyQue(entvars_t* pev);
 
 void LinkUserMessages();
+
+/*
+ * used by kill command and disconnect command
+ * ROBIN: Moved here from player.cpp, to allow multiple player models
+ */
+void set_suicide_frame(entvars_t* pev)
+{
+	if (!FStrEq(STRING(pev->model), "models/player.mdl"))
+		return; // allready gibbed
+
+	//	pev->frame		= $deatha11;
+	pev->solid = SOLID_NOT;
+	pev->movetype = MOVETYPE_TOSS;
+	pev->deadflag = DEAD_DEAD;
+	pev->nextthink = -1;
+}
+
 
 /*
 ===========
