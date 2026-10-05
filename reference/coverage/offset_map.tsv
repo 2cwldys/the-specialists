@@ -1,0 +1,22 @@
+key	class	orig	rets_member	kind	used_by	evidence
+cash	CBasePlayer	0x540	m_iCash	field	TSX,TSE	GiveCash, BuyAmmo, BuyWeapon, SellTouch, AddItem
+free_slots	CBasePlayer	0x548	-	computed	TSX,TSE	TakeArmor adds/subtracts 10; reTS computes it (TSSlotsUsed)
+item_bits	CBasePlayer	0x718	-	bitfield	TSE	TakeArmor sets/clears bit 0x10 (kevlar); reTS uses separate members
+kevlar	CBasePlayer	0x718	m_bHasKevlar	bit:0x10	TSE	TakeArmor; reTS stores it as a bool
+slowmo_go	CBasePlayer	0x168	m_flSlowMotionGo	field	TSX	save table + curated RE name
+slowmo_client_amt	CBasePlayer	0x16c	m_flClientSlowAmt	field	TSX,TSE	curated RE name
+slowmo_target	CBasePlayer	0x170	m_flSlowMotionTarget	field	TSX	curated RE name
+slowmo_next_flow	CBasePlayer	0x178	m_flNextSlowFlow	field	TSX	curated RE name
+slowmo_self_scale	CBasePlayer	0x17c	m_flSlowMotionScale	field	TSX,TSE	curated RE name
+slowmo_ramp	CBasePlayer	0x180	m_flSlowMotionRamp	field	TSE	curated RE name
+powerups	CBasePlayer	0x724	m_iPowerups	field	TSE	curated RE name
+powerup_held	CBasePlayer	0x728	m_iHeldPowerup	field	TSX,TSE	curated RE name
+powerup_expire	CBasePlayer	0x72c	m_flPowerupExpireTime	field	TSE	curated RE name
+powerup_time	CBasePlayer	0x730	m_flPowerupTime	field	TSX,TSE	curated RE name
+award	CBasePlayer	0x74c	m_iAward	field	TSX,TSE	Killed, PlayerKilled, RestartRound, SetPlayerTheOne
+melee_bar	CBasePlayer	0x774	m_flMeleeBar	field	TSE	curated RE name
+lunge_time	CBasePlayer	0x79c	m_flWhiffLungeTime	field	TSE	curated RE name
+lunge_force	CBasePlayer	0x7a0	m_flWhiffLungeForce	field	TSE	curated RE name
+geiger_delay	CBasePlayer	0x988	m_flgeigerDelay	field	TSX,TSE	UpdateGeigerCounter, Spawn; TSX/TSE use it as "now" (use gpGlobals->time)
+last_activity	CBasePlayer	0x28c	m_TSAnim.m_iLastActivity	field	TSE	embedded CTSAnimation at +0x28c (reTS ts_animation.h)
+gun_ammo_reserve	CTSGun	0xd4	m_ammoReserve	field	ARP_TS	per-caliber reserve (reTS ts_gun.h); ARP_TS 50-61 = calibers 2-13
