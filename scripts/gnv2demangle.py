@@ -11,7 +11,8 @@ Reads symbols on stdin (one per line, optionally "addr  name"), prints
 
 Grammar handled: member funcs (meth__<len>Class<args>), global funcs
 (func__F<args>), constructors (__<len>Class<args>), destructors (_$_<len>Class),
-type prefixes P/R/C/V/U/S, builtins, <len>Name classes, and T<n> backrefs.
+type prefixes P/R/C/V/U/S, builtins, <len>Name classes, and T<n>/N<count><n>
+backrefs (indexed as libiberty cplus-dem does; checked against mp.dll's MSVC signatures).
 """
 import sys, re
 
@@ -20,6 +21,16 @@ BUILTIN = {'v':'void','i':'int','l':'long','s':'short','c':'char','w':'wchar_t',
            'e':'...'}
 
 class Fail(Exception): pass
+
+def get_count(s, i):
+    """libiberty cplus-dem get_count: one digit, unless a longer digit run is closed by '_'
+    (so T18USE_TYPE is T1 + 8USE_TYPE, while T12_ is T12)."""
+    if i >= len(s) or not s[i].isdigit(): raise Fail('count')
+    j = i + 1
+    while j < len(s) and s[j].isdigit(): j += 1
+    if j > i + 1 and j < len(s) and s[j] == '_':
+        return int(s[i:j]), j + 1
+    return int(s[i]), i + 1
 
 def parse_type(s, i, seen):
     """Parse one type starting at s[i]; return (type_string, new_i)."""
@@ -42,17 +53,15 @@ def parse_type(s, i, seen):
         i += 1
     if i >= len(s): raise Fail('eof')
     ch = s[i]
-    if ch == 'T':                      # backref: T<digit>
-        i += 1
-        n = ''
-        while i < len(s) and s[i].isdigit(): n += s[i]; i += 1
-        if not n: raise Fail('T')
-        k = int(n)                  # gnu-v2 T backref. NOTE: exact index base is ambiguous across the
-        # corpus (value/ref args vs pointer args disagree — `CreateKnife`'s T2 wants the 2nd type while
-        # `AddToFullPack`'s T2 wants the 3rd), so we DON'T guess: in-range → use it, else honest 'T?'.
-        # A wrong-but-plausible type is worse than a marked unknown for the reconstruction. (gnu-v2 spec
-        # work could resolve this; until then MSVC signatures-mp/client are the authoritative typed source.)
-        base = seen[k] if 0 <= k < len(seen) else ('T%s?' % n)
+    if ch == 'T':                      # backref T<n>: same type as entry n of the type list
+        # The list starts with the class for member functions and constructors (so T1 is the first
+        # argument there) and is empty for free functions (T0 is the first argument). That resolves
+        # CTSKnife::CreateKnife's T2 (= Vector) and AddToFullPack's T2 (= edict_s *) alike.
+        k, i = get_count(s, i + 1)
+        if not 0 <= k < len(seen): raise Fail('T idx')
+        t = seen[k]
+        seen.append(t)
+        return t, i
     elif ch.isdigit():                 # <len><name> class
         n = ''
         while i < len(s) and s[i].isdigit(): n += s[i]; i += 1
@@ -85,15 +94,19 @@ def parse_type(s, i, seen):
     seen.append(t)
     return t, i
 
-def parse_args(s, i):
-    seen, args = [], []
+def parse_args(s, i, cls=None):
+    """cls: the owning class for member functions/constructors; it is entry 0 of the type list."""
+    seen = [cls] if cls else []
+    args = []
     while i < len(s):
         if s[i] == '_':              # return-type marker (rare); stop
             break
-        if s[i] == 'N':              # N<count><index>: repeat type[index] count times
-            count = int(s[i+1]); idx = int(s[i+2]); i += 3
-            if not (1 <= idx <= len(seen)): raise Fail('N idx')
-            args.extend([seen[idx-1]] * count)
+        if s[i] == 'N':              # N<count><index>: repeat type-list entry <index> <count> times
+            count, i = get_count(s, i + 1)
+            idx, i = get_count(s, i)
+            if not 0 <= idx < len(seen): raise Fail('N idx')
+            args.extend([seen[idx]] * count)
+            seen.extend([seen[idx]] * count)
             continue
         t, i = parse_type(s, i, seen)
         args.append(t)
@@ -103,7 +116,7 @@ def parse_args(s, i):
 def demangle(sym):
     sym = sym.strip()
     # destructor _$_<len>Class  (note: contains no '__', so check before the guard)
-    m = re.match(r'_\$_(\d+)(.+)$', sym)
+    m = re.match(r'_[$.]_(\d+)(.+)$', sym)   # gcc2 writes both _$_ and _._
     if m:
         cls = m.group(2)[:int(m.group(1))]
         return '%s::~%s()' % (cls, cls)
@@ -118,7 +131,7 @@ def demangle(sym):
         if not mm: raise Fail('ctor')
         ln = int(mm.group(1)); cls = rest[len(mm.group(1)):len(mm.group(1))+ln]
         argstr = rest[len(mm.group(1))+ln:]
-        args = parse_args(argstr, 0)
+        args = parse_args(argstr, 0, cls)
         return '%s::%s(%s)' % (cls, cls, ', '.join(args))
     name = sym[:idx]; rest = sym[idx+2:]
     if rest.startswith('F'):                 # global function
@@ -128,8 +141,7 @@ def demangle(sym):
     if m:
         ln = int(m.group(1)); cls = rest[len(m.group(1)):len(m.group(1))+ln]
         argstr = rest[len(m.group(1))+ln:]
-        const = ''
-        args = parse_args(argstr, 0)
+        args = parse_args(argstr, 0, cls)
         return '%s::%s(%s)' % (cls, name, ', '.join(args))
     raise Fail('shape')
 
