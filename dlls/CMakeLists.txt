@@ -84,6 +84,7 @@ target_sources(hl PRIVATE
 	ts_worldgun.cpp
 	ts_weapon_info.cpp
 	ts_weapons.cpp
+	rets_api.cpp
 	UserMessages.cpp
 	util.cpp
 	weapons.cpp
