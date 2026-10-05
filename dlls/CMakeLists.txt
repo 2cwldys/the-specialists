@@ -89,6 +89,7 @@ target_sources(hl PRIVATE
 	weapons.cpp
 	weapons_shared.cpp
 	world.cpp
+	xen.cpp
 
 	../common/mathlib.cpp
 
