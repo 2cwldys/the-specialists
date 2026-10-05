@@ -5,11 +5,13 @@
 //
 // Args (via -postScript DecompExport.java <outDir> [classFilter]):
 //   outDir       directory to write <Class>.c files into (created if missing)
-//   classFilter  optional substring; only functions whose name contains it
-//                are exported (e.g. "CTSSlowMotion"). Omitted => all functions.
+//   classFilter  optional substring; only functions whose namespaced name
+//                (CTSGun::Deploy) contains it are exported. Omitted => all functions.
 //
-// The .so is not stripped, so analysis applies the symtab and functions come
-// out named. GCC2 names encode the class as __<len><ClassName>; we group by it.
+// On an ApplyInventory'd project methods are renamed into class namespaces, so
+// matching and grouping use the namespaced name; functions never renamed keep their
+// GCC2 name (__<len><ClassName>) and are grouped by parsing it. Each <Class>.c is
+// truncated on its first write in a run, so repeated exports don't accumulate.
 import ghidra.app.script.GhidraScript;
 import ghidra.app.decompiler.DecompInterface;
 import ghidra.app.decompiler.DecompileOptions;
@@ -77,11 +79,13 @@ public class DecompExport extends GhidraScript {
         }
 
         int matched = 0, ok = 0, failed = 0;
+        java.util.Set<String> started = new java.util.HashSet<>();
         FunctionIterator it = currentProgram.getFunctionManager().getFunctions(true);
         while (it.hasNext()) {
             if (monitor.isCancelled()) break;
             Function f = it.next();
-            String name = f.getName();
+            if (f.isThunk() || f.isExternal()) continue;   // 6-byte PLT stubs carry the same names
+            String name = f.getName(true);   // CTSGun::Deploy once renamed, else the raw symbol
             if (filter != null && !name.contains(filter)) continue;
             matched++;
 
@@ -94,9 +98,11 @@ public class DecompExport extends GhidraScript {
             DecompiledFunction df = res.getDecompiledFunction();
             if (df == null || df.getC() == null) { failed++; continue; }
 
-            File out = new File(od, ownerClass(name) + ".c");
-            PrintWriter pw = new PrintWriter(new FileWriter(out, true));
-            String proto = sigs.get(name);
+            String owner = f.getParentNamespace().isGlobal()
+                ? ownerClass(f.getName()) : f.getParentNamespace().getName();
+            File out = new File(od, owner + ".c");
+            PrintWriter pw = new PrintWriter(new FileWriter(out, !started.add(owner)));
+            String proto = sigs.get(f.getName());
             if (proto != null) pw.println("// " + proto);
             pw.println("/* " + name + "  @ " + f.getEntryPoint()
                        + "  (" + f.getBody().getNumAddresses() + " bytes) */");
