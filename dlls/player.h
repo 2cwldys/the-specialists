@@ -261,7 +261,6 @@ public:
 	bool Save(CSave& save) override;
 	bool Restore(CRestore& restore) override;
 	void RenewItems();
-	void PackDeadPlayerItems();
 	void RemoveAllItems(bool removeSuit);
 	bool SwitchWeapon(CBasePlayerItem* pWeapon);
 
@@ -313,7 +312,6 @@ public:
 	void AddPointsToTeam(int score, bool bAllowNegativeScore) override;
 	bool AddPlayerItem(CBasePlayerItem* pItem) override;
 	bool RemovePlayerItem(CBasePlayerItem* pItem) override;
-	void DropPlayerItem(char* pszItemName);
 	bool HasPlayerItem(CBasePlayerItem* pCheckItem);
 	bool HasNamedPlayerItem(const char* pszItemName);
 	bool HasPlayerItemFromID(int nID);

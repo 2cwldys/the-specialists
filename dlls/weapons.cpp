@@ -274,7 +274,6 @@ void W_Precache()
 	// crash on them. TS precaches the TS entities with the plain UTIL_PrecacheOther (Precache() only),
 	// and uses UTIL_PrecacheOtherWeapon for exactly ONE real weapon: weapon_tsgun (a CBasePlayerWeapon).
 
-	UTIL_PrecacheOther("item_suit");
 
 	// TS control/objective/world entities (UTIL_PrecacheOther = Precache() only, no item cast)
 	UTIL_PrecacheOther("ts_mapglobals");

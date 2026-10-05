@@ -29,7 +29,6 @@ target_sources(hl PRIVATE
 	func_tank.cpp
 	game.cpp
 	gamerules.cpp
-	ggrenade.cpp
 	healthkit.cpp
 	h_ai.cpp
 	h_battery.cpp
@@ -90,7 +89,6 @@ target_sources(hl PRIVATE
 	weapons.cpp
 	weapons_shared.cpp
 	world.cpp
-	xen.cpp
 
 	../common/mathlib.cpp
 
