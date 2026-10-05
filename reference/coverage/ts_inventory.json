@@ -8,7 +8,7 @@
   "ts_specific_classes": 72,
   "class_methods": 1854,
   "free_functions": 661,
-  "members": 1401,
+  "members": 1261,
   "globals": 76,
   "note": "ts_specific flags the TS work-list; offsets are original-gcc2 provenance."
  },
@@ -43,7 +43,7 @@
        "name": "field_0x4",
        "offset": "0x4",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       }
      ],
@@ -294,7 +294,15 @@
      "ancestry": [
       "type_info"
      ],
-     "members": [],
+     "members": [
+      {
+       "name": "field_0x4",
+       "offset": "0x4",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
+      }
+     ],
      "statics": [],
      "vtable": {
       "0x4": "(typeinfo)",
@@ -333,11 +341,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0x88",
+       "name": "m_flExpireTime",
        "offset": "0x88",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x8c",
@@ -347,11 +355,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0x90",
+       "name": "m_flagStatus",
        "offset": "0x90",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x9c",
@@ -368,11 +376,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0xac",
+       "name": "m_bRemoved",
        "offset": "0xac",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x180",
@@ -740,46 +748,46 @@
      ],
      "members": [
       {
-       "name": "field_0x4",
+       "name": "m_iDuckLatch",
        "offset": "0x4",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x8",
+       "name": "m_flLegTimer",
        "offset": "0x8",
        "cpptype": "int",
        "count": "8",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xc",
+       "name": "m_flAimTimer",
        "offset": "0xc",
        "cpptype": "int",
        "count": "8",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x10",
+       "name": "m_flGrenadeFlag",
        "offset": "0x10",
        "cpptype": "int",
        "count": "6",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x14",
+       "name": "m_iDirection",
        "offset": "0x14",
        "cpptype": "int",
        "count": "7",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x18",
+       "name": "m_iEnabled",
        "offset": "0x18",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x1c",
@@ -1048,32 +1056,32 @@
        "source": "auto"
       },
       {
-       "name": "field_0x1dc",
+       "name": "m_flBulletDanceRetrig",
        "offset": "0x1dc",
        "cpptype": "int",
        "count": "10",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x1e0",
+       "name": "m_flBulletDanceWindow",
        "offset": "0x1e0",
        "cpptype": "int",
        "count": "10",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x1e4",
+       "name": "m_bBulletDance",
        "offset": "0x1e4",
        "cpptype": "int",
        "count": "10",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x1e8",
+       "name": "m_bCCStarted",
        "offset": "0x1e8",
        "cpptype": "int",
        "count": "6",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -1532,8 +1540,57 @@
        "source": "auto"
       },
       {
+       "name": "field_0x1c",
+       "offset": "0x1c",
+       "cpptype": "int",
+       "count": "2",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x28",
+       "offset": "0x28",
+       "cpptype": "int",
+       "count": "2",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x2c",
+       "offset": "0x2c",
+       "cpptype": "int",
+       "count": "2",
+       "source": "auto"
+      },
+      {
        "name": "field_0x30",
        "offset": "0x30",
+       "cpptype": "int",
+       "count": "4",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x34",
+       "offset": "0x34",
+       "cpptype": "int",
+       "count": "2",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x38",
+       "offset": "0x38",
+       "cpptype": "int",
+       "count": "2",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x3c",
+       "offset": "0x3c",
+       "cpptype": "int",
+       "count": "2",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x40",
+       "offset": "0x40",
        "cpptype": "int",
        "count": "2",
        "source": "auto"
@@ -1549,7 +1606,7 @@
        "name": "field_0x4000",
        "offset": "0x4000",
        "cpptype": "int",
-       "count": "4",
+       "count": "6",
        "source": "auto"
       },
       {
@@ -1668,13 +1725,6 @@
       "CBaseEntity"
      ],
      "members": [
-      {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
       {
        "name": "field_0x10",
        "offset": "0x10",
@@ -1913,13 +1963,6 @@
       "CBaseEntity"
      ],
      "members": [
-      {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
       {
        "name": "field_0x10",
        "offset": "0x10",
@@ -2419,13 +2462,6 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
@@ -2612,22 +2648,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -2650,35 +2672,35 @@
        "name": "field_0x864",
        "offset": "0x864",
        "cpptype": "int",
-       "count": "4",
+       "count": "5",
        "source": "auto"
       },
       {
        "name": "field_0x868",
        "offset": "0x868",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
        "name": "field_0x86c",
        "offset": "0x86c",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
        "name": "field_0x870",
        "offset": "0x870",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
        "name": "field_0x874",
        "offset": "0x874",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       }
      ],
@@ -2831,22 +2853,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -2859,25 +2867,25 @@
        "source": "auto"
       },
       {
-       "name": "field_0x64",
+       "name": "m_flStartGate",
        "offset": "0x64",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x68",
+       "name": "m_flLastTouch",
        "offset": "0x68",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x6c",
+       "name": "m_hKing",
        "offset": "0x6c",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "fragseverycheck",
@@ -2901,11 +2909,11 @@
        "source": "saved"
       },
       {
-       "name": "field_0x7c",
+       "name": "m_flAwardTime",
        "offset": "0x7c",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -3083,32 +3091,18 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x10",
+       "name": "player_respawn_num",
        "offset": "0x10",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x18",
+       "name": "m_field18",
        "offset": "0x18",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "player_respawn_num",
@@ -3301,22 +3295,7 @@
       "CBaseDelay",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0x6c",
-       "offset": "0x6c",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x70",
-       "offset": "0x70",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -3429,22 +3408,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -3457,46 +3422,32 @@
        "source": "auto"
       },
       {
-       "name": "field_0x64",
-       "offset": "0x64",
-       "cpptype": "int",
-       "count": "4",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x68",
-       "offset": "0x68",
-       "cpptype": "int",
-       "count": "4",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x6c",
+       "name": "m_iCount",
        "offset": "0x6c",
        "cpptype": "int",
        "count": "5",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x70",
+       "name": "m_iClients",
        "offset": "0x70",
        "cpptype": "int",
        "count": "5",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x74",
+       "name": "m_iszConnectTarget",
        "offset": "0x74",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xd8",
+       "name": "m_iszDisconnectTarget",
        "offset": "0xd8",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -3635,22 +3586,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -3793,13 +3730,6 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
@@ -3807,32 +3737,25 @@
        "source": "auto"
       },
       {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "4",
-       "source": "auto"
-      },
-      {
        "name": "field_0x18",
        "offset": "0x18",
-       "cpptype": "int",
-       "count": "4",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x64",
-       "offset": "0x64",
        "cpptype": "int",
        "count": "5",
        "source": "auto"
       },
       {
-       "name": "field_0x68",
+       "name": "m_iToggledOn",
+       "offset": "0x64",
+       "cpptype": "int",
+       "count": "5",
+       "source": "curated"
+      },
+      {
+       "name": "m_flStopTime",
        "offset": "0x68",
        "cpptype": "int",
        "count": "7",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x6c",
@@ -3842,18 +3765,18 @@
        "source": "auto"
       },
       {
-       "name": "field_0x70",
+       "name": "m_hPlayers",
        "offset": "0x70",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xf4",
+       "name": "m_flRadius",
        "offset": "0xf4",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "duration",
@@ -3870,18 +3793,18 @@
        "source": "saved"
       },
       {
-       "name": "field_0x100",
+       "name": "m_iAllMap",
        "offset": "0x100",
        "cpptype": "int",
-       "count": "6",
-       "source": "auto"
+       "count": "7",
+       "source": "curated"
       },
       {
-       "name": "field_0x104",
+       "name": "m_bSlowBullets",
        "offset": "0x104",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -4111,29 +4034,8 @@
      ],
      "members": [
       {
-       "name": "field_0x4",
-       "offset": "0x4",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -4153,18 +4055,18 @@
        "source": "auto"
       },
       {
-       "name": "field_0xe8",
+       "name": "m_flEndTime",
        "offset": "0xe8",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xec",
+       "name": "m_flScale",
        "offset": "0xec",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0xf0",
@@ -4174,11 +4076,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0xf4",
+       "name": "m_iSlowBullets",
        "offset": "0xf4",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -4330,24 +4232,10 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "4",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
        "source": "auto"
       },
       {
@@ -4918,13 +4806,6 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
@@ -4932,11 +4813,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0x64",
+       "name": "m_hBreakable",
        "offset": "0x64",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -5548,18 +5429,18 @@
        "source": "auto"
       },
       {
-       "name": "field_0x558",
+       "name": "m_iSrvUseCash",
        "offset": "0x558",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x55c",
+       "name": "m_iSrvAmmoCount",
        "offset": "0x55c",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "m_flGlobalSlowActive",
@@ -5604,11 +5485,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0x578",
+       "name": "m_iSrvRealBullet",
        "offset": "0x578",
        "cpptype": "int",
        "count": "5",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x57c",
@@ -5730,11 +5611,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0x1824",
+       "name": "m_szEndMap",
        "offset": "0x1824",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x1825",
@@ -5779,18 +5660,18 @@
        "source": "auto"
       },
       {
-       "name": "field_0x586c",
+       "name": "m_iAllowedCategories",
        "offset": "0x586c",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x5870",
+       "name": "m_iWeaponRestriction",
        "offset": "0x5870",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x5874",
@@ -5842,25 +5723,25 @@
        "source": "curated"
       },
       {
-       "name": "field_0x5884",
+       "name": "m_bWeaponParamsCustom",
        "offset": "0x5884",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x5885",
+       "name": "m_bSrvSuperJump",
        "offset": "0x5885",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x5888",
+       "name": "m_flHealthAbsorb",
        "offset": "0x5888",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x588c",
@@ -6619,10 +6500,31 @@
        "source": "auto"
       },
       {
+       "name": "field_0x88",
+       "offset": "0x88",
+       "cpptype": "float",
+       "count": "1",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x8c",
+       "offset": "0x8c",
+       "cpptype": "float",
+       "count": "2",
+       "source": "auto"
+      },
+      {
        "name": "field_0x90",
        "offset": "0x90",
        "cpptype": "int",
        "count": "2",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x180",
+       "offset": "0x180",
+       "cpptype": "int",
+       "count": "1",
        "source": "auto"
       }
      ],
@@ -6964,6 +6866,13 @@
        "source": "curated"
       },
       {
+       "name": "field_0x8c",
+       "offset": "0x8c",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
+      },
+      {
        "name": "m_bInFlight",
        "offset": "0x90",
        "cpptype": "byte",
@@ -7004,6 +6913,13 @@
        "cpptype": "int",
        "count": "1",
        "source": "curated"
+      },
+      {
+       "name": "field_0x180",
+       "offset": "0x180",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
       }
      ],
      "statics": [],
@@ -7235,11 +7151,11 @@
      ],
      "members": [
       {
-       "name": "field_0x64",
+       "name": "m_savedVelocity",
        "offset": "0x64",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x68",
@@ -7256,32 +7172,32 @@
        "source": "auto"
       },
       {
-       "name": "field_0x70",
+       "name": "m_savedAVelocity",
        "offset": "0x70",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x7c",
+       "name": "m_savedGravity",
        "offset": "0x7c",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x80",
+       "name": "m_field80",
        "offset": "0x80",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x84",
+       "name": "m_lastSlow",
        "offset": "0x84",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -7454,21 +7370,28 @@
       {
        "name": "field_0x20",
        "offset": "0x20",
-       "cpptype": "float",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x24",
-       "offset": "0x24",
-       "cpptype": "float",
+       "cpptype": "int",
        "count": "1",
        "source": "auto"
       },
       {
        "name": "field_0x28",
        "offset": "0x28",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x88",
+       "offset": "0x88",
        "cpptype": "float",
+       "count": "3",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x8c",
+       "offset": "0x8c",
+       "cpptype": "int",
        "count": "1",
        "source": "auto"
       },
@@ -7704,46 +7627,11 @@
      ],
      "members": [
       {
-       "name": "field_0x9c",
-       "offset": "0x9c",
-       "cpptype": "int",
-       "count": "14",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xa0",
-       "offset": "0xa0",
-       "cpptype": "int",
-       "count": "12",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xa4",
+       "name": "m_flNextAlternateAttack",
        "offset": "0xa4",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xa8",
-       "offset": "0xa8",
-       "cpptype": "int",
-       "count": "19",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xb4",
-       "offset": "0xb4",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xc4",
-       "offset": "0xc4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "m_weaponType",
@@ -9557,43 +9445,43 @@
        "name": "field_0x64",
        "offset": "0x64",
        "cpptype": "int",
-       "count": "4",
+       "count": "5",
        "source": "auto"
       },
       {
-       "name": "field_0x6c",
+       "name": "m_flTimer",
        "offset": "0x6c",
        "cpptype": "int",
-       "count": "4",
-       "source": "auto"
+       "count": "5",
+       "source": "curated"
       },
       {
-       "name": "field_0x70",
+       "name": "m_flNextBeep",
        "offset": "0x70",
        "cpptype": "int",
-       "count": "4",
-       "source": "auto"
+       "count": "5",
+       "source": "curated"
       },
       {
-       "name": "field_0x74",
+       "name": "m_flUseProgress",
        "offset": "0x74",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
+       "cpptype": "float",
+       "count": "3",
+       "source": "curated"
       },
       {
-       "name": "field_0x78",
+       "name": "m_flLastUse",
        "offset": "0x78",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
+       "cpptype": "float",
+       "count": "3",
+       "source": "curated"
       },
       {
-       "name": "field_0x7c",
+       "name": "m_wires",
        "offset": "0x7c",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x7d",
@@ -9610,11 +9498,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0x7f",
+       "name": "m_bFast",
        "offset": "0x7f",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "defusesec",
@@ -9869,24 +9757,10 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
        "source": "auto"
       },
       {
@@ -9897,25 +9771,25 @@
        "source": "auto"
       },
       {
-       "name": "field_0x64",
+       "name": "m_bFlagOut",
        "offset": "0x64",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x68",
+       "name": "m_iOwnerTeam",
        "offset": "0x68",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x6c",
+       "name": "m_szContents",
        "offset": "0x6c",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x8b",
@@ -9925,18 +9799,18 @@
        "source": "auto"
       },
       {
-       "name": "field_0x8c",
+       "name": "m_iFlagID",
        "offset": "0x8c",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x90",
+       "name": "m_flagStatus",
        "offset": "0x90",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x94",
@@ -10161,36 +10035,36 @@
        "name": "field_0x64",
        "offset": "0x64",
        "cpptype": "int",
-       "count": "3",
+       "count": "4",
        "source": "auto"
       },
       {
-       "name": "field_0x6c",
+       "name": "m_flObjTimer",
        "offset": "0x6c",
        "cpptype": "int",
-       "count": "3",
-       "source": "auto"
+       "count": "4",
+       "source": "curated"
       },
       {
-       "name": "field_0x70",
+       "name": "m_flHackProgress",
        "offset": "0x70",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
+       "cpptype": "float",
+       "count": "3",
+       "source": "curated"
       },
       {
-       "name": "field_0x74",
+       "name": "m_flLastUse",
        "offset": "0x74",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
+       "cpptype": "float",
+       "count": "3",
+       "source": "curated"
       },
       {
-       "name": "field_0x78",
+       "name": "m_flNextSound",
        "offset": "0x78",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
+       "cpptype": "float",
+       "count": "2",
+       "source": "curated"
       },
       {
        "name": "hacksec",
@@ -10411,11 +10285,11 @@
      ],
      "members": [
       {
-       "name": "field_0x64",
+       "name": "m_bActive",
        "offset": "0x64",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "attacker_team",
@@ -10870,22 +10744,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -11057,22 +10917,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -11230,25 +11076,18 @@
        "source": "auto"
       },
       {
-       "name": "field_0x68",
-       "offset": "0x68",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x6c",
+       "name": "m_present",
        "offset": "0x6c",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xf0",
+       "name": "m_count",
        "offset": "0xf0",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "escape_percentage",
@@ -11460,13 +11299,6 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
@@ -11474,15 +11306,15 @@
        "source": "auto"
       },
       {
-       "name": "field_0x14",
-       "offset": "0x14",
+       "name": "field_0x18",
+       "offset": "0x18",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
       },
       {
-       "name": "field_0x18",
-       "offset": "0x18",
+       "name": "field_0x1a",
+       "offset": "0x1a",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -12255,18 +12087,18 @@
        "source": "auto"
       },
       {
-       "name": "field_0x80",
+       "name": "m_bRespawns",
        "offset": "0x80",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x81",
+       "name": "m_bRandom",
        "offset": "0x81",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "poweruptype",
@@ -12276,18 +12108,18 @@
        "source": "saved"
       },
       {
-       "name": "field_0x88",
+       "name": "m_flTimeout",
        "offset": "0x88",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x8c",
+       "name": "m_flArmor",
        "offset": "0x8c",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x90",
@@ -12304,11 +12136,11 @@
        "source": "saved"
       },
       {
-       "name": "field_0x98",
+       "name": "pwupmult",
        "offset": "0x98",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -13192,11 +13024,11 @@
        "source": "curated"
       },
       {
-       "name": "field_0x18",
+       "name": "m_flNextBreakCheck",
        "offset": "0x18",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x1c",
@@ -14306,22 +14138,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
        "cpptype": "int",
        "count": "2",
        "source": "auto"
@@ -14334,11 +14152,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0xa4",
+       "name": "m_flExpire",
        "offset": "0xa4",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -14540,25 +14358,25 @@
        "source": "auto"
       },
       {
-       "name": "field_0x64",
+       "name": "m_bPlaced",
        "offset": "0x64",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x68",
+       "name": "m_ammo",
        "offset": "0x68",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xa8",
+       "name": "respawntime",
        "offset": "0xa8",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -14818,11 +14636,18 @@
        "source": "auto"
       },
       {
-       "name": "field_0x64",
+       "name": "field_0x60",
+       "offset": "0x60",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
+      },
+      {
+       "name": "m_bPlaced",
        "offset": "0x64",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "respawntime",
@@ -14846,18 +14671,18 @@
        "source": "saved"
       },
       {
-       "name": "field_0xac",
+       "name": "attackerteam",
        "offset": "0xac",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xb0",
+       "name": "buyable",
        "offset": "0xb0",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -15153,46 +14978,46 @@
        "source": "auto"
       },
       {
-       "name": "field_0x88",
+       "name": "m_weaponType",
        "offset": "0x88",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x8c",
+       "name": "m_status",
        "offset": "0x8c",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xc4",
+       "name": "m_flExpire",
        "offset": "0xc4",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xc8",
+       "name": "m_bDropSnd",
        "offset": "0xc8",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xcc",
+       "name": "m_flUseCooldown",
        "offset": "0xcc",
        "cpptype": "int",
-       "count": "1",
-       "source": "auto"
+       "count": "2",
+       "source": "curated"
       },
       {
-       "name": "field_0xd4",
+       "name": "m_bTaken",
        "offset": "0xd4",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       }
      ],
      "statics": [],
@@ -16380,36 +16205,15 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "4",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
-       "count": "4",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
+       "count": "5",
        "source": "auto"
       },
       {
        "name": "field_0x18",
        "offset": "0x18",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x1c",
-       "offset": "0x1c",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -17006,24 +16810,10 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "3",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
        "source": "auto"
       },
       {
@@ -17034,15 +16824,15 @@
        "source": "auto"
       },
       {
-       "name": "field_0x1c",
-       "offset": "0x1c",
+       "name": "field_0x20",
+       "offset": "0x20",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
       },
       {
-       "name": "field_0x20",
-       "offset": "0x20",
+       "name": "field_0x22",
+       "offset": "0x22",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -17418,30 +17208,9 @@
        "source": "auto"
       },
       {
-       "name": "field_0x80",
-       "offset": "0x80",
-       "cpptype": "int",
-       "count": "6",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x8c",
-       "offset": "0x8c",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x90",
-       "offset": "0x90",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x9c",
        "offset": "0x9c",
-       "cpptype": "int",
+       "cpptype": "float",
        "count": "2",
        "source": "auto"
       },
@@ -17462,7 +17231,7 @@
       {
        "name": "field_0xa8",
        "offset": "0xa8",
-       "cpptype": "int",
+       "cpptype": "float",
        "count": "2",
        "source": "auto"
       },
@@ -17481,31 +17250,10 @@
        "source": "auto"
       },
       {
-       "name": "field_0xb4",
-       "offset": "0xb4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xc0",
-       "offset": "0xc0",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0xd4",
        "offset": "0xd4",
        "cpptype": "int",
-       "count": "5",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xdc",
-       "offset": "0xdc",
-       "cpptype": "int",
-       "count": "2",
+       "count": "6",
        "source": "auto"
       },
       {
@@ -17513,13 +17261,6 @@
        "offset": "0xe0",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x100",
-       "offset": "0x100",
-       "cpptype": "int",
-       "count": "3",
        "source": "auto"
       },
       {
@@ -17910,15 +17651,7 @@
       "CButtonTarget",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0x60",
-       "offset": "0x60",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -18236,7 +17969,7 @@
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
@@ -18250,7 +17983,7 @@
        "name": "field_0x20",
        "offset": "0x20",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
@@ -18487,7 +18220,7 @@
        "name": "field_0x88",
        "offset": "0x88",
        "cpptype": "float",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       },
       {
@@ -19044,62 +18777,6 @@
       {
        "name": "field_0x20",
        "offset": "0x20",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x80",
-       "offset": "0x80",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x88",
-       "offset": "0x88",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x8c",
-       "offset": "0x8c",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xb4",
-       "offset": "0xb4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xc0",
-       "offset": "0xc0",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x104",
-       "offset": "0x104",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x108",
-       "offset": "0x108",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x138",
-       "offset": "0x138",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -21461,24 +21138,10 @@
        "source": "auto"
       },
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "4",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
        "source": "auto"
       },
       {
@@ -21880,30 +21543,9 @@
        "source": "auto"
       },
       {
-       "name": "field_0x80",
-       "offset": "0x80",
-       "cpptype": "int",
-       "count": "8",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x8c",
-       "offset": "0x8c",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x90",
-       "offset": "0x90",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x9c",
        "offset": "0x9c",
-       "cpptype": "int",
+       "cpptype": "float",
        "count": "3",
        "source": "auto"
       },
@@ -21924,7 +21566,7 @@
       {
        "name": "field_0xa8",
        "offset": "0xa8",
-       "cpptype": "int",
+       "cpptype": "float",
        "count": "3",
        "source": "auto"
       },
@@ -21943,16 +21585,9 @@
        "source": "auto"
       },
       {
-       "name": "field_0xb4",
-       "offset": "0xb4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0xc0",
        "offset": "0xc0",
-       "cpptype": "int",
+       "cpptype": "float",
        "count": "1",
        "source": "auto"
       },
@@ -21974,26 +21609,12 @@
        "name": "field_0xd4",
        "offset": "0xd4",
        "cpptype": "int",
-       "count": "5",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xdc",
-       "offset": "0xdc",
-       "cpptype": "int",
-       "count": "2",
+       "count": "6",
        "source": "auto"
       },
       {
        "name": "field_0xe0",
        "offset": "0xe0",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x100",
-       "offset": "0x100",
        "cpptype": "int",
        "count": "2",
        "source": "auto"
@@ -22654,16 +22275,9 @@
        "source": "auto"
       },
       {
-       "name": "field_0x90",
-       "offset": "0x90",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x9c",
        "offset": "0x9c",
-       "cpptype": "int",
+       "cpptype": "float",
        "count": "1",
        "source": "auto"
       },
@@ -22677,13 +22291,6 @@
       {
        "name": "field_0xa4",
        "offset": "0xa4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xa8",
-       "offset": "0xa8",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -22927,23 +22534,9 @@
        "source": "auto"
       },
       {
-       "name": "field_0x80",
-       "offset": "0x80",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x88",
-       "offset": "0x88",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0xb4",
        "offset": "0xb4",
-       "cpptype": "int",
+       "cpptype": "float",
        "count": "2",
        "source": "auto"
       },
@@ -23847,13 +23440,6 @@
      ],
      "members": [
       {
-       "name": "field_0x4",
-       "offset": "0x4",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
        "name": "field_0x8",
        "offset": "0x8",
        "cpptype": "int",
@@ -24061,13 +23647,6 @@
       "CBaseEntity"
      ],
      "members": [
-      {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
       {
        "name": "field_0x10",
        "offset": "0x10",
@@ -24565,22 +24144,7 @@
       "CBaseDelay",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0x74",
-       "offset": "0x74",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x78",
-       "offset": "0x78",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -24705,13 +24269,6 @@
       "CBaseEntity"
      ],
      "members": [
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
       {
        "name": "field_0x18",
        "offset": "0x18",
@@ -24900,13 +24457,6 @@
        "offset": "0x10",
        "cpptype": "int",
        "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x64",
-       "offset": "0x64",
-       "cpptype": "int",
-       "count": "2",
        "source": "auto"
       },
       {
@@ -25326,24 +24876,10 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "3",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "2",
        "source": "auto"
       },
       {
@@ -25500,13 +25036,6 @@
       "CBaseEntity"
      ],
      "members": [
-      {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
       {
        "name": "field_0x10",
        "offset": "0x10",
@@ -25764,22 +25293,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x1c",
-       "offset": "0x1c",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -26526,13 +26041,6 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
@@ -26938,20 +26446,6 @@
      ],
      "members": [
       {
-       "name": "field_0x4",
-       "offset": "0x4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
@@ -27276,6 +26770,13 @@
       "CBaseEntity"
      ],
      "members": [
+      {
+       "name": "field_0x10",
+       "offset": "0x10",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
+      },
       {
        "name": "m_iMagnitude",
        "offset": "0x164",
@@ -27639,24 +27140,10 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "3",
        "source": "auto"
       },
       {
@@ -27667,32 +27154,18 @@
        "source": "auto"
       },
       {
-       "name": "field_0x64",
-       "offset": "0x64",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x68",
-       "offset": "0x68",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x6c",
+       "name": "m_flRespawnHealth",
        "offset": "0x6c",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x70",
+       "name": "m_hRespawner",
        "offset": "0x70",
        "cpptype": "int",
        "count": "5",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "m_Material",
@@ -27737,25 +27210,25 @@
        "source": "saved"
       },
       {
-       "name": "field_0x90",
+       "name": "m_flRespawnTime",
        "offset": "0x90",
        "cpptype": "int",
        "count": "6",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x94",
+       "name": "m_szRespawnTarget",
        "offset": "0x94",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0xf8",
+       "name": "m_vecShatterPoint",
        "offset": "0xf8",
        "cpptype": "int",
-       "count": "3",
-       "source": "auto"
+       "count": "4",
+       "source": "curated"
       },
       {
        "name": "field_0xfc",
@@ -27772,11 +27245,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0x104",
+       "name": "m_vecShatterDir",
        "offset": "0x104",
        "cpptype": "int",
-       "count": "3",
-       "source": "auto"
+       "count": "4",
+       "source": "curated"
       },
       {
        "name": "field_0x108",
@@ -27793,18 +27266,18 @@
        "source": "auto"
       },
       {
-       "name": "field_0x110",
+       "name": "m_flShatterVel",
        "offset": "0x110",
        "cpptype": "int",
-       "count": "3",
-       "source": "auto"
+       "count": "4",
+       "source": "curated"
       },
       {
-       "name": "field_0x114",
+       "name": "m_iShatterDmgType",
        "offset": "0x114",
        "cpptype": "int",
-       "count": "3",
-       "source": "auto"
+       "count": "4",
+       "source": "curated"
       }
      ],
      "statics": [
@@ -29469,43 +28942,7 @@
       "CFuncTank",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0x98",
-       "offset": "0x98",
-       "cpptype": "float",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x9c",
-       "offset": "0x9c",
-       "cpptype": "float",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xc8",
-       "offset": "0xc8",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xcc",
-       "offset": "0xcc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xdc",
-       "offset": "0xdc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -30534,7 +29971,14 @@
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
+       "source": "auto"
+      },
+      {
+       "name": "field_0xd4",
+       "offset": "0xd4",
+       "cpptype": "int",
+       "count": "1",
        "source": "auto"
       },
       {
@@ -31516,29 +30960,8 @@
      ],
      "members": [
       {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x18",
        "offset": "0x18",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x9c",
-       "offset": "0x9c",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xa0",
-       "offset": "0xa0",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -32148,7 +31571,7 @@
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       },
       {
@@ -32692,15 +32115,7 @@
       "CTSGroundWeapon",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0xa4",
-       "offset": "0xa4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -32799,15 +32214,7 @@
       "CTSGroundWeapon",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0xa4",
-       "offset": "0xa4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -33032,22 +32439,7 @@
       "CTSGroundWeapon",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0xa4",
-       "offset": "0xa4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xa8",
-       "offset": "0xa8",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -34243,15 +33635,7 @@
       "CTSGroundWeapon",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0xa4",
-       "offset": "0xa4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -34352,15 +33736,7 @@
       "CBaseDelay",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0x84",
-       "offset": "0x84",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -37004,14 +36380,14 @@
        "name": "field_0x68",
        "offset": "0x68",
        "cpptype": "int",
-       "count": "3",
+       "count": "4",
        "source": "auto"
       },
       {
        "name": "field_0x6c",
        "offset": "0x6c",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       }
      ],
@@ -38073,24 +37449,10 @@
        "source": "auto"
       },
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "3",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
        "source": "auto"
       },
       {
@@ -38118,6 +37480,13 @@
        "name": "field_0x110",
        "offset": "0x110",
        "cpptype": "int",
+       "count": "2",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x11c",
+       "offset": "0x11c",
+       "cpptype": "int",
        "count": "1",
        "source": "auto"
       },
@@ -38132,7 +37501,7 @@
        "name": "field_0x124",
        "offset": "0x124",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       },
       {
@@ -38146,7 +37515,7 @@
        "name": "field_0x130",
        "offset": "0x130",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
@@ -38154,6 +37523,27 @@
        "offset": "0x140",
        "cpptype": "int",
        "count": "2",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x154",
+       "offset": "0x154",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x158",
+       "offset": "0x158",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x15c",
+       "offset": "0x15c",
+       "cpptype": "int",
+       "count": "1",
        "source": "auto"
       }
      ],
@@ -40347,28 +39737,28 @@
        "name": "field_0x4",
        "offset": "0x4",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
        "name": "field_0x8",
        "offset": "0x8",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
        "name": "field_0xc",
        "offset": "0xc",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       }
      ],
@@ -40700,13 +40090,6 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
@@ -40724,6 +40107,13 @@
        "name": "field_0x20",
        "offset": "0x20",
        "cpptype": "int",
+       "count": "2",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x60",
+       "offset": "0x60",
+       "cpptype": "int",
        "count": "1",
        "source": "auto"
       },
@@ -40731,34 +40121,13 @@
        "name": "field_0x80",
        "offset": "0x80",
        "cpptype": "int",
-       "count": "6",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x94",
-       "offset": "0x94",
-       "cpptype": "int",
        "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x98",
-       "offset": "0x98",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x9c",
-       "offset": "0x9c",
-       "cpptype": "int",
-       "count": "3",
        "source": "auto"
       },
       {
        "name": "field_0xa8",
        "offset": "0xa8",
-       "cpptype": "int",
+       "cpptype": "float",
        "count": "3",
        "source": "auto"
       },
@@ -40770,31 +40139,10 @@
        "source": "auto"
       },
       {
-       "name": "field_0xd0",
-       "offset": "0xd0",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xdc",
-       "offset": "0xdc",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
        "name": "field_0xe0",
        "offset": "0xe0",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x108",
-       "offset": "0x108",
-       "cpptype": "int",
-       "count": "5",
        "source": "auto"
       },
       {
@@ -41102,13 +40450,6 @@
      ],
      "members": [
       {
-       "name": "field_0xf0",
-       "offset": "0xf0",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "m_end",
        "offset": "0x114",
        "cpptype": "Vector",
@@ -41335,43 +40676,7 @@
       "CBaseDelay",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0x12c",
-       "offset": "0x12c",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x130",
-       "offset": "0x130",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x134",
-       "offset": "0x134",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x144",
-       "offset": "0x144",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x148",
-       "offset": "0x148",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -41495,31 +40800,10 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "5",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
        "count": "5",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x80",
-       "offset": "0x80",
-       "cpptype": "int",
-       "count": "6",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x9c",
-       "offset": "0x9c",
-       "cpptype": "int",
-       "count": "1",
        "source": "auto"
       },
       {
@@ -41537,29 +40821,8 @@
        "source": "auto"
       },
       {
-       "name": "field_0xdc",
-       "offset": "0xdc",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
        "name": "field_0xe0",
        "offset": "0xe0",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x114",
-       "offset": "0x114",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x120",
-       "offset": "0x120",
        "cpptype": "int",
        "count": "2",
        "source": "auto"
@@ -41989,17 +41252,10 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "5",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
-       "count": "5",
+       "count": "6",
        "source": "auto"
       },
       {
@@ -42506,13 +41762,6 @@
        "source": "auto"
       },
       {
-       "name": "field_0x108",
-       "offset": "0x108",
-       "cpptype": "int",
-       "count": "3",
-       "source": "auto"
-      },
-      {
        "name": "m_pevCurrentTarget",
        "offset": "0x10c",
        "cpptype": "entvars_t*",
@@ -42763,13 +42012,6 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
@@ -42903,48 +42145,6 @@
       "CBaseEntity"
      ],
      "members": [
-      {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "3",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x10",
-       "offset": "0x10",
-       "cpptype": "int",
-       "count": "3",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x8c",
-       "offset": "0x8c",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xdc",
-       "offset": "0xdc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xe0",
-       "offset": "0xe0",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x138",
-       "offset": "0x138",
-       "cpptype": "int",
-       "count": "3",
-       "source": "auto"
-      },
       {
        "name": "m_on",
        "offset": "0x164",
@@ -43454,24 +42654,10 @@
      ],
      "members": [
       {
-       "name": "field_0x4",
-       "offset": "0x4",
-       "cpptype": "int",
-       "count": "8",
-       "source": "auto"
-      },
-      {
        "name": "field_0x8",
        "offset": "0x8",
        "cpptype": "int",
        "count": "9",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "4",
        "source": "auto"
       },
       {
@@ -43727,17 +42913,17 @@
        "source": "auto"
       },
       {
-       "name": "field_0x288",
+       "name": "m_iSlowedEntCount",
        "offset": "0x288",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x28c",
        "offset": "0x28c",
        "cpptype": "int",
-       "count": "8",
+       "count": "10",
        "source": "auto"
       },
       {
@@ -43762,11 +42948,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0x4dc",
+       "name": "m_flBlockTime",
        "offset": "0x4dc",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x4e0",
@@ -44056,11 +43242,11 @@
        "source": "auto"
       },
       {
-       "name": "field_0x774",
+       "name": "m_flMeleeBar",
        "offset": "0x774",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "m_flSpreadAccum",
@@ -44154,53 +43340,53 @@
        "source": "auto"
       },
       {
-       "name": "field_0x79c",
+       "name": "m_flWhiffLungeTime",
        "offset": "0x79c",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x7a0",
+       "name": "m_flWhiffLungeForce",
        "offset": "0x7a0",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x7a4",
+       "name": "m_iWhiffLungeType",
        "offset": "0x7a4",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x7a8",
+       "name": "m_flKungFuBlock",
        "offset": "0x7a8",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x7ac",
+       "name": "m_flKnifeBlock",
        "offset": "0x7ac",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x7b0",
+       "name": "m_flKatanaBlock",
        "offset": "0x7b0",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
+       "source": "curated"
       },
       {
-       "name": "field_0x7b4",
+       "name": "m_flDisarmPressure",
        "offset": "0x7b4",
        "cpptype": "int",
        "count": "3",
-       "source": "auto"
+       "source": "curated"
       },
       {
        "name": "field_0x7b9",
@@ -46637,13 +45823,6 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
@@ -47034,13 +46213,6 @@
       "CBaseEntity"
      ],
      "members": [
-      {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
       {
        "name": "field_0x10",
        "offset": "0x10",
@@ -49387,22 +48559,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x1c",
-       "offset": "0x1c",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -49432,28 +48590,28 @@
        "name": "field_0x6c",
        "offset": "0x6c",
        "cpptype": "int",
-       "count": "3",
+       "count": "4",
        "source": "auto"
       },
       {
        "name": "field_0x70",
        "offset": "0x70",
        "cpptype": "int",
-       "count": "3",
+       "count": "4",
        "source": "auto"
       },
       {
        "name": "field_0x74",
        "offset": "0x74",
        "cpptype": "int",
-       "count": "3",
+       "count": "4",
        "source": "auto"
       },
       {
        "name": "field_0x78",
        "offset": "0x78",
        "cpptype": "int",
-       "count": "3",
+       "count": "4",
        "source": "auto"
       },
       {
@@ -49474,14 +48632,14 @@
        "name": "field_0x84",
        "offset": "0x84",
        "cpptype": "int",
-       "count": "3",
+       "count": "4",
        "source": "auto"
       },
       {
        "name": "field_0x88",
        "offset": "0x88",
        "cpptype": "int",
-       "count": "3",
+       "count": "4",
        "source": "auto"
       },
       {
@@ -49516,35 +48674,35 @@
        "name": "field_0x9c",
        "offset": "0x9c",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       },
       {
        "name": "field_0xa0",
        "offset": "0xa0",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
        "name": "field_0xa4",
        "offset": "0xa4",
        "cpptype": "int",
-       "count": "3",
+       "count": "4",
        "source": "auto"
       },
       {
        "name": "field_0xa8",
        "offset": "0xa8",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       },
       {
        "name": "field_0xac",
        "offset": "0xac",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       },
       {
@@ -49558,7 +48716,7 @@
        "name": "field_0xb4",
        "offset": "0xb4",
        "cpptype": "int",
-       "count": "3",
+       "count": "4",
        "source": "auto"
       },
       {
@@ -49572,7 +48730,7 @@
        "name": "field_0xbc",
        "offset": "0xbc",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       },
       {
@@ -49976,22 +49134,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x1c",
-       "offset": "0x1c",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -50939,15 +50083,7 @@
       "CBaseSpectator",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0x4",
-       "offset": "0x4",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -52100,7 +51236,7 @@
        "name": "field_0x20c",
        "offset": "0x20c",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       },
       {
@@ -52700,36 +51836,8 @@
        "source": "auto"
       },
       {
-       "name": "field_0x8c",
-       "offset": "0x8c",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xcc",
-       "offset": "0xcc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0xd4",
        "offset": "0xd4",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xfc",
-       "offset": "0xfc",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x100",
-       "offset": "0x100",
        "cpptype": "int",
        "count": "2",
        "source": "auto"
@@ -52972,6 +52080,13 @@
        "offset": "0x40",
        "cpptype": "int",
        "count": "2",
+       "source": "auto"
+      },
+      {
+       "name": "field_0x50",
+       "offset": "0x50",
+       "cpptype": "int",
+       "count": "1",
        "source": "auto"
       },
       {
@@ -53250,15 +52365,7 @@
       "CBaseDelay",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0x64",
-       "offset": "0x64",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -53394,13 +52501,6 @@
       "CBaseEntity"
      ],
      "members": [
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
       {
        "name": "field_0x18",
        "offset": "0x18",
@@ -53711,14 +52811,14 @@
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       },
       {
        "name": "field_0x20",
        "offset": "0x20",
        "cpptype": "int",
-       "count": "2",
+       "count": "3",
        "source": "auto"
       },
       {
@@ -53736,17 +52836,10 @@
        "source": "auto"
       },
       {
-       "name": "field_0x8c",
-       "offset": "0x8c",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0xd4",
        "offset": "0xd4",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       },
       {
@@ -54427,6 +53520,13 @@
      ],
      "members": [
       {
+       "name": "field_0x10",
+       "offset": "0x10",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
+      },
+      {
        "name": "m_hPlayer",
        "offset": "0x6c",
        "cpptype": "EHANDLE",
@@ -54434,11 +53534,25 @@
        "source": "saved"
       },
       {
+       "name": "field_0x70",
+       "offset": "0x70",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
+      },
+      {
        "name": "m_hTarget",
        "offset": "0x74",
        "cpptype": "EHANDLE",
        "count": "1",
        "source": "saved"
+      },
+      {
+       "name": "field_0x78",
+       "offset": "0x78",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
       },
       {
        "name": "m_pentPath",
@@ -54885,20 +53999,6 @@
        "cpptype": "int",
        "count": "1",
        "source": "auto"
-      },
-      {
-       "name": "field_0x8c",
-       "offset": "0x8c",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0xcc",
-       "offset": "0xcc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
       }
      ],
      "statics": [],
@@ -55013,7 +54113,7 @@
        "name": "field_0x20",
        "offset": "0x20",
        "cpptype": "int",
-       "count": "1",
+       "count": "2",
        "source": "auto"
       }
      ],
@@ -55435,13 +54535,6 @@
        "cpptype": "int",
        "count": "1",
        "source": "auto"
-      },
-      {
-       "name": "field_0xd0",
-       "offset": "0xd0",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
       }
      ],
      "statics": [],
@@ -55672,15 +54765,7 @@
       "CBaseDelay",
       "CBaseEntity"
      ],
-     "members": [
-      {
-       "name": "field_0x8c",
-       "offset": "0x8c",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      }
-     ],
+     "members": [],
      "statics": [],
      "vtable": {
       "0x10": "CBaseEntity::GiveSlowMul()",
@@ -56092,13 +55177,6 @@
        "offset": "0x18",
        "cpptype": "int",
        "count": "2",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x100",
-       "offset": "0x100",
-       "cpptype": "int",
-       "count": "1",
        "source": "auto"
       }
      ],
@@ -57773,6 +56851,13 @@
        "cpptype": "int",
        "count": "1",
        "source": "auto"
+      },
+      {
+       "name": "field_0x18",
+       "offset": "0x18",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
       }
      ],
      "statics": [],
@@ -58088,24 +57173,10 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "4",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
        "cpptype": "int",
        "count": "4",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "5",
        "source": "auto"
       },
       {
@@ -58752,27 +57823,6 @@
      ],
      "members": [
       {
-       "name": "field_0x60",
-       "offset": "0x60",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x80",
-       "offset": "0x80",
-       "cpptype": "int",
-       "count": "10",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x88",
-       "offset": "0x88",
-       "cpptype": "int",
-       "count": "7",
-       "source": "auto"
-      },
-      {
        "name": "field_0x8c",
        "offset": "0x8c",
        "cpptype": "int",
@@ -58855,6 +57905,13 @@
        "cpptype": "int",
        "count": "1",
        "source": "saved"
+      },
+      {
+       "name": "field_0xc8",
+       "offset": "0xc8",
+       "cpptype": "int",
+       "count": "1",
+       "source": "auto"
       },
       {
        "name": "field_0xcc",
@@ -59417,13 +58474,6 @@
       "CBaseEntity"
      ],
      "members": [
-      {
-       "name": "field_0x14",
-       "offset": "0x14",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
       {
        "name": "field_0x18",
        "offset": "0x18",
@@ -60037,22 +59087,8 @@
      ],
      "members": [
       {
-       "name": "field_0xc",
-       "offset": "0xc",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
        "name": "field_0x10",
        "offset": "0x10",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x1c",
-       "offset": "0x1c",
        "cpptype": "int",
        "count": "1",
        "source": "auto"
@@ -60993,20 +60029,6 @@
      ],
      "members": [
       {
-       "name": "field_0x78",
-       "offset": "0x78",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x80",
-       "offset": "0x80",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
-      {
        "name": "m_pGlow",
        "offset": "0x84",
        "cpptype": "CBaseEntity*",
@@ -61691,20 +60713,6 @@
       "CBaseEntity"
      ],
      "members": [
-      {
-       "name": "field_0x78",
-       "offset": "0x78",
-       "cpptype": "int",
-       "count": "1",
-       "source": "auto"
-      },
-      {
-       "name": "field_0x80",
-       "offset": "0x80",
-       "cpptype": "int",
-       "count": "2",
-       "source": "auto"
-      },
       {
        "name": "m_pTrigger",
        "offset": "0x84",
