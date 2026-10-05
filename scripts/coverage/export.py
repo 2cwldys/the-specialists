@@ -309,7 +309,7 @@ def main():
     extended = {c for c in ts_b if c in base_b and (ts_b[c] - base_b[c])}
     realcls = lambda c: c.startswith("C") and not c.startswith("__")
     stripped = sorted(c for c in base_b if c not in ts_b and realcls(c))
-    trimmed = {c: sorted(base_b[c] - ts_b[c]) for c in (set(base_b) & set(ts_b))
+    trimmed = {c: sorted(base_b[c] - ts_b[c]) for c in sorted(set(base_b) & set(ts_b))
                if (base_b[c] - ts_b[c]) and realcls(c)}
 
     def category(c):

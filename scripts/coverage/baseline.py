@@ -202,7 +202,7 @@ def main():
           "_Caveat: a few may instead be classes our newer SDK added post-2007, not TS strips._ "
           "Sorted by size (bigger = more substantial feature).", "",
           "| class | base methods | |", "|---|--:|---|"]
-    for c in sorted(stripped_cls, key=lambda x: -len(stripped_cls[x])):
+    for c in sorted(stripped_cls, key=lambda x: (-len(stripped_cls[x]), x)):   # name breaks ties: stable output
         methods = ", ".join(sorted(stripped_cls[c]))   # full list — never truncated
         L.append(f"| `{c}` | {len(stripped_cls[c])} | {methods} |")
 
@@ -210,7 +210,7 @@ def main():
           "_Noisier: mixes methods TS genuinely dropped with accessors our newer SDK added. "
           "Use for spotting removed behaviour on shared classes._", "",
           "| class | base-only methods |", "|---|---|"]
-    for c in sorted(trimmed, key=lambda x: -len(trimmed[x])):
+    for c in sorted(trimmed, key=lambda x: (-len(trimmed[x]), x)):
         ms = sorted(trimmed[c])
         L.append(f"| `{c}` | {', '.join(ms)} |")   # full list — never truncated
 

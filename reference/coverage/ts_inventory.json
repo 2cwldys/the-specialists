@@ -63284,47 +63284,11 @@
    "CursorBitmap"
   ],
   "trimmed_methods": {
-   "CGameRules": [
-    "AmmoShouldRespawn",
-    "CanHaveItem",
-    "ClientConnected",
-    "ClientDisconnected",
-    "DeadPlayerAmmo",
-    "DeadPlayerWeapons",
-    "DeathNotice",
-    "FAllowFlashlight",
-    "FAllowMonsters",
-    "FPlayerCanRespawn",
-    "FShouldSwitchWeapon",
-    "FindNextBestWeapon",
-    "FlAmmoRespawnTime",
-    "FlHealthChargerRechargeTime",
-    "FlItemRespawnTime",
-    "FlPlayerFallDamage",
-    "FlPlayerSpawnTime",
-    "FlWeaponRespawnTime",
-    "FlWeaponTryRespawn",
-    "GetNextBestWeapon",
-    "GetTeamID",
-    "IPointsForKill",
-    "InitHUD",
-    "IsAllowedToSpawn",
-    "IsCoOp",
-    "IsDeathmatch",
-    "IsMultiplayer",
-    "ItemShouldRespawn",
-    "PlayerGotAmmo",
-    "PlayerGotItem",
-    "PlayerGotWeapon",
-    "PlayerKilled",
-    "PlayerRelationship",
-    "PlayerSpawn",
-    "PlayerThink",
-    "Think",
-    "VecAmmoRespawnSpot",
-    "VecItemRespawnSpot",
-    "VecWeaponRespawnSpot",
-    "WeaponShouldRespawn"
+   "CBaseButton": [
+    "ButtonShot",
+    "IsAllowedToSpeak",
+    "RotSpawn",
+    "SparkSoundCache"
    ],
    "CBaseEntity": [
     "BlockedSet",
@@ -63334,21 +63298,6 @@
     "ThinkSet",
     "TouchSet",
     "UseSet"
-   ],
-   "CBreakable": [
-    "SparkWhenHit"
-   ],
-   "CBasePlayerWeapon": [
-    "CallDoRetireWeapon",
-    "DoRetireWeapon",
-    "GetNextAttackDelay"
-   ],
-   "CHalfLifeRules": [
-    "FAllowFlashlight"
-   ],
-   "CMomentaryDoor": [
-    "DoorMoveDone",
-    "StopMoveSound"
    ],
    "CBaseMonster": [
     "AdvanceRoute",
@@ -63470,6 +63419,114 @@
     "UpdateTarget",
     "VecToYaw"
    ],
+   "CBasePlayer": [
+    "Center",
+    "ClearWeaponBit",
+    "DeathMessage",
+    "EquipWeapon",
+    "FlashlightIsOn",
+    "FlashlightTurnOff",
+    "FlashlightTurnOn",
+    "HasPlayerItemFromID",
+    "HasSuit",
+    "InitStatusBar",
+    "InternalSendSingleAmmoUpdate",
+    "Observer_CheckProperties",
+    "Observer_CheckTarget",
+    "SendSingleAmmoUpdate",
+    "SetHasSuit",
+    "SetPrefsFromUserinfo",
+    "SetWeaponAnimType",
+    "SetWeaponBit",
+    "UpdateStatusBar"
+   ],
+   "CBasePlayerItem": [
+    "CanAddToPlayer",
+    "DecrementTimers",
+    "GetWeaponData",
+    "SetWeaponData"
+   ],
+   "CBasePlayerWeapon": [
+    "CallDoRetireWeapon",
+    "DoRetireWeapon",
+    "GetNextAttackDelay"
+   ],
+   "CBaseToggle": [
+    "IsAllowedToSpeak",
+    "MyTogglePointer",
+    "PlayScriptedSentence",
+    "PlaySentence",
+    "PlaySentenceCore",
+    "SentenceStop"
+   ],
+   "CBreakable": [
+    "SparkWhenHit"
+   ],
+   "CChangeLevel": [
+    "TriggerChangeLevel"
+   ],
+   "CCycler": [
+    "IsAllowedToSpeak"
+   ],
+   "CFuncIllusionary": [
+    "SloshTouch"
+   ],
+   "CFuncTrackTrain": [
+    "Nearest"
+   ],
+   "CGamePlayerEquip": [
+    "Restore",
+    "Save"
+   ],
+   "CGameRules": [
+    "AmmoShouldRespawn",
+    "CanHaveItem",
+    "ClientConnected",
+    "ClientDisconnected",
+    "DeadPlayerAmmo",
+    "DeadPlayerWeapons",
+    "DeathNotice",
+    "FAllowFlashlight",
+    "FAllowMonsters",
+    "FPlayerCanRespawn",
+    "FShouldSwitchWeapon",
+    "FindNextBestWeapon",
+    "FlAmmoRespawnTime",
+    "FlHealthChargerRechargeTime",
+    "FlItemRespawnTime",
+    "FlPlayerFallDamage",
+    "FlPlayerSpawnTime",
+    "FlWeaponRespawnTime",
+    "FlWeaponTryRespawn",
+    "GetNextBestWeapon",
+    "GetTeamID",
+    "IPointsForKill",
+    "InitHUD",
+    "IsAllowedToSpawn",
+    "IsCoOp",
+    "IsDeathmatch",
+    "IsMultiplayer",
+    "ItemShouldRespawn",
+    "PlayerGotAmmo",
+    "PlayerGotItem",
+    "PlayerGotWeapon",
+    "PlayerKilled",
+    "PlayerRelationship",
+    "PlayerSpawn",
+    "PlayerThink",
+    "Think",
+    "VecAmmoRespawnSpot",
+    "VecItemRespawnSpot",
+    "VecWeaponRespawnSpot",
+    "WeaponShouldRespawn"
+   ],
+   "CGenericCycler": [
+    "GenericCyclerSpawn",
+    "Vector"
+   ],
+   "CGlobalState": [
+    "EntityInTable"
+   ],
    "CGraph": [
     "BuildLinkLookups",
     "BuildRegionTables",
@@ -63499,95 +63556,38 @@
     "SourceNode",
     "TestRoutingTables"
    ],
-   "CChangeLevel": [
-    "TriggerChangeLevel"
+   "CHalfLifeMultiplay": [
+    "FAllowFlashlight"
    ],
-   "CBaseButton": [
-    "ButtonShot",
-    "IsAllowedToSpeak",
-    "RotSpawn",
-    "SparkSoundCache"
+   "CHalfLifeRules": [
+    "FAllowFlashlight"
    ],
-   "CVoiceGameMgr": [
-    "PlayerHasBlockedPlayer"
+   "CMomentaryDoor": [
+    "DoorMoveDone",
+    "StopMoveSound"
    ],
-   "CGamePlayerEquip": [
-    "Restore",
-    "Save"
+   "CPathTrack": [
+    "Sparkle"
    ],
-   "CBasePlayerItem": [
-    "CanAddToPlayer",
-    "DecrementTimers",
-    "GetWeaponData",
-    "SetWeaponData"
-   ],
-   "CFuncTrackTrain": [
-    "Nearest"
-   ],
-   "CFuncIllusionary": [
-    "SloshTouch"
-   ],
-   "CCycler": [
-    "IsAllowedToSpeak"
+   "CPushable": [
+    "DamageDecal",
+    "StopSound"
    ],
    "CRestore": [
     "Empty",
     "PrecacheMode",
     "SetGlobalMode"
    ],
-   "CGenericCycler": [
-    "GenericCyclerSpawn",
-    "Vector"
-   ],
-   "CBaseToggle": [
-    "IsAllowedToSpeak",
-    "MyTogglePointer",
-    "PlayScriptedSentence",
-    "PlaySentence",
-    "PlaySentenceCore",
-    "SentenceStop"
-   ],
-   "CBasePlayer": [
-    "Center",
-    "ClearWeaponBit",
-    "DeathMessage",
-    "EquipWeapon",
-    "FlashlightIsOn",
-    "FlashlightTurnOff",
-    "FlashlightTurnOn",
-    "HasPlayerItemFromID",
-    "HasSuit",
-    "InitStatusBar",
-    "InternalSendSingleAmmoUpdate",
-    "Observer_CheckProperties",
-    "Observer_CheckTarget",
-    "SendSingleAmmoUpdate",
-    "SetHasSuit",
-    "SetPrefsFromUserinfo",
-    "SetWeaponAnimType",
-    "SetWeaponBit",
-    "UpdateStatusBar"
-   ],
-   "CPushable": [
-    "DamageDecal",
-    "StopSound"
-   ],
-   "CGlobalState": [
-    "EntityInTable"
+   "CRuleBrushEntity": [
+    "ObjectCaps"
    ],
    "CSaveRestoreBuffer": [
     "EntityFlags",
     "GetData",
     "IsValidSaveRestoreData"
    ],
-   "CPathTrack": [
-    "Sparkle"
-   ],
-   "CRuleBrushEntity": [
-    "ObjectCaps"
-   ],
-   "CHalfLifeMultiplay": [
-    "FAllowFlashlight"
+   "CVoiceGameMgr": [
+    "PlayerHasBlockedPlayer"
    ]
   }
  },

@@ -54,22 +54,22 @@ _Caveat: a few may instead be classes our newer SDK added post-2007, not TS stri
 | `CHGrunt` | 34 | CheckAmmo, CheckMeleeAttack1, CheckRangeAttack1, CheckRangeAttack2, Classify, DeathSound, FCanCheckAttacks, FOkToSpeak, GetGunPosition, GetSchedule, GetScheduleOfType, GibMonster, HandleAnimEvent, IRelationship, ISoundMask, IdleSound, JustSpoke, Kick, PainSound, Precache, PrescheduleThink, Restore, RunTask, Save, ScheduleFromName, SetActivity, SetYawSpeed, Shoot, Shotgun, Spawn, SpeakSentence, StartTask, TakeDamage, TraceAttack |
 | `CUtlHashMap` | 34 | AllocNode, CopyFullHashMap, Count, Element, EnsureCapacity, Find, FindElement, FindExact, FindInBucket, FindOrInsert, FreeNodeIDToIndex, FreeNodeIndexToID, HasElement, IncrementalRehash, Insert, InsertOrReplace, InsertUnconstructed, InsertWithDupes, InvalidIndex, IsFreeNodeID, IsValidIndex, Key, LinkNodeIntoBucket, MaxElement, NextSameKey, Purge, PurgeAndDeleteElements, RehashNodesInBucket, Remove, RemoveAll, RemoveAt, RemoveNodeFromBucket, Swap, UnlinkNodeFromBucket |
 | `CBigMomma` | 33 | Activate, CanLayCrab, CheckMeleeAttack1, CheckMeleeAttack2, CheckRangeAttack1, Classify, DeathNotice, GetNodeDelay, GetNodePresequence, GetNodeRange, GetNodeSequence, GetNodeYaw, GetSchedule, GetScheduleOfType, HandleAnimEvent, KeyValue, LaunchMortar, LayHeadcrab, NodeReach, NodeStart, OverrideReset, Precache, Restore, RunTask, Save, ScheduleFromName, SetObjectCollisionBox, SetYawSpeed, ShouldGoToNode, Spawn, StartTask, TakeDamage, TraceAttack |
-| `CGargantua` | 32 | CheckMeleeAttack1, CheckMeleeAttack2, CheckRangeAttack1, Classify, DeathEffect, EyeOff, EyeOn, EyeUpdate, FlameControls, FlameCreate, FlameDamage, FlameDestroy, FlameIsOn, FlameUpdate, GargantuaCheckTraceHullAttack, GetScheduleOfType, HandleAnimEvent, Killed, Leap, Precache, PrescheduleThink, Restore, RunTask, Save, ScheduleFromName, SetObjectCollisionBox, SetYawSpeed, Spawn, StartTask, StompAttack, TakeDamage, TraceAttack |
 | `CEngineSurface` | 32 | GetMousePos, InitVertex, SetupPaintState, applyChanges, createNewTextureID, createPlat, createPopup, drawFilledRect, drawOutlinedRect, drawPrintChar, drawPrintText, drawSetColor, drawSetTextColor, drawSetTextFont, drawSetTextPos, drawSetTexture, drawSetTextureRGBA, drawTexturedRect, enableMouseCapture, getEmbeddedPanel, hasFocus, invalidate, isWithin, popMakeCurrent, pushMakeCurrent, recreateContext, setAsTopMost, setCursor, setFullscreenMode, setTitle, setWindowedMode, swapBuffers |
-| `CScientist` | 31 | CanHeal, Classify, CoverRadius, DeathSound, DeclineFollowing, DisregardEnemy, FriendNumber, GetIdealState, GetSchedule, GetScheduleOfType, GetScientistModel, GetStoppedActivity, HandleAnimEvent, Heal, ISoundMask, IsAlive, Killed, ObjectCaps, PainSound, Precache, Restore, RunTask, Save, ScheduleFromName, Scream, SetActivity, SetYawSpeed, Spawn, StartTask, TakeDamage, TalkInit |
+| `CGargantua` | 32 | CheckMeleeAttack1, CheckMeleeAttack2, CheckRangeAttack1, Classify, DeathEffect, EyeOff, EyeOn, EyeUpdate, FlameControls, FlameCreate, FlameDamage, FlameDestroy, FlameIsOn, FlameUpdate, GargantuaCheckTraceHullAttack, GetScheduleOfType, HandleAnimEvent, Killed, Leap, Precache, PrescheduleThink, Restore, RunTask, Save, ScheduleFromName, SetObjectCollisionBox, SetYawSpeed, Spawn, StartTask, StompAttack, TakeDamage, TraceAttack |
 | `CController` | 31 | AlertSound, AttackSound, CheckLocalMove, CheckMeleeAttack1, CheckRangeAttack1, CheckRangeAttack2, Classify, DeathSound, GetSchedule, GetScheduleOfType, GibMonster, HandleAnimEvent, IdleSound, Killed, LookupFloat, Move, MoveExecute, PainSound, Precache, Restore, RunAI, RunTask, Save, ScheduleFromName, SetActivity, SetYawSpeed, ShouldAdvanceRoute, Spawn, StartTask, Stop, TakeDamage |
 | `CHud` | 31 | AddHudElem, DrawHudNumber, DrawHudNumberReverse, DrawHudNumberString, DrawHudString, DrawHudStringReverse, GetHudNumberWidth, GetNumWidth, GetSensitivity, GetSprite, GetSpriteIndex, GetSpriteRect, HasAnyWeapons, HasSuit, HasWeapon, Init, MsgFunc_Concuss, MsgFunc_Damage, MsgFunc_GameMode, MsgFunc_InitHUD, MsgFunc_Logo, MsgFunc_ResetHUD, MsgFunc_SetFOV, MsgFunc_ViewMode, MsgFunc_Weapons, Redraw, Think, UpdateClientData, VidInit, m_iSpriteCount, m_pHudList |
+| `CScientist` | 31 | CanHeal, Classify, CoverRadius, DeathSound, DeclineFollowing, DisregardEnemy, FriendNumber, GetIdealState, GetSchedule, GetScheduleOfType, GetScientistModel, GetStoppedActivity, HandleAnimEvent, Heal, ISoundMask, IsAlive, Killed, ObjectCaps, PainSound, Precache, Restore, RunTask, Save, ScheduleFromName, Scream, SetActivity, SetYawSpeed, Spawn, StartTask, TakeDamage, TalkInit |
+| `CHudSpectator` | 30 | AddOverviewEntity, AddOverviewEntityToList, AddWaypoint, CheckOverviewEntities, CheckSettings, DeathMessage, DirectorMessage, Draw, DrawOverview, DrawOverviewEntities, DrawOverviewLayer, FindNextPlayer, FindPlayer, GetDirectorCamera, GetFOV, GetMapPosition, HandleButtonsDown, HandleButtonsUp, Init, InitHUDData, IsActivePlayer, LoadMapSprites, ParseOverviewFile, Reset, SetCameraView, SetModes, SetSpectatorStartPosition, SetWayInterpolation, ToggleInset, VidInit |
 | `CNihilanth` | 30 | AbsorbSphere, BloodColor, Classify, CommandUse, CrashTouch, DeathSound, DyingThink, EmitSphere, Flight, FloatSequence, GibMonster, HandleAnimEvent, HuntThink, Killed, MakeFriend, NextActivity, NullThink, PainSound, Precache, RandomTargetname, Restore, Save, SetObjectCollisionBox, ShootBalls, Spawn, StartupThink, StartupUse, TakeDamage, TargetSphere, TraceAttack |
 | `CSquadMonster` | 30 | CheckEnemy, FValidateCover, GetIdealState, GetScheduleOfType, InSquad, IsLeader, Killed, MySquadLeader, MySquadMember, MySquadMonsterPointer, NoFriendlyFire, OccupySlot, Restore, Save, ScheduleChange, SquadAdd, SquadAddConditions, SquadCopyEnemyInfo, SquadCount, SquadDisband, SquadEnemySplit, SquadJoin, SquadMakeEnemy, SquadMemberInRange, SquadPasteEnemyInfo, SquadRecruit, SquadRemove, SquadUnlink, StartMonster, VacateSlot |
-| `CHudSpectator` | 30 | AddOverviewEntity, AddOverviewEntityToList, AddWaypoint, CheckOverviewEntities, CheckSettings, DeathMessage, DirectorMessage, Draw, DrawOverview, DrawOverviewEntities, DrawOverviewLayer, FindNextPlayer, FindPlayer, GetDirectorCamera, GetFOV, GetMapPosition, HandleButtonsDown, HandleButtonsUp, Init, InitHUDData, IsActivePlayer, LoadMapSprites, ParseOverviewFile, Reset, SetCameraView, SetModes, SetSpectatorStartPosition, SetWayInterpolation, ToggleInset, VidInit |
-| `CISlave` | 28 | AlertSound, ArmBeam, BeamGlow, CallForHelp, CheckRangeAttack1, CheckRangeAttack2, Classify, ClearBeams, DeathSound, GetSchedule, GetScheduleOfType, HandleAnimEvent, IRelationship, ISoundMask, IdleSound, Killed, PainSound, Precache, Restore, Save, ScheduleFromName, SetYawSpeed, Spawn, StartTask, TakeDamage, TraceAttack, WackBeam, ZapBeam |
 | `CBaseParticle` | 28 | Animate, AnimateAndDie, CalculateVelocity, CheckCollision, CheckVisibility, ClearCollisionFlags, Contract, Die, Draw, Expand, Fade, Force, GetCollisionFlags, GetNextPVSCheck, GetParticlePVS, GetPlayerDistance, GetRenderFlags, InitializeSprite, SetCollisionFlags, SetCullFlag, SetLightFlag, SetNextPVSCheck, SetParticlePVS, SetPlayerDistance, SetRenderFlag, Spin, Think, Touch |
+| `CISlave` | 28 | AlertSound, ArmBeam, BeamGlow, CallForHelp, CheckRangeAttack1, CheckRangeAttack2, Classify, ClearBeams, DeathSound, GetSchedule, GetScheduleOfType, HandleAnimEvent, IRelationship, ISoundMask, IdleSound, Killed, PainSound, Precache, Restore, Save, ScheduleFromName, SetYawSpeed, Spawn, StartTask, TakeDamage, TraceAttack, WackBeam, ZapBeam |
 | `CBullsquid` | 27 | AlertSound, AttackSound, CheckMeleeAttack1, CheckMeleeAttack2, CheckRangeAttack1, Classify, DeathSound, FValidateHintType, GetIdealState, GetSchedule, GetScheduleOfType, HandleAnimEvent, IRelationship, ISoundMask, IdleSound, IgnoreConditions, PainSound, Precache, Restore, RunAI, RunTask, Save, ScheduleFromName, SetYawSpeed, Spawn, StartTask, TakeDamage |
-| `CVoiceStatus` | 27 | CanShowSpeakerLabels, CreateEntities, FindVoiceLabel, Frame, FreeBitmaps, GetAckIconHeight, GetBanMgr, GetFreeVoiceLabel, GetPlayerTextColor, GetSpeakerStatus, HandleReqStateMsg, HandleVoiceMaskMsg, Init, IsInSquelchMode, IsPlayerAudible, IsPlayerBlocked, IsTalking, RepositionLabels, ServerAcked, SetPlayerBlockedState, StartSquelchMode, StopSquelchMode, UpdateBanButton, UpdateServerState, UpdateSpeakerImage, UpdateSpeakerStatus, VidInit |
 | `CHudAmmo` | 27 | Draw, DrawWList, Init, MsgFunc_AmmoPickup, MsgFunc_AmmoX, MsgFunc_CurWeapon, MsgFunc_HideWeapon, MsgFunc_ItemPickup, MsgFunc_WeapPickup, MsgFunc_WeaponList, Reset, SlotInput, Think, UserCmd_Close, UserCmd_NextWeapon, UserCmd_PrevWeapon, UserCmd_Slot1, UserCmd_Slot10, UserCmd_Slot2, UserCmd_Slot3, UserCmd_Slot4, UserCmd_Slot5, UserCmd_Slot6, UserCmd_Slot7, UserCmd_Slot8, UserCmd_Slot9, VidInit |
+| `CVoiceStatus` | 27 | CanShowSpeakerLabels, CreateEntities, FindVoiceLabel, Frame, FreeBitmaps, GetAckIconHeight, GetBanMgr, GetFreeVoiceLabel, GetPlayerTextColor, GetSpeakerStatus, HandleReqStateMsg, HandleVoiceMaskMsg, Init, IsInSquelchMode, IsPlayerAudible, IsPlayerBlocked, IsTalking, RepositionLabels, ServerAcked, SetPlayerBlockedState, StartSquelchMode, StopSquelchMode, UpdateBanButton, UpdateServerState, UpdateSpeakerImage, UpdateSpeakerStatus, VidInit |
 | `CBaseTurret` | 26 | ActiveThink, AutoSearchThink, BloodColor, Classify, Deploy, EyeOff, EyeOn, GibMonster, Initialize, KeyValue, MoveTurret, Ping, Precache, Restore, Retire, Save, SearchThink, SetTurretAnim, Shoot, Spawn, SpinDownCall, SpinUpCall, TakeDamage, TraceAttack, TurretDeath, TurretUse |
-| `CFuncVehicle` | 26 | Blocked, CheckTurning, Classify, CollisionDetection, DeadEnd, Find, Instance, KeyValue, Nearest, NearestPath, Next, NextThink, ObjectCaps, OnControls, OverrideReset, Precache, Restart, Restore, Save, SetControls, SetTrack, Spawn, StopSound, TerrainFollowing, UpdateSound, Use |
 | `CFlockingFlyer` | 26 | AlertFlock, BoidAdvanceFrame, FPathBlocked, FallHack, FlockFollowerThink, FlockLeaderThink, FormFlock, IdleThink, InSquad, IsLeader, Killed, MakeSound, Poop, Precache, Restore, Save, Spawn, SpawnCommonCode, SpreadFlock, SpreadFlock2, SquadAdd, SquadCount, SquadDisband, SquadRemove, SquadUnlink, Start |
+| `CFuncVehicle` | 26 | Blocked, CheckTurning, Classify, CollisionDetection, DeadEnd, Find, Instance, KeyValue, Nearest, NearestPath, Next, NextThink, ObjectCaps, OnControls, OverrideReset, Precache, Restart, Restore, Save, SetControls, SetTrack, Spawn, StopSound, TerrainFollowing, UpdateSound, Use |
 | `CGrid` | 26 | AutoSetRowHeights, CalcColOffsets, CalcDrawHeight, CalcFitColumnWidth, CalcFitRowHeight, CalcRowOffsets, Clear, CopyColumnWidths, GetColumnWidth, GetEntry, GetEntryBox, GetRowHeight, GetXSpacing, GetYSpacing, GridEntry, RepositionContents, SetColumnWidth, SetDimensions, SetEntry, SetRowHeight, SetRowUnderline, SetSpacing, Term, getCellAtPoint, paint, paintBackground |
 | `CAGrunt` | 25 | AlertSound, AttackSound, CheckMeleeAttack1, CheckRangeAttack1, Classify, DeathSound, FCanCheckAttacks, GetSchedule, GetScheduleOfType, HandleAnimEvent, IRelationship, ISoundMask, PainSound, Precache, PrescheduleThink, Restore, Save, ScheduleFromName, SetObjectCollisionBox, SetYawSpeed, ShouldSpeak, Spawn, StartTask, StopTalking, TraceAttack |
 | `CBarney` | 25 | AlertSound, BarneyFirePistol, CheckRangeAttack1, Classify, DeathSound, DeclineFollowing, GetIdealState, GetSchedule, GetScheduleOfType, HandleAnimEvent, ISoundMask, Killed, ObjectCaps, PainSound, Precache, Restore, RunTask, Save, ScheduleFromName, SetYawSpeed, Spawn, StartTask, TakeDamage, TalkInit, TraceAttack |
@@ -77,213 +77,213 @@ _Caveat: a few may instead be classes our newer SDK added post-2007, not TS stri
 | `CCineMonster` | 24 | Activate, AllowInterrupt, Blocked, CanInterrupt, CancelScript, CineThink, DelayStart, Die, FCanOverrideState, FindEntity, FixScriptMonsterSchedule, IgnoreConditions, KeyValue, ObjectCaps, Pain, PossessEntity, ReleaseEntity, Restore, Save, SequenceDone, Spawn, StartSequence, Touch, Use |
 | `COsprey` | 24 | BloodColor, Classify, CommandUse, CrashTouch, DeployThink, DyingThink, FindAllThink, Flight, FlyThink, HasDead, HitTouch, HoverThink, Killed, MakeGrunt, ObjectCaps, Precache, Restore, Save, ShowDamage, Spawn, TakeDamage, TraceAttack, Update, UpdateGoal |
 | `CStudioModelRenderer` | 24 | Init, StudioCalcAttachments, StudioCalcBoneAdj, StudioCalcBonePosition, StudioCalcBoneQuaterion, StudioCalcRotations, StudioDrawModel, StudioDrawPlayer, StudioEstimateFrame, StudioEstimateGait, StudioEstimateInterpolant, StudioFxTransform, StudioGetAnim, StudioMergeBones, StudioPlayerBlend, StudioProcessGait, StudioRenderFinal, StudioRenderFinal_Hardware, StudioRenderFinal_Software, StudioRenderModel, StudioSaveBones, StudioSetUpTransform, StudioSetupBones, StudioSlerpBones |
-| `CNihilanthHVR` | 23 | AbsorbInit, BounceTouch, CircleInit, CircleTarget, Crawl, DissipateThink, GreenBallInit, HoverThink, MovetoTarget, Precache, RandomClassname, RemoveTouch, Restore, Save, Spawn, Teleport, TeleportInit, TeleportThink, TeleportTouch, Zap, ZapInit, ZapThink, ZapTouch |
 | `CEgon` | 23 | Attack, CanHolster, CreateEffect, Deploy, DestroyEffect, EndAttack, Fire, GetDischargeInterval, GetItemInfo, GetPulseInterval, HasAmmo, Holster, Precache, PrimaryAttack, Restore, Save, ShouldWeaponIdle, Spawn, UpdateEffect, UseAmmo, UseDecrement, WeaponIdle, iItemSlot |
 | `CHeadCrab` | 23 | AlertSound, BodyTarget, Center, CheckRangeAttack1, CheckRangeAttack2, Classify, DeathSound, GetDamageAmount, GetScheduleOfType, GetSoundVolue, GetVoicePitch, HandleAnimEvent, IdleSound, LeapTouch, PainSound, Precache, PrescheduleThink, RunTask, ScheduleFromName, SetYawSpeed, Spawn, StartTask, TakeDamage |
+| `CNihilanthHVR` | 23 | AbsorbInit, BounceTouch, CircleInit, CircleTarget, Crawl, DissipateThink, GreenBallInit, HoverThink, MovetoTarget, Precache, RandomClassname, RemoveTouch, Restore, Save, Spawn, Teleport, TeleportInit, TeleportThink, TeleportTouch, Zap, ZapInit, ZapThink, ZapTouch |
 | `CTentacle` | 23 | CanPlaySequence, Classify, CommandUse, Cycle, DieThink, GetIdealState, HandleAnimEvent, HearingSensitivity, HitTouch, KeyValue, Killed, Level, MyHeight, MyLevel, ObjectCaps, Precache, Restore, Save, SetObjectCollisionBox, Spawn, Start, TakeDamage, Test |
 | `CLeech` | 22 | Activate, AlertSound, AttackSound, BloodColor, Classify, DeadThink, HandleAnimEvent, IRelationship, Killed, MakeVectors, ObstacleDistance, Precache, RecalculateWaterlevel, Restore, Save, SetObjectCollisionBox, Spawn, SwimThink, SwitchLeechState, TakeDamage, Touch, UpdateMotion |
 | `CApache` | 21 | BloodColor, Classify, CrashTouch, DyingThink, FireGun, FireRocket, Flight, FlyTouch, GibMonster, HuntThink, Killed, NullThink, Precache, Restore, Save, SetObjectCollisionBox, ShowDamage, Spawn, StartupUse, TakeDamage, TraceAttack |
 | `CNavNode` | 21 | AssignArea, ConnectTo, Cover, DestroyNavigationMap, GetArea, GetAttributes, GetConnectedNode, GetFirst, GetID, GetListLength, GetNext, GetNode, GetNormal, GetParent, GetPosition, HasVisited, IsBiLinked, IsClosedCell, IsCovered, MarkAsVisited, SetAttributes |
 | `CHAssassin` | 20 | CheckMeleeAttack1, CheckRangeAttack1, CheckRangeAttack2, Classify, DeathSound, GetSchedule, GetScheduleOfType, HandleAnimEvent, ISoundMask, IdleSound, Precache, Restore, RunAI, RunTask, Save, ScheduleFromName, SetYawSpeed, Shoot, Spawn, StartTask |
 | `CNumStr` | 20 | Access, AddQuotes, Length, SetBool, SetDouble, SetFloat, SetInt16, SetInt32, SetInt64, SetInt8, SetUint16, SetUint32, SetUint64, SetUint8, String, V_snprintf, V_strlen, _i64toa, _itoa, _ui64toa |
+| `CBotManager` | 18 | AddGrenade, AddServerCommand, AddServerCommands, ClientCommand, ClientDisconnect, DestroyAllGrenades, GetNavMapFilename, GetPlayerPriority, IsInsideSmokeCloud, IsLineBlockedBySmoke, OnEvent, RemoveGrenade, RestartRound, ServerActivate, ServerCommand, ServerDeactivate, StartFrame, ValidateActiveGrenades |
 | `CGrenade` | 18 | BloodColor, BounceSound, BounceTouch, DangerSoundThink, Detonate, DetonateUse, Explode, ExplodeTouch, Killed, PreDetonate, ShootContact, ShootSatchelCharge, ShootTimed, SlideTouch, Smoke, Spawn, TumbleThink, UseSatchelCharges |
 | `CSatchel` | 18 | AddDuplicate, AddToPlayer, CanDeploy, Deploy, Detonate, GetItemInfo, Holster, IsUseable, Precache, PrimaryAttack, Restore, Save, SecondaryAttack, Spawn, Throw, UseDecrement, WeaponIdle, iItemSlot |
-| `CBotManager` | 18 | AddGrenade, AddServerCommand, AddServerCommands, ClientCommand, ClientDisconnect, DestroyAllGrenades, GetNavMapFilename, GetPlayerPriority, IsInsideSmokeCloud, IsLineBlockedBySmoke, OnEvent, RemoveGrenade, RestartRound, ServerActivate, ServerCommand, ServerDeactivate, StartFrame, ValidateActiveGrenades |
 | `CommandButton` | 17 | AddSubLabel, AddSubMenu, GetPlayerClass, GetSubMenu, Init, IsNotValid, RecalculateText, UpdateSubMenus, cursorEntered, cursorExited, getBoundKey, getParentMenu, paint, paintBackground, setBoundKey, setParentMenu, setText |
 | `CFlyingMonster` | 16 | CeilingZ, ChangeYaw, CheckLocalMove, FTriangulate, FloorZ, GetStoppedActivity, HandleAnimEvent, Killed, Move, MoveExecute, ProbeZ, SetFlyingFlapSound, SetFlyingMomentum, SetFlyingSpeed, ShouldAdvanceRoute, Stop |
-| `CRpg` | 16 | CanHolster, Deploy, GetItemInfo, Holster, Precache, PrimaryAttack, Reload, Restore, Save, SecondaryAttack, ShouldWeaponIdle, Spawn, UpdateSpot, UseDecrement, WeaponIdle, iItemSlot |
 | `CGauss` | 16 | Deploy, Fire, GetFullChargeTime, GetItemInfo, Holster, Precache, PrimaryAttack, Restore, Save, SecondaryAttack, SendStopEvent, Spawn, StartFire, UseDecrement, WeaponIdle, iItemSlot |
-| `CUtlPriorityQueue` | 16 | Count, Element, ElementAtHead, Insert, IsValidIndex, LessFunc_t, PercolateDown, PercolateUp, Purge, RemoveAll, RemoveAt, RemoveAtHead, RevaluateElement, SetLessFunc, Swap, Validate |
+| `CRpg` | 16 | CanHolster, Deploy, GetItemInfo, Holster, Precache, PrimaryAttack, Reload, Restore, Save, SecondaryAttack, ShouldWeaponIdle, Spawn, UpdateSpot, UseDecrement, WeaponIdle, iItemSlot |
 | `CServerCtrlDlg` | 16 | CloseHandles, DoDataExchange, DoModal, GetMappedBuffer, OnBtnExecute, OnBtnGet, OnBtnStart, OnInitDialog, OnPaint, OnQueryDragIcon, ProcessMappedResponse, RMLPreIdle, RefreshText, ReleaseMappedBuffer, RunModalLoop, SetPumpIfQueued |
-| `CHgun` | 15 | AddToPlayer, Deploy, GetItemInfo, Holster, IsUseable, Precache, PrimaryAttack, Reload, Restore, Save, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
-| `CCommandMenu` | 15 | AddButton, ClearButtonsOfArmedState, FindButtonWithSubmenu, GetDirection, GetNumButtons, GetParentMenu, GetXOffset, GetYOffset, KeyInput, MakeVisible, Panel, RecalculatePositions, RecalculateVisibles, RemoveAllButtons, paintBackground |
+| `CUtlPriorityQueue` | 16 | Count, Element, ElementAtHead, Insert, IsValidIndex, LessFunc_t, PercolateDown, PercolateUp, Purge, RemoveAll, RemoveAt, RemoveAtHead, RevaluateElement, SetLessFunc, Swap, Validate |
 | `CBitStringT` | 15 | And, ClearAllBits, ClearBit, Copy, DebugPrintBits, GetBit, IsAllClear, IsAllSet, LoadBitString, Not, Or, SaveBitString, SetAllBits, SetBit, Xor |
+| `CCommandMenu` | 15 | AddButton, ClearButtonsOfArmedState, FindButtonWithSubmenu, GetDirection, GetNumButtons, GetParentMenu, GetXOffset, GetYOffset, KeyInput, MakeVisible, Panel, RecalculatePositions, RecalculateVisibles, RemoveAllButtons, paintBackground |
+| `CHgun` | 15 | AddToPlayer, Deploy, GetItemInfo, Holster, IsUseable, Precache, PrimaryAttack, Reload, Restore, Save, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
 | `CNavPath` | 15 | BuildTrivialPath, Compute, ComputePathPositions, Draw, FindClosestPointOnPath, FindNextOccludedNode, GetEndpoint, GetLength, GetPointAlongPath, GetSegmentCount, GetSegmentIndexAlongPath, Invalidate, IsAtEnd, IsValid, Optimize |
 | `CHornet` | 14 | Classify, DartTouch, DieTouch, IRelationship, IgniteTrail, Precache, Restore, Save, Spawn, StartDart, StartTrack, TakeDamage, TrackTarget, TrackTouch |
-| `CMenuPanel` | 14 | CTransparentPanel, Close, GetMenuID, GetNextMenu, GetOpenTime, IsActive, Open, Reset, SetActive, SetActiveInfo, SetMenuID, SetNextMenu, ShouldBeRemoved, SlotInput |
 | `CHudMessage` | 14 | Draw, FadeBlend, Init, MessageAdd, MessageDrawScan, MessageScanNextChar, MessageScanStart, MsgFunc_GameTitle, MsgFunc_HudText, MsgFunc_HudTextPro, Reset, VidInit, XPosition, YPosition |
-| `CUtlMemoryBase` | 14 | ConvertToGrowableMemory, Count, CubAllocated, Detach, EnsureCapacity, Grow, IsExternallyAllocated, IsIdxValid, IsReadOnly, NumAllocated, Purge, SetExternalBuffer, SetGrowSize, Swap |
 | `CListBox` | 14 | AddItem, GetItemWidth, GetNumItems, GetScrollMax, GetScrollPos, Init, InternalLayout, SetScrollPos, SetScrollRange, Term, paintBackground, setPixelScroll, setPos, setSize |
-| `CGMan` | 13 | Classify, HandleAnimEvent, ISoundMask, PlayScriptedSentence, Precache, Restore, RunTask, Save, SetYawSpeed, Spawn, StartTask, TakeDamage, TraceAttack |
-| `CZombie` | 13 | AlertSound, AttackSound, CheckRangeAttack1, CheckRangeAttack2, Classify, HandleAnimEvent, IdleSound, IgnoreConditions, PainSound, Precache, SetYawSpeed, Spawn, TakeDamage |
-| `CShotgun` | 13 | Deploy, GetItemInfo, ItemPostFrame, Precache, PrimaryAttack, Reload, Restore, Save, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
+| `CMenuPanel` | 14 | CTransparentPanel, Close, GetMenuID, GetNextMenu, GetOpenTime, IsActive, Open, Reset, SetActive, SetActiveInfo, SetMenuID, SetNextMenu, ShouldBeRemoved, SlotInput |
+| `CUtlMemoryBase` | 14 | ConvertToGrowableMemory, Count, CubAllocated, Detach, EnsureCapacity, Grow, IsExternallyAllocated, IsIdxValid, IsReadOnly, NumAllocated, Purge, SetExternalBuffer, SetGrowSize, Swap |
 | `CCrossbow` | 13 | Deploy, FireBolt, FireSniperBolt, GetItemInfo, Holster, Precache, PrimaryAttack, Reload, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
+| `CGMan` | 13 | Classify, HandleAnimEvent, ISoundMask, PlayScriptedSentence, Precache, Restore, RunTask, Save, SetYawSpeed, Spawn, StartTask, TakeDamage, TraceAttack |
 | `CLabelHeader` | 13 | Label, calcAlignment, getTextSize, paint, paintBackground, setFgColor, setFgColorAsImageColor, setFont, setFont2, setRow, setText, setText2, setTextOffset |
-| `CTripmineGrenade` | 12 | BeamBreakThink, DelayDeathThink, KillBeam, Killed, MakeBeam, PowerupThink, Precache, Restore, Save, Spawn, TakeDamage, WarningThink |
-| `CMultiplayBusters` | 12 | CanHaveItem, CanHavePlayerItem, CheckForEgons, ClientUserInfoChanged, DeathNotice, IPointsForKill, PlayerGotWeapon, PlayerKilled, PlayerSpawn, SetPlayerModel, Think, WeaponShouldRespawn |
+| `CShotgun` | 13 | Deploy, GetItemInfo, ItemPostFrame, Precache, PrimaryAttack, Reload, Restore, Save, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
+| `CZombie` | 13 | AlertSound, AttackSound, CheckRangeAttack1, CheckRangeAttack2, Classify, HandleAnimEvent, IdleSound, IgnoreConditions, PainSound, Precache, SetYawSpeed, Spawn, TakeDamage |
 | `CBloater` | 12 | AlertSound, AttackSnd, CheckRangeAttack1, CheckRangeAttack2, Classify, HandleAnimEvent, IdleSound, PainSound, Precache, SetYawSpeed, Spawn, TakeDamage |
 | `CCheckButton2` | 12 | DeleteImages, GetCheckboxLeft, IsChecked, SetCheckboxLeft, SetChecked, SetHandler, SetImages, SetText, SetTextColor, SetupControls, internalMousePressed, mousePressed |
+| `CMultiplayBusters` | 12 | CanHaveItem, CanHavePlayerItem, CheckForEgons, ClientUserInfoChanged, DeathNotice, IPointsForKill, PlayerGotWeapon, PlayerKilled, PlayerSpawn, SetPlayerModel, Think, WeaponShouldRespawn |
+| `CNavAreaGrid` | 12 | AddNavArea, ComputeHashKey, GetNavArea, GetNavAreaByID, GetNavAreaCount, GetNearestNavArea, GetPlace, Initialize, RemoveNavArea, Reset, WorldToGridX, WorldToGridY |
+| `CNavPathFollower` | 12 | Debug, FeelerReflexAdjustment, FindOurPositionOnPath, FindPathPoint, GetDuration, GetStuckDuration, IsStuck, Reset, ResetStuck, SetImprov, SetPath, Update |
+| `CTripmineGrenade` | 12 | BeamBreakThink, DelayDeathThink, KillBeam, Killed, MakeBeam, PowerupThink, Precache, Restore, Save, Spawn, TakeDamage, WarningThink |
 | `CUtlMemoryFixed` | 12 | Assert, Base, Count, Element, EnsureCapacity, Grow, IsExternallyAllocated, IsIdxValid, NumAllocated, Purge, SetExternalBuffer, SetGrowSize |
 | `CVoiceLabel` | 12 | GetClientIndex, GetContentSize, GetVisible, IsVisible, RebuildLabelText, SetBgColor, SetBounds, SetClientIndex, SetFgColor, SetLocation, SetPlayerName, SetVisible |
-| `CNavPathFollower` | 12 | Debug, FeelerReflexAdjustment, FindOurPositionOnPath, FindPathPoint, GetDuration, GetStuckDuration, IsStuck, Reset, ResetStuck, SetImprov, SetPath, Update |
-| `CNavAreaGrid` | 12 | AddNavArea, ComputeHashKey, GetNavArea, GetNavAreaByID, GetNavAreaCount, GetNearestNavArea, GetPlace, Initialize, RemoveNavArea, Reset, WorldToGridX, WorldToGridY |
-| `CScriptedSentence` | 11 | AcceptableSpeaker, DelayThink, FindEntity, FindThink, KeyValue, ObjectCaps, Restore, Save, Spawn, StartSentence, Use |
-| `CGlock` | 11 | Deploy, GetItemInfo, GlockFire, Precache, PrimaryAttack, Reload, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
-| `CRoach` | 11 | Classify, ISoundMask, Killed, Look, MonsterThink, Move, PickNewDest, Precache, SetYawSpeed, Spawn, Touch |
-| `CPython` | 11 | Deploy, GetItemInfo, Holster, Precache, PrimaryAttack, Reload, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
-| `CCrowbar` | 11 | Deploy, GetItemInfo, Holster, Precache, PrimaryAttack, Smack, Spawn, Swing, SwingAgain, UseDecrement, iItemSlot |
 | `CBarnacle` | 11 | BarnacleThink, Classify, HandleAnimEvent, Killed, Precache, Restore, Save, Spawn, TakeDamage, TongueTouchEnt, WaitTillDead |
-| `CHudHealth` | 11 | CalcDamageDirection, Draw, DrawDamage, DrawPain, GetPainColor, Init, MsgFunc_Damage, MsgFunc_Health, Reset, UpdateTiles, VidInit |
-| `CSchemeManager` | 11 | CScheme, getBgArmedColor, getBgColor, getBgMousedownColor, getBorderColor, getFgArmedColor, getFgColor, getFgMousedownColor, getFont, getSafeScheme, getSchemeHandle |
-| `CDragNDropHandler` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
-| `CViewPortInputHandler` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
-| `CHandler_MenuButtonOver` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
-| `CHandler_ButtonHighlight` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
-| `CMenuHandler_PopupSubMenuInput` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
+| `CCrowbar` | 11 | Deploy, GetItemInfo, Holster, Precache, PrimaryAttack, Smack, Spawn, Swing, SwingAgain, UseDecrement, iItemSlot |
 | `CDefaultInputSignal` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
-| `CMiniMem` | 11 | Allocate, ApplyForce, Deallocate, GetDrawnParticles, GetTotalParticles, Instance, ProcessAll, Reset, Shutdown, alignof, size |
-| `CVariableBitStringBase` | 11 | AllocInts, FreeInts, GetEndMask, GetInts, GetNumInts, IsFixedSize, ReallocInts, Resize, Size, Validate, ValidateOperand |
+| `CDragNDropHandler` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
+| `CGlock` | 11 | Deploy, GetItemInfo, GlockFire, Precache, PrimaryAttack, Reload, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
+| `CHandler_ButtonHighlight` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
+| `CHandler_MenuButtonOver` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
+| `CHudHealth` | 11 | CalcDamageDirection, Draw, DrawDamage, DrawPain, GetPainColor, Init, MsgFunc_Damage, MsgFunc_Health, Reset, UpdateTiles, VidInit |
 | `CMenuHandler_LabelInput` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
+| `CMenuHandler_PopupSubMenuInput` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
+| `CMiniMem` | 11 | Allocate, ApplyForce, Deallocate, GetDrawnParticles, GetTotalParticles, Instance, ProcessAll, Reset, Shutdown, alignof, size |
+| `CPython` | 11 | Deploy, GetItemInfo, Holster, Precache, PrimaryAttack, Reload, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
+| `CRoach` | 11 | Classify, ISoundMask, Killed, Look, MonsterThink, Move, PickNewDest, Precache, SetYawSpeed, Spawn, Touch |
+| `CSchemeManager` | 11 | CScheme, getBgArmedColor, getBgColor, getBgMousedownColor, getBorderColor, getFgArmedColor, getFgColor, getFgMousedownColor, getFont, getSafeScheme, getSchemeHandle |
+| `CScriptedSentence` | 11 | AcceptableSpeaker, DelayThink, FindEntity, FindThink, KeyValue, ObjectCaps, Restore, Save, Spawn, StartSentence, Use |
+| `CVariableBitStringBase` | 11 | AllocInts, FreeInts, GetEndMask, GetInts, GetNumInts, IsFixedSize, ReallocInts, Resize, Size, Validate, ValidateOperand |
+| `CViewPortInputHandler` | 11 | cursorEntered, cursorExited, cursorMoved, keyFocusTicked, keyPressed, keyReleased, keyTyped, mouseDoublePressed, mousePressed, mouseReleased, mouseWheeled |
 | `CHandGrenade` | 10 | CanHolster, Deploy, GetItemInfo, Holster, Precache, PrimaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
-| `CMonsterMaker` | 10 | CyclicUse, DeathNotice, KeyValue, MakeMonster, MakerThink, Precache, Restore, Save, Spawn, ToggleUse |
-| `CSqueakGrenade` | 10 | BloodColor, Classify, GibMonster, HuntThink, Killed, Precache, Restore, Save, Spawn, SuperBounceTouch |
 | `CMP5` | 10 | Deploy, GetItemInfo, Precache, PrimaryAttack, Reload, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
+| `CMonsterMaker` | 10 | CyclicUse, DeathNotice, KeyValue, MakeMonster, MakerThink, Precache, Restore, Save, Spawn, ToggleUse |
 | `CSqueak` | 10 | Deploy, GetItemInfo, Holster, Precache, PrimaryAttack, SecondaryAttack, Spawn, UseDecrement, WeaponIdle, iItemSlot |
+| `CSqueakGrenade` | 10 | BloodColor, Classify, GibMonster, HuntThink, Killed, Precache, Restore, Save, Spawn, SuperBounceTouch |
 | `CTripmine` | 10 | Deploy, GetItemInfo, Holster, Precache, PrimaryAttack, SetObjectCollisionBox, Spawn, UseDecrement, WeaponIdle, iItemSlot |
+| `CGameStudioModelRenderer` | 9 | RestorePlayerState, SavePlayerState, SetupClientAnimation, StudioDrawPlayer, StudioEstimateGait, StudioFxTransform, StudioProcessGait, StudioSetupBones, _StudioDrawPlayer |
 | `CRpgRocket` | 9 | CreateRpgRocket, FollowThink, GetLauncher, IgniteThink, Precache, Restore, RocketTouch, Save, Spawn |
 | `CSittingScientist` | 9 | Classify, FIdleSpeak, FriendNumber, Precache, Restore, Save, SetAnswerQuestion, SittingThink, Spawn |
 | `CVoiceBanMgr` | 9 | AddBannedPlayer, Clear, ForEachBannedPlayer, GetPlayerBan, Init, InternalFindPlayerSquelch, SaveState, SetPlayerBan, Term |
-| `CGameStudioModelRenderer` | 9 | RestorePlayerState, SavePlayerState, SetupClientAnimation, StudioDrawPlayer, StudioEstimateGait, StudioFxTransform, StudioProcessGait, StudioSetupBones, _StudioDrawPlayer |
 | `CAirtank` | 8 | BloodColor, Killed, Precache, Restore, Save, Spawn, TankThink, TankTouch |
 | `CBabyCrab` | 8 | CheckRangeAttack1, GetDamageAmount, GetScheduleOfType, GetSoundVolue, GetVoicePitch, Precache, SetYawSpeed, Spawn |
 | `CFixedBitStringBase` | 8 | Assert, GetEndMask, GetInts, GetNumInts, IsFixedSize, Resize, Size, ValidateOperand |
 | `CVoiceStatusHud` | 8 | CreateEntities, FindVoiceLabel, GetFreeVoiceLabel, Init, RepositionLabels, UpdateLocation, UpdateSpeakerStatus, VidInit |
-| `CCrossbowBolt` | 7 | BoltCreate, BoltTouch, BubbleThink, Classify, ExplodeThink, Precache, Spawn |
-| `CQueuePriority` | 7 | Empty, Full, Heap_SiftDown, Heap_SiftUp, Insert, Remove, Size |
-| `CFuncMortarField` | 7 | FieldUse, KeyValue, ObjectCaps, Precache, Restore, Save, Spawn |
 | `CControllerHeadBall` | 7 | BounceTouch, Crawl, DieThink, HuntThink, MovetoTarget, Precache, Spawn |
+| `CCrossbowBolt` | 7 | BoltCreate, BoltTouch, BubbleThink, Classify, ExplodeThink, Precache, Spawn |
 | `CFlockingFlyerFlock` | 7 | KeyValue, Precache, PrecacheFlockSounds, Restore, Save, Spawn, SpawnFlock |
-| `CTurret` | 7 | Precache, Restore, Save, Shoot, Spawn, SpinDownCall, SpinUpCall |
-| `CTestHull` | 7 | BuildNodeGraph, CallBuildNodeGraph, DropDelay, ObjectCaps, PathFind, ShowBadNode, Spawn |
-| `CHudSayText` | 7 | Draw, EnsureTextFitsInOneLineAndWrapIfHaveTo, Init, InitHUDData, MsgFunc_SayText, SayTextPrint, VidInit |
-| `ColorButton` | 7 | CommandButton, paint, paintBackground, setArmedBorderColor, setArmedColor, setUnArmedBorderColor, setUnArmedColor |
-| `CHudStatusBar` | 7 | Draw, Init, MsgFunc_StatusText, MsgFunc_StatusValue, ParseStatusString, Reset, VidInit |
-| `CInterpolation` | 7 | BezierInterpolatePoint, Interpolate, InterpolateAngle, SetFOVs, SetSmoothing, SetViewAngles, SetWaypoints |
-| `CTeamMenuPanel` | 7 | Initialize, Open, Reset, SetActiveInfo, SlotInput, Update, paintBackground |
-| `CHudStatusIcons` | 7 | DisableIcon, Draw, EnableIcon, Init, MsgFunc_StatusIcon, Reset, VidInit |
+| `CFuncMortarField` | 7 | FieldUse, KeyValue, ObjectCaps, Precache, Restore, Save, Spawn |
 | `CHudMenu` | 7 | Draw, Init, InitHUDData, MsgFunc_ShowMenu, Reset, SelectMenuItem, VidInit |
+| `CHudSayText` | 7 | Draw, EnsureTextFitsInOneLineAndWrapIfHaveTo, Init, InitHUDData, MsgFunc_SayText, SayTextPrint, VidInit |
+| `CHudStatusBar` | 7 | Draw, Init, MsgFunc_StatusText, MsgFunc_StatusValue, ParseStatusString, Reset, VidInit |
+| `CHudStatusIcons` | 7 | DisableIcon, Draw, EnableIcon, Init, MsgFunc_StatusIcon, Reset, VidInit |
+| `CInterpolation` | 7 | BezierInterpolatePoint, Interpolate, InterpolateAngle, SetFOVs, SetSmoothing, SetViewAngles, SetWaypoints |
+| `CQueuePriority` | 7 | Empty, Full, Heap_SiftDown, Heap_SiftUp, Insert, Remove, Size |
+| `CTeamMenuPanel` | 7 | Initialize, Open, Reset, SetActiveInfo, SlotInput, Update, paintBackground |
+| `CTestHull` | 7 | BuildNodeGraph, CallBuildNodeGraph, DropDelay, ObjectCaps, PathFind, ShowBadNode, Spawn |
+| `CTurret` | 7 | Precache, Restore, Save, Shoot, Spawn, SpinDownCall, SpinUpCall |
 | `CUtlCharConversion` | 7 | FindConversion, GetConversionLength, GetConversionString, GetDelimiter, GetDelimiterLength, GetEscapeChar, MaxConversionLength |
+| `ColorButton` | 7 | CommandButton, paint, paintBackground, setArmedBorderColor, setArmedColor, setUnArmedBorderColor, setUnArmedColor |
 | `CApacheHVR` | 6 | AccelerateThink, IgniteThink, Precache, Restore, Save, Spawn |
-| `CLaserSpot` | 6 | CreateSpot, ObjectCaps, Precache, Revive, Spawn, Suspend |
-| `CSquidSpit` | 6 | Animate, Restore, Save, Shoot, Spawn, Touch |
-| `CSatchelCharge` | 6 | BounceSound, Deactivate, Precache, SatchelSlide, SatchelThink, Spawn |
-| `CGenericMonster` | 6 | Classify, HandleAnimEvent, ISoundMask, Precache, SetYawSpeed, Spawn |
-| `CStack` | 6 | CopyToArray, Empty, Pop, Push, Size, Top |
-| `CSentry` | 6 | Precache, SentryDeath, SentryTouch, Shoot, Spawn, TakeDamage |
 | `CBMortar` | 6 | Animate, Restore, Save, Shoot, Spawn, Touch |
-| `CTextImage2` | 6 | GetImage, doPaint, getSize, setColor, setColor2, setPos |
-| `CHudFlashlight` | 6 | Draw, Init, MsgFunc_FlashBat, MsgFunc_Flashlight, Reset, VidInit |
 | `CClassMenuPanel` | 6 | Initialize, Open, Reset, SetActiveInfo, SlotInput, Update |
+| `CGenericMonster` | 6 | Classify, HandleAnimEvent, ISoundMask, Precache, SetYawSpeed, Spawn |
 | `CHudAmmoSecondary` | 6 | Draw, Init, MsgFunc_SecAmmoIcon, MsgFunc_SecAmmoVal, Reset, VidInit |
 | `CHudBase` | 6 | Draw, Init, InitHUDData, Reset, Think, VidInit |
-| `CRBTreeBalanceListener` | 6 | OnLinkToParent, OnPreUnlink, OnRelinkSuccessor, OnRotateLeft, OnRotateRight, m_pTarget |
+| `CHudFlashlight` | 6 | Draw, Init, MsgFunc_FlashBat, MsgFunc_Flashlight, Reset, VidInit |
+| `CLaserSpot` | 6 | CreateSpot, ObjectCaps, Precache, Revive, Spawn, Suspend |
 | `CPlayerMonster` | 6 | Classify, HandleAnimEvent, ISoundMask, Precache, SetYawSpeed, Spawn |
+| `CRBTreeBalanceListener` | 6 | OnLinkToParent, OnPreUnlink, OnRelinkSuccessor, OnRotateLeft, OnRotateRight, m_pTarget |
+| `CSatchelCharge` | 6 | BounceSound, Deactivate, Precache, SatchelSlide, SatchelThink, Spawn |
+| `CSentry` | 6 | Precache, SentryDeath, SentryTouch, Shoot, Spawn, TakeDamage |
+| `CSquidSpit` | 6 | Animate, Restore, Save, Shoot, Spawn, Touch |
+| `CStack` | 6 | CopyToArray, Empty, Pop, Push, Size, Top |
 | `CTFGoal` | 6 | Classify, PlaceGoal, SetObjectCollisionBox, Spawn, StartGoal, Use |
-| `CLegacyCineMonster` | 5 | CineSpawn, CineThink, Die, Pain, Use |
-| `CQueue` | 5 | Empty, Full, Insert, Remove, Size |
-| `CStomp` | 5 | Restore, Save, Spawn, StompCreate, Think |
+| `CTextImage2` | 6 | GetImage, doPaint, getSize, setColor, setColor2, setPos |
+| `CBitVec` | 5 | GetDWord, GetNumBits, GetNumDWords, Init, SetDWord |
+| `CDefRBTreeBalanceListener` | 5 | OnLinkToParent, OnPreUnlink, OnRelinkSuccessor, OnRotateLeft, OnRotateRight |
+| `CFrustum` | 5 | CalculateFrustum, NormalizeFrustumPlane, PlaneInsideFrustum, PointInsideFrustum, SphereInsideFrustum |
 | `CHudDeathNotice` | 5 | Draw, Init, InitHUDData, MsgFunc_DeathMsg, VidInit |
 | `CHudTextMessage` | 5 | BufferedLocaliseTextString, Init, LocaliseTextString, LookupString, MsgFunc_TextMsg |
-| `CFrustum` | 5 | CalculateFrustum, NormalizeFrustumPlane, PlaneInsideFrustum, PointInsideFrustum, SphereInsideFrustum |
-| `CDefRBTreeBalanceListener` | 5 | OnLinkToParent, OnPreUnlink, OnRelinkSuccessor, OnRotateLeft, OnRotateRight |
+| `CLegacyCineMonster` | 5 | CineSpawn, CineThink, Die, Pain, Use |
 | `CMyMonster` | 5 | Classify, HandleAnimEvent, Precache, SetYawSpeed, Spawn |
-| `CBitVec` | 5 | GetDWord, GetNumBits, GetNumDWords, Init, SetDWord |
-| `CountdownTimer` | 5 | HasStarted, Invalidate, IsElapsed, Reset, Start |
+| `CQueue` | 5 | Empty, Full, Insert, Remove, Size |
+| `CStomp` | 5 | Restore, Save, Spawn, StompCreate, Think |
 | `CStuckMonitor` | 5 | GetDuration, GetElapsedTime, IsStuck, Reset, Update |
 | `CTFFlame` | 5 | FlameDestroy, FlameSpawn, FlameThink, Precache, Spawn |
-| `CFurniture` | 4 | Classify, Die, ObjectCaps, Spawn |
-| `CNodeViewer` | 4 | AddNode, DrawThink, FindNodeConnections, Spawn |
-| `CDeadScientist` | 4 | Classify, GetScientistModel, KeyValue, Spawn |
-| `CControllerZapBall` | 4 | AnimateThink, ExplodeTouch, Precache, Spawn |
-| `CRat` | 4 | Classify, Precache, SetYawSpeed, Spawn |
+| `CountdownTimer` | 5 | HasStarted, Invalidate, IsElapsed, Reset, Start |
 | `CCineAI` | 4 | FCanOverrideState, FixScriptMonsterSchedule, PossessEntity, StartSequence |
-| `CInfoBM` | 4 | KeyValue, Restore, Save, Spawn |
-| `CSpiral` | 4 | Create, ObjectCaps, Spawn, Think |
-| `CHudGeiger` | 4 | Draw, Init, MsgFunc_Geiger, VidInit |
-| `CHudBattery` | 4 | Draw, Init, MsgFunc_Battery, VidInit |
-| `CImageLabel` | 4 | LoadImage, getImageTall, getImageWide, paintBackground |
 | `CClientExports` | 4 | GetServerHostName, IsPlayerGameVoiceMuted, MutePlayerGameVoice, UnmutePlayerGameVoice |
-| `CHLVoiceStatusHelper` | 4 | CanShowSpeakerLabels, GetAckIconHeight, GetPlayerTextColor, UpdateCursorState |
-| `Cursor` | 4 | getBitmap, getDefaultCursor, getHotspot, privateInit |
-| `CHudTrain` | 4 | Draw, Init, MsgFunc_Train, VidInit |
-| `CCopyableUtlVectorFixed` | 4 | Base, BaseClass, CopyArray, Count |
+| `CControllerZapBall` | 4 | AnimateThink, ExplodeTouch, Precache, Spawn |
 | `CCopyableUtlVector` | 4 | Base, BaseClass, CopyArray, Count |
-| `CVoiceVGUITweakDlg` | 4 | Close, Open, StateChanged, paintBackground |
+| `CCopyableUtlVectorFixed` | 4 | Base, BaseClass, CopyArray, Count |
+| `CDeadScientist` | 4 | Classify, GetScientistModel, KeyValue, Spawn |
+| `CFurniture` | 4 | Classify, Die, ObjectCaps, Spawn |
+| `CHLVoiceStatusHelper` | 4 | CanShowSpeakerLabels, GetAckIconHeight, GetPlayerTextColor, UpdateCursorState |
+| `CHudBattery` | 4 | Draw, Init, MsgFunc_Battery, VidInit |
+| `CHudGeiger` | 4 | Draw, Init, MsgFunc_Geiger, VidInit |
 | `CHudOverview` | 4 | Draw, Init, InitHUDData, VidInit |
+| `CHudTrain` | 4 | Draw, Init, MsgFunc_Train, VidInit |
+| `CImageLabel` | 4 | LoadImage, getImageTall, getImageWide, paintBackground |
+| `CInfoBM` | 4 | KeyValue, Restore, Save, Spawn |
+| `CNodeViewer` | 4 | AddNode, DrawThink, FindNodeConnections, Spawn |
+| `CRat` | 4 | Classify, Precache, SetYawSpeed, Spawn |
+| `CSpiral` | 4 | Create, ObjectCaps, Spawn, Think |
 | `CTFGoalItem` | 4 | Classify, PlaceItem, Spawn, StartItem |
 | `CTFSpawn` | 4 | Activate, CheckTeam, Classify, Spawn |
+| `CVoiceVGUITweakDlg` | 4 | Close, Open, StateChanged, paintBackground |
+| `Cursor` | 4 | getBitmap, getDefaultCursor, getHotspot, privateInit |
 | `CCineBlood` | 3 | BloodGush, BloodStart, Spawn |
-| `CGaussAmmo` | 3 | AddAmmo, Precache, Spawn |
-| `CGlockAmmo` | 3 | AddAmmo, Precache, Spawn |
+| `CCrossbowAmmo` | 3 | AddAmmo, Precache, Spawn |
 | `CDeadBarney` | 3 | Classify, KeyValue, Spawn |
 | `CDeadHGrunt` | 3 | Classify, KeyValue, Spawn |
-| `CMiniTurret` | 3 | Precache, Shoot, Spawn |
-| `CPythonAmmo` | 3 | AddAmmo, Precache, Spawn |
-| `CHGruntRepel` | 3 | Precache, RepelUse, Spawn |
-| `CMP5AmmoClip` | 3 | AddAmmo, Precache, Spawn |
-| `CShotgunAmmo` | 3 | AddAmmo, Precache, Spawn |
-| `CCrossbowAmmo` | 3 | AddAmmo, Precache, Spawn |
-| `CItemLongJump` | 3 | MyTouch, Precache, Spawn |
-| `CMP5Chainammo` | 3 | AddAmmo, Precache, Spawn |
-| `CMP5AmmoGrenade` | 3 | AddAmmo, Precache, Spawn |
+| `CEgonAmmo` | 3 | AddAmmo, Precache, Spawn |
 | `CFuncVehicleControls` | 3 | Find, ObjectCaps, Spawn |
+| `CGaussAmmo` | 3 | AddAmmo, Precache, Spawn |
+| `CGlockAmmo` | 3 | AddAmmo, Precache, Spawn |
+| `CHGruntRepel` | 3 | Precache, RepelUse, Spawn |
+| `CHandler_CommandButtonHighlight` | 3 | CHandler_ButtonHighlight, cursorEntered, cursorExited |
+| `CHealthPanel` | 3 | DragNDropPanel, paint, paintBackground |
+| `CItemLongJump` | 3 | MyTouch, Precache, Spawn |
+| `CMP5AmmoClip` | 3 | AddAmmo, Precache, Spawn |
+| `CMP5AmmoGrenade` | 3 | AddAmmo, Precache, Spawn |
+| `CMP5Chainammo` | 3 | AddAmmo, Precache, Spawn |
+| `CMiniPool` | 3 | allocate, deallocate, release |
+| `CMiniTurret` | 3 | Precache, Shoot, Spawn |
 | `CMortar` | 3 | MortarExplode, Precache, Spawn |
 | `CNodeEnt` | 3 | KeyValue, ObjectCaps, Spawn |
+| `CPythonAmmo` | 3 | AddAmmo, Precache, Spawn |
 | `CRpgAmmo` | 3 | AddAmmo, Precache, Spawn |
-| `CEgonAmmo` | 3 | AddAmmo, Precache, Spawn |
-| `CHandler_CommandButtonHighlight` | 3 | CHandler_ButtonHighlight, cursorEntered, cursorExited |
+| `CShotgunAmmo` | 3 | AddAmmo, Precache, Spawn |
+| `CTeamCheck` | 3 | Spawn, TeamMatches, Use |
 | `Color` | 3 | getColor, init, setColor |
 | `CommandLabel` | 3 | Label, PushDown, PushUp |
-| `CHealthPanel` | 3 | DragNDropPanel, paint, paintBackground |
-| `CTeamCheck` | 3 | Spawn, TeamMatches, Use |
-| `CMiniPool` | 3 | allocate, deallocate, release |
-| `CCine2Slave` | 2 | CineSpawn, Spawn |
-| `CCineBarney` | 2 | CineSpawn, Spawn |
-| `CCine3Barney` | 2 | CineSpawn, Spawn |
-| `CCinePanther` | 2 | CineSpawn, Spawn |
-| `CTentacleMaw` | 2 | Precache, Spawn |
-| `CCineScientist` | 2 | CineSpawn, Spawn |
-| `CCine2Scientist` | 2 | CineSpawn, Spawn |
-| `CCine3Scientist` | 2 | CineSpawn, Spawn |
 | `CCine2HeavyWeapons` | 2 | CineSpawn, Spawn |
-| `CSmoker` | 2 | Spawn, Think |
-| `ClassButton` | 2 | CommandButton, IsNotValid |
-| `CImageButton` | 2 | ColorButton, setVisible |
+| `CCine2Scientist` | 2 | CineSpawn, Spawn |
+| `CCine2Slave` | 2 | CineSpawn, Spawn |
+| `CCine3Barney` | 2 | CineSpawn, Spawn |
+| `CCine3Scientist` | 2 | CineSpawn, Spawn |
+| `CCineBarney` | 2 | CineSpawn, Spawn |
+| `CCinePanther` | 2 | CineSpawn, Spawn |
+| `CCineScientist` | 2 | CineSpawn, Spawn |
+| `CDefOps` | 2 | LessFunc, LessFuncCtx |
 | `CEngineApp` | 2 | App, main |
-| `CTFScrollButton` | 2 | paint, paintBackground |
-| `CTransparentPanel` | 2 | Panel, paintBackground |
-| `CMenuHandler_StringCommandWatch` | 2 | CMenuHandler_StringCommand, actionPerformed |
+| `CImageButton` | 2 | ColorButton, setVisible |
 | `CMenuHandler_StringCommandClassSelect` | 2 | CMenuHandler_StringCommand, actionPerformed |
+| `CMenuHandler_StringCommandWatch` | 2 | CMenuHandler_StringCommand, actionPerformed |
+| `CPerformanceCounter` | 2 | GetCurTime, InitializePerformanceCounter |
+| `CSmoker` | 2 | Spawn, Think |
+| `CTFDetect` | 2 | Classify, Spawn |
+| `CTFScrollButton` | 2 | paint, paintBackground |
 | `CTFSlider` | 2 | Slider, paintBackground |
+| `CTFTimerGoal` | 2 | Classify, Spawn |
+| `CTeamSet` | 2 | Spawn, Use |
+| `CTelefragDeath` | 2 | DeathTouch, Spawn |
+| `CTentacleMaw` | 2 | Precache, Spawn |
+| `CTransparentPanel` | 2 | Panel, paintBackground |
+| `CUtlMemory` | 2 | Base, Element |
 | `CUtlNoEscConversion` | 2 | CUtlCharConversion, FindConversion |
 | `CUtlStringList` | 2 | CopyAndAddToTail, SortFunc |
-| `CUtlMemory` | 2 | Base, Element |
-| `CDefOps` | 2 | LessFunc, LessFuncCtx |
+| `ClassButton` | 2 | CommandButton, IsNotValid |
 | `ComboKey` | 2 | check, isTwoCombo |
-| `CPerformanceCounter` | 2 | GetCurTime, InitializePerformanceCounter |
-| `CTFTimerGoal` | 2 | Classify, Spawn |
-| `CTFDetect` | 2 | Classify, Spawn |
-| `CTelefragDeath` | 2 | DeathTouch, Spawn |
-| `CTeamSet` | 2 | Spawn, Use |
-| `CursorBitmap` | 1 | getHotspot |
-| `ChangeHandler` | 1 | intChanged |
-| `CMenuHandler_TextWindow` | 1 | actionPerformed |
-| `CMenuHandler_ToggleCvar` | 1 | actionPerformed |
-| `CSpectatorHandler_Command` | 1 | actionPerformed |
-| `CMenuHandler_StringCommand` | 1 | actionPerformed |
-| `CMenuHandler_SpectateFollow` | 1 | actionPerformed |
-| `CUtlCStringConversion` | 1 | FindConversion |
-| `CUtlVectorFixed` | 1 | BaseClass |
-| `CDefUtlPriorityQueueSetIndexFunc` | 1 | SetIndex |
 | `CDefCaselessStringLess` | 1 | V_stricmp |
 | `CDefStringLess` | 1 | V_strcmp |
-| `CTripBeam` | 1 | Spawn |
-| `CVoiceTweakOKButton` | 1 | actionPerformed |
-| `CollectHidingSpotsFunctor` | 1 | RemoveSpot |
+| `CDefUtlPriorityQueueSetIndexFunc` | 1 | SetIndex |
+| `CMenuHandler_SpectateFollow` | 1 | actionPerformed |
+| `CMenuHandler_StringCommand` | 1 | actionPerformed |
+| `CMenuHandler_TextWindow` | 1 | actionPerformed |
+| `CMenuHandler_ToggleCvar` | 1 | actionPerformed |
 | `CNavLadder` | 1 | OnDestroyNotify |
 | `CServerCtrlApp` | 1 | InitInstance |
-| `CountNodesTEP` | 1 | callback |
+| `CSpectatorHandler_Command` | 1 | actionPerformed |
+| `CTripBeam` | 1 | Spawn |
+| `CUtlCStringConversion` | 1 | FindConversion |
+| `CUtlVectorFixed` | 1 | BaseClass |
+| `CVoiceTweakOKButton` | 1 | actionPerformed |
+| `ChangeHandler` | 1 | intChanged |
+| `CollectHidingSpotsFunctor` | 1 | RemoveSpot |
 | `CollectNodesTEP` | 1 | callback |
+| `CountNodesTEP` | 1 | callback |
+| `CursorBitmap` | 1 | getHotspot |
 
 ## 4. TRIMMED methods — kept classes where the base SDK has methods TS lacks
 
@@ -299,21 +299,21 @@ _Noisier: mixes methods TS genuinely dropped with accessors our newer SDK added.
 | `CBaseToggle` | IsAllowedToSpeak, MyTogglePointer, PlayScriptedSentence, PlaySentence, PlaySentenceCore, SentenceStop |
 | `CBaseButton` | ButtonShot, IsAllowedToSpeak, RotSpawn, SparkSoundCache |
 | `CBasePlayerItem` | CanAddToPlayer, DecrementTimers, GetWeaponData, SetWeaponData |
-| `CRestore` | Empty, PrecacheMode, SetGlobalMode |
 | `CBasePlayerWeapon` | CallDoRetireWeapon, DoRetireWeapon, GetNextAttackDelay |
+| `CRestore` | Empty, PrecacheMode, SetGlobalMode |
 | `CSaveRestoreBuffer` | EntityFlags, GetData, IsValidSaveRestoreData |
 | `CGamePlayerEquip` | Restore, Save |
 | `CGenericCycler` | GenericCyclerSpawn, Vector |
-| `CPushable` | DamageDecal, StopSound |
 | `CMomentaryDoor` | DoorMoveDone, StopMoveSound |
-| `CPathTrack` | Sparkle |
-| `CHalfLifeMultiplay` | FAllowFlashlight |
-| `CFuncIllusionary` | SloshTouch |
-| `CCycler` | IsAllowedToSpeak |
-| `CVoiceGameMgr` | PlayerHasBlockedPlayer |
-| `CGlobalState` | EntityInTable |
+| `CPushable` | DamageDecal, StopSound |
 | `CBreakable` | SparkWhenHit |
-| `CFuncTrackTrain` | Nearest |
-| `CRuleBrushEntity` | ObjectCaps |
-| `CHalfLifeRules` | FAllowFlashlight |
 | `CChangeLevel` | TriggerChangeLevel |
+| `CCycler` | IsAllowedToSpeak |
+| `CFuncIllusionary` | SloshTouch |
+| `CFuncTrackTrain` | Nearest |
+| `CGlobalState` | EntityInTable |
+| `CHalfLifeMultiplay` | FAllowFlashlight |
+| `CHalfLifeRules` | FAllowFlashlight |
+| `CPathTrack` | Sparkle |
+| `CRuleBrushEntity` | ObjectCaps |
+| `CVoiceGameMgr` | PlayerHasBlockedPlayer |
