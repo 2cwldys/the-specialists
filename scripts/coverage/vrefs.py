@@ -93,25 +93,63 @@ def funcfiles():
 
 
 def call_sites():
-    """{enclosing_function_symbol: set(slot_int)} for every `call *0xNN(%reg)` (slot 0 = `call *(%reg)`)."""
+    """{enclosing_function_symbol: set(slot_int)} for every virtual call.
+
+    Calls whose base register was loaded through the PIC GOT base (`mov X(%ebx),%r`, e.g. &g_engfuncs) are
+    global function tables, not vtables, and are dropped: `call *0x58(%esi)` is REMOVE_ENTITY, not
+    TakeDamage, and `call *0x17c(%esi)` in SENTENCEG_Init is not PrimaryAttack. Anything else is kept: a
+    positive `mov 0x60(%r),%r` vptr load is not required, because objdump's linear sweep sometimes
+    misdecodes it (CheckTimeBasedDamage shows `8b 47 60` as or/inc/pusha). Both dispatch shapes count:
+    `call *0xNN(%r)` and `mov 0xNN(%vptr),%r` + `call *%r`."""
     dis = subprocess.run(["objdump", "-d", "--no-show-raw-insn", SO],
                          capture_output=True, text=True).stdout
     sites = defaultdict(set)
     cur = None
-    disp = re.compile(r"call\s+\*(0x[0-9a-f]+)\(%e[a-z]{2}\)")
-    zero = re.compile(r"call\s+\*\(%e[a-z]{2}\)")
+    reg = {}   # register -> ('vptr', None) | ('slot', off)
+    ins = re.compile(r"^\s*[0-9a-f]+:\s+(\w+)\s*(.*)$")
     for ln in dis.splitlines():
         h = re.match(r"^[0-9a-f]+ <([^>]+)>:", ln)
         if h:
-            cur = h.group(1)
+            cur, reg = h.group(1), {}
             continue
         if cur is None:
             continue
-        m = disp.search(ln)
-        if m:
-            sites[cur].add(int(m.group(1), 16))
-        elif zero.search(ln):
-            sites[cur].add(0)
+        m = ins.match(ln)
+        if not m:
+            continue
+        op, args = m.group(1), m.group(2).split("#")[0].strip()
+        if op == "call":
+            c = re.fullmatch(r"\*(0x[0-9a-f]+)?\((%e[a-z]{2})\)", args)
+            if c and reg.get(c.group(2), (None,))[0] != "got":
+                sites[cur].add(int(c.group(1), 16) if c.group(1) else 0)
+            c = re.fullmatch(r"\*(%e[a-z]{2})", args)
+            if c and reg.get(c.group(1), (None,))[0] == "slot":
+                sites[cur].add(reg[c.group(1)][1])
+            for r in ("%eax", "%ecx", "%edx"):   # caller-saved, clobbered by the call
+                reg.pop(r, None)
+            continue
+        dst = re.search(r",(%e[a-z]{2})$", args) or (re.fullmatch(r"(%e[a-z]{2})", args) if op == "pop" else None)
+        if not dst:
+            continue
+        d = dst.group(1)
+        src = args[: dst.start()] if op != "pop" else ""
+        if op == "mov":
+            v = re.fullmatch(r"0x60\((%e[a-z]{2})\)", src)
+            s = re.fullmatch(r"(0x[0-9a-f]+)?\((%e[a-z]{2})\)", src)
+            r = re.fullmatch(r"(%e[a-z]{2})", src)
+            g = re.fullmatch(r"-?(0x[0-9a-f]+)?\(%ebx\)", src)
+            if g:
+                reg[d] = ("got", None)
+            elif v:
+                reg[d] = ("vptr", None)
+            elif s and reg.get(s.group(2), (None,))[0] == "vptr":
+                reg[d] = ("slot", int(s.group(1), 16) if s.group(1) else 0)
+            elif r and r.group(1) in reg:
+                reg[d] = reg[r.group(1)]
+            else:
+                reg.pop(d, None)
+        else:
+            reg.pop(d, None)
     return sites
 
 
