@@ -27,12 +27,14 @@ os.makedirs(OUT, exist_ok=True)
 def sh(*a): return subprocess.run(a, capture_output=True, text=True, errors="replace").stdout
 
 def vtable_symbols():
-    """{vaddr: classname} for every __vt_<mangled> symbol, + sorted vaddr list for extents."""
+    """{vaddr: (symbol, size)} for every __vt_<mangled> symbol. The symbol size bounds the vtable;
+    bounding it by the next __vt_ address instead runs the last vtables into whatever data follows
+    (CMultiSource's swallowed the engine's DLL_FUNCTIONS table)."""
     vts = {}
-    for ln in sh("nm", SO).splitlines():
+    for ln in sh("nm", "-S", SO).splitlines():
         p = ln.split()
-        if len(p) >= 3 and p[2].startswith("__vt_"):
-            try: vts[int(p[0], 16)] = p[2]
+        if len(p) >= 4 and p[3].startswith("__vt_"):
+            try: vts[int(p[0], 16)] = (p[3], int(p[1], 16))
             except ValueError: pass
     return vts
 
@@ -72,8 +74,8 @@ def main():
 
     # Demangle every method symbol referenced by a vtable slot, in one pass.
     needed = set()
-    for i, base in enumerate(addrs):
-        end = addrs[i + 1] if i + 1 < len(addrs) else base + 0x800
+    for base in addrs:
+        end = base + vts[base][1]
         off = 0
         while base + off < end:
             if base + off in rel: needed.add(rel[base + off])
@@ -87,18 +89,24 @@ def main():
         return sym[5:] if sym.startswith("__vt_") else sym
 
     out = {}
-    for i, base in enumerate(addrs):
-        sym = vts[base]
+    for base in addrs:
+        sym, size = vts[base]
         cls = vt_classname(sym)
         if filt and filt not in sym and filt not in cls:
             continue
-        end = addrs[i + 1] if i + 1 < len(addrs) else base + 0x800
+        end = base + size
         slots = {}
         off = 0
         while base + off < end:
             tgt = rel.get(base + off)
             if tgt:
-                slots[f"0x{off:x}"] = dm.get(tgt, tgt)
+                if tgt == "__pure_virtual":
+                    name = "(pure virtual)"
+                elif tgt.startswith("__tf"):
+                    name = "(typeinfo)"          # gcc2 word 1: the class's typeinfo function
+                else:
+                    name = dm.get(tgt, tgt)
+                slots[f"0x{off:x}"] = name
             off += 4
         if slots:
             out[cls] = slots
