@@ -146,14 +146,6 @@ ALIASES = {
     "RetireWeapon": "DoRetireWeapon",
 }
 
-# Stock keys whose stock slot is not the virtual the key names. AMX Mod X's ts file gives
-# ts_onfreeentprivatedata / ts_shouldcollide linux 12 / 13 (windows 10 / 11), which are Save / Restore in
-# ts_i386.so; the original has OnFreeEntPrivateData and ShouldCollide at 16 / 17. Map them by name.
-STOCK_FIXES = {
-    "ts_onfreeentprivatedata": "CBaseEntity::OnFreeEntPrivateData()",
-    "ts_shouldcollide": "CBaseEntity::ShouldCollide(CBaseEntity *)",
-}
-
 # Ham key names that are not the method name lowercased (after the player_/item_/weapon_/ts_ prefix).
 NAME_DIFFS = {
     "fvecvisible": "FVisible", "fvecinviewcone": "FInViewCone", "item_preframe": "ItemPreFrame",
@@ -182,7 +174,7 @@ def main():
             continue
         slot = int(lin, 0)
         cls = key_class(key, slot, orig)
-        sig = STOCK_FIXES.get(key) or orig[cls].get("%#x" % (slot * 4))
+        sig = orig[cls].get("%#x" % (slot * 4))
         if not sig or sig.startswith("("):
             errors.append(f"{key}: original {cls} has no virtual at linux slot {slot}")
             continue
