@@ -239,6 +239,12 @@ HEADER = '''/**
             "gamedll_export"  "ReTS_GetInterface"
         }
 
+        // reTS's Vector is trivially copyable (halflife-updated): 64-bit builds return it in registers.
+        "Keys"
+        {
+            "vector_return"  "registers"
+        }
+
         "Offsets"
         {
             "pev"  // 8 on 64-bit; Ham only prints it
