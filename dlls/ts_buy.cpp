@@ -80,9 +80,9 @@ void CBasePlayer::AddItemToArmament(int type, int count, bool isItem)
 // @ TakeArmor — grant (amount>=0) or remove (amount<0) kevlar. Kevlar is a BINARY flag
 // (m_bHasKevlar); the armorvalue it sets is only a "have armor" marker (TakeDamage applies a
 // flat armor_absorb reduction, it does NOT deplete — see CBasePlayer::TakeDamage). Recovered
-// from TakeArmor @0x83da4. SLICE: the original also costs/refunds 10 "free slots" and recomputes
-// move speed via GetSpeedBySlots/SetPlayerSpeed — the free-slots encumbrance subsystem is
-// deferred (its speed factors are runtime-init and unrecoverable statically).
+// from TakeArmor @0x83da4, which then sets the move speed (GetSpeedBySlots/SetPlayerSpeed).
+// SLICE: the original also costs/refunds 10 "free slots" (and refuses kevlar with fewer than 10
+// free); our free slots are derived from the arsenal and do not count kevlar yet.
 void CBasePlayer::TakeArmor(int amount)
 {
 	if (amount >= 0)
@@ -102,6 +102,7 @@ void CBasePlayer::TakeArmor(int amount)
 		m_bHasKevlar = false;
 		pev->armorvalue = 0;
 	}
+	SetPlayerSpeed(GetSpeedBySlots(this)); // @0x83e79
 }
 
 // @ AddItem — grant a loadout item from its bitmask (kevlar 0x10, grenade 0x20, gun

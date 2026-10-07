@@ -281,7 +281,7 @@ confirm the gap closed.
   change; reTSX's offsets for reTS come from it.
 - **`dlls/rets_api.{h,cpp}`** export `ReTS_GetInterface(int version)`: a versioned struct of get/set
   functions for the player fields AMX Mod X's TSX module (reTSX) touches (cash, free slots, kevlar, slow
-  motion, powerups, award, melee bar, lunge, gun ammo reserve). Not in the original; TSX uses it instead of
+  motion, powerups, award, melee bar, lunge, gun ammo reserve, each weapon's owned flag and clip). Not in the original; TSX uses it instead of
   offsets whenever the game library exports it. AMX Mod X keeps an identical copy of `rets_api.h`
   (`modules/ts/tsx/rets_api.h`); change both together and bump `RETS_INTERFACE_VERSION` on any change.
 - **`scripts/coverage/hamdata.py`** writes AMX Mod X's Ham Sandwich gamedata for reTS

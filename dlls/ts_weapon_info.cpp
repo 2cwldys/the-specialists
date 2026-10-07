@@ -373,9 +373,10 @@ static void compile_weapons_info()
     g_weaponInfo[i].iFireModes = kFireModes[i];
 
   // Ammo caliber per weapon (s_weapon_info+0x8), recovered from each Write_<weapon>.
-  // 0 = none (melee/grenade). Calibers 1..13 map to the per-caliber reserves.
+  // 0 = none (melee/grenade). Calibers 1..13 map to the per-caliber reserves. Kung fu is 0:
+  // Write_melee (@0x781ac) never writes +0x8 and the table starts zeroed.
   static const int kCaliber[TSW_COUNT] = {
-    /* 0*/ 2, /* 1*/ 1, /* 2*/ 1, /* 3*/ 1, /* 4*/ 3, /* 5*/ 4, /* 6*/ 1, /* 7*/ 1,
+    /* 0*/ 0, /* 1*/ 1, /* 2*/ 1, /* 3*/ 1, /* 4*/ 3, /* 5*/ 4, /* 6*/ 1, /* 7*/ 1,
     /* 8*/ 1, /* 9*/ 2, /*10*/ 2, /*11*/ 3, /*12*/ 5, /*13*/ 6, /*14*/ 7, /*15*/ 4,
     /*16*/ 1, /*17*/12, /*18*/ 8, /*19*/ 7, /*20*/ 3, /*21*/ 2, /*22*/ 9, /*23*/ 2,
     /*24*/ 0, /*25*/ 0, /*26*/ 3, /*27*/ 4, /*28*/10, /*29*/ 0, /*30*/ 7, /*31*/11,

@@ -2231,8 +2231,10 @@ void CBasePlayer::PreThink()
 	// (movement_prediction.md §cont.89c) the original CLIENT predicts off `clientmaxspeed` (set ONLY by
 	// pfnSetClientMaxspeed), NOT cd->maxspeed — so a raw pev->maxspeed write leaves the client predicting
 	// at a stale clientmaxspeed → a CONSTANT cl_showerror seam on ground AND air. The original sets speed
-	// exclusively via pfnSetClientMaxspeed (on loadout events); per-frame here is safe for a constant loadout.
-	SetPlayerSpeed(GetSpeedBySlots(this));
+	// exclusively via pfnSetClientMaxspeed, and only on loadout events (the 11 SetPlayerSpeed call sites
+	// @0x83068: TSInit, PickUpWeapon, DropWeapon, TakeArmor, TakeFlag, DropFlag, SetPlayerTheOne, and the
+	// knife/katana/grenade throws and MultiplyClips), never here, so a plugin's maxspeed holds until the
+	// next of those.
 	if (pev->fuser1 < 0.999f)
 	{
 		pev->framerate = pev->fuser1 < 0.01f ? 0.01f : pev->fuser1; // slowed animation (StudioFrameAdvance)

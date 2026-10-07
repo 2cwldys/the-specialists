@@ -80,6 +80,53 @@ static void SetAmmoReserve(edict_t *pEdict, int caliber, int rounds)
 		*pReserve = rounds;
 }
 
+// orig weapon_tsgun + 0x114, s_weapon_status[38]: bOwned +0, iClip +4. The wielded weapon's clip
+// lives in the gun's m_iClip while it is out (CTSGun::SyncActiveToItem parks it on holster).
+static TSItem *WeaponStatus(edict_t *pEdict, int weapon, CTSGun **ppGun)
+{
+	CBasePlayer *pPlayer = RetsPlayer(pEdict);
+	CTSGun *pGun = pPlayer ? GetPlayerTSGun(pPlayer) : nullptr;
+	if (!pGun || weapon < 0 || weapon >= TSW_COUNT)
+		return nullptr;
+	*ppGun = pGun;
+	return &pGun->m_items[weapon];
+}
+
+static int GetWeaponOwned(edict_t *pEdict, int weapon)
+{
+	CTSGun *pGun;
+	TSItem *pItem = WeaponStatus(pEdict, weapon, &pGun);
+	return pItem ? pItem->owned : 0;
+}
+
+static void SetWeaponOwned(edict_t *pEdict, int weapon, int owned)
+{
+	CTSGun *pGun;
+	TSItem *pItem = WeaponStatus(pEdict, weapon, &pGun);
+	if (pItem)
+		pItem->owned = owned != 0;
+}
+
+static int GetWeaponClip(edict_t *pEdict, int weapon)
+{
+	CTSGun *pGun;
+	TSItem *pItem = WeaponStatus(pEdict, weapon, &pGun);
+	if (!pItem)
+		return 0;
+	return weapon == pGun->m_weaponType ? pGun->m_iClip : pItem->clip;
+}
+
+static void SetWeaponClip(edict_t *pEdict, int weapon, int clip)
+{
+	CTSGun *pGun;
+	TSItem *pItem = WeaponStatus(pEdict, weapon, &pGun);
+	if (!pItem)
+		return;
+	pItem->clip = clip;
+	if (weapon == pGun->m_weaponType)
+		pGun->m_iClip = clip;
+}
+
 static rets_interface_t BuildInterface()
 {
 	rets_interface_t i = {};
@@ -120,6 +167,10 @@ static rets_interface_t BuildInterface()
 	i.SetLungeForce = SetLungeForce;
 	i.GetAmmoReserve = GetAmmoReserve;
 	i.SetAmmoReserve = SetAmmoReserve;
+	i.GetWeaponOwned = GetWeaponOwned;
+	i.SetWeaponOwned = SetWeaponOwned;
+	i.GetWeaponClip = GetWeaponClip;
+	i.SetWeaponClip = SetWeaponClip;
 	return i;
 }
 

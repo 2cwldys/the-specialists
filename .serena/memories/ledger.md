@@ -6645,3 +6645,16 @@ where our SetAnimation may have been a stub — this may also be WHY the 3rd-per
 Still indirect (separate paths, lower priority): MeleeAttack/ColdCock SetAnimation (the knife/katana/coldcock
 body — original uses KnifeFire/KatanaFire/ColdCock→Animate(melee codes)); PLAYER_WALK/IDLE/JUMP/DIE still route
 through SetAnimation (original calls Animate directly from PostThink/PM_Jump — a fuller faithful refactor later).
+
+## 2026-10-07 — fix round rets: speed events, ts_groundweapon ammo, kung fu caliber, rets_api v2
+- Speed: PreThink no longer calls SetPlayerSpeed every frame. The original's 11 SetPlayerSpeed call sites
+  (objdump of ts_i386.so) are TSInit, PickUpWeapon, DropWeapon, TakeArmor, TakeFlag, DropFlag, SetPlayerTheOne,
+  KnifeFire, KatanaThrow, GrenadeIdle, MultiplyClips; reTS lacked TakeArmor/TakeFlag/DropFlag, now added.
+  A plugin's maxspeed now holds until the next loadout event, as on TS 3.0.
+- CTSGroundWeapon::GetWeapon (@0x92328): wextraclip rounds go to an EMPTY caliber reserve via AddAmmo (+ the
+  9mmclip1 sound); ours gave one weapon clip (Glock: 17) whatever was asked.
+- kCaliber[0] (kung fu) = 0 (Write_melee never writes +0x8); was 2, which showed caliber 2's reserve on the
+  kung fu HUD.
+- rets_api v2: GetWeaponOwned/SetWeaponOwned/GetWeaponClip/SetWeaponClip (s_weapon_status), used by reTSX for
+  grenade/knife counts. Verified: amxxbench tsx_ammo + ts_speed tests, 12/12 on reTS (6 failed before) and on TS 3.0.
+- Left: TakeArmor's 10-slot kevlar cost is still not modelled in TSPlayerFreeSlots/GetSpeedBySlots.

@@ -257,8 +257,8 @@ static int TSSlotsUsed(const CTSGun *pGun)
 // @ GetSpeedBySlots__FP11CBasePlayer (@0x66bd4) — slot-based base movement speed. The player has 81
 // inventory slots (CBasePlayer+0x548 init 0x51); every CARRIED weapon deducts its slotCost, and the
 // remaining capacity sets the base maxspeed = 210 + (120/81)*remaining → empty ~330, fully loaded ~210.
-// More/heavier guns = slower. The original recomputes this after every TakeWeapon/Drop/Select; we derive
-// it from the owned-items set each PreThink (player.cpp) and slow-mo (fuser1) scales it on top.
+// More/heavier guns = slower. Like the original, SetPlayerSpeed applies it on loadout events only
+// (pickup, drop, armor, flag, throws); our remaining count is derived from the owned-items set.
 float GetSpeedBySlots(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);

@@ -607,14 +607,15 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 	if (!pPlayer->PickUpWeapon(tsweaponid, NULL, pev->spawnflags & 0xF, tsweaponid != TSW_FLAG, false))
 		return; // won't fit -> leave it on the floor
 
-	// @0x925ec: an EMPTY caliber reserve gets one weapon-clip of rounds with the gun (the map
-	// pickup isn't useless when you're dry); a non-empty reserve gets NOTHING.
+	// @0x925ec: the entity's extra clips (wextraclip, in rounds) go to an EMPTY caliber reserve,
+	// capped by AddAmmo; a non-empty reserve, or no extra clips, gets nothing.
+	if (extraclip != 0)
 	{
 		const s_weapon_info *gwi = get_weapon_info((tsweapon_t)tsweaponid);
 		CTSGun *pGun = GetPlayerTSGun(pPlayer);
-		if (pGun && gwi->iCaliber > 0 && gwi->iCaliber < TS_NUM_CALIBERS &&
-			pGun->m_ammoReserve[gwi->iCaliber] <= 0)
-			pGun->AddAmmo(gwi->iCaliber, gwi->iClip);
+		if (pGun && gwi->iCaliber >= 0 && gwi->iCaliber < TS_NUM_CALIBERS &&
+			pGun->m_ammoReserve[gwi->iCaliber] < 1 && pGun->AddAmmo(gwi->iCaliber, extraclip))
+			EMIT_SOUND_DYN(ENT(pPlayer->pev), CHAN_ITEM, "items/9mmclip1.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
 	}
 
 	if (!FStringNull(pev->message))

@@ -350,6 +350,7 @@ bool CBasePlayer::TakeFlag(s_flag_status *src)
 
 	m_flagStatus = *src;     // copy the full 28-byte status (incl. the source lastCarrier)
 	m_flagStatus.active = 1; // now carried (slot-weight debit is folded into GetSpeedBySlots)
+	SetPlayerSpeed(GetSpeedBySlots(this));
 	EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, ATTN_NORM);
 
 	MESSAGE_BEGIN(MSG_ALL, gmsgTSHaveFlag);
@@ -420,6 +421,9 @@ void CBasePlayer::DropFlag(bool bSilent)
 	}
 
 	m_flagStatus = s_flag_status(); // clear the carried state (active = 0)
+	// the original refunds the 20 slots and sets the speed first thing (@0x8338d); our slot count
+	// reads m_flagStatus.active, so the speed follows the clear
+	SetPlayerSpeed(GetSpeedBySlots(this));
 }
 
 // @0x83068 SetPlayerSpeed — clamp the requested base speed to [0, 330] and push it to the engine

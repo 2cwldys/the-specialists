@@ -17,7 +17,7 @@
 #ifndef RETS_API_H
 #define RETS_API_H
 
-#define RETS_INTERFACE_VERSION 1
+#define RETS_INTERFACE_VERSION 2
 #define RETS_GETINTERFACE_NAME "ReTS_GetInterface"
 
 struct edict_s;
@@ -69,6 +69,13 @@ typedef struct rets_interface_s
 
 	int (*GetAmmoReserve)(struct edict_s *player, int caliber); // the player's weapon_tsgun, 0..15
 	void (*SetAmmoReserve)(struct edict_s *player, int caliber, int rounds);
+
+	// The original's s_weapon_status[weapon] (weapon_tsgun + 0x114, weapon 0..37). The grenade and
+	// the knives count in their clip; reTS computes free slots from those counts.
+	int (*GetWeaponOwned)(struct edict_s *player, int weapon);
+	void (*SetWeaponOwned)(struct edict_s *player, int weapon, int owned);
+	int (*GetWeaponClip)(struct edict_s *player, int weapon);
+	void (*SetWeaponClip)(struct edict_s *player, int weapon, int clip);
 } rets_interface_t;
 
 typedef const rets_interface_t *(*RETS_GETINTERFACE_FN)(int version);
