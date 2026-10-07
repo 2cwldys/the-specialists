@@ -6691,3 +6691,19 @@ through SetAnimation (original calls Animate directly from PostThink/PM_Jump —
 - CTSKnife derives from CTSGrenade (hierarchy.tsv); Spawn/WaitThink run CTSPhysicObject's, so slow motion
   slows thrown knives. hamdata output unchanged.
 - Verified by AMX Mod X tsx-ts3 cd6943c1/0e34a793 tests on reTS (tsx_player, tsx_ammo).
+
+## 2026-10-07 — powerup inside a player's box: no reTS difference, nothing changed
+- Question: a ts_powerup set at a standing player's origin never lands on reTS; the ts30 TSX test drops one there
+  and passes on TS 3.0. CTSPowerUp Spawn (@0x88258), Fall (@0x883cc), OnGround (@0x8848c) match ts_powerup.cpp
+  (TOSS/BBOX, zero size, 0.1 s Fall think, FL_ONGROUND -> OnGround, trigger -16 -16 0 / 16 16 64). The global
+  ShouldCollide (@0x9b7b4) only reaches CBaseEntity::ShouldCollide (return 1) for player vs powerup.
+  Server_GetBlendingInterface (@0x93f80) installs a stub SV_StudioSetupBones (@0x93fdc, only alerts) but returns
+  0, so the engine resets to its own bone setup: player hitboxes are the engine's on both, as reTS (no export).
+- Measured with an amxxbench probe on both stacks: a point powerup inside the player's hitboxes is allsolid and
+  never lands, on TS 3.0/HLDS exactly as on reTS/ReHLDS (forced to ts_lobby 784 0 113: stuck on both; the ts30
+  superjump test fails on TS 3.0 from there too). The ts30 test passes only because the player is still falling
+  from a spawn spot 25-33 units over the floor; ts_lobby's 784 0 112 spot is 13 over and fails on both.
+- No reTS change. The reTS test's +48-after-settle placement stays; its comments now give the real reason.
+  Report: ~/Projects/amxxbench/docs/fixes/rets-powerup-report.md.
+- Still a deliberate deviation: slow-pause self rate 0.6 (ts_player.cpp UpdatePowerUpState); the ts30 test
+  measures 0.8 on TS 3.0, which settles the "live-trace to pin it" note there.
