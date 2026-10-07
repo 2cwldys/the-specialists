@@ -169,14 +169,13 @@ void CRecharge::Use(CBaseEntity* pActivator, CBaseEntity* pCaller, USE_TYPE useT
 	}
 
 
-	// charge the player
+	// charge the player: TS (@0xb71ec) empties the charger at once into a full kevlar through
+	// CBasePlayer::TakeArmor, which refuses kevlar with fewer than 10 free slots; the juice is
+	// spent either way.
 	if (m_hActivator->pev->armorvalue < 100)
 	{
-		m_iJuice--;
-		m_hActivator->pev->armorvalue += 1;
-
-		if (m_hActivator->pev->armorvalue > 100)
-			m_hActivator->pev->armorvalue = 100;
+		m_iJuice = 0;
+		player->TakeArmor(100);
 	}
 
 	// govern the rate of charge

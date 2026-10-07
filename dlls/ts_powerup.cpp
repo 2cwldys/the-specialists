@@ -406,10 +406,9 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 {
 	if ((char)type < 0) // 0x80 — armor
 	{
-		// SLICE: original calls CBasePlayer::TakeArmor (TS-added). Add armour directly.
-		pPlayer->pev->armorvalue += (int)(pPowerup->m_flArmor + 0.5f);
-		if (pPlayer->pev->armorvalue > MAX_NORMAL_BATTERY)
-			pPlayer->pev->armorvalue = MAX_NORMAL_BATTERY;
+		// @0x87c16: kevlar through CBasePlayer::TakeArmor. A refusal (fewer than 10 free slots)
+		// still uses the powerup up.
+		pPlayer->TakeArmor((int)(pPowerup->m_flArmor + 0.5f));
 	}
 	else if (type & TS_PWUP_KUNGFU)
 	{
@@ -457,7 +456,7 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 		pPlayer->m_flPowerupTime = pPowerup->m_iDuration;
 	}
 
-	EMIT_SOUND_DYN(ENT(pPlayer->pev), CHAN_VOICE, "items/gunpickup2.wav", VOL_NORM, 0.8f, 0, 100);
+	EMIT_SOUND_DYN(ENT(pPlayer->pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, 0.8f, 0, 100); // @0x87dd9
 	return true;
 }
 

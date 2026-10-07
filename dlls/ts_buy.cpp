@@ -81,15 +81,21 @@ void CBasePlayer::AddItemToArmament(int type, int count, bool isItem)
 // (m_bHasKevlar); the armorvalue it sets is only a "have armor" marker (TakeDamage applies a
 // flat armor_absorb reduction, it does NOT deplete — see CBasePlayer::TakeDamage). Recovered
 // from TakeArmor @0x83da4, which then sets the move speed (GetSpeedBySlots/SetPlayerSpeed).
-// SLICE: the original also costs/refunds 10 "free slots" (and refuses kevlar with fewer than 10
-// free); our free slots are derived from the arsenal and do not count kevlar yet.
-void CBasePlayer::TakeArmor(int amount)
+// Kevlar weighs 10 free slots: the original takes them off its counter (player+0x548) when it puts
+// kevlar on, gives them back when it comes off, and refuses kevlar with fewer than 10 free
+// (@0x83dfb) — returning 0 with nothing changed and no speed update. reTS derives free slots, so
+// TSPlayerFreeSlots counts m_bHasKevlar. No caller reads the result: AddItem (the loadout) just
+// does not get the vest, while CTSAmmoPack::WaitTouch, CRecharge::Use, CItemBattery::MyTouch and
+// PlayerAddPowerUp use up their armor anyway.
+bool CBasePlayer::TakeArmor(int amount)
 {
 	if (amount >= 0)
 	{
 		if (!m_bHasKevlar)
 		{
-			m_bHasKevlar = true;
+			if (TSPlayerFreeSlots(this) < 10)
+				return false;
+			m_bHasKevlar = true; // -10 free slots
 			EMIT_SOUND(ENT(pev), CHAN_ITEM, "weapons/items.wav", VOL_NORM, ATTN_NORM);
 		}
 		float v = (float)amount + pev->armorvalue;
@@ -99,16 +105,17 @@ void CBasePlayer::TakeArmor(int amount)
 	}
 	else if (m_bHasKevlar)
 	{
-		m_bHasKevlar = false;
+		m_bHasKevlar = false; // +10 free slots
 		pev->armorvalue = 0;
 	}
 	SetPlayerSpeed(GetSpeedBySlots(this)); // @0x83e79
+	return true;
 }
 
 // @ AddItem — grant a loadout item from its bitmask (kevlar 0x10, grenade 0x20, gun
 // attachments 1/2/4/8). Recovered from AddItem @0x8440c. CashBased() is off so the cost
 // branches (kevlar 1900 / grenade 700 / attachments) are dead. Kevlar gives 100 armor via
-// TakeArmor; grenade is the team-mode M61; attachments route to the active CTSGun (SLICE).
+// TakeArmor (refused, with nothing given, when fewer than 10 slots are free); grenade is the team-mode M61; attachments route to the active CTSGun (SLICE).
 void CBasePlayer::AddItem(int itemBits)
 {
 	if ((itemBits & TS_ITEM_KEVLAR) != 0)

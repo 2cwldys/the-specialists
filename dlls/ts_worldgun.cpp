@@ -576,38 +576,60 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 
 	// Buy gate (the original's, gated on CashBased()). CashBased() is hard-OFF in the shipped game so
 	// this is DEAD — but present for 1:1 fidelity, and it's what consumes `buyable`/`attackerteam`/
-	// `extraclip`. In a round/team mode only `attackerteam` may buy; then the weapon costs cash
-	// (base price + per-attachment surcharge + extra clips), deducted from the player's wallet.
+	// `extraclip`. In a round mode (2/3) only `attackerteam` may buy; then the weapon costs cash
+	// (base price + per-attachment surcharge + a magazine's price per extra clip, @0x9242c), taken
+	// once the pickup succeeds (@0x92518).
+	int price = 0;
 	if (CashBased() && buyable)
 	{
 		CTSGameRules *gr = TSGameRules;
-		if (gr && g_teamplay && attackerteam != -1 &&
+		if (gr && (unsigned char)(gr->m_iGameMode - 2) < 2 && attackerteam != -1 &&
 			attackerteam != gr->GetTeamIndex(pPlayer->TeamID()))
 		{
-			ClientPrint(pPlayer->pev, HUD_PRINTCENTER, "Your team cannot buy this weapon.");
+			TSHudMessageOne(0, 0, 0, 16, 30, "Your team cannot buy this weapon.", pPlayer->pev);
 			return;
 		}
-		int price = 0; // base = get_weapon_info(tsweaponid)->price (the cl_dll buy table mirror)
+		const s_weapon_info *bwi = get_weapon_info((tsweapon_t)tsweaponid);
+		price = bwi->iPrice;
 		if (pev->spawnflags & 1) price += 900;  // silencer
 		if (pev->spawnflags & 2) price += 800;  // lasersight
 		if (pev->spawnflags & 4) price += 500;  // flashlight
 		if (pev->spawnflags & 8) price += 1800; // scope
-		price += extraclip * 100;               // extra clips (per-caliber clip cost)
+		price += get_ammo_info(bwi->iCaliber)->iPrice * extraclip;
 		if (pPlayer->m_iCash < price)
 		{
-			ClientPrint(pPlayer->pev, HUD_PRINTCENTER, "You don't have enough money for that weapon.");
+			TSHudMessageOne(0, 0, 0, 16, 30, "You don't have enough money for that weapon.", pPlayer->pev);
 			return;
 		}
-		pPlayer->GiveCash(-price);
 	}
 
-	// @0x924ff: PickUpWeapon(type, NULL, ATTACH mask, type != FLAG, no owner record) — the
-	// pickup sound + speed recompute live inside. The mask = the entity's attachment
-	// spawnflags (silencer 1 / lasersight 2 / flashlight 4 / scope 8 — the priced bits above).
-	if (!pPlayer->PickUpWeapon(tsweaponid, NULL, pev->spawnflags & 0xF, tsweaponid != TSW_FLAG, false))
+	// @0x924ff: PickUpWeapon(type, NULL, spawnflags, type != FLAG, no owner record) — the pickup
+	// sound + speed recompute live inside. The original passes the WHOLE spawnflags as the attach
+	// mask (silencer 1 / lasersight 2 / flashlight 4 / scope 8 are the priced bits; TakeWeapon
+	// clamps the new item to what the gun can mount).
+	if (!pPlayer->PickUpWeapon(tsweaponid, NULL, pev->spawnflags, tsweaponid != TSW_FLAG, false))
 		return; // won't fit -> leave it on the floor
+	pPlayer->GiveCash(-price);
 
-	// @0x925ec: the entity's extra clips (wextraclip, in rounds) go to an EMPTY caliber reserve,
+	// @0x9251d respawn schedule: <1 -> 60s, <2 -> 1s, else min(respawntime,180) — except that a
+	// weapon with no wduration (< 1) does not come back in a round mode (2/3) (@0x9253a).
+	SetTouch(NULL);
+	pev->effects |= EF_NODRAW;
+	pev->solid = SOLID_NOT;
+	m_bPlaced = false;
+	if (respawntime < 1 && TSGameRules && (unsigned char)(TSGameRules->m_iGameMode - 2) < 2)
+	{
+		SetThink(NULL);
+	}
+	else
+	{
+		float delay = (respawntime < 1) ? 60.0f : (respawntime < 2) ? 1.0f
+			: (respawntime < 180 ? (float)respawntime : 180.0f);
+		SetThink(&CTSGroundWeapon::Fall);
+		pev->nextthink = gpGlobals->time + delay;
+	}
+
+	// @0x925c4: the entity's extra clips (wextraclip, in rounds) go to an EMPTY caliber reserve,
 	// capped by AddAmmo; a non-empty reserve, or no extra clips, gets nothing.
 	if (extraclip != 0)
 	{
@@ -618,20 +640,11 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 			EMIT_SOUND_DYN(ENT(pPlayer->pev), CHAN_ITEM, "items/9mmclip1.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
 	}
 
+	// @0x92689: the map's pickup text goes out as a TSMessage (effect 8, hold 30).
 	if (!FStringNull(pev->message))
-		UTIL_ShowMessage(STRING(pev->message), pPlayer);
+		TSHudMessageOne(0, 0, 0, 8, 30, STRING(pev->message), pPlayer->pev);
 	if (pev->target)
 		FireTargets(STRING(pev->target), this, this, USE_TOGGLE, 0);
-
-	// respawn schedule: <1 -> 60s, <2 -> 1s, else min(respawntime,180).
-	SetTouch(NULL);
-	pev->effects |= EF_NODRAW;
-	pev->solid = SOLID_NOT;
-	float delay = (respawntime < 1) ? 60.0f : (respawntime < 2) ? 1.0f
-		: (respawntime < 180 ? (float)respawntime : 180.0f);
-	SetThink(&CTSGroundWeapon::Fall);
-	pev->nextthink = gpGlobals->time + delay;
-	m_bPlaced = false;
 }
 
 // ===================== CTSGroundAmmo (merged from ts_groundammo.cpp) =====================

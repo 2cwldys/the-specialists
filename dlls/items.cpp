@@ -219,9 +219,10 @@ class CItemBattery : public CItem
 			return false;
 		}
 
-		// TS (RE @0xbb74c): gate is armorvalue < 100 only (no suit check); grant is
-		// TakeArmor(50) — the TS kevlar method, which caps at 100 — not a gSkillData read.
-		if (pPlayer->pev->armorvalue < MAX_NORMAL_BATTERY)
+		// TS (RE @0xbb74c): gate is armorvalue < 100 and the suit bit (pev->weapons sign test
+		// @0xbb788); grant is TakeArmor(50) — the TS kevlar method, which caps at 100 — not a
+		// gSkillData read.
+		if (pPlayer->pev->armorvalue < MAX_NORMAL_BATTERY && pPlayer->HasSuit())
 		{
 			int pct;
 			char szcharge[64];

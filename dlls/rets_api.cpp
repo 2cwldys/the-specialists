@@ -50,7 +50,8 @@ RETS_PLAYER_FIELD(MeleeBar, float, m_flMeleeBar)                  // orig 0x774
 RETS_PLAYER_FIELD(LungeTime, float, m_flWhiffLungeTime)           // orig 0x79c
 RETS_PLAYER_FIELD(LungeForce, float, m_flWhiffLungeForce)         // orig 0x7a0
 
-// orig 0x548 is a stored counter (TakeArmor adds/subtracts 10); reTS derives it from the arsenal
+// orig 0x548 is a stored counter (TakeArmor adds/subtracts 10); reTS derives it from the arsenal,
+// the flag and kevlar
 static int GetFreeSlots(edict_t *pEdict)
 {
 	CBasePlayer *pPlayer = RetsPlayer(pEdict);

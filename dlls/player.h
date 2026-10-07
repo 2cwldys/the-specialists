@@ -563,7 +563,7 @@ public:
 	                                                     // -2 = every owned weapon's caliber
 	void BuyArmament();                                   // apply the pending loadout
 	void AddItem(int itemBits);                           // @0x8440c — grant a loadout item (kevlar/grenade/attachment)
-	void TakeArmor(int amount);                           // @0x83da4 — grant/remove kevlar (binary flag + armorvalue)
+	bool TakeArmor(int amount);                           // @0x83da4 — grant/remove kevlar (binary flag + armorvalue, 10 slots)
 
 	// TS powerup activation state machine (ts_player.cpp). UpdatePowerUpState runs
 	// each frame from PreThink; UsePowerUp is the `usepowerup` command handler.

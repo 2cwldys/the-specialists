@@ -258,17 +258,10 @@ static int TSSlotsUsed(const CTSGun *pGun)
 // inventory slots (CBasePlayer+0x548 init 0x51); every CARRIED weapon deducts its slotCost, and the
 // remaining capacity sets the base maxspeed = 210 + (120/81)*remaining → empty ~330, fully loaded ~210.
 // More/heavier guns = slower. Like the original, SetPlayerSpeed applies it on loadout events only
-// (pickup, drop, armor, flag, throws); our remaining count is derived from the owned-items set.
+// (pickup, drop, armor, flag, throws); the remaining count is TSPlayerFreeSlots.
 float GetSpeedBySlots(CBasePlayer *pPlayer)
 {
-	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	if (!pGun)
-		return 330.0f; // empty hands = 81 free slots → the original's `free > 80 → 330` branch (@0x66bd4)
-	int remaining = 81 - TSSlotsUsed(pGun);
-	if (pPlayer->m_flagStatus.active)
-		remaining -= 20; // carrying the CTF flag costs 20 slot-weight (CBasePlayer::TakeFlag -0x14)
-	if (remaining < 0) remaining = 0;
-	if (remaining > 81) remaining = 81;
+	const int remaining = TSPlayerFreeSlots(pPlayer);
 	// @0x66bd4: empty hands (free > 80) return a fixed 330; only a laden loadout ramps down.
 	// (The final round to int happens in SetPlayerSpeed → pfnSetClientMaxspeed.)
 	if (remaining > 80)
@@ -277,13 +270,17 @@ float GetSpeedBySlots(CBasePlayer *pPlayer)
 }
 
 // Remaining inventory-slot capacity (CBasePlayer+0x548, init 81): lighter loadout =
-// more free slots. Used by CTSStunt::CanDive* (ts_stunt.cpp) to gate dive height.
+// more free slots. The original keeps it as a counter that pickups, drops, the flag and kevlar move;
+// reTS derives it from the arsenal, the flag and kevlar. Read by the pickup gate, the throws, the
+// dives (CTSStunt::CanDive*), GetSpeedBySlots/GetAccelBySlots and the client's slot display.
 int TSPlayerFreeSlots(CBasePlayer *pPlayer)
 {
 	CTSGun *pGun = GetPlayerTSGun(pPlayer);
 	int remaining = pGun ? (81 - TSSlotsUsed(pGun)) : 81;
 	if (pPlayer->m_flagStatus.active)
 		remaining -= 20; // carrying the CTF flag costs 20 slot-weight (CBasePlayer::TakeFlag -0x14)
+	if (pPlayer->m_bHasKevlar)
+		remaining -= 10; // kevlar costs 10 (CBasePlayer::TakeArmor -10 / +10 @0x83da4)
 	if (remaining < 0) remaining = 0;
 	if (remaining > 81) remaining = 81;
 	return remaining;

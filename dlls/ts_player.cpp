@@ -911,7 +911,8 @@ CBaseEntity *CBasePlayer::ColdCockAttack(Vector vecSrc, Vector vecEnd, Vector ve
 }
 
 // @0x83a3c DropArmor — drop the player's armor as a CTSAmmoPack (armor-only) tossed in front of them,
-// then zero the armor. (Dead drop randomizes the toss direction.)
+// then take the kevlar off through TakeArmor(-1), which gives its 10 slots back and sets the speed.
+// (Dead drop randomizes the toss direction.) Nothing in the original calls it.
 void CBasePlayer::DropArmor()
 {
 	if (pev->armorvalue <= 0.0f)
@@ -924,8 +925,8 @@ void CBasePlayer::DropArmor()
 
 	int armor = (int)(pev->armorvalue + 0.5f);
 	CTSAmmoPack::CreateAmmoPack(pev, nullptr, armor, origin, g_vecZero);
-	pev->armorvalue = 0;
-	EMIT_SOUND(ENT(pev), CHAN_BODY, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
+	EMIT_SOUND(ENT(pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
+	TakeArmor(-1); // @0x83d8f
 }
 
 // @0x846f0 DropAmmo — drop the active gun's per-caliber reserve as a CTSAmmoPack (no-op if empty),

@@ -6658,3 +6658,24 @@ through SetAnimation (original calls Animate directly from PostThink/PM_Jump —
 - rets_api v2: GetWeaponOwned/SetWeaponOwned/GetWeaponClip/SetWeaponClip (s_weapon_status), used by reTSX for
   grenade/knife counts. Verified: amxxbench tsx_ammo + ts_speed tests, 12/12 on reTS (6 failed before) and on TS 3.0.
 - Left: TakeArmor's 10-slot kevlar cost is still not modelled in TSPlayerFreeSlots/GetSpeedBySlots.
+
+## 2026-10-07 — fix round rets2: kevlar's 10 slots, CTSGroundWeapon::GetWeapon details
+- Kevlar slots: TakeArmor (@0x83da4) charges 10 free slots (player+0x548) when kevlar goes on, refunds them when
+  it comes off, and refuses kevlar with fewer than 10 free (@0x83dfb: returns 0, no change, no speed update).
+  TSPlayerFreeSlots now subtracts 10 for m_bHasKevlar and GetSpeedBySlots reads TSPlayerFreeSlots, so the pickup
+  gate, throws, dives, GetAccelBySlots, TSSpace and rets_api GetFreeSlots all include it. TakeArmor returns bool.
+- TakeArmor callers (objdump, 6 PLT calls): AddItem (loadout kevlar: refused = no vest), PlayerAddPowerUp (powerup
+  used up anyway; reTS added armor directly, now calls TakeArmor), CTSAmmoPack::WaitTouch (pack armor zeroed
+  anyway, as before), CRecharge::Use (@0xb71ec: empties the charger and calls TakeArmor(100); reTS charged +1 per
+  tick), CItemBattery::MyTouch (battery used up anyway, as before), DropArmor (TakeArmor(-1) @0x83d8f; reTS zeroed
+  armorvalue and kept m_bHasKevlar; DropArmor has no caller in the original).
+- GetWeapon (@0x92328, disasm): PickUpWeapon gets the whole spawnflags (was & 0xF); the respawn schedule runs
+  before the extra clips; a wduration < 1 weapon gets no respawn think in modes 2/3; pev->message goes out by
+  TSHudMessageOne(0,0,0,8,30) (was HudText); the dead buy gate uses TSHudMessageOne(0,0,0,16,30), the 2/3 mode
+  test, base price + magazine price per extra clip, and charges after the pickup.
+- Verified: amxxbench plugins/tests/ts_pickups.test.sma (AMX Mod X tsx-ts3 worktree) 4/4 fail on the old build,
+  pass after; ts30/ts_pickups.test.sma 4/4 on TS 3.0; tsx_ammo + ts_speed still 12/12. amd64 + i386 build.
+- Not runtime-tested (unreachable from a plugin): the refund (DropArmor is dead), modes 2/3, the charger, whole
+  spawnflags (TakeWeapon clamps the new item's attach; only an akimbo combine's single keeps extra bits).
+- Also: CItemBattery::MyTouch needs the suit (pev->weapons sign test @0xbb788), now checked; PlayerAddPowerUp's
+  pickup sound is CHAN_ITEM (@0x87dd9), was CHAN_VOICE.
