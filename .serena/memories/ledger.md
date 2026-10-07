@@ -6707,3 +6707,22 @@ through SetAnimation (original calls Animate directly from PostThink/PM_Jump —
   Report: ~/Projects/amxxbench/docs/fixes/rets-powerup-report.md.
 - Still a deliberate deviation: slow-pause self rate 0.6 (ts_player.cpp UpdatePowerUpState); the ts30 test
   measures 0.8 on TS 3.0, which settles the "live-trace to pin it" note there.
+
+## 2026-10-07 — `kill` arms a one-second timer, as the original
+- ClientKill (@0x9cec8) only arms player+0x84c (the SDK's m_fNextSuicideTime slot, between m_afPhysicsFlags 0x848
+  and m_flTimeStepSound 0x850) to time + 1.0 (rodata 0xf6a14), unless pev->iuser1 is set or it is already armed
+  (> 0.001, rodata 0xf6a1c). No deadflag gate, no rate limit. The end of CBasePlayer::PreThink (@0x815b6) kills
+  once it is armed and below gpGlobals->time: disarm, health 0, Killed(pev, GIB_NEVER) through vtable +0x60
+  (attacker = the player's own pev, as the SDK's ClientKill). The game-over, spectator (iuser1), dead
+  (deadflag > 0 -> PlayerDeathThink) and train-release returns skip it. TSInit (@0x82ef3, called only from Spawn)
+  clears it. objdump finds no other reader or writer of 0x84c.
+- reTS: dlls/client.cpp ClientKill arms m_fNextSuicideTime; dlls/player.cpp PreThink tail carries it out;
+  dlls/ts_player.cpp TSInit clears it; dlls/player.h comment. amd64 and i386 build.
+- Verified with an amxxbench probe on reTS amd64 and TS 3.0: alive right after kill and at +0.5 s (second kill
+  does not re-arm), dead after 1.008 s (TS 3.0 1.002 s); a kill while spectating or dead does not kill after
+  the next spawn; a new kill right after a respawn lands a second later.
+- Tests that assumed the instant kill now wait for the death (Apollo-RP, the AMX Mod X fork, amxxbench docs).
+  Report: ~/Projects/amxxbench/docs/fixes/rets-kill-report.md.
+- Found, not changed: the `jointeam` dispatch (@0x9e4b0) passes atoi(argv1) - 1 (dec at 0x9e4f5) to
+  GetIndexedTeamName; reTS (client.cpp jointeam) passes atoi(argv1). On ts_lobby a plmenu "jointeam 1" leaves
+  the player alive on TS 3.0 but sends him to spectate at once on reTS.

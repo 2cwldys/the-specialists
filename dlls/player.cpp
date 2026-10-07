@@ -2425,6 +2425,16 @@ void CBasePlayer::PreThink()
 	{
 		pev->velocity = g_vecZero;
 	}
+
+	// @0x815b6: the suicide ClientKill armed (player+0x84c) falls due: health 0 and Killed with
+	// the player as the attacker. A spectator, a dead player and a train-release frame return
+	// above and never get here, so the timer waits for Spawn's TSInit to clear it.
+	if (m_fNextSuicideTime > 0.001f && m_fNextSuicideTime < gpGlobals->time)
+	{
+		m_fNextSuicideTime = 0;
+		pev->health = 0;
+		Killed(pev, GIB_NEVER);
+	}
 }
 /* Time based Damage works as follows: 
 	1) There are several types of timebased damage:

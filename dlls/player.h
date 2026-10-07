@@ -155,7 +155,7 @@ public:
 	int m_fNewAmmo;	   // True when a new item has been added
 
 	unsigned int m_afPhysicsFlags; // physics flags - set when 'normal' physics should be revisited or overriden
-	float m_fNextSuicideTime;	   // the time after which the player can next use the suicide command
+	float m_fNextSuicideTime;	   // TS (+0x84c): when a pending `kill` falls due, 0 if none (ClientKill arms it, PreThink kills)
 
 
 	// these are time-sensitive things that we keep track of

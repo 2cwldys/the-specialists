@@ -200,21 +200,19 @@ void ClientKill(edict_t* pEntity)
 
 	CBasePlayer* pl = (CBasePlayer*)CBasePlayer::Instance(pev);
 
-	// The original's ClientKill @0x9cec8 refuses while not in play (it also only ARMS a 1 s
-	// delayed-suicide timer rather than killing instantly — VERIFY the exact gate field
-	// (pev tail +0x244) + the delay consumer). A spectating/dead player cannot `kill`
-	// (round-7f: suicide from spectate fired game_playerdie/spawn).
-	if (pl->IsObserver() || pev->iuser1 != 0 || pev->deadflag != DEAD_NO)
+	// @0x9cec8: TS does not kill here. It arms a delayed suicide one second out in
+	// m_fNextSuicideTime (player+0x84c, the SDK member's slot, reused) and the end of
+	// CBasePlayer::PreThink (@0x815b6) carries it out. The only gate is pev->iuser1 (a spectator
+	// cannot `kill`); a pending suicide is not re-armed. No deadflag check and no rate limit
+	// after the kill: Spawn's TSInit clears the timer (@0x82ef3), and PreThink never reaches it
+	// for a dead player or a spectator.
+	if (pev->iuser1 != 0)
 		return;
 
-	if (pl->m_fNextSuicideTime > gpGlobals->time)
-		return; // prevent suiciding too ofter
+	if (pl->m_fNextSuicideTime > 0.001f)
+		return; // already pending
 
-	pl->m_fNextSuicideTime = gpGlobals->time + 1; // don't let them suicide for 5 seconds after suiciding
-
-	// have the player kill themself
-	pev->health = 0;
-	pl->Killed(pev, GIB_NEVER);
+	pl->m_fNextSuicideTime = gpGlobals->time + 1.0f;
 
 	//	pev->modelindex = g_ulModelIndexPlayer;
 	//	pev->frags -= 2;		// extra penalty

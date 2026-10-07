@@ -644,7 +644,7 @@ void CBasePlayer::TSInit()
 	pev->sequence = 0;
 	pev->frame = 0;
 	ResetSequenceInfo();
-	// player+0x84c = 0 (unnamed)
+	m_fNextSuicideTime = 0; // 0x84c — cancel a pending `kill` (@0x82ef3)
 }
 
 // @0x865d0 GetMeleeMultiplier — melee damage scales with the block-bar stamina: full (100) -> 1.0,
