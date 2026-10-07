@@ -1300,7 +1300,7 @@ void CBasePlayer::PlayerDeathThink()
 	pev->framerate = 0.0;
 
 	// TS: death IS the spectator state. Once the death animation finishes, the dead player enters the
-	// free-look spectate/buy phase (the same one used on join) — they respawn by pressing FIRE after
+	// spectate/buy phase (the same one used on join) — they respawn by pressing FIRE after
 	// the respawn gate, NOT automatically on a timer. The buy/config menu reopens so they can re-pick
 	// a loadout before pressing fire. (Replaces the stock button/forcerespawn-timer respawn + deathcam.)
 	if (pev->deadflag == DEAD_DEAD)
@@ -1323,7 +1323,7 @@ void CBasePlayer::PlayerDeathThink()
 				TSCreateDeadCorpse(this, 10.0f);
 			}
 			m_fInSpectateWait = true;
-			TSEnterSpectate();   // free-look observer + buy menu; fire-to-respawn via the respawn cmd
+			TSEnterSpectate();   // observer + buy menu; fire-to-respawn via the respawn cmd
 			pev->nextthink = -1; // hand off to PlayerPreThink (the death think is done)
 			return;
 		}
@@ -1489,12 +1489,15 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 
 	// Find a player to watch
 	m_flNextObserverInput = 0;
-	Observer_SetMode(m_iObserverLastMode);
+	// @0x8999d..0x899ba: the last mode StopObserver saved, or chase (OBS_CHASE_FREE) when there is
+	// none yet, so a joiner starts out chasing a player (Observer_SetMode falls back to roaming
+	// when there is nobody to chase).
+	Observer_SetMode(m_iObserverLastMode != 0 ? m_iObserverLastMode : OBS_CHASE_FREE);
 }
 
 //=========================================================
 // TS join/spectate spawn-gate (cont.65).
-// A joining (or just-respawned) player is held in free-look spectate until the
+// A joining (or just-respawned) player is held in spectate until the
 // respawn gate elapses and they press fire — mirrors the original StartObserver +
 // SetPlayerRespawnTime + "Press Fire To Play!" path. The buy/config menu opens on
 // entry. Called from CTSGameRules::InitHUD for a joiner, from PlayerDeathThink after a
@@ -1509,9 +1512,9 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 
 void CBasePlayer::TSEnterSpectate()
 {
-	StartObserver(pev->origin, pev->v_angle); // free-look observer at the spawn spot
-	m_iObserverLastMode = OBS_ROAMING;
-	Observer_SetMode(OBS_ROAMING); // freefly (no target)
+	// observer at the spawn spot, in the mode StartObserver picks (no forced mode: the original's
+	// InitHUD and PlayerDeathThink call StartObserver alone, @0x694c8 and @0x7ed49)
+	StartObserver(pev->origin, pev->v_angle);
 
 	ResetArmament(); // no weapons until they pick a loadout + press fire
 	m_fInSpectateWait = true;
@@ -1563,7 +1566,7 @@ void CBasePlayer::TSEnterSpectate()
 // region ~0x81458, and now lives inline in PlayerPreThink. Its 1 Hz ScoreInfo WAITING
 // reassert was the invented Y6 wire and is gone with it.)
 
-// Press-fire: leave free-look and enter play with the chosen loadout.
+// Press-fire: leave spectate and enter play with the chosen loadout.
 void CBasePlayer::StopObserver()
 {
 	m_fInSpectateWait = false;
@@ -1571,6 +1574,10 @@ void CBasePlayer::StopObserver()
 
 	// (fold-plan Y6: no ScoreInfo/playerclass here — the original StopObserver @0x89a14 sends
 	// none; the WAITING status clears via the award byte when TSInit resets m_iAward on Spawn.)
+
+	// @0x89a53..0x89a6f: an observer's mode is kept for his next StartObserver.
+	if (pev->iuser1 != 0 || pev->iuser2 != 0)
+		m_iObserverLastMode = pev->iuser1;
 
 	// leave observer mode
 	ClearBits(m_afPhysicsFlags, PFLAG_OBSERVER);
@@ -1915,7 +1922,8 @@ void CBasePlayer::UpdateStatusBar()
 
 void CBasePlayer::PreThink()
 {
-	UpdatePlayerState(); // @0x82a08 — refresh the networked pose state each frame
+	// (UpdatePlayerState and CheckForWires run near the end, past the spectator, dead and train
+	// returns, where the original calls them: @0x81416, @0x81450.)
 
 	// One-shot SrvSett re-broadcast (see m_flSrvSettResendTime in player.h): the InitHUD MSG_ONE
 	// catch-up IS dropped during the connect sequence — CONFIRMED cont.96 by a hardware watchpoint
@@ -1959,14 +1967,6 @@ void CBasePlayer::PreThink()
 		if (g_pGameRules && g_pGameRules->IsTeamplay())
 			((CHalfLifeTeamplay*)g_pGameRules)->ResendTeamRoster(this);
 #endif
-	}
-
-	// @0x81412 (right after UpdatePlayerState): on mode-3 (objective team) maps, refresh the
-	// nearby-bomb wire triple every 0.5 s (player+0x794 throttle) — the Wires HUD source.
-	if (TSGameRules && TSGameRules->m_iGameMode == 3 && m_flNextWiresCheck < gpGlobals->time)
-	{
-		m_flNextWiresCheck = gpGlobals->time + 0.5f;
-		CheckForWires();
 	}
 
 	// TS dynamic-accuracy recovery (RE PreThink @0x808cc): the spread accumulator decays back toward 0 each
@@ -2014,7 +2014,7 @@ void CBasePlayer::PreThink()
 			TSGameRules->CallCheckDeads();
 	}
 
-	// TS (cont.65): while held in free-look spectate, run the countdown + fire-to-play
+	// TS (cont.65): while held in spectate, run the countdown + fire-to-play
 	// check and skip the normal in-play think (no items/water/weapons yet).
 	// @ the pev->iuser1 != 0 block of CBasePlayer::PreThink @0x808cc, region ~0x81458
 	// (fold-plan G7 — was the invented helper TSSpectateThink; the original has no such
@@ -2408,6 +2408,18 @@ void CBasePlayer::PreThink()
 	if (!FBitSet(pev->flags, FL_ONGROUND))
 	{
 		m_flFallVelocity = -pev->velocity.z;
+	}
+
+	// @0x81416: refresh the networked pose state (TSState). Only a live player in play gets here,
+	// so a spectator or a dead player keeps the pose he had.
+	UpdatePlayerState();
+
+	// @0x8141b (right after UpdatePlayerState): on mode-3 (objective team) maps, refresh the
+	// nearby-bomb wire triple every 0.5 s (player+0x794 throttle) — the Wires HUD source.
+	if (TSGameRules && TSGameRules->m_iGameMode == 3 && m_flNextWiresCheck < gpGlobals->time)
+	{
+		m_flNextWiresCheck = gpGlobals->time + 0.5f;
+		CheckForWires();
 	}
 
 	// StudioFrameAdvance( );//!!!HACKHACK!!! Can't be hit by traceline when not animating?
@@ -4445,7 +4457,8 @@ void CBasePlayer::UpdateClientData()
 			if (TSGameRules)
 				TSGameRules->InitHUD(this);
 
-			m_iObserverLastMode = OBS_ROAMING;
+			// (no m_iObserverLastMode = OBS_ROAMING here, the stock line: the original writes
+			// player+0x76c only in StopObserver @0x89a6f, so the joiner's chase mode holds.)
 
 			if (g_pGameRules->IsMultiplayer())
 			{

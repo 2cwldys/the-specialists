@@ -6808,3 +6808,22 @@ them in order). Report: ~/Projects/amxxbench/docs/fixes/rets-deviations3-report.
   suite on reTS 440/441 (statscfg folder write, as before).
 - Found, not changed: TSEnterSpectate forces OBS_ROAMING (iuser1 3); the original's StartObserver uses
   m_iObserverLastMode or 2 (a TS 3.0 joiner has iuser1 2).
+
+## 2026-10-07 — three more places put back to the original (observer mode, round-clock catch-up, PreThink order)
+Each is a separate patch against 64d810b in ~/stignored/rets-deviations4/item{1..3}-*.patch (apply-all.sh applies
+them in order). Report: ~/Projects/amxxbench/docs/fixes/rets-deviations4-report.md.
+- 1 observer mode: StartObserver ends with Observer_SetMode(lastMode ? lastMode : 2) (@0x8999d); the only store to
+  player+0x76c is StopObserver saving iuser1 (@0x89a6f). reTS: StartObserver falls back to OBS_CHASE_FREE,
+  TSEnterSpectate no longer forces roaming, StopObserver saves iuser1, UCD's stock lastMode = OBS_ROAMING removed.
+  A joiner (and a dead player) chases a live player, as on TS 3.0.
+- 2 CTSGameRules::InitHUD: the round-clock catch-up has no g_teamplay gate (@0x6931f), so a last man standing
+  joiner gets RoundTime.
+- 3 PreThink: UpdatePlayerState and the mode-3 CheckForWires moved after the fall velocity (@0x81416, @0x81450), past
+  the spectator, dead and train returns.
+- Tests (AMX Mod X tsx-ts3 worktree): new ts_observer (5); 4 fail on 64d810b, all pass after and on TS 3.0 (DM and
+  teamplay). Builds amd64/i386 server+client. Full fork suite on reTS 445/446 (statscfg folder write, as before).
+- Found, not changed: the spectate block lacks the original's Observer_HandleButtons/Observer_Idle (@0x810c3);
+  Observer_SetMode/FindNextPlayer/Idle are stock, not the original's (no prints, team filter, fallbacks); InitHUD
+  message order and the clock's rounding (original truncates); RestartRound's player-count/mode gates and banner;
+  last man standing rounds never resolve on reTS (ResetRestartRound reads the unregistered "lms" cvar, CheckDeads
+  needs teamplay); PreThink's +0x7cc kick block is dead in the original.

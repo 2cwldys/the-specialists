@@ -124,7 +124,7 @@ public:
 	EHANDLE m_hObserverTarget;
 	float m_flNextObserverInput;
 	int m_iObserverWeapon;	 // weapon of current tracked target
-	int m_iObserverLastMode; // last used observer mode
+	int m_iObserverLastMode; // 0x76c — the mode StopObserver saved; StartObserver uses it (0: chase)
 	bool IsObserver() { return 0 != pev->iuser1; }
 
 	int random_seed; // See that is shared between client & server for shared weapons code
@@ -583,7 +583,7 @@ public:
 	int InSlow();
 
 	// TS join/spectate spawn-gate (cont.65, ts_player.cpp). A joining (or just-
-	// respawned) player is held in free-look spectate (StartObserver, OBS_ROAMING)
+	// respawned) player is held in spectate (StartObserver: his last mode, or chase at first)
 	// until the gate elapses and they press fire — only then do they enter play with
 	// their chosen loadout. Mirrors the original StartObserver/SetPlayerRespawnTime/
 	// "Press Fire To Play!" path. The buy/config menu (VGUIMenu) opens on entry.
@@ -596,7 +596,7 @@ public:
 	                                // PreThink expiry -> locked out (gate -1, award 1). V11: the
 	                                // countdown HUD message in PreThink's else-branch not yet transcribed
 	int m_iClientSpecSecs = -1;     // last Spectator countdown byte sent (resend on change)
-	void TSEnterSpectate();         // enter free-look spectate-wait (join, death, Spawn while waiting)
+	void TSEnterSpectate();         // enter the spectate-wait (join, death, Spawn while waiting)
 	void StopObserver();         // press-fire: leave spectate -> respawn into play
 	// (TSSpectateThink/TSTryRespawn/TSSendScoreInfo deleted — no original counterparts; their
 	// logic lives inline in PlayerPreThink / the ClientCommand "respawn" branch, and the WAITING

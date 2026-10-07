@@ -1044,8 +1044,9 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	// @0x69134 (fold-plan G3, decompile-exact — inv_C lines 163-177): catch the new client up on
 	// the round clock (the round-start broadcast only happens at arm-time). Gated on the timer
 	// being ARMED (m_flRoundEnd != 0) AND the round-timer flag (field_0x10); an EXPIRED clock
-	// sends a CLAMPED 0, it is not skipped. (The g_teamplay gate is ours; the original has none.)
-	if (g_teamplay && m_flRoundEnd != 0.0f && m_bRoundTimerEnabled)
+	// sends a CLAMPED 0, it is not skipped. No game-mode gate (@0x6931f..0x6933b test only the
+	// two fields), so a last man standing joiner, whose rules are not teamplay, gets the clock too.
+	if (m_flRoundEnd != 0.0f && m_bRoundTimerEnabled)
 	{
 		float left = m_flRoundEnd - gpGlobals->time;
 		if (left < 0)
