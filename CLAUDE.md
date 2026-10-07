@@ -281,8 +281,11 @@ confirm the gap closed.
   change; reTSX's offsets for reTS come from it.
 - **`dlls/rets_api.{h,cpp}`** export `ReTS_GetInterface(int version)`: a versioned struct of get/set
   functions for the player fields AMX Mod X's TSX module (reTSX) touches (cash, free slots, kevlar, slow
-  motion, powerups, award, melee bar, lunge, gun ammo reserve, each weapon's owned flag and clip). Not in the original; TSX uses it instead of
-  offsets whenever the game library exports it. AMX Mod X keeps an identical copy of `rets_api.h`
+  motion, bullet time, powerups, kung fu, superjump, award, melee bar, lunge, gun ammo reserve, each weapon's
+  owned flag and clip), plus the game's GetSpeedBySlots, SetPlayerSpeed and the ammo max carry. Not in the
+  original; TSX uses it instead of offsets whenever the game library exports it. Setting free slots stores
+  the difference to the derived count in `CBasePlayer::m_iFreeSlotsAdjust` (cleared in TSInit, where the
+  original resets its counter to 81). AMX Mod X keeps an identical copy of `rets_api.h`
   (`modules/ts/tsx/rets_api.h`); change both together and bump `RETS_INTERFACE_VERSION` on any change.
 - **`scripts/coverage/hamdata.py`** writes AMX Mod X's Ham Sandwich gamedata for reTS
   (`gamedata/common.games/virtual.games/ts/offsets-rets.txt`, selected by the `gamedll_export`

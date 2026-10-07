@@ -488,6 +488,10 @@ public:
 	struct s_armament_item { int type = 0; int count = 0; bool isItem = false; };
 	s_armament_item m_armament[32];   // 0x594 — pending weapon/item loadout (stride 0xc ×32)
 	bool m_bHasKevlar = false;        // 0x718 bit 0x10 — has bought kevlar (binary)
+	// NOT in the original: the free slots a plugin set (TSX ts_setuserslots, rets_api SetFreeSlots)
+	// minus the derived count, so TSPlayerFreeSlots reads what the original's 0x548 counter would.
+	// Cleared on spawn, where the original resets 0x548 to 81.
+	int m_iFreeSlotsAdjust = 0;
 
 	s_flag_status m_flagStatus;       // 0x7d0 — the carried CTF flag state (active byte gates HaveFlag)
 

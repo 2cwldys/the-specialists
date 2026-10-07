@@ -556,7 +556,9 @@ void CBasePlayer::TSInit()
 	// player+0x9e0 = -1 (unnamed transient; no reconstructed state)
 	pev->iuser4 = 0;
 	SetPlayerSpeed(330.0f);
-	// free-slot counter reset (the original's player+0x548 = 81; ours derives from the arsenal)
+	// free-slot counter reset (the original's player+0x548 = 81; ours derives from the arsenal, so
+	// only a plugin's adjustment is dropped)
+	m_iFreeSlotsAdjust = 0;
 	m_iClientTSSpace = -1; // 0x54c — force the first TSSpace send
 	// player+0x544 = -1 / +0x534 = 0 (unnamed transients)
 	m_flSpawnProtectTime = gpGlobals->time + 1.0f; // 0x71c — the SPAWN-PROTECTION deadline

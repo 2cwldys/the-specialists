@@ -150,9 +150,9 @@ void CTSPowerUp::SetupPowerUp(int type, int duration, float fallDelay, bool resp
 	}
 	else
 	{
-		// Explicit type — but never honour low-gravity (gated unused) / the 0x80
-		// slot as a forced type; re-roll those.
-		if (((char)type >= 0) && !(type & TS_PWUP_LOWGRAV))
+		// Explicit type — re-rolled when it is the 0x80 (armor) slot, or superjump while the
+		// map gives everyone superjump (@0x88047: rules+0x5885 and type & 0x100).
+		if (((char)type >= 0) && !(TSGameRules->m_bSrvSuperJump && (type & TS_PWUP_LOWGRAV)))
 			poweruptype = type;
 		else
 			poweruptype = TSGameRules->GetRandomPowerup(TS_PWUP_ALL);

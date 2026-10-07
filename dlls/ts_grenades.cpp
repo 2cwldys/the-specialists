@@ -433,12 +433,12 @@ CBaseEntity *TSThrowM61(entvars_t *pevOwner, const Vector &vecStart, const Vecto
 *  spawns the projectile (CreateKnife @0x6d9e4) at speed 1900 along v_forward. It is MOVETYPE_BOUNCE
 *  (Spawn @0x6db54). Breaking is done ONLY by the swept WaitThink (@0x6ea30); BounceTouch (@0x6decc)
 *  stabs players / sticks in worldspawn / bounces off everything else — never breaks. So break (pass
-*  through) and bounce are mutually exclusive. CTSKnife is a CTSPhysicObject; this is a clean modern
-*  projectile on the stock SDK (engine MOVETYPE_BOUNCE replaces the original's CTSPhysicObject physics).
+*  through) and bounce are mutually exclusive. CTSKnife is a CTSGrenade (a CTSPhysicObject): the engine
+*  bounces it (MOVETYPE_BOUNCE) and WaitThink ends in the slow-motion physics upkeep, as the original's.
 ***/
 #include "ts_gun.h"
 
-class CTSKnife : public CBaseEntity
+class CTSKnife : public CTSGrenade // the original's base (hierarchy.tsv)
 {
 public:
 	void Spawn() override;
@@ -477,6 +477,7 @@ void CTSKnife::Spawn()
 {
 	// RE CTSKnife::Spawn @0x6db54: the knife is a MOVETYPE_BOUNCE physics object with per-type gravity
 	// and friction 0.8 — the engine bounces it; breaking is done ONLY by the swept WaitThink (below).
+	CTSPhysicObject::Spawn(); // @0x6db6d — the slow-motion physics state
 	pev->movetype = MOVETYPE_BOUNCE;
 	pev->solid = SOLID_BBOX;
 	pev->gravity = Gravity();   // 0.75 knife / 0.3 sealknife / 0.85 katana
@@ -551,6 +552,7 @@ void CTSKnife::WaitThink()
 			}
 		}
 	}
+	CTSPhysicObject::WaitThink(); // @0x6ed41 — slow-motion physics upkeep (GoSlow sets fuser1)
 }
 
 // (KnifeHitPitch removed — an ad-hoc thrower-slow emulation invented before the TS 8-arg

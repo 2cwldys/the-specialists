@@ -2218,8 +2218,9 @@ void CBasePlayer::PreThink()
 	// runs the identical weapon-timer decrement → fire-rate prediction stays in sync. It scales
 	// movement (maxspeed), animation (pev->framerate) and the weapon-timer decrement (PostThink).
 	// RE scratchpad/SLOWMO_PRESENTATION_RE.md §B: ease = InterpolateSlowMotion, anim = max(fuser1,0.01).
-	if (pev->fuser1 == 0.0f)
-		pev->fuser1 = 1.0f; // entvars defaults to 0; the slow factor's neutral is 1.0
+	if (pev->fuser1 == 0.0f && m_flSlowMotionGo != 0.0f)
+		pev->fuser1 = 1.0f; // entvars defaults to 0; the slow factor's neutral is 1.0 (a GoSlow(0)
+		                    // target is a freeze, which the ease reaches exactly)
 	// ease CURRENT (fuser1) → TARGET (m_flSlowMotionGo) — the original's TS_shared.cpp helper.
 	InterpolateSlowMotion(gpGlobals->frametime, &pev->fuser1, m_flSlowMotionGo);
 	// Base move speed comes from the inventory-slot encumbrance (GetSpeedBySlots: more/heavier weapons →

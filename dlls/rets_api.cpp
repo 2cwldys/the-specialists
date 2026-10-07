@@ -9,6 +9,7 @@
 #include "cbase.h"
 #include "player.h"
 #include "ts_gun.h"
+#include "ts_weapon_info.h"
 #include "rets_api.h"
 
 static CBasePlayer *RetsPlayer(edict_t *pEdict)
@@ -49,6 +50,9 @@ RETS_PLAYER_FIELD(Award, int, m_iAward)                           // orig 0x74c 
 RETS_PLAYER_FIELD(MeleeBar, float, m_flMeleeBar)                  // orig 0x774
 RETS_PLAYER_FIELD(LungeTime, float, m_flWhiffLungeTime)           // orig 0x79c
 RETS_PLAYER_FIELD(LungeForce, float, m_flWhiffLungeForce)         // orig 0x7a0
+RETS_PLAYER_FIELD(SlowBullets, int, m_bSlowBullets)               // orig 0x175
+RETS_PLAYER_FIELD(KungFu, int, m_iKungFu)                         // orig 0x74e
+RETS_PLAYER_FIELD(LowGravity, int, m_bLowGravity)                 // orig 0x74f
 
 // orig 0x548 is a stored counter (TakeArmor adds/subtracts 10); reTS derives it from the arsenal,
 // the flag and kevlar
@@ -56,6 +60,37 @@ static int GetFreeSlots(edict_t *pEdict)
 {
 	CBasePlayer *pPlayer = RetsPlayer(pEdict);
 	return pPlayer ? TSPlayerFreeSlots(pPlayer) : 0;
+}
+
+// The original's ts_setuserslots writes the counter; later pickups and drops move it from there.
+// reTS keeps the difference to the derived count, which TSPlayerFreeSlots adds back.
+static void SetFreeSlots(edict_t *pEdict, int slots)
+{
+	CBasePlayer *pPlayer = RetsPlayer(pEdict);
+	if (!pPlayer)
+		return;
+	pPlayer->m_iFreeSlotsAdjust = 0;
+	pPlayer->m_iFreeSlotsAdjust = slots - TSPlayerFreeSlots(pPlayer);
+}
+
+static float RetsGetSpeedBySlots(edict_t *pEdict)
+{
+	CBasePlayer *pPlayer = RetsPlayer(pEdict);
+	return pPlayer ? GetSpeedBySlots(pPlayer) : 0;
+}
+
+static void RetsSetPlayerSpeed(edict_t *pEdict, float speed)
+{
+	CBasePlayer *pPlayer = RetsPlayer(pEdict);
+	if (pPlayer)
+		pPlayer->SetPlayerSpeed(speed);
+}
+
+static int GetAmmoMaxCarry(int caliber)
+{
+	if (caliber < 0 || caliber >= TS_NUM_CALIBERS)
+		return 0;
+	return get_ammo_info(caliber)->iMaxCarry;
 }
 
 // orig weapon_tsgun + 0xd4, int[16] per caliber
@@ -135,7 +170,7 @@ static rets_interface_t BuildInterface()
 	i.GetCash = GetCash;
 	i.SetCash = SetCash;
 	i.GetFreeSlots = GetFreeSlots;
-	i.SetFreeSlots = nullptr;
+	i.SetFreeSlots = SetFreeSlots;
 	i.GetKevlar = GetKevlar;
 	i.SetKevlar = SetKevlar;
 	i.GetSlowMotionGo = GetSlowMotionGo;
@@ -172,6 +207,15 @@ static rets_interface_t BuildInterface()
 	i.SetWeaponOwned = SetWeaponOwned;
 	i.GetWeaponClip = GetWeaponClip;
 	i.SetWeaponClip = SetWeaponClip;
+	i.GetSlowBullets = GetSlowBullets;
+	i.SetSlowBullets = SetSlowBullets;
+	i.GetKungFu = GetKungFu;
+	i.SetKungFu = SetKungFu;
+	i.GetLowGravity = GetLowGravity;
+	i.SetLowGravity = SetLowGravity;
+	i.GetSpeedBySlots = RetsGetSpeedBySlots;
+	i.SetPlayerSpeed = RetsSetPlayerSpeed;
+	i.GetAmmoMaxCarry = GetAmmoMaxCarry;
 	return i;
 }
 

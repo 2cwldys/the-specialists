@@ -283,7 +283,7 @@ int TSPlayerFreeSlots(CBasePlayer *pPlayer)
 		remaining -= 10; // kevlar costs 10 (CBasePlayer::TakeArmor -10 / +10 @0x83da4)
 	if (remaining < 0) remaining = 0;
 	if (remaining > 81) remaining = 81;
-	return remaining;
+	return remaining + pPlayer->m_iFreeSlotsAdjust; // a plugin's setting, as the counter would hold it
 }
 
 // @0x705e0 Reset — wipe the WHOLE TS arsenal + active state back to bare kung-fu. The original is a

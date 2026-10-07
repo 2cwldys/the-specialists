@@ -6679,3 +6679,15 @@ through SetAnimation (original calls Animate directly from PostThink/PM_Jump —
   spawnflags (TakeWeapon clamps the new item's attach; only an akimbo combine's single keeps extra bits).
 - Also: CItemBattery::MyTouch needs the suit (pev->weapons sign test @0xbb788), now checked; PlayerAddPowerUp's
   pickup sound is CHAN_ITEM (@0x87dd9), was CHAN_VOICE.
+
+## 2026-10-07 — rets_api v3 for reTSX; ammocount, superjump powerup, freeze, knife slow motion
+- rets_api v3: bullet time (0x175), kung fu (0x74e), superjump (0x74f), GetSpeedBySlots/SetPlayerSpeed, ammo
+  max carry, and a working SetFreeSlots (CBasePlayer::m_iFreeSlotsAdjust, not in the original, cleared in TSInit).
+- CTSGameRules::Think (@0x67323): a powerup not yet due skips only the spawn; the SrvSett tail (Set_ammo_count)
+  runs every frame. Before, a new ammocount waited for the next powerup spawn (up to 20 s).
+- CTSPowerUp::SetupPowerUp (@0x88047): an explicit superjump is re-rolled only in map superjump mode.
+- GoSlow(0) freezes as in the original: PreThink keeps fuser1 at 1.0 only while the target is not 0, and
+  PM_PlayerMove freezes below 0.1, 0 included (@0xf0928). Also in client.so; not run in a graphical client.
+- CTSKnife derives from CTSGrenade (hierarchy.tsv); Spawn/WaitThink run CTSPhysicObject's, so slow motion
+  slows thrown knives. hamdata output unchanged.
+- Verified by AMX Mod X tsx-ts3 cd6943c1/0e34a793 tests on reTS (tsx_player, tsx_ammo).

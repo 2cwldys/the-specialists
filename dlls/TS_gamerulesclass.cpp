@@ -715,21 +715,24 @@ void CTSGameRules::Think()
 
 	CheckVotes(); // tally the players' map/ff/teamplay votes (self-throttled to ~10s)
 
-	if (gpGlobals->time < m_flNextPowerupSpawn)
-		return;
-
-	// Only deathmatch maps get dynamic powerups. g_teamplay now resolves to the team-mode
-	// proxy (a ts_objective_manager present — see CTSGameRules::IsTeamMode), so the old
-	// explicit objective-manager scan is folded into it.
-	if (g_teamplay)
+	// @0x67323: a powerup not yet due skips only the spawn; the rest of Think (the SrvSett tail
+	// below, where a new ammocount reaches Set_ammo_count) runs every frame.
+	if (gpGlobals->time >= m_flNextPowerupSpawn)
 	{
-		m_flNextPowerupSpawn = gpGlobals->time + 20.0f;
-		return;
+		// Only deathmatch maps get dynamic powerups. g_teamplay now resolves to the team-mode
+		// proxy (a ts_objective_manager present — see CTSGameRules::IsTeamMode), so the old
+		// explicit objective-manager scan is folded into it.
+		if (g_teamplay)
+		{
+			m_flNextPowerupSpawn = gpGlobals->time + 20.0f;
+		}
+		else
+		{
+			int type = GetRandomPowerup(TS_PWUP_ALL);
+			bool spawned = type != 0 && PutPowerUp(type);
+			m_flNextPowerupSpawn = gpGlobals->time + (spawned ? 20.0f : 1.0f);
+		}
 	}
-
-	int type = GetRandomPowerup(TS_PWUP_ALL);
-	bool spawned = type != 0 && PutPowerUp(type);
-	m_flNextPowerupSpawn = gpGlobals->time + (spawned ? 20.0f : 1.0f);
 
 	// --- SrvSett on-change broadcasts (the tail of the original Think; star_SrvSett.md) ---
 	if (gmsgTSServerSetting != 0)
