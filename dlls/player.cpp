@@ -1399,9 +1399,8 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 {
 	// @0x89634 FIRST act (fold-plan cont94 #13, found gap — decompile inv_BC lines 36-42): flush
 	// the cash HUD (client cache +0x544 = cash +0x540 + a direct TSCash MSG_ONE) and clear the
-	// slow-motion state (iuser4 lock bits, fuser1/Go/Target back to 1.0). The original also
-	// zeroes the unnamed transient player+0x764 — not carried in our tree (VERIFY if a consumer
-	// surfaces).
+	// slow-motion state (iuser4 lock bits, fuser1/Go/Target back to 1.0), and zero Observer_Idle's
+	// clock (player+0x764, @0x8968d).
 	{
 		extern int gmsgTSCash; // ts_player.cpp global
 		m_iClientTSCash = m_iCash;
@@ -1413,6 +1412,7 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	pev->fuser1 = 1.0f;
 	m_flSlowMotionTarget = 1.0f;
 	m_flSlowMotionGo = 1.0f;
+	m_flNextObserverIdle = 0;
 
 	DropFlag(false); // CTF: entering spectate drops a carried flag (spawns a loose flag)
 
@@ -2084,6 +2084,10 @@ void CBasePlayer::PreThink()
 			m_iClientAward = 0xff;       // un-latch → UCD re-sends TSPAward(WAITING) once (0xff matches TSInit)
 		}
 		UpdateClientData();
+		// @0x810c3, @0x810cb: the block ends with the observer controls and the dead-target check,
+		// as the original's does.
+		Observer_HandleButtons();
+		Observer_Idle();
 		return;
 	}
 
@@ -2286,12 +2290,13 @@ void CBasePlayer::PreThink()
 
 	CheckSuitUpdate();
 
-	// Observer Button Handling
+	// Observer Button Handling: an observer outside the spectate wait (a jointeam while alive) runs
+	// the same two calls as the block above (@0x810c3, @0x810cb). The original has no
+	// Observer_CheckTarget or Observer_CheckProperties.
 	if (IsObserver())
 	{
 		Observer_HandleButtons();
-		Observer_CheckTarget();
-		Observer_CheckProperties();
+		Observer_Idle();
 		pev->impulse = 0;
 		return;
 	}

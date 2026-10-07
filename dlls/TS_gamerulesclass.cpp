@@ -226,53 +226,123 @@ void CTSGameRules::CallCheckDeads()
 		m_flCheckDeads = gpGlobals->time + 1.0f;
 }
 
-// @ CheckDeads — the team-round elimination resolver. Counts live players per team; if a
-// single team is left standing it wins the round, if nobody is alive it's a draw, and if two
-// or more teams still have survivors the round continues. No-ops outside team mode or while a
-// restart is already pending. Needs >=2 players spread over >=2 teams to resolve (so an empty
-// or one-sided warmup doesn't instantly "win").
+// @0x69c00 CheckDeads — resolves a round after a death (CallCheckDeads, one second later) or when
+// the clock runs out (Think). Nothing while a restart is pending or in plain teamplay (mode 1).
+// Last man standing (mode 0): one player left alive with someone else in the game is the Last Man
+// Standing (+10 frags, ScoreInfo, log line), alone he waits for others; either way the round
+// restarts in 3 s. With more alive, or none, the round goes on ("%d men standing!") until the clock
+// has run out ("Round over", restart in 3 s). Objective modes (2/3) count each team's players who
+// are alive or still in the round and declare the winner, or fire the manager's dead-team target.
 void CTSGameRules::CheckDeads()
 {
-	if (m_flRoundRestart != 0.0f || !g_teamplay)
+	m_flCheckDeads = 0;
+	if (m_flRoundRestart != 0.0f || m_iGameMode == 1)
 		return;
 
-	int alive[TS_MAX_TEAMS] = {};
-	int present[TS_MAX_TEAMS] = {};
-	int totalPlayers = 0;
-
-	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	if (m_iGameMode == 0 && g_lastManStanding != 0)
 	{
-		CBaseEntity *pEnt = UTIL_PlayerByIndex(i);
-		if (!pEnt || !pEnt->IsPlayer())
-			continue;
-		int team = GetTeamIndex(pEnt->TeamID());
-		if (team < 0)
-			continue;
-		present[team]++;
-		totalPlayers++;
-		if (pEnt->IsAlive()) // SLICE: the .so also counts a just-respawned grace window (+0x770)
-			alive[team]++;
+		int alive = 0, present = 0;
+		CBasePlayer *pLast = nullptr;
+		for (int i = 1; i <= gpGlobals->maxClients; i++)
+		{
+			CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
+			if (!p || !p->IsPlayer())
+				continue;
+			present++;
+			if (p->IsAlive())
+			{
+				alive++;
+				pLast = p;
+			}
+		}
+
+		if (alive == 1)
+		{
+			if (present < 2)
+			{
+				TSHudMessageAll(0, 0xff, 0, 8, 30, "Waiting for other players.");
+			}
+			else
+			{
+				TSHudMessageAll(0, 0xff, 0, 1, 30,
+					UTIL_VarArgs("%s is the Last Man Standing! %i frags", STRING(pLast->pev->netname), 10));
+				pLast->pev->frags += 10;
+				MESSAGE_BEGIN(MSG_ALL, gmsgScoreInfo);
+				WRITE_BYTE(ENTINDEX(pLast->edict()));
+				WRITE_SHORT((int)pLast->pev->frags);
+				WRITE_SHORT(pLast->m_iDeaths);
+				WRITE_SHORT(0);
+				WRITE_SHORT(g_pGameRules->GetTeamIndex(pLast->m_szTeamName) + 1);
+				MESSAGE_END();
+				UTIL_LogPrintf("Player \"%s\" triggered \"last_man_standing\"\n", STRING(pLast->pev->netname));
+			}
+			m_flRoundRestart = gpGlobals->time + 3.0f;
+			if (m_bRoundTimerEnabled)
+			{
+				MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
+				WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time));
+				WRITE_BYTE(2);
+				MESSAGE_END();
+			}
+		}
+		else if ((alive > 0 && gpGlobals->time <= m_flRoundEnd && present > 1) || !m_bRoundTimerEnabled)
+		{
+			TSHudMessageAll(0, 0xff, 0, 1, 30, UTIL_VarArgs("%d men standing!", alive));
+		}
+		else
+		{
+			TSHudMessageAll(0, 0xff, 0, 8, 30, "Round over");
+			m_flRoundRestart = gpGlobals->time + 3.0f;
+		}
+		return;
 	}
 
-	int teamsPresent = 0, teamsAlive = 0, lastAliveTeam = -1;
-	for (int t = 0; t < m_numTeams; t++)
+	if ((unsigned char)(m_iGameMode - 2) >= 2)
+		return;
+
+	int count[4] = {};
+	int total = 0;
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
 	{
-		if (present[t] > 0)
-			teamsPresent++;
-		if (alive[t] > 0)
+		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
+		if (!p || !p->IsPlayer())
+			continue;
+		if (!p->IsAlive() && p->m_flTSRespawnTime < 0.0f)
+			continue;
+		int team = GetTeamIndex(p->TeamID());
+		if (team >= 0)
 		{
-			teamsAlive++;
-			lastAliveTeam = t;
+			count[team]++;
+			total++;
 		}
 	}
 
-	if (totalPlayers < 2 || teamsPresent < 2)
-		return;                 // not enough of a contest to resolve
+	if (m_iGameMode == 3 && total > 0)
+	{
+		// objectives: a wiped team fires the manager's targetonspecdead / targetonmercdead
+		CTSObjectiveManager *m = m_pActiveManager;
+		if (count[1] < 1)
+		{
+			if (m)
+				FireTargets(STRING(m->m_targetMercDead), m, m, USE_TOGGLE, 0);
+		}
+		else if (count[0] < 1 && m)
+		{
+			FireTargets(STRING(m->m_targetSpecDead), m, m, USE_TOGGLE, 0);
+		}
+		return;
+	}
 
-	if (teamsAlive >= 2)
-		return;                 // round still contested
-
-	TeamWin(teamsAlive == 1 ? lastAliveTeam : 2); // one team left = winner; nobody = draw
+	int winner;
+	if (total < 1)
+		winner = 2; // nobody left: a draw
+	else if (count[1] < 1)
+		winner = 0;
+	else if (count[0] < 1)
+		winner = 1;
+	else
+		return;
+	TeamWin(winner);
 }
 
 // Re-spawn everyone + re-arm the objective entities for a fresh round.
@@ -338,62 +408,52 @@ void CTSGameRules::RespawnEntities(bool bFirst)
 // respawn the players, recount teams, then respawn the map entities.
 void CTSGameRules::RestartRound()
 {
-	if (CountPlayers() == 0) // nothing to restart on an empty server
-		return;
-
+	// No player-count or game-mode gate (@0x67920): the clock is armed on an empty server too. Think
+	// calls this only in last man standing and the objective modes 2/3 (@0x67204), so plain
+	// deathmatch and teamplay never get here.
 	m_flRoundRestart = 0; // disarm the pending restart (always)
-
-	// Round mechanics (clock + player respawn) apply ONLY to round-based modes (team / last-man). The
-	// deferred "first round" is armed UNCONDITIONALLY in Init() — before any map entity exists, so the mode
-	// can't be detected there (IsTeamMode keys off a ts_objective_manager entity). By the time this runs the
-	// entities exist, so gate here: in plain deathmatch there are no rounds, and respawning/teleporting every
-	// player 5s into the map (the old unconditional behaviour) was the "~5s teleport + redeploy" bug.
-	const bool roundBased = g_teamplay || g_lastManStanding != 0;
 
 	// (c) reset the objective subsystem — a no-op on a map with no objective entities (e.g. plain DM).
 	InitObjectives();
 	SetObjective();
 
-	if (roundBased)
+	// (a)+(b) @0x67920 (fold-plan G4, decompile-exact): arm the round timer INLINE — the
+	// `roundtime` cvar clamped [30,180]; the ARM is unconditional, only the clock BROADCAST
+	// is gated on the round-timer flag (field_0x10).
 	{
-		// (a)+(b) @0x67920 (fold-plan G4, decompile-exact): arm the round timer INLINE — the
-		// `roundtime` cvar clamped [30,180]; the ARM is unconditional, only the clock BROADCAST
-		// is gated on the round-timer flag (field_0x10).
-		{
-			float t = CVAR_GET_FLOAT("roundtime");
-			if (t < 30.0f) t = 30.0f;
-			if (t > 180.0f) t = 180.0f;
-			m_flRoundEnd = gpGlobals->time + t;
+		float t = CVAR_GET_FLOAT("roundtime");
+		if (t < 30.0f) t = 30.0f;
+		if (t > 180.0f) t = 180.0f;
+		m_flRoundEnd = gpGlobals->time + t;
 
-			if (m_bRoundTimerEnabled)
-			{
-				MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime); // "RoundTime" 2 — registered centrally in LinkUserMessages
-				WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
-				WRITE_BYTE(0);                                     // flag: 0 = round start/restart
-				MESSAGE_END();
-			}
+		if (m_bRoundTimerEnabled)
+		{
+			MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime); // "RoundTime" 2 — registered centrally in LinkUserMessages
+			WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time)); // seconds remaining
+			WRITE_BYTE(0);                                     // flag: 0 = round start/restart
+			MESSAGE_END();
 		}
+	}
 
-		// (d) team banner.
-		if (g_teamplay)
-			TSHudMessageAll(0, 0xff, 0, 8, 30, "Defeat the opposite team");
+	// (d) the banner, only in the team mode without objectives (@0x67a28: mode byte == 2).
+	if (m_iGameMode == 2)
+		TSHudMessageAll(0, 0xff, 0, 8, 30, "Defeat the opposite team");
 
-		// (e) respawn the players into the fresh round. SLICE: the original instead refunds the loadout's
-		// cash + forces each player back into the class-select observer state; we respawn directly.
-		for (int i = 1; i <= gpGlobals->maxClients; i++)
+	// (e) respawn the players into the fresh round. SLICE: the original instead refunds the loadout's
+	// cash + forces each player back into the class-select observer state; we respawn directly.
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
+		if (p)
 		{
-			CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
-			if (p)
-			{
-				p->DropFlag(true); // clear any carried flag (the briefcases re-seed fresh ones below)
-				// @0x67ae8/@0x67b1a: fresh round — hold re-armed +10, gate +3, award 11, the
-				// death counter cleared (the LMS respawn budget resets each round).
-				p->m_flRespawnHoldTime = gpGlobals->time + 10.0f;
-				p->m_flTSRespawnTime = gpGlobals->time + 3.0f;
-				p->m_iAward = 11;
-				p->m_iRespawnsUsed = 0; // @0x67b2e
-				respawn(p->pev, false);
-			}
+			p->DropFlag(true); // clear any carried flag (the briefcases re-seed fresh ones below)
+			// @0x67ae8/@0x67b1a: fresh round — hold re-armed +10, gate +3, award 11, the
+			// death counter cleared (the LMS respawn budget resets each round).
+			p->m_flRespawnHoldTime = gpGlobals->time + 10.0f;
+			p->m_flTSRespawnTime = gpGlobals->time + 3.0f;
+			p->m_iAward = 11;
+			p->m_iRespawnsUsed = 0; // @0x67b2e
+			respawn(p->pev, false);
 		}
 	}
 
@@ -402,11 +462,12 @@ void CTSGameRules::RestartRound()
 	RespawnEntities(true);
 }
 
-// @0x68750 ResetRestartRound — at round end (team/last-man only) arm a 1s restart + announce. With
-// depth > 1 it also wipes the per-team round scores/cash. Replaces the ad-hoc restart scheduling.
+// @0x68750 ResetRestartRound — in the objective modes (2/3) or last man standing (the
+// lastmanstanding cvar as the map started, g_lastManStanding) arm a 1s restart + announce;
+// otherwise nothing. With depth > 1 it also wipes the per-team round scores/cash.
 void CTSGameRules::ResetRestartRound(int depth)
 {
-	if (!g_teamplay && CVAR_GET_FLOAT("lms") == 0.0f)
+	if ((unsigned char)(m_iGameMode - 2) >= 2 && g_lastManStanding == 0)
 		return;
 	m_flRoundRestart = gpGlobals->time + 1.0f;
 	m_flRoundEnd = 0;
@@ -999,19 +1060,6 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	if (m_bWeaponParamsCustom)
 		InformClientsOnWeaponsParams(pPlayer);
 
-	// @0x69134: the joiner catches up on EVERY player's spectator state — MSG_ONE per
-	// connected player: (BYTE idx, BYTE iuser1 != 0).
-	for (int i = 1; i <= gpGlobals->maxClients; i++)
-	{
-		CBaseEntity *p = UTIL_PlayerByIndex(i);
-		if (!p)
-			continue;
-		MESSAGE_BEGIN(MSG_ONE, gmsgSpectator, NULL, pPlayer->edict());
-		WRITE_BYTE(i);
-		WRITE_BYTE(p->pev->iuser1 != 0 ? 1 : 0);
-		MESSAGE_END();
-	}
-
 	// SrvSett catch-up: the joiner gets all four settings (no late-joiner hole).
 	// item 3: byte-0 sends the THINK-CACHED value (+0x578), not a fresh cvar read (Init
 	// seeds it -1; Think refreshes on change) — dossier §2.4.
@@ -1052,8 +1100,21 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 		if (left < 0)
 			left = 0;
 		MESSAGE_BEGIN(MSG_ONE, gmsgTSRoundTime, NULL, pPlayer->edict());
-		WRITE_BYTE((int)(left + 0.5f));
+		WRITE_BYTE((int)left); // truncated (@0x69384..0x693a5: fistp in round-toward-zero)
 		WRITE_BYTE(0);
+		MESSAGE_END();
+	}
+
+	// @0x693c8: then the joiner catches up on EVERY player's spectator state — MSG_ONE per
+	// connected player: (BYTE idx, BYTE iuser1 != 0). After the round clock, as in the original.
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		CBaseEntity *p = UTIL_PlayerByIndex(i);
+		if (!p)
+			continue;
+		MESSAGE_BEGIN(MSG_ONE, gmsgSpectator, NULL, pPlayer->edict());
+		WRITE_BYTE(i);
+		WRITE_BYTE(p->pev->iuser1 != 0 ? 1 : 0);
 		MESSAGE_END();
 	}
 

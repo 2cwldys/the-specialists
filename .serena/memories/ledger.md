@@ -6827,3 +6827,33 @@ them in order). Report: ~/Projects/amxxbench/docs/fixes/rets-deviations4-report.
   message order and the clock's rounding (original truncates); RestartRound's player-count/mode gates and banner;
   last man standing rounds never resolve on reTS (ResetRestartRound reads the unregistered "lms" cvar, CheckDeads
   needs teamplay); PreThink's +0x7cc kick block is dead in the original.
+
+## 2026-10-07 — spectator controls, observer functions, last man standing rounds, InitHUD clock, RestartRound
+Each is a separate patch against 8918bb2 in ~/stignored/rets-deviations5/item{1..5}-*.patch (apply-all.sh applies
+them in order). Report: ~/Projects/amxxbench/docs/fixes/rets-deviations5-report.md.
+- 1 PreThink: the spectate-wait block and the stock IsObserver block end with Observer_HandleButtons +
+  Observer_Idle (@0x810c3, @0x810cb); Observer_CheckTarget/CheckProperties (absent in the original) are no longer
+  called, still defined.
+- 2 observer.cpp: FindNextPlayer (@0x89b0c) skips dead players, takes teammates only in modes 2/3 or LMS while the
+  spectator's respawn time is >= 0, always sets iuser2 and moves him, roams with nobody. SetMode (@0x89e44) prints
+  nothing, stores no last mode, roaming sets max speed 420. HandleButtons (@0x89d34) reads held buttons: jump
+  3->2->1->5->3, forward/back next/previous. Idle (@0x89ca4) has its own 0.5 s clock m_flNextObserverIdle (0x764,
+  zeroed in StartObserver) and also moves on when the target spectates.
+- 3 CheckDeads reconstructed (@0x69c00): returns in mode 1; LMS block (Last Man Standing +10 frags, ScoreInfo, log,
+  RoundTime flag 2, restart in 3 s; "%d men standing!"; "Round over"); modes 2/3 team block. ResetRestartRound's
+  gate is modes 2/3 or g_lastManStanding (@0x68763), not the unregistered "lms" cvar.
+- 4 InitHUD: the round clock goes out before the Spectator catch-up and is truncated.
+- 5 RestartRound: no player-count or game-mode gate; banner only in mode 2.
+- Tests (AMX Mod X tsx-ts3 worktree): ts_observer +4, new ts_rounds (4). TS 3.0 17/17 (DM and teamplay); reTS
+  8918bb2 10/17, after 16/17. The failing one, "last man standing ends the round", cannot run on reTS: nobody can
+  enter play in LMS (below); with that one line fixed in a verification build it passes (fails on 8918bb2 + the
+  same line). Full fork suite on reTS 451/454: statscfg folder write (as before), that LMS test, and the flaky
+  tsx_player "thrown knife" (fails 1 in 3 on 8918bb2 too).
+- Found, not changed: SetPlayerRespawnTime (TS_gamerules.cpp:168) and five more sites use
+  dynamic_cast<CTSGameRules *>(g_pGameRules), always null since CTSGameRules is standalone, so in LMS every
+  respawn gate is ~0 and the "respawn" command never lets anyone in; the same dead cast drops realbullet in
+  ShootBulletsPlayer, the superjump map global, the disconnect's CallCheckDeads/vote reset and team spawn points.
+  Also: RestartRound respawns where the original StartObservers + refunds; StartObserver resets the input clock and
+  StopObserver clears the target (the original does neither); the spectate block does not clear impulse;
+  CallCheckDeads does not re-arm; the restartround command is missing; banner colours; InitHUD's damage notice
+  needs cheats in the original; TS 3.0 runs a joiner's InitHUD catch-up three times.

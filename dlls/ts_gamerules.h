@@ -120,10 +120,9 @@ public:
 	int   m_teamScore[4] = {};    // per-team round wins
 	float m_flRoundRestart = 0;   // >0 = a restart is pending at this time (the .so's +0xc)
 
-	// @ CheckDeads / CallCheckDeads — the team-round elimination win condition. A player
-	// death schedules CheckDeads ~1s later (CallCheckDeads); it counts live players per team
-	// and, if only one team has survivors, declares that team the round winner via TeamWin
-	// (nobody alive = a draw; two+ teams alive = the round continues).
+	// @ CheckDeads / CallCheckDeads — the round's end condition. A player death schedules
+	// CheckDeads ~1s later (CallCheckDeads). Last man standing: one player left alive ends the
+	// round; objective modes (2/3): a wiped team loses. Plain teamplay (mode 1) has no rounds.
 	void  CheckDeads();
 	void  CallCheckDeads();
 	float m_flCheckDeads = 0;     // >0 = a deads-check is pending at this time (the .so's +0x5880)
@@ -142,7 +141,7 @@ public:
 	void Init();                       // @0x67d6c — map setup: InitTeams + InitObjectives/SetObjective + arm 1st round
 	void RestartRound();               // @0x67920 — the round reset (re-arm timer, objectives, respawn, RespawnEntities)
 	void RespawnEntities(bool bFirst); // @0x67764 — respawn the map's breakables/weapons/powerups/flags
-	void ResetRestartRound(int depth); // @0x68750 — arm a 1s restart at round end (depth>1 wipes team scores)
+	void ResetRestartRound(int depth); // @0x68750 — modes 2/3 or LMS: arm a 1s restart (depth>1 wipes team scores)
 	int  CountPlayers();               // @0x6a154 — number of connected players
 
 	// --- "The One" juggernaut mode (one buffed player; the killer inherits the role). ---

@@ -22,13 +22,15 @@
 #include "weapons.h"
 #include "pm_shared.h"
 #include "UserMessages.h"
+#include "gamerules.h"
+#include "ts_gamerules.h"
 
-// Find the next client in the game for this player to spectate
+// @0x89b0c Observer_FindNextPlayer — the next (or, reversed, the previous) client to watch: alive, in
+// play (iuser1 0) and drawn. In the objective modes (2/3) and in last man standing a spectator whose
+// respawn time is not below 0 (still in the round) watches only his teammates. The target is put in
+// iuser2 and the spectator moved to him in every mode; with nobody to watch he roams.
 void CBasePlayer::Observer_FindNextPlayer(bool bReverse)
 {
-	// MOD AUTHORS: Modify the logic of this function if you want to restrict the observer to watching
-	//				only a subset of the players. e.g. Make it check the target's team.
-
 	int iStart;
 	if (m_hObserverTarget)
 		iStart = ENTINDEX(m_hObserverTarget->edict());
@@ -53,88 +55,76 @@ void CBasePlayer::Observer_FindNextPlayer(bool bReverse)
 			continue;
 		if (pEnt == this)
 			continue;
-		// Don't spec observers or players who haven't picked a class yet
-		if (((CBasePlayer*)pEnt)->IsObserver() || (pEnt->pev->effects & EF_NODRAW) != 0)
+		if (pEnt->pev->iuser1 != 0 || (pEnt->pev->effects & EF_NODRAW) != 0)
 			continue;
-
-		// MOD AUTHORS: Add checks on target here.
+		if (!pEnt->IsAlive())
+			continue;
+		if (((TSGameRules && (unsigned char)(TSGameRules->m_iGameMode - 2) < 2) || g_lastManStanding != 0) &&
+			m_flTSRespawnTime >= 0.0f && g_pGameRules->PlayerRelationship(this, pEnt) != GR_TEAMMATE)
+			continue;
 
 		m_hObserverTarget = pEnt;
 		break;
 
 	} while (iCurrent != iStart);
 
-	// Did we find a target?
-	if (m_hObserverTarget)
+	if (!m_hObserverTarget)
 	{
-		// Move to the target
+		Observer_SetMode(OBS_ROAMING);
+	}
+	else
+	{
+		pev->iuser2 = ENTINDEX(m_hObserverTarget->edict());
 		UTIL_SetOrigin(pev, m_hObserverTarget->pev->origin);
-
-		// ALERT( at_console, "Now Tracking %s\n", STRING( m_hObserverTarget->pev->netname ) );
-
-		// Store the target in pev so the physics DLL can get to it
-		if (pev->iuser1 != OBS_ROAMING)
-			pev->iuser2 = ENTINDEX(m_hObserverTarget->edict());
 	}
 }
 
-// @0x89ca4 Observer_Idle — every 0.5s, if following a target that has died (or gone), auto-advance
-// to the next live player. (Chase-lock mode iuser1==3 doesn't auto-advance.)
+// @0x89ca4 Observer_Idle — on its own 0.5 s clock (m_flNextObserverIdle), a spectator who is not
+// roaming moves on when his target has died or is spectating himself.
 void CBasePlayer::Observer_Idle()
 {
-	if (m_flNextObserverInput > gpGlobals->time)
+	if (m_flNextObserverIdle > gpGlobals->time)
 		return;
-	m_flNextObserverInput = gpGlobals->time + 0.5f;
+	m_flNextObserverIdle = gpGlobals->time + 0.5f;
 
-	if (pev->iuser1 == 3)
+	if (pev->iuser1 == OBS_ROAMING)
 		return;
 	if (!m_hObserverTarget)
 		return;
-	if (!m_hObserverTarget->IsAlive()) // VERIFY: orig also advances on a target+0x244 dormant flag
+	if (!m_hObserverTarget->IsAlive() || m_hObserverTarget->pev->iuser1 != 0)
 		Observer_FindNextPlayer(false);
 }
 
-// Handle buttons in observer mode
+// @0x89d34 Observer_HandleButtons — read off the held buttons every 0.2 s: jump cycles the mode
+// (roaming -> chase -> locked chase -> map -> roaming), forward and back step to the next and the
+// previous player when not roaming.
 void CBasePlayer::Observer_HandleButtons()
 {
-	// Slow down mouse clicks
 	if (m_flNextObserverInput > gpGlobals->time)
 		return;
 
-	// Jump changes from modes: Chase to Roaming
-	if ((m_afButtonPressed & IN_JUMP) != 0)
+	if ((pev->button & IN_JUMP) != 0)
 	{
-		if (pev->iuser1 == OBS_CHASE_LOCKED)
+		if (pev->iuser1 == OBS_ROAMING)
 			Observer_SetMode(OBS_CHASE_FREE);
-
 		else if (pev->iuser1 == OBS_CHASE_FREE)
-			Observer_SetMode(OBS_IN_EYE);
-
-		else if (pev->iuser1 == OBS_IN_EYE)
-			Observer_SetMode(OBS_ROAMING);
-
-		else if (pev->iuser1 == OBS_ROAMING)
+			Observer_SetMode(OBS_CHASE_LOCKED);
+		else if (pev->iuser1 == OBS_CHASE_LOCKED)
 			Observer_SetMode(OBS_MAP_FREE);
-
-		else if (pev->iuser1 == OBS_MAP_FREE)
-			Observer_SetMode(OBS_MAP_CHASE);
-
 		else
-			Observer_SetMode(OBS_CHASE_FREE); // don't use OBS_CHASE_LOCKED anymore
+			Observer_SetMode(OBS_ROAMING);
 
 		m_flNextObserverInput = gpGlobals->time + 0.2;
 	}
 
-	// Attack moves to the next player
-	if ((m_afButtonPressed & IN_ATTACK) != 0) //&& pev->iuser1 != OBS_ROAMING )
+	if ((pev->button & IN_FORWARD) != 0 && pev->iuser1 != OBS_ROAMING)
 	{
 		Observer_FindNextPlayer(false);
 
 		m_flNextObserverInput = gpGlobals->time + 0.2;
 	}
 
-	// Attack2 moves to the prev player
-	if ((m_afButtonPressed & IN_ATTACK2) != 0) // && pev->iuser1 != OBS_ROAMING )
+	if ((pev->button & IN_BACK) != 0 && pev->iuser1 != OBS_ROAMING)
 	{
 		Observer_FindNextPlayer(true);
 
@@ -234,59 +224,38 @@ void CBasePlayer::Observer_CheckProperties()
 	}
 }
 
-// Attempt to change the observer mode
+// @0x89e44 Observer_SetMode — roaming clears the target and sets the client's max speed to 420; the
+// chase, locked chase and map modes need a target (found if there is none) and fall back to roaming
+// without one. Other modes change nothing past the view reset. Nothing is printed and the last mode
+// is not stored here (StopObserver keeps it).
 void CBasePlayer::Observer_SetMode(int iMode)
 {
-
 	// Just abort if we're changing to the mode we're already in
 	if (iMode == pev->iuser1)
 		return;
 
-	// is valid mode ?
-	if (iMode < OBS_CHASE_LOCKED || iMode > OBS_MAP_CHASE)
-		iMode = OBS_IN_EYE; // now it is
-	// verify observer target again
-	if (m_hObserverTarget != NULL)
+	pev->view_ofs = g_vecZero;
+	pev->viewmodel = 0;
+
+	if (iMode == OBS_ROAMING)
 	{
-		CBaseEntity* pEnt = m_hObserverTarget;
-
-		if ((pEnt == this) || (pEnt == NULL))
-			m_hObserverTarget = NULL;
-		else if (((CBasePlayer*)pEnt)->IsObserver() || (pEnt->pev->effects & EF_NODRAW) != 0)
-			m_hObserverTarget = NULL;
-	}
-
-	// set spectator mode
-	pev->iuser1 = iMode;
-
-	// if we are not roaming, we need a valid target to track
-	if ((iMode != OBS_ROAMING) && (m_hObserverTarget == NULL))
-	{
-		Observer_FindNextPlayer(false);
-
-		// if we didn't find a valid target switch to roaming
-		if (m_hObserverTarget == NULL)
-		{
-			ClientPrint(pev, HUD_PRINTCENTER, "#Spec_NoTarget");
-			pev->iuser1 = OBS_ROAMING;
-		}
-	}
-
-	// set target if not roaming
-	if (pev->iuser1 == OBS_ROAMING)
-	{
+		pev->iuser1 = OBS_ROAMING;
 		pev->iuser2 = 0;
+		g_engfuncs.pfnSetClientMaxspeed(edict(), 420.0f);
+		return;
 	}
-	else
-		pev->iuser2 = ENTINDEX(m_hObserverTarget->edict());
 
-	pev->iuser3 = 0; // clear second target from death cam
+	if (iMode != OBS_MAP_FREE && iMode != OBS_CHASE_LOCKED && iMode != OBS_CHASE_FREE)
+		return;
 
-	// print spepctaor mode on client screen
+	if (m_hObserverTarget == NULL)
+		Observer_FindNextPlayer(false);
+	if (m_hObserverTarget == NULL)
+	{
+		Observer_SetMode(OBS_ROAMING);
+		return;
+	}
 
-	char modemsg[16];
-	sprintf(modemsg, "#Spec_Mode%i", pev->iuser1);
-	ClientPrint(pev, HUD_PRINTCENTER, modemsg);
-
-	m_iObserverLastMode = iMode;
+	pev->iuser1 = iMode;
+	pev->iuser2 = ENTINDEX(m_hObserverTarget->edict());
 }

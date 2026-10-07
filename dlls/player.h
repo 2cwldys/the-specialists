@@ -116,13 +116,14 @@ class CBasePlayer : public CBaseMonster
 public:
 	// Spectator camera
 	void Observer_FindNextPlayer(bool bReverse);
-	void Observer_Idle();                                 // @0x89ca4 — auto-advance off a dead/gone target
+	void Observer_Idle();                                 // @0x89ca4 — move on from a dead or spectating target
 	void Observer_HandleButtons();
 	void Observer_SetMode(int iMode);
 	void Observer_CheckTarget();
 	void Observer_CheckProperties();
 	EHANDLE m_hObserverTarget;
-	float m_flNextObserverInput;
+	float m_flNextObserverInput;   // 0x760 — Observer_HandleButtons' 0.2 s clock
+	float m_flNextObserverIdle = 0; // 0x764 — Observer_Idle's own 0.5 s clock (StartObserver clears it)
 	int m_iObserverWeapon;	 // weapon of current tracked target
 	int m_iObserverLastMode; // 0x76c — the mode StopObserver saved; StartObserver uses it (0: chase)
 	bool IsObserver() { return 0 != pev->iuser1; }
