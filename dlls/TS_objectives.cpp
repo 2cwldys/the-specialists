@@ -611,7 +611,7 @@ void CTSBomb::Use(CBaseEntity *pActivator, CBaseEntity *, USE_TYPE, float)
 	if (!m_bActive || !pActivator || !pActivator->IsPlayer() || !pActivator->IsAlive())
 		return;
 	CBasePlayer *pPlayer = (CBasePlayer *)pActivator;
-	if (!CanInteract(pPlayer->pev->team))
+	if (!CanInteract(pPlayer)) // @0x7c9e5: the player overload (team from TeamID())
 		return;
 
 	// continuity: if USE lapsed >0.5s the hold restarts

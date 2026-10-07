@@ -590,12 +590,17 @@ void CHalfLifeMultiplay::PlayerSpawn(CBasePlayer* pPlayer)
 	}
 
 	// TS (cont.65): a player entering free-look spectate-wait gets NO weapons — they equip
-	// on fire-to-play (the next Spawn runs with m_fInSpectateWait clear).
+	// on fire-to-play (the next Spawn runs with m_fInSpectateWait clear). A joiner spawns without
+	// the flag and is equipped, as in the original; InitHUD's ResetArmament takes it back.
 	if (addDefault && !pPlayer->m_fInSpectateWait)
 	{
 		// Round restart respawns STILL-ALIVE players and Spawn does NOT strip items — clear
 		// first so the re-equip is clean (one tsgun; the old double fought over WStatus).
-		pPlayer->RemoveAllItems(false);
+		// Only when he still holds the arsenal: RemoveAllItems ends in UpdateClientData, which for
+		// a joiner would run his first-frame InitHUD (and send him to spectate) inside
+		// ClientPutInServer. The original's PlayerSpawn (@0x790ac) strips nothing.
+		if (GetPlayerTSGun(pPlayer))
+			pPlayer->RemoveAllItems(false);
 		pPlayer->GiveNamedItem("weapon_tsgun");
 		pPlayer->BuyArmament();
 		// force the arsenal active + deployed (auto-deploy skips kung-fu; a kung-fu-only

@@ -10,8 +10,8 @@
 *
 *  which returns NULL for any version but RETS_INTERFACE_VERSION. Any change to this struct bumps the
 *  version. An entry is NULL when reTS has no such state; the caller then refuses.
-*  Every function but GetAmmoMaxCarry takes the player's edict and does nothing (returns 0) for a
-*  non-player.
+*  Every function but GetAmmoMaxCarry and GetKnifeThrower takes the player's edict and does nothing
+*  (returns 0) for a non-player.
 *
 *  reTS (dlls/rets_api.h) and AMX Mod X (modules/ts/tsx/rets_api.h) keep identical copies. Change
 *  both together.
@@ -19,7 +19,7 @@
 #ifndef RETS_API_H
 #define RETS_API_H
 
-#define RETS_INTERFACE_VERSION 3
+#define RETS_INTERFACE_VERSION 4
 #define RETS_GETINTERFACE_NAME "ReTS_GetInterface"
 
 struct edict_s;
@@ -98,6 +98,11 @@ typedef struct rets_interface_s
 	// s_ammo_info[caliber].iMaxCarry, the most CTSGun::AddAmmo lets a caliber's reserve hold; it
 	// follows the ammocount cvar. 0 for a caliber out of range.
 	int (*GetAmmoMaxCarry)(int caliber);
+
+	// The player who threw a knife (classname "knife"), which the original keeps in the knife's
+	// private data (Linux pointer index 35) and not in pev->owner. NULL for anything else, or when
+	// nobody threw it.
+	struct edict_s *(*GetKnifeThrower)(struct edict_s *knife);
 } rets_interface_t;
 
 typedef const rets_interface_t *(*RETS_GETINTERFACE_FN)(int version);

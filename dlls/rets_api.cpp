@@ -10,6 +10,7 @@
 #include "player.h"
 #include "ts_gun.h"
 #include "ts_weapon_info.h"
+#include "ts_weapons.h" // TSKnifeThrower
 #include "rets_api.h"
 
 static CBasePlayer *RetsPlayer(edict_t *pEdict)
@@ -91,6 +92,14 @@ static int GetAmmoMaxCarry(int caliber)
 	if (caliber < 0 || caliber >= TS_NUM_CALIBERS)
 		return 0;
 	return get_ammo_info(caliber)->iMaxCarry;
+}
+
+// orig knife + 0x8c, the thrower's edict (CTSKnife::m_pThrower)
+static edict_t *GetKnifeThrower(edict_t *pEdict)
+{
+	if (FNullEnt(pEdict))
+		return nullptr;
+	return TSKnifeThrower(CBaseEntity::Instance(pEdict));
 }
 
 // orig weapon_tsgun + 0xd4, int[16] per caliber
@@ -216,6 +225,7 @@ static rets_interface_t BuildInterface()
 	i.GetSpeedBySlots = RetsGetSpeedBySlots;
 	i.SetPlayerSpeed = RetsSetPlayerSpeed;
 	i.GetAmmoMaxCarry = GetAmmoMaxCarry;
+	i.GetKnifeThrower = GetKnifeThrower;
 	return i;
 }
 

@@ -594,7 +594,7 @@ void CBasePlayer::TSInit()
 	pev->renderamt = 125.0f;
 	pev->rendermode = kRenderTransColor;
 	pev->rendercolor = Vector(0, 0, 0);
-	pev->renderfx = kRenderFxDistort; // 0xe
+	pev->renderfx = kRenderFxNoDissipation; // 0xe (@0x82b83)
 	UTIL_ScreenFade(this, Vector(200, 200, 250), 0.2f, m_flSpawnProtectTime - gpGlobals->time, 25, 0);
 	m_flUseDoubleTap = 0; // 0x164
 	// player+0x720 = 0 (unnamed)

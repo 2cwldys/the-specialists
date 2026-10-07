@@ -63,12 +63,15 @@ int gmsgTSWeaponStatus = 0;
 int gmsgTSActiveItems = 0; // per-player attach broadcast (laser/flashlight visible to all clients)
 // gmsgKFuPower moved to ts_player.cpp — sent ONLY from CBasePlayer::UpdateMeleeBar (extern via ts_player.h)
 
-// `damagemult` cvar (default 0.0 = off → 1x). A value > 0 scales all TS weapon damage.
+#ifdef CLIENT_DLL
+// `damagemult` cvar (default 0.0 = off → 1x) for the client's predicted bullets, whose damage is
+// never applied. On the server only ShootBulletsPlayer and UpdateBullet read it, cheat-gated.
 static float TSDamageMult()
 {
 	const float m = CVAR_GET_FLOAT("damagemult");
 	return (m > 0.0f) ? m : 1.0f;
 }
+#endif
 
 // The world slow the player PERCEIVES (drives sound pitch): their applied dilation pev->fuser1, or the
 // others-scale ramp while they're the slow-motion activator. 1.0 normal, ~0.35 slow-mo, ~0.225 slow-pause.
@@ -1861,8 +1864,10 @@ void CTSGun::ColdCock()
 	Vector vecEnd = vecSrc + gpGlobals->v_forward * 35.0f;
 
 #ifndef CLIENT_DLL
+	// No damagemult: the original reads it only for bullets (ShootBulletsPlayer @0x5fde0,
+	// UpdateBullet @0x5f256), cheat-gated.
 	CBaseEntity *pHit = m_pPlayer->ColdCockAttack(vecSrc, vecEnd, gpGlobals->v_forward,
-		3, dmg * TSDamageMult(), stunting ? -1 : 39 /*anim 39, none while stunting*/,
+		3, dmg, stunting ? -1 : 39 /*anim 39, none while stunting*/,
 		false, false, false, false);
 	if (pHit && pHit->IsPlayer())
 	{

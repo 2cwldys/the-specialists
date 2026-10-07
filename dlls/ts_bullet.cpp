@@ -28,6 +28,7 @@
 #include "ts_bullet.h"
 #include "ts_gun.h" // GetPlayerTSGun (the fire-time weapon-id capture)
 #include "ts_shared.h"   // GetBulletVelocityMult (the slow-motion bullet math, original TS_shared.cpp)
+#include "game.h"        // g_flWeaponCheat (sv_cheats as the map started)
 
 CBulletManager g_BulletManager; // the original embeds this in CTSGameRules (+0x1864); one instance.
 int glast_weaponid = -1; // @0x10100c (this TU, static-init -1 — V21 resolved from the .data image)
@@ -247,13 +248,23 @@ void CBulletManager::UpdateBulletTimeSlice(int slot)
 			const s_ammo_info *ai = get_ammo_info(b.caliber);
 			idx = (ai->iRangeUnit > 0) ? (int)(10.0f * (dist / (10.0f * (float)ai->iRangeUnit)) + 0.5f) : 0;
 		}
-		const float dmg = b.damage * get_range_multipler(idx);
+		float dmg = b.damage * get_range_multipler(idx);
+		// `damagemult` (@0x5f256): cheat-gated, as in ShootBulletsPlayer, and not for kind 2
+		// (that branch jumps past it, @0x5f1c9).
+		if (b.kind != 2)
+		{
+			const float dmgMult = CVAR_GET_FLOAT("damagemult");
+			if (dmgMult > 0.0f && g_flWeaponCheat != 0)
+				dmg *= dmgMult;
+		}
 		glast_weaponid = b.weaponId; // @0x5f2a4 — publish what fired, for the kill feed / scoring
 		ClearMultiDamage();
 		pHit->TraceAttack(owner->pev, dmg, b.dir, &tr, DMG_BULLET | DMG_NEVERGIB);
 		ApplyMultiDamage(owner->pev, owner->pev);
 		glast_weaponid = -1; // @0x5f311 — reset RIGHT after the damage window (PlayerKilled runs
 		                     // inside ApplyMultiDamage); leaving it armed misattributes later kills
+		if (g_flWeaponCheat != 0 && CVAR_GET_FLOAT("dmgreport") > 1.0f) // @0x5f317
+			UTIL_ClientPrintAll(HUD_PRINTTALK, UTIL_VarArgs("damage:%f\n", dmg));
 	}
 	char ric[20];
 	sprintf(ric, "debris/ric%d.wav", RANDOM_LONG(1, 5));

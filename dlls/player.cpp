@@ -1471,7 +1471,8 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	// Clear out the status bar
 	m_fInitHUD = true;
 
-	pev->team = 0; // @0x898d3 — the original zeroes entvars team here too
+	// (no pev->team write: the original never stores a player's entvars team — its only store of
+	// entvars+0x1ac is CWorld::KeyValue @0xe4ca2; @0x898d3 clears takedamage, done above.)
 	// @0x89922-0x8997a (disasm-verified this session): the original sends the player's REAL
 	// team name (TeamID()) — NOT "" — so a dead/spectating player KEEPS their scoreboard team.
 	// The stock hlu "" emptied it -> dead players flapped into the "Spectate" group (user bug).
@@ -1496,7 +1497,8 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 // A joining (or just-respawned) player is held in free-look spectate until the
 // respawn gate elapses and they press fire — mirrors the original StartObserver +
 // SetPlayerRespawnTime + "Press Fire To Play!" path. The buy/config menu opens on
-// entry. Called at the end of CBasePlayer::Spawn when m_fInSpectateWait is set.
+// entry. Called from CTSGameRules::InitHUD for a joiner, from PlayerDeathThink after a
+// death, and at the end of CBasePlayer::Spawn when m_fInSpectateWait is set.
 //=========================================================
 // (TSSendScoreInfo + the TS_SCORE_WAITING ScoreInfo-playerclass mechanism DELETED, fold-plan
 // Y6: the original has NO ScoreInfo helper — its ScoreInfo senders are all inline and write a
@@ -1967,16 +1969,6 @@ void CBasePlayer::PreThink()
 		CheckForWires();
 	}
 
-	// @0x81458 (TSInit's counterpart): once the spawn-protection deadline passes, drop the
-	// translucent shimmer TSInit applied.
-	if (m_flSpawnProtectTime < gpGlobals->time && pev->rendermode != kRenderNormal)
-	{
-		pev->rendermode = kRenderNormal;
-		pev->renderfx = kRenderFxNone;
-		pev->renderamt = 0;
-		pev->rendercolor = Vector(0, 0, 0);
-	}
-
 	// TS dynamic-accuracy recovery (RE PreThink @0x808cc): the spread accumulator decays back toward 0 each
 	// frame (scaled by the slow-mo factor, so it recovers in game-time during bullet-time), so accuracy
 	// returns when you stop spraying. Growth is in CTSGun::ScaleSpread on each shot.
@@ -1998,6 +1990,11 @@ void CBasePlayer::PreThink()
 
 	if (g_fGameOver)
 		return; // intermission or finale
+
+	// @0x80bb1: the powerup state and the slow-motion flow run for every player, before the
+	// spectator block below, as in the original: a spectator's powerup is dropped or ends there too.
+	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame (sets the slow triple)
+	SlowMotionFlow();     // TS: every 0.5s, slow self + LOS-visible enemies while a slow powerup is active
 
 	// @0x80fb3 — the LMS re-entry HOLD: armed by SetPlayerRespawnTime with min(roundLeft,10)s;
 	// letting it EXPIRE without re-entering locks you out for the round (gate -1, award 1 =
@@ -2064,10 +2061,10 @@ void CBasePlayer::PreThink()
 		// BEFORE our per-frame UCD call (the stock tail, ~line 2255) — so a spectate-waiting player never
 		// ran UCD: the client's slow TARGET was never reset (→ stuck slow-mo tint/sound/blur on join) AND
 		// the AWARD/WAITING byte was never sent (→ no "WAITING" on the scoreboard). Run UCD here so the
-		// spectator gets its TS HUD updates like the original. (VERIFY: for FULL parity the spectate
-		// handling should move AFTER UCD/UpdatePowerUpState/SlowMotionFlow like the original's iuser1
-		// block — spectators should also run SlowMotionFlow/UpdatePowerUpState; deferred — this closes
-		// the reported stuck-slow + missing-WAITING bug.)
+		// spectator gets its TS HUD updates like the original. (UpdatePowerUpState/SlowMotionFlow now
+		// run above for spectators too; VERIFY: for full parity the rest of the per-frame work before
+		// the original's iuser1 block — ItemPreFrame, WaterMove, the stunt and anim timers — would
+		// move ahead of this block as well.)
 		//
 		// Connect-window drop — ONE-SHOT post-active re-sync (cont.98). RE-CONFIRMED by a live server+client
 		// trace: the joiner's connect sequence (ClientPutInServer → Spawn → RemoveAllItems → UCD, all BEFORE
@@ -2089,9 +2086,6 @@ void CBasePlayer::PreThink()
 		UpdateClientData();
 		return;
 	}
-
-	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame (sets the slow triple)
-	SlowMotionFlow();     // TS: every 0.5s, slow self + LOS-visible enemies while a slow powerup is active
 
 	// TS melee-stamina regen (RE PreThink @0x808cc +0x4eb, dossier-melee addendum L1): the bar
 	// refills at 15/s in slow-scaled game time (x1.5 under the double-fire powerup), clamped 100.
@@ -2424,6 +2418,17 @@ void CBasePlayer::PreThink()
 	if ((m_afPhysicsFlags & PFLAG_ONBARNACLE) != 0)
 	{
 		pev->velocity = g_vecZero;
+	}
+
+	// @0x81458 (TSInit's counterpart): once the spawn-protection deadline passes, drop the
+	// translucent shimmer TSInit applied. Here, past the spectator, observer and dead returns, as
+	// in the original: a player in spectate keeps the shimmer until he spawns.
+	if (m_flSpawnProtectTime < gpGlobals->time && pev->rendermode != kRenderNormal)
+	{
+		pev->rendermode = kRenderNormal;
+		pev->renderfx = kRenderFxNone;
+		pev->renderamt = 0;
+		pev->rendercolor = Vector(0, 0, 0);
 	}
 
 	// @0x815b6: the suicide ClientKill armed (player+0x84c) falls due: health 0 and Killed with
@@ -3350,9 +3355,9 @@ void CBasePlayer::Spawn()
 
 	g_pGameRules->PlayerSpawn(this);
 
-	// TS (cont.65): hold a joining/respawning player in free-look spectate until they
-	// pick a loadout and press fire. The flag is set before Spawn (ClientPutInServer /
-	// the death path); StopObserver clears it before re-spawning into play.
+	// TS (cont.65): a Spawn while the player waits in spectate (a plugin's, say) keeps him
+	// there. StopObserver clears the flag before re-spawning into play; a joiner spawns
+	// without it and goes to spectate from CTSGameRules::InitHUD (@0x694c8).
 	if (m_fInSpectateWait)
 		TSEnterSpectate();
 }

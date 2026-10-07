@@ -6778,3 +6778,33 @@ them in order; item3 needs -C1 after item1). Report: ~/Projects/amxxbench/docs/f
   original's cheat-gated dmgreport/damagemult; reTS PreThink returns for a spectate-waiting player before
   UpdatePowerUpState/SlowMotionFlow (the original runs them); TSX's knife hit attribution reads knife+0x8c by
   pointer index 35, which is not reTS's layout on amd64.
+
+## 2026-10-07 — seven more places put back to the original (join, pev->team, shimmer, damage cvars, knife thrower)
+Each is a separate patch against f05c6e8 in ~/stignored/rets-deviations3/item{1..7}-*.patch (apply-all.sh applies
+them in order). Report: ~/Projects/amxxbench/docs/fixes/rets-deviations3-report.md.
+- 1 join: ClientPutInServer (@0x9cf44) is SetCustomDecalFrames, GiveCash(initial_cash), Spawn, EF_NOINTERP; the
+  joiner spectates from CTSGameRules::InitHUD's StartObserver (@0x694c8) on his first UpdateClientData, with
+  SetPlayerRespawnTime unconditional (@0x6956b). reTS: no spectate flag, cash zeroing or iuser reset in
+  ClientPutInServer; InitHUD ends with TSEnterSpectate (gate cleared first). MP::PlayerSpawn's RemoveAllItems shim
+  now runs only when the player holds the tsgun: RemoveAllItems ends in UpdateClientData, which ran a joiner's
+  InitHUD inside ClientPutInServer (the original's PlayerSpawn @0x790ac strips nothing).
+- 2 pev->team: never written by the original (only CWorld::KeyValue @0xe4ca2 stores entvars+0x1ac; @0x898d3 is
+  takedamage). StartObserver's and ChangePlayerTeam's writes removed; CTSBomb::Use and CTSTrigger::WaitTouch take
+  the team from TeamID() via CTSGameRules::GetTeamIndex, as CanInteract @0x7c344 and WaitTouch @0x60b5c do.
+- 3 shimmer: TSInit renderfx 14 (kRenderFxNoDissipation, @0x82b83); PreThink's clear moved past the spectator,
+  observer and dead returns (@0x81458), so a spectator keeps it.
+- 4 ColdCock: no damagemult (only ShootBulletsPlayer and UpdateBullet read it).
+- 5 UpdateBullet: cheat-gated damagemult except kind 2 (@0x5f256, @0x5f1c9) and dmgreport "damage:%f" (@0x5f317);
+  knife BounceTouch dmgreport "(debug)%f" with the stab damage (@0x6dffe); every dmgreport print is print talk (3),
+  ShootBulletsPlayer's were notify. The original never registers dmgreport (no GOT entry or reference to its
+  cvar_t); reTS registers it (ts_cvars.cpp), so these prints are reachable on reTS only. Not changed.
+- 6 PreThink: UpdatePowerUpState/SlowMotionFlow run before the spectate block (@0x80bb1), so a spectator's powerup
+  is re-dropped.
+- 7 rets_api v4 GetKnifeThrower (dlls/rets_api.{h,cpp}); TSX (tsx-ts3 worktree) uses it on reTS.
+- Tests (AMX Mod X tsx-ts3 worktree): new ts_join, ts_damage, ts_powerup_state +1; 8 of the new tests fail on
+  f05c6e8 (the knife-hit test was not run on the old TSX: index 35 reads past the 216-byte amd64 CTSKnife), all 12
+  pass after and on TS 3.0 (deathmatch; ts_join also in teamplay). Builds amd64/i386 server+client. Fork
+  stats_logging and plmenu's two team-menu tests assumed the old join and now hold on both games; full fork
+  suite on reTS 440/441 (statscfg folder write, as before).
+- Found, not changed: TSEnterSpectate forces OBS_ROAMING (iuser1 3); the original's StartObserver uses
+  m_iObserverLastMode or 2 (a TS 3.0 joiner has iuser1 2).

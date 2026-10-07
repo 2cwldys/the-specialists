@@ -83,7 +83,7 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 				pEntity->TraceAttack(pev, flDamageAmount, vecDirShooting, &tr,
 					DMG_BULLET | DMG_NEVERGIB);
 			if (g_flWeaponCheat != 0 && CVAR_GET_FLOAT("dmgreport") > 1.0f) // @0x5f9ad
-				UTIL_ClientPrintAll(HUD_PRINTNOTIFY,
+				UTIL_ClientPrintAll(HUD_PRINTTALK,
 					UTIL_VarArgs("damage(piercing):%f\n", flDamageAmount));
 		}
 		UTIL_BubbleTrail(vecSrc, tr.vecEndPos, (int)(4096.0f * tr.flFraction * 0.015625f + 0.5f));
@@ -125,7 +125,7 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 				{
 					pEntity->TraceAttack(pev, flDamageAmount * flDamageAdjust, vecDir, &tr, dmgFlags);
 					if (g_flWeaponCheat != 0 && CVAR_GET_FLOAT("dmgreport") > 1.0f) // @0x5fee2
-						UTIL_ClientPrintAll(HUD_PRINTNOTIFY,
+						UTIL_ClientPrintAll(HUD_PRINTTALK,
 							UTIL_VarArgs("damage:%f\n", flDamageAmount * flDamageAdjust));
 				}
 				// The pierce carry-over decays on ANY hit (flFraction != 1.0), UNCONDITIONALLY — RE

@@ -22,6 +22,7 @@
 #include "ts_physicobject.h"
 #include "ts_slowmotionpoint.h" // the spectacular-explosion slow bubble
 #include "ts_gamerules.h"       // DoSpectacularNess
+#include "game.h"               // g_flWeaponCheat (sv_cheats as the map started)
 
 //============================================================================
 // CTSPhysicObject (@0x7ba54) — slow-motion-aware physics base for CTSGrenade + CTSWorldGun.
@@ -472,7 +473,8 @@ public:
 	edict_t *m_pThrower = nullptr; // orig +0x8c — the thrower (CreateKnife @0x6da4f). The original keeps him
 	                             // here and never sets pev->owner: BounceTouch skips and credits him through
 	                             // it, AddToFullPack draws the knife with a glow shell for him alone, and
-	                             // TSX reads it (TSKNIFE_OFFSET 35). TSKnifeThrower is the bridge.
+	                             // TSX reads it (TSKNIFE_OFFSET 35 on the original, rets_api GetKnifeThrower
+	                             // on reTS). TSKnifeThrower is the bridge.
 };
 
 LINK_ENTITY_TO_CLASS(knife, CTSKnife); // orig classname "knife" (CTSWorldGun::ShouldCollide checks "knife")
@@ -585,6 +587,11 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 
 	const Vector flyDir = (speed > 0) ? pev->velocity * (1.0f / speed) : Vector(0, 0, 1);
 	TraceResult tr = UTIL_GetGlobalTrace();
+
+	// dmgreport (@0x6dffe): with cheats on (as the map started), every touch that gets this far
+	// prints the blade's stab damage to everyone, whatever it touched.
+	if (g_flWeaponCheat != 0 && CVAR_GET_FLOAT("dmgreport") > 1.0f)
+		UTIL_ClientPrintAll(HUD_PRINTTALK, UTIL_VarArgs("(debug)%f\n", StabDamage()));
 
 	m_iKatanaFlag = 0; // +0x91 — re-derived every touch
 

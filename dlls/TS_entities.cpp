@@ -82,7 +82,9 @@ void CTSTrigger::WaitTouch(CBaseEntity *pOther)
 		return;
 	if (!pOther->IsPlayer() || !pOther->IsAlive())
 		return;
-	if (!CanInteract(pOther->pev->team)) // attacker-team gate (-1 = any)
+	// attacker-team gate (-1 = any), inline in the original (@0x60b4c): the toucher's team index
+	// from TeamID()
+	if (!CanInteract(TSGameRules->GetTeamIndex(pOther->TeamID())))
 		return;
 	// SLICE: the "Flag Carrier Only" spawnflag (8) needs the CTF flag system (not built);
 	// here it's ignored (the trigger fires for anyone on the right team).

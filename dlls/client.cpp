@@ -236,34 +236,20 @@ void ClientPutInServer(edict_t* pEntity)
 	pPlayer = GetClassPtr((CBasePlayer*)pev);
 	pPlayer->SetCustomDecalFrames(-1); // Assume none;
 
-	// TS (cont.65): a fresh joiner does NOT drop straight into play. Set the spectate
-	// flag before Spawn so PlayerSpawn skips the loadout and Spawn ends by entering
-	// free-look spectate-wait (countdown + buy menu + "Press fire to play").
-	pPlayer->m_fInSpectateWait = true;
-	// cont.96 (live-gdb'd): m_flTSRespawnTime is stamped in MAP time, and gpGlobals->time RESETS
-	// on changelevel — a deadline from the previous map (e.g. 300s) vs the new clock (~1s) made
-	// the "respawn" gate (0 < deadline < time) refuse for minutes ("Press Fire To Play" dead,
-	// sticky, mostly after changelevel; TSEnterSpectate deliberately keeps a future deadline).
-	// Reconnect = a fresh map clock: clear it so TSEnterSpectate stamps a fresh one.
-	pPlayer->m_flTSRespawnTime = 0.0f;
-
-	// R1/Y9-2: initial_cash is given HERE in the original (ClientPutInServer @0xacf44,
-	// GiveCash) — NOT in PlayerSpawn. Once per connect; the old PlayerSpawn placement also
-	// re-seeded any player whose cash hit 0 mid-map (ours-only behavior, now gone).
-	pPlayer->m_iCash = 0;
+	// R1/Y9-2: initial_cash is given HERE in the original (ClientPutInServer @0x9cf44, GiveCash)
+	// — NOT in PlayerSpawn. Once per connect; the old PlayerSpawn placement also re-seeded any
+	// player whose cash hit 0 mid-map (ours-only behavior, now gone). The cash is not zeroed
+	// first: the engine frees a real client's private data when he connects. (The original reads
+	// the cvar's string with sscanf "%i".)
 	pPlayer->GiveCash((int)CVAR_GET_FLOAT("initial_cash"));
 
-	// Allocate a CBasePlayer for pev, and call spawn
+	// @0x9cf44: a plain Spawn — the joiner is a live player until his first UpdateClientData, where
+	// CTSGameRules::InitHUD sends him to spectate (StartObserver @0x694c8). No spectate flag here,
+	// and no iuser1/iuser2 reset (the stock SDK's) after it.
 	pPlayer->Spawn();
 
 	// Reset interpolation during first frame
 	pPlayer->pev->effects |= EF_NOINTERP;
-
-	if (!pPlayer->m_fInSpectateWait)
-	{
-		pPlayer->pev->iuser1 = 0; // disable any spec modes
-		pPlayer->pev->iuser2 = 0;
-	}
 }
 
 #include "voice_gamemgr.h"

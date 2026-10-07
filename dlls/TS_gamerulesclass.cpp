@@ -964,7 +964,7 @@ const char *CTSGameRules::GetIndexedTeamName(int teamIndex)
 // (AssignToTeam DELETED — R1 phase 3: the original assigns teams in the TS-patched
 // CHalfLifeTeamplay::SetDefaultPlayerTeam @0xd44ac / ChangePlayerTeam @0xd488c
 // (teamplay_gamerules.cpp); jointeam dispatches there @0x9e4b0. The pev->team stamp our
-// version carried rides ChangePlayerTeam as a tagged shim for the objectives gate.)
+// version carried is gone: the objectives gates read TeamID(), as the original's do.)
 
 // (CTSGameRules::PlayerSpawn DELETED — R1/Y9: the original CTSGameRules has NO PlayerSpawn;
 // the virtual is the TS-patched CHalfLifeMultiplay::PlayerSpawn @0x790ac (multiplay_gamerules.cpp,
@@ -1041,14 +1041,11 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	// the STOCK CHalfLifeTeamplay::InitHUD @0xd45d8, which runs on team maps now that Teamplay
 	// is installed as g_pGameRules. Dossier §2.3/§2.5.)
 
-	if (!g_teamplay)
-		return;
-
 	// @0x69134 (fold-plan G3, decompile-exact — inv_C lines 163-177): catch the new client up on
 	// the round clock (the round-start broadcast only happens at arm-time). Gated on the timer
 	// being ARMED (m_flRoundEnd != 0) AND the round-timer flag (field_0x10); an EXPIRED clock
-	// sends a CLAMPED 0, it is not skipped.
-	if (m_flRoundEnd != 0.0f && m_bRoundTimerEnabled)
+	// sends a CLAMPED 0, it is not skipped. (The g_teamplay gate is ours; the original has none.)
+	if (g_teamplay && m_flRoundEnd != 0.0f && m_bRoundTimerEnabled)
 	{
 		float left = m_flRoundEnd - gpGlobals->time;
 		if (left < 0)
@@ -1058,4 +1055,12 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 		WRITE_BYTE(0);
 		MESSAGE_END();
 	}
+
+	// @0x694c8: the joiner, alive since ClientPutInServer's Spawn, goes to spectate here, on his
+	// first UpdateClientData: StartObserver(origin, v_angle), then the respawn gate from respawntime
+	// (SetPlayerRespawnTime @0x6956b, unconditional — it overwrites the 5 s a team assignment just
+	// set) and ResetArmament (@0x6958d). TSEnterSpectate keeps a future gate, so clear it first;
+	// that also drops a deadline left from the previous map's clock (cont.96).
+	pPlayer->m_flTSRespawnTime = 0.0f;
+	pPlayer->TSEnterSpectate();
 }

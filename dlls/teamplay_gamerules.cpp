@@ -402,9 +402,9 @@ void CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeam
 		mdl = pPlayer->m_szTeamName;
 	g_engfuncs.pfnSetClientKeyValue(clientIndex, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "model", (char*)mdl);
 	g_engfuncs.pfnSetClientKeyValue(clientIndex, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "team", pPlayer->m_szTeamName);
-	// LOCAL SHIM (kept from the dissolved AssignToTeam): our objectives gate reads the 0-based
-	// pev->team (ts_objectives.cpp CanInteract). // VERIFY the original CanInteract's team source.
-	pPlayer->pev->team = g_pGameRules->GetTeamIndex(pPlayer->m_szTeamName);
+	// (no pev->team stamp: the original never writes a player's entvars team. The objectives
+	// gates resolve the team from TeamID() through CTSGameRules::GetTeamIndex, as the original
+	// CanInteract @0x7c344 and CTSTrigger::WaitTouch @0x60b5c do.)
 
 	RecountTeams();
 

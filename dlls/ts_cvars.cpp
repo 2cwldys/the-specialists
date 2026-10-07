@@ -73,6 +73,6 @@ void TSRegisterCvars()
 	CVAR_REGISTER(&respawnnumber);
 	CVAR_REGISTER(&customweapons);
 	CVAR_REGISTER(&banfortk);
-	CVAR_REGISTER(&dmgreport);
+	CVAR_REGISTER(&dmgreport); // USER-APPROVED IMPROVEMENT: the original never registers it, so its cheat-gated prints are unreachable there
 	CVAR_REGISTER(&botarmor);
 }
