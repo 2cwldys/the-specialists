@@ -60,8 +60,8 @@ class Elf:
             if len(p) >= 8 and re.match(r"^[0-9a-f]+:$", p[0]) and re.match(r"^[0-9a-f]{8,16}$", p[1]):
                 a, sz, typ, name = int(p[1], 16), int(p[2], 0), p[3], p[7]
                 self.syms.setdefault(name, (a, sz))
-                if typ == "FUNC" and a:
-                    self.funcs.setdefault(a, name)
+                if typ == "FUNC" and a and name not in self.funcs.setdefault(a, []):
+                    self.funcs[a].append(name)  # identical functions folded at -O2 share an address
         self.rel = {}
         for l in sh("readelf", "-rW", path).splitlines():
             p = l.split()
@@ -87,9 +87,10 @@ class Elf:
         return None
 
     def entry(self, a):
+        """Every name at the slot's target: folded functions give several."""
         r = self.rel.get(a)
         if r and r[0] == "sym":
-            return r[1]
+            return [r[1]]
         v = r[1] if r and r[0] == "addr" else self.word(a)
         return self.funcs.get(v) if v else None
 
@@ -110,19 +111,22 @@ def rets_vtables(path, classes):
         a, sz = e.syms[sym]
         ents = [e.entry(a + e.ptr * i) for i in range(2, sz // e.ptr)]
         raw[c] = ents
-    dm = demangle(sorted({x for v in raw.values() for x in v if x}))
+    dm = demangle(sorted({n for v in raw.values() for x in v if x for n in x}))
     out = {}
     for c, ents in raw.items():
         slots = []
         for x in ents:
-            if x is None or x.startswith("_ZTI"):
+            if x is None or x[0].startswith("_ZTI"):
                 break  # end of the primary vtable
-            if x == "__cxa_pure_virtual":
-                slots.append(("<pure>", ""))
+            if x[0] == "__cxa_pure_virtual":
+                slots.append([("<pure>", "")])
                 continue
-            d = dm.get(x, x)
-            m = re.match(r"^(.*?)::(~?\w+)\((.*)\)( const)?$", d)
-            slots.append((m.group(2), norm(m.group(3))) if m else (d, ""))
+            alts = []
+            for n in x:
+                d = dm.get(n, n)
+                m = re.match(r"^(.*?)::(~?\w+)\((.*)\)( const)?$", d)
+                alts.append((m.group(2), norm(m.group(3))) if m else (d, ""))
+            slots.append(alts)
         out[c] = slots
     return out
 
@@ -184,15 +188,22 @@ def main():
             errors.append(f"{key}: stock slot {slot} is {sig}, not the virtual the key names")
             continue
         name = ALIASES.get(name, name)
-        found = {}
+        cands = {}
         for arch, t in tables.items():
-            cands = [i for i, s in enumerate(t[cls]) if s[0] == name]
-            if len(cands) > 1:
-                cands = [i for i in cands if t[cls][i][1] == args]
-            if len(cands) != 1:
-                errors.append(f"{key}: {sig} -> {len(cands)} matches in reTS {cls} ({arch})")
+            c = [i for i, s in enumerate(t[cls]) if any(n == name for n, _ in s)]
+            if len(c) > 1:
+                c = [i for i in c if (name, args) in t[cls][i]]
+            cands[arch] = c
+        # A build that folded identical functions names several slots; one that did not settles it.
+        sure = {c[0] for c in cands.values() if len(c) == 1}
+        found = {}
+        for arch, c in cands.items():
+            if len(c) > 1 and len(sure) == 1 and next(iter(sure)) in c:
+                c = list(sure)
+            if len(c) != 1:
+                errors.append(f"{key}: {sig} -> {len(c)} matches in reTS {cls} ({arch})")
                 continue
-            found[arch] = cands[0]
+            found[arch] = c[0]
         if len(set(found.values())) > 1:
             errors.append(f"{key}: slot differs by arch {found}")
             continue
