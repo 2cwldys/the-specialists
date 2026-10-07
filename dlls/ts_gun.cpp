@@ -3052,6 +3052,21 @@ static CTSWorldGun *TSThrowWorldGun(CBasePlayer *pPlayer, CTSGun *pGun, int type
 	return pPlayer->ThrowWeapon(type, status, NULL, &lateral);
 }
 
+// A drop-key or disarm drop (DropWeapon type < 0) marks each gun it throws: the dropper, for whom
+// AddToFullPack draws it with a glow shell, and its lifetime, twice weaponstay clamped 10..120 s
+// (@0x84e76, @0x84f4a, @0x85200: time + 2 * weaponstay_time, >= 120 -> 120, <= 10 -> 10) in place of
+// the weaponstay clamped 5..60 s CTSWorldGun::Spawn gave it. A drop_<N> or death drop keeps Spawn's.
+static void TSMarkDropKeyGun(CTSWorldGun *pGun, CBasePlayer *pPlayer)
+{
+	float stay = 2.0f * CVAR_GET_FLOAT("weaponstay");
+	if (stay >= 120.0f)
+		stay = 120.0f;
+	else if (stay <= 10.0f)
+		stay = 10.0f;
+	pGun->m_flExpire = gpGlobals->time + stay;
+	pGun->m_pDropper = pPlayer->edict();
+}
+
 // @0x84900 CBasePlayer::DropWeapon(tsweapon_t type, float damage) — the ONE drop entry point (RE'd
 // merge of our previously-split DropWeapon()/DropWeapon(int,float); dossier cont87/weapon_drop.md):
 //   type <  0  -> the ACTIVE weapon   (-1 = the "drop" key; -2 = disarm, gated by melee pressure)
@@ -3125,13 +3140,13 @@ bool CBasePlayer::DropWeapon(int type, float flDamage)
 		const int single = wi->iSingleType;
 		const int total = pGun->m_items[a0].clip;
 		const int half = total / 2;
-		// a drop-key/disarm drop marks each half's dropper as it is thrown (@0x84ed9, @0x84fad)
+		// a drop-key/disarm drop marks each half as it is thrown (@0x84e76..0x84ed9, @0x84f4a..0x84fad)
 		pThrown = TSThrowWorldGun(pPlayer, pGun, single, half, 4.0f);
 		if (type < 0 && pThrown)
-			pThrown->m_pDropper = edict();
+			TSMarkDropKeyGun(pThrown, this);
 		pThrown = TSThrowWorldGun(pPlayer, pGun, single, total - half, -4.0f);
 		if (type < 0 && pThrown)
-			pThrown->m_pDropper = edict();
+			TSMarkDropKeyGun(pThrown, this);
 		pGun->DropWeapon(a0, fThrow);     // remove the akimbo (auto-selects next if it was active)
 		pGun->DropWeapon(single, fThrow); // and the base single, if it was also owned
 	}
@@ -3167,15 +3182,13 @@ bool CBasePlayer::DropWeapon(int type, float flDamage)
 		pGun->DropWeapon(a0, fThrow);
 	}
 
-	// A drop-key or disarm drop (type < 0) records the dropper on the last gun thrown, the flag
-	// excepted (@0x851ed..0x85265): AddToFullPack then sends that player alone the gun with a glow
-	// shell. A drop_<N> (type >= 0) or a death drop glows for nobody.
+	// A drop-key or disarm drop (type < 0) marks the last gun thrown, the flag excepted
+	// (@0x851ed..0x85265): its dropper alone sees it glow, and it lies twice weaponstay. A drop_<N>
+	// (type >= 0) or a death drop glows for nobody and lies weaponstay.
 	if (type < 0 && a0 != TSW_FLAG && pThrown)
-		pThrown->m_pDropper = edict();
+		TSMarkDropKeyGun(pThrown, this);
 
-	// Not reconstructed: the same type<0 tail (@0x85200) also sets the gun's lifetime (+0xc4) to
-	// time + clamp(2 * weaponstay, 10, 120). The grenade cooked-throw (GrenadeIdle) is also deferred —
-	// M61 drops via the stackable path above. TODO.
+	// The grenade cooked-throw (GrenadeIdle) is deferred — M61 drops via the stackable path above. TODO.
 	EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
 	SetPlayerSpeed(GetSpeedBySlots(pPlayer));
 	return true;

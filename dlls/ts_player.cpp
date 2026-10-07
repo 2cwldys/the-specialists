@@ -11,6 +11,7 @@
 #include "ts_utils.h"     // TSHudMessageOne/All
 #include "UserMessages.h" // gmsgSpectator (the (idx,flag) spectator-state broadcast)
 #include "ts_flag.h"      // CTSFlag::CreateFlag (CTF drop)
+#include "ts_powerup.h"   // CTSPowerUp::CreatePowerUp (UpdatePowerUpState's death re-drop)
 #include "ts_weapons.h"   // TSPlayerFreeSlots (slot-weight gate)
 #include "ts_gun.h"       // GetPlayerTSGun (block-bar for GetMeleeMultiplier)
 #include "ts_worldgun.h"  // CTSAmmoPack::CreateAmmoPack (DropArmor)
@@ -126,9 +127,7 @@ int KungFu(CBasePlayer *pPlayer)
 // time-dilation MOVEMENT, the SlowMotionFlow propagation to nearby players /
 // projectiles (@0x86bb0, 1758 bytes — populates the affected-entity arrays this
 // deactivate would otherwise walk), the per-entity SetSlowMotion virtual, and the
-// client-side motion-blur are the deeper layer (deferred). The death re-drop of an
-// in-use powerup (CreatePowerUp on the corpse, gated by objective game mode) is
-// also deferred (precache-window + game-mode dependency).
+// client-side motion-blur are the deeper layer (deferred).
 // ---------------------------------------------------------------------------
 
 // @ GoSlow__11CBasePlayerfc — apply a time-scale to this player (1 = normal speed).
@@ -139,6 +138,16 @@ void CBasePlayer::GoSlow(float scale, int slowBullets)
 	m_flSlowMotionGo = scale;
 	m_flSlowMotionTarget = scale;
 	m_bSlowBullets = slowBullets != 0;
+}
+
+// The slow-motion rate a player's dropped or thrown object starts with, which each factory hands to the
+// object's GoSlow (CTSWorldGun::CreateWeapon @0x90896, CTSKnife::CreateKnife @0x6daa3,
+// CM61Grenade::CreateGrenade @0x6c91b, CTSFlag::CreateFlag @0x8d902, the same inlined test in each):
+// while his own slow powerup runs, the rate he slows others to (m_flSlowMotionRamp, player+0x180);
+// otherwise his own rate (GiveSlowMul, fuser1 floored at 0.01).
+float TSThrowSlow(CBasePlayer *pPlayer)
+{
+	return (pPlayer->m_flSlowMotionRamp != 0.0f) ? pPlayer->m_flSlowMotionRamp : pPlayer->GiveSlowMul();
 }
 
 // @ InSlow__11CBasePlayer — is this player currently slowed?
@@ -275,8 +284,23 @@ bool CBasePlayer::UsePowerUp()
 	return true;
 }
 
-// @ UpdatePowerUpState__11CBasePlayer — per-frame (PreThink): apply the active
-// powerup's slow-motion fields, expire it when its time runs out.
+// A dead player's powerup goes back into the world where he lies (UpdatePowerUpState @0x858a5,
+// @0x85928): CreatePowerUp(type, -1) with his origin, unless the game mode is past 1 (rules+0, the
+// objective modes) or it is a slow motion of 2 s or less (m_flPowerupTime, the int at player+0x730).
+static void TSRedropPowerup(CBasePlayer *pPlayer, int type)
+{
+	if (TSGameRules && TSGameRules->m_iGameMode > 1)
+		return;
+	if ((type & TS_PWUP_SLOWMO) && pPlayer->m_flPowerupTime <= 2)
+		return;
+	CTSPowerUp *pDrop = CTSPowerUp::CreatePowerUp(type, -1);
+	if (pDrop)
+		pDrop->pev->origin = pPlayer->pev->origin;
+}
+
+// @ UpdatePowerUpState__11CBasePlayer (@0x85748) — per-frame (PreThink): apply the active
+// powerup's slow-motion fields or superjump gravity, end it when its time runs out or the player
+// dies, and give a dead player's powerup back to the world.
 void CBasePlayer::UpdatePowerUpState()
 {
 	if (m_iHeldPowerup == 0)
@@ -284,45 +308,51 @@ void CBasePlayer::UpdatePowerUpState()
 
 	if (m_iPowerups == 0)
 	{
-		// Held but not activated: wait (alive) — SLICE: re-drop on death deferred.
+		// Held but not activated: kept while alive; dropped where he dies (@0x858e4..0x85933).
 		if (IsAlive())
 			return;
+		TSRedropPowerup(this, m_iHeldPowerup);
 	}
 	else
 	{
-		if ((m_iPowerups & (TS_PWUP_SLOWMO | TS_PWUP_SLOWPAUSE)) == 0)
+		if (m_iPowerups & (TS_PWUP_SLOWMO | TS_PWUP_SLOWPAUSE))
 		{
-			// double-firerate (no slow-motion): nothing to apply here. (Super-jump/low-gravity is an
-			// INDEPENDENT powerup driven from PreThink — m_bLowGravity — not this held-slot machine.)
-		}
-		else if (m_flPowerupExpireTime < gpGlobals->time || !IsAlive())
-		{
-			DeactivateSlowMotionFlow();
-		}
-		else if ((m_iPowerups & TS_PWUP_SLOWPAUSE) == 0)
-		{
-			// slow-motion
-			if (m_iPowerups & TS_PWUP_SLOWMO)
+			if (m_flPowerupExpireTime < gpGlobals->time || !IsAlive())
 			{
+				DeactivateSlowMotionFlow();
+			}
+			else if (m_iPowerups & TS_PWUP_SLOWPAUSE)
+			{
+				// slow-pause (@0x857d0): the bullets go slower (m_bSlowBullets -> GetBulletVelocityMult's x10
+				// denominator), others are slowed to 0.225 and the player himself to 0.8, less than slow
+				// motion's 0.6, so he moves and fires faster than under slow motion. Measured 0.8 on TS 3.0
+				// (amxxbench tsx_player, ts30 copy).
+				m_bSlowBullets = 1;
+				m_flSlowMotionRamp = 0.225f;
+				m_flSlowMotionScale = 0.8f;
+			}
+			else if (m_iPowerups & TS_PWUP_SLOWMO)
+			{
+				// slow-motion (@0x857fc)
 				m_bSlowBullets = 0;
 				m_flSlowMotionRamp = 0.35f;
 				m_flSlowMotionScale = 0.6f;
 			}
 		}
-		else
+		else if (m_iPowerups & TS_PWUP_LOWGRAV)
 		{
-			// slow-pause (@0x857d0): the bullets go slower (m_bSlowBullets -> GetBulletVelocityMult's x10
-			// denominator), others are slowed to 0.225 and the player himself to 0.8, less than slow
-			// motion's 0.6, so he moves and fires faster than under slow motion. Measured 0.8 on TS 3.0
-			// (amxxbench tsx_player, ts30 copy).
-			m_bSlowBullets = 1;
-			m_flSlowMotionRamp = 0.225f;
-			m_flSlowMotionScale = 0.8f;
+			// a running superjump powerup (@0x85825): low gravity every frame. No pickup runs one (a
+			// picked-up superjump is the permanent m_bLowGravity); a plugin can.
+			pev->gravity = 0.15f;
 		}
 
 		if (gpGlobals->time <= m_flPowerupExpireTime && IsAlive())
 			return; // still active
-		// expired (or dead): SLICE re-drop deferred. (Low-gravity is independent — see PreThink.)
+		// expired, or he died with it running (@0x85861..0x858d7)
+		if (!IsAlive())
+			TSRedropPowerup(this, m_iPowerups);
+		if (m_iPowerups & TS_PWUP_LOWGRAV)
+			pev->gravity = 1.0f;
 	}
 
 	m_flPowerupExpireTime = 0;

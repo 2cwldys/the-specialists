@@ -35,6 +35,7 @@
 #include "ts_weapons.h"
 #include "teamplay_gamerules.h"
 #include "ts_gamerules.h" // TSGameRules->SetTeamList for the "mapteams" worldspawn key
+#include "game.h"         // g_flWeaponCheat
 
 CGlobalState gGlobalState;
 
@@ -499,6 +500,7 @@ void CWorld::Spawn()
 {
 	g_fGameOver = false;
 	Precache();
+	g_flWeaponCheat = CVAR_GET_FLOAT("sv_cheats"); // @0xe448f: the cheat gates read this until the next map
 }
 
 void CWorld::Precache()

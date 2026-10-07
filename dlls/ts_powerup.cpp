@@ -461,7 +461,7 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 }
 
 // @ ClientCommand `powerup <N>` (RE: ts_i386.so ClientCommand 0x9db8a..0x9dd42, jump table at
-// GOT-0xc8264) — the debug cheat that grants a powerup directly. The caller checks sv_cheats, the
+// GOT-0xc8264) — the debug cheat that grants a powerup directly. The caller checks g_flWeaponCheat, the
 // argument, that the player is alive and not observing. The original's table:
 //   1 slow-pause, 5 double fire rate, anything else slow motion: held for 5 s (5 more if the same
 //     type is already held), only while no powerup is running, with the TSPowerUp held message;

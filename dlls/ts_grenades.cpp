@@ -15,7 +15,7 @@
 #include "cbase.h"
 #include "monsters.h"
 #include "weapons.h"
-#include "player.h" // CBasePlayer::m_flSlowMotionGo (slow-mo propagation in CreateGrenade)
+#include "player.h"
 #include "ts_weapons.h"
 #include "ts_utils.h"   // RemoveEntityFromSlowedArray (the pre-remove scrub)
 #include "ts_player.h" // KungFu() — the thrown-katana pickup gate (CTSKnife::Use)
@@ -318,11 +318,11 @@ CM61Grenade *CM61Grenade::CreateGrenade(entvars_t *pevOwner, float fuse, const V
 	pGrenade->pev->velocity = velocity;
 	pGrenade->pev->owner = ENT(pevOwner);
 
-	// Carry the thrower's slow-motion factor onto the grenade (the original's GoSlow propagation; our
-	// slow-mo is per-entity via fuser1 rather than the original's slowed-entity array). VERIFY.
+	// @0x6c91b: the grenade takes the thrower's slow-motion rate (TSThrowSlow) through GoSlow, which
+	// stores it in fuser1.
 	CBaseEntity *pOwner = CBaseEntity::Instance(pevOwner);
 	if (pOwner && pOwner->IsPlayer())
-		pGrenade->pev->fuser1 = ((CBasePlayer *)pOwner)->m_flSlowMotionGo;
+		pGrenade->GoSlow(TSThrowSlow((CBasePlayer *)pOwner), 0);
 	return pGrenade;
 }
 
@@ -469,6 +469,10 @@ public:
 	                             // tail; Use refuses pickup while set
 	int m_iKatanaFlag = 0;       // orig +0x91 — re-derived EVERY touch: 1 iff a katana touched a non-player;
 	                             // Use gates a flagged blade on KungFu(player)
+	edict_t *m_pThrower = nullptr; // orig +0x8c — the thrower (CreateKnife @0x6da4f). The original keeps him
+	                             // here and never sets pev->owner: BounceTouch skips and credits him through
+	                             // it, AddToFullPack draws the knife with a glow shell for him alone, and
+	                             // TSX reads it (TSKNIFE_OFFSET 35). TSKnifeThrower is the bridge.
 };
 
 LINK_ENTITY_TO_CLASS(knife, CTSKnife); // orig classname "knife" (CTSWorldGun::ShouldCollide checks "knife")
@@ -570,8 +574,8 @@ void CTSKnife::WaitThink()
 void CTSKnife::BounceTouch(CBaseEntity *pOther)
 {
 	pev->nextthink = gpGlobals->time + 0.1f; // RE BounceTouch resets nextthink
-	if (!pOther || pOther->edict() == pev->owner)
-		return; // never collide with the thrower
+	if (!pOther || pOther->edict() == m_pThrower)
+		return; // never touch the thrower (orig @0x6df18: knife+0x8c)
 	if (pOther->pev->effects & EF_NODRAW)
 		return; // RE @0x6decc: ((char)effects < 0) → skip EF_NODRAW (triggers/invisible brushes)
 
@@ -592,7 +596,7 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 	// in bodies in TS). Attacker credit goes to the thrower.
 	if (pOther->pev->takedamage != DAMAGE_NO && pOther->IsPlayer())
 	{
-		entvars_t *pevOwner = pev->owner ? VARS(pev->owner) : pev;
+		entvars_t *pevOwner = m_pThrower ? VARS(m_pThrower) : pev; // orig @0x6e0b3: knife+0x8c
 		ClearMultiDamage();
 		pOther->TraceAttack(pevOwner, StabDamage(), flyDir, &tr, DMG_CLUB | DMG_NEVERGIB);
 		ApplyMultiDamage(pev, pevOwner);
@@ -662,10 +666,11 @@ void CTSKnife::BounceTouch(CBaseEntity *pOther)
 	pev->gravity = 0.75f;
 	m_flExpire = gpGlobals->time + 10.0f; // a settled knife lives ~10 s unless picked up
 
-	// The white PICKUPABLE glow shell on a settled blade — same live-original divergence as the
-	// dropped-gun glow (neither binary writes render fields in the knife code; the user's live
-	// game shows the shell = "you can pick this up"). The KATANA is the exception: NO shell
-	// (its recovery is KungFu-gated, the +0x91 flag — playtest-confirmed).
+	// The white PICKUPABLE glow shell on a settled blade — user-directed (ledger, playtest round 3),
+	// kept. The original writes no render fields in the knife code: the shell its players see is
+	// AddToFullPack's, a grey glow on a thrown knife for its thrower alone, in flight and settled
+	// (client.cpp, m_pThrower). The KATANA is the exception here: NO shell (its recovery is
+	// KungFu-gated, the +0x91 flag — playtest-confirmed).
 	if (m_knifeType != TSW_KATANA)
 	{
 		pev->renderamt = 5;
@@ -683,8 +688,11 @@ CTSKnife *CTSKnife::CreateKnife(CBasePlayer *pOwner, const Vector &vecStart, con
 	p->m_knifeType = (knifeType == 8) ? TSW_KATANA : (knifeType == 6) ? TSW_KNIFE : TSW_SEALKNIFE;
 	UTIL_SetOrigin(p->pev, vecStart);
 	p->pev->velocity = vecVel;
-	p->pev->owner = pOwner->edict();
+	// @0x6da4f: the thrower goes to knife+0x8c; pev->owner stays NULL (no write in CreateKnife, Spawn,
+	// KnifeFire or KatanaThrow), so the engine does not exempt the thrower from the knife's collisions.
+	p->m_pThrower = pOwner->edict();
 	p->Spawn();
+	p->GoSlow(TSThrowSlow(pOwner), 0); // @0x6daa3: the thrower's slow-motion rate (Spawn set fuser1 1.0)
 	return p;
 }
 
@@ -698,6 +706,15 @@ char *CTSKnife::GetDescription()
 	case TSW_KATANA:    return (char *)"Throwing Katana";
 	default:            return (char *)"";
 	}
+}
+
+// Header-visible bridge for AddToFullPack (CTSKnife lives in this TU): the thrower of a thrown blade
+// (knife+0x8c), or NULL for any other entity.
+edict_t *TSKnifeThrower(CBaseEntity *pEnt)
+{
+	if (pEnt && FClassnameIs(pEnt->pev, "knife"))
+		return ((CTSKnife *)pEnt)->m_pThrower;
+	return NULL;
 }
 
 // Header-visible bridge for TSGetPointsForFrag (CTSKnife lives in this TU): the thrown-blade

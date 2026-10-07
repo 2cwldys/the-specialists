@@ -14,6 +14,7 @@
 #include "ts_weapons.h"   // s_ammo_info / get_ammo_info / get_range_multipler
 #include "ts_bullet.h"    // g_BulletManager + UTIL_TraceLine_Expanded
 #include "ts_gamerules.h" // CTSGameRules::m_iSrvRealBullet (the realbullet cache, rules+0x578)
+#include "game.h"         // g_flWeaponCheat (sv_cheats as the map started)
 
 // @ ShootBulletsPlayer__11CBasePlayerUcG6VectorN22fiii (@0x5f69c, decompile-exact) — fire cShots
 // pellets with the TS spread/falloff/penetration model. Returns the LAST pellet's spread offsets
@@ -34,7 +35,7 @@
 // (-pi, pi], radius r in [0, ai->flMult (1.0)] shaped (1 - r^3) — center-weighted.
 //
 // Damage: range falloff idx = dist/iRangeUnit (the ammo's +0x20 column) through the LUT;
-// `damagemult` is a CHEAT-GATED global multiplier (applies only while sv_cheats is on —
+// `damagemult` is a CHEAT-GATED global multiplier (applies only while sv_cheats was on at map start —
 // @0x5fb04); the pierce carry-over decays by ai->flFactor2 (+0x18 — its consumer) and HALVES
 // through a player's body (IsPlayer, vtable slot 50). One ClearMultiDamage/ApplyMultiDamage
 // batch brackets the WHOLE volley (a shotgun blast is one damage event).
@@ -81,7 +82,7 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 			if (pEntity)
 				pEntity->TraceAttack(pev, flDamageAmount, vecDirShooting, &tr,
 					DMG_BULLET | DMG_NEVERGIB);
-			if (CVAR_GET_FLOAT("sv_cheats") != 0 && CVAR_GET_FLOAT("dmgreport") > 1.0f)
+			if (g_flWeaponCheat != 0 && CVAR_GET_FLOAT("dmgreport") > 1.0f) // @0x5f9ad
 				UTIL_ClientPrintAll(HUD_PRINTNOTIFY,
 					UTIL_VarArgs("damage(piercing):%f\n", flDamageAmount));
 		}
@@ -115,7 +116,7 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 				flDamageAmount = get_range_multipler(idx) * flDamage;
 				// `damagemult` — CHEAT-GATED global damage multiplier (@0x5fb04)
 				const float dmgMult = CVAR_GET_FLOAT("damagemult");
-				if (dmgMult > 0.0f && CVAR_GET_FLOAT("sv_cheats") != 0)
+				if (dmgMult > 0.0f && g_flWeaponCheat != 0) // @0x5fdf7
 					flDamageAdjust = dmgMult;
 				const int dmgFlags = (iMode == 1)
 					? (DMG_BULLET | DMG_NEVERGIB | (1 << 25)) // mode-1 bit (no shipping caller)
@@ -123,7 +124,7 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 				if (pEntity)
 				{
 					pEntity->TraceAttack(pev, flDamageAmount * flDamageAdjust, vecDir, &tr, dmgFlags);
-					if (CVAR_GET_FLOAT("sv_cheats") != 0 && CVAR_GET_FLOAT("dmgreport") > 1.0f)
+					if (g_flWeaponCheat != 0 && CVAR_GET_FLOAT("dmgreport") > 1.0f) // @0x5fee2
 						UTIL_ClientPrintAll(HUD_PRINTNOTIFY,
 							UTIL_VarArgs("damage:%f\n", flDamageAmount * flDamageAdjust));
 				}

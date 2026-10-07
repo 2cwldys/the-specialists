@@ -24,6 +24,7 @@
 #include "ts_utils.h"   // RemoveEntityFromSlowedArray (the pre-remove scrub)   // get_weapon_info, GiveTSWeapon
 #include "ts_physicobject.h"
 #include "ts_worldgun.h"
+#include "ts_player.h"       // TSThrowSlow (the dropper's slow-motion rate)
 #include "ts_gamerules.h"    // CTSGroundWeapon respawn rules
 #include "ts_groundweapon.h"
 #include "ts_groundammo.h"
@@ -57,8 +58,10 @@ CTSWorldGun *CTSWorldGun::CreateWeapon(CBasePlayer *owner, int type, const TSIte
 	}
 	else
 	{
+		// @0x90881..0x908e3: the dropper becomes pev->owner and the gun takes his slow-motion rate
+		// (GoSlow, vtable +0x14). No skin is set: the world model keeps skin 0.
 		pGun->pev->owner = owner->edict();
-		pGun->pev->skin = owner->pev->skin; // dropped model matches the dropper's gun skin
+		pGun->GoSlow(TSThrowSlow(owner), 0);
 	}
 
 	// The white glow shell, for the CTF flag (type 0x1d) only: both original binaries gate these
@@ -91,7 +94,8 @@ void CTSWorldGun::Spawn()
 	UTIL_SetSize(pev, g_vecZero, g_vecZero);
 	UTIL_SetOrigin(pev, pev->origin);
 
-	// Lifetime: throwables (0x1d) live 30s; everything else lives weaponstay (clamped 5..60s).
+	// Lifetime: throwables (0x1d) live 30s; everything else lives weaponstay (clamped 5..60s). A
+	// drop-key or disarm drop then doubles it (DropWeapon's TSMarkDropKeyGun, clamped 10..120s).
 	if (m_weaponType == 0x1d)
 		m_flExpire = gpGlobals->time + 30.0f;
 	else

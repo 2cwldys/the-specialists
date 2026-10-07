@@ -18,6 +18,7 @@
 #include "ts_weapons.h" // TSDeployArsenal (team-mode arsenal on team switch)
 #include "ts_weapon_info.h" // Set_ammo_count (the SrvSett id-2 pair)
 #include "UserMessages.h"
+#include "game.h"          // g_flWeaponCheat (sv_cheats as the map started)
 
 // Defined in ts_objectives.cpp — fire the objective manager's targetontimeleft on round timeout.
 void TSFireTimeLeftTarget();
@@ -986,7 +987,7 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	pPlayer->m_iRespawnsUsed = 0; // @0x694d1 — a joiner starts with a fresh respawn budget
 
 	// items 1-2 of the original @0x69134 (dossier §2.4) — the cheats/damage notices come FIRST.
-	if (CVAR_GET_FLOAT("sv_cheats") != 0.0f)
+	if (g_flWeaponCheat != 0.0f) // @0x69147: sv_cheats as the map started
 		TSHudMessageOne(0x2d, 0xc3, 0x2d, 8, 100, "This server has cheats enabled.", pPlayer->pev);
 	{
 		const float dm = CVAR_GET_FLOAT("damagemult");

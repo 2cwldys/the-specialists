@@ -18,6 +18,8 @@ bool InfiniteClips(CBasePlayer *pPlayer);  // @ 0x65fc8 — m_iPowerups & 2
 bool SlowPause(CBasePlayer *pPlayer);      // @ 0x65fb8 — m_iPowerups & 8
 bool DoubleFireRate(CBasePlayer *pPlayer); // @ 0x65fe4 — m_iPowerups & 0x10
 int  KungFu(CBasePlayer *pPlayer);         // @ 0x65fd8 — m_iKungFu
+// The slow-motion rate an object a player drops or throws starts with (inlined in each Create*).
+float TSThrowSlow(CBasePlayer *pPlayer);
 
 // Kill-flavor globals (original .data @0x104480/81/82) — melee/coldcock/headshot kill blow
 // markers driving the death-notice weapon string + #TS_Coldcock HUD broadcast. ts_player.cpp.

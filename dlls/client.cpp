@@ -588,21 +588,20 @@ void ClientCommand(edict_t* pEntity)
 	{
 		player->UsePowerUp();
 	}
-	else if (0 != g_psv_cheats->value && FStrEq(pcmd, "powerup") && CMD_ARGC() > 1)
+	else if (0 != g_flWeaponCheat && FStrEq(pcmd, "powerup") && CMD_ARGC() > 1)
 	{
-		// TS debug cheat `powerup <N>` (RE: ClientCommand @0x9dae4): only with cheats on (the
-		// original's g_flWeaponCheat) and an argument, else the command falls through to the ones
+		// TS debug cheat `powerup <N>` (RE: ClientCommand @0x9dae4): only with cheats on when the map
+		// started (g_flWeaponCheat) and an argument, else the command falls through to the ones
 		// below as an unknown one. Alive and not observing (pev->iuser1, @0x9db7d); the table is
 		// TSPowerupCheat's (1-5, anything else slow motion).
 		if (player->IsAlive() && 0 == player->pev->iuser1)
 			TSPowerupCheat(player, atoi(CMD_ARGV(1)));
 	}
-	else if (FStrEq(pcmd, "cashala")) // TS cheat: grant cash (gated by the weapon-cheat / sv_cheats)
+	else if (0 != g_flWeaponCheat && FStrEq(pcmd, "cashala")) // TS cheat: grant cash
 	{
-		// RE: ClientCommand @0x9dd5d — guarded by g_flWeaponCheat (the engine sv_cheats mirror),
-		// then GiveCash(player, 30000).
-		if (0 != g_psv_cheats->value)
-			player->GiveCash(30000);
+		// RE: ClientCommand @0x9dd48 — compared only with cheats on when the map started
+		// (g_flWeaponCheat), else it falls through to "Unknown command"; then GiveCash(player, 30000).
+		player->GiveCash(30000);
 	}
 	else if (!strncmp(pcmd, "weapon_", 7) && pcmd[7] >= '0' && pcmd[7] <= '9')
 	{
@@ -757,7 +756,7 @@ void ClientCommand(edict_t* pEntity)
 	// matches first. RE dossier cont94 §2.)
 	else if (FStrEq(pcmd, "fov"))
 	{
-		if (0 != g_psv_cheats->value && CMD_ARGC() > 1)
+		if (0 != g_flWeaponCheat && CMD_ARGC() > 1) // @0x9d8e7: sv_cheats as the map started
 		{
 			player->m_iFOV = atoi(CMD_ARGV(1));
 		}
@@ -1566,11 +1565,12 @@ int AddToFullPack(struct entity_state_s* state, int e, edict_t* ent, edict_t* ho
 	}
 
 	// TS (@0x9f4b8..0x9f5b6): a dropped gun is drawn with a glow shell for the player who dropped it
-	// (CTSWorldGun::m_pDropper, set by a drop-key or disarm drop) and drawn plainly for everyone else. That
-	// player gets renderamt 2, kRenderFxGlowShell and colour 100 100 100; rendermode stays 0 from the
-	// cleared state. The original does the same for a thrown knife and its thrower (knife +0x8c),
-	// which reTS does not record.
-	if (entity && FClassnameIs(&ent->v, "WorldGun") && static_cast<CTSWorldGun*>(entity)->m_pDropper == host)
+	// (CTSWorldGun::m_pDropper, set by a drop-key or disarm drop), and a thrown knife for its thrower
+	// (knife +0x8c, @0x9f52a..0x9f59a; TSKnifeThrower), and drawn plainly for everyone else. That player
+	// gets renderamt 2, kRenderFxGlowShell and colour 100 100 100 in place of the entity's own render
+	// fields; rendermode stays 0 from the cleared state.
+	if (entity && ((FClassnameIs(&ent->v, "WorldGun") && static_cast<CTSWorldGun*>(entity)->m_pDropper == host)
+		|| (FClassnameIs(&ent->v, "knife") && TSKnifeThrower(entity) == host)))
 	{
 		state->renderamt = 2;
 		state->renderfx = kRenderFxGlowShell;

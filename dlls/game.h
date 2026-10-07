@@ -50,3 +50,6 @@ inline cvar_t* g_psv_aim;
 inline cvar_t* g_psv_allow_autoaim;
 inline cvar_t* g_footsteps;
 inline cvar_t* g_psv_cheats;
+// sv_cheats as it was when the map started (CWorld::Spawn @0xe448f, the stock SDK's latch): every cheat
+// gate in the original reads this, not the live cvar, so a changed sv_cheats counts from the next map.
+inline float g_flWeaponCheat;

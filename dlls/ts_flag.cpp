@@ -22,6 +22,7 @@
 #include "ts_flag.h"
 #include "ts_briefcase.h"
 #include "ts_utils.h"        // TSHudMessageAll
+#include "ts_player.h"       // TSThrowSlow (the dropper's slow-motion rate)
 #include "UserMessages.h"    // gmsgScoreInfo
 
 #define FLAG_MODEL "models/briefcase.mdl"
@@ -60,17 +61,16 @@ CTSFlag *CTSFlag::CreateFlag(CBaseEntity *pOwner, s_flag_status *pStatus)
 
 	if (!pOwner)
 	{
-		// Base spawn from the briefcase: not in slow-motion, no thrower.
-		pFlag->pev->iuser1 = 0;
+		// Base spawn from the briefcase: not in slow-motion, no thrower (@0x8d954: pev->owner, fuser1).
+		pFlag->pev->owner = NULL;
 		pFlag->pev->fuser1 = 1.0f;
 	}
 	else
 	{
-		// Dropped by a player: inherit the thrower's slow-motion so a flag dropped in bullet-time
-		// flies slowed (CTSPhysicObject::WaitThink scales it). The caller (DropFlag) sets velocity.
+		// Dropped by a player: the flag takes his slow-motion rate (@0x8d902, TSThrowSlow, through
+		// GoSlow) so a flag dropped in bullet-time flies slowed. The caller (DropFlag) sets velocity.
 		pFlag->pev->owner = pOwner->edict();
-		float slow = ((CBasePlayer *)pOwner)->m_flSlowMotionGo;
-		pFlag->pev->fuser1 = (slow > 0.0f) ? slow : 1.0f;
+		pFlag->GoSlow(TSThrowSlow((CBasePlayer *)pOwner), 0);
 	}
 	return pFlag;
 }

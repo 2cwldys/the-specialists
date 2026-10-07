@@ -455,8 +455,8 @@ void CBasePlayer::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vec
 	AddMultiDamage(pevAttacker, this, flDamage, bitsDamageType);
 
 #ifndef CLIENT_DLL
-	// dmgreport (RE @0x80842): with cheats on and dmgreport set, log each hit.
-	if (CVAR_GET_FLOAT("sv_cheats") != 0 && CVAR_GET_FLOAT("dmgreport") != 0)
+	// dmgreport (RE @0x80842): with cheats on (as the map started) and dmgreport set, log each hit.
+	if (g_flWeaponCheat != 0 && CVAR_GET_FLOAT("dmgreport") != 0)
 		ALERT(at_console, "%s damaged %s (%f hp)\n", STRING(pevAttacker->netname), STRING(pev->netname), flDamage);
 #endif
 }
@@ -3919,7 +3919,7 @@ void CBasePlayer::ImpulseCommands()
 //=========================================================
 void CBasePlayer::CheatImpulseCommands(int iImpulse)
 {
-	if (0 == g_psv_cheats->value)
+	if (0 == g_flWeaponCheat) // @0xcba01: sv_cheats as the map started
 	{
 		return;
 	}

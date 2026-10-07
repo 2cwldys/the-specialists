@@ -6752,3 +6752,29 @@ or drop one by one. Report: ~/Projects/amxxbench/docs/fixes/rets-deviations-repo
 - 5 jointeam: g_pGameRules->GetIndexedTeamName(atoi - 1) then ChangePlayerTeam(pl, name, 0, 0), both virtual,
   no checks. The kill round's "alive on TS 3.0" came from the stock copies running deathmatch (game.cfg has
   //mp_teamplay 1) while the reTS copies run teamplay; in teamplay TS 3.0 also sends the player to spectate.
+
+## 2026-10-07 — five more places put back to the original (thrown knife, drop lifetime, slow on create, powerup state, cheat latch)
+Each is a separate patch against e4a1f85 in ~/stignored/rets-deviations2/item{1..5}-*.patch (apply-all.sh applies
+them in order; item3 needs -C1 after item1). Report: ~/Projects/amxxbench/docs/fixes/rets-deviations2-report.md.
+- 1 thrown knife: CreateKnife (@0x6da4f) keeps the thrower at knife+0x8c and never sets pev->owner; BounceTouch
+  skips and credits him through it (@0x6df18, @0x6e0b3); AddToFullPack (@0x9f52a..0x9f59a) draws the knife with
+  renderamt 2, glow shell, colour 100 for him alone. reTS: CTSKnife::m_pThrower, TSKnifeThrower bridge, the
+  AddToFullPack branch. The settled-blade pev glow (ledger playtest round 3, user-directed) is kept.
+- 2 drop lifetime: DropWeapon's type < 0 sites (@0x84e76, @0x84f4a, @0x85200) set gun+0xc4 = time +
+  clamp(2 * weaponstay, 10, 120) beside the dropper; reTS TSMarkDropKeyGun (dlls/ts_gun.cpp).
+- 3 create: CreateWeapon sets no skin and calls GoSlow (vtable +0x14) with owner+0x180 (m_flSlowMotionRamp) when
+  non-zero, else owner->GiveSlowMul(). The same inlined test is in CreateKnife, CreateGrenade and CreateFlag;
+  all four now use TSThrowSlow (dlls/ts_player.cpp). CreateFlag's no-owner branch clears pev->owner, not iuser1.
+- 4 powerup state: UpdatePowerUpState (@0x85748) sets gravity 0.15 each frame for a running 0x100 and 1.0 when it
+  ends; a dead player's running (@0x858a5) or held (@0x85928) powerup is CreatePowerUp'd at his origin unless
+  rules+0 > 1 or it is slow motion of 2 s or less. Only death re-drops; expiry while alive does not.
+- 5 cheats: g_flWeaponCheat = sv_cheats in CWorld::Spawn (@0xe448f), read by fov, powerup, cashala (compared only
+  when set, else "Unknown command"), CheatImpulseCommands, InitHUD's notice, dmgreport and damagemult. reTS
+  had halflife-updated's live g_psv_cheats reads; now the latch (dlls/game.h, world.cpp).
+- Tests (AMX Mod X tsx-ts3 worktree): ts_drop_glow (knife), ts_dropped, ts_powerup_state, ts_cheats; all 10 new
+  fail on the e4a1f85 build, pass with the patches and on TS 3.0. Builds amd64/i386 server+client.
+- Found, not changed: reTS ColdCock multiplies damage by damagemult without the cheat gate (the original reads
+  damagemult only in UpdateBullet and ShootBulletsPlayer); reTS's UpdateBullet and knife BounceTouch lack the
+  original's cheat-gated dmgreport/damagemult; reTS PreThink returns for a spectate-waiting player before
+  UpdatePowerUpState/SlowMotionFlow (the original runs them); TSX's knife hit attribution reads knife+0x8c by
+  pointer index 35, which is not reTS's layout on amd64.

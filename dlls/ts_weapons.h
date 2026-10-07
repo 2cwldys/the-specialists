@@ -22,6 +22,8 @@ class CBaseEntity;
 CBaseEntity *TSThrowKnife(CBasePlayer *pOwner, const Vector &vecStart, const Vector &vecVel, int knifeType);
 // The thrown blade's kill-feed name (CTSKnife::GetDescription bridge; "Throwing" fallback).
 const char *TSKnifeGetDescription(CBaseEntity *pEnt);
+// The thrower of a thrown blade (CTSKnife +0x8c), NULL for any other entity (AddToFullPack's glow).
+edict_t *TSKnifeThrower(CBaseEntity *pEnt);
 
 // Give a player a CTSGun configured for `type` (used by pickups / future buy menu).
 class CBaseEntity;
