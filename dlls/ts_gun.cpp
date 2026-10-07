@@ -2618,7 +2618,7 @@ void CTSGun::EmptySound()
 // blades (fire-types 3/10) route to the kung-fu BLOCK; the grenade (fire-type 2) refuses; a pump
 // (fire-type 1) runs the shell-by-shell ShotgunReload machine. Otherwise gate on reserve + not
 // mid-burst, pick the reload anim from the ACTIVE STANCE's anim block [1] (the SAWED-OFF with a
-// shell still chambered uses block [8] — the shell-retained variant), arm it via ReloadWeapon
+// shell still chambered computes block [8] and discards it), arm it via ReloadWeapon
 // (duration = the weapon's flReloadTime), and on success: idle +5.0, Unzoom, play
 // events/reload.sc (iparam1=type, iparam2=equipped attach, fparam1=0), 3rd-person TSA_RELOAD.
 void CTSGun::Reload()
@@ -2647,8 +2647,8 @@ void CTSGun::Reload()
 		return; // mid-burst: the queued rounds finish first (@0x84e18)
 
 	// The vestigial anim arg: the original computes the stance block's [1] — or the sawed-off
-	// shell-retained [8] — and passes it to ReloadWeapon, where it is DEAD (ReloadWeapon ignores
-	// the anim). See the reloadPhase improvement below for the block[8] surfacing.
+	// shell-retained [8] when a barrel is still loaded — and passes it to ReloadWeapon, where it is
+	// DEAD (ReloadWeapon ignores the anim; @0x74e1c..0x74e7d).
 	const int anim = (m_bHoldPosition && m_pActiveInfo->iHoldReloadAnim >= 0)
 		? m_pActiveInfo->iHoldReloadAnim : m_pActiveInfo->iReloadAnim;
 
@@ -2658,28 +2658,13 @@ void CTSGun::Reload()
 #ifndef CLIENT_DLL
 		Unzoom();
 #endif
-		// ★ USER-APPROVED IMPROVEMENT (intentional deviation from the original — NOT parity) ★
-		// The sawed-off double-barrel HAS a shell-retained reload animation (view-model block[8] =
-		// seq 9) that the ORIGINAL never plays: its Reload computes the block[8] index
-		// (m_weaponType==0x21 && clip>0) then discards it (ReloadWeapon ignores the anim arg; the
-		// event's fparam1 is always 0 -> block[1]). We surface it via the event phase: reloading
-		// with one shell still chambered (clip > 0) plays the ONE-shell reload (block[8]); both
-		// barrels fired (clip == 0) plays the normal TWO-shell reload (block[1]). Cosmetic
-		// LOCAL view-model only — reload timing/ammo/3rd-person unchanged. Drop-in-safe: the
-		// original client also maps event-phase -> block[phase], and an original server (fparam1=0)
-		// leaves our client on block[1] exactly as before. (Non-local brass/sound rides phase 0
-		// only, as in the original — unchanged here.)
-		// NB: use m_iClip (the LIVE loaded clip that fire decrements), NOT m_pActiveItem->clip —
-		// the latter is a slot-parked mirror only synced at deploy/holster, so it stays at 2 and
-		// the shell-retained anim would play even when both barrels are empty. In our reconstruction
-		// m_iClip == the original's m_pActiveItem->iClip (the live count).
-		const float reloadPhase =
-			(m_weaponType == TSW_SAWEDOFF && m_iClip > 0) ? 8.0f : 0.0f;
-
-		// events/reload.sc — EV_TSReload owns the presentation (view-model block[phase], the
-		// non-local generic_reload + brass/mag toss on phase 0).
+		// events/reload.sc (@0x74eeb) — EV_TSReload owns the presentation (view-model block[phase],
+		// the non-local generic_reload + brass/mag toss on phase 0). The original always sends phase 0,
+		// so the sawed-off plays its two-shell reload (block[1]) even with one barrel still loaded; its
+		// one-shell reload (block[8], v_sawedoff seq 9) is never played. The original client.dll
+		// (FUN_10042690) reads block[8] only for an event phase of 8, and no other client path picks it.
 		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usReload, 0.0, g_vecZero, g_vecZero,
-			reloadPhase, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
+			0.0, 0.0, m_weaponType, m_pActiveItem->attach, 0, 0);
 		m_pPlayer->m_TSAnim.Animate(m_pPlayer, TSA_RELOAD); // 0x33 — 3rd-person relo_<grip>
 	}
 }
@@ -3058,13 +3043,13 @@ CTSWorldGun *CBasePlayer::ThrowWeapon(int type, const TSItem &status, const Vect
 
 // Thin glue for DropWeapon's branches: build the dropped item's status (clip override), then route
 // through the real CBasePlayer::ThrowWeapon (velOffset.y carries the akimbo's ±lateral split).
-static void TSThrowWorldGun(CBasePlayer *pPlayer, CTSGun *pGun, int type, int clip, float side)
+static CTSWorldGun *TSThrowWorldGun(CBasePlayer *pPlayer, CTSGun *pGun, int type, int clip, float side)
 {
 	TSItem status = pGun->m_items[type]; // carry the dropped weapon's full state (mode/attach/barrels)
 	status.owned = true;
 	status.clip = clip;
 	Vector lateral(0, side, 0);
-	pPlayer->ThrowWeapon(type, status, NULL, &lateral);
+	return pPlayer->ThrowWeapon(type, status, NULL, &lateral);
 }
 
 // @0x84900 CBasePlayer::DropWeapon(tsweapon_t type, float damage) — the ONE drop entry point (RE'd
@@ -3132,6 +3117,7 @@ bool CBasePlayer::DropWeapon(int type, float flDamage)
 	// park the active weapon's live clip so m_items[a0].clip is current for ANY a0 (active or not)
 	pGun->SyncActiveToItem();
 	const bool wasActive = (a0 == pGun->m_weaponType);
+	CTSWorldGun *pThrown = NULL; // the last gun thrown (the original's edi)
 
 	// 1) combinable akimbo -> throw two base singles, remove both items.
 	if (wi->iFireType == TSFT_AKIMBO && wi->iSingleType >= 1 && wi->iSingleType < TSW_COUNT)
@@ -3139,8 +3125,13 @@ bool CBasePlayer::DropWeapon(int type, float flDamage)
 		const int single = wi->iSingleType;
 		const int total = pGun->m_items[a0].clip;
 		const int half = total / 2;
-		TSThrowWorldGun(pPlayer, pGun, single, half, 4.0f);
-		TSThrowWorldGun(pPlayer, pGun, single, total - half, -4.0f);
+		// a drop-key/disarm drop marks each half's dropper as it is thrown (@0x84ed9, @0x84fad)
+		pThrown = TSThrowWorldGun(pPlayer, pGun, single, half, 4.0f);
+		if (type < 0 && pThrown)
+			pThrown->m_pDropper = edict();
+		pThrown = TSThrowWorldGun(pPlayer, pGun, single, total - half, -4.0f);
+		if (type < 0 && pThrown)
+			pThrown->m_pDropper = edict();
 		pGun->DropWeapon(a0, fThrow);     // remove the akimbo (auto-selects next if it was active)
 		pGun->DropWeapon(single, fThrow); // and the base single, if it was also owned
 	}
@@ -3149,7 +3140,7 @@ bool CBasePlayer::DropWeapon(int type, float flDamage)
 	{
 		const int akimbo = wi->iAkimboType;
 		const int keptClip = pGun->m_items[akimbo].rightClip;
-		TSThrowWorldGun(pPlayer, pGun, a0, pGun->m_items[a0].clip, 0.0f);
+		pThrown = TSThrowWorldGun(pPlayer, pGun, a0, pGun->m_items[a0].clip, 0.0f);
 		pGun->m_items[a0].clip = keptClip;
 		pGun->DropWeapon(akimbo, false); // remove the akimbo item (a0 stays owned)
 		if (wasActive)
@@ -3159,7 +3150,7 @@ bool CBasePlayer::DropWeapon(int type, float flDamage)
 	else if (wi->iStackable)
 	{
 		const int throwN = (type == -2) ? 1 : pGun->m_items[a0].clip; // disarm throws one unit
-		TSThrowWorldGun(pPlayer, pGun, a0, throwN, 0.0f);
+		pThrown = TSThrowWorldGun(pPlayer, pGun, a0, throwN, 0.0f);
 		if (throwN < pGun->m_items[a0].clip)
 		{
 			pGun->m_items[a0].clip -= throwN; // units remain
@@ -3172,14 +3163,19 @@ bool CBasePlayer::DropWeapon(int type, float flDamage)
 	// 4) plain weapon -> throw one, remove it.
 	else
 	{
-		TSThrowWorldGun(pPlayer, pGun, a0, pGun->m_items[a0].clip, 0.0f);
+		pThrown = TSThrowWorldGun(pPlayer, pGun, a0, pGun->m_items[a0].clip, 0.0f);
 		pGun->DropWeapon(a0, fThrow);
 	}
 
-	// VERIFY (dossier §11): type<0 (drop key/disarm) should set a re-pickup delay + owner on the
-	// thrown gun; type>=0 (drop_<N>) leaves it instantly re-pickable. Not reconstructed (CTSWorldGun
-	// pickup-expire fields un-mapped). The grenade cooked-throw (GrenadeIdle) is also deferred — M61
-	// drops via the stackable path above. TODO.
+	// A drop-key or disarm drop (type < 0) records the dropper on the last gun thrown, the flag
+	// excepted (@0x851ed..0x85265): AddToFullPack then sends that player alone the gun with a glow
+	// shell. A drop_<N> (type >= 0) or a death drop glows for nobody.
+	if (type < 0 && a0 != TSW_FLAG && pThrown)
+		pThrown->m_pDropper = edict();
+
+	// Not reconstructed: the same type<0 tail (@0x85200) also sets the gun's lifetime (+0xc4) to
+	// time + clamp(2 * weaponstay, 10, 120). The grenade cooked-throw (GrenadeIdle) is also deferred —
+	// M61 drops via the stackable path above. TODO.
 	EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
 	SetPlayerSpeed(GetSpeedBySlots(pPlayer));
 	return true;

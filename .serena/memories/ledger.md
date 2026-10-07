@@ -6726,3 +6726,29 @@ through SetAnimation (original calls Animate directly from PostThink/PM_Jump —
 - Found, not changed: the `jointeam` dispatch (@0x9e4b0) passes atoi(argv1) - 1 (dec at 0x9e4f5) to
   GetIndexedTeamName; reTS (client.cpp jointeam) passes atoi(argv1). On ts_lobby a plmenu "jointeam 1" leaves
   the player alive on TS 3.0 but sends him to spectate at once on reTS.
+
+## 2026-10-07 — five user-directed deviations put back to the original
+Each is a separate patch against f92c74e in ~/stignored/rets-deviations/item{1..5}-*.patch, for Steven to keep
+or drop one by one. Report: ~/Projects/amxxbench/docs/fixes/rets-deviations-report.md.
+- 1 slow-pause: UpdatePowerUpState (@0x857d0) sets the self scale 0.8 (0x3f4ccccd) and others 0.225; reTS
+  had slow motion's 0.6. dlls/ts_player.cpp. TS 3.0 measures 0.8; the reTS tsx_player test now expects it.
+- 2 sawed-off reload: CTSGun::Reload computes block[8] for a loaded sawed-off and discards it; the event's
+  fparam1 is always 0 (@0x74eeb). client.dll's reload handler (FUN_10042690) reads block[8] only for phase 8,
+  and no other client.dll path reads the sawed-off's block[8] (the 7 FUN_1003df60 callers, the 12
+  EV_WeaponAnimation calls, the 2 HUD_SendWeaponAnim calls; no client copy of CTSGun::Reload). reTS sends
+  phase 0 again (dlls/ts_gun.cpp); its client handler already matched. Probe: fparam1 0.0 on TS 3.0 and reTS
+  now, 8.0 with the old build.
+- 3 dropped-gun glow: only the flag (0x1d) gets pev renderfx 19 (@0x90902). AddToFullPack (@0x9f4b8) sends a
+  WorldGun with renderamt 2, renderfx 19, colour 100 to the host stored at gun+0xd0, which DropWeapon sets to
+  the dropper's edict on a drop-key/disarm drop (@0x84ed9, 0x84fad, 0x85265; not drop_<N>, not the flag, not a
+  death drop). reTS: CTSWorldGun::m_pDropper, DropWeapon tail, AddToFullPack branch. The same branch glows a
+  thrown knife for knife+0x8c (its thrower, CreateKnife @0x6da4f); not done. Also not done: the same DropWeapon
+  tail sets gun+0xc4 = time + clamp(2 * weaponstay, 10, 120).
+- 4 powerup cheat: the table (jump table GOT-0xc8264) is 1 slow-pause, 2 PickUpWeapon(M61), 3 kung fu AND
+  superjump (each with its PwUp message), 4 MultiplyClips, 5 double fire, anything else slow motion; gated on
+  g_flWeaponCheat (sv_cheats, read in CWorld::Spawn) and argc > 1 before the strcmp falls through, then alive
+  and pev->iuser1 == 0. reTS's case 3 was health and 6/7 were added; now TSPowerupCheat (dlls/ts_powerup.cpp),
+  gate in client.cpp (live g_psv_cheats, as cashala).
+- 5 jointeam: g_pGameRules->GetIndexedTeamName(atoi - 1) then ChangePlayerTeam(pl, name, 0, 0), both virtual,
+  no checks. The kill round's "alive on TS 3.0" came from the stock copies running deathmatch (game.cfg has
+  //mp_teamplay 1) while the reTS copies run teamplay; in teamplay TS 3.0 also sends the player to spectate.

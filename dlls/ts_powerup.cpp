@@ -460,67 +460,52 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 	return true;
 }
 
-// @ ClientCommand `powerup <N>` apply (RE: ts_i386.so ClientCommand 0x9db8a..0x9dd42) — the
-// debug cheat that grants a powerup directly. Same per-bit dispatch as PlayerAddPowerUp, but
-// the timed branch uses a fixed `duration` (extended when the same type is already held) and is
-// guarded by no powerup currently active (the original's m_iPowerups==0 check at 0x9dcc9). No
-// pickup sound (the cheat is silent); the original also fires the "PwUp" held-available HUD
-// message, which is deferred client work (see reference/coverage MISSING user-messages).
-bool TSGrantPowerup(CBasePlayer *pPlayer, int type, int duration)
+// @ ClientCommand `powerup <N>` (RE: ts_i386.so ClientCommand 0x9db8a..0x9dd42, jump table at
+// GOT-0xc8264) — the debug cheat that grants a powerup directly. The caller checks sv_cheats, the
+// argument, that the player is alive and not observing. The original's table:
+//   1 slow-pause, 5 double fire rate, anything else slow motion: held for 5 s (5 more if the same
+//     type is already held), only while no powerup is running, with the TSPowerUp held message;
+//   2 PickUpWeapon(M61); 3 kung fu AND superjump, each with its TSPowerUp message, even when already
+//   had; 4 MultiplyClips on the held gun. No pickup sound.
+void TSPowerupCheat(CBasePlayer *pPlayer, int n)
 {
-	if ((char)type < 0) // 0x80 — armor
+	int timed = TS_PWUP_SLOWMO;
+	switch (n)
 	{
-		pPlayer->pev->armorvalue += 100;
-		if (pPlayer->pev->armorvalue > MAX_NORMAL_BATTERY)
-			pPlayer->pev->armorvalue = MAX_NORMAL_BATTERY;
+	case 1:
+		timed = TS_PWUP_SLOWPAUSE;
+		break;
+	case 2: // @0x9dbcc
+		pPlayer->PickUpWeapon(TSW_M61, NULL, 0, true, false);
+		return;
+	case 3: // @0x9dbec
+		pPlayer->m_iKungFu = 1;
+		TSSendPowerupNotify(pPlayer, TS_PWUP_KUNGFU);
+		pPlayer->m_bLowGravity = 1;
+		g_engfuncs.pfnSetPhysicsKeyValue(pPlayer->edict(), "mj", "1");
+		TSSendPowerupNotify(pPlayer, TS_PWUP_LOWGRAV);
+		return;
+	case 4: // @0x9dc90
+		TSMultiplyClips(pPlayer);
+		return;
+	case 5:
+		timed = TS_PWUP_DBLFIRE;
+		break;
 	}
-	else if (type & TS_PWUP_KUNGFU)
-	{
-		if (!pPlayer->m_iKungFu)
-		{
-			pPlayer->m_iKungFu = 1;
-			TSSendPowerupNotify(pPlayer, TS_PWUP_KUNGFU);
-		}
-	}
-	else if (type & TS_PWUP_LOWGRAV)
-	{
-		if (!pPlayer->m_bLowGravity)
-		{
-			pPlayer->m_bLowGravity = 1;
-			g_engfuncs.pfnSetPhysicsKeyValue(pPlayer->edict(), "mj", "1"); // the DUCK+JUMP high jump (PM_Jump)
-			TSSendPowerupNotify(pPlayer, TS_PWUP_LOWGRAV);
-		}
-	}
-	else if (type & TS_PWUP_HEALTH)
-	{
-		if (pPlayer->pev->health < 150.0f)
-			pPlayer->pev->health = 150.0f;
-		pPlayer->m_flHealthRegen = gpGlobals->time + 1.0f;
-	}
-	else if (type & TS_PWUP_GRENADE)
-	{
-		// original powerup 2 -> PickUpWeapon(M61, NULL, 0, true, false): hand + wield it.
-		if (!pPlayer->PickUpWeapon(TSW_M61, NULL, 0, true, false))
-			return false;
-	}
-	else if (type & TS_PWUP_INFCLIP)
-	{
-		// original powerup 4 -> CTSGun::MultiplyClips on the active weapon.
-		if (!TSMultiplyClips(pPlayer))
-			return false;
-	}
+
+	// @0x9dcc9
+	if (pPlayer->m_iPowerups != 0)
+		return;
+	extern int gmsgTSPowerUp;
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, pPlayer->pev);
+	WRITE_SHORT(timed);
+	WRITE_BYTE(0);
+	MESSAGE_END();
+	if (pPlayer->m_iHeldPowerup == timed)
+		pPlayer->m_flPowerupTime += 5;
 	else
-	{
-		// Timed (slow-motion / slow-pause / double-firerate): hold it for UsePowerUp.
-		if (pPlayer->m_iPowerups != 0)
-			return false;
-		if (pPlayer->m_iHeldPowerup == type)
-			pPlayer->m_flPowerupTime += duration;
-		else
-			pPlayer->m_flPowerupTime = duration;
-		pPlayer->m_iHeldPowerup = type;
-		pPlayer->m_flPowerupExpireTime = 0;
-	}
-	return true;
+		pPlayer->m_flPowerupTime = 5;
+	pPlayer->m_iHeldPowerup = timed;
+	pPlayer->m_flPowerupExpireTime = 0;
 }
 

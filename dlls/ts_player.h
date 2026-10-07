@@ -36,11 +36,9 @@ extern int gmsgKFuPower;
 // Slow-motion "bullets as models" — see CBulletManager in ts_bullet.h (g_BulletManager).
 // The fire path calls g_BulletManager.FireBullet; gamerules Think calls g_BulletManager.Think.
 
-// @ ClientCommand `powerup <N>` apply (RE: ts_i386.so ClientCommand 0x9db8a..0x9dd42).
-// Grant a powerup directly (the TS debug cheat). Instant bits apply at once; timed bits are
-// held with a `duration`-second timer (extended if the same type is already held), guarded by
-// no powerup currently active. Mirrors PlayerAddPowerUp's per-bit dispatch (ts_powerup.cpp).
-bool TSGrantPowerup(CBasePlayer *pPlayer, int type, int duration);
+// @ ClientCommand `powerup <N>` (RE: ts_i386.so ClientCommand 0x9db8a..0x9dd42): the debug cheat's
+// powerup table (ts_powerup.cpp). The caller applies the sv_cheats, alive and observer gates.
+void TSPowerupCheat(CBasePlayer *pPlayer, int n);
 
 // TS powerup HUD/effect user messages (registered lazily, like gmsgTSMessage).
 extern int gmsgTSPowerUpTime; // remaining-seconds bar for the active powerup

@@ -32,7 +32,7 @@ public:
 
 	// @0x907ec CreateWeapon — spawn a dropped weapon carrying `status` (the dropping gun's item slot)
 	// from `owner` (NULL = no dropper). Spawns it but sets NO origin/velocity — the caller (the player's
-	// ThrowWeapon) positions + tosses it. Sets owner + appearance + the throwable glow. NULL on failure.
+	// ThrowWeapon) positions + tosses it. Sets owner + appearance + the flag's glow. NULL on failure.
 	static CTSWorldGun *CreateWeapon(CBasePlayer *owner, int type, const TSItem &status);
 
 	int    m_weaponType = TSW_BERETTA; // +0x88 — the dropped weapon type (== 0x1d : throwable/auto-pickup)
@@ -40,6 +40,9 @@ public:
 	float  m_flExpire = 0;             // +0xc4 — lifetime deadline (UTIL_Remove past it)
 	bool   m_bDropSnd = false;         // +0xc8 — debounces the bounce drop sound
 	float  m_flUseCooldown = 0;        // +0xcc — earliest USE-pickup time (stops the dropper re-grabbing)
+	edict_t *m_pDropper = nullptr;     // +0xd0 — the player who dropped it with the drop key or was disarmed
+	                                   // (DropWeapon @0x84ed9/0x84fad/0x85265); AddToFullPack draws the gun
+	                                   // with a glow shell for that player only. NULL = glows for nobody.
 	bool   m_bTaken = false;           // +0xd4 — already picked up
 };
 

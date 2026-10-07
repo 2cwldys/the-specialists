@@ -36,7 +36,7 @@
 #include "player.h"
 #include "ts_weapons.h" // TSSelectWeaponType (weapon_<N> commit) / TSLastInv (lastinv)
 #include "ts_gun.h"     // CTSGun::m_weaponType (clientdata.vuser2.z weapon-type channel)
-#include "ts_player.h"  // TSGrantPowerup (the `powerup <N>` debug cheat)
+#include "ts_player.h"  // TSPowerupCheat (the `powerup <N>` debug cheat)
 #include "spectator.h"
 #include "client.h"
 #include "soundent.h"
@@ -46,6 +46,7 @@
 #include "ts_gamerules.h"
 #include "teamplay_gamerules.h" // R1: jointeam dispatches to the TS-patched ChangePlayerTeam // TSGameRules (the `motd` re-send passthrough)
 #include "ts_utils.h"     // TSPlayerDisconnect (ClientDisconnected)
+#include "ts_worldgun.h"  // CTSWorldGun::m_pDropper (AddToFullPack's glow for the dropper)
 #include "game.h"
 #include "customentity.h"
 #include "weapons.h"
@@ -587,33 +588,14 @@ void ClientCommand(edict_t* pEntity)
 	{
 		player->UsePowerUp();
 	}
-	else if (FStrEq(pcmd, "powerup")) // TS debug cheat: grant powerup <N> directly
+	else if (0 != g_psv_cheats->value && FStrEq(pcmd, "powerup") && CMD_ARGC() > 1)
 	{
-		// RE: ClientCommand @0x9dafd — argc>1 + IsAlive gated, then a jump table maps N to a
-		// powerup (1/5/other -> held timed 5s; 2/3/4 -> instant grenade/health/inf-clip). The
-		// original's extra pev+0x244 observer-state gate is approximated by !m_fInSpectateWait.
-		if (CMD_ARGC() > 1 && player->IsAlive() && !player->m_fInSpectateWait)
-		{
-			int mask;
-			switch (atoi(CMD_ARGV(1)))
-			{
-			case 2:  mask = TS_PWUP_GRENADE;   break; // PickUpWeapon(grenade)
-			case 3:  mask = TS_PWUP_HEALTH;    break; // health 150 + regen
-			case 4:  mask = TS_PWUP_INFCLIP;   break; // MultiplyClips on the active CTSGun
-			case 1:  mask = TS_PWUP_SLOWPAUSE; break; // held, 5s
-			case 5:  mask = TS_PWUP_DBLFIRE;   break; // held, 5s
-			case 6:  mask = TS_PWUP_LOWGRAV;   break; // OUR extension (not in the original cheat table, which
-			                                          // superjumps via the map-global mode / a pickup). Safe
-			                                          // for swap-in: `powerup` is a server-side console cmd —
-			                                          // the wire name/format is unchanged; a client makes no
-			                                          // assumption about it (orig server ignores case 6 → default).
-			case 7:  mask = TS_PWUP_KUNGFU;    break; // OUR extension (same rationale as 6): grant kung-fu — the
-			                                          // shipped game has no cheat/pickup that grants it, so this is
-			                                          // the only way to test the kung-fu powerup + its HUD figure.
-			default: mask = TS_PWUP_SLOWMO;    break; // held, 5s
-			}
-			TSGrantPowerup(player, mask, 5);
-		}
+		// TS debug cheat `powerup <N>` (RE: ClientCommand @0x9dae4): only with cheats on (the
+		// original's g_flWeaponCheat) and an argument, else the command falls through to the ones
+		// below as an unknown one. Alive and not observing (pev->iuser1, @0x9db7d); the table is
+		// TSPowerupCheat's (1-5, anything else slow motion).
+		if (player->IsAlive() && 0 == player->pev->iuser1)
+			TSPowerupCheat(player, atoi(CMD_ARGV(1)));
 	}
 	else if (FStrEq(pcmd, "cashala")) // TS cheat: grant cash (gated by the weapon-cheat / sv_cheats)
 	{
@@ -682,14 +664,15 @@ void ClientCommand(edict_t* pEntity)
 	}
 	else if (FStrEq(pcmd, "jointeam")) // TS: join team <index> (jointeam <N>) -> assign + respawn
 	{
-		if (CMD_ARGC() > 1 && TSGameRules)
+		if (CMD_ARGC() > 1)
 		{
-			// R1 phase 3 — the original dispatch @0x9e4b0: GetIndexedTeamName -> the TS-patched
-			// CHalfLifeTeamplay::ChangePlayerTeam(pl, name, false, false) (vt+0xdc). The no-kill
-			// change sends the player to spectate with a forced 5s gate — NOT an instant respawn.
-			const char *name = TSGameRules->GetIndexedTeamName(atoi(CMD_ARGV(1)));
-			if (name && name[0] && g_pGameRules && g_pGameRules->IsTeamplay())
-				((CHalfLifeTeamplay*)g_pGameRules)->ChangePlayerTeam(player, name, false, false);
+			// The original @0x9e4b0: g_pGameRules->GetIndexedTeamName(atoi(argv[1]) - 1) (vt+0xd4, the
+			// stock team_names list, so `jointeam 1` is the first team) then ChangePlayerTeam(pl, name,
+			// false, false) (vt+0xdc), both virtual and unchecked. Outside teamplay both are the
+			// CGameRules no-ops and nothing happens; in teamplay the TS-patched ChangePlayerTeam puts
+			// the player in spectate with a forced 5 s respawn gate.
+			const char *name = g_pGameRules->GetIndexedTeamName(atoi(CMD_ARGV(1)) - 1);
+			g_pGameRules->ChangePlayerTeam(player, name, false, false);
 		}
 	}
 	else if (!strncmp(pcmd, "drop_", 5) && pcmd[5] >= '0' && pcmd[5] <= '9')
@@ -1582,12 +1565,28 @@ int AddToFullPack(struct entity_state_s* state, int e, edict_t* ent, edict_t* ho
 		state->blending[i] = ent->v.blending[i];
 	}
 
-	state->rendermode = ent->v.rendermode;
-	state->renderamt = ent->v.renderamt;
-	state->renderfx = ent->v.renderfx;
-	state->rendercolor.r = ent->v.rendercolor.x;
-	state->rendercolor.g = ent->v.rendercolor.y;
-	state->rendercolor.b = ent->v.rendercolor.z;
+	// TS (@0x9f4b8..0x9f5b6): a dropped gun is drawn with a glow shell for the player who dropped it
+	// (CTSWorldGun::m_pDropper, set by a drop-key or disarm drop) and drawn plainly for everyone else. That
+	// player gets renderamt 2, kRenderFxGlowShell and colour 100 100 100; rendermode stays 0 from the
+	// cleared state. The original does the same for a thrown knife and its thrower (knife +0x8c),
+	// which reTS does not record.
+	if (entity && FClassnameIs(&ent->v, "WorldGun") && static_cast<CTSWorldGun*>(entity)->m_pDropper == host)
+	{
+		state->renderamt = 2;
+		state->renderfx = kRenderFxGlowShell;
+		state->rendercolor.r = 100;
+		state->rendercolor.g = 100;
+		state->rendercolor.b = 100;
+	}
+	else
+	{
+		state->rendermode = ent->v.rendermode;
+		state->renderamt = ent->v.renderamt;
+		state->renderfx = ent->v.renderfx;
+		state->rendercolor.r = ent->v.rendercolor.x;
+		state->rendercolor.g = ent->v.rendercolor.y;
+		state->rendercolor.b = ent->v.rendercolor.z;
+	}
 
 	state->aiment = 0;
 	if (ent->v.aiment)

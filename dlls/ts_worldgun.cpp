@@ -61,13 +61,15 @@ CTSWorldGun *CTSWorldGun::CreateWeapon(CBasePlayer *owner, int type, const TSIte
 		pGun->pev->skin = owner->pev->skin; // dropped model matches the dropper's gun skin
 	}
 
-	// The white pickup glow shell. NB: BOTH original binaries (ts_i386.so @0x90902 AND mp.dll
-	// @0x742a6) gate these writes on type == 0x1d (the briefcase) — but the USER confirms the
-	// live original shows the shell on ALL dropped guns, so we glow everything (user-directed;
-	// re-verify against a live `drop` in the original if drop-in behavior ever diverges).
-	pGun->pev->renderamt = 5;
-	pGun->pev->renderfx = kRenderFxGlowShell;
-	pGun->pev->rendercolor = Vector(200, 200, 200);
+	// The white glow shell, for the CTF flag (type 0x1d) only: both original binaries gate these
+	// writes on it (ts_i386.so @0x90902, mp.dll @0x742a6). Every other dropped gun glows only for the
+	// player who dropped it, through the entity state AddToFullPack sends him (m_pDropper).
+	if (type == TSW_FLAG)
+	{
+		pGun->pev->renderamt = 5;
+		pGun->pev->renderfx = kRenderFxGlowShell;
+		pGun->pev->rendercolor = Vector(200, 200, 200);
+	}
 	return pGun;
 }
 

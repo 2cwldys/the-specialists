@@ -311,16 +311,13 @@ void CBasePlayer::UpdatePowerUpState()
 		}
 		else
 		{
-			// slow-pause: the player experience MATCHES slow-motion (same self-slow → fire/move don't
-			// speed up), and ONLY the bullets go slower (the m_bSlowBullets pause flag → GetBulletVelocityMult
-			// ×10 denominator, so slow-pause bullets crawl/dodgeable). USER-DIRECTED: the RE self-scale here
-			// is 0.8 (less self-slow than slow-mo, "bullet-time" style) which made fire speed UP vs slow-mo;
-			// the user wants slow-pause to NOT fire faster than slow-mo ("slow-pause is all that, except the
-			// bullets are slower"), so the self-slow is slow-mo's 0.6. (Flagged as a deviation from the literal
-			// RE 0.8 — live-trace the original to pin it if exactness is wanted.)
+			// slow-pause (@0x857d0): the bullets go slower (m_bSlowBullets -> GetBulletVelocityMult's x10
+			// denominator), others are slowed to 0.225 and the player himself to 0.8, less than slow
+			// motion's 0.6, so he moves and fires faster than under slow motion. Measured 0.8 on TS 3.0
+			// (amxxbench tsx_player, ts30 copy).
 			m_bSlowBullets = 1;
 			m_flSlowMotionRamp = 0.225f;
-			m_flSlowMotionScale = 0.6f;
+			m_flSlowMotionScale = 0.8f;
 		}
 
 		if (gpGlobals->time <= m_flPowerupExpireTime && IsAlive())
