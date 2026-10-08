@@ -142,7 +142,7 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 		else
 		{
 			// realbullet / slow-motion: the pellet flies as a tracked bullet (rules+0x1864)
-			g_BulletManager.FireBullet(this, vecSrc, vecDir, flDamage, iCaliber);
+			g_BulletManager.FireBullet(this, vecSrc, vecDir, flDamage, iCaliber, iMode); // @0x5fc90
 		}
 		UTIL_BubbleTrail(vecSrc, tr.vecEndPos,
 			(int)((float)ai->iMaxTravel * tr.flFraction * 0.015625f + 0.5f));

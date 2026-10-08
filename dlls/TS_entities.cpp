@@ -637,7 +637,9 @@ void CTSMapGlobals::Spawn(void)
 	m_field14 = 0;
 	m_field18 = 0;
 
-	SetThink(&CTSMapGlobals::WaitThink);
+	// @0x625b1..0x625df: no think function (+0xc and +0x14, the think and touch members, are
+	// zeroed), yet a think 10 s out, which then does nothing
+	SetThink(nullptr);
 	pev->nextthink = gpGlobals->time + 10.0f;
 
 	// @0x625d8..0x6262e: the spawnflags go into CTSGameRules. SF 0x20 turns the round timer off

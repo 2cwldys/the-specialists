@@ -19,10 +19,15 @@ struct TSSlowBullet
 	float damage;
 	float fullSpeed; // per-caliber base flight speed, fixed at fire time
 	int caliber;     // rec caliber slot — get_ammo_info arg (falloff form B unit)
-	int kind;        // rec+0x3c — the ammo KIND copied at fire time (2 -> falloff form A, dist/30)
+	int kind;        // rec+0x3c — the shot's mode (ShootBulletsPlayer's iMode, FireBullet's last
+	                 // argument): 2 = a pierce leg (falloff form A, dist/30); 1 = DMG bit 25;
+	                 // any other value may pierce once more
 	int weaponId;    // rec+0x30 — the FIRING weapon's tsweapon_t, captured at fire time: a
 	                 // slow-bullet HIT publishes it into glast_weaponid so the kill feed /
 	                 // TSGetPointsForFrag know what fired even if the shooter switched since
+	float slow;      // rec+0x34 — the shooter's slow factor (m_flSlowMotionRamp, else GiveSlowMul),
+	                 // taken at fire time and again at each step
+	float nextUpdate; // rec+0x38 — when the bullet next moves (0 at fire; Think sets it)
 };
 
 class CBulletManager
@@ -30,7 +35,7 @@ class CBulletManager
 public:
 	void Reset();                                                       // @0x5ec50 — drop all in-flight bullets
 	void Think();                                                       // @0x5ec7c — per-frame: fly every active bullet
-	void FireBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage, int caliber); // @0x5eda4
+	void FireBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage, int caliber, int mode); // @0x5eda4
 	void DestroyBullet(int slot);                                       // kill one bullet's slot/trail
 	void UpdateBullet(int slot);                                        // @0x6ef5c — step one bullet this frame
 	void UpdateBulletTimeSlice(int slot);                              // advance one bullet over a time slice

@@ -437,10 +437,10 @@ void Host_Say(edict_t* pEntity, bool teamonly)
 		return; // no character found, so say nothing
 
 	// TS voting rides on CHAT text, not a console command (RE Host_Say @0x9d46c): text
-	// beginning "vote" is lowercased past the prefix and handed to the gamerules, gated on
-	// the sender being alive (the original's vtable-0xcc IsAlive-shaped check); a HANDLED
+	// beginning "vote" is lowercased past the prefix and handed to the gamerules when the sender
+	// is a client (vtable 0xcc IsNetClient, @0x9d4b2: any player, a spectator too); a HANDLED
 	// vote (nonzero return) suppresses the chat broadcast. An unhandled one chats normally.
-	if (!strncmp(p, "vote", 4) && player->IsAlive())
+	if (!strncmp(p, "vote", 4) && player->IsNetClient())
 	{
 		for (char* pc = p + 4; '\0' != *pc; pc++) // in-place strlwr(p+4), as the original
 		{
@@ -616,7 +616,7 @@ void ClientCommand(edict_t* pEntity)
 		// sentinel — LMS lockout / round logic; NEVER set in plain DM). Firing during a normal
 		// countdown is SILENT (neither branch). The wait line is 1 Hz-throttled off the same
 		// +0x754 clock as the countdown.
-		if (player->m_fInSpectateWait) // original: requires iuser2 != 0
+		if (player->pev->iuser1 != 0) // @0x9da2a: a player in any spectator mode
 		{
 			if (player->m_flTSRespawnTime < 0)
 			{

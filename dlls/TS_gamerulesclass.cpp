@@ -372,6 +372,9 @@ void CTSGameRules::Init()
 	m_bWeaponParamsCustom = 0; // @0x67ebb (+0x5884) — a new map is not "custom" until loadweapons runs again
 	m_flNextTheOneSelect = gpGlobals->time + 10.0f; // @0x67eab (+0x587c) — first The-One crown 10s in
 	m_szEndMap[0] = '\0';                            // @0x67e73 (+0x1824) — clear any pending forced map
+	// @0x67ede/@0x67ee8: every map starts on the stock absorb values, until loadweapons reads a file
+	m_flHealthAbsorb = 0.1f;    // +0x5888 (written, never read)
+	m_flArmorAbsorb = 0.2125f;  // +0x588c — kevlar takes 21.25% off a hit (CBasePlayer::TakeDamage)
 	InitObjectives(); // (finds nothing at construction-time; the +5s RestartRound re-runs it)
 	SetObjective();
 	// @0x67e6d (+0xf84): the first vote count comes 10 s into the map. The clock is the rules
@@ -663,19 +666,38 @@ int CTSGameRules::PlayerVote(edict_t *pEntity, const char *pCmd)
 	}
 	if (strstr(pCmd, "stats"))
 	{
-		ClientPrint(pev, HUD_PRINTTALK, "No votes in progress.\n"); // SLICE: original lists live tallies
+		// @0x6a2a7: the last count's tally, one line per map voted for, against the votes needed
+		const int need = CalcMiniminVotants(m_iVotants);
+		bool none = true;
+		for (int i = 0; i < 32; i++)
+		{
+			if (!m_voteMaps[i][0])
+				continue;
+			ClientPrint(pev, HUD_PRINTTALK, UTIL_VarArgs("(%i/%i) votes for %s\n", m_voteMapCount[i], need, m_voteMaps[i]));
+			none = false;
+		}
+		if (none)
+			ClientPrint(pev, HUD_PRINTTALK, "No votes in progress.\n");
 		return 1;
 	}
 	const char *pMap = strstr(pCmd, "map");
 	if (!pMap)
 		return 0;
+	// @0x6a3c0: the first word after "map" — skip what is not a printing, non-space character, then
+	// stop at the next one that is not
 	char name[sizeof(m_votes[0].map)] = {0};
-	strncpy(name, pMap + 3, sizeof(name) - 1);          // after "map"
-	while (name[0] == ' ') memmove(name, name + 1, strlen(name)); // ltrim
-	for (int i = (int)strlen(name) - 1; i >= 0 && (name[i] == ' ' || name[i] == '\n'); i--)
-		name[i] = '\0';                                  // rtrim
+	strncpy(name, pMap + 3, sizeof(name) - 1);
+	auto word = [](char c) { return isprint((unsigned char)c) && !isspace((unsigned char)c); };
+	int start = 0;
+	while (name[start] && !word(name[start]))
+		start++;
+	memmove(name, name + start, strlen(name + start) + 1);
+	int end = 0;
+	while (name[end] && word(name[end]))
+		end++;
+	name[end] = '\0';
 
-	if (!stricmp(name, STRING(gpGlobals->mapname)))
+	if (!strcmp(name, STRING(gpGlobals->mapname))) // case-sensitive, as the original
 		ClientPrint(pev, HUD_PRINTTALK, UTIL_VarArgs("%s is the current map!\n", name));
 	else if (IS_MAP_VALID(name))
 	{
@@ -687,7 +709,8 @@ int CTSGameRules::PlayerVote(edict_t *pEntity, const char *pCmd)
 	return 1;
 }
 
-// @0x6a5c4 CheckVotes — every 10 s, count the votes of the players in the game (ENTINDEX 0..31) and
+// @0x6a5c4 CheckVotes — every 10 s, count the votes of the players in the game (ENTINDEX 0..31) into
+// the tally the "vote stats" command lists (cleared first, @0x6a5f4), and
 // apply the first category that has a majority, in the original's order: slowmatch on/off, friendly
 // fire on/off, teamplay on/off (which ends the map: "nextmap"), else the most-voted map becomes the
 // next map. The on/off votes are dead (nothing sets them), and where the original clears one it
@@ -700,9 +723,14 @@ void CTSGameRules::CheckVotes()
 		return;
 	m_flNextVoteCheck = gpGlobals->time + 10.0f;
 
-	int votants = 0, slowOn = 0, slowOff = 0, tpOn = 0, tpOff = 0, ffOn = 0, ffOff = 0;
-	char maps[32][sizeof(m_votes[0].map)] = {};
-	int  mapVotes[32] = {};
+	memset(m_voteMaps, 0, sizeof(m_voteMaps));
+	memset(m_voteMapCount, 0, sizeof(m_voteMapCount));
+	m_voteSlowOn = m_voteSlowOff = m_voteTeamOn = m_voteTeamOff = m_voteFFOn = m_voteFFOff = 0;
+	int votants = 0;
+	int &slowOn = m_voteSlowOn, &slowOff = m_voteSlowOff, &tpOn = m_voteTeamOn, &tpOff = m_voteTeamOff;
+	int &ffOn = m_voteFFOn, &ffOff = m_voteFFOff;
+	char (&maps)[32][64] = m_voteMaps;
+	int (&mapVotes)[32] = m_voteMapCount;
 	int  best = -1, bestVotes = 0;
 	int  last = 0; // the last counted player's ENTINDEX
 
@@ -740,6 +768,7 @@ void CTSGameRules::CheckVotes()
 			}
 	}
 
+	m_iVotants = votants;
 	const int need = CalcMiniminVotants(votants);
 	if (slowOn >= need || slowOff >= need)
 	{
@@ -983,8 +1012,8 @@ void CTSGameRules::SetGlobalSlowMotion(float scale, float duration)
 // defTeamModels (@0x1023e0). Teamplay's constructor then puts the teamlist cvar's names and, when
 // it is set, the teammodels cvar's models over them. The objective modes (2/3) get "Specialists;
 // Mercenaries" in seal/merc and team 1's fallback "info_player_start", but Init sets the mode
-// (0/1) just before calling this, so that branch never runs. (The original also seeds each team's
-// cash with initial_cash here; reTS leaves m_teamCash alone.)
+// (0/1) just before calling this, so that branch never runs. Each team starts with no score and
+// initial_cash in its cash pool (@0x67fba), which only GetTeamCash reads, in those dead modes.
 static const char *const defTeamModels[TS_MAX_TEAMS] = {"seal;merc", "gordon;laurence", "agent", "hitman;castor"};
 
 void CTSGameRules::InitTeams()
@@ -995,6 +1024,8 @@ void CTSGameRules::InitTeams()
 	memset(m_teamSpotFallback, 0, sizeof(m_teamSpotFallback));
 	for (int i = 0; i < TS_MAX_TEAMS; i++)
 	{
+		m_teamScore[i] = 0;                                    // +0x24 (and +0x20, no reTS member)
+		m_teamCash[i] = (int)CVAR_GET_FLOAT("initial_cash");   // +0x1c
 		snprintf(m_teamNames[i], sizeof(m_teamNames[i]), "Team%i", i + 1);
 		snprintf(m_teamSpot[i], sizeof(m_teamSpot[i]), "info_player_team%i", i + 1);
 		strcpy(m_teamSpotFallback[i], "info_player_deathmatch");
@@ -1011,7 +1042,8 @@ void CTSGameRules::InitTeams()
 }
 
 // @0x680dc SetTeamList — parse a ";"-separated team list DIRECTLY into the 4 name slots (R1 item-9
-// convergence, dossier §4.5): clear the slots, strtok on ";" (deduped), with The-ONE insertion
+// convergence, dossier §4.5): clear the slots, strtok on ";" (a name listed twice takes two slots,
+// @0x681ec copies each one without a lookup), with The-ONE insertion
 // (slot 0 forced "The ONE" when g_theOneMode; real teams start at slot 1), an ALERT per team, and
 // cap = g_theOneMode ? 2 : 4. No m_szTeamList / no RecountTeams — those were invented.
 void CTSGameRules::SetTeamList(const char *pList)
@@ -1033,13 +1065,10 @@ void CTSGameRules::SetTeamList(const char *pList)
 	buf[sizeof(buf) - 1] = '\0';
 	for (char *pName = strtok(buf, ";"); pName && *pName && m_numTeams < cap; pName = strtok(nullptr, ";"))
 	{
-		if (GetTeamIndex(pName) < 0) // skip duplicates
-		{
-			strncpy(m_teamNames[m_numTeams], pName, TS_TEAMNAME_LEN - 1);
-			m_teamNames[m_numTeams][TS_TEAMNAME_LEN - 1] = '\0';
-			ALERT(at_console, "created team %s\n", m_teamNames[m_numTeams]);
-			m_numTeams++;
-		}
+		strncpy(m_teamNames[m_numTeams], pName, TS_TEAMNAME_LEN - 1);
+		m_teamNames[m_numTeams][TS_TEAMNAME_LEN - 1] = '\0';
+		ALERT(at_console, "created team %s\n", m_teamNames[m_numTeams]);
+		m_numTeams++;
 	}
 }
 
@@ -1087,11 +1116,11 @@ int CTSGameRules::GetTeamsNum()
 	return m_numTeams;
 }
 
-// @0x69aac GetTeamCash — the player's team cash pool (0 outside team mode / no team). The cash
-// economy is hard-OFF in the shipped game, so this returns 0 in practice.
+// @0x69aac GetTeamCash — the player's team cash pool, in the objective modes (2/3) only; 0 in any
+// other mode or without a team. Init never sets those modes, so this returns 0 in the shipped game.
 int CTSGameRules::GetTeamCash(CBasePlayer *pPlayer)
 {
-	if (!g_teamplay || !pPlayer)
+	if ((unsigned char)(m_iGameMode - 2) >= 2 || !pPlayer)
 		return 0;
 	int team = GetTeamIndex(pPlayer->TeamID());
 	if (team < 0 || team >= TS_MAX_TEAMS)

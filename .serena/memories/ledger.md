@@ -6917,3 +6917,33 @@ each also builds alone). Report: ~/Projects/amxxbench/docs/fixes/rets-deviations
   source, pierce, no ricochet/decal, no range limit; Init's armor_absorb 0.2125 / health_absorb 0.1 and bullet
   reset; GetTeamCash's mode 2/3 gate; SetTeamList's dedup; Host_Say votes gated on IsAlive (original IsNetClient);
   PlayerVote parsing; the respawn command's iuser1 gate; StartObserver's HideHUD; ts_mapglobals' WaitThink.
+
+## 2026-10-07 — kevlar values, bullet steps and hits, team cash, team list, votes, respawn gate, observer HUD, ts_mapglobals think
+
+Round 8 of the deviations work (amxxbench docs/fixes/rets-deviations8.md, report rets-deviations8-report.md).
+Uncommitted on 6bcafda; one patch per item in ~/stignored/rets-deviations8 (each applies and builds alone,
+apply-all.sh applies them in order).
+- 4 Init sets health_absorb 0.1 (+0x5888) and armor_absorb 0.2125 (+0x588c) on every map (@0x67ede/@0x67ee8).
+- 5 CBulletManager::Think (@0x5ec7c) gives each bullet its own next-update time: with realbullet 0/1 (unsigned
+  m_iSrvRealBullet < 2) every 0.1/(realbullet+1) s, the step covering that interval; otherwise every frame by
+  frametime. The slow factor is m_flSlowMotionRamp, else GiveSlowMul (taken at fire and at each step).
+- 6 UpdateBullet hits (@0x5f0f5..0x5f498): the record's kind is the shot's mode (FireBullet's last argument,
+  ShootBulletsPlayer's iMode); mode 1 adds DMG bit 25; the bullet pierces as the hitscan does (damage times
+  flFactor2, halved through a player, over 5 and mode not 1/2: on from min(left, 48) past the hit unless solid, as
+  mode 2); no ricochet sound, no decal, no end for range or solid while flying.
+- 7 InitTeams seeds each team's score 0 and cash initial_cash (@0x67fba); GetTeamCash answers only in modes 2/3.
+- 8 SetTeamList keeps a repeated name in its own slot (no lookup, @0x681ec).
+- 9 Host_Say passes "vote" text from any client (IsNetClient, @0x9d4b2); PlayerVote takes the first word after
+  "map" and compares it with the map case-sensitively; "vote stats" lists the last count's tally
+  ("(%i/%i) votes for %s"), now kept in the rules (m_voteMaps/m_voteMapCount/on-off counters/m_iVotants,
+  +0xf88..+0x1820) and refilled by each CheckVotes.
+- 10 The "respawn" command checks iuser1 (@0x9da2a).
+- 11 StartObserver leaves m_iHideHUD alone; StopObserver no longer clears it (neither writes it in the original).
+- 12 CTSMapGlobals::Spawn sets no think (think and touch zeroed, nextthink time + 10, @0x625b1..0x625df).
+- TS 3.0 crash of round 7 diagnosed from its core (systemd-coredump): RestartRound @0x67d40 calls
+  CHalfLifeTeamplay::RecountTeams on g_pGameRules in every mode; in free-for-all last man standing that is a
+  12-byte CHalfLifeMultiplay, and RecountTeams writes 0 to +0x214, which in that run was the `next` of an AMX Mod X
+  language hash list head (g_pGameRules 0x9da0220, head 0x9da0430). reTS already calls it only on team rules.
+- Tests (tsx-ts3 worktree, tests.patch): ts_gamerules +7 and realbullet tightened, ts_observer +1 and one
+  extended, ts30 copies without the free-for-all last man standing tests (NO_FFA_LMS), statscfg's expected error
+  in both forms. TS 3.0 31/31 five times; reTS 6bcafda 34/42, after 42/42; full fork suite on reTS 483/483 twice.

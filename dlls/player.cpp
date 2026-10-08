@@ -1453,8 +1453,7 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	WRITE_BYTE(0);
 	MESSAGE_END();
 
-	// Setup flags
-	m_iHideHUD = (HIDEHUD_HEALTH | HIDEHUD_WEAPONS);
+	// Setup flags (the HUD stays as it is: the original writes m_iHideHUD only for func_tank)
 	m_afPhysicsFlags |= PFLAG_OBSERVER;
 	pev->effects = EF_NODRAW;
 	pev->view_ofs = g_vecZero;
@@ -1598,9 +1597,7 @@ void CBasePlayer::StopObserver()
 	// (the watched player, player+0x75c, is kept, @0x89abc: the next StartObserver's
 	// Observer_SetMode goes back to him if he is still there)
 	// (The original clears only iuser1/iuser2 here, and neither PFLAG_OBSERVER nor m_iHideHUD:
-	// Spawn clears the physics flags, and its StartObserver never hides the HUD. reTS's
-	// StartObserver does, so the HUD is shown again here.)
-	m_iHideHUD = 0;
+	// Spawn clears the physics flags, and StartObserver never hides the HUD.)
 
 	// @0x99a14: CLEAN THE HELD BUTTONS before respawning into play. The fire-to-play click (IN_ATTACK)
 	// is still down here, and without this it carries into the freshly-deployed weapon and auto-fires

@@ -67,7 +67,7 @@ public:
 	int m_iWeaponRestriction = 0x1f; // 0x5870 — ALLOWED-categories bitmask (knife 1/pistol 2/smg 4/rifle 8/shotgun 0x10)
 	int m_iAllowedCategories = 0x1f; // 0x586c — the map's allowed mask (cmd args are AND-masked by it)
 	int m_bWeaponParamsCustom = 0;   // 0x5884 — set once a customweapons file loads; InitHUD gates on it
-	float m_flHealthAbsorb = 0;      // 0x5888 — the customweapons health_absorb value (reader VERIFY)
+	float m_flHealthAbsorb = 0.1f;   // 0x5888 — the customweapons health_absorb value (Init: 0.1; nothing reads it)
 
 	// --- Team subsystem (cont.35) ---
 	// (IsTeamMode/IsTeamplay DELETED — R1 item-9: invented; the original's team gate is the global
@@ -88,7 +88,7 @@ public:
 	void  SetTeamList(const char *pList);                   // @0x680dc — parse the ";"-team list into the slots
 	void  SetTeamModelList(const char *pList);             // @0x68258 — parse the "|"-model list into the slots
 	void  SetTeamModelList(int team, const char *pModels); // @0x68438 — one team's ";"-list of up to 3 models
-	int   GetTeamCash(CBasePlayer *pPlayer);               // @0x69aac — the player's team cash (0 outside team mode)
+	int   GetTeamCash(CBasePlayer *pPlayer);               // @0x69aac — the player's team cash (0 outside modes 2/3)
 	const char *GetPlayerModel(CBasePlayer *pPlayer);      // @0x69a08 — one of the player's team models, at random
 	void  TogglePlayerFromSlow(CBasePlayer *pPlayer);      // @0x696c8 — remove a player from the slow registry
 	void  InitTeamScore(int *pScores);                     // @0x69130 — (no-op in the original)
@@ -175,6 +175,15 @@ public:
 	};
 	VoteBlock m_votes[32] = {};
 	float m_flNextVoteCheck = 0;       // CheckVotes throttle (every ~10s) [field_0xf84]
+	// The last count's tally (+0xf88..+0x1823), kept for "vote stats": CheckVotes clears it and fills
+	// it in each time it counts; nothing else clears it, so a new map shows the old map's tally until
+	// its first count.
+	char m_voteMaps[32][64] = {};      // +0xf88 — the maps voted for, in the order first seen
+	int  m_voteMapCount[32] = {};      // +0x1788 — votes for each
+	int  m_voteSlowOn = 0, m_voteSlowOff = 0;   // +0x1808 / +0x180c
+	int  m_voteTeamOn = 0, m_voteTeamOff = 0;   // +0x1810 / +0x1814
+	int  m_voteFFOn = 0, m_voteFFOff = 0;       // +0x1818 / +0x181c
+	int  m_iVotants = 0;               // +0x1820 — players counted
 	char m_szEndMap[0x40] = {};        // @+0x1824 — the forced next map (a vote winner, or an objective
 	                                   // set it); MP/Teamplay::Think end the map when byte 0 is set,
 	                                   // MP::ChangeLevel @0xc0784 consumes it (unless it's "nextmap")
@@ -217,12 +226,11 @@ public:
 	float m_flGlobalSlowScale = 0;  // 0x564 — current global slow scale
 	float m_flGlobalSlowEnd = 0;    // 0x568 — global slow end time (0 = no limit)
 
-	// Fraction of damage absorbed by kevlar (the `armor_absorb` config value, gamerules
-	// member @+0x588c read in CBasePlayer::TakeDamage). A flat reduction applied while the
-	// player has armor — kevlar does NOT deplete. The exact original default is config-driven
-	// (parsed from the server config, runtime-init — not statically recoverable), so this is a
-	// sensible, server-tunable default.
-	float m_flArmorAbsorb = 0.5f;
+	// Fraction of damage absorbed by kevlar (the `armor_absorb` value of a loadweapons file,
+	// gamerules member @+0x588c read in CBasePlayer::TakeDamage). A flat reduction applied while
+	// the player has armor — kevlar does NOT deplete. Init sets it to 0.2125 on every map
+	// (@0x67ee8), as it sets health_absorb to 0.1.
+	float m_flArmorAbsorb = 0.2125f;
 };
 
 // The global TS rules pointer (set in InstallGameRules; defined in ts_player.cpp — the
