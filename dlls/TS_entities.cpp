@@ -606,10 +606,11 @@ void CTSModel::Spawn(void)
 
 LINK_ENTITY_TO_CLASS(ts_mapglobals, CTSMapGlobals);
 
-// @0x62488/0x624d8 — standard save/restore of the two vestigial fields (WriteFields count 2).
+// @0x62488/0x624d8 — standard save/restore of the two vestigial fields (WriteFields count 2), in
+// the original's order (save table @0x1011a0: player_respawn_num +0x64, then player_at_a_time_num +0x68).
 TYPEDESCRIPTION CTSMapGlobals::m_SaveData[] = {
-	DEFINE_FIELD(CTSMapGlobals, player_at_a_time_num, FIELD_INTEGER),
 	DEFINE_FIELD(CTSMapGlobals, player_respawn_num, FIELD_INTEGER),
+	DEFINE_FIELD(CTSMapGlobals, player_at_a_time_num, FIELD_INTEGER),
 };
 IMPLEMENT_SAVERESTORE(CTSMapGlobals, CBaseEntity);
 

@@ -6968,3 +6968,19 @@ apply-all.sh applies them in order).
   twice; the ts30 set 94/94 twice (runs 3 and 4; runs 1 and 2 each had one flake in an older test, see report).
 - Found, not changed: bubble counts still rounded; ts_mapglobals save order (respawn_num first in the original);
   members_re.tsv rows for CTSMapGlobals stale.
+
+## 2026-10-08 — bubble counts truncated, ts_mapglobals save order, members_re rows
+
+Round 10 of the deviations work (amxxbench docs/fixes/rets-deviations10.md, report rets-deviations10-report.md).
+Uncommitted on a8fbbec; one patch per item in ~/stignored/rets-deviations10 (each applies and builds alone,
+apply-all.sh applies them in order).
+- 4 UTIL_BubbleTrail counts are truncated at both ShootBulletsPlayer sites (fistp, chop: @0x5fa85, @0x5fffb); the
+  volley's product is taken in double (the original's is on the x87 stack).
+- 5 CTSMapGlobals declares and saves player_respawn_num (+0x64) before player_at_a_time_num (+0x68), as the save
+  table @0x1011a0 does (amd64 pdata 39 and 40 now).
+- 6 members_re.tsv: the two stale CTSMapGlobals rows (0x10, 0x18: the second words of the think and touch member
+  pointers) removed; a fresh curate_members.py run would also add four CBasePlayer rows (not taken).
+- TS 3.0 LMS patch (amxxbench tests/patch-ts30.py) on every TS 3.0 server copy; the ts30 last man standing tests
+  run again. Tests: realbullet placement fixed on ts_lobby, superjump gravity read after PreThink, a bubble test.
+- Found, not changed: the original's PostThink sets pev->gravity = 1.0 whenever the player is on the ground
+  (@0x8186f); reTS has no such write.

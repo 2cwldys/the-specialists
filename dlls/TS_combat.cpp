@@ -86,7 +86,8 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 				UTIL_ClientPrintAll(HUD_PRINTTALK,
 					UTIL_VarArgs("damage(piercing):%f\n", flDamageAmount));
 		}
-		UTIL_BubbleTrail(vecSrc, tr.vecEndPos, (int)(4096.0f * tr.flFraction * 0.015625f + 0.5f));
+		// bubbles = trunc(4096 * fraction / 64): fistp under a chop control word (@0x5fa85)
+		UTIL_BubbleTrail(vecSrc, tr.vecEndPos, (int)(4096.0f * tr.flFraction * 0.015625f));
 		ApplyMultiDamage(pev, pev);
 		return vecSpread; // the pierce leg returns its spread param unchanged
 	}
@@ -144,8 +145,10 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 			// realbullet / slow-motion: the pellet flies as a tracked bullet (rules+0x1864)
 			g_BulletManager.FireBullet(this, vecSrc, vecDir, flDamage, iCaliber, iMode); // @0x5fc90
 		}
+		// bubbles = trunc(max travel * fraction / 64), on the x87 stack (exact in double) and chopped
+		// (fistp, @0x5fffb)
 		UTIL_BubbleTrail(vecSrc, tr.vecEndPos,
-			(int)((float)ai->iMaxTravel * tr.flFraction * 0.015625f + 0.5f));
+			(int)((double)ai->iMaxTravel * tr.flFraction * 0.015625));
 	}
 
 	if (!rbullet)

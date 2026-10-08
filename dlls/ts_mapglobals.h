@@ -21,8 +21,8 @@ public:
 	// The two SAVED fields (the original's WriteFields count of 2). Vestigial on this entity —
 	// the original's KeyValue handles no keys and nothing else writes them, Spawn included; the
 	// live player-amount logic lives in ts_playeramount. Kept for save-table fidelity.
-	int player_at_a_time_num = 0; // +0x68
 	int player_respawn_num = 0;   // +0x64
+	int player_at_a_time_num = 0; // +0x68
 };
 
 #endif // TS_MAPGLOBALS_H

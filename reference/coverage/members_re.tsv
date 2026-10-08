@@ -106,8 +106,6 @@ CTSKnife	0x88	FLOAT	float	m_flExpire	1
 CTSKnife	0x90	INTEGER	byte	m_bInFlight	1
 CTSKnife	0x91	INTEGER	byte	m_iKatanaFlag	1
 CTSKnife	0xa0	INTEGER	int	m_knifeType	1
-CTSMapGlobals	0x10	INTEGER	int	player_respawn_num	1
-CTSMapGlobals	0x18	INTEGER	int	m_field18	1
 CTSObjective	0x64	INTEGER	int	m_bActive	1
 CTSPhysicObject	0x64	INTEGER	int	m_savedVelocity	3
 CTSPhysicObject	0x70	INTEGER	int	m_savedAVelocity	3
