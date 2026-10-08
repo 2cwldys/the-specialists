@@ -18,6 +18,8 @@
 #include "ts_weapons.h" // TSDeployArsenal (team-mode arsenal on team switch)
 #include "ts_weapon_info.h" // Set_ammo_count (the SrvSett id-2 pair)
 #include "UserMessages.h"
+#include "teamplay_gamerules.h" // CHalfLifeTeamplay::RecountTeams (RestartRound)
+#include "ts_gun.h"             // CTSGun (RestartRound's loadout refund)
 #include "game.h"          // g_flWeaponCheat (sv_cheats as the map started)
 
 // Defined in ts_objectives.cpp — fire the objective manager's targetontimeleft on round timeout.
@@ -218,11 +220,11 @@ void CTSGameRules::TeamWin(int team)
 	ResetRestartRound(1); // arm the 1s restart (depth 1 = restart only; the score was bumped above)
 }
 
-// @ CallCheckDeads — schedule a deads-check ~1s out (unless a round restart is already
-// pending). Called on each player death.
+// @0x69bc0 CallCheckDeads — schedule a deads-check 1s out unless a round restart is already
+// pending. Called on each player death and disconnect; a later one moves a pending check back.
 void CTSGameRules::CallCheckDeads()
 {
-	if (m_flRoundRestart == 0.0f && m_flCheckDeads == 0.0f)
+	if (m_flRoundRestart == 0.0f)
 		m_flCheckDeads = gpGlobals->time + 1.0f;
 }
 
@@ -363,6 +365,7 @@ void CTSGameRules::Init()
 	m_flRoundEnd = 0;
 	m_flRoundRestart = gpGlobals->time + 5.0f; // first round fires 5s into the map
 	m_bRoundTimerEnabled = true;
+	m_bSrvSuperJump = 0; // @0x67ec2 — a map's ts_mapglobals sets it again as it spawns
 	m_flNextTheOneSelect = gpGlobals->time + 10.0f; // @0x67eab (+0x587c) — first The-One crown 10s in
 	m_szEndMap[0] = '\0';                            // @0x67e73 (+0x1824) — clear any pending forced map
 	InitObjectives(); // (finds nothing at construction-time; the +5s RestartRound re-runs it)
@@ -405,7 +408,8 @@ void CTSGameRules::RespawnEntities(bool bFirst)
 }
 
 // @0x67920 RestartRound — the actual round reset: re-arm the round timer, reset the objectives,
-// respawn the players, recount teams, then respawn the map entities.
+// refund every player's loadout and send those in play to spectate, recount teams, then respawn
+// the map entities.
 void CTSGameRules::RestartRound()
 {
 	// No player-count or game-mode gate (@0x67920): the clock is armed on an empty server too. Think
@@ -437,28 +441,73 @@ void CTSGameRules::RestartRound()
 
 	// (d) the banner, only in the team mode without objectives (@0x67a28: mode byte == 2).
 	if (m_iGameMode == 2)
-		TSHudMessageAll(0, 0xff, 0, 8, 30, "Defeat the opposite team");
+		TSHudMessageAll(0, 0, 0, 8, 30, "Defeat the opposite team"); // black, @0x67a45
 
-	// (e) respawn the players into the fresh round. SLICE: the original instead refunds the loadout's
-	// cash + forces each player back into the class-select observer state; we respawn directly.
+	// (e) @0x67a4d: every player starts the round from spectate. Each gets the re-entry hold
+	// (+10 s; in modes 2/3 only with +0x5874 set or in mode 2), the respawn gate (+3 s), the
+	// respawning award, a fresh grenade-buy count and respawn budget, no powerups, and the
+	// value of the loadout he holds as cash; then a player in play goes to spectate where he
+	// stands. Nobody is respawned here: he enters play from spectate once the gate has passed.
 	for (int i = 1; i <= gpGlobals->maxClients; i++)
 	{
 		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
-		if (p)
-		{
-			p->DropFlag(true); // clear any carried flag (the briefcases re-seed fresh ones below)
-			// @0x67ae8/@0x67b1a: fresh round — hold re-armed +10, gate +3, award 11, the
-			// death counter cleared (the LMS respawn budget resets each round).
+		if (!p || !p->IsPlayer())
+			continue;
+		if ((unsigned char)(m_iGameMode - 2) >= 2 || m_iGameMode == 2) // @0x67abf (+0x5874 is never set)
 			p->m_flRespawnHoldTime = gpGlobals->time + 10.0f;
-			p->m_flTSRespawnTime = gpGlobals->time + 3.0f;
-			p->m_iAward = 11;
-			p->m_iRespawnsUsed = 0; // @0x67b2e
-			respawn(p->pev, false);
+		p->m_flTSRespawnTime = gpGlobals->time + 3.0f; // @0x67b1a
+		p->m_iAward = 11;
+		p->m_iGrenadeBuys = 0;  // 0x714
+		p->m_iRespawnsUsed = 0; // 0x7ba, @0x67b2e
+		p->m_flPowerupExpireTime = 0;
+		p->m_flPowerupTime = 0;
+		p->m_iPowerups = 0;
+		p->m_iHeldPowerup = 0;
+
+		// @0x67b5d: the refund, read off the active item when it is the TS gun (id 16): each owned
+		// weapon but the first and the flag at its price plus its attachments, and each caliber
+		// holding more than one magazine at the magazine price per magazine held.
+		int refund = 0;
+		if (p->m_pActiveItem && p->m_pActiveItem->m_iId == TSGUN_WEAPON_ID)
+		{
+			CTSGun *gun = (CTSGun *)p->m_pActiveItem;
+			for (int w = 0; w < TSW_COUNT; w++)
+			{
+				if (!gun->m_items[w].owned || w <= 0 || w == TSW_FLAG)
+					continue;
+				refund += get_weapon_info((tsweapon_t)w)->iPrice;
+				const int attach = gun->m_items[w].attach;
+				if (attach & 1)
+					refund += 900;  // silencer
+				if (attach & 2)
+					refund += 800;  // laser sight
+				if (attach & 4)
+					refund += 500;  // flashlight
+				if (attach & 8)
+					refund += 1800; // scope
+			}
+			for (int c = 0; c < TS_NUM_CALIBERS; c++)
+			{
+				const s_ammo_info *ai = get_ammo_info(c);
+				if (gun->m_ammoReserve[c] > ai->iRoundsPerMag)
+					refund += ai->iPrice * gun->m_ammoReserve[c] / ai->iRoundsPerMag;
+			}
 		}
+		p->GiveCash(refund);
+		// @0x67cc9: StartObserver(origin, v_angle) for a player in play. reTS's spectate wait
+		// (TSEnterSpectate) is StartObserver plus the wait state the "respawn" command checks; the
+		// loadout he chose stays (the original resets it only for a joiner, InitHUD @0x6958d).
+		if (p->pev->iuser1 == 0)
+			p->TSEnterSpectate(false);
 	}
 
-	// (f) respawn the map's resettable entities. (Team roster is stable after SetTeamList —
-	// the invented RecountTeams re-tokenize was removed, R1 item-9.)
+	// @0x67d40: the team roster recount. The original calls it on g_pGameRules in every mode,
+	// including last man standing, where the rules are not CHalfLifeTeamplay (nothing it writes
+	// is read there); here only on team rules.
+	if (g_pGameRules->IsTeamplay())
+		((CHalfLifeTeamplay *)g_pGameRules)->RecountTeams(false);
+
+	// (f) respawn the map's resettable entities.
 	RespawnEntities(true);
 }
 
@@ -486,7 +535,7 @@ void CTSGameRules::ResetRestartRound(int depth)
 			m_teamCash[i] = (int)CVAR_GET_FLOAT("initial_cash"); // SLICE: original also broadcasts TeamScore
 			UpdateTeamScores(i, m_teamScore[i]); // (no-op in the original)
 		}
-	TSHudMessageAll(0, 0xff, 0, 8, 30, "Restarting Round");
+	TSHudMessageAll(0, 0, 0, 8, 30, "Restarting Round"); // black, @0x689f7
 }
 
 //============================================================================
@@ -1048,9 +1097,11 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	pPlayer->m_iRespawnsUsed = 0; // @0x694d1 — a joiner starts with a fresh respawn budget
 
 	// items 1-2 of the original @0x69134 (dossier §2.4) — the cheats/damage notices come FIRST.
+	// The damage notice sits inside the cheats test (@0x6918b), as damagemult itself applies only on
+	// a map started with sv_cheats on.
 	if (g_flWeaponCheat != 0.0f) // @0x69147: sv_cheats as the map started
-		TSHudMessageOne(0x2d, 0xc3, 0x2d, 8, 100, "This server has cheats enabled.", pPlayer->pev);
 	{
+		TSHudMessageOne(0x2d, 0xc3, 0x2d, 8, 100, "This server has cheats enabled.", pPlayer->pev);
 		const float dm = CVAR_GET_FLOAT("damagemult");
 		if (dm > 0.0f)
 			TSHudMessageOne(0x2d, 0xc3, 0x2d, 8, 100,

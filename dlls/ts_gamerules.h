@@ -139,7 +139,7 @@ public:
 	// --- Round lifecycle (the .so's Init / RestartRound / ResetRestartRound / RespawnEntities). ---
 	CTSGameRules();                    // @0x67d6c Init-equivalent: one-time setup (calls Init())
 	void Init();                       // @0x67d6c — map setup: InitTeams + InitObjectives/SetObjective + arm 1st round
-	void RestartRound();               // @0x67920 — the round reset (re-arm timer, objectives, respawn, RespawnEntities)
+	void RestartRound();               // @0x67920 — the round reset (re-arm timer, objectives, refund + spectate, RespawnEntities)
 	void RespawnEntities(bool bFirst); // @0x67764 — respawn the map's breakables/weapons/powerups/flags
 	void ResetRestartRound(int depth); // @0x68750 — modes 2/3 or LMS: arm a 1s restart (depth>1 wipes team scores)
 	int  CountPlayers();               // @0x6a154 — number of connected players

@@ -610,7 +610,7 @@ void CBasePlayer::TSInit()
 	m_iKungFu = 0;         // 0x74e
 	// the map-global superjump mode (rules+0x5885, ts_mapglobals SF & 0x40): everyone spawns
 	// with the low-gravity/superjump physinfo ("mj")
-	CTSGameRules *pRules = dynamic_cast<CTSGameRules *>(g_pGameRules);
+	CTSGameRules *pRules = TSGameRules; // @0x82c53: TSGameRules+0x5885
 	if (pRules && pRules->m_bSrvSuperJump)
 	{
 		m_bLowGravity = 1;

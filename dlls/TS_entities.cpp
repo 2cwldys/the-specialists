@@ -645,7 +645,7 @@ void CTSMapGlobals::Spawn(void)
 	// the round-timer enable (!(SF & 0x20)) and the weapon-restriction push (the restriction
 	// fields @+0x586c/0x5870 init from InitWeaponRestriction; get_weapon_restriction() XORs the
 	// "No <weapon>" spawnflags in).
-	CTSGameRules *pRules = dynamic_cast<CTSGameRules *>(g_pGameRules);
+	CTSGameRules *pRules = TSGameRules; // @0x625e5: TSGameRules+0x5885
 	if (pRules)
 		pRules->m_bSrvSuperJump = (pev->spawnflags & 0x40) ? 1 : 0;
 }

@@ -6857,3 +6857,28 @@ them in order). Report: ~/Projects/amxxbench/docs/fixes/rets-deviations5-report.
   StopObserver clears the target (the original does neither); the spectate block does not clear impulse;
   CallCheckDeads does not re-arm; the restartround command is missing; banner colours; InitHUD's damage notice
   needs cheats in the original; TS 3.0 runs a joiner's InitHUD catch-up three times.
+
+## 2026-10-07 — game-rules lookups, new round, restartround, spectate details, banners, InitHUD passes
+Each is a separate patch against 3b6dee8 in ~/stignored/rets-deviations6/item{1,3..8}-*.patch (apply-all.sh).
+Report: ~/Projects/amxxbench/docs/fixes/rets-deviations6-report.md.
+- 1 The six dynamic_cast<CTSGameRules *>(g_pGameRules) (always null) read TSGameRules, as the original's GOT
+  pointer: SetPlayerRespawnTime, ShootBulletsPlayer (realbullet), CTSMapGlobals::Spawn and TSInit (superjump),
+  TSPlayerDisconnect (vote block at reTS's ENTINDEX-1 index, CallCheckDeads), EntSelectSpawnPoint (rewritten to
+  @0x66128: IsTeamplay gate, TeamID, info_player_team<N> with fallback info_player_deathmatch, "" for an unknown
+  team, none outside teamplay). Init clears m_bSrvSuperJump (@0x67ec2). No other such lookup in the tree.
+- 3 RestartRound per player (@0x67a4d): hold/gate/award/grenade buys/respawn budget/powerups, loadout refund off
+  the TS gun (prices, attachments 900/800/500/1800, magazines past one), StartObserver for players in play
+  (TSEnterSpectate(false) keeps the loadout); RecountTeams on team rules (public now).
+- 4 `restartround` server command = ResetRestartRound(2) (@0xb5748).
+- 5 StartObserver keeps m_flNextObserverInput; StopObserver keeps m_hObserverTarget; the spectate-wait block
+  clears pev->impulse (@0x810d3); CallCheckDeads re-arms on every death (@0x69bc0).
+- 6 "Defeat the opposite team" / "Restarting Round" are black. 7 The damage notice is inside the cheats test.
+- 8 UpdateClientData's HUD-reset block sends the RoundTime catch-up on every pass (@0x81e47).
+- Tests: new ts_gamerules (5), ts_rounds +6, ts_observer +3, tsx_player knife made deterministic (stuck knife
+  takes gravity 0.75 back); TS 3.0 27/27 (DM and teamplay). reTS realbullet still fails: UpdateBullet drops any
+  bullet whose shooter is not slowed (the original does not), passes with that removed in a verification build.
+- Found, not changed: that UpdateBullet drop; UpdateClientData's 0.1 s throttle (player+0x534); the original
+  InitTeams' Team1..Team4 names and spot strings; Init clearing +0x5884; GetRandomPowerup and the HUD-reset
+  TSPowerUp using the superjump flag; ts_mapglobals' round-timer and restriction push; the vote subsystem
+  (slowmatch votes, InitHUD clearing the joiner's block, ENTINDEX indexing); StopObserver's gate and
+  conditional Spectator message; RestartRound arming the clock before InitObjectives; addbot/addcustombot.

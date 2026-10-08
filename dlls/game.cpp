@@ -112,6 +112,15 @@ static void cmd_weaponrestriction()
 	display_weaponrestriction();
 }
 
+// @0xb5748 cmd_restartround — the `restartround` server command: ResetRestartRound(2), which in last man
+// standing or the objective modes restarts the round in a second and clears the team scores, and
+// otherwise does nothing.
+static void cmd_restartround()
+{
+	if (TSGameRules)
+		TSGameRules->ResetRestartRound(2);
+}
+
 // @0xb5580 cmd_globalslow — the "Permanent Slow-motion?" server setting (a COMMAND, not a cvar; the
 // settings.scr entry sends `globalslow <percent>`). Parses percent -> a 0..2.0 scale (100% = normal =
 // OFF), then drives CTSGameRules::SetGlobalSlowMotion (duration 0 = permanent). This was UNREGISTERED,
@@ -217,6 +226,7 @@ void GameDLLInit()
 
 	g_engfuncs.pfnAddServerCommand("weaponrestriction", cmd_weaponrestriction); // swap-contract command name
 	g_engfuncs.pfnAddServerCommand("globalslow", cmd_globalslow); // "Permanent Slow-motion?" setting (RE @0xb5580)
+	g_engfuncs.pfnAddServerCommand("restartround", cmd_restartround); // @0xb5afc, after globalslow as in the original
 	g_engfuncs.pfnAddServerCommand("loadweapons", cmd_loadweapons); // swap-contract command names
 	g_engfuncs.pfnAddServerCommand("saveweapons", cmd_saveweapons);
 

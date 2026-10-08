@@ -165,7 +165,7 @@ edict_t *TSSelectSpawnSpot(const char *szClass, CBaseEntity *pPlayer, const char
 void SetPlayerRespawnTime(CBasePlayer *pPlayer, int sec, bool bUnused)
 {
 	(void)bUnused;
-	CTSGameRules *pRules = dynamic_cast<CTSGameRules *>(g_pGameRules);
+	CTSGameRules *pRules = TSGameRules; // @0x6600a: the rules object (TSGameRules)
 	const int mode = pRules ? pRules->m_iGameMode : 0;
 	if (mode != 0 || g_lastManStanding == 0) // @0x66004: modes 2/3, non-LMS, or any non-0 mode
 	{

@@ -156,8 +156,10 @@ void RemoveEntityFromSlowedArray(CBaseEntity *pEnt)
 void TSPlayerDisconnect(CBasePlayer *pPlayer)
 {
 	pPlayer->DropFlag(false);
-	CTSGameRules *pRules = dynamic_cast<CTSGameRules *>(g_pGameRules);
-	const int idx = ENTINDEX(pPlayer->edict());
+	CTSGameRules *pRules = TSGameRules; // @0x8f98c: TSGameRules+0x684
+	// The original clears the block at ENTINDEX (its PlayerVote files a vote there too); reTS's
+	// PlayerVote and CheckVotes index ENTINDEX - 1, so the leaver's own votes are at idx - 1.
+	const int idx = ENTINDEX(pPlayer->edict()) - 1;
 	if (pRules && idx >= 0 && idx < 32)
 	{
 		memset(pRules->m_voteMap[idx], 0, sizeof(pRules->m_voteMap[idx]));

@@ -48,10 +48,9 @@ public:
 	const char* SetDefaultPlayerTeam(CBasePlayer* pPlayer) override;
 	void ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeamName, bool bKill, bool bGib) override;
 
-private:
+	// Public for CTSGameRules::RestartRound, which calls it (@0x67d4e).
 	void RecountTeams(bool bResendInfo = false);
 
-public:
 	void ResendTeamRoster(CBasePlayer* pPlayer); // INVENTED-INTEROP: connect-window MSG_ONE drop workaround
 
 private:

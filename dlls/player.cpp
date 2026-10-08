@@ -1487,8 +1487,8 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	// Move them to the new position
 	UTIL_SetOrigin(pev, vecPosition);
 
-	// Find a player to watch
-	m_flNextObserverInput = 0;
+	// Find a player to watch. (The original leaves Observer_HandleButtons' clock, player+0x760, as it
+	// was: StartObserver writes only Observer_Idle's, @0x8968d.)
 	// @0x8999d..0x899ba: the last mode StopObserver saved, or chase (OBS_CHASE_FREE) when there is
 	// none yet, so a joiner starts out chasing a player (Observer_SetMode falls back to roaming
 	// when there is nobody to chase).
@@ -1510,13 +1510,14 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 // @0x65ff4 and broadcast via TSPAward from UpdateClientData). Ours already runs that faithful
 // pipeline; the ScoreInfo-playerclass WAITING was an invented parallel wire.)
 
-void CBasePlayer::TSEnterSpectate()
+void CBasePlayer::TSEnterSpectate(bool bResetArmament)
 {
 	// observer at the spawn spot, in the mode StartObserver picks (no forced mode: the original's
 	// InitHUD and PlayerDeathThink call StartObserver alone, @0x694c8 and @0x7ed49)
 	StartObserver(pev->origin, pev->v_angle);
 
-	ResetArmament(); // no weapons until they pick a loadout + press fire
+	if (bResetArmament)
+		ResetArmament(); // no weapons until they pick a loadout + press fire
 	m_fInSpectateWait = true;
 	m_iClientSpecSecs = -1;
 	m_flSpecResyncTime = -1.0f; // arm the one-shot post-active slow/award re-sync (PreThink spectate block)
@@ -1582,7 +1583,8 @@ void CBasePlayer::StopObserver()
 	// leave observer mode
 	ClearBits(m_afPhysicsFlags, PFLAG_OBSERVER);
 	pev->iuser1 = pev->iuser2 = pev->iuser3 = 0;
-	m_hObserverTarget = NULL;
+	// (the watched player, player+0x75c, is kept, @0x89abc: the next StartObserver's
+	// Observer_SetMode goes back to him if he is still there)
 	m_iHideHUD = 0;
 
 	// @0x89a14: the stock-shaped spectator-state broadcast — BYTE playerIndex, BYTE 0 (off).
@@ -2084,10 +2086,11 @@ void CBasePlayer::PreThink()
 			m_iClientAward = 0xff;       // un-latch → UCD re-sends TSPAward(WAITING) once (0xff matches TSInit)
 		}
 		UpdateClientData();
-		// @0x810c3, @0x810cb: the block ends with the observer controls and the dead-target check,
-		// as the original's does.
+		// @0x810c3, @0x810cb, @0x810d3: the block ends with the observer controls, the dead-target
+		// check and the impulse cleared, as the original's does.
 		Observer_HandleButtons();
 		Observer_Idle();
+		pev->impulse = 0;
 		return;
 	}
 
@@ -3237,24 +3240,34 @@ bool IsSpawnPointValid(CBaseEntity* pPlayer, CBaseEntity* pSpot)
 }
 
 /*
-@0x66128 EntSelectSpawnPoint (decompile-exact shape) — the original REPLACED the stock spot
-walker with a 4-call body: pick the class ("info_player_team<N>" for a team player, else
-"info_player_deathmatch") and delegate to TSSelectSpawnSpot (the scorer: teammate-cover band /
-unseen band / nearest-distance, crowded-winner telefrag, info_player_deathmatch/start fallback;
-sets g_pLastSpawn).
+@0x66128 EntSelectSpawnPoint — the original REPLACED the stock spot walker: pick the class and
+delegate to TSSelectSpawnSpot (the scorer: teammate-cover band / unseen band / nearest-distance,
+crowded-winner telefrag, info_player_deathmatch/start fallback; sets g_pLastSpawn).
+- Teamplay rules (g_pGameRules->IsTeamplay, @0x6614d) and a team TSGameRules knows (GetTeamIndex of
+  TeamID(), @0x66177): that team's spot class and fallback, "info_player_team<N>" and
+  "info_player_deathmatch" (written by InitTeams @0x6801b/@0x68032; its info_player_start fallback
+  for team 1 needs mode 2/3, which InitTeams never sees, so it is dead).
+- Teamplay and an unknown team: "info_player_deathmatch" with fallback "" (@0x661bc).
+- Otherwise "info_player_deathmatch" with no fallback (@0x661e0).
 */
 edict_t* EntSelectSpawnPoint(CBaseEntity* pPlayer)
 {
 	char szSpotClass[32];
+	char szFallback[32];
+	const char* pFallback = NULL;
 	strcpy(szSpotClass, "info_player_deathmatch");
-	CTSGameRules* pRules = dynamic_cast<CTSGameRules*>(g_pGameRules);
-	if (pRules && pPlayer && pPlayer->IsPlayer())
+	if (g_pGameRules->IsTeamplay())
 	{
-		const int team = pRules->GetTeamIndex(((CBasePlayer*)pPlayer)->m_szTeamName) + 1;
-		if (team >= 1 && team <= 4)
-			sprintf(szSpotClass, "info_player_team%i", team);
+		szFallback[0] = '\0';
+		pFallback = szFallback;
+		const int team = TSGameRules ? TSGameRules->GetTeamIndex(pPlayer->TeamID()) : -1;
+		if (team >= 0)
+		{
+			sprintf(szSpotClass, "info_player_team%i", team + 1);
+			strcpy(szFallback, "info_player_deathmatch");
+		}
 	}
-	edict_t* pent = TSSelectSpawnSpot(szSpotClass, pPlayer, "info_player_deathmatch");
+	edict_t* pent = TSSelectSpawnSpot(szSpotClass, pPlayer, pFallback);
 	if (FNullEnt(pent))
 	{
 		ALERT(at_error, "PutClientInServer: no info_player_start on level");
@@ -4472,6 +4485,22 @@ void CBasePlayer::UpdateClientData()
 		}
 
 		FireTargets("game_playerspawn", this, this, USE_TOGGLE, 0);
+
+		// @0x81e47: every pass through this block (not only the first) catches the client up on
+		// the round clock, as CTSGameRules::InitHUD does: truncated seconds left, flag 0, when the
+		// clock is armed and the round timer is on. A joiner gets it from InitHUD and here in the
+		// same frame, and once more on the pass his StartObserver arms.
+		if (TSGameRules && TSGameRules->m_flRoundEnd != 0.0f && TSGameRules->m_bRoundTimerEnabled)
+		{
+			extern int gmsgTSRoundTime; // TS_gamerulesclass.cpp
+			float left = TSGameRules->m_flRoundEnd - gpGlobals->time;
+			if (left < 0)
+				left = 0;
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSRoundTime, NULL, pev);
+			WRITE_BYTE((int)left); // truncated (@0x81eac: fistp in round-toward-zero)
+			WRITE_BYTE(0);
+			MESSAGE_END();
+		}
 
 		InitStatusBar();
 

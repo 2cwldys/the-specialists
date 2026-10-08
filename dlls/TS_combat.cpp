@@ -54,7 +54,7 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 	const Vector vecUp = gpGlobals->v_up;
 
 	int rbullet = 0;
-	CTSGameRules *pRules = dynamic_cast<CTSGameRules *>(g_pGameRules);
+	CTSGameRules *pRules = TSGameRules; // @0x5f741: TSGameRules+0x578
 	if ((pRules && pRules->m_iSrvRealBullet != 0) || GiveSlowMul() < 0.99f)
 		rbullet = 1;
 

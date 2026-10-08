@@ -597,7 +597,8 @@ public:
 	                                // PreThink expiry -> locked out (gate -1, award 1). V11: the
 	                                // countdown HUD message in PreThink's else-branch not yet transcribed
 	int m_iClientSpecSecs = -1;     // last Spectator countdown byte sent (resend on change)
-	void TSEnterSpectate();         // enter the spectate-wait (join, death, Spawn while waiting)
+	void TSEnterSpectate(bool bResetArmament = true); // enter the spectate-wait (join, death, Spawn
+	                                                  // while waiting; a new round keeps the loadout)
 	void StopObserver();         // press-fire: leave spectate -> respawn into play
 	// (TSSpectateThink/TSTryRespawn/TSSendScoreInfo deleted — no original counterparts; their
 	// logic lives inline in PlayerPreThink / the ClientCommand "respawn" branch, and the WAITING
