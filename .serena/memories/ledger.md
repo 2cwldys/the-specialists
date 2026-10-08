@@ -6992,3 +6992,23 @@ ground every frame, as the original does (@0x8186f: `testb $0x2,0x1a5(%eax)` = F
 `movl $0x3f800000,0x11c(%eax)`), so a gravity a plugin or anything else lowered lasts only until he lands; the
 superjump powerup sets 0.15 again in each PreThink. Test: ts_powerup_state "landing gives normal gravity back"
 (tsx-ts3, reTS and ts30 copies): TS 3.0 pass; reTS before 0.5 after landing, after 1.0.
+
+## 2026-10-08 — TSX sees hits and deaths on reTS: dmg_take kept, Killed sends TSHealth
+
+Final-stretch round, found while checking 64bit's TSX fixes (ids, stats, stunts, scoring, The One) on reTS
+with reTS copies of the ts30 tsx tests. TSX counts a hit or a death in its TSHealth handler from the victim's
+dmg_take/dmg_inflictor, and clears dmg_take itself.
+- UpdateClientData: the stock damage block is gone. The original's UpdateClientData @0x81d00 writes neither
+  entvars+0x1d8/0x1dc (dmg_take/dmg_save) nor player+0x9b0 (m_bitsHUDDamage) and masks no damage bits; reTS
+  cleared dmg_take before its TSHealth went out, so TSX on reTS saw no hit and no kill at all.
+- Killed sends TSHealth 0 where the stock SDK sends Health (@0x7f3fb: TSHealth with player+0x9e0 after setting it
+  to 0; the original sends Health and Battery nowhere, their only GOT uses are in LinkUserMessages). So the death
+  reaches TSX in the frame of the kill, after the DeathMsg, as on TS 3.0.
+Tests (tsx-ts3): reTS copies of ts30/tsx_weapons (newcomer test left out, below) and ts30/tsx_stats: before 3 of
+17 pass (only the three id tests), after 16 of 16 on reTS, in deathmatch and teamplay.
+Found, not changed: PlayerKilled has none of the original's streak scoring (double kill within 2 s, the
+specialist's +5, the unstoppable doubling, streak/last-kill bytes +0x744/+0x748); The One is never crowned
+(SelectRandomTheOne is gated on a cvar "the_one" the original does not have, and the crown changes no team);
+CTSGun::UpdateClientData sends a newcomer a WeaponInfo (the original's change check compares only type +0x97a
+and reserve +0x9b4, both reset to 0); UpdateClientData's TSHealth rounds where the original truncates
+(player+0x9e0 cache); Killed sends CurWeapon where the original sends TSActiveItems.

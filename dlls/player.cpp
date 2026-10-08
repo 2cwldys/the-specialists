@@ -1018,10 +1018,15 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	// clear out the suit message cache so we don't keep chattering
 	SetSuitUpdate(NULL, false, 0);
 
-	// send "health" update message to zero
+	// send "health" update message to zero: TSHealth, not the stock Health, which the original
+	// registers and never sends (@0x7f3fb: TSHealth with player+0x9e0 after it is set to 0). It goes
+	// out here, in the frame of the death, after PlayerKilled's DeathMsg; TSX counts the death from
+	// it. The UpdateClientData cache is the separate m_iClientTSHealth here.
+	extern int gmsgTSHealth;
 	m_iClientHealth = 0;
-	MESSAGE_BEGIN(MSG_ONE, gmsgHealth, NULL, pev);
-	WRITE_BYTE(m_iClientHealth);
+	m_iClientTSHealth = 0;
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSHealth, NULL, pev);
+	WRITE_BYTE(0);
 	MESSAGE_END();
 
 	// Tell Ammo Hud that the player is dead
@@ -4587,33 +4592,10 @@ void CBasePlayer::UpdateClientData()
 	// original TS lacks; removed for registration-set parity (dossier-gmsg U0, PLAYTEST-GATED:
 	// the TS weapon HUD rides WeaponInfo/WStatus, and the single weapon_tsgun is auto-known.)
 
-	if (0 != pev->dmg_take || 0 != pev->dmg_save || m_bitsHUDDamage != m_bitsDamageType)
-	{
-		// Comes from inside me if not set
-		Vector damageOrigin = pev->origin;
-		// send "damage" message
-		// causes screen to flash, and pain compass to show direction of damage
-		edict_t* other = pev->dmg_inflictor;
-		if (other)
-		{
-			CBaseEntity* pEntity = CBaseEntity::Instance(other);
-			if (pEntity)
-				damageOrigin = pEntity->Center();
-		}
-
-		// only send down damage type that have hud art
-		int visibleDamageBits = m_bitsDamageType & DMG_SHOWNHUD;
-
-		// (no Damage send — the original registers the stock Damage message but NEVER sends it;
-		// the pain feedback rides PTakeDam from TraceAttack. dossier-gmsg U4a.)
-
-		pev->dmg_take = 0;
-		pev->dmg_save = 0;
-		m_bitsHUDDamage = m_bitsDamageType;
-
-		// Clear off non-time-based damage indicators
-		m_bitsDamageType &= DMG_TIMEBASED;
-	}
+	// (no damage block — the original's UpdateClientData @0x81d00 sends no Damage message and never
+	// clears dmg_take/dmg_save or the damage bits: no write to entvars+0x1d8/0x1dc or player+0x9b0 in
+	// it. TSX reads dmg_take and dmg_inflictor when TSHealth goes out below and clears dmg_take
+	// itself, so a clear here hid every hit and kill from it. dossier-gmsg U4a.)
 
 	// Update Flashlight (battery drain/charge only — the Flashlight/FlashBat user messages are
 	// NOT registered by the original TS; removed for registration-set parity, dossier-gmsg U0.)
