@@ -37,6 +37,9 @@ class CTSObjectiveManager; // dlls/ts_objectives.h (round objective managers)
 // objective entities already gate on (0 Team1/spec, 1 Team2/merc — see ts_objectives.cpp).
 #define TS_MAX_TEAMS    4
 #define TS_TEAMNAME_LEN 32
+#define TS_TEAMMODELS    3  // models per team (the original's +0x38/+0x48/+0x58 in each team record)
+#define TS_TEAMMODEL_LEN 16
+#define TS_TEAMSPOT_LEN  32 // the team's spawn spot class and its fallback (+0x68/+0x88)
 
 // R1 phase 2: CTSGameRules is a STANDALONE class — base:null, NO vtable, all methods
 // non-virtual, exactly like the original (nm has no __vt_12CTSGameRules; the 22.7KB static
@@ -84,9 +87,9 @@ public:
 	int   GetTeamsNum();                                     // @0x685a8 — number of active teams
 	void  SetTeamList(const char *pList);                   // @0x680dc — parse the ";"-team list into the slots
 	void  SetTeamModelList(const char *pList);             // @0x68258 — parse the "|"-model list into the slots
-	void  SetTeamModelList(int team, const char *pModel);  // @  per-slot model setter (overload)
+	void  SetTeamModelList(int team, const char *pModels); // @0x68438 — one team's ";"-list of up to 3 models
 	int   GetTeamCash(CBasePlayer *pPlayer);               // @0x69aac — the player's team cash (0 outside team mode)
-	const char *GetPlayerModel(CBasePlayer *pPlayer);      // @0x69a08 — a (random) team model for the player
+	const char *GetPlayerModel(CBasePlayer *pPlayer);      // @0x69a08 — one of the player's team models, at random
 	void  TogglePlayerFromSlow(CBasePlayer *pPlayer);      // @0x696c8 — remove a player from the slow registry
 	void  InitTeamScore(int *pScores);                     // @0x69130 — (no-op in the original)
 	void  UpdateTeamScores(int a, int b);                  // @0x67908 — (no-op in the original)
@@ -100,7 +103,9 @@ public:
 	                                                        // CBasePlayer::UpdateClientData's InitHUD block
 
 	char  m_teamNames[TS_MAX_TEAMS][TS_TEAMNAME_LEN] = {};
-	char  m_teamModels[TS_MAX_TEAMS][TS_TEAMNAME_LEN] = {};
+	char  m_teamModels[TS_MAX_TEAMS][TS_TEAMMODELS][TS_TEAMMODEL_LEN] = {};
+	char  m_teamSpot[TS_MAX_TEAMS][TS_TEAMSPOT_LEN] = {};         // spawn spot class (InitTeams; EntSelectSpawnPoint)
+	char  m_teamSpotFallback[TS_MAX_TEAMS][TS_TEAMSPOT_LEN] = {}; // its fallback class
 	int   m_teamCash[TS_MAX_TEAMS] = {}; // per-team cash pool (GetTeamCash; the cash economy is dead in the shipped game)
 	int   m_numTeams = 0;
 
@@ -154,12 +159,21 @@ public:
 	bool  m_bCTBChecked = false;       // IsCTB cache validity
 	bool  m_bHasBriefcase = false;     // IsCTB cache: a ts_briefcase exists
 
-	// --- Voting (per-player map / friendly-fire / teamplay votes; tallied to a majority). ---
+	// --- Voting (per-player map / slowmatch / teamplay / friendly-fire votes; tallied to a majority). ---
 	int  PlayerVote(edict_t *pEntity, const char *pCmd); // @0x6a1c8 — a player's `vote ...` command
 	void CheckVotes();                                   // @0x6a5c4 — tally votes (throttled), apply on majority
-	char m_voteMap[32][32] = {};       // each player's voted next map ("" = none) [field_0x684]
-	byte m_voteFF[32] = {};            // each player's friendly-fire vote (0 none / 1 on / 2 off) [field_0x6c4]
-	byte m_voteTP[32] = {};            // each player's teamplay vote (0 none / 1 on / 2 off) [field_0x6c5]
+	// One block per ENTINDEX, 0x48 bytes from +0x684 as in the original: block 0 is never a player's
+	// and player 32 has none (his vote is not a vote). Only "vote map" fills one in; the three
+	// on/off bytes (1 on, 2 off) are counted and cleared but nothing in the game sets them.
+	struct VoteBlock
+	{
+		char map[64];      // +0x00 (+0x684) the voted next map ("" = none)
+		byte slowmatch;    // +0x40 (+0x6c4)
+		byte teamplay;     // +0x41 (+0x6c5)
+		byte friendlyfire; // +0x42 (+0x6c6)
+		int  owner;        // +0x44 (+0x6c8) ENTINDEX + 1 once the block is reset (written, never read)
+	};
+	VoteBlock m_votes[32] = {};
 	float m_flNextVoteCheck = 0;       // CheckVotes throttle (every ~10s) [field_0xf84]
 	char m_szEndMap[0x40] = {};        // @+0x1824 — the forced next map (a vote winner, or an objective
 	                                   // set it); MP/Teamplay::Think end the map when byte 0 is set,

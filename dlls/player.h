@@ -476,6 +476,10 @@ public:
 	int m_iClientTSHealth = -1;       // last TSHealth byte sent (round(health), >=0)
 	int m_iClientTSArmor = -1;        // last TSArmor byte sent (round(armorvalue))
 	int m_iClientTSCash = -1;         // last TSCash short sent (m_iCash)
+	// 0x534: UpdateClientData does its work at most every 0.1 s (@0x81d1f): not before this time,
+	// and never while it is negative (TSPlayerDisconnect parks a leaver at -1). 0 = at once
+	// (TSInit, ForceClientDllUpdate).
+	float m_flNextClientUpdate = 0;
 
 	// TS cash + buy/armament loadout (ts_buy.cpp). In the shipped game CashBased() is
 	// hardcoded false (weapons are FREE), so the "buy" system is really a free loadout

@@ -3,10 +3,12 @@
 *  256-slot ring at CTSGameRules+0x1864). When the shooter is in slow-motion, their shots stop being
 *  instant hitscans and become tracked projectiles that physically FLY across the map, doing damage
 *  when/where they actually arrive — so in slow-PAUSE you can watch a bullet crawl toward you and step
-*  out of its path. The instant the shooter's slow-motion ends, the in-flight bullets vanish.
+*  out of its path. A bullet in flight keeps flying when the shooter's slow-motion ends (and with
+*  realbullet on, every bullet flies, slowed shooter or not).
 *
-*  RE: ShootBulletsPlayer (@0x5f69c) gates on `rbullet` = (the shooter's slow factor < 0.99) and, when
-*  set, hands each pellet to CBulletManager::FireBullet instead of tracing+damaging it instantly.
+*  RE: ShootBulletsPlayer (@0x5f69c) gates on `rbullet` = (the shooter's slow factor < 0.99, or the
+*  realbullet setting) and, when set, hands each pellet to CBulletManager::FireBullet instead of
+*  tracing+damaging it instantly.
 *  CBulletManager::Think (@0x5ec7c) steps every active bullet (UpdateBullet @0x6ef5c): advance by
 *  GetBulletVelocityMult(slow, pauseFlag) * speed * frametime, trace, damage on hit (same pierce model),
 *  else fly on. GetBulletVelocityMult (@0x89160, below) is the speed fraction.
@@ -166,8 +168,10 @@ void CBulletManager::Think()
 			UpdateBullet(i);
 }
 
-// @ UpdateBullet__14CBulletManager — validate one bullet's owner/slow-state; bullets vanish the
-// instant their shooter's slow-motion ends. Otherwise advance it one time slice.
+// @ UpdateBullet__14CBulletManager (@0x5ef5c) — validate one bullet's owner, then advance it one
+// time slice. The original never drops a bullet for its shooter's slow state: a slowed shooter's
+// bullets fly on after his slow-motion ends, and realbullet's bullets (shooter not slowed) fly at
+// GetBulletVelocityMult's full speed until they hit.
 void CBulletManager::UpdateBullet(int slot)
 {
 	TSSlowBullet &b = m_bullets[slot];
@@ -175,14 +179,6 @@ void CBulletManager::UpdateBullet(int slot)
 		return;
 	CBasePlayer *owner = (CBasePlayer *)(CBaseEntity *)b.owner;
 	if (!owner || !owner->IsPlayer())
-	{
-		DestroyBullet(slot);
-		b.active = 0;
-		return;
-	}
-	// RE-faithful slow: the bullet flies at GiveSlowMul = FixedSlowAmt(owner->fuser1) — max(fuser1,0.01).
-	float slow = owner->pev->fuser1;
-	if (slow >= 0.99f) // slow-motion ended → the in-flight bullets (and their trails) disappear
 	{
 		DestroyBullet(slot);
 		b.active = 0;

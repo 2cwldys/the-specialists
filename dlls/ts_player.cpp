@@ -587,7 +587,8 @@ void CBasePlayer::TSInit()
 	// only a plugin's adjustment is dropped)
 	m_iFreeSlotsAdjust = 0;
 	m_iClientTSSpace = -1; // 0x54c — force the first TSSpace send
-	// player+0x544 = -1 / +0x534 = 0 (unnamed transients)
+	// player+0x544 = -1 (unnamed transient)
+	m_flNextClientUpdate = 0; // 0x534 (@0x82b0c): the next UpdateClientData runs at once
 	m_flSpawnProtectTime = gpGlobals->time + 1.0f; // 0x71c — the SPAWN-PROTECTION deadline
 	m_flNextAttack = UTIL_WeaponTimeBase() + 1.0f; // 0x12c (the stock Spawn tail re-arms it later)
 	// the spawn-protection shimmer — PreThink clears it once the deadline passes (@0x81458)

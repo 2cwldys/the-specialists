@@ -38,14 +38,10 @@
 
 #include "ts_powerup.h"
 
-// DAT_0017da25 in the original: a cached flag that, when nonzero, removes the
-// low-gravity (0x100) powerup from the random pool. Zero-init in the binary, so
-// low-gravity is permitted by default. VERIFY: which cvar feeds this.
-static byte g_iNoLowGravPowerup = 0;
-
-// @ GetRandomPowerup__12CTSGameRulesi — collect the permitted powerup bits from
+// @0x87894 GetRandomPowerup__12CTSGameRulesi — collect the permitted powerup bits from
 // `mask` and return a random one (0 if the pool is empty). Faithful to the .so:
-// the 0x80 slot is always skipped, and 0x100 (low gravity) is gated.
+// the 0x80 slot is always skipped, and 0x100 (superjump) is left out on a map whose
+// ts_mapglobals gives everyone superjump (TSGameRules+0x5885, read @0x878d3).
 int CTSGameRules::GetRandomPowerup(int mask)
 {
 	int list[9];
@@ -57,7 +53,7 @@ int CTSGameRules::GetRandomPowerup(int mask)
 			continue;
 		if (bit == 0x80) // unused powerup slot
 			continue;
-		if (bit == TS_PWUP_LOWGRAV && g_iNoLowGravPowerup != 0)
+		if (bit == TS_PWUP_LOWGRAV && TSGameRules->m_bSrvSuperJump != 0)
 			continue;
 		list[count++] = bit;
 	}

@@ -1570,28 +1570,37 @@ void CBasePlayer::TSEnterSpectate(bool bResetArmament)
 // Press-fire: leave spectate and enter play with the chosen loadout.
 void CBasePlayer::StopObserver()
 {
+	// @0x89a27: nothing happens while the respawn gate (+0x770) is still ahead.
+	if (m_flTSRespawnTime > 0.0f && m_flTSRespawnTime > gpGlobals->time)
+		return;
+
 	m_fInSpectateWait = false;
 	m_iClientSpecSecs = -1;
 
 	// (fold-plan Y6: no ScoreInfo/playerclass here — the original StopObserver @0x89a14 sends
 	// none; the WAITING status clears via the award byte when TSInit resets m_iAward on Spawn.)
 
-	// @0x89a53..0x89a6f: an observer's mode is kept for his next StartObserver.
+	// @0x89a53..0x89ac8: only an observer (iuser1 or iuser2 set) has his mode kept for his next
+	// StartObserver and is announced out of spectate to everyone: the stock-shaped spectator-state
+	// broadcast, BYTE playerIndex, BYTE 0 (off).
 	if (pev->iuser1 != 0 || pev->iuser2 != 0)
+	{
 		m_iObserverLastMode = pev->iuser1;
+		MESSAGE_BEGIN(MSG_ALL, gmsgSpectator);
+		WRITE_BYTE(ENTINDEX(edict()));
+		WRITE_BYTE(0);
+		MESSAGE_END();
+	}
 
 	// leave observer mode
 	ClearBits(m_afPhysicsFlags, PFLAG_OBSERVER);
 	pev->iuser1 = pev->iuser2 = pev->iuser3 = 0;
 	// (the watched player, player+0x75c, is kept, @0x89abc: the next StartObserver's
 	// Observer_SetMode goes back to him if he is still there)
+	// (The original clears only iuser1/iuser2 here, and neither PFLAG_OBSERVER nor m_iHideHUD:
+	// Spawn clears the physics flags, and its StartObserver never hides the HUD. reTS's
+	// StartObserver does, so the HUD is shown again here.)
 	m_iHideHUD = 0;
-
-	// @0x89a14: the stock-shaped spectator-state broadcast — BYTE playerIndex, BYTE 0 (off).
-	MESSAGE_BEGIN(MSG_ALL, gmsgSpectator);
-	WRITE_BYTE(ENTINDEX(edict()));
-	WRITE_BYTE(0);
-	MESSAGE_END();
 
 	// @0x99a14: CLEAN THE HELD BUTTONS before respawning into play. The fire-to-play click (IN_ATTACK)
 	// is still down here, and without this it carries into the freshly-deployed weapon and auto-fires
@@ -3244,9 +3253,9 @@ bool IsSpawnPointValid(CBaseEntity* pPlayer, CBaseEntity* pSpot)
 delegate to TSSelectSpawnSpot (the scorer: teammate-cover band / unseen band / nearest-distance,
 crowded-winner telefrag, info_player_deathmatch/start fallback; sets g_pLastSpawn).
 - Teamplay rules (g_pGameRules->IsTeamplay, @0x6614d) and a team TSGameRules knows (GetTeamIndex of
-  TeamID(), @0x66177): that team's spot class and fallback, "info_player_team<N>" and
-  "info_player_deathmatch" (written by InitTeams @0x6801b/@0x68032; its info_player_start fallback
-  for team 1 needs mode 2/3, which InitTeams never sees, so it is dead).
+  TeamID(), @0x66177): that team's spot class and fallback from its team record (+0x68/+0x88),
+  "info_player_team<N>" and "info_player_deathmatch" (written by InitTeams @0x6801b/@0x68032; its
+  info_player_start fallback for team 1 needs mode 2/3, which InitTeams never sees, so it is dead).
 - Teamplay and an unknown team: "info_player_deathmatch" with fallback "" (@0x661bc).
 - Otherwise "info_player_deathmatch" with no fallback (@0x661e0).
 */
@@ -3263,16 +3272,13 @@ edict_t* EntSelectSpawnPoint(CBaseEntity* pPlayer)
 		const int team = TSGameRules ? TSGameRules->GetTeamIndex(pPlayer->TeamID()) : -1;
 		if (team >= 0)
 		{
-			sprintf(szSpotClass, "info_player_team%i", team + 1);
-			strcpy(szFallback, "info_player_deathmatch");
+			strcpy(szSpotClass, TSGameRules->m_teamSpot[team]);
+			strcpy(szFallback, TSGameRules->m_teamSpotFallback[team]);
 		}
 	}
 	edict_t* pent = TSSelectSpawnSpot(szSpotClass, pPlayer, pFallback);
 	if (FNullEnt(pent))
-	{
-		ALERT(at_error, "PutClientInServer: no info_player_start on level");
-		return CWorld::World->edict();
-	}
+		return CWorld::World->edict(); // @0x6621e: the world, silently
 	return pent;
 }
 
@@ -3856,6 +3862,7 @@ void CBasePlayer::ForceClientDllUpdate()
 	m_fWeapon = false;	   // Force weapon send
 	m_fKnownItem = false;  // Force weaponinit messages.
 	m_fInitHUD = true;	   // Force HUD gmsgResetHUD message
+	m_flNextClientUpdate = 0; // @0x82620: the update below runs now, whatever the 0.1 s throttle says
 
 	// @0x82594: the original also re-tells this client its own spectator state —
 	// MSG_ONE (idx, deadflag == DEAD_RESPAWNABLE).
@@ -4446,6 +4453,11 @@ reflecting all of the HUD state info.
 */
 void CBasePlayer::UpdateClientData()
 {
+	// @0x81d1f: the whole update runs at most every 0.1 s, and not at all for a leaver (-1).
+	if (m_flNextClientUpdate > gpGlobals->time || m_flNextClientUpdate < 0.0f)
+		return;
+	m_flNextClientUpdate = gpGlobals->time + 0.1f;
+
 	const bool fullHUDInitRequired = m_fInitHUD != false;
 
 	if (m_fInitHUD)
@@ -4489,7 +4501,7 @@ void CBasePlayer::UpdateClientData()
 		// @0x81e47: every pass through this block (not only the first) catches the client up on
 		// the round clock, as CTSGameRules::InitHUD does: truncated seconds left, flag 0, when the
 		// clock is armed and the round timer is on. A joiner gets it from InitHUD and here in the
-		// same frame, and once more on the pass his StartObserver arms.
+		// same frame, and once more on the pass his StartObserver arms, 0.1 s later (the throttle).
 		if (TSGameRules && TSGameRules->m_flRoundEnd != 0.0f && TSGameRules->m_bRoundTimerEnabled)
 		{
 			extern int gmsgTSRoundTime; // TS_gamerulesclass.cpp
@@ -4498,6 +4510,17 @@ void CBasePlayer::UpdateClientData()
 				left = 0;
 			MESSAGE_BEGIN(MSG_ONE, gmsgTSRoundTime, NULL, pev);
 			WRITE_BYTE((int)left); // truncated (@0x81eac: fistp in round-toward-zero)
+			WRITE_BYTE(0);
+			MESSAGE_END();
+		}
+
+		// @0x81ef6: on a map whose ts_mapglobals gives everyone superjump, a player who has it is
+		// shown the superjump powerup (0x100) on each HUD reset.
+		if (TSGameRules && TSGameRules->m_bSrvSuperJump && m_bLowGravity)
+		{
+			extern int gmsgTSPowerUp; // ts_player.cpp
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, pev);
+			WRITE_SHORT(TS_PWUP_LOWGRAV);
 			WRITE_BYTE(0);
 			MESSAGE_END();
 		}

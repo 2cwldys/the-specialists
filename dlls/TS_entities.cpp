@@ -640,14 +640,20 @@ void CTSMapGlobals::Spawn(void)
 	SetThink(&CTSMapGlobals::WaitThink);
 	pev->nextthink = gpGlobals->time + 10.0f;
 
-	// The original Spawn pushes the spawnflags into CTSGameRules: SUPERJUMP (SF & 0x40) ->
-	// rules+0x5885 (TSInit gives every spawn low-gravity + the "mj" physinfo). Still deferred:
-	// the round-timer enable (!(SF & 0x20)) and the weapon-restriction push (the restriction
-	// fields @+0x586c/0x5870 init from InitWeaponRestriction; get_weapon_restriction() XORs the
-	// "No <weapon>" spawnflags in).
-	CTSGameRules *pRules = TSGameRules; // @0x625e5: TSGameRules+0x5885
+	// @0x625d8..0x6262e: the spawnflags go into CTSGameRules. SF 0x20 turns the round timer off
+	// (+0x10), SUPERJUMP (SF 0x40) -> +0x5885 (TSInit gives every spawn low-gravity + the "mj"
+	// physinfo), and get_weapon_restriction() (InitWeaponRestriction() XOR the spawnflags, the
+	// "No <weapon>" bits) becomes both the restriction and the allowed categories the
+	// weaponrestriction command masks with (+0x5870/+0x586c). CTSGameRules::Init puts all three
+	// back for the next map. The original also zeroes +0x5875 and +0x5874 here; nothing reads the
+	// first, and the second (read in RestartRound) is never set, so reTS keeps neither.
+	CTSGameRules *pRules = TSGameRules; // @0x625e5: TSGameRules
 	if (pRules)
+	{
+		pRules->m_bRoundTimerEnabled = (pev->spawnflags & 0x20) == 0;
 		pRules->m_bSrvSuperJump = (pev->spawnflags & 0x40) ? 1 : 0;
+		pRules->m_iAllowedCategories = pRules->m_iWeaponRestriction = get_weapon_restriction();
+	}
 }
 
 

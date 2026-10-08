@@ -6882,3 +6882,38 @@ Report: ~/Projects/amxxbench/docs/fixes/rets-deviations6-report.md.
   TSPowerUp using the superjump flag; ts_mapglobals' round-timer and restriction push; the vote subsystem
   (slowmatch votes, InitHUD clearing the joiner's block, ENTINDEX indexing); StopObserver's gate and
   conditional Spectator message; RestartRound arming the clock before InitObjectives; addbot/addcustombot.
+
+## 2026-10-07 — bullets fly on, vote clock, UpdateClientData throttle, ts_mapglobals, teams, votes, StopObserver
+Each is a separate patch against 204ede8 in ~/stignored/rets-deviations7/item{1..12}-*.patch (apply-all.sh;
+each also builds alone). Report: ~/Projects/amxxbench/docs/fixes/rets-deviations7-report.md.
+- 1 UpdateBullet (@0x5ef5c) no longer drops a bullet whose shooter is not slowed: realbullet bullets now hit.
+- 2 Init sets the vote count clock to time + 10 (@0x67e6d): the rules object outlives the map, so after a long
+  map the count waited for the old map's time and a passed vote never ended the map (round 6's full-run failure).
+- 3 UpdateClientData runs at most every 0.1 s (player+0x534 = m_flNextClientUpdate, @0x81d1f); 0 in TSInit and
+  ForceClientDllUpdate, -1 for a leaver (TSPlayerDisconnect).
+- 4 GetRandomPowerup leaves superjump out on a superjump map (@0x878d3); the HUD reset sends PwUp(0x100, 0) to a
+  player with superjump there (@0x81ef6). g_iNoLowGravPowerup is gone.
+- 5 CTSMapGlobals::Spawn pushes the round-timer flag (!(SF & 0x20)) and the restriction (get_weapon_restriction ->
+  m_iWeaponRestriction and m_iAllowedCategories); Init resets both to InitWeaponRestriction().
+- 6 Init clears m_bWeaponParamsCustom (+0x5884, @0x67ebb).
+- 7 InitTeams: Team1..Team4, spot "info_player_team<N>" + fallback "info_player_deathmatch" in the team record
+  (m_teamSpot/m_teamSpotFallback, read by EntSelectSpawnPoint), defTeamModels, up to 3 models per team
+  (m_teamModels[4][3][16]; the per-team setter splits on ";" and ALERTs "set model"), GetPlayerModel picks one at
+  random. Team cash seeding left out (see the report: GetTeamCash's gate differs).
+- 8 Votes: a 0x48-byte VoteBlock per ENTINDEX (m_votes[32]: map[64], slowmatch/teamplay/friendlyfire bytes, owner),
+  player 32 has none; CheckVotes in the original's order (slowmatch, friendly fire, teamplay -> "nextmap", map),
+  its clear of the last counted player only; Init and InitHUD clear the blocks; reset writes the owner.
+- 9 StopObserver: nothing while the respawn gate is ahead; Spectator(idx, 0) and the kept mode only when iuser1 or
+  iuser2 is set. It still clears PFLAG_OBSERVER/iuser3/m_iHideHUD (reTS's StartObserver hides the HUD).
+- 10 RestartRound arms and sends the clock before InitObjectives/SetObjective (@0x67a14).
+- 11 addbot / addcustombot server commands: ALERT "Bots only in listen servers." (@0xb5520/@0xb5550), registered
+  first in GameDLLInit.
+- 12 EntSelectSpawnPoint returns the world without the ALERT.
+- Tests (tsx-ts3 worktree, tests.patch): ts_gamerules +6 and 4 extended, ts_rounds +1 and the clock test tightened,
+  ts_observer +1, stats kill flags spaced 0.15 s (TSX counts a kill from the victim's TSHealth). TS 3.0 34/35
+  (realbullet's first, realbullet 0 shot missed once; 5/5 alone); reTS 204ede8 23/35,
+  after 35/35. Full fork suite on reTS twice: only statscfg "save into a folder".
+- Found, not changed (report): UpdateBullet's stepping (Think's per-bullet 0.1/(realbullet+1) s steps), slow
+  source, pierce, no ricochet/decal, no range limit; Init's armor_absorb 0.2125 / health_absorb 0.1 and bullet
+  reset; GetTeamCash's mode 2/3 gate; SetTeamList's dedup; Host_Say votes gated on IsAlive (original IsNetClient);
+  PlayerVote parsing; the respawn command's iuser1 gate; StartObserver's HideHUD; ts_mapglobals' WaitThink.

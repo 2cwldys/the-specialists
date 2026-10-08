@@ -157,15 +157,10 @@ void TSPlayerDisconnect(CBasePlayer *pPlayer)
 {
 	pPlayer->DropFlag(false);
 	CTSGameRules *pRules = TSGameRules; // @0x8f98c: TSGameRules+0x684
-	// The original clears the block at ENTINDEX (its PlayerVote files a vote there too); reTS's
-	// PlayerVote and CheckVotes index ENTINDEX - 1, so the leaver's own votes are at idx - 1.
-	const int idx = ENTINDEX(pPlayer->edict()) - 1;
-	if (pRules && idx >= 0 && idx < 32)
-	{
-		memset(pRules->m_voteMap[idx], 0, sizeof(pRules->m_voteMap[idx]));
-		pRules->m_voteFF[idx] = 0;
-		pRules->m_voteTP[idx] = 0;
-	}
+	// the leaver's vote block, at his ENTINDEX (none past 31); the owner is cleared too
+	const int idx = ENTINDEX(pPlayer->edict());
+	if (pRules && idx >= 0 && idx <= 31)
+		memset(&pRules->m_votes[idx], 0, sizeof(pRules->m_votes[idx]));
 	pPlayer->pev->solid = SOLID_NOT;
 	pPlayer->pev->deadflag = DEAD_DEAD;
 	pPlayer->pev->takedamage = DAMAGE_NO;
@@ -173,7 +168,8 @@ void TSPlayerDisconnect(CBasePlayer *pPlayer)
 	pPlayer->pev->flags |= FL_DORMANT;
 	// player+0x160 = 0 (unnamed transient)
 	pPlayer->pev->frags = 0;
-	// player+0xb30 = 0 / +0xb48 byte = 0 / +0x9b8 = 0 / +0x534 = -4.0f (unnamed transients)
+	// player+0xb30 = 0 / +0xb48 byte = 0 / +0x9b8 = 0 (unnamed transients)
+	pPlayer->m_flNextClientUpdate = -1.0f; // 0x534 (@0x8fa3e): no more UpdateClientData for the leaver
 	pPlayer->m_flTSRespawnTime = -4.0f; // 0x770
 	pPlayer->pev->effects = EF_NODRAW;
 	pPlayer->pev->health = 0;

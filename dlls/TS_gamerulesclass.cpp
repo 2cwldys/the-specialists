@@ -360,16 +360,24 @@ CTSGameRules::CTSGameRules()
 void CTSGameRules::Init()
 {
 	m_iGameMode = g_teamplay ? 1 : 0; // @0x67d83 — m_iGameMode = (byte)g_teamplay (0/1; 2/3 dead §4.6)
+	// @0x67e88: every weapon category allowed, until a map's ts_mapglobals says otherwise as it spawns
+	m_iAllowedCategories = m_iWeaponRestriction = InitWeaponRestriction();
 	InitTeams();
 	InitTeamScore(m_teamScore); // (no-op in the original)
 	m_flRoundEnd = 0;
+	memset(m_votes, 0, sizeof(m_votes)); // @0x67e4f — a new map starts with no votes
 	m_flRoundRestart = gpGlobals->time + 5.0f; // first round fires 5s into the map
 	m_bRoundTimerEnabled = true;
 	m_bSrvSuperJump = 0; // @0x67ec2 — a map's ts_mapglobals sets it again as it spawns
+	m_bWeaponParamsCustom = 0; // @0x67ebb (+0x5884) — a new map is not "custom" until loadweapons runs again
 	m_flNextTheOneSelect = gpGlobals->time + 10.0f; // @0x67eab (+0x587c) — first The-One crown 10s in
 	m_szEndMap[0] = '\0';                            // @0x67e73 (+0x1824) — clear any pending forced map
 	InitObjectives(); // (finds nothing at construction-time; the +5s RestartRound re-runs it)
 	SetObjective();
+	// @0x67e6d (+0xf84): the first vote count comes 10 s into the map. The clock is the rules
+	// object's, which outlives the map, so without this a map that ran longer than the next one
+	// has run so far kept the count waiting for the old map's time.
+	m_flNextVoteCheck = gpGlobals->time + 10.0f;
 }
 
 // @0x6a154 CountPlayers — number of connected players (no team/alive filter).
@@ -417,13 +425,9 @@ void CTSGameRules::RestartRound()
 	// deathmatch and teamplay never get here.
 	m_flRoundRestart = 0; // disarm the pending restart (always)
 
-	// (c) reset the objective subsystem — a no-op on a map with no objective entities (e.g. plain DM).
-	InitObjectives();
-	SetObjective();
-
 	// (a)+(b) @0x67920 (fold-plan G4, decompile-exact): arm the round timer INLINE — the
 	// `roundtime` cvar clamped [30,180]; the ARM is unconditional, only the clock BROADCAST
-	// is gated on the round-timer flag (field_0x10).
+	// is gated on the round-timer flag (field_0x10). First, before the objectives (InitObjectives @0x67a14).
 	{
 		float t = CVAR_GET_FLOAT("roundtime");
 		if (t < 30.0f) t = 30.0f;
@@ -438,6 +442,10 @@ void CTSGameRules::RestartRound()
 			MESSAGE_END();
 		}
 	}
+
+	// (c) reset the objective subsystem — a no-op on a map with no objective entities (e.g. plain DM).
+	InitObjectives();
+	SetObjective();
 
 	// (d) the banner, only in the team mode without objectives (@0x67a28: mode byte == 2).
 	if (m_iGameMode == 2)
@@ -635,21 +643,21 @@ static int CalcMiniminVotants(int votants)
 	return n < 1 ? 1 : n;
 }
 
-// @0x6a1c8 PlayerVote — a player's `vote <...>` console command: reset / stats / map <name>.
+// @0x6a1c8 PlayerVote — a player's `vote <...>` console command: reset / stats / map <name>. The
+// vote is kept in the block at the player's ENTINDEX; past 31 it is not a vote (returns 0).
 int CTSGameRules::PlayerVote(edict_t *pEntity, const char *pCmd)
 {
 	if (!pEntity || !pCmd)
 		return 0;
-	int idx = ENTINDEX(pEntity) - 1; // 0-based player slot
-	if (idx < 0 || idx >= 32)
+	int idx = ENTINDEX(pEntity); // @0x6a1e9: IndexOfEdict, not 0-based
+	if (idx < 0 || idx > 31)
 		return 0;
 	entvars_t *pev = &pEntity->v;
 
 	if (strstr(pCmd, "reset"))
 	{
-		m_voteMap[idx][0] = '\0';
-		m_voteFF[idx] = 0;
-		m_voteTP[idx] = 0;
+		memset(&m_votes[idx], 0, sizeof(m_votes[idx])); // @0x6a24d
+		m_votes[idx].owner = idx + 1;
 		ClientPrint(pev, HUD_PRINTTALK, "Your votes are resetted.\n");
 		return 1;
 	}
@@ -661,7 +669,7 @@ int CTSGameRules::PlayerVote(edict_t *pEntity, const char *pCmd)
 	const char *pMap = strstr(pCmd, "map");
 	if (!pMap)
 		return 0;
-	char name[32] = {0};
+	char name[sizeof(m_votes[0].map)] = {0};
 	strncpy(name, pMap + 3, sizeof(name) - 1);          // after "map"
 	while (name[0] == ' ') memmove(name, name + 1, strlen(name)); // ltrim
 	for (int i = (int)strlen(name) - 1; i >= 0 && (name[i] == ' ' || name[i] == '\n'); i--)
@@ -671,7 +679,7 @@ int CTSGameRules::PlayerVote(edict_t *pEntity, const char *pCmd)
 		ClientPrint(pev, HUD_PRINTTALK, UTIL_VarArgs("%s is the current map!\n", name));
 	else if (IS_MAP_VALID(name))
 	{
-		strncpy(m_voteMap[idx], name, sizeof(m_voteMap[idx]) - 1);
+		strcpy(m_votes[idx].map, name);
 		UTIL_ClientPrintAll(HUD_PRINTTALK, UTIL_VarArgs("%s vote for map %s\n", STRING(pev->netname), name));
 	}
 	else
@@ -679,56 +687,93 @@ int CTSGameRules::PlayerVote(edict_t *pEntity, const char *pCmd)
 	return 1;
 }
 
-// @0x6a5c4 CheckVotes — every ~10s, tally the players' votes; apply each category that reached the
-// majority (mp_friendlyfire / mp_teamplay cvars, or the next map).
+// @0x6a5c4 CheckVotes — every 10 s, count the votes of the players in the game (ENTINDEX 0..31) and
+// apply the first category that has a majority, in the original's order: slowmatch on/off, friendly
+// fire on/off, teamplay on/off (which ends the map: "nextmap"), else the most-voted map becomes the
+// next map. The on/off votes are dead (nothing sets them), and where the original clears one it
+// clears only the last counted player's, 32 times over (@0x6a930: the address is taken outside the
+// loop); reTS does the same, but not for a last player past 31, whose block the original would
+// write past the array.
 void CTSGameRules::CheckVotes()
 {
 	if (gpGlobals->time < m_flNextVoteCheck)
 		return;
 	m_flNextVoteCheck = gpGlobals->time + 10.0f;
 
-	int votants = 0, ffOn = 0, ffOff = 0, tpOn = 0, tpOff = 0;
-	char maps[32][32];
-	int  mapVotes[32];
-	int  nMaps = 0;
+	int votants = 0, slowOn = 0, slowOff = 0, tpOn = 0, tpOff = 0, ffOn = 0, ffOff = 0;
+	char maps[32][sizeof(m_votes[0].map)] = {};
+	int  mapVotes[32] = {};
+	int  best = -1, bestVotes = 0;
+	int  last = 0; // the last counted player's ENTINDEX
 
-	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	CBaseEntity *p = NULL;
+	while ((p = UTIL_FindEntityByClassname(p, "player")) != NULL)
 	{
-		CBaseEntity *p = UTIL_PlayerByIndex(i);
-		if (!p || !p->IsNetClient())
+		if (FNullEnt(p->edict()))
+			break;
+		if (!p->pev || !p->IsNetClient())
 			continue;
-		int idx = i - 1;
-		if (idx < 0 || idx >= 32)
+		const int idx = ENTINDEX(p->edict());
+		last = idx;
+		if (idx > 31)
 			continue;
 		votants++;
-		if (m_voteFF[idx] == 1) ffOn++;  else if (m_voteFF[idx] == 2) ffOff++;
-		if (m_voteTP[idx] == 1) tpOn++;  else if (m_voteTP[idx] == 2) tpOff++;
-		if (m_voteMap[idx][0])
-		{
-			int m = 0;
-			for (; m < nMaps; m++)
-				if (!strcmp(maps[m], m_voteMap[idx])) { mapVotes[m]++; break; }
-			if (m == nMaps && nMaps < 32)
+		const VoteBlock &v = m_votes[idx];
+		if (v.slowmatch == 1) slowOn++;  else if (v.slowmatch == 2) slowOff++;
+		if (v.friendlyfire == 1) ffOn++; else if (v.friendlyfire == 2) ffOff++;
+		if (v.teamplay == 1) tpOn++;     else if (v.teamplay == 2) tpOff++;
+		if (!v.map[0])
+			continue;
+		bool counted = false;
+		for (int m = 0; m < 32 && !counted; m++)
+			if (!strcmp(maps[m], v.map))
 			{
-				strncpy(maps[nMaps], m_voteMap[idx], sizeof(maps[0]) - 1);
-				maps[nMaps][sizeof(maps[0]) - 1] = '\0';
-				mapVotes[nMaps++] = 1;
+				counted = true;
+				if (++mapVotes[m] > bestVotes) { bestVotes = mapVotes[m]; best = m; }
 			}
-		}
+		for (int m = 0; m < 32 && !counted; m++)
+			if (!maps[m][0])
+			{
+				strcpy(maps[m], v.map);
+				counted = true;
+				if (++mapVotes[m] > bestVotes) { bestVotes = mapVotes[m]; best = m; }
+			}
 	}
 
 	const int need = CalcMiniminVotants(votants);
-	if (ffOn >= need)  { CVAR_SET_FLOAT("mp_friendlyfire", 1); UTIL_ClientPrintAll(HUD_PRINTCENTER, "Friendly fire enabled.\n"); }
-	else if (ffOff >= need) { CVAR_SET_FLOAT("mp_friendlyfire", 0); UTIL_ClientPrintAll(HUD_PRINTCENTER, "Friendly fire disabled.\n"); }
-	if (tpOn >= need)  { CVAR_SET_FLOAT("mp_teamplay", 1); UTIL_ClientPrintAll(HUD_PRINTCENTER, "TeamPlay in DM maps enabled, wait next map.\n"); }
-	else if (tpOff >= need) { CVAR_SET_FLOAT("mp_teamplay", 0); UTIL_ClientPrintAll(HUD_PRINTCENTER, "TeamPlay in DM maps disabled, wait next map.\n"); }
+	if (slowOn >= need || slowOff >= need)
+	{
+		CVAR_SET_FLOAT("mp_slowmatch", slowOn >= need ? 1.0f : 0.0f);
+		UTIL_ClientPrintAll(HUD_PRINTCENTER, slowOn >= need ? "SlowMatch enabled." : "SlowMatch disabled.");
+		for (int i = 0; i < 32 && last <= 31; i++)
+			m_votes[last].slowmatch = 0;
+		return;
+	}
+	if (ffOn >= need || ffOff >= need)
+	{
+		CVAR_SET_FLOAT("mp_friendlyfire", ffOn >= need ? 1.0f : 0.0f);
+		UTIL_ClientPrintAll(HUD_PRINTCENTER, ffOn >= need ? "Friendly fire enabled." : "Friendly fire disabled.");
+		for (int i = 0; i < 32 && last <= 31; i++)
+			m_votes[last].friendlyfire = 0;
+		return;
+	}
+	if (tpOn >= need || tpOff >= need)
+	{
+		const float want = tpOn >= need ? 1.0f : 0.0f;
+		if (last <= 31)
+			m_votes[last].teamplay = 0;
+		if (CVAR_GET_FLOAT("mp_teamplay") == want)
+			return;
+		CVAR_SET_FLOAT("mp_teamplay", want);
+		UTIL_ClientPrintAll(HUD_PRINTCENTER, want != 0.0f ? "TeamPlay in DM maps enabled, wait next map."
+			: "TeamPlay in DM maps disabled, wait next map.");
+		strcpy(m_szEndMap, "nextmap"); // end this map, the next from the mapcycle
+		return;
+	}
 
 	// the most-voted map, if it reached the majority -> the next map (applied at map end).
-	int best = -1, bestVotes = 0;
-	for (int m = 0; m < nMaps; m++)
-		if (mapVotes[m] > bestVotes) { bestVotes = mapVotes[m]; best = m; }
 	if (best != -1 && bestVotes >= need)
-		strncpy(m_szEndMap, maps[best], sizeof(m_szEndMap) - 1);
+		strcpy(m_szEndMap, maps[best]);
 }
 
 
@@ -933,13 +978,36 @@ void CTSGameRules::SetGlobalSlowMotion(float scale, float duration)
 // GetGameDescription is inherited from CHalfLifeMultiplay (theOne->LMS->DM, no teamplay branch) —
 // the original defines no CTSGameRules override. See multiplay_gamerules.cpp.
 
-// @ InitTeams — seed the TS default team list. The .so builds "Specialists;Mercenaries"
-// (models "spec"/"merc") for a team map; we keep only the names/models the rest of the
-// reconstruction actually consumes.
+// @0x67f60 InitTeams — the four default teams: "Team1".."Team4", each spawning at
+// "info_player_team<N>" with "info_player_deathmatch" as the fallback, with the models of
+// defTeamModels (@0x1023e0). Teamplay's constructor then puts the teamlist cvar's names and, when
+// it is set, the teammodels cvar's models over them. The objective modes (2/3) get "Specialists;
+// Mercenaries" in seal/merc and team 1's fallback "info_player_start", but Init sets the mode
+// (0/1) just before calling this, so that branch never runs. (The original also seeds each team's
+// cash with initial_cash here; reTS leaves m_teamCash alone.)
+static const char *const defTeamModels[TS_MAX_TEAMS] = {"seal;merc", "gordon;laurence", "agent", "hitman;castor"};
+
 void CTSGameRules::InitTeams()
 {
-	SetTeamList("Specialists;Mercenaries");        // -> the team-name slots + RecountTeams
-	SetTeamModelList("spec|merc");                 // -> the per-team player models
+	memset(m_teamNames, 0, sizeof(m_teamNames));
+	memset(m_teamModels, 0, sizeof(m_teamModels));
+	memset(m_teamSpot, 0, sizeof(m_teamSpot));
+	memset(m_teamSpotFallback, 0, sizeof(m_teamSpotFallback));
+	for (int i = 0; i < TS_MAX_TEAMS; i++)
+	{
+		snprintf(m_teamNames[i], sizeof(m_teamNames[i]), "Team%i", i + 1);
+		snprintf(m_teamSpot[i], sizeof(m_teamSpot[i]), "info_player_team%i", i + 1);
+		strcpy(m_teamSpotFallback[i], "info_player_deathmatch");
+		SetTeamModelList(i, defTeamModels[i]);
+	}
+	m_numTeams = TS_MAX_TEAMS;
+	if ((unsigned char)(m_iGameMode - 2) < 2) // @0x6807a
+	{
+		SetTeamModelList(0, "seal");
+		SetTeamModelList(1, "merc");
+		SetTeamList("Specialists;Mercenaries");
+		strcpy(m_teamSpotFallback[0], "info_player_start");
+	}
 }
 
 // @0x680dc SetTeamList — parse a ";"-separated team list DIRECTLY into the 4 name slots (R1 item-9
@@ -975,27 +1043,42 @@ void CTSGameRules::SetTeamList(const char *pList)
 	}
 }
 
-// @0x68258 SetTeamModelList — parse a "|"-separated model list into the per-team model slots
-// (the original splits up to 4, then calls the per-slot SetTeamModelList(i, model)).
+// @0x68258 SetTeamModelList — parse a "|"-separated list into the four teams' models: up to four
+// pieces, then the per-team SetTeamModelList(i, piece) for every team ("" for a team the list
+// leaves out, which clears it).
 void CTSGameRules::SetTeamModelList(const char *pList)
 {
 	char buf[2048];
 	strncpy(buf, pList ? pList : "", sizeof(buf) - 1);
 	buf[sizeof(buf) - 1] = '\0';
+	memset(m_teamModels, 0, sizeof(m_teamModels));
+	char piece[TS_MAX_TEAMS][512] = {};
+	int n = 0;
+	for (char *p = strtok(buf, "|"); p && *p && n < TS_MAX_TEAMS; p = strtok(nullptr, "|"))
+	{
+		strncpy(piece[n], p, sizeof(piece[n]) - 1);
+		n++;
+	}
 	for (int i = 0; i < TS_MAX_TEAMS; i++)
-		m_teamModels[i][0] = '\0';
-	int i = 0;
-	for (char *p = strtok(buf, "|"); p && i < TS_MAX_TEAMS; p = strtok(nullptr, "|"), i++)
-		SetTeamModelList(i, p);
+		SetTeamModelList(i, piece[i]);
 }
 
-// per-slot model setter (the original's SetTeamModelList(int, char*)).
-void CTSGameRules::SetTeamModelList(int team, const char *pModel)
+// @0x68438 SetTeamModelList(team, models) — one team's ";"-separated list of up to three models,
+// each announced on the console.
+void CTSGameRules::SetTeamModelList(int team, const char *pModels)
 {
-	if (team < 0 || team >= TS_MAX_TEAMS || !pModel)
+	if (team < 0 || team >= TS_MAX_TEAMS || !pModels)
 		return;
-	strncpy(m_teamModels[team], pModel, TS_TEAMNAME_LEN - 1);
-	m_teamModels[team][TS_TEAMNAME_LEN - 1] = '\0';
+	memset(m_teamModels[team], 0, sizeof(m_teamModels[team]));
+	char buf[512];
+	strncpy(buf, pModels, sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = '\0';
+	int n = 0;
+	for (char *p = strtok(buf, ";"); p && *p && n < TS_TEAMMODELS; p = strtok(nullptr, ";"), n++)
+	{
+		strncpy(m_teamModels[team][n], p, TS_TEAMMODEL_LEN - 1);
+		ALERT(at_console, "set model %s for team %s\n", m_teamModels[team][n], m_teamNames[team]);
+	}
 }
 
 // @0x685a8 GetTeamsNum — number of active (named) teams.
@@ -1020,16 +1103,22 @@ int CTSGameRules::GetTeamCash(CBasePlayer *pPlayer)
 void CTSGameRules::InitTeamScore(int *pScores) {}
 void CTSGameRules::UpdateTeamScores(int a, int b) {}
 
-// @0x69a08 GetPlayerModel — a model for the player's team. The original picks at random among the
-// team's (up to 3) models; our roster carries one model per team, so we return that.
+// @0x69a08 GetPlayerModel — one of the player's team models (up to three), at random; "" without a
+// team or models. (The original also keeps the pick at player+0x758, which nothing reads.)
 const char *CTSGameRules::GetPlayerModel(CBasePlayer *pPlayer)
 {
 	if (!pPlayer)
 		return "";
 	int team = GetTeamIndex(pPlayer->TeamID());
-	if (team < 0 || team >= TS_MAX_TEAMS || m_teamModels[team][0] == '\0')
+	if (team < 0 || team >= TS_MAX_TEAMS)
 		return "";
-	return m_teamModels[team];
+	int count = 0;
+	for (int i = 0; i < TS_TEAMMODELS; i++)
+		if (m_teamModels[team][i][0] != '\0')
+			count++;
+	if (count == 0)
+		return "";
+	return m_teamModels[team][RANDOM_LONG(0, count - 1)];
 }
 
 // @0x696c8 TogglePlayerFromSlow — take a player out of slow-motion. The original removes them from
@@ -1176,4 +1265,12 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	// that also drops a deadline left from the previous map's clock (cont.96).
 	pPlayer->m_flTSRespawnTime = 0.0f;
 	pPlayer->TSEnterSpectate();
+
+	// @0x695e3: and the joiner starts with no votes (his block reset, as "vote reset" does).
+	const int idx = ENTINDEX(pPlayer->edict());
+	if (idx >= 0 && idx <= 31)
+	{
+		memset(&m_votes[idx], 0, sizeof(m_votes[idx]));
+		m_votes[idx].owner = idx + 1;
+	}
 }

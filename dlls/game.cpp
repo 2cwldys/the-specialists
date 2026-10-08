@@ -112,6 +112,18 @@ static void cmd_weaponrestriction()
 	display_weaponrestriction();
 }
 
+// @0xb5520 cmd_addbot / @0xb5550 cmd_addcustombot — the bot commands of a dedicated server: the
+// original's bots are listen-server only, so both just say so (ALERT at_console).
+static void cmd_addbot()
+{
+	ALERT(at_console, "Bots only in listen servers.\n");
+}
+
+static void cmd_addcustombot()
+{
+	ALERT(at_console, "Bots only in listen servers.\n");
+}
+
 // @0xb5748 cmd_restartround — the `restartround` server command: ResetRestartRound(2), which in last man
 // standing or the objective modes restarts the round in a second and clears the team scores, and
 // otherwise does nothing.
@@ -177,6 +189,10 @@ static void cmd_saveweapons()
 
 void GameDLLInit()
 {
+	// @0xb5ac7/@0xb5add: the first thing GameDLLInit does
+	g_engfuncs.pfnAddServerCommand("addbot", cmd_addbot);
+	g_engfuncs.pfnAddServerCommand("addcustombot", cmd_addcustombot);
+
 	// Register cvars here:
 
 	g_psv_gravity = CVAR_GET_POINTER("sv_gravity");
