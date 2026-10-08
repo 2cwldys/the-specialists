@@ -154,16 +154,18 @@ void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vec
 			return;
 		}
 	}
+	// @0x5edf8: every slot is taken; the shot is dropped, and everyone is told (talk)
+	UTIL_ClientPrintAll(HUD_PRINTTALK, "WARNING:cannot create bullet!\n");
 }
 
-// @ Reset__14CBulletManager — drop every in-flight bullet (round restart).
+// @ Reset__14CBulletManager (@0x5ec50) — clear every slot. The original zeroes the whole ring (and
+// two counters after it, which reTS does not keep) and frees nothing; CTSGameRules::Init calls it as
+// each map starts (@0x67e83). By then the old map's trail and head sprites are gone with their
+// edicts, and their handles could name the new map's entities, so they must not be removed here.
 void CBulletManager::Reset()
 {
 	for (int i = 0; i < 256; i++)
-	{
-		DestroyBullet(i);
-		m_bullets[i].active = 0;
-	}
+		m_bullets[i] = TSSlowBullet();
 }
 
 // @ Think__14CBulletManager (@0x5ec7c) — per frame (from CTSGameRules::Think): a bullet whose
@@ -252,15 +254,16 @@ void CBulletManager::UpdateBulletTimeSlice(int slot)
 	{
 		// range-damage falloff (@0x5f1ba/@0x5f24a): kind 2 (rifle/shotgun calibers) -> form A
 		// idx = dist/30 (full damage to 300u); else form B idx = dist/rangeUnit (full damage
-		// to 10x the caliber's range unit); damage *= clamp(1/sqrt(0.1 idx), 0, 1).
+		// to 10x the caliber's range unit); damage *= clamp(1/sqrt(0.1 idx), 0, 1). The index is
+		// truncated, not rounded (fistp under a chop control word, @0x5f1ad/@0x5f23d).
 		const float dist = (tr.vecEndPos - b.start).Length();
 		int idx;
 		if (b.kind == 2)
-			idx = (int)(dist * (1.0f / 300.0f) * 10.0f + 0.5f);
+			idx = (int)(dist * (1.0f / 300.0f) * 10.0f);
 		else
 		{
 			const s_ammo_info *ai = get_ammo_info(b.caliber);
-			idx = (ai->iRangeUnit > 0) ? (int)(10.0f * (dist / (10.0f * (float)ai->iRangeUnit)) + 0.5f) : 0;
+			idx = (ai->iRangeUnit > 0) ? (int)(10.0f * (dist / (10.0f * (float)ai->iRangeUnit))) : 0;
 		}
 		float dmg = b.damage * get_range_multipler(idx);
 		// `damagemult` (@0x5f256): cheat-gated, as in ShootBulletsPlayer, and not for kind 2

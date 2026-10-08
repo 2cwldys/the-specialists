@@ -632,14 +632,11 @@ void CTSMapGlobals::Spawn(void)
 	UTIL_SetOrigin(pev, pev->origin);
 	UTIL_SetSize(pev, g_vecZero, g_vecZero);
 
-	player_at_a_time_num = 0;
-	player_respawn_num = 0;
-	m_field14 = 0;
-	m_field18 = 0;
-
-	// @0x625b1..0x625df: no think function (+0xc and +0x14, the think and touch members, are
-	// zeroed), yet a think 10 s out, which then does nothing
+	// @0x625b1..0x625df: no think or touch function (+0xc and +0x14, the think and touch members,
+	// are zeroed), yet a think 10 s out, which then does nothing. The two saved fields (+0x64,
+	// +0x68) are left as they are.
 	SetThink(nullptr);
+	SetTouch(nullptr);
 	pev->nextthink = gpGlobals->time + 10.0f;
 
 	// @0x625d8..0x6262e: the spawnflags go into CTSGameRules. SF 0x20 turns the round timer off

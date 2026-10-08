@@ -515,15 +515,16 @@ bool CBasePlayer::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, fl
 	// the damage isn't one of the armor-bypassing types, scale the damage down. armorvalue is
 	// never decremented (it's a binary "have kevlar" marker — see CBasePlayer::TakeArmor).
 	// The bypass mask 0x80040e4 = melee (slash/club), fall, blast, radiation, + the
-	// no-armor bit: kevlar stops bullets, not knives/falls/explosions.
+	// no-armor bit: kevlar stops bullets, not knives/falls/explosions. It covers only the body and
+	// arms (@0x7fc17: m_LastHitGroup - 2 <= 3, hit groups 2 to 5), so a head or leg hit takes it all.
+	// armor_absorb is capped at 1 and has no lower bound (@0x7fc39).
 	constexpr int TS_ARMOR_BYPASS = 0x80040e4;
-	if (0 != pev->armorvalue && (bitsDamageType & TS_ARMOR_BYPASS) == 0)
+	if (0 != pev->armorvalue && (bitsDamageType & TS_ARMOR_BYPASS) == 0 &&
+		(unsigned int)(m_LastHitGroup - HITGROUP_CHEST) <= HITGROUP_RIGHTARM - HITGROUP_CHEST)
 	{
 		float absorb = TSGameRules->m_flArmorAbsorb;
 		if (absorb > 1.0f)
 			absorb = 1.0f;
-		if (absorb < 0.0f)
-			absorb = 0.0f;
 		flDamage -= absorb * flDamage; // flDamage *= (1 - armor_absorb)
 	}
 
@@ -1580,8 +1581,10 @@ void CBasePlayer::StopObserver()
 	// none; the WAITING status clears via the award byte when TSInit resets m_iAward on Spawn.)
 
 	// @0x89a53..0x89ac8: only an observer (iuser1 or iuser2 set) has his mode kept for his next
-	// StartObserver and is announced out of spectate to everyone: the stock-shaped spectator-state
-	// broadcast, BYTE playerIndex, BYTE 0 (off).
+	// StartObserver, is announced out of spectate to everyone (the stock-shaped spectator-state
+	// broadcast, BYTE playerIndex, BYTE 0 (off)) and leaves observer mode: iuser2 and iuser1 are
+	// cleared. Nothing else is: not iuser3, not PFLAG_OBSERVER (Spawn clears the physics flags), not
+	// m_iHideHUD (StartObserver never hides the HUD).
 	if (pev->iuser1 != 0 || pev->iuser2 != 0)
 	{
 		m_iObserverLastMode = pev->iuser1;
@@ -1589,25 +1592,18 @@ void CBasePlayer::StopObserver()
 		WRITE_BYTE(ENTINDEX(edict()));
 		WRITE_BYTE(0);
 		MESSAGE_END();
+		pev->iuser2 = 0;
+		pev->iuser1 = 0;
 	}
-
-	// leave observer mode
-	ClearBits(m_afPhysicsFlags, PFLAG_OBSERVER);
-	pev->iuser1 = pev->iuser2 = pev->iuser3 = 0;
 	// (the watched player, player+0x75c, is kept, @0x89abc: the next StartObserver's
 	// Observer_SetMode goes back to him if he is still there)
-	// (The original clears only iuser1/iuser2 here, and neither PFLAG_OBSERVER nor m_iHideHUD:
-	// Spawn clears the physics flags, and StartObserver never hides the HUD.)
 
-	// @0x99a14: CLEAN THE HELD BUTTONS before respawning into play. The fire-to-play click (IN_ATTACK)
-	// is still down here, and without this it carries into the freshly-deployed weapon and auto-fires
-	// on spawn. The original clears pev->button + player+0xb34 (an un-named transient int, cleared ONLY
-	// here in the .so with no recovered read site — almost certainly the fire/button-edge cache). We
-	// clear pev->button + m_afButtonPressed (the fire EDGE). We deliberately do NOT clear m_afButtonLast:
-	// zeroing "last buttons" would make the still-held trigger read as a FRESH press next frame and fire
-	// a semi weapon — the opposite of the fix. VERIFY the exact 0xb34 field if it resurfaces.
+	// @0x89ad5: the held buttons are let go before respawning into play, so the fire-to-play click
+	// (IN_ATTACK) does not carry into the freshly-deployed weapon. The original also zeroes
+	// player+0xb34, a field written only here and in Killed and never read, which reTS does not keep.
+	// m_afButtonPressed is left alone, as in the original: PreThink works it out again from
+	// pev->button before anything reads it.
 	pev->button = 0;
-	m_afButtonPressed = 0;
 
 	// enter play: respawn -> Spawn -> CTSGameRules::PlayerSpawn equips (the flag is
 	// now clear, so the end-of-Spawn guard does not re-enter spectate).
@@ -2259,10 +2255,8 @@ void CBasePlayer::PreThink()
 	ItemPreFrame();
 	WaterMove();
 
-	if (g_pGameRules && g_pGameRules->FAllowFlashlight())
-		m_iHideHUD &= ~HIDEHUD_FLASHLIGHT;
-	else
-		m_iHideHUD |= HIDEHUD_FLASHLIGHT;
+	// (The stock SDK sets or clears HIDEHUD_FLASHLIGHT here every frame. The original PreThink
+	// @0x808cc never writes m_iHideHUD, so TS sends HideWeapon 0, not the flashlight bit.)
 
 	if (m_bResetViewEntity)
 	{

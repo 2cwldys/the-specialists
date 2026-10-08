@@ -6947,3 +6947,24 @@ apply-all.sh applies them in order).
 - Tests (tsx-ts3 worktree, tests.patch): ts_gamerules +7 and realbullet tightened, ts_observer +1 and one
   extended, ts30 copies without the free-for-all last man standing tests (NO_FFA_LMS), statscfg's expected error
   in both forms. TS 3.0 31/31 five times; reTS 6bcafda 34/42, after 42/42; full fork suite on reTS 483/483 twice.
+
+## 2026-10-07 — bullets reset per map, kevlar hit groups, falloff truncation, full-ring warning, The One team list, ts_mapglobals fields, HideWeapon, StopObserver
+
+Round 9 of the deviations work (amxxbench docs/fixes/rets-deviations9.md, report rets-deviations9-report.md).
+Uncommitted on 594b9e6; one patch per item in ~/stignored/rets-deviations9 (each applies and builds alone,
+apply-all.sh applies them in order).
+- 1 Init calls CBulletManager::Reset (@0x67e83); Reset (@0x5ec50) zeroes the slots and frees nothing (the old map's
+  sprite handles are stale, and could name new-map entities).
+- 2 Kevlar absorbs only for hit groups 2..5 (@0x7fc17); armor_absorb capped at 1, no lower clamp.
+- 3 The range falloff index is truncated (fistp, chop) at all four sites (@0x5f93c, @0x5fdbb, @0x5f1ad, @0x5f23d).
+- 4 FireBullet with no free slot prints "WARNING:cannot create bullet!\n" to all, talk (@0x5edf8).
+- 5 SetTeamList in The One mode: "The ONE" replaces the list's first name in slot 0 (@0x681ae), printed as a team.
+- 6 CTSMapGlobals::Spawn zeroes think and touch only (the +0xc..+0x18 writes); player_respawn_num (+0x64) and
+  player_at_a_time_num (+0x68) are kept; invented m_field14/m_field18 removed.
+- 7 PreThink no longer writes HIDEHUD_FLASHLIGHT (the original never writes m_iHideHUD there).
+- 8 StopObserver clears iuser1/iuser2 inside the observer block only; no PFLAG_OBSERVER/iuser3/m_afButtonPressed.
+- Tests (tsx-ts3 worktree, tests.patch): ts_gamerules +6, ts_observer +1 and the HUD test requires no bits; ts30
+  copies. reTS before 41/49, after 49/49; TS 3.0 matches after on every item. Full fork suite on reTS 490/490
+  twice; the ts30 set 94/94 twice (runs 3 and 4; runs 1 and 2 each had one flake in an older test, see report).
+- Found, not changed: bubble counts still rounded; ts_mapglobals save order (respawn_num first in the original);
+  members_re.tsv rows for CTSMapGlobals stale.

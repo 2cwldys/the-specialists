@@ -77,7 +77,7 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 		{
 			CBaseEntity *pEntity = CBaseEntity::Instance(tr.pHit);
 			const float dist = (vecSrc - tr.vecEndPos).Length();
-			const int idx = (int)(dist * (1.0f / 300.0f) * 10.0f + 0.5f);
+			const int idx = (int)(dist * (1.0f / 300.0f) * 10.0f); // truncated (fistp, chop, @0x5f93c)
 			flDamageAmount = get_range_multipler(idx) * flDamage;
 			if (pEntity)
 				pEntity->TraceAttack(pev, flDamageAmount, vecDirShooting, &tr,
@@ -111,8 +111,8 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 			{
 				CBaseEntity *pEntity = CBaseEntity::Instance(tr.pHit);
 				const float dist = (vecSrc - tr.vecEndPos).Length();
-				const int idx = (ai->iRangeUnit > 0)
-					? (int)((dist / (10.0f * (float)ai->iRangeUnit)) * 10.0f + 0.5f) : 0;
+				const int idx = (ai->iRangeUnit > 0) // truncated (fistp, chop, @0x5fdbb)
+					? (int)((dist / (10.0f * (float)ai->iRangeUnit)) * 10.0f) : 0;
 				flDamageAmount = get_range_multipler(idx) * flDamage;
 				// `damagemult` — CHEAT-GATED global damage multiplier (@0x5fb04)
 				const float dmgMult = CVAR_GET_FLOAT("damagemult");

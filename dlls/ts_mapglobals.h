@@ -19,12 +19,10 @@ public:
 	static TYPEDESCRIPTION m_SaveData[];
 
 	// The two SAVED fields (the original's WriteFields count of 2). Vestigial on this entity —
-	// the original's KeyValue handles no keys and Spawn only zeroes them; the live player-amount
-	// logic lives in ts_playeramount. Kept for save-table fidelity.
-	int player_at_a_time_num = 0; // +0xc
-	int player_respawn_num = 0;   // +0x10
-	int m_field14 = 0;            // +0x14 — transient (zeroed in Spawn)
-	int m_field18 = 0;            // +0x18 — transient (zeroed in Spawn)
+	// the original's KeyValue handles no keys and nothing else writes them, Spawn included; the
+	// live player-amount logic lives in ts_playeramount. Kept for save-table fidelity.
+	int player_at_a_time_num = 0; // +0x68
+	int player_respawn_num = 0;   // +0x64
 };
 
 #endif // TS_MAPGLOBALS_H

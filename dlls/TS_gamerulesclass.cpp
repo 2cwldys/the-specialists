@@ -372,6 +372,7 @@ void CTSGameRules::Init()
 	m_bWeaponParamsCustom = 0; // @0x67ebb (+0x5884) — a new map is not "custom" until loadweapons runs again
 	m_flNextTheOneSelect = gpGlobals->time + 10.0f; // @0x67eab (+0x587c) — first The-One crown 10s in
 	m_szEndMap[0] = '\0';                            // @0x67e73 (+0x1824) — clear any pending forced map
+	g_BulletManager.Reset();                         // @0x67e83 (+0x1864) — no bullet flies on into a new map
 	// @0x67ede/@0x67ee8: every map starts on the stock absorb values, until loadweapons reads a file
 	m_flHealthAbsorb = 0.1f;    // +0x5888 (written, never read)
 	m_flArmorAbsorb = 0.2125f;  // +0x588c — kevlar takes 21.25% off a hit (CBasePlayer::TakeDamage)
@@ -1043,21 +1044,18 @@ void CTSGameRules::InitTeams()
 
 // @0x680dc SetTeamList — parse a ";"-separated team list DIRECTLY into the 4 name slots (R1 item-9
 // convergence, dossier §4.5): clear the slots, strtok on ";" (a name listed twice takes two slots,
-// @0x681ec copies each one without a lookup), with The-ONE insertion
-// (slot 0 forced "The ONE" when g_theOneMode; real teams start at slot 1), an ALERT per team, and
-// cap = g_theOneMode ? 2 : 4. No m_szTeamList / no RecountTeams — those were invented.
+// @0x681ec copies each one without a lookup), an ALERT per team, and cap = g_theOneMode ? 2 : 4.
+// In The One mode the list's first name is not used: "The ONE" takes slot 0 in its place (@0x681ae)
+// and the next name goes to slot 1, so "Specialists;Mercenaries" gives "The ONE" and "Mercenaries".
+// The ONE is set only when the list has a first name. No m_szTeamList / no RecountTeams — those
+// were invented. (m_numTeams is reTS's count of the slots filled, which is what the original's
+// GetTeamsNum @0x685a8 counts from the names.)
 void CTSGameRules::SetTeamList(const char *pList)
 {
 	for (int i = 0; i < TS_MAX_TEAMS; i++)
 		m_teamNames[i][0] = '\0';
 	m_numTeams = 0;
 
-	if (g_theOneMode)
-	{
-		strncpy(m_teamNames[0], "The ONE", TS_TEAMNAME_LEN - 1);
-		m_teamNames[0][TS_TEAMNAME_LEN - 1] = '\0';
-		m_numTeams = 1; // real teams start at slot 1 in The-One mode
-	}
 	const int cap = g_theOneMode ? 2 : TS_MAX_TEAMS;
 
 	char buf[256];
@@ -1065,8 +1063,13 @@ void CTSGameRules::SetTeamList(const char *pList)
 	buf[sizeof(buf) - 1] = '\0';
 	for (char *pName = strtok(buf, ";"); pName && *pName && m_numTeams < cap; pName = strtok(nullptr, ";"))
 	{
-		strncpy(m_teamNames[m_numTeams], pName, TS_TEAMNAME_LEN - 1);
-		m_teamNames[m_numTeams][TS_TEAMNAME_LEN - 1] = '\0';
+		if (m_numTeams == 0 && g_theOneMode)
+			strcpy(m_teamNames[0], "The ONE");
+		else
+		{
+			strncpy(m_teamNames[m_numTeams], pName, TS_TEAMNAME_LEN - 1);
+			m_teamNames[m_numTeams][TS_TEAMNAME_LEN - 1] = '\0';
+		}
 		ALERT(at_console, "created team %s\n", m_teamNames[m_numTeams]);
 		m_numTeams++;
 	}
