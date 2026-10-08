@@ -566,74 +566,99 @@ bool CTSGameRules::IsCTB()
 	return m_bHasBriefcase;
 }
 
-// @0x6af28 SelectRandomTheOne — every ~10s, if nobody is The One yet, crown a random eligible (alive,
-// not spectating) player.
+// @0x6af28 SelectRandomTheOne — every 10 s (its own clock, +0x587c), unless a player is already the
+// One, draw one at random from the living players who are not observing, make him the One and move
+// him to his team: SetDefaultPlayerTeam, then ChangePlayerTeam(him, TeamID(), no kill, no gib)
+// (@0x6b030-0x6b063), which in The One mode puts him on "The ONE".
 void CTSGameRules::SelectRandomTheOne()
 {
 	if (gpGlobals->time < m_flNextTheOneSelect)
 		return;
 	m_flNextTheOneSelect = gpGlobals->time + 10.0f;
 
-	CBasePlayer *eligible[32];
+	CBasePlayer *eligible[33];
 	int n = 0;
 	for (int i = 1; i <= gpGlobals->maxClients; i++)
 	{
 		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
-		if (!p)
+		if (!p || !p->IsPlayer())
 			continue;
 		if (p->m_bTheOne)
 			return; // someone is already The One
-		if (p->IsAlive() && p->pev->iuser1 == 0 && n < 32)
+		if (p->IsAlive() && p->pev->iuser1 == 0 && n < 33)
 			eligible[n++] = p;
 	}
 	if (n > 0)
-		SetPlayerTheOne(eligible[RANDOM_LONG(0, n - 1)]);
+	{
+		CBasePlayer *pOne = eligible[RANDOM_LONG(0, n - 1)];
+		SetPlayerTheOne(pOne);
+		g_pGameRules->SetDefaultPlayerTeam(pOne);
+		g_pGameRules->ChangePlayerTeam(pOne, pOne->TeamID(), false, false);
+	}
 }
 
-// @0x6b078 SetPlayerTheOne — buff `pPlayer` into The One (health, regen, low-gravity, speed, kung-fu)
-// and announce it.
+// @0x6b078 SetPlayerTheOne — make a living, not observing `pPlayer` the One: 150 health (with the
+// regeneration clock), kung fu and superjump (the "mj" physics key and a PwUp message for each), full
+// speed, a slow motion powerup to hold if he has none, the award byte 10, and the announcement and
+// log line.
 void CTSGameRules::SetPlayerTheOne(CBasePlayer *pPlayer)
 {
-	if (!pPlayer || !pPlayer->IsAlive() || pPlayer->pev->iuser1 != 0)
+	if (!pPlayer->IsAlive() || pPlayer->pev->iuser1 != 0)
 		return;
 	pPlayer->m_bTheOne = 1;
-	pPlayer->m_iAward = 10; // TSPAward: The One (0xa) — never overwritten by kill tiers
 	pPlayer->pev->health = 150.0f;
 	pPlayer->m_flHealthRegen = gpGlobals->time + 1.0f;
 	pPlayer->m_iKungFu = 1;
 	pPlayer->m_bLowGravity = 1;
 	g_engfuncs.pfnSetPhysicsKeyValue(pPlayer->edict(), "mj", "1"); // "The One": the DUCK+JUMP high jump (PM_Jump)
 	pPlayer->SetPlayerSpeed(330.0f); // @0x83068 — the One moves at full speed
+	extern int gmsgTSPowerUp; // ts_player.cpp
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, pPlayer->pev); // @0x6b123: his HUD shows kung fu
+	WRITE_SHORT(TS_PWUP_KUNGFU);
+	WRITE_BYTE(0);
+	MESSAGE_END();
+	MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, pPlayer->pev); // and superjump
+	WRITE_SHORT(TS_PWUP_LOWGRAV);
+	WRITE_BYTE(0);
+	MESSAGE_END();
 	if (pPlayer->m_iPowerups == 0 && pPlayer->m_iHeldPowerup == 0)
 	{
-		pPlayer->m_iHeldPowerup = 8; // VERIFY: the recovered held-powerup value
+		pPlayer->m_iPowerups = 0;
+		pPlayer->m_iHeldPowerup = 8; // the slow motion powerup (@0x6b1b5)
 		pPlayer->m_flPowerupExpireTime = 0;
 		pPlayer->m_flPowerupTime = 3;
 	}
-	m_bTheOneActive = true;
+	pPlayer->m_iAward = 10; // TSPAward: The One (0xa) — never overwritten by kill tiers
+	m_bTheOneActive = true; // rules+0x5878 (and rules+0x5877 = 0, a byte nothing reads)
 	TSHudMessageAll(100, 0x96, 0xff, 1, 30,
 		UTIL_VarArgs("%s is The One!", STRING(pPlayer->pev->netname)));
 	UTIL_LogPrintf("Player \"%s\" triggered \"the_one\"\n", STRING(pPlayer->pev->netname));
 }
 
-// @0x6b258 TheOneIsDead — The One died: clear the role; if a player killed them, that killer becomes
-// the new One.
+// @0x6b258 TheOneIsDead — the One died (PlayerKilled @0x7a2fa, after the DeathMsg and the log line):
+// he is no longer the One; in The One mode, killed by the world or himself "The One is dead." and
+// the next 10 s check draws a new One; killed by another player, the dead One goes back to the other
+// team (SetDefaultPlayerTeam, ChangePlayerTeam) and his killer becomes the One and moves to "The ONE".
 void CTSGameRules::TheOneIsDead(CBasePlayer *pDead, CBasePlayer *pKiller)
 {
 	m_bTheOneActive = false;
 	if (!pDead)
 		return;
 	pDead->m_bTheOne = 0;
-	if (CVAR_GET_FLOAT("the_one") == 0.0f)
+	if (g_theOneMode == 0)
 		return;
 	if (!pKiller || pDead == pKiller)
-		TSHudMessageAll(100, 0x96, 0xff, 1, 30, "The One is dead.");
-	else
 	{
-		TSHudMessageAll(100, 0x96, 0xff, 1, 30,
-			UTIL_VarArgs("The One was killed by %s!", STRING(pKiller->pev->netname)));
-		SetPlayerTheOne(pKiller);
+		TSHudMessageAll(100, 0x96, 0xff, 1, 30, "The One is dead.");
+		return;
 	}
+	TSHudMessageAll(100, 0x96, 0xff, 1, 30,
+		UTIL_VarArgs("The One was killed by %s!", STRING(pKiller->pev->netname)));
+	g_pGameRules->SetDefaultPlayerTeam(pDead);
+	g_pGameRules->ChangePlayerTeam(pDead, pDead->TeamID(), false, false);
+	SetPlayerTheOne(pKiller);
+	g_pGameRules->SetDefaultPlayerTeam(pKiller);
+	g_pGameRules->ChangePlayerTeam(pKiller, pKiller->TeamID(), false, false);
 }
 
 //============================================================================
@@ -895,9 +920,24 @@ void CTSGameRules::Think()
 			RestartRound();
 	}
 
-	// "The One" juggernaut mode: keep a buffed One designated (unless it's capture-the-briefcase).
-	if (CVAR_GET_FLOAT("the_one") != 0.0f && !IsCTB())
-		SelectRandomTheOne();
+	// @0x673d9: in The One mode (DecideGamePlay's g_theOneMode; there is no "the_one" cvar), every
+	// 10 s look for the One among the players and draw one when nobody is. The scan runs from index
+	// 0 to maxClients - 1 as the original's does, so it never sees the last slot; SelectRandomTheOne
+	// looks at every slot again before it draws. (The original also counts the other players here,
+	// rules+0x5876, for the One's health regeneration in PreThink @0x80bfe, which reTS lacks.)
+	if (g_theOneMode != 0 && gpGlobals->time > m_flNextTheOneSelect)
+	{
+		bool bHaveTheOne = false;
+		for (int i = 0; i < gpGlobals->maxClients; i++)
+		{
+			CBaseEntity *p = UTIL_PlayerByIndex(i);
+			if (p && p->IsPlayer() && !p->IsDormant() && ((CBasePlayer *)p)->m_bTheOne)
+				bHaveTheOne = true;
+		}
+		if (!bHaveTheOne)
+			SelectRandomTheOne();
+		m_flNextTheOneSelect = gpGlobals->time + 10.0f;
+	}
 
 	CheckVotes(); // tally the players' map/ff/teamplay votes (self-throttled to ~10s)
 

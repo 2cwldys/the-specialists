@@ -101,6 +101,10 @@ bool CHudTSStatus::MsgFunc_TSHealth(const char* pszName, int iSize, void* pbuf)
 	BEGIN_READ(pbuf, iSize);
 	m_iHealth = READ_BYTE();
 	g_iTSHealth = m_iHealth; // the ammo HUD draws the health bar stacked above the ammo box
+	// The player's health for the dead tests (CL_IsDead, the death camera, the view): the original
+	// client keeps it from TSHealth (its handler @0x1004b748 stores the byte that @0x10026860, the
+	// "health < 1" test, reads), since the server never sends the stock Health message.
+	gHUD.m_Health.m_iHealth = m_iHealth;
 	m_iFlags |= HUD_ACTIVE;
 	return true;
 }

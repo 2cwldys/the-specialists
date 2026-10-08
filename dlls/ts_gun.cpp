@@ -319,11 +319,14 @@ void CTSGun::Reset()
 	m_flNextAlternateAttack = 0;
 	m_flLastShotTime = 0.0f;
 
-	// change-detect cache → force a fresh HUD resend next frame
-	m_iClientWeaponType = -1;
+	// change-detect caches. The WeaponInfo type and reserve go to 0 (@0x70626, @0x7063a), so a gun
+	// in this state (kung fu, nothing in reserve) sends no WeaponInfo until one of them changes: a
+	// player who joins and holds kung fu gets none, as on the original.
+	m_iClientWeaponType = TSW_MELEE;
+	m_iClientReserve = 0;
 	m_iClientClip = -1;
-	m_iClientReserve = -1;
 	m_iClientFireMode = -1;
+	m_bClientInfoSeeded = false;
 	m_iClientAttach = -1;
 	m_iClientEquip = -1;
 	m_bWStatusInit = false;
@@ -2512,6 +2515,17 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	const s_weapon_info *wiActive = get_weapon_info((tsweapon_t)m_weaponType);
 	const bool meleeInfo = wiActive && (wiActive->iFireType == 3 || wiActive->iFireType == 10);
 	const int clipByte = meleeInfo ? (int)(pPlayer->m_flMeleeBar + 0.5f) : m_iClip;
+	// The original's check is the type and the reserve alone (@0x75a67, @0x75b94); its client keeps
+	// the clip, the melee bar and the fire mode itself. reTS's client reads them only from here, so a
+	// change of those sends too, measured from what the first check after Reset saw (not from -1,
+	// which would send a WeaponInfo to every gun in its reset state).
+	if (!m_bClientInfoSeeded)
+	{
+		m_iClientClip = clipByte;
+		m_iClientFireMode = m_fireMode;
+		m_iClientEquip = equipped;
+		m_bClientInfoSeeded = true;
+	}
 	if (m_weaponType == m_iClientWeaponType && clipByte == m_iClientClip &&
 		reserve == m_iClientReserve && m_fireMode == m_iClientFireMode &&
 		equipped == m_iClientEquip)

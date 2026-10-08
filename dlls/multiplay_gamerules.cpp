@@ -750,6 +750,11 @@ int CHalfLifeMultiplay::IPointsForKill(CBasePlayer* pAttacker, CBasePlayer* pKil
 }
 
 
+// The tags of the kill PlayerKilled is scoring, for the "killed" log line DeathNotice writes. The
+// original builds the whole line in PlayerKilled (@0x79e3d-0x7a182); here PlayerKilled fills this
+// just before DeathNotice and clears it after.
+static char s_szKillLogTags[256] = "";
+
 //=========================================================
 // PlayerKilled - someone/something killed this player
 //=========================================================
@@ -770,38 +775,189 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 		}
 	}
 
+	// @0x7968e: the base points, asked of the rules for every death.
+	int pts = IPointsForKill(peKiller, pVictim);
+
+	// @0x796b0-0x79845: a kill of another player by a player is scored before the DeathMsg. The
+	// stylish-kill scorer wraps the base points (kung-fu/thrown-blade = 2, stunt/slide +1, the green
+	// feed broadcast), then the streaks: a kill within 2 s of the killer's last scoring kill is a
+	// double kill (time - player+0x748 < 2.0, the double at 0xf7fc0); a victim with a streak of 3 or
+	// more is named in the log, and with 9 or more he is the specialist; the killer's streak goes up
+	// by one for every such kill, points or not (a team kill and The One mode's 0 count too), and
+	// stops at 255; his new streak picks his tier: 10 and on unstoppable, 9 specialist, 6
+	// demolition, 3 killer.
+	bool bSlideKill = false, bStuntKill = false;
+	bool bDoubleKill = false, bKilledSpecialist = false;
+	bool bUnstoppable = false, bSpecialist = false, bDemolition = false, bKillerTier = false;
+	const char* pszStoppedFury = nullptr;
+	if (pVictim->pev != pKiller && ktmp && ktmp->IsPlayer())
+	{
+		pts = TSGetPointsForFrag(NULL, pKiller, pInflictor, pts, &bSlideKill, &bStuntKill);
+		// (glast_weaponid reset moved to CBulletManager::UpdateBullet @0x5f311 — the original
+		// resets right after ApplyMultiDamage, not here; here it went stale on non-kill hits.)
+		// (the "#TS_OwnWeapon" kill with the victim's own gun, @0x79716-0x7977e, is not reconstructed)
+		if (peKiller)
+		{
+			bDoubleKill = (double)gpGlobals->time - (double)peKiller->m_flLastKillTime < 2.0;
+			if (pVictim->m_iKillStreak > 2)
+			{
+				pszStoppedFury = STRING(pVictim->pev->netname);
+				if (pVictim->m_iKillStreak > 8)
+					bKilledSpecialist = true;
+			}
+			if (peKiller->m_iKillStreak < 255)
+				peKiller->m_iKillStreak++;
+			if (peKiller->m_iKillStreak > 9)
+				bUnstoppable = true;
+			else if (peKiller->m_iKillStreak == 9)
+				bSpecialist = true;
+			else if (peKiller->m_iKillStreak == 6)
+				bDemolition = true;
+			else if (peKiller->m_iKillStreak == 3)
+				bKillerTier = true;
+		}
+	}
+
+	// @0x79db0-0x79fa4: the tags the original's "killed" log line carries after the weapon, in its
+	// order (DeathNotice writes the line). " (victims_weapon)" goes with the #TS_OwnWeapon kill and
+	// stays empty here.
+	if ((pKiller->flags & FL_CLIENT) != 0 && pVictim->pev != pKiller)
+	{
+		char szFury[96] = "";
+		if (pszStoppedFury)
+			snprintf(szFury, sizeof(szFury), " (stopped_fury \"%s\")", pszStoppedFury);
+		const char* pszTier = bUnstoppable ? " (is_unstoppable)" : bSpecialist ? " (is_specialist)" : bDemolition ? " (is_demolition)" : bKillerTier ? " (is_killer)" : "";
+		snprintf(s_szKillLogTags, sizeof(s_szKillLogTags), "%s%s%s%s%s%s%s%s", "", szFury,
+			bKilledSpecialist ? " (killed_specialist)" : "", bDoubleKill ? " (double_kill)" : "",
+			bStuntKill ? " (diving)" : "", bSlideKill ? " (sliding)" : "",
+			pVictim->m_bTheOne ? " (killed_the_one)" : "", pszTier);
+	}
+
 	DeathNotice(pVictim, pKiller, pInflictor);
+	s_szKillLogTags[0] = '\0';
 
 	pVictim->m_iDeaths += 1;
 
 	FireTargets("game_playerdie", pVictim, pVictim, USE_TOGGLE, 0);
 
+	// @0x7a2e3: The One's death, whoever or whatever killed him (the killer when he is a player),
+	// before any frags change; his streak ends with it.
+	if (pVictim->m_bTheOne)
+	{
+		if (TSGameRules)
+			TSGameRules->TheOneIsDead(pVictim, peKiller);
+		pVictim->m_iKillStreak = 0;
+	}
+
 	if (pVictim->pev == pKiller)
 	{ // killed self
+		// @0x7a31b: the specialist (a streak of 9 or more) pays 5 more for it
+		if (pVictim->m_iKillStreak > 8)
+		{
+			pKiller->frags -= 5;
+			TSHudMessageAll(0, 0xff, 0, 1, 30, UTIL_VarArgs("%s, #TS_SpecialistSuicide", STRING(pVictim->pev->netname)));
+		}
 		pKiller->frags -= 1;
 	}
 	else if (ktmp && ktmp->IsPlayer())
 	{
-		// @0x7970d: the stylish-kill scorer wraps the base points (kung-fu/thrown-blade = 2,
-		// stunt/slide +1, the green feed broadcast). VERIFY tail: the original then converts
-		// the out-bools + DoSpectacularNess into the kill-tier award bytes (m_iAward 2/3/4,
-		// The One's 10 preserved) AND a slow-motion reward grant (@0x7a908..0x7a9d7) — that
-		// reward machine needs its own typed pass before landing.
-		bool bSlideKill = false, bStuntKill = false;
-		pKiller->frags += TSGetPointsForFrag(NULL, pKiller, pInflictor,
-			IPointsForKill(peKiller, pVictim), &bSlideKill, &bStuntKill);
-		// (glast_weaponid reset moved to CBulletManager::UpdateBullet @0x5f311 — the original
-		// resets right after ApplyMultiDamage, not here; here it went stale on non-kill hits.)
+		// @0x7a429: the streak bonuses, only for a kill that scores. The order is the original's:
+		// ((points x2 for a double kill) + 5 for the specialist) x2 for an unstoppable killer.
+		// (not reconstructed in this block: the slow-motion point of a spectacular kill @0x7a3bb, the
+		// headshot, knife, katana and coldcock notices @0x7a434-0x7a5cd, the kill cash @0x7aab8 and
+		// the last man standing cash @0x7aafe, the slowmatch powerup @0x7ac15 and the team kill kick
+		// and ban @0x7ac7e)
+		if (pts > 0 && peKiller)
+		{
+			const char* pszKiller = STRING(pKiller->netname);
+			if (bDoubleKill)
+			{
+				pts <<= 1;
+				TSHudMessageAll(0, 0xff, 0, 1, 20, UTIL_VarArgs("#TS_Doublefrag #TS_FrgFr %s!", pszKiller));
+			}
+			if (pszStoppedFury)
+			{
+				if (bKilledSpecialist)
+				{
+					pts += 5;
+					TSHudMessageAll(0, 0xff, 0, 1, 30, UTIL_VarArgs("%i #TS_Frg #TS_FrgFr %s, #TS_KilledTheSpecialist", pts, pszKiller));
+					if (peKiller->m_iPowerups == 0 && peKiller->m_iHeldPowerup == 0)
+					{
+						peKiller->m_iPowerups = 0;
+						peKiller->m_iHeldPowerup = 8; // the slow motion powerup (@0x7a69f)
+						peKiller->m_flPowerupExpireTime = 0;
+						peKiller->m_flPowerupTime = 2;
+					}
+				}
+				char szSpree[24]; // the original's buffer ends at its 24th byte (@0x7a6e5)
+				snprintf(szSpree, sizeof(szSpree), "#TS_SpreeKilled%i", RANDOM_LONG(1, 10));
+				TSHudMessageAll(0, 0xff, 0, 1, 30, UTIL_VarArgs("%s %s", STRING(pVictim->pev->netname), szSpree));
+			}
+
+			int spree = 0, hold = 0;
+			if (bUnstoppable)
+			{
+				TSHudMessageAll(0, 0xff, 0, 1, 30,
+					UTIL_VarArgs("#TS_Unstoppable %s! %i #TS_ConsKills", pszKiller, (int)peKiller->m_iKillStreak));
+				pts <<= 1;
+			}
+			else if (bSpecialist)
+			{
+				// @0x7a7ab: the 9th kill makes him the specialist: 150 health, kung fu, superjump and a
+				// slow motion powerup if he holds none; no points for it
+				TSHudMessageAll(0, 0xff, 0, 1, 55, UTIL_VarArgs("%s #TS_Specialist", pszKiller));
+				if (peKiller->pev->health < 150.0f)
+					peKiller->pev->health = 150.0f;
+				peKiller->m_iKungFu = 1;
+				peKiller->m_bLowGravity = 1;
+				g_engfuncs.pfnSetPhysicsKeyValue(peKiller->edict(), "mj", "1");
+				extern int gmsgTSPowerUp; // ts_player.cpp
+				MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, peKiller->pev);
+				WRITE_SHORT(TS_PWUP_KUNGFU);
+				WRITE_BYTE(0);
+				MESSAGE_END();
+				MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, peKiller->pev);
+				WRITE_SHORT(TS_PWUP_LOWGRAV);
+				WRITE_BYTE(0);
+				MESSAGE_END();
+				if (peKiller->m_iPowerups == 0 && peKiller->m_iHeldPowerup == 0)
+				{
+					peKiller->m_iPowerups = 0;
+					peKiller->m_iHeldPowerup = 8;
+					peKiller->m_flPowerupExpireTime = 0;
+					peKiller->m_flPowerupTime = 2;
+				}
+				peKiller->m_iAward = (peKiller->m_iAward == 10) ? 10 : 4; // The One keeps his 10
+			}
+			else if (bDemolition)
+			{
+				peKiller->pev->health = V_min(peKiller->pev->health + 60.0f, 150.0f);
+				peKiller->m_iAward = (peKiller->m_iAward == 10) ? 10 : 3;
+				spree = 6;
+				hold = 45;
+			}
+			else if (bKillerTier)
+			{
+				peKiller->pev->health = V_min(peKiller->pev->health + 30.0f, 150.0f);
+				peKiller->m_iAward = (peKiller->m_iAward == 10) ? 10 : 2;
+				spree = 3;
+				hold = 35;
+			}
+			if (spree != 0)
+			{
+				char szSpree[24];
+				snprintf(szSpree, sizeof(szSpree), "#TS_KillSpree%i", RANDOM_LONG(1, 16));
+				TSHudMessageAll(0, 0xff, 0, 1, hold, UTIL_VarArgs("%s %s %i #TS_ConsKills", pszKiller, szSpree, spree));
+			}
+			if (peKiller->pev->health > 100.0f)
+				peKiller->m_flHealthRegen = gpGlobals->time + 1.0f;
+			// @0x7aa8c: a double kill forgets the last kill, so a third right after it is not one
+			peKiller->m_flLastKillTime = bDoubleKill ? 0.0f : gpGlobals->time;
+		}
+
+		pKiller->frags += pts;
 
 		FireTargets("game_playerkill", ktmp, ktmp, USE_TOGGLE, 0);
-
-		// R1/Y8-1: "The One" hand-off lives HERE in the original (@0x795e4 line ~444, after the
-		// frag/cash accounting) — moved from the deleted CTSGameRules::PlayerKilled override.
-		if (pVictim->m_bTheOne && TSGameRules)
-		{
-			CBaseEntity* pK = pKiller ? CBaseEntity::Instance(ENT(pKiller)) : nullptr;
-			TSGameRules->TheOneIsDead(pVictim, (pK && pK->IsPlayer()) ? (CBasePlayer*)pK : nullptr);
-		}
 	}
 	else
 	{ // killed by the world
@@ -994,7 +1150,7 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 		// team match?
 		if (g_teamplay)
 		{
-			UTIL_LogPrintf("\"%s<%i><%s><%s>\" killed \"%s<%i><%s><%s>\" with \"%s\"\n",
+			UTIL_LogPrintf("\"%s<%i><%s><%s>\" killed \"%s<%i><%s><%s>\" with \"%s\"%s\n",
 				STRING(pKiller->netname),
 				GETPLAYERUSERID(ENT(pKiller)),
 				GETPLAYERAUTHID(ENT(pKiller)),
@@ -1003,11 +1159,11 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 				GETPLAYERUSERID(pVictim->edict()),
 				GETPLAYERAUTHID(pVictim->edict()),
 				g_engfuncs.pfnInfoKeyValue(g_engfuncs.pfnGetInfoKeyBuffer(pVictim->edict()), "model"),
-				killer_weapon_name);
+				killer_weapon_name, s_szKillLogTags);
 		}
 		else
 		{
-			UTIL_LogPrintf("\"%s<%i><%s><%i>\" killed \"%s<%i><%s><%i>\" with \"%s\"\n",
+			UTIL_LogPrintf("\"%s<%i><%s><%i>\" killed \"%s<%i><%s><%i>\" with \"%s\"%s\n",
 				STRING(pKiller->netname),
 				GETPLAYERUSERID(ENT(pKiller)),
 				GETPLAYERAUTHID(ENT(pKiller)),
@@ -1016,7 +1172,7 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 				GETPLAYERUSERID(pVictim->edict()),
 				GETPLAYERAUTHID(pVictim->edict()),
 				GETPLAYERUSERID(pVictim->edict()),
-				killer_weapon_name);
+				killer_weapon_name, s_szKillLogTags);
 		}
 	}
 	else

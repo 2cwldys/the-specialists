@@ -202,14 +202,17 @@ public:
 	unsigned short m_usReload = 0; // events/reload.sc handle (gun+0x970): iparam1=type, iparam2=attach,
 	                               // fparam1 = 0 whole-clip / 8 pump-open / 9 shell-insert / 10 pump-close
 
-	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends
-	// WeaponInfo on change from CTSGun::UpdateClientData @0x758c8; we mirror that.
-	int m_iClientWeaponType = -1;
+	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends WeaponInfo from
+	// CTSGun::UpdateClientData @0x758c8 when the type (gun+0x97a) or the reserve (gun+0x9b4) changes;
+	// Reset clears both to 0. The clip, fire mode and equipped caches are reTS's (its client reads
+	// those only from WeaponInfo); UpdateClientData seeds them at its first check after Reset.
+	int m_iClientWeaponType = 0;
 	int m_iClientClip = -1;
-	int m_iClientReserve = -1;
+	int m_iClientReserve = 0;
 	int m_iClientFireMode = -1;
 	int m_iClientAttach = -1; // last-broadcast ACTIVE attach mask (ActItems change-detect)
 	int m_iClientEquip = -1;  // last-sent EQUIPPED attach mask (WeaponInfo flags byte change-detect)
+	bool m_bClientInfoSeeded = false; // the clip, fire mode and equipped caches hold a value
 
 	// Cached per-weapon-type WStatus (the weapon-select bar): clip if owned, else -1.
 	// The original sends WStatus per arsenal slot on change; we diff against this.

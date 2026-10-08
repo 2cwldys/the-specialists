@@ -1029,11 +1029,13 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	WRITE_BYTE(0);
 	MESSAGE_END();
 
-	// Tell Ammo Hud that the player is dead
-	MESSAGE_BEGIN(MSG_ONE, gmsgCurWeapon, NULL, pev);
+	// @0x7f434: every client stops drawing his laser and flashlight (TSActiveItems {index, 0} to
+	// all), where the stock SDK tells his ammo HUD he is dead with a CurWeapon the original never
+	// sends here.
+	extern int gmsgTSActiveItems; // ts_gun.cpp
+	MESSAGE_BEGIN(MSG_ALL, gmsgTSActiveItems);
+	WRITE_BYTE(ENTINDEX(edict()));
 	WRITE_BYTE(0);
-	WRITE_BYTE(0XFF);
-	WRITE_BYTE(0xFF);
 	MESSAGE_END();
 
 	// reset FOV
@@ -4562,31 +4564,8 @@ void CBasePlayer::UpdateClientData()
 		gDisplayTitle = false;
 	}
 
-	if (pev->health != m_iClientHealth)
-	{
-		int iHealth = std::clamp<float>(pev->health, 0.f, (float)(std::numeric_limits<short>::max())); // make sure that no negative health values are sent
-		if (pev->health > 0.0f && pev->health <= 1.0f)
-			iHealth = 1;
-
-		// send "health" update message
-		MESSAGE_BEGIN(MSG_ONE, gmsgHealth, NULL, pev);
-		WRITE_BYTE(iHealth);
-		MESSAGE_END();
-
-		m_iClientHealth = pev->health;
-	}
-
-
-	if (pev->armorvalue != m_iClientBattery)
-	{
-		m_iClientBattery = pev->armorvalue;
-
-		ASSERT(gmsgBattery > 0);
-		// send "health" update message
-		MESSAGE_BEGIN(MSG_ONE, gmsgBattery, NULL, pev);
-		WRITE_SHORT((int)pev->armorvalue);
-		MESSAGE_END();
-	}
+	// (no Health or Battery message: the original registers both and sends neither; its only GOT uses
+	// of gmsgHealth and gmsgBattery are in LinkUserMessages. The HUD and TSX read TSHealth/TSArmor below.)
 
 	// (no Weapons message — the HLU 64-bit weapon-bits sync was an invented registration the
 	// original TS lacks; removed for registration-set parity (dossier-gmsg U0, PLAYTEST-GATED:
@@ -4734,25 +4713,26 @@ void CBasePlayer::UpdateClientData()
 	// @ the TS block of CBasePlayer::UpdateClientData @0x81d00 (fold-plan G2 — was the invented
 	// helper TSUpdateClientData; the original has no such method, this IS part of UCD). Each
 	// message is throttled-by-change (only sent when the cached value differs) exactly as the
-	// original does. Health/armor are rounded and clamped to a byte; cash is a short.
+	// original does. Health is truncated (below); armor is rounded here, where the original
+	// truncates it as well (@0x82074); cash is a short.
 	// NB (G2 follow-ups, ledger): the original ORDERS these differently and interleaves them
 	// with the stock sends (InitHUD-block -> HideWeapon -> TSHealth -> TSArmor -> Train ->
-	// TSState -> TSCash -> TSSpace ...), and appears to send NO stock Health/Battery (VERIFY).
+	// TSState -> TSCash -> TSSpace ...), and sends no stock Health/Battery at all.
 	{
 		extern int gmsgTSHealth, gmsgTSArmor, gmsgTSState, gmsgTSCash, gmsgTSSpace; // ts_player.cpp globals
 		extern int gmsgTSPowerUp, gmsgTSSlowAmt, gmsgTSBulletTime, gmsgTSPlayerAward, gmsgTSWires;
 
-		// TSHealth — round(health), clamped to >= 0 (the original ROUNDs pev->health and
-		// floors negatives at 0 before the WRITE_BYTE).
-		int health = (int)(pev->health + 0.5f);
-		if (health < 0)
-			health = 0;
-		if (health != m_iClientTSHealth)
+		// TSHealth (@0x81fa2-0x8204b): sent when the health differs from the whole number cached at the
+		// last send, so a fractional health goes out on every update, as on the original. The value is
+		// the health floored at 0 and truncated (the fistp runs with the control word's rounding set to
+		// chop, @0x81fda); the cache is the health truncated, not floored.
+		if ((float)m_iClientTSHealth != pev->health)
 		{
-			m_iClientTSHealth = health;
+			const float health = (0.0f > pev->health) ? 0.0f : pev->health;
 			MESSAGE_BEGIN(MSG_ONE, gmsgTSHealth, NULL, ENT(pev));
-			WRITE_BYTE(health);
+			WRITE_BYTE((int)health);
 			MESSAGE_END();
+			m_iClientTSHealth = (int)pev->health;
 		}
 
 		// TSArmor — round(armorvalue).

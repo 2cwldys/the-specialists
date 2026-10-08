@@ -605,7 +605,9 @@ void CBasePlayer::TSInit()
 	m_flPowerupTime = 0;
 	m_iClientHeldDur = 0;
 	m_iClientHeldType = 0xff;
-	// player+0x740/0x744/0x748 = 0 (unnamed transients)
+	// player+0x740 = 0 (unnamed transient)
+	m_iKillStreak = 0;     // 0x744 (@0x82c24): a streak lasts until he spawns again, not until he dies
+	m_flLastKillTime = 0;  // 0x748 (@0x82c2b)
 	m_iAward = 0;          // 0x74c
 	m_iClientAward = 0xff; // 0x74d — force the first TSPAward send
 	m_iKungFu = 0;         // 0x74e

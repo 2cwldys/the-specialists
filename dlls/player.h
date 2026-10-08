@@ -399,6 +399,9 @@ public:
 	float m_flPowerupExpireTime = 0;// 0x72c — active timed-powerup end time
 	float m_flPowerupTime = 0;      // 0x730 — held powerup duration (seconds)
 	float m_flHealthRegen = 0;      // 0x73c — health-powerup regen tick time
+	byte m_iKillStreak = 0;         // 0x744 — kills since he last spawned, stopping at 255 (PlayerKilled @0x797f3);
+	                                // TSInit clears it, and so does the One's death (@0x7a2ff)
+	float m_flLastKillTime = 0;     // 0x748 — his last kill that scored, 0 after a double kill (@0x7aa97, @0x7aab2)
 	float m_flSpreadAccum = 0;        // 0x778 — TS dynamic-accuracy spread accumulator: grows per shot in
 	                                  // CTSGun::ScaleSpread (capped 0.1), recovers in PreThink. Effective
 	                                  // bullet spread = weapon flSpread + this (so spraying widens the cone).

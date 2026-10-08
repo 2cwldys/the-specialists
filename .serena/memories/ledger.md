@@ -7012,3 +7012,25 @@ specialist's +5, the unstoppable doubling, streak/last-kill bytes +0x744/+0x748)
 CTSGun::UpdateClientData sends a newcomer a WeaponInfo (the original's change check compares only type +0x97a
 and reserve +0x9b4, both reset to 0); UpdateClientData's TSHealth rounds where the original truncates
 (player+0x9e0 cache); Killed sends CurWeapon where the original sends TSActiveItems.
+
+## 2026-10-08 — streak scoring, The One, and three message differences, as the original
+
+Round 11 (amxxbench docs/fixes/rets-deviations11.md). One patch per item in ~/stignored/rets-deviations11.
+- 1 PlayerKilled scores streaks as @0x795e4: m_iKillStreak (+0x744, up to 255, every kill of a player by a
+  player) and m_flLastKillTime (+0x748), both cleared in TSInit; double kill under 2.0 s (x2, the time then
+  forgotten), +5 for a victim with 9 or more, x2 for a killer at 10 or more, in that order; the 3/6/9 tiers
+  (health, award 2/3/4, the specialist's kung fu, superjump and PwUp messages), the spree messages, the
+  specialist's suicide (-5); points and streaks before the DeathMsg; the "killed" log line's tags; the One's
+  death handled for any killer, before the suicide check, his streak cleared.
+- 2 The One: Think draws on g_theOneMode (no "the_one" cvar); SelectRandomTheOne and TheOneIsDead move the
+  players' teams (SetDefaultPlayerTeam, ChangePlayerTeam); SetPlayerTheOne sends the two PwUp messages.
+- 3 CTSGun::Reset clears the WeaponInfo type/reserve caches to 0, so a kung-fu newcomer gets none; reTS's
+  extra clip/fire mode/equip resend stays for its client, seeded at the first check.
+- 4 TSHealth truncated with the original's float compare; no Health/Battery; the client's dead test reads
+  TSHealth (as client.dll @0x10026860). 5 Killed sends TSActiveItems {index, 0}, no CurWeapon.
+Tests: reTS copies tsx_score, tsx_one; newcomer test back in tsx_weapons; two ts_damage tests. Full tsx-ts3
+suite on reTS 523/523 twice; ts30 set 138/138 twice each in deathmatch and teamplay.
+Found, not changed: kill cash, headshot/knife/katana/coldcock notices, the spectacular slow-motion point,
+the slowmatch powerup, the team kill kick/ban and the #TS_OwnWeapon kill in PlayerKilled; teammate kills
+not logged (CHalfLifeTeamplay::DeathNotice); the One's PreThink regeneration, GetSpeedBySlots 330 and
+CanDive* for the One; TSArmor rounds; CurWeapon in StartObserver/UCD/observer; Killed leaves pev->fov.
