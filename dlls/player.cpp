@@ -3109,6 +3109,10 @@ void CBasePlayer::PostThink()
 
 	if (FBitSet(pev->flags, FL_ONGROUND))
 	{
+		// @0x8186f: a player on the ground gets normal gravity back every frame, so a lowered gravity
+		// lasts only until he lands (the superjump powerup sets 0.15 again in each PreThink).
+		pev->gravity = 1.0;
+
 		if (m_flFallVelocity > 64 && !g_pGameRules->IsMultiplayer())
 		{
 			CSoundEnt::InsertSound(bits_SOUND_PLAYER, pev->origin, m_flFallVelocity, 0.2);

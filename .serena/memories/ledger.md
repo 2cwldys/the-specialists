@@ -6984,3 +6984,11 @@ apply-all.sh applies them in order).
   run again. Tests: realbullet placement fixed on ts_lobby, superjump gravity read after PreThink, a bubble test.
 - Found, not changed: the original's PostThink sets pev->gravity = 1.0 whenever the player is on the ground
   (@0x8186f); reTS has no such write.
+
+## 2026-10-08 — PostThink resets gravity on the ground
+
+Final-stretch round (amxxbench docs/fixes/final-stretch.md). PostThink sets pev->gravity = 1.0 for a player on the
+ground every frame, as the original does (@0x8186f: `testb $0x2,0x1a5(%eax)` = FL_ONGROUND, then
+`movl $0x3f800000,0x11c(%eax)`), so a gravity a plugin or anything else lowered lasts only until he lands; the
+superjump powerup sets 0.15 again in each PreThink. Test: ts_powerup_state "landing gives normal gravity back"
+(tsx-ts3, reTS and ts30 copies): TS 3.0 pass; reTS before 0.5 after landing, after 1.0.
