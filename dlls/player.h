@@ -369,8 +369,6 @@ public:
 	float m_flNextAmmoBurn; // while charging, when to absorb another unit of player's ammo?
 
 	//Player ID
-	void InitStatusBar();
-	void UpdateStatusBar();
 	int m_izSBarState[SBAR_END];
 	float m_flNextSBarUpdateTime;
 	float m_flStatusBarDisappearDelay;

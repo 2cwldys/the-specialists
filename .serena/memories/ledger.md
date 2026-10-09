@@ -7226,3 +7226,28 @@ Found, not changed: StartObserver drops the flag before the holster (the origina
 CCombatIdle send with skiplocal 0 in the original; the LMS window line rounds and its expiry runs outside
 the spectate block; Fall's trace skips players in the original; impulse 100's flashlight has no original;
 PwUp's byte is clamped at 0 in the original. More in amxxbench docs/fixes/rets-deviations18-report.md.
+
+## 2026-10-09 — round 19: the round-18 leftovers
+
+Round 19 (amxxbench docs/fixes/rets-deviations19.md). One patch per item in ~/stignored/rets-deviations19.
+- 1 StartObserver drops the flag after the holster (DropFlag @0x8975f follows @0x89755).
+- 2 CTSGun::WeaponIdle (@0x75646) and CCombatIdle (@0x75e94) send their idle anims with skiplocal 0
+  (m_ForceSendAnimations), so a predicting client gets them as from TS 3.0.
+- 3 PreThink in the original's order: after CheckSuitUpdate the slow-motion ease and framerate, the timer
+  countdowns, the landing check and CTSStunt::Play, UpdateTimers, the powerup state and slow-motion flow,
+  the root timer's expiry, the melee bar regen (IsAlive only, @0x80d66), the run-through window's expiry,
+  then the spectate block, spectators included; CheckForBreakables first after the block (@0x810ee). The
+  stock view-entity and node-graph blocks are gone.
+- 4 The re-entry window's line truncates (@0x81063) and its expiry runs inside the spectate block
+  (@0x80fb3): 6 down to 0, and a player in play is no longer told to wait for the next round.
+- 5 CTSWorldGun::Fall's trace skips players and has no takedamage test (@0x90f2b-0x90f3d).
+- 6 impulse 100 removed (the original's ImpulseCommands has 99, 201, 204 only); no client dependency.
+- 7 PwUp's seconds byte clamped at 0 (@0x82295).
+- 8 InitStatusBar and UpdateStatusBar removed.
+Tests: ts_messages (gun and bare-hands idle anims, PwUp clamp), ts_dropped (falling gun spares a player),
+ts_observer (spectator's slow motion eases, LMS window), ts_cheats (impulse 100), reTS + ts30.
+Found, not changed: TSInit does not clear the re-entry window (@0x82d5b); PreThink's spread decay, health
+regen position, framerate, +0xb88 stamp, iuser4 0x400000 bit, timer floors and the gravity timer; the
+landing check belongs to PostThink; impulse 204 missing and cheat impulses 76/101/203 extra; flashlight
+and status-bar leftovers; m_flPowerupTime float vs int; a reTS team-change test failure when the server
+starts in deathmatch. Details in amxxbench docs/fixes/rets-deviations19-report.md.

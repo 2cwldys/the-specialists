@@ -2763,14 +2763,17 @@ void CTSGun::ShotgunReload()
 // @0x85e54 CCombatIdle — the bare-hands (kung-fu) viewmodel idle: on the idle timer, re-arm
 // idle +3.0 and play the TSW_MELEE row's idle sequence from the table (+0x252 — 0 in the
 // shipped data; kept as a table read like the original). Sole caller: WeaponIdle's leading
-// no-active-item branch.
+// no-active-item branch. @0x75e92-0x75eac pass skiplocal 0, as HolsterWeapon does, so the anim
+// reaches a client predicting its weapons (cl_lw 1) too.
 void CTSGun::CCombatIdle()
 {
 	if (m_flTimeWeaponIdle > UTIL_WeaponTimeBase())
 		return;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
 	const s_weapon_info *wi = get_weapon_info(TSW_MELEE);
+	m_ForceSendAnimations = true;
 	SendWeaponAnim(wi ? wi->iIdleAnim : 0, pev->body);
+	m_ForceSendAnimations = false;
 }
 
 // @ WeaponIdle__6CTSGun (@0x754dc, decompile-exact) — runs EVERY frame (the base ItemPostFrame
@@ -2820,7 +2823,10 @@ void CTSGun::WeaponIdle()
 			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 3.0f;
 			const int idleAnim = (m_bHoldPosition && m_pActiveInfo->iIdleAnimHold >= 0)
 				? m_pActiveInfo->iIdleAnimHold : m_pActiveInfo->iIdleAnim; // stance block [0]
+			// @0x75646: skiplocal 0, so a predicting client gets the idle from the server too
+			m_ForceSendAnimations = true;
 			SendWeaponAnim(idleAnim, pev->body); // pev->body carries the attachment/bloody submodel (fold-plan Y4)
+			m_ForceSendAnimations = false;
 		}
 	}
 }

@@ -1431,8 +1431,6 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	m_flSlowMotionGo = 1.0f;
 	m_flNextObserverIdle = 0;
 
-	DropFlag(false); // CTF: entering spectate drops a carried flag (spawns a loose flag)
-
 	// clear any clientside entities attached to this player
 	MESSAGE_BEGIN(MSG_PAS, SVC_TEMPENTITY, pev->origin);
 	WRITE_BYTE(TE_KILLPLAYERATTACHMENTS);
@@ -1453,6 +1451,9 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 		}
 		m_pActiveItem->Holster();
 	}
+
+	// @0x8975f: then a carried CTF flag is dropped (spawns a loose flag), after the holster
+	DropFlag(false);
 
 	if (m_pTank != NULL)
 	{
@@ -1916,19 +1917,7 @@ void CBasePlayer::AddPointsToTeam(int score, bool bAllowNegativeScore)
 	}
 }
 
-//Player ID
-void CBasePlayer::InitStatusBar()
-{
-	m_flStatusBarDisappearDelay = 0;
-	m_SbarString1[0] = m_SbarString0[0] = 0;
-}
-
-void CBasePlayer::UpdateStatusBar()
-{
-	// NEUTERED (dossier-gmsg U0): the HLU player-ID status bar rode the StatusText/StatusValue
-	// user messages, which the original TS never registers — the registrations are removed for
-	// registration-set parity, so this stock method sends nothing. (TS has no aim-ID bar.)
-}
+// (no InitStatusBar or UpdateStatusBar: the original has neither, and TS has no aim-ID status bar)
 
 
 
@@ -1977,35 +1966,8 @@ void CBasePlayer::PreThink()
 	WaterMove();
 
 	// (The stock SDK sets or clears HIDEHUD_FLASHLIGHT here every frame. The original PreThink
-	// @0x808cc never writes m_iHideHUD, so TS sends HideWeapon 0, not the flashlight bit.)
-
-	if (m_bResetViewEntity)
-	{
-		m_bResetViewEntity = false;
-
-		CBaseEntity* viewEntity = m_hViewEntity;
-
-		if (viewEntity)
-		{
-			SET_VIEW(edict(), viewEntity->edict());
-		}
-	}
-
-	// in the event that the player JUST spawned, and the level node graph
-	// was loaded, fix all of the node graph pointers before the game starts.
-
-	// !!!BUGBUG - now that we have multiplayer, this needs to be moved!
-	if (0 != WorldGraph.m_fGraphPresent && 0 == WorldGraph.m_fGraphPointersSet)
-	{
-		if (!WorldGraph.FSetGraphPointers())
-		{
-			ALERT(at_console, "**Graph pointers were not set!\n");
-		}
-		else
-		{
-			ALERT(at_console, "**Graph Pointers Set!\n");
-		}
-	}
+	// @0x808cc never writes m_iHideHUD, so TS sends HideWeapon 0, not the flashlight bit. Nor has it the
+	// stock view-entity restore or the node-graph pointer fix-up here.)
 
 	// @0x8095b: the client update runs here, before the TS upkeep and the spectate block below, so the
 	// InitHUD frame's StartObserver is followed by that frame's first countdown line.
@@ -2016,133 +1978,62 @@ void CBasePlayer::PreThink()
 
 	CheckSuitUpdate();
 
-	// @0x80bb1: the powerup state and the slow-motion flow run for every player, before the
-	// spectator block below, as in the original: a spectator's powerup is dropped or ends there too.
-	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame (sets the slow triple)
-	SlowMotionFlow();     // TS: every 0.5s, slow self + LOS-visible enemies while a slow powerup is active
-
-	// @0x80fb3 — the LMS re-entry HOLD: armed by SetPlayerRespawnTime with min(roundLeft,10)s;
-	// letting it EXPIRE without re-entering locks you out for the round (gate -1, award 1 =
-	// out-of-round). (V11: the original's else-branch also paints a per-second countdown HUD
-	// message off a +0x754 throttle — not yet transcribed.)
-	if (m_flRespawnHoldTime != 0.0f && m_flRespawnHoldTime < gpGlobals->time)
+	// TS slow-motion time-dilation (@0x80974-0x8099f: right after CheckSuitUpdate, for every player,
+	// spectators included). pev->fuser1 is the CURRENT slow factor, eased toward the GoSlow
+	// TARGET (m_flSlowMotionGo). It's a stock NETWORKED entvars float, so the client receives it and
+	// runs the identical weapon-timer decrement → fire-rate prediction stays in sync. It scales
+	// movement (maxspeed), animation (pev->framerate) and the weapon-timer decrement (PostThink).
+	// RE scratchpad/SLOWMO_PRESENTATION_RE.md §B: ease = InterpolateSlowMotion, anim = max(fuser1,0.01).
+	if (pev->fuser1 == 0.0f && m_flSlowMotionGo != 0.0f)
+		pev->fuser1 = 1.0f; // entvars defaults to 0; the slow factor's neutral is 1.0 (a GoSlow(0)
+		                    // target is a freeze, which the ease reaches exactly)
+	// ease CURRENT (fuser1) → TARGET (m_flSlowMotionGo) — the original's TS_shared.cpp helper.
+	InterpolateSlowMotion(gpGlobals->frametime, &pev->fuser1, m_flSlowMotionGo);
+	// Base move speed comes from the inventory-slot encumbrance (GetSpeedBySlots: more/heavier weapons →
+	// slower). Slow-motion does NOT scale maxspeed — the original slows MOVEMENT by dilating the pm_shared
+	// frametime (PM_PlayerMove: frametime *= fuser1), which leaves pev->velocity MAGNITUDE intact, so the
+	// side-kick speed>270 gate still passes in slowmo. RE PreThink @0x808cc (no fuser1 on maxspeed) +
+	// PM_PlayerMove @0xf08d8. (Scaling maxspeed here dropped |velocity| below 270 and blocked the kick.)
+	// cont.89: the encumbrance speed MUST go through SetPlayerSpeed → pfnSetClientMaxspeed. RE-confirmed
+	// (movement_prediction.md §cont.89c) the original CLIENT predicts off `clientmaxspeed` (set ONLY by
+	// pfnSetClientMaxspeed), NOT cd->maxspeed — so a raw pev->maxspeed write leaves the client predicting
+	// at a stale clientmaxspeed → a CONSTANT cl_showerror seam on ground AND air. The original sets speed
+	// exclusively via pfnSetClientMaxspeed, and only on loadout events (the 11 SetPlayerSpeed call sites
+	// @0x83068: TSInit, PickUpWeapon, DropWeapon, TakeArmor, TakeFlag, DropFlag, SetPlayerTheOne, and the
+	// knife/katana/grenade throws and MultiplyClips), never here, so a plugin's maxspeed holds until the
+	// next of those.
+	if (pev->fuser1 < 0.999f)
 	{
-		// @0x81458 expiry (decompile-exact): window 0, gate -4.0 (wait-next-round sentinel),
-		// award 1 (out-of-round), the red wait line, and a deads recount (a lockout can end
-		// the round). V11 CLOSED — the per-second window line is painted in the spectate
-		// block below (fold-plan G7).
-		m_flRespawnHoldTime = 0;
-		m_flTSRespawnTime = -4.0f;
-		m_iAward = 1;
-		TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
-		if (TSGameRules)
-			TSGameRules->CallCheckDeads();
+		pev->framerate = pev->fuser1 < 0.01f ? 0.01f : pev->fuser1; // slowed animation (StudioFrameAdvance)
+		m_bSlowMoveApplied = true;
 	}
-
-	// TS (cont.65): while held in spectate, run the countdown + fire-to-play
-	// check and skip the normal in-play think (no items/water/weapons yet).
-	// @ the pev->iuser1 != 0 block of CBasePlayer::PreThink @0x808cc, region ~0x81458
-	// (fold-plan G7 — was the invented helper TSSpectateThink; the original has no such
-	// method, this IS the PreThink spectate block: the 1 Hz HUD-line throttles off +0x754,
-	// then the observer upkeep). The original sends NO ScoreInfo here (the WAITING status
-	// rides the award byte — fold-plan Y6).
-	if (m_fInSpectateWait) // original gate: pev->iuser1 != 0 (converge with Y7's iuser1/iuser2 pass)
+	else if (m_bSlowMoveApplied)
 	{
-		// Fire-to-play is the CLIENT's "respawn" console command (the original mechanism —
-		// the ClientCommand "respawn" branch gates it); the server watches no buttons here.
-
-		// @0x80e83-0x80fab (PreThink iuser1 block): while the gate (+0x770) is set and still ahead, once a
-		// second on the +0x754 clock, the seconds left, truncated (the fistp with the rounding set to
-		// chop) after a cap at 30; when that truncates to 0, in the last second before the gate,
-		// "Press Fire To Play!" (hold 30). Nothing is painted once the gate has passed.
-		if (m_flTSRespawnTime > 0.0f && m_flTSRespawnTime > gpGlobals->time && m_flSpecMsgTime < gpGlobals->time)
-		{
-			m_flSpecMsgTime = gpGlobals->time + 1.0f;
-			// in double, exact as the original's x87 difference is: a float difference can round up to
-			// the next whole second (5 - 2^-22 to 5.0) and show a number the original does not
-			const double rem = (double)m_flTSRespawnTime - (double)gpGlobals->time;
-			if ((int)rem <= 0)
-				TSHudMessageOne(0, 0, 0, 16, 30, "Press Fire To Play!", pev);
-			else
-				TSHudMessageOne(0, 0, 0, 16, 20, UTIL_VarArgs("%i", (int)(rem > 30.0 ? 30.0 : rem)), pev);
-		}
-		// the LMS re-entry window paints its own 1 Hz line while it runs (expiry lives in PreThink)
-		else if (m_flRespawnHoldTime != 0.0f && gpGlobals->time <= m_flRespawnHoldTime &&
-			m_flSpecMsgTime < gpGlobals->time)
-		{
-			m_flSpecMsgTime = gpGlobals->time + 1.0f;
-			TSHudMessageOne(0, 0, 0, 16, 20,
-				UTIL_VarArgs("%i seconds left for respawn, press Fire to Play!",
-					(int)(m_flRespawnHoldTime - gpGlobals->time + 0.5f)), pev);
-		}
-		// (UpdateClientData already ran this frame, near the top of PreThink as in the original, so a
-		// spectator gets his HUD updates: cont.98's slow motion and WAITING fix.)
-		// @0x810c3, @0x810cb, @0x810d3: the block ends with the observer controls, the dead-target
-		// check and the impulse cleared, as the original's does.
-		Observer_HandleButtons();
-		Observer_Idle();
-		pev->impulse = 0;
-		return;
-	}
-
-	// TS melee-stamina regen (RE PreThink @0x808cc +0x4eb, dossier-melee addendum L1): the bar
-	// refills at 15/s in slow-scaled game time (x1.5 under the double-fire powerup), clamped 100.
-	// The regen is SILENT — KFuPower is only sent by UpdateMeleeBar (drains); the client tracks
-	// the refill via the WeaponInfo melee bar byte.
-	if (m_flMeleeBar < 100.0f)
-	{
-		float flMeleeDelta = GiveSlowMul() * gpGlobals->frametime;
-		if ((m_iPowerups & TS_PWUP_DBLFIRE) != 0)
-			flMeleeDelta *= 1.5f;
-		// the original adds the raw (unscaled) delta on a negative-bar sentinel; kept verbatim
-		m_flMeleeBar += (m_flMeleeBar >= -0.001f) ? flMeleeDelta * 15.0f : flMeleeDelta;
-		if (m_flMeleeBar >= 100.0f)
-			m_flMeleeBar = 100.0f;
+		pev->framerate = 1.0f; // restore the normal animation rate
+		m_bSlowMoveApplied = false;
 	}
 
 	// TS melee timer lifecycle (RE PreThink @0x808cc, addendum L2): the deflect windows, the
 	// BlockPlayer root timer and the whiff-lunge window are all VALUES counted down by the same
-	// slow-scaled delta.
-	{
-		float flDecay = GiveSlowMul() * gpGlobals->frametime;
-		if ((m_iPowerups & TS_PWUP_DBLFIRE) != 0)
-			flDecay *= 1.5f;
-		// deflect windows (+0x7a8/ac/b0): floor 0
-		m_flKungFuBlock = V_max(m_flKungFuBlock - flDecay, 0.0f);
-		m_flKatanaBlock = V_max(m_flKatanaBlock - flDecay, 0.0f);
-		m_flKnifeBlock = V_max(m_flKnifeBlock - flDecay, 0.0f);
-		// disarm pressure (+0x7b4): decays at 5x the delta (RE PreThink +0x237)
-		m_flDisarmPressure = V_max(m_flDisarmPressure - flDecay * 5.0f, 0.0f);
-		// BlockPlayer root timer (+0x4dc): countdown; on expiry clear the STOP bit + zero
-		if (m_flBlockTime != 0.0f)
-		{
-			m_flBlockTime -= flDecay;
-			if (m_flBlockTime < 0.01f)
-			{
-				m_flBlockTime = 0.0f;
-				pev->iuser4 &= ~TSSTUNT_STOP;
-			}
-		}
-		// run-through window (+0x79c): countdown; expiry (<0.01, or force==0 — the halving in
-		// CheckForBreakables collapses it) zeroes the triple. The window's CONSUMER is
-		// CTSStunt::CheckForBreakables (the run-through melee resolver, cont.96) — the fields are
-		// NOT an attacker velocity lunge (@0x808cc + dossier cont96 §2c).
-		if (m_flWhiffLungeTime != 0.0f)
-		{
-			m_flWhiffLungeTime -= flDecay;
-			if (m_flWhiffLungeTime < 0.01f || m_flWhiffLungeForce == 0.0f)
-			{
-				m_flWhiffLungeTime = 0.0f;
-				m_flWhiffLungeForce = 0.0f;
-				m_iWhiffLungeType = 0;
-			}
-			// @0x80e5e: EVERY frame the window is live (not only on expiry) — you cannot hold a
-			// kung-fu block mid-window.
-			m_flKungFuBlock = 0.0f;
-		}
-	}
+	// slow-scaled delta. @0x809be-0x80b22: the countdowns run here, for every player, spectators
+	// included; the root timer's and the run-through window's expiries come after the powerup state
+	// below (@0x80cda, @0x80e13).
+	float flDecay = GiveSlowMul() * gpGlobals->frametime;
+	if ((m_iPowerups & TS_PWUP_DBLFIRE) != 0)
+		flDecay *= 1.5f;
+	if (m_flWhiffLungeTime != 0.0f)
+		m_flWhiffLungeTime -= flDecay;
+	if (m_flBlockTime != 0.0f)
+		m_flBlockTime -= flDecay;
+	// deflect windows (+0x7a8/ac/b0): floor 0
+	m_flKungFuBlock = V_max(m_flKungFuBlock - flDecay, 0.0f);
+	m_flKatanaBlock = V_max(m_flKatanaBlock - flDecay, 0.0f);
+	m_flKnifeBlock = V_max(m_flKnifeBlock - flDecay, 0.0f);
+	// disarm pressure (+0x7b4): decays at 5x the delta (RE PreThink +0x237)
+	m_flDisarmPressure = V_max(m_flDisarmPressure - flDecay * 5.0f, 0.0f);
 
-	// TS SUPER-JUMP LANDING (RE PostThink @0x81a22). The jump itself is the "mj" high jump in PM_Jump
+	// TS SUPER-JUMP LANDING (RE PostThink @0x81a22; here it runs ahead of the stunt Play, before the
+	// spectate block). The jump itself is the "mj" high jump in PM_Jump
 	// (velocity.z=400, one-shot, DUCK+JUMP) which arms iuser4 |= WHEEL_TRIG -> CTSStunt::Play plays the
 	// morfy_jump(_guns) flight pose + airwheel and sets WHEEL_DONE. When that flight touches down, screen-
 	// shake + either a GoRoll (DUCK held on landing) or the superjump_land plant (view low + PRONE|STOP +
@@ -2178,12 +2069,121 @@ void CBasePlayer::PreThink()
 	// dive/prone hull + low view + dive/wall launch velocity — which the DLL alone could never
 	// make stick (the predictor recomputed the hull every frame). +alt1 = dive / bullet-time,
 	// double-jump into a wall = wall-climb / wall-jump.
-	m_TSStunt.Play();
+	m_TSStunt.Play(); // @0x80b32
+
+	m_TSAnim.UpdateTimers(this); // TS: decay the gait aim/leg/grenade hold timers (@0x80b42)
+
+	// @0x80bb1: the powerup state and the slow-motion flow run for every player, before the
+	// spectator block below, as in the original: a spectator's powerup is dropped or ends there too.
+	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame (sets the slow triple)
+	SlowMotionFlow();     // TS: every 0.5s, slow self + LOS-visible enemies while a slow powerup is active
+
+	// BlockPlayer root timer (+0x4dc) expiry (@0x80cda): clear the STOP bit + zero
+	if (m_flBlockTime != 0.0f && m_flBlockTime < 0.01f)
+	{
+		m_flBlockTime = 0.0f;
+		pev->iuser4 &= ~TSSTUNT_STOP;
+	}
+
+	// TS melee-stamina regen (RE PreThink @0x808cc +0x4eb, dossier-melee addendum L1): the bar
+	// refills at 15/s in slow-scaled game time (x1.5 under the double-fire powerup), clamped 100.
+	// The regen is SILENT — KFuPower is only sent by UpdateMeleeBar (drains); the client tracks
+	// the refill via the WeaponInfo melee bar byte. @0x80d66: a living player's only.
+	if (IsAlive() && m_flMeleeBar < 100.0f)
+	{
+		// the original adds the raw (unscaled) delta on a negative-bar sentinel; kept verbatim
+		m_flMeleeBar += (m_flMeleeBar >= -0.001f) ? flDecay * 15.0f : flDecay;
+		if (m_flMeleeBar >= 100.0f)
+			m_flMeleeBar = 100.0f;
+	}
+
+	// run-through window (+0x79c) expiry (@0x80e13): <0.01, or force==0 (the halving in
+	// CheckForBreakables collapses it), zeroes the triple. The window's CONSUMER is
+	// CTSStunt::CheckForBreakables (the run-through melee resolver, cont.96) — the fields are
+	// NOT an attacker velocity lunge (@0x808cc + dossier cont96 §2c).
+	if (m_flWhiffLungeTime != 0.0f)
+	{
+		if (m_flWhiffLungeTime < 0.01f || m_flWhiffLungeForce == 0.0f)
+		{
+			m_flWhiffLungeTime = 0.0f;
+			m_flWhiffLungeForce = 0.0f;
+			m_iWhiffLungeType = 0;
+		}
+		// @0x80e65: EVERY frame the window is live (not only on expiry) — you cannot hold a
+		// kung-fu block mid-window.
+		m_flKungFuBlock = 0.0f;
+	}
+
+	// TS (cont.65): while held in spectate, run the countdown + fire-to-play
+	// check and skip the normal in-play think (no items/water/weapons yet).
+	// @ the pev->iuser1 != 0 block of CBasePlayer::PreThink @0x808cc, region ~0x81458
+	// (fold-plan G7 — was the invented helper TSSpectateThink; the original has no such
+	// method, this IS the PreThink spectate block: the 1 Hz HUD-line throttles off +0x754,
+	// then the observer upkeep). The original sends NO ScoreInfo here (the WAITING status
+	// rides the award byte — fold-plan Y6).
+	if (m_fInSpectateWait) // original gate: pev->iuser1 != 0 (converge with Y7's iuser1/iuser2 pass)
+	{
+		// Fire-to-play is the CLIENT's "respawn" console command (the original mechanism —
+		// the ClientCommand "respawn" branch gates it); the server watches no buttons here.
+
+		// @0x80e83-0x80fab (PreThink iuser1 block): while the gate (+0x770) is set and still ahead, once a
+		// second on the +0x754 clock, the seconds left, truncated (the fistp with the rounding set to
+		// chop) after a cap at 30; when that truncates to 0, in the last second before the gate,
+		// "Press Fire To Play!" (hold 30). Nothing is painted once the gate has passed.
+		if (m_flTSRespawnTime > 0.0f && m_flTSRespawnTime > gpGlobals->time && m_flSpecMsgTime < gpGlobals->time)
+		{
+			m_flSpecMsgTime = gpGlobals->time + 1.0f;
+			// in double, exact as the original's x87 difference is: a float difference can round up to
+			// the next whole second (5 - 2^-22 to 5.0) and show a number the original does not
+			const double rem = (double)m_flTSRespawnTime - (double)gpGlobals->time;
+			if ((int)rem <= 0)
+				TSHudMessageOne(0, 0, 0, 16, 30, "Press Fire To Play!", pev);
+			else
+				TSHudMessageOne(0, 0, 0, 16, 20, UTIL_VarArgs("%i", (int)(rem > 30.0 ? 30.0 : rem)), pev);
+		}
+		// @0x80fb3: the LMS re-entry HOLD, armed by SetPlayerRespawnTime with min(roundLeft,10)s. While it
+		// runs, a 1 Hz line on the same +0x754 clock (so it is skipped in a second the countdown line
+		// took), its seconds truncated (@0x81063, the fistp with the rounding set to chop). Letting it
+		// EXPIRE without re-entering locks you out for the round (@0x80fdf): window 0, gate -4.0
+		// (wait-next-round sentinel), award 1 (out-of-round), the red wait line, and a deads recount
+		// (a lockout can end the round).
+		if (m_flRespawnHoldTime != 0.0f)
+		{
+			if (gpGlobals->time <= m_flRespawnHoldTime)
+			{
+				if (m_flSpecMsgTime < gpGlobals->time)
+				{
+					m_flSpecMsgTime = gpGlobals->time + 1.0f;
+					// in double, exact as the original's x87 difference is (see the countdown above)
+					const double rem = (double)m_flRespawnHoldTime - (double)gpGlobals->time;
+					TSHudMessageOne(0, 0, 0, 16, 20,
+						UTIL_VarArgs("%i seconds left for respawn, press Fire to Play!", (int)rem), pev);
+				}
+			}
+			else
+			{
+				m_flRespawnHoldTime = 0;
+				m_flTSRespawnTime = -4.0f;
+				m_iAward = 1;
+				TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
+				if (TSGameRules)
+					TSGameRules->CallCheckDeads();
+			}
+		}
+		// (UpdateClientData already ran this frame, near the top of PreThink as in the original, so a
+		// spectator gets his HUD updates: cont.98's slow motion and WAITING fix.)
+		// @0x810c3, @0x810cb, @0x810d3: the block ends with the observer controls, the dead-target
+		// check and the impulse cleared, as the original's does.
+		Observer_HandleButtons();
+		Observer_Idle();
+		pev->impulse = 0;
+		return;
+	}
 
 	// TS run-through / breakable-barge sweep (orig CheckForBreakables @0x8bd9c, per-tick in
-	// PreThink): diving fast into a world breakable shatters it; with the whiff window live
-	// (armed by a missed melee swing) it delivers the full close-combat package to PLAYERS —
-	// disarm + >30 knockback (cont.96; dossier melee_knockback_disarm.md). The former duplicate
+	// PreThink, @0x810ee: first thing after the spectate block): diving fast into a world breakable
+	// shatters it; with the whiff window live (armed by a missed melee swing) it delivers the full
+	// close-combat package to PLAYERS — disarm + >30 knockback (cont.96; dossier melee_knockback_disarm.md). The former duplicate
 	// TSCheckRunThrough (ts_gun.cpp) is deleted — the original has ONE function.
 	m_TSStunt.CheckForBreakables();
 
@@ -2213,42 +2213,6 @@ void CBasePlayer::PreThink()
 			m_flHealthRegen = gpGlobals->time + 1.0f; // next tick in 1s
 			pev->health -= 1.0f;
 		}
-	}
-
-	m_TSAnim.UpdateTimers(this); // TS: decay the gait aim/leg/grenade hold timers
-
-	// TS slow-motion time-dilation. pev->fuser1 is the CURRENT slow factor, eased toward the GoSlow
-	// TARGET (m_flSlowMotionGo). It's a stock NETWORKED entvars float, so the client receives it and
-	// runs the identical weapon-timer decrement → fire-rate prediction stays in sync. It scales
-	// movement (maxspeed), animation (pev->framerate) and the weapon-timer decrement (PostThink).
-	// RE scratchpad/SLOWMO_PRESENTATION_RE.md §B: ease = InterpolateSlowMotion, anim = max(fuser1,0.01).
-	if (pev->fuser1 == 0.0f && m_flSlowMotionGo != 0.0f)
-		pev->fuser1 = 1.0f; // entvars defaults to 0; the slow factor's neutral is 1.0 (a GoSlow(0)
-		                    // target is a freeze, which the ease reaches exactly)
-	// ease CURRENT (fuser1) → TARGET (m_flSlowMotionGo) — the original's TS_shared.cpp helper.
-	InterpolateSlowMotion(gpGlobals->frametime, &pev->fuser1, m_flSlowMotionGo);
-	// Base move speed comes from the inventory-slot encumbrance (GetSpeedBySlots: more/heavier weapons →
-	// slower). Slow-motion does NOT scale maxspeed — the original slows MOVEMENT by dilating the pm_shared
-	// frametime (PM_PlayerMove: frametime *= fuser1), which leaves pev->velocity MAGNITUDE intact, so the
-	// side-kick speed>270 gate still passes in slowmo. RE PreThink @0x808cc (no fuser1 on maxspeed) +
-	// PM_PlayerMove @0xf08d8. (Scaling maxspeed here dropped |velocity| below 270 and blocked the kick.)
-	// cont.89: the encumbrance speed MUST go through SetPlayerSpeed → pfnSetClientMaxspeed. RE-confirmed
-	// (movement_prediction.md §cont.89c) the original CLIENT predicts off `clientmaxspeed` (set ONLY by
-	// pfnSetClientMaxspeed), NOT cd->maxspeed — so a raw pev->maxspeed write leaves the client predicting
-	// at a stale clientmaxspeed → a CONSTANT cl_showerror seam on ground AND air. The original sets speed
-	// exclusively via pfnSetClientMaxspeed, and only on loadout events (the 11 SetPlayerSpeed call sites
-	// @0x83068: TSInit, PickUpWeapon, DropWeapon, TakeArmor, TakeFlag, DropFlag, SetPlayerTheOne, and the
-	// knife/katana/grenade throws and MultiplyClips), never here, so a plugin's maxspeed holds until the
-	// next of those.
-	if (pev->fuser1 < 0.999f)
-	{
-		pev->framerate = pev->fuser1 < 0.01f ? 0.01f : pev->fuser1; // slowed animation (StudioFrameAdvance)
-		m_bSlowMoveApplied = true;
-	}
-	else if (m_bSlowMoveApplied)
-	{
-		pev->framerate = 1.0f; // restore the normal animation rate
-		m_bSlowMoveApplied = false;
 	}
 
 	// Observer Button Handling: an observer outside the spectate wait (a jointeam while alive) runs
@@ -3882,17 +3846,8 @@ void CBasePlayer::ImpulseCommands()
 			gmsgLogo = 0;
 		break;
 	}
-	case 100:
-		// temporary flashlight for level designers
-		if (FlashlightIsOn())
-		{
-			FlashlightTurnOff();
-		}
-		else
-		{
-			FlashlightTurnOn();
-		}
-		break;
+	// (no case 100: the original's ImpulseCommands @0xcb780 has no flashlight impulse, so impulse 100
+	// goes on to CheatImpulseCommands, which has none either)
 
 	case 201: // paint decal
 
@@ -4613,7 +4568,7 @@ void CBasePlayer::UpdateClientData()
 			m_iClientHeldDur = heldDur;
 			MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, ENT(pev));
 			WRITE_SHORT(m_iHeldPowerup);
-			WRITE_BYTE(heldDur);
+			WRITE_BYTE(heldDur < 0 ? 0 : heldDur); // @0x82295: the byte is clamped at 0 (the cache keeps the raw value)
 			MESSAGE_END();
 		}
 

@@ -7,8 +7,8 @@
 *    @0xa1290 ShouldCollide / @0xa3404 ObjectCaps / @0xa340c CanUsedTroughWalls)
 *  — a player-dropped weapon. Derives CTSPhysicObject (slow-motion bounce physics), is MOVETYPE_BOUNCE,
 *  carries the full s_weapon_status (our TSItem) of the dropped weapon, and hands it back on pickup
-*  (USE, or on touch for the throwable type 0x1d). A thrown gun damages what it flies into (Fall's
-*  swept trace). Its ShouldCollide decides what a move or trace that touches it hits (the global hook
+*  (USE, or on touch for the throwable type 0x1d). A thrown gun damages what it flies into, players
+*  excepted (Fall's swept trace). Its ShouldCollide decides what a move or trace that touches it hits (the global hook
 *  asks the touched entity only, @0x9b7b4): guns and knives pass through it, everything else does not.
 *
 *  CTSAmmoPack (@0xa1334 CreateAmmoPack / @0xa13f4 Spawn / @0xa1544 Fall / @0xa15c0 WaitThink /
@@ -154,7 +154,7 @@ void CTSWorldGun::BounceTouch(CBaseEntity *pOther)
 }
 
 // @0xa0d84 Fall — per-frame: once resting, settle (OnGround). While alive, sweep-trace ahead and
-// damage anything we fly into (a thrown gun hurts). Past the expire deadline, remove. Runs the
+// damage anything but a player we fly into (a thrown gun hurts). Past the expire deadline, remove. Runs the
 // CTSPhysicObject slow-motion upkeep each frame.
 void CTSWorldGun::Fall()
 {
@@ -174,6 +174,8 @@ void CTSWorldGun::Fall()
 	if (gpGlobals->time <= m_flExpire)
 	{
 		// Swept impact: trace from here to where we'll be next frame; a fast enough hit damages.
+		// @0x90f2b-0x90f3d: a player is never hit (the IsPlayer test, vtable 0xc8) and there is no
+		// takedamage test: anything else the trace hits gets the attack, and its TakeDamage decides.
 		// VERIFY: the original gates on (speed * weapon_damage_byte@0xd0 >= victim->health) and deals
 		// speed * damage_byte * 0.001; we use flDamage as that byte (exact byte/constants unconfirmed).
 		Vector dir = pev->velocity * 0.1f;
@@ -184,8 +186,7 @@ void CTSWorldGun::Fall()
 			CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
 			const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 			float speed = pev->velocity.Length();
-			if (pHit && pHit->pev->takedamage != DAMAGE_NO &&
-				speed * wi->flDamage >= pHit->pev->health)
+			if (pHit && !pHit->IsPlayer() && speed * wi->flDamage >= pHit->pev->health)
 			{
 				ClearMultiDamage();
 				Vector vdir = dir.Normalize();
