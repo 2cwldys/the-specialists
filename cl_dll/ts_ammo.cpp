@@ -111,7 +111,7 @@ bool CHudTSAmmo::Init()
 	m_iEquip = 0;
 	m_hInstalled = 0;
 	m_hNotInstalled = 0;
-	m_iMeleeBar = 100;
+	m_flMeleeBar = 100.0f;
 
 	HOOK_MESSAGE(WeaponInfo);
 	HOOK_MESSAGE(KFuPower);
@@ -125,6 +125,7 @@ bool CHudTSAmmo::Init()
 
 bool CHudTSAmmo::VidInit()
 {
+	m_flMeleeBar = 100.0f; // @0x1004cd2d: a new map starts the melee bar full
 	// The attachment-row on/off dot the original draws (far right of each row). Re-resolved each map
 	// (sprite handles go stale on a load — see [[map-change-state-reset]]).
 	m_hInstalled = SPR_Load("sprites/weapons/item_installed.spr");
@@ -150,24 +151,24 @@ void CHudTSAmmo::Reset()
 	m_iFlags |= HUD_ACTIVE;
 }
 
+// WeaponInfo (client.dll @0x1004f800): the type (a failed read keeps the last one), the clip, the
+// reserve, the fire mode and the equipped attachments, all stored as they come; the clip byte of a
+// kung fu WeaponInfo (the server's melee bar) lands in the clip too, which is not drawn for it. A
+// weapon (type 1 and up) also gets its weapon bar cell with that clip. Between these the predicted
+// gun keeps the clip, fire mode and attachments (GunUpdate below).
 bool CHudTSAmmo::MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
 	const int oldType = m_iWeaponType; // the previous weapon type — cl_thirdpersonswitch keys off it
-	m_iWeaponType = READ_BYTE();
-	int clipByte = READ_BYTE();
+	const int type = READ_BYTE();
+	if (type != -1)
+		m_iWeaponType = type;
+	m_iClip = READ_BYTE();
 	m_iReserve = READ_SHORT();
 	m_iFireMode = READ_BYTE();
 	m_iEquip = READ_BYTE(); // EQUIPPED attachment mask (silencer 1 / laser 2 / flash 4 / scope 8)
-
-	// The clip byte carries the MELEE BAR for melee weapons (the server mirrors the original
-	// UpdateClientData's read of player+0x774) — this is how the HUD tracks the silent PreThink
-	// regen and the respawn refill (KFuPower only fires on drains).
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_iWeaponType);
-	if (wi && (wi->iFireType == 3 || wi->iFireType == 10))
-		m_iMeleeBar = clipByte;
-	else
-		m_iClip = clipByte;
+	if (m_iWeaponType >= 1)
+		gHUD.m_TSWeaponBar.SetClip(m_iWeaponType, m_iClip, true);
 
 	g_iTSActiveWeapon = m_iWeaponType; // the weapon-select bar highlights this slot
 
@@ -192,16 +193,58 @@ bool CHudTSAmmo::MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
-// KFuPower — the melee block bar (stamina 0..100), networked from CTSGun::UpdateClientData. Drawn as the
-// bottom weapon-box bar, but only while a melee weapon is held.
+// KFuPower (client.dll @0x1004f6f0) — the melee block bar, sent when a blow drains it: a signed byte,
+// kept within -100..100. Think regenerates it in between. Drawn as the bottom weapon-box bar, but only
+// while a melee weapon is held.
 bool CHudTSAmmo::MsgFunc_KFuPower(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
-	m_iMeleeBar = READ_CHAR();
-	if (m_iMeleeBar < 0)
-		m_iMeleeBar = 0;
+	m_flMeleeBar = (float)READ_CHAR();
+	if (m_flMeleeBar < -100.0f)
+		m_flMeleeBar = -100.0f;
+	else if (m_flMeleeBar > 100.0f)
+		m_flMeleeBar = 100.0f;
 	m_iFlags |= HUD_ACTIVE;
 	return true;
+}
+
+// The melee bar regenerates on the client as on the server (client.dll Think @0x1004ceef-0x1004cf53):
+// below 100 it gains 15 a second, or 1 a second while below -0.001, in the time the local slow motion
+// leaves (the frame time scaled by the eased slow factor, at least 0.01), up to 100.
+void CHudTSAmmo::Think()
+{
+	if (m_flMeleeBar < 100.0f)
+	{
+		extern float g_flClientSlow; // ts_powerup_hud.cpp — the eased local slow factor
+		float dt = (float)gHUD.m_flTimeDelta * (g_flClientSlow < 0.01f ? 0.01f : g_flClientSlow);
+		if (m_flMeleeBar >= -0.001f)
+			dt *= 15.0f;
+		m_flMeleeBar += dt;
+		if (m_flMeleeBar > 100.0f)
+			m_flMeleeBar = 100.0f;
+	}
+}
+
+// The client's CTSGun::UpdateClientData with a weapon out (client.dll @0x100581c0): the predicted
+// clip, fire mode and attachments.
+void CHudTSAmmo::GunUpdate(int clip, int fireMode, int equip)
+{
+	m_iClip = clip;
+	m_iFireMode = fireMode;
+	m_iEquip = equip;
+}
+
+// Called by the client CTSGun::UpdateClientData (dlls/ts_gun.cpp): the ammo HUD, then the weapon bar
+// cells of the weapon, of its akimbo variant and of its single base (when not the weapon itself).
+void TSHud_GunUpdate(int type, int clip, int fireMode, int equip, int akimboType, int akimboClip,
+	int singleType, int singleClip)
+{
+	gHUD.m_TSAmmo.GunUpdate(clip, fireMode, equip);
+	gHUD.m_TSWeaponBar.SetClip(type, clip, true);
+	if (akimboType != -1)
+		gHUD.m_TSWeaponBar.SetClip(akimboType, akimboClip, false);
+	if (singleType != -1 && singleType != type)
+		gHUD.m_TSWeaponBar.SetClip(singleType, singleClip, false);
 }
 
 bool CHudTSAmmo::Draw(float flTime)
@@ -227,7 +270,7 @@ bool CHudTSAmmo::Draw(float flTime)
 		// channel, so a pickup (CHAN_ITEM) or other sound won't steal/short-circuit the breathing.
 		static bool s_breathing = false;
 		cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
-		const bool wantBreath = (lp != nullptr && m_iMeleeBar < 50 && TSIsMeleeType(m_iWeaponType));
+		const bool wantBreath = (lp != nullptr && m_flMeleeBar < 50.0f && TSIsMeleeType(m_iWeaponType));
 		if (wantBreath && !s_breathing)
 		{
 			gEngfuncs.pEventAPI->EV_PlaySound(lp->index, lp->origin, CHAN_STATIC,
@@ -306,9 +349,10 @@ bool CHudTSAmmo::Draw(float flTime)
 			break;
 	}
 
-	// Combat/seal knife carry a STACK COUNT (5/10) — networked in m_iReserve — shown as a number line
-	// just ABOVE the block bar (kung-fu/katana have no count). Not for guns (they use the ammo line).
-	const bool knifeCount = (m_iWeaponType == 25 /*knife*/ || m_iWeaponType == 35 /*sealknife*/);
+	// The weapons that count what he carries (weapon info +0xdc, set by Write_knife, Write_m61 and
+	// Write_sealknife) show the CLIP as a number line just ABOVE the block bar (client.dll draw
+	// @0x1004dabe); kung-fu/katana have no count. Not for guns (they use the ammo line).
+	const bool knifeCount = (m_iWeaponType == 25 /*knife*/ || m_iWeaponType == 24 /*m61*/ || m_iWeaponType == 35 /*sealknife*/);
 	if (knifeCount && n < (int)(sizeof(lines) / sizeof(lines[0])))
 		lines[n++] = {LK_COUNT, nullptr, hr, hg, hb, false, false};
 
@@ -343,9 +387,9 @@ bool CHudTSAmmo::Draw(float flTime)
 		}
 		else if (lines[i].kind == LK_COUNT)
 		{
-			// the knife carry count — a single number, centred in the box (like the ammo readout).
-			const int cw = TSHud_NumberWidth(m_iReserve);
-			TSHud_DrawNumber(x + (BOXW - cw) / 2, y + (LINEH - 1 - TS_NUMBER_H) / 2, m_iReserve,
+			// the carry count — a single number, centred in the box (like the ammo readout).
+			const int cw = TSHud_NumberWidth(m_iClip);
+			TSHud_DrawNumber(x + (BOXW - cw) / 2, y + (LINEH - 1 - TS_NUMBER_H) / 2, m_iClip,
 				lines[i].r, lines[i].g, lines[i].b);
 		}
 		else
@@ -360,7 +404,7 @@ bool CHudTSAmmo::Draw(float flTime)
 	// each RELOAD-block drains it, and it regens. NOT health, NOT shown on guns. (TSHud_HealthBar is just
 	// the generic bar primitive — full = rested, low = tired/red.)
 	if (meleeBar)
-		TSHud_HealthBar(x, y, m_iMeleeBar);
+		TSHud_HealthBar(x, y, (int)m_flMeleeBar);
 
 	return true;
 }

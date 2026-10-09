@@ -35,6 +35,10 @@
 #include "ts_bullet.h" // glast_weaponid (the tracked slow-bullet id)
 #include "ts_player.h" // glast_closecombat
 #include "ts_gamerules.h" // g_theOneMode
+#include "ts_slowmotionpoint.h" // a spectacular kill's slow-motion bubble
+
+extern cvar_t slowmatch, banfortk; // ts_cvars.cpp
+char GetWeaponType(tsweapon_t w);   // ts_gun.cpp
 
 #define ITEM_RESPAWN_TIME 30
 #define WEAPON_RESPAWN_TIME 20
@@ -750,10 +754,14 @@ int CHalfLifeMultiplay::IPointsForKill(CBasePlayer* pAttacker, CBasePlayer* pKil
 }
 
 
-// The tags of the kill PlayerKilled is scoring, for the "killed" log line DeathNotice writes. The
+// The tags of the kill PlayerKilled is scoring, for the "killed" log line TSLogKill writes. The
 // original builds the whole line in PlayerKilled (@0x79e3d-0x7a182); here PlayerKilled fills this
-// just before DeathNotice and clears it after.
+// before its log line and clears it after.
 static char s_szKillLogTags[256] = "";
+// The weapon the death notice names, which PlayerKilled works out before calling DeathNotice.
+static const char* s_pszKillWeapon = nullptr;
+static const char* TSKillWeaponName(CBasePlayer* pVictim, entvars_t* pKiller, entvars_t* pevInflictor);
+static void TSLogKill(CBasePlayer* pVictim, entvars_t* pKiller, const char* killer_weapon_name);
 
 //=========================================================
 // PlayerKilled - someone/something killed this player
@@ -789,13 +797,28 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 	bool bSlideKill = false, bStuntKill = false;
 	bool bDoubleKill = false, bKilledSpecialist = false;
 	bool bUnstoppable = false, bSpecialist = false, bDemolition = false, bKillerTier = false;
+	bool bOwnWeapon = false;
 	const char* pszStoppedFury = nullptr;
 	if (pVictim->pev != pKiller && ktmp && ktmp->IsPlayer())
 	{
 		pts = TSGetPointsForFrag(NULL, pKiller, pInflictor, pts, &bSlideKill, &bStuntKill);
 		// (glast_weaponid reset moved to CBulletManager::UpdateBullet @0x5f311 — the original
 		// resets right after ApplyMultiDamage, not here; here it went stale on non-kill hits.)
-		// (the "#TS_OwnWeapon" kill with the victim's own gun, @0x79716-0x7977e, is not reconstructed)
+		// @0x79716-0x7977e: killed with his own weapon. The killer's active item is the arsenal with
+		// a weapon out whose recorded owner (item+0x30, the buyer) is the victim, the weapon is no
+		// grenade or blade (GetWeaponType not 2, 3 or 11), the kill was no close-combat blow and the
+		// killer did it himself.
+		CBasePlayer* pKillerPlayer = (CBasePlayer*)ktmp;
+		if (pKillerPlayer->m_pActiveItem && pKillerPlayer->m_pActiveItem->m_iId == TSGUN_WEAPON_ID)
+		{
+			CTSGun* pGun = (CTSGun*)pKillerPlayer->m_pActiveItem;
+			if (pGun->m_pActiveItem && (CBaseEntity*)pGun->m_pActiveItem->hOwner == pVictim)
+			{
+				const int wtype = GetWeaponType((tsweapon_t)pGun->m_weaponType);
+				if ((unsigned)(wtype - 2) > 1 && wtype != 11 && !glast_closecombat && pInflictor == pKiller)
+					bOwnWeapon = true;
+			}
+		}
 		if (peKiller)
 		{
 			bDoubleKill = (double)gpGlobals->time - (double)peKiller->m_flLastKillTime < 2.0;
@@ -819,21 +842,24 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 	}
 
 	// @0x79db0-0x79fa4: the tags the original's "killed" log line carries after the weapon, in its
-	// order (DeathNotice writes the line). " (victims_weapon)" goes with the #TS_OwnWeapon kill and
-	// stays empty here.
+	// order. " (victims_weapon)" is the kill with the victim's own weapon (bOwnWeapon above).
 	if ((pKiller->flags & FL_CLIENT) != 0 && pVictim->pev != pKiller)
 	{
 		char szFury[96] = "";
 		if (pszStoppedFury)
 			snprintf(szFury, sizeof(szFury), " (stopped_fury \"%s\")", pszStoppedFury);
 		const char* pszTier = bUnstoppable ? " (is_unstoppable)" : bSpecialist ? " (is_specialist)" : bDemolition ? " (is_demolition)" : bKillerTier ? " (is_killer)" : "";
-		snprintf(s_szKillLogTags, sizeof(s_szKillLogTags), "%s%s%s%s%s%s%s%s", "", szFury,
+		snprintf(s_szKillLogTags, sizeof(s_szKillLogTags), "%s%s%s%s%s%s%s%s", bOwnWeapon ? " (victims_weapon)" : "", szFury,
 			bKilledSpecialist ? " (killed_specialist)" : "", bDoubleKill ? " (double_kill)" : "",
 			bStuntKill ? " (diving)" : "", bSlideKill ? " (sliding)" : "",
 			pVictim->m_bTheOne ? " (killed_the_one)" : "", pszTier);
 	}
 
+	// @0x7988f-0x7a182: the weapon's name, then the rules' DeathNotice, then the log line with it
+	s_pszKillWeapon = TSKillWeaponName(pVictim, pKiller, pInflictor);
 	DeathNotice(pVictim, pKiller, pInflictor);
+	TSLogKill(pVictim, pKiller, s_pszKillWeapon);
+	s_pszKillWeapon = nullptr;
 	s_szKillLogTags[0] = '\0';
 
 	pVictim->m_iDeaths += 1;
@@ -861,15 +887,35 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 	}
 	else if (ktmp && ktmp->IsPlayer())
 	{
+		// @0x7a3bb: a spectacular kill (the killer stunting, a close-combat blow, or 3 points or more)
+		// may leave a slow-motion bubble where the victim fell, as the spectacularness roll decides.
+		if ((pKiller->iuser4 & 0x10c10) != 0 || glast_closecombat || pts > 2)
+		{
+			if (DoSpectacularNess())
+				CTSSlowMotionPoint::CreateSlowMotionPoint(pVictim->pev->origin, 0.25f, 1.0f, 0, nullptr);
+		}
+
 		// @0x7a429: the streak bonuses, only for a kill that scores. The order is the original's:
 		// ((points x2 for a double kill) + 5 for the specialist) x2 for an unstoppable killer.
-		// (not reconstructed in this block: the slow-motion point of a spectacular kill @0x7a3bb, the
-		// headshot, knife, katana and coldcock notices @0x7a434-0x7a5cd, the kill cash @0x7aab8 and
-		// the last man standing cash @0x7aafe, the slowmatch powerup @0x7ac15 and the team kill kick
-		// and ban @0x7ac7e)
 		if (pts > 0 && peKiller)
 		{
 			const char* pszKiller = STRING(pKiller->netname);
+			// @0x7a434-0x7a5cd: the headshot, knife, katana and coldcock notices, each naming the
+			// killer. The blade notice needs the killer's own blow with a blade out (fire type 3 knife,
+			// 10 katana), not a close-combat one.
+			if (glast_headshot)
+				TSHudMessageAll(0, 0xff, 0, 1, 20, UTIL_VarArgs("#TS_Headshot #TS_FrgFr %s!", pszKiller));
+			if (pInflictor == pKiller && peKiller->m_pActiveItem && peKiller->m_pActiveItem->m_iId == TSGUN_WEAPON_ID &&
+				((CTSGun*)peKiller->m_pActiveItem)->m_pActiveItem && !glast_closecombat)
+			{
+				const s_weapon_info* wi = get_weapon_info((tsweapon_t)((CTSGun*)peKiller->m_pActiveItem)->m_weaponType);
+				if (wi->iFireType == TSFT_KNIFE)
+					TSHudMessageAll(0, 0xff, 0, 1, 20, UTIL_VarArgs("#TS_KnifeKill #TS_FrgFr %s!", pszKiller));
+				else if (wi->iFireType == TSFT_KATANA)
+					TSHudMessageAll(0, 0xff, 0, 1, 20, UTIL_VarArgs("#TS_KatanaKill #TS_FrgFr %s!", pszKiller));
+			}
+			if (glast_coldcock)
+				TSHudMessageAll(0, 0xff, 0, 1, 20, UTIL_VarArgs("#TS_Coldcock #TS_FrgFr %s!", pszKiller));
 			if (bDoubleKill)
 			{
 				pts <<= 1;
@@ -953,11 +999,73 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 				peKiller->m_flHealthRegen = gpGlobals->time + 1.0f;
 			// @0x7aa8c: a double kill forgets the last kill, so a third right after it is not one
 			peKiller->m_flLastKillTime = bDoubleKill ? 0.0f : gpGlobals->time;
+			// @0x7aab8: the kill cash, 500 a point and 400 more for the killer, 900 for the victim
+			peKiller->GiveCash(pts == -1 ? -1000 : pts * 500 + 400);
+			pVictim->GiveCash(900);
 		}
+
+		// @0x7aafe: in the objective modes (the rules' mode byte above 1) every kill pays 1000 more,
+		// a team kill costs the killer 1000, and the victim gets 1000.
+		if (TSGameRules && (unsigned char)TSGameRules->m_iGameMode > 1 && peKiller)
+		{
+			peKiller->GiveCash(pts != -1 ? 1000 : -1000);
+			pVictim->GiveCash(1000);
+		}
+
+		// @0x7ab45: the kill with the victim's own weapon
+		if (bOwnWeapon)
+			TSHudMessageAll(0, 0xff, 0, 1, 30, UTIL_VarArgs("%s #TS_Killed %s #TS_OwnWeapon", STRING(pKiller->netname), STRING(pVictim->pev->netname)));
 
 		pKiller->frags += pts;
 
 		FireTargets("game_playerkill", ktmp, ktmp, USE_TOGGLE, 0);
+
+		// @0x7ac15: with slowmatch at 1, a scoring kill hands the killer a slow motion powerup to
+		// hold, if he has none active and holds none or a slow motion one, adding a second to its
+		// hold, up to 3.
+		if (slowmatch.value == 1.0f && peKiller && pts > 0 &&
+			(peKiller->m_iHeldPowerup == 0 || (peKiller->m_iHeldPowerup & 1) != 0) && peKiller->m_iPowerups == 0)
+		{
+			peKiller->m_iPowerups = 0;
+			peKiller->m_iHeldPowerup = 1;
+			int hold = (int)peKiller->m_flPowerupTime + 1;
+			if (hold > 3)
+				hold = 3;
+			peKiller->m_flPowerupTime = hold;
+		}
+
+		// @0x7ac7e: a team kill. Three within 30 s of each other (player+0x7c4, the count +0x7c8)
+		// kick the killer, or ban him for banfortk minutes when that is above 0.
+		if (pts == -1 && peKiller)
+		{
+			if (peKiller->m_flTeamKillTime == 0.0f || peKiller->m_flTeamKillTime < gpGlobals->time)
+			{
+				peKiller->m_flTeamKillTime = gpGlobals->time + 30.0f;
+				peKiller->m_iTeamKills = 1;
+			}
+			else if (gpGlobals->time < peKiller->m_flTeamKillTime)
+			{
+				peKiller->m_flTeamKillTime = gpGlobals->time + 30.0f;
+				peKiller->m_iTeamKills++;
+			}
+			if (peKiller->m_iTeamKills > 2)
+			{
+				const char* pszMsg;
+				if (banfortk.value <= 0.0f)
+				{
+					ClientPrint(pKiller, HUD_PRINTCONSOLE, "You have been kicked for teamkilling...\n");
+					SERVER_COMMAND(UTIL_VarArgs("kick #%i\n", GETPLAYERUSERID(peKiller->edict())));
+					pszMsg = UTIL_VarArgs("%s kicked for teamkilling\n", STRING(pKiller->netname));
+				}
+				else
+				{
+					ClientPrint(pKiller, HUD_PRINTCONSOLE, UTIL_VarArgs("You have been banned for teamkilling (%i minutes)...\n", (int)banfortk.value));
+					SERVER_COMMAND(UTIL_VarArgs("banid %i #%i kick\n", (int)banfortk.value, GETPLAYERUSERID(peKiller->edict())));
+					pszMsg = UTIL_VarArgs("%s banned for teamkilling (%i minutes)\n", STRING(pKiller->netname), (int)banfortk.value);
+				}
+				UTIL_ClientPrintAll(HUD_PRINTTALK, pszMsg);
+			}
+		}
 	}
 	else
 	{ // killed by the world
@@ -1002,26 +1110,20 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 }
 
 //=========================================================
-// Deathnotice.
+// The weapon a death notice names.
 //=========================================================
-void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, entvars_t* pevInflictor)
+// The chain is decompile-exact to the ORIGINAL PlayerKilled @0x795e4, which works the name out
+// before calling its 4-arg DeathNotice @0x78f7c (it hands the name over) and logs the kill with it
+// itself. reTS keeps the 3-arg DeathNotice (the T2Pc signature across the rules classes is parked
+// for the R1 gamerules session): PlayerKilled asks this for the name and DeathNotice reads it.
+static const char* TSKillWeaponName(CBasePlayer* pVictim, entvars_t* pKiller, entvars_t* pevInflictor)
 {
-	// Work out what killed the player, and send a message to all clients about it.
-	// The weapon-name chain is decompile-exact to the ORIGINAL PlayerKilled @0x795e4 (which
-	// computes this buffer and hands it to a 4-arg DeathNotice @0x78f7c — that STRUCTURAL move
-	// [T2Pc signature across the rules classes] is parked for the R1 gamerules session; the WIRE
-	// string below is byte-faithful now).
-	CBaseEntity* Killer = CBaseEntity::Instance(pKiller);
-
-	char killer_weapon_buf[64];
+	static char killer_weapon_buf[64];
 	strcpy(killer_weapon_buf, "world"); // by default, the player is killed by the world
 	const char* killer_weapon_name = killer_weapon_buf;
-	int killer_index = 0;
 
 	if ((pKiller->flags & FL_CLIENT) != 0)
 	{
-		killer_index = ENTINDEX(ENT(pKiller));
-
 		if (pevInflictor)
 		{
 			if (pevInflictor == pKiller)
@@ -1046,11 +1148,8 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 					const s_weapon_info* wi = get_weapon_info((tsweapon_t)pGun->m_weaponType);
 					if (glast_coldcock)
 					{
-						// pistol-whip: "<gun> Stock" (@0x79954-0x79981)
+						// pistol-whip: "<gun> Stock" (@0x79954-0x79981); PlayerKilled sends its notice
 						snprintf(killer_weapon_buf, sizeof(killer_weapon_buf), "%s Stock", wi->pszName);
-						char msg[128];
-						snprintf(msg, sizeof(msg), "#TS_Coldcock #TS_FrgFr %s!", STRING(pVictim->pev->netname));
-						TSHudMessageAll(0, 0xff, 0, 1, 0x14, msg);
 					}
 					else
 					{
@@ -1101,12 +1200,90 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 	else if (strncmp(killer_weapon_name, "grenade", 8) == 0) // @0x10c734 = "handgrenade"+4
 		killer_weapon_name = "M61 Grenade";
 
+	return killer_weapon_name;
+}
+
+//=========================================================
+// Deathnotice.
+//=========================================================
+void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, entvars_t* pevInflictor)
+{
+	// The weapon PlayerKilled worked out for this death (or, called from elsewhere, work it out).
+	const char* killer_weapon_name = s_pszKillWeapon ? s_pszKillWeapon : TSKillWeaponName(pVictim, pKiller, pevInflictor);
+
 	MESSAGE_BEGIN(MSG_ALL, gmsgDeathMsg);
-	WRITE_BYTE(killer_index);				// the killer
+	WRITE_BYTE((pKiller->flags & FL_CLIENT) != 0 ? ENTINDEX(ENT(pKiller)) : 0); // the killer
 	WRITE_BYTE(ENTINDEX(pVictim->edict())); // the victim
 	WRITE_STRING(killer_weapon_name);		// what they were killed by (should this be a string?)
 	MESSAGE_END();
 
+	MESSAGE_BEGIN(MSG_SPEC, SVC_DIRECTOR);
+	WRITE_BYTE(9);							 // command length in bytes
+	WRITE_BYTE(DRC_CMD_EVENT);				 // player killed
+	WRITE_SHORT(ENTINDEX(pVictim->edict())); // index number of primary entity
+	if (pevInflictor)
+		WRITE_SHORT(ENTINDEX(ENT(pevInflictor))); // index number of secondary entity
+	else
+		WRITE_SHORT(ENTINDEX(ENT(pKiller))); // index number of secondary entity
+	WRITE_LONG(7 | DRC_FLAG_DRAMATIC);		 // eventflags (priority and flags)
+	MESSAGE_END();
+
+	//  Print a standard message
+	// TODO: make this go direct to console
+	return; // just remove for now
+			/*
+	char	szText[ 128 ];
+
+	if ( pKiller->flags & FL_MONSTER )
+	{
+		// killed by a monster
+		strcpy ( szText, STRING( pVictim->pev->netname ) );
+		strcat ( szText, " was killed by a monster.\n" );
+		return;
+	}
+
+	if ( pKiller == pVictim->pev )
+	{
+		strcpy ( szText, STRING( pVictim->pev->netname ) );
+		strcat ( szText, " commited suicide.\n" );
+	}
+	else if ( pKiller->flags & FL_CLIENT )
+	{
+		strcpy ( szText, STRING( pKiller->netname ) );
+
+		strcat( szText, " : " );
+		strcat( szText, killer_weapon_name );
+		strcat( szText, " : " );
+
+		strcat ( szText, STRING( pVictim->pev->netname ) );
+		strcat ( szText, "\n" );
+	}
+	else if ( FClassnameIs ( pKiller, "worldspawn" ) )
+	{
+		strcpy ( szText, STRING( pVictim->pev->netname ) );
+		strcat ( szText, " fell or drowned or something.\n" );
+	}
+	else if ( pKiller->solid == SOLID_BSP )
+	{
+		strcpy ( szText, STRING( pVictim->pev->netname ) );
+		strcat ( szText, " was mooshed.\n" );
+	}
+	else
+	{
+		strcpy ( szText, STRING( pVictim->pev->netname ) );
+		strcat ( szText, " died mysteriously.\n" );
+	}
+
+	UTIL_ClientPrintAll( szText );
+*/
+}
+
+//=========================================================
+// The kill's log line: PlayerKilled writes it after the DeathNotice call (@0x79aa0-0x7a182), so a
+// team kill, whose teamplay DeathNotice sends "teammate" and stops, is logged too.
+//=========================================================
+static void TSLogKill(CBasePlayer* pVictim, entvars_t* pKiller, const char* killer_weapon_name)
+{
 	// the original's post-DeathMsg log transform (@0x79aa0 loop): the LOG gets the name
 	// lowercased with spaces → underscores ("M61 Grenade" → "m61_grenade").
 	char log_weapon_name[64];
@@ -1199,66 +1376,6 @@ void CHalfLifeMultiplay::DeathNotice(CBasePlayer* pVictim, entvars_t* pKiller, e
 				killer_weapon_name);
 		}
 	}
-
-	MESSAGE_BEGIN(MSG_SPEC, SVC_DIRECTOR);
-	WRITE_BYTE(9);							 // command length in bytes
-	WRITE_BYTE(DRC_CMD_EVENT);				 // player killed
-	WRITE_SHORT(ENTINDEX(pVictim->edict())); // index number of primary entity
-	if (pevInflictor)
-		WRITE_SHORT(ENTINDEX(ENT(pevInflictor))); // index number of secondary entity
-	else
-		WRITE_SHORT(ENTINDEX(ENT(pKiller))); // index number of secondary entity
-	WRITE_LONG(7 | DRC_FLAG_DRAMATIC);		 // eventflags (priority and flags)
-	MESSAGE_END();
-
-	//  Print a standard message
-	// TODO: make this go direct to console
-	return; // just remove for now
-			/*
-	char	szText[ 128 ];
-
-	if ( pKiller->flags & FL_MONSTER )
-	{
-		// killed by a monster
-		strcpy ( szText, STRING( pVictim->pev->netname ) );
-		strcat ( szText, " was killed by a monster.\n" );
-		return;
-	}
-
-	if ( pKiller == pVictim->pev )
-	{
-		strcpy ( szText, STRING( pVictim->pev->netname ) );
-		strcat ( szText, " commited suicide.\n" );
-	}
-	else if ( pKiller->flags & FL_CLIENT )
-	{
-		strcpy ( szText, STRING( pKiller->netname ) );
-
-		strcat( szText, " : " );
-		strcat( szText, killer_weapon_name );
-		strcat( szText, " : " );
-
-		strcat ( szText, STRING( pVictim->pev->netname ) );
-		strcat ( szText, "\n" );
-	}
-	else if ( FClassnameIs ( pKiller, "worldspawn" ) )
-	{
-		strcpy ( szText, STRING( pVictim->pev->netname ) );
-		strcat ( szText, " fell or drowned or something.\n" );
-	}
-	else if ( pKiller->solid == SOLID_BSP )
-	{
-		strcpy ( szText, STRING( pVictim->pev->netname ) );
-		strcat ( szText, " was mooshed.\n" );
-	}
-	else
-	{
-		strcpy ( szText, STRING( pVictim->pev->netname ) );
-		strcat ( szText, " died mysteriously.\n" );
-	}
-
-	UTIL_ClientPrintAll( szText );
-*/
 }
 
 //=========================================================

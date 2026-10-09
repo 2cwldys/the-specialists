@@ -204,20 +204,17 @@ public:
 
 	// Cached "last sent" WeaponInfo fields (the TS ammo HUD). The original sends WeaponInfo from
 	// CTSGun::UpdateClientData @0x758c8 when the type (gun+0x97a) or the reserve (gun+0x9b4) changes;
-	// Reset clears both to 0. The clip, fire mode and equipped caches are reTS's (its client reads
-	// those only from WeaponInfo); UpdateClientData seeds them at its first check after Reset.
+	// Reset clears both to 0. The client keeps the clip, fire mode and attachments itself.
 	int m_iClientWeaponType = 0;
-	int m_iClientClip = -1;
 	int m_iClientReserve = 0;
-	int m_iClientFireMode = -1;
 	int m_iClientAttach = -1; // last-broadcast ACTIVE attach mask (ActItems change-detect)
-	int m_iClientEquip = -1;  // last-sent EQUIPPED attach mask (WeaponInfo flags byte change-detect)
-	bool m_bClientInfoSeeded = false; // the clip, fire mode and equipped caches hold a value
 
 	// Cached per-weapon-type WStatus (the weapon-select bar): clip if owned, else -1.
 	// The original sends WStatus per arsenal slot on change; we diff against this.
 	int m_iClientWStatus[TSW_COUNT];
 	bool m_bWStatusInit = false;
+	// gun+0x9e0 — UpdateClientData runs at most every 0.1 s (@0x758e7); Deploy clears it (@0x71064)
+	float m_flNextClientUpdate = 0;
 };
 
 // Find the player's CTSGun item (the single arsenal weapon), or NULL. Defined in ts_gun.cpp.

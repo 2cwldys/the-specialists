@@ -40,9 +40,10 @@ static float TS_TimeScale(CBasePlayer *pl)
 }
 
 // 81-slot remaining capacity (CBasePlayer+0x548): lighter loadout = higher dives.
-bool CTSStunt::CanDiveHigh()   { return TSPlayerFreeSlots(m_pPlayer) > 39; } // 0x51-cap < 0x2a
-bool CTSStunt::CanDiveMedium() { return TSPlayerFreeSlots(m_pPlayer) > 29; } // < 0x34
-bool CTSStunt::CanDiveLow()    { return TSPlayerFreeSlots(m_pPlayer) > 19; } // < 0x3e
+// The One can always dive, whatever he carries (@0x8a4ac, @0x8a504, @0x8a55c).
+bool CTSStunt::CanDiveHigh()   { return m_pPlayer->m_bTheOne || TSPlayerFreeSlots(m_pPlayer) > 39; } // 0x51-cap < 0x2a
+bool CTSStunt::CanDiveMedium() { return m_pPlayer->m_bTheOne || TSPlayerFreeSlots(m_pPlayer) > 29; } // < 0x34
+bool CTSStunt::CanDiveLow()    { return m_pPlayer->m_bTheOne || TSPlayerFreeSlots(m_pPlayer) > 19; } // < 0x3e
 int  CTSStunt::SlotBonus() { return 0; }     // @0x8a480 — returns 0 in the shipped binary
 float CTSStunt::NextDive()  { return 0.0f; } // @0x8a59c — returns 0 (dive stunt-meter time)
 

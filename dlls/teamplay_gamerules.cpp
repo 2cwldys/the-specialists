@@ -396,10 +396,9 @@ void CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeam
 	strncpy(pPlayer->m_szTeamName, pTeamName, TEAM_NAME_LENGTH);
 
 	// TS DELTA B: the model infokey comes from the TEAM MODEL table (m_teamLimit==1 always in
-	// TS — @0xd4ad3 is the live path; the stock model-as-team stamp is dead).
+	// TS — @0xd4ad3 is the live path; the stock model-as-team stamp is dead). A team with no models
+	// gives the empty model GetPlayerModel returns, as the original stamps it.
 	const char* mdl = TSGameRules ? TSGameRules->GetPlayerModel(pPlayer) : pPlayer->m_szTeamName;
-	if (!mdl || !mdl[0])
-		mdl = pPlayer->m_szTeamName;
 	g_engfuncs.pfnSetClientKeyValue(clientIndex, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "model", (char*)mdl);
 	g_engfuncs.pfnSetClientKeyValue(clientIndex, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "team", pPlayer->m_szTeamName);
 	// (no pev->team stamp: the original never writes a player's entvars team. The objectives
@@ -499,10 +498,9 @@ void CHalfLifeTeamplay::ClientUserInfoChanged(CBasePlayer* pPlayer, char* infobu
 
 	// live path (m_teamLimit == 1 always in TS): the model is server-owned — re-stamp it
 	// from the team model table (@0xd4e46). The stock defaultteam/IsValidTeam change flow
-	// below it is unreachable in TS (m_teamLimit never 0) — dropped, dossier §3.3.
+	// below it is unreachable in TS (m_teamLimit never 0) — dropped, dossier §3.3. An empty model
+	// from GetPlayerModel goes in as it is (@0xd4e46).
 	const char* mdl = TSGameRules ? TSGameRules->GetPlayerModel(pPlayer) : pPlayer->m_szTeamName;
-	if (!mdl || !mdl[0])
-		mdl = pPlayer->m_szTeamName;
 	g_engfuncs.pfnSetClientKeyValue(pPlayer->entindex(),
 		g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "model", (char*)mdl);
 }

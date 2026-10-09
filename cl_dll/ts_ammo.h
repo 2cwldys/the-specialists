@@ -30,12 +30,15 @@ public:
 	bool VidInit() override;
 	bool Draw(float flTime) override;
 	void Reset() override;
+	void Think() override; // the melee bar's own regeneration (client.dll @0x1004ce10)
 	bool MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_KFuPower(const char* pszName, int iSize, void* pbuf);
+	// The predicted gun's clip, fire mode and attachments (CTSGun::UpdateClientData, client side).
+	void GunUpdate(int clip, int fireMode, int equip);
 
 private:
 	int m_iWeaponType; // active tsweapon_t
-	int m_iMeleeBar;   // melee block stamina 0..100 (gmsgKFuPower) — the bottom-box bar for melee weapons
+	float m_flMeleeBar; // melee block stamina -100..100 (this+0x3700): KFuPower sets it, Think regenerates it
 	int m_iClip;       // rounds currently loaded
 	int m_iReserve;    // spare rounds for this weapon's caliber
 	int m_iFireMode;   // 0=auto 1=semi 2=burst 3=pump

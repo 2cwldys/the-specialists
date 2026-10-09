@@ -973,6 +973,11 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		to->client.fuser3 = -0.001;
 	}
 
+	// client.dll @0x10003f6c: on a first prediction with the arsenal out, the predicted gun hands its
+	// clip, fire mode and attachments to the HUD (CTSGun::UpdateClientData, client side).
+	if (g_runfuncs && to->client.m_iId == TSGUN_WEAPON_ID)
+		g_TSGun.UpdateClientData(&player);
+
 	// Store off the last position from the predicted state.
 	HUD_SetLastOrg();
 

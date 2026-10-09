@@ -156,6 +156,8 @@ public:
 	void TheOneIsDead(CBasePlayer *pDead, CBasePlayer *pKiller); // @0x6b258 — clear + hand the role to the killer
 	bool  m_bTheOneActive = false;     // a One is currently designated
 	float m_flNextTheOneSelect = 0;    // SelectRandomTheOne throttle (every ~10s)
+	signed char m_iTheOneOthers = 0;   // rules+0x5876 — the other players, counted by Think's 10 s One
+	                                   // check; the One's regeneration in PreThink scales with it
 	bool  m_bCTBChecked = false;       // IsCTB cache validity
 	bool  m_bHasBriefcase = false;     // IsCTB cache: a ts_briefcase exists
 

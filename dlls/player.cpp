@@ -1038,8 +1038,9 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	WRITE_BYTE(0);
 	MESSAGE_END();
 
-	// reset FOV
+	// reset FOV, the entvars field too (@0x7f48d)
 	m_iFOV = m_iClientFOV = 0;
+	pev->fov = 0;
 
 	MESSAGE_BEGIN(MSG_ONE, gmsgSetFOV, NULL, pev);
 	WRITE_BYTE(0);
@@ -1448,12 +1449,8 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	// clear out the suit message cache so we don't keep chattering
 	SetSuitUpdate(NULL, false, 0);
 
-	// Tell Ammo Hud that the player is dead
-	MESSAGE_BEGIN(MSG_ONE, gmsgCurWeapon, NULL, pev);
-	WRITE_BYTE(0);
-	WRITE_BYTE(0XFF);
-	WRITE_BYTE(0xFF);
-	MESSAGE_END();
+	// (no CurWeapon to the ammo HUD here: the original sends CurWeapon only from RemoveAllItems
+	// and CBasePlayerWeapon::UpdateClientData)
 
 	// reset FOV
 	m_iFOV = m_iClientFOV = 0;
@@ -2208,9 +2205,21 @@ void CBasePlayer::PreThink()
 	// TS health-powerup over-heal decay (RE PreThink @0x808cc, player+0x73c = m_flHealthRegen): the
 	// health powerup boosts health past max_health; while m_flHealthRegen is armed it bleeds 1 HP/sec
 	// back down until health reaches max_health, then disarms. (Set by the health powerup grant.)
+	// The One instead regenerates (@0x80bd8-0x80c7d): each tick adds 0.16 health for every other
+	// player Think last counted, up to 150, and the ticks come faster with more of them, every
+	// 1 / max(0.32 x others, 1) seconds. His clock never disarms.
 	if (m_flHealthRegen != 0.0f)
 	{
-		if (pev->health <= pev->max_health)
+		if (m_bTheOne)
+		{
+			if (m_flHealthRegen < gpGlobals->time)
+			{
+				const float others = TSGameRules ? (float)TSGameRules->m_iTheOneOthers : 0.0f;
+				m_flHealthRegen = gpGlobals->time + 1.0f / V_max(others * 0.32f, 1.0f);
+				pev->health = V_min(others * 0.16f + pev->health, 150.0f);
+			}
+		}
+		else if (pev->health <= pev->max_health)
 		{
 			m_flHealthRegen = 0.0f; // back to max — stop the decay
 		}
@@ -4675,17 +4684,8 @@ void CBasePlayer::UpdateClientData()
 			m_rgpPlayerItems[i]->UpdateClientData(this);
 	}
 
-	//Active item is becoming null, or we're sending all HUD state to client
-	//Only if we're not in Observer mode, which uses the target player's weapon
-	if (pev->iuser1 == OBS_NONE && !m_pActiveItem && ((m_pClientActiveItem != m_pActiveItem) || fullHUDInitRequired))
-	{
-		//Tell ammo hud that we have no weapon selected
-		MESSAGE_BEGIN(MSG_ONE, gmsgCurWeapon, NULL, pev);
-		WRITE_BYTE(0);
-		WRITE_BYTE(0);
-		WRITE_BYTE(0);
-		MESSAGE_END();
-	}
+	// (the stock "no weapon selected" CurWeapon is gone: the original's UpdateClientData @0x81d00
+	// sends no CurWeapon)
 
 	// Cache and client weapon change
 	m_pClientActiveItem = m_pActiveItem;
@@ -4735,15 +4735,13 @@ void CBasePlayer::UpdateClientData()
 			m_iClientTSHealth = (int)pev->health;
 		}
 
-		// TSArmor — round(armorvalue).
-		int armor = (int)(pev->armorvalue + 0.5f);
-		if (armor < 0)
-			armor = 0;
-		if (armor != m_iClientTSArmor)
+		// TSArmor (@0x82057-0x820f7): as TSHealth, sent when the armor differs from the whole number
+		// cached at the last send, the armor truncated (the fistp with the rounding set to chop).
+		if ((float)m_iClientTSArmor != pev->armorvalue)
 		{
-			m_iClientTSArmor = armor;
+			m_iClientTSArmor = (int)pev->armorvalue;
 			MESSAGE_BEGIN(MSG_ONE, gmsgTSArmor, NULL, ENT(pev));
-			WRITE_BYTE(armor);
+			WRITE_BYTE((int)pev->armorvalue);
 			MESSAGE_END();
 		}
 

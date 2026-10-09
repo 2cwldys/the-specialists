@@ -603,6 +603,9 @@ public:
 	float m_flRespawnHoldTime = 0;  // 0x7bc — the LMS re-entry HOLD deadline (min(roundLeft,10));
 	                                // PreThink expiry -> locked out (gate -1, award 1). V11: the
 	                                // countdown HUD message in PreThink's else-branch not yet transcribed
+	float m_flTeamKillTime = 0;     // 0x7c4 — 30 s after his last team kill (PlayerKilled @0x7ac7e)
+	char m_iTeamKills = 0;          // 0x7c8 — team kills 30 s or less apart; a third kicks or bans him.
+	                                // CTSGameRules::InitHUD clears both (@0x694f3)
 	int m_iClientSpecSecs = -1;     // last Spectator countdown byte sent (resend on change)
 	void TSEnterSpectate(bool bResetArmament = true); // enter the spectate-wait (join, death, Spawn
 	                                                  // while waiting; a new round keeps the loadout)

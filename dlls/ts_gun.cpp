@@ -264,9 +264,12 @@ static int TSSlotsUsed(const CTSGun *pGun)
 // (pickup, drop, armor, flag, throws); the remaining count is TSPlayerFreeSlots.
 float GetSpeedBySlots(CBasePlayer *pPlayer)
 {
+	// @0x66be8: the One, whatever he carries, and empty hands (free > 80) return a fixed 330; only
+	// a laden loadout ramps down. (The final round to int happens in SetPlayerSpeed →
+	// pfnSetClientMaxspeed.)
+	if (pPlayer->m_bTheOne)
+		return 330.0f;
 	const int remaining = TSPlayerFreeSlots(pPlayer);
-	// @0x66bd4: empty hands (free > 80) return a fixed 330; only a laden loadout ramps down.
-	// (The final round to int happens in SetPlayerSpeed → pfnSetClientMaxspeed.)
 	if (remaining > 80)
 		return 330.0f;
 	return 210.0f + (120.0f / 81.0f) * (float)remaining;
@@ -324,11 +327,7 @@ void CTSGun::Reset()
 	// player who joins and holds kung fu gets none, as on the original.
 	m_iClientWeaponType = TSW_MELEE;
 	m_iClientReserve = 0;
-	m_iClientClip = -1;
-	m_iClientFireMode = -1;
-	m_bClientInfoSeeded = false;
 	m_iClientAttach = -1;
-	m_iClientEquip = -1;
 	m_bWStatusInit = false;
 
 	m_pActiveInfo = get_weapon_info((tsweapon_t)m_weaponType); // gun+0xd0 (inline, fold-plan G5)
@@ -796,6 +795,10 @@ bool CTSGun::Deploy()
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	if (!wi->pszViewModel)
 		return false;
+	// @0x71064: deploying a weapon lets the next UpdateClientData run at once (kung fu holsters
+	// instead in the original, before this).
+	if (m_weaponType != TSW_MELEE)
+		m_flNextClientUpdate = 0;
 	// NB: do NOT reset m_iClientAttach here to force a re-broadcast — it re-fired on every deploy and
 	// broke the fresh-buy laser. The map-change loss was the CLIENT clearing its g_playerAttach array on
 	// VidInit; that clear was removed (cl_dll/ts_attachments.cpp) so the array stays in sync with this
@@ -2438,24 +2441,41 @@ void CTSGun::Unzoom()
 }
 #endif
 
+#ifdef CLIENT_DLL
+void TSHud_GunUpdate(int type, int clip, int fireMode, int equip, int akimboType, int akimboClip,
+	int singleType, int singleClip); // cl_dll/ts_ammo.cpp
+
+// client.dll @0x1000acd0, the client's CTSGun::UpdateClientData, which HUD_WeaponsPostThink calls
+// with the arsenal out on a first prediction (@0x10003f6c): with a weapon out, the predicted clip,
+// fire mode and equipped attachments go to the ammo HUD, and the clip, with the parked clips of its
+// akimbo and single variants, to the weapon bar (@0x100581c0). This is how the original client
+// keeps them between the server's WeaponInfo messages, which come only on a type or reserve change.
+bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
+{
+	if (m_pActiveItem)
+	{
+		const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
+		const int ak = wi->iAkimboType;
+		const int single = wi->iSingleType;
+		TSHud_GunUpdate(m_weaponType, m_iClip, m_fireMode, m_items[m_weaponType].attach,
+			ak, (ak >= 0 && ak < TSW_COUNT) ? m_items[ak].clip : 0,
+			single, (single >= 0 && single < TSW_COUNT) ? m_items[single].clip : 0);
+	}
+	return true;
+}
+#else
 // @ UpdateClientData__6CTSGun @0x758c8 — send the TS WeaponInfo HUD message (the ammo
 // readout) on change. The original packs the active s_weapon_status slot:
 //   BYTE weaponType, BYTE clip (slot+0x4), SHORT reserve (per-caliber), BYTE fireMode
 //   (slot+0x2), BYTE flags (slot+0x10).  Our modern arsenal stores the same values
-//   directly (m_weaponType / m_iClip / m_ammoReserve[caliber] / m_fireMode). The flags
-//   byte (weapon capability bits the original masks from s_weapon_info) is a SLICE: we
-//   send 0 — it doesn't affect the ammo numbers. See reference/HUD_MESSAGES.md.
+//   directly (m_weaponType / m_iClip / m_ammoReserve[caliber] / m_fireMode). See
+//   reference/HUD_MESSAGES.md.
 bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 {
 
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 	const int caliber = wi->iCaliber;
-	int reserve = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
-	// Combat/seal knife carry a STACK count (1..iPellets, cap 5/10) — the caliber-less reserve is
-	// otherwise 0, so ride the count on the reserve field so the ammo HUD can show "N" above the
-	// melee block bar (katana/kung-fu have no count). m_iClip = the active knife's live count.
-	if (m_weaponType == TSW_KNIFE || m_weaponType == TSW_SEALKNIFE)
-		reserve = m_iClip;
+	const int reserve = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
 
 	// ActItems — broadcast this player's ACTIVE attachment mask to ALL clients (so everyone sees the
 	// laser/flashlight only while it's toggled ON via `useitems`, not just because it's equipped). The
@@ -2473,16 +2493,22 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 		MESSAGE_END();
 	}
 
+	// @0x758e7: the rest runs at most every 0.1 s (gun+0x9e0).
+	if (m_flNextClientUpdate > gpGlobals->time)
+		return false;
+	m_flNextClientUpdate = gpGlobals->time + 0.1f;
+
 	// @ the WStatus per-slot weapon-bar loop of CTSGun::UpdateClientData @0x758c8 (mechanism A) —
-	// UNCONDITIONAL each call, change-detected per slot. It must run BEFORE the WeaponInfo
-	// early-return below: gating it behind that return left a PARKED akimbo/single variant's bar
-	// cell STALE (the -1/red phantom — cont.89 akimbo dossier §2). The original change-detects on
-	// the OWNED byte; we also catch clip changes so OUR bar tracks live counts. One WStatus per
-	// slot on change: BYTE type, BYTE owned(0/1), BYTE clip.
+	// every call, change-detected per slot on the OWNED byte alone (the client keeps the clips
+	// itself). It must run BEFORE the WeaponInfo early-return below: gating it behind that return
+	// left a PARKED akimbo/single variant's bar cell STALE (the -1/red phantom — cont.89 akimbo
+	// dossier §2). One WStatus per slot on change: BYTE type, BYTE owned(0/1), BYTE clip.
 	if (!m_bWStatusInit)
 	{
+		// Reset zeroes the caches (@0x70644): a slot the player does not own sends nothing, so a
+		// newcomer gets a WStatus only for what he holds.
 		for (int i = 0; i < TSW_COUNT; i++)
-			m_iClientWStatus[i] = -2; // force a first send of every slot
+			m_iClientWStatus[i] = 0;
 		m_bWStatusInit = true;
 	}
 	for (int t = 0; t < TSW_COUNT; t++)
@@ -2498,10 +2524,9 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 		// red). Clamping <0 to 0 (the old "a bar clip is never negative" assumption) made kung-fu red. Guns
 		// are always >=0 so they're unaffected. cont.89 kung-fu-red fix.
 		clip &= 0xFF; // -1 -> 255; guns unchanged (0..~64)
-		const int state = owned ? clip : -1; // clip is 0..255 here (never -1), so owned != not-owned sentinel
-		if (state == m_iClientWStatus[t])
+		if (owned == m_iClientWStatus[t])
 			continue;
-		m_iClientWStatus[t] = state;
+		m_iClientWStatus[t] = owned;
 		MESSAGE_BEGIN(MSG_ONE, gmsgTSWeaponStatus, NULL, pPlayer->pev);
 		WRITE_BYTE(t);     // tsweapon_t
 		WRITE_BYTE(owned); // 1 = in the arsenal
@@ -2509,40 +2534,39 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 		MESSAGE_END();
 	}
 
-	const int equipped = m_items[m_weaponType].attach;
-	// The WeaponInfo "clip" byte carries the MELEE BAR for melee weapons (RE UpdateClientData
-	// @0x758c8 reads player+0x774) — this is how the client tracks the silent PreThink regen.
-	const s_weapon_info *wiActive = get_weapon_info((tsweapon_t)m_weaponType);
-	const bool meleeInfo = wiActive && (wiActive->iFireType == 3 || wiActive->iFireType == 10);
-	const int clipByte = meleeInfo ? (int)(pPlayer->m_flMeleeBar + 0.5f) : m_iClip;
-	// The original's check is the type and the reserve alone (@0x75a67, @0x75b94); its client keeps
-	// the clip, the melee bar and the fire mode itself. reTS's client reads them only from here, so a
-	// change of those sends too, measured from what the first check after Reset saw (not from -1,
-	// which would send a WeaponInfo to every gun in its reset state).
-	if (!m_bClientInfoSeeded)
+	// Kung fu (no weapon out, @0x75a5c-0x75b19): WeaponInfo goes on a type change alone, carrying
+	// the melee bar truncated in the clip byte and zeros.
+	if (!m_pActiveItem)
 	{
-		m_iClientClip = clipByte;
-		m_iClientFireMode = m_fireMode;
-		m_iClientEquip = equipped;
-		m_bClientInfoSeeded = true;
+		if (m_weaponType == m_iClientWeaponType)
+			return false;
+		m_iClientWeaponType = m_weaponType;
+		MESSAGE_BEGIN(MSG_ONE, gmsgWeaponInfo, NULL, pPlayer->pev);
+		WRITE_BYTE(m_weaponType);
+		WRITE_BYTE((int)pPlayer->m_flMeleeBar);
+		WRITE_SHORT(0);
+		WRITE_BYTE(0);
+		WRITE_BYTE(0);
+		MESSAGE_END();
+		return false;
 	}
-	if (m_weaponType == m_iClientWeaponType && clipByte == m_iClientClip &&
-		reserve == m_iClientReserve && m_fireMode == m_iClientFireMode &&
-		equipped == m_iClientEquip)
-		return false; // WeaponInfo unchanged (the WStatus loop above already flushed the bar)
+
+	// With a weapon out (@0x75b34-0x75c90), WeaponInfo goes when the type (gun+0x97a) or the
+	// caliber's reserve (gun+0x9b4) changed since the last one, with the weapon's clip, fire mode
+	// and equipped attachments as they are then. The client keeps those itself in between (client.dll
+	// @0x1000acd0, CTSGun::UpdateClientData under CLIENT_DLL above).
+	if (m_weaponType == m_iClientWeaponType && reserve == m_iClientReserve)
+		return true;
 
 	m_iClientWeaponType = m_weaponType;
-	m_iClientClip = clipByte;
 	m_iClientReserve = reserve;
-	m_iClientFireMode = m_fireMode;
-	m_iClientEquip = equipped;
 
 	MESSAGE_BEGIN(MSG_ONE, gmsgWeaponInfo, NULL, pPlayer->pev);
 	WRITE_BYTE(m_weaponType);     // active tsweapon_t
-	WRITE_BYTE(clipByte);         // rounds loaded (melee: the stamina bar)
+	WRITE_BYTE(m_iClip);          // rounds loaded (a blade: how many he carries)
 	WRITE_SHORT(reserve);         // spare rounds for this caliber
 	WRITE_BYTE(m_fireMode);       // 0=auto 1=semi 2=burst 3=pump
-	WRITE_BYTE(equipped);         // EQUIPPED attachment mask (silencer 1 / laser 2 / flash 4 / scope 8)
+	WRITE_BYTE(m_items[m_weaponType].attach); // EQUIPPED attachment mask (silencer 1 / laser 2 / flash 4 / scope 8)
 	MESSAGE_END();
 
 	// @ mechanism B of @0x758c8 — the PAIRED-VARIANT resend. On the active weapon's type/reserve
@@ -2562,7 +2586,6 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 				continue;
 			int c = (t == m_weaponType) ? m_iClip : m_items[t].clip;
 			if (c < 0) c = 0;
-			m_iClientWStatus[t] = c; // keep the change-detect cache coherent
 			MESSAGE_BEGIN(MSG_ONE, gmsgTSWeaponStatus, NULL, pPlayer->pev);
 			WRITE_BYTE(t);
 			WRITE_BYTE(1);
@@ -2573,6 +2596,7 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 
 	return true;
 }
+#endif // CLIENT_DLL
 
 // @ ReloadWeapon__6CTSGuniif (@0x74a14, decompile-exact) — ARM a whole-clip reload: gate on a
 // wielded item with caliber reserve; take = min(iClipSize - clip, reserve); if any, set the

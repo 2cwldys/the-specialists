@@ -891,6 +891,32 @@ void CTSGameRules::Think()
 		CheckDeads();
 	}
 
+	// @0x673d9: in The One mode (DecideGamePlay's g_theOneMode; there is no "the_one" cvar), every
+	// 10 s look for the One among the players and draw one when nobody is. The scan runs from index
+	// 0 to maxClients - 1 as the original's does, so it never sees the last slot; SelectRandomTheOne
+	// looks at every slot again before it draws. The players it sees who are not the One are counted
+	// (rules+0x5876, @0x67408-0x67468) for the One's health regeneration in PreThink @0x80bfe.
+	if (g_theOneMode != 0 && gpGlobals->time > m_flNextTheOneSelect)
+	{
+		bool bHaveTheOne = false;
+		m_iTheOneOthers = 0;
+		for (int i = 0; i < gpGlobals->maxClients; i++)
+		{
+			CBaseEntity *p = UTIL_PlayerByIndex(i);
+			if (p && p->IsPlayer() && !p->IsDormant())
+			{
+				if (((CBasePlayer *)p)->m_bTheOne)
+					bHaveTheOne = true;
+				else
+					m_iTheOneOthers++;
+			}
+		}
+		if (!bHaveTheOne)
+			SelectRandomTheOne();
+		m_flNextTheOneSelect = gpGlobals->time + 10.0f;
+	}
+
+	// The round logic comes after the One check, as in the original (@0x673d9, then @0x674a8).
 	// Round control — MODE-GATED exactly like the original Think (@0x67204, tsthink.c lines 96-121).
 	// The round system (RestartRound / round timer / CheckDeads-on-expiry) runs ONLY for
 	// last-man-standing (m_iGameMode==0 + g_lastManStanding) and the dead objective modes
@@ -918,25 +944,6 @@ void CTSGameRules::Think()
 		}
 		if (m_flRoundRestart != 0 && gpGlobals->time >= m_flRoundRestart)
 			RestartRound();
-	}
-
-	// @0x673d9: in The One mode (DecideGamePlay's g_theOneMode; there is no "the_one" cvar), every
-	// 10 s look for the One among the players and draw one when nobody is. The scan runs from index
-	// 0 to maxClients - 1 as the original's does, so it never sees the last slot; SelectRandomTheOne
-	// looks at every slot again before it draws. (The original also counts the other players here,
-	// rules+0x5876, for the One's health regeneration in PreThink @0x80bfe, which reTS lacks.)
-	if (g_theOneMode != 0 && gpGlobals->time > m_flNextTheOneSelect)
-	{
-		bool bHaveTheOne = false;
-		for (int i = 0; i < gpGlobals->maxClients; i++)
-		{
-			CBaseEntity *p = UTIL_PlayerByIndex(i);
-			if (p && p->IsPlayer() && !p->IsDormant() && ((CBasePlayer *)p)->m_bTheOne)
-				bHaveTheOne = true;
-		}
-		if (!bHaveTheOne)
-			SelectRandomTheOne();
-		m_flNextTheOneSelect = gpGlobals->time + 10.0f;
 	}
 
 	CheckVotes(); // tally the players' map/ff/teamplay votes (self-throttled to ~10s)
@@ -1256,6 +1263,8 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	// from CBasePlayer::UpdateClientData's InitHUD block @0x81d00 AFTER g_pGameRules->InitHUD.)
 
 	pPlayer->m_iRespawnsUsed = 0; // @0x694d1 — a joiner starts with a fresh respawn budget
+	pPlayer->m_flTeamKillTime = 0; // @0x694f3, @0x694fd — and no team kills counted
+	pPlayer->m_iTeamKills = 0;
 
 	// items 1-2 of the original @0x69134 (dossier §2.4) — the cheats/damage notices come FIRST.
 	// The damage notice sits inside the cheats test (@0x6918b), as damagemult itself applies only on

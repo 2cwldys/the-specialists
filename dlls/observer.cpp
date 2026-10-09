@@ -199,12 +199,8 @@ void CBasePlayer::Observer_CheckProperties()
 
 
 			m_iObserverWeapon = weapon;
-			//send weapon update
-			MESSAGE_BEGIN(MSG_ONE, gmsgCurWeapon, NULL, pev);
-			WRITE_BYTE(1); // 1 = current weapon, not on target
-			WRITE_BYTE(m_iObserverWeapon);
-			WRITE_BYTE(0); // clip
-			MESSAGE_END();
+			// (no CurWeapon: the original sends it only from RemoveAllItems and
+			// CBasePlayerWeapon::UpdateClientData)
 		}
 	}
 	else
@@ -212,15 +208,7 @@ void CBasePlayer::Observer_CheckProperties()
 		m_iFOV = 90;
 
 		if (m_iObserverWeapon != 0)
-		{
-			m_iObserverWeapon = 0;
-
-			MESSAGE_BEGIN(MSG_ONE, gmsgCurWeapon, NULL, pev);
-			WRITE_BYTE(1); // 1 = current weapon
-			WRITE_BYTE(m_iObserverWeapon);
-			WRITE_BYTE(0); // clip
-			MESSAGE_END();
-		}
+			m_iObserverWeapon = 0; // (no CurWeapon, as above)
 	}
 }
 

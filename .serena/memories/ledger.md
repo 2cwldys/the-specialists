@@ -7034,3 +7034,35 @@ Found, not changed: kill cash, headshot/knife/katana/coldcock notices, the spect
 the slowmatch powerup, the team kill kick/ban and the #TS_OwnWeapon kill in PlayerKilled; teammate kills
 not logged (CHalfLifeTeamplay::DeathNotice); the One's PreThink regeneration, GetSpeedBySlots 330 and
 CanDive* for the One; TSArmor rounds; CurWeapon in StartObserver/UCD/observer; Killed leaves pev->fov.
+
+## 2026-10-08 — the client keeps its ammo HUD, the rest of PlayerKilled, The One, messages
+
+Round 12 (amxxbench docs/fixes/rets-deviations12.md). One patch per item in ~/stignored/rets-deviations12.
+- 1 Client: HUD_WeaponsPostThink hands the predicted gun's clip, fire mode and attachments to the ammo HUD
+  and its clip (and the akimbo/single variants' parked clips) to the weapon bar, as client.dll's
+  CTSGun::UpdateClientData @0x1000acd0/@0x100581c0; the melee bar is a float the KFuPower handler clamps to
+  -100..100 and Think regenerates (15/s, 1/s below -0.001, scaled by the local slow, @0x1004ce10); the
+  WeaponInfo handler stores what comes (clip into the clip, kung fu's bar too, grid cell for type >= 1); the
+  carry count (knife, M61, seal knife) draws the clip. Server: WeaponInfo only on a type or reserve change
+  (kung fu: type change only, bar truncated), no knife count on the reserve.
+- 2 PlayerKilled: kill cash (pts*500+400 / 900), the objective-mode cash (rules mode > 1, 1000; round 11
+  called it last man standing), the headshot/knife/katana/coldcock notices naming the killer (coldcock moved
+  out of DeathNotice), the spectacular kill's slow-motion bubble, the slowmatch powerup, the team-kill kick
+  or ban (m_flTeamKillTime/m_iTeamKills, 0x7c4/0x7c8, cleared in CTSGameRules::InitHUD), the own-weapon kill
+  (item hOwner == victim) with its notice and " (victims_weapon)" tag.
+- 3 PlayerKilled works out the weapon name (TSKillWeaponName), calls DeathNotice (DeathMsg + director
+  only) and writes the log (TSLogKill), so team kills are logged. ChangePlayerTeam/ClientUserInfoChanged
+  stamp GetPlayerModel's "" for a team without models (no team-name fallback); round 11's One-mode model
+  column was mostly the servers' differing game.cfg (mp_teammodels "seal;agent" on TS 3.0).
+- 4 The One: PreThink regeneration (0.16 x others per tick, 1/max(0.32 x others, 1) s, cap 150) with the
+  count of others from Think (rules+0x5876, m_iTheOneOthers); GetSpeedBySlots 330; CanDive* always.
+- 5 TSArmor truncated with the float compare; no CurWeapon in StartObserver, UCD's no-weapon block or
+  observer.cpp; WStatus compares the owned byte only, caches start 0; gun UCD throttled to 0.1 s
+  (m_flNextClientUpdate, gun+0x9e0, cleared by Deploy).
+- 6 Killed clears pev->fov; the One's Think block runs before the round logic.
+Tests: new ts_kills and ts_messages (reTS + ts30), tsx_one gains team-kill log, kick, regen, speed, dive.
+Found, not changed: RemoveAllItems lacks the original's CurWeapon(0,0,0) and PlayerDeathThink lacks its
+RemoveAllItems(1); the kung fu slot's WStatus to a newcomer; Observer_CheckProperties is not in the
+original; the One block is skipped for modes > 1 in the original; GetSpeedBySlots truncates in the
+original; ActItems from CTSGun::UpdateClientData is reTS's; client draws (bar for every caliber-0 weapon,
+breathing on any weapon); InitHUD clears player+0x7cc, which reTS lacks.

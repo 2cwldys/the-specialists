@@ -47,6 +47,9 @@ public:
 	void Commit();              // FIRE: send `weapon_<N>` for the cursor, close the menu
 	void CloseSelect();
 	bool IsSelecting() const { return m_selecting; }
+	// A cell's clip, kept by the client between WStatus messages (the WeaponInfo handler and the
+	// predicted gun, client.dll @0x1004f8b0 and @0x100581c0). bOwn also marks the weapon held.
+	void SetClip(int type, int clip, bool bOwn);
 
 private:
 	void OpenSelect();          // seed the cursor from the active weapon, mark selecting
