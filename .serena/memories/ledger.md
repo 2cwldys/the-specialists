@@ -7145,3 +7145,26 @@ Tests: ts_callbacks (NULL-skip trace hits a player; fixed build only), ts_messag
 without weapon bits, Spectator right after each StartObserver's strip, SrvSett truncation), reTS + ts30.
 Found, not changed: CTSWorldGun::ShouldCollide is the original's inverted (@0x91290 collides with everything
 but guns and knives); more in amxxbench docs/fixes/rets-deviations15-report.md.
+
+## 2026-10-08 — round 16: CTSWorldGun::ShouldCollide and the round-15 leftovers
+
+Round 16 (amxxbench docs/fixes/rets-deviations16.md). One patch per item in ~/stignored/rets-deviations16.
+- 1 CTSWorldGun::ShouldCollide is the original's (@0x91290): collide with everything but "WorldGun" and
+  "knife". NULL (no other) still collides; the original reads it unchecked. CBaseEntity's and CTSKnife's
+  (return 1) already matched; no other class has one in the original.
+- 2 ServerActivate skips edicts 0 to clientMax - 1 (@0x9e96e): the world is not activated, edict
+  clientMax is.
+- 3 ClientUserInfoChanged sends the name-change SayText whatever maxClients is (@0x9e750).
+- 4 Sys_Error logs "Sys_Error: %s\n" at_logged (@0x9eebc).
+- 5 ClientDisconnect formats the leave line whatever the name and neither resets the client's sound nor
+  releases a func_tank (@0x9cd4c).
+- 6 The four SrvSett go out once, from InitHUD (@0x691fe..0x69316). The 0.75 s timer (now
+  m_flRosterResendTime) still carries the invented ResendTeamRoster. ce04557 recorded this resend as
+  load-bearing for the original client's buy menu at join; that needs a real-client check.
+- 7 Client: MsgFunc_SetFOV as client.dll 0x10049570 (ignored while cl_lw is on; 80 for 0; sensitivity
+  newfov x 0.0125 x sensitivity x zoom_sensitivity_ratio); CHud::Think reads no screen info and takes no
+  spectator FOV (0x10049760). Checked by build and disassembly only.
+Tests: ts_callbacks (a flying gun's ShouldCollide pairs; the world not activated), ts_messages (a joiner
+gets each SrvSett once), reTS + ts30.
+Found, not changed: CTSWorldGun::Fall settles below GiveSlowMul() x 3 (@0x90df0), reTS below 3; more in
+amxxbench docs/fixes/rets-deviations16-report.md.

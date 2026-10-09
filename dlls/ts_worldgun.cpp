@@ -9,7 +9,7 @@
 *  carries the full s_weapon_status (our TSItem) of the dropped weapon, and hands it back on pickup
 *  (USE, or on touch for the throwable type 0x1d). A thrown gun damages what it flies into (Fall's
 *  swept trace). Its ShouldCollide decides what a move or trace that touches it hits (the global hook
-*  asks the touched entity only, @0x9b7b4): players pass through it, guns and knives do not.
+*  asks the touched entity only, @0x9b7b4): guns and knives pass through it, everything else does not.
 *
 *  CTSAmmoPack (@0xa1334 CreateAmmoPack / @0xa13f4 Spawn / @0xa1544 Fall / @0xa15c0 WaitThink /
 *    @0xa1610 OnGround / @0xa16c0 WaitTouch) — a dropped consumable pack carrying per-caliber rounds
@@ -267,13 +267,15 @@ void CTSWorldGun::WaitTouch(CBaseEntity *pOther)
 		GetWeapon(pOther);
 }
 
-// @0xa1290 ShouldCollide — a dropped gun collides ONLY with other dropped guns and thrown knives;
-// it passes through players (and everything else). Dispatched by the global ShouldCollide hook.
+// @0xa1290 ShouldCollide — a dropped gun collides with everything except other dropped guns and
+// thrown knives ("WorldGun", "knife"). Dispatched by the global ShouldCollide hook when the gun is the
+// touched entity. The original reads pOther->pev without a check, so a trace with no skip entity
+// that reaches a flying gun crashes it; here NULL (no entity, e.g. the world's trace) collides.
 bool CTSWorldGun::ShouldCollide(CBaseEntity *pOther)
 {
 	if (!pOther)
 		return true;
-	return FClassnameIs(pOther->pev, "WorldGun") || FClassnameIs(pOther->pev, "knife");
+	return !FClassnameIs(pOther->pev, "WorldGun") && !FClassnameIs(pOther->pev, "knife");
 }
 
 //============================================================================

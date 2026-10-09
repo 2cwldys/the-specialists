@@ -1299,10 +1299,9 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	WRITE_SHORT(m_iWeaponRestriction);
 	MESSAGE_END();
 
-	// These MSG_ONE catch-ups fire during the spawn sequence and the original client can drop them
-	// (its restriction global stays 0 -> empty buy menu). Schedule a one-shot re-broadcast once the
-	// client is active (PreThink honours m_flSrvSettResendTime). See the member note in player.h.
-	pPlayer->m_flSrvSettResendTime = gpGlobals->time + 0.75f;
+	// Sent once, as the original. The invented team roster resend 0.75 s later (PreThink honours
+	// m_flRosterResendTime) no longer carries these. See the member note in player.h.
+	pPlayer->m_flRosterResendTime = gpGlobals->time + 0.75f;
 
 	// (the TeamNames + TeamInfo roster catch-up is GONE from here — R1 phase 3: it lives in
 	// the STOCK CHalfLifeTeamplay::InitHUD @0xd45d8, which runs on team maps now that Teamplay

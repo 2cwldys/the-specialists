@@ -535,14 +535,11 @@ public:
 	byte m_iClientAward = 0;                              // 0x74d — last TSPAward value broadcast
 	byte m_iClientActiveItems = 0;                        // 0x720 — last ActItems mask broadcast (GetActiveItems)
 	float m_flNextPTakeDamTime = 0;                       // 0x750 (invented name) — PTakeDam send throttle (+0.3 s)
-	// One-shot: re-broadcast the SrvSett settings shortly after connect. The InitHUD MSG_ONE catch-up
-	// fires during the spawn sequence, before the joining client's netchannel is fully active, so the
-	// original client drops it (its restriction global stays 0 = empty buy menu). A re-send once the
-	// client is active (this timer, ~0.75s later, during spectate-wait before the menu is opened)
-	// lands — mirroring the on-change command broadcast that reliably updates a connected client.
-	// (invented member — no original counterpart; the original client applies our InitHUD send fine,
-	//  suggesting a subtle connect-sequence difference we work around here. VERIFY vs a client trace.)
-	float m_flSrvSettResendTime = 0;
+	// One-shot: resend the team roster to a teamplay joiner 0.75 s after InitHUD, once his client is
+	// active (CHalfLifeTeamplay::ResendTeamRoster, INVENTED-INTEROP for the original client; no
+	// original counterpart). It no longer resends the four SrvSett settings: the original sends them
+	// once, from InitHUD.
+	float m_flRosterResendTime = 0;
 	// INVENTED (cont.98) — connect-window MSG-drop ONE-SHOT re-sync sentinel for the slow/award UCD
 	// sends. The joiner's pre-active connect burst (RemoveAllItems→UCD) latches gmsgTSSlowAmt/
 	// gmsgTSPlayerAward's change-detect caches to their final values while SV_Multicast drops the send

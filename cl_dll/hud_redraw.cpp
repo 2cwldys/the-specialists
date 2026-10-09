@@ -73,9 +73,7 @@ void CHud::EaseFOV(int target)
 // Think
 void CHud::Think()
 {
-	m_scrinfo.iSize = sizeof(m_scrinfo);
-	GetScreenInfo(&m_scrinfo);
-
+	// client.dll 0x10049760 reads no screen info here (VidInit does) and has no spectate-only FOV.
 	int newfov;
 	HUDLIST* pList = m_pHudList;
 
@@ -123,11 +121,6 @@ void CHud::Think()
 	// think about default fov
 	if ((float)m_iFOV < 0.001f)
 		m_iFOV = (int)def;
-
-	if (0 != gEngfuncs.IsSpectateOnly())
-	{
-		m_iFOV = gHUD.m_Spectator.GetFOV(); // default_fov->value;
-	}
 }
 
 // Redraw

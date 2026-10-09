@@ -125,43 +125,22 @@ void ClientDisconnect(edict_t* pEntity)
 	if (g_fGameOver)
 		return;
 
-	char text[256] = "";
-	if (!FStringNull(pEntity->v.netname))
-		snprintf(text, sizeof(text), "- %s has left the game\n", STRING(pEntity->v.netname));
-	text[sizeof(text) - 1] = 0;
+	// @0x9cda6: the line is formatted whatever the name (the original's sprintf; a name cannot fill the
+	// buffer). The original neither resets the client's sound nor releases a func_tank he holds.
+	char text[256];
+	snprintf(text, sizeof(text), "- %s has left the game\n", STRING(pEntity->v.netname));
 	MESSAGE_BEGIN(MSG_ALL, gmsgSayText, NULL);
 	WRITE_BYTE(ENTINDEX(pEntity));
 	WRITE_STRING(text);
 	MESSAGE_END();
-
-	CSound* pSound;
-	pSound = CSoundEnt::SoundPointerForIndex(CSoundEnt::ClientSoundIndex(pEntity));
-	{
-		// since this client isn't around to think anymore, reset their sound.
-		if (pSound)
-		{
-			pSound->Reset();
-		}
-	}
 
 	// since the edict doesn't get deleted, fix it so it doesn't interfere.
 	pEntity->v.takedamage = DAMAGE_NO; // don't attract autoaim
 	pEntity->v.solid = SOLID_NOT;	   // nonsolid
 	UTIL_SetOrigin(&pEntity->v, pEntity->v.origin);
 
-	auto pPlayer = reinterpret_cast<CBasePlayer*>(GET_PRIVATE(pEntity));
-
-	if (pPlayer)
-	{
-		// TSPlayerDisconnect is NOT called here — its original home is
-		// CHalfLifeMultiplay::ClientDisconnected @0xbf960 (reached via g_pGameRules below).
-		if (pPlayer->m_pTank != NULL)
-		{
-			pPlayer->m_pTank->Use(pPlayer, pPlayer, USE_OFF, 0);
-			pPlayer->m_pTank = NULL;
-		}
-	}
-
+	// TSPlayerDisconnect is NOT called here — its original home is
+	// CHalfLifeMultiplay::ClientDisconnected @0xbf960 (reached via g_pGameRules below).
 	g_pGameRules->ClientDisconnected(pEntity);
 }
 
@@ -830,15 +809,13 @@ void ClientUserInfoChanged(edict_t* pEntity, char* infobuffer)
 		// Set the name
 		g_engfuncs.pfnSetClientKeyValue(ENTINDEX(pEntity), infobuffer, "name", sName);
 
-		if (gpGlobals->maxClients > 1)
-		{
-			char text[256];
-			sprintf(text, "* %s changed name to %s\n", STRING(pEntity->v.netname), g_engfuncs.pfnInfoKeyValue(infobuffer, "name"));
-			MESSAGE_BEGIN(MSG_ALL, gmsgSayText, NULL);
-			WRITE_BYTE(ENTINDEX(pEntity));
-			WRITE_STRING(text);
-			MESSAGE_END();
-		}
+		// @0x9e750: sent whatever maxClients is (the SDK's maxClients > 1 test is not in the original).
+		char text[256];
+		sprintf(text, "* %s changed name to %s\n", STRING(pEntity->v.netname), g_engfuncs.pfnInfoKeyValue(infobuffer, "name"));
+		MESSAGE_BEGIN(MSG_ALL, gmsgSayText, NULL);
+		WRITE_BYTE(ENTINDEX(pEntity));
+		WRITE_STRING(text);
+		MESSAGE_END();
 
 		// team match?
 		if (g_teamplay)
@@ -897,8 +874,9 @@ void ServerActivate(edict_t* pEdictList, int edictCount, int clientMax)
 		if (0 != pEdictList[i].free)
 			continue;
 
-		// Clients aren't necessarily initialized until ClientPutInServer()
-		if ((i > 0 && i <= clientMax) || !pEdictList[i].pvPrivateData)
+		// Clients aren't necessarily initialized until ClientPutInServer(). @0x9e96e: the original skips
+		// edicts 0 to clientMax - 1, so the world is not activated and edict clientMax is.
+		if (i < clientMax || !pEdictList[i].pvPrivateData)
 			continue;
 
 		pClass = CBaseEntity::Instance(&pEdictList[i]);
@@ -1245,7 +1223,8 @@ Engine is going to shut down, allows setting a breakpoint in game .dll to catch 
 */
 void Sys_Error(const char* error_string)
 {
-	// Default case, do nothing.  MOD AUTHORS:  Add code ( e.g., _asm { int 3 }; here to cause a breakpoint for debugging your game .dlls
+	// @0x9eebc: the original logs the error.
+	ALERT(at_logged, "Sys_Error: %s\n", error_string);
 }
 
 /*

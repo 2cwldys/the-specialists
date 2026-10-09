@@ -1943,44 +1943,14 @@ void CBasePlayer::PreThink()
 	// (UpdatePlayerState and CheckForWires run near the end, past the spectator, dead and train
 	// returns, where the original calls them: @0x81416, @0x81450.)
 
-	// One-shot SrvSett re-broadcast (see m_flSrvSettResendTime in player.h): the InitHUD MSG_ONE
-	// catch-up IS dropped during the connect sequence — CONFIRMED cont.96 by a hardware watchpoint
-	// on the original client's restriction global (0 writes during a no-workaround join; the later
-	// MSG_ALL on-change sender lands fine at the same handler). LOAD-BEARING: without this the buy
-	// menu is empty at join (weaponrestriction never applied). Fires during spectate-wait, before
-	// the buy menu opens. MSG_ONE to the now-active joiner (idempotent; change-detected client-side).
-	if (m_flSrvSettResendTime != 0.0f && gpGlobals->time >= m_flSrvSettResendTime)
+	// One-shot team roster resend (see m_flRosterResendTime in player.h), invented for the original
+	// client. The four SrvSett settings are not sent again here: the original sends them once, from
+	// CTSGameRules::InitHUD (@0x691fe..0x69316).
+	if (m_flRosterResendTime != 0.0f && gpGlobals->time >= m_flRosterResendTime)
 	{
-		m_flSrvSettResendTime = 0.0f;
+		m_flRosterResendTime = 0.0f;
 #ifndef CLIENT_DLL
-		// Slow-mo target reset (cont.98): the client's slow TARGET (gmsgTSSlowMo-driven; the client's
-		// VidInit resets only the eased CURRENT, not the target) defaults SLOW on a fresh process, and
-		// UCD's change-detected gmsgTSSlowAmt reset is ALSO eaten by the connect-window MSG_ONE drop ->
-		// the joiner is stuck in the slow-mo screen tint + sound-pitch + motion-blur ghosts until they
-		// spawn (Spawn->TSInit re-arms this cache, which is why fire-to-play clears it). Re-arm the cache
-		// here — the same proven post-connect-window one-shot that re-sends SrvSett/TeamRoster — so the
-		// (cont.98: the slow/award connect-window catch-up is NOT a one-shot here anymore — a single
-		// timed re-fire is a GUESS that fails for a high-latency/slow-loading client whose connect window
-		// outlasts it. It's a throttled per-frame re-sync in the spectate-wait block below, which retries
-		// from UCD until the client is genuinely past its window. RE-verified the sole send site is UCD.)
-		if (TSGameRules)
-		{
-			extern int gmsgTSServerSetting;
-			struct { int id, val; } s[4] = {
-				{0, (int)(CVAR_GET_FLOAT("realbullet") + 0.5f)},
-				{1, CVAR_GET_FLOAT("usecash") != 0.0f ? 1 : 0},
-				{2, (int)(CVAR_GET_FLOAT("ammocount") + 0.5f)},
-				{3, TSGameRules->m_iWeaponRestriction},
-			};
-			for (int i = 0; i < 4; i++)
-			{
-				MESSAGE_BEGIN(MSG_ONE, gmsgTSServerSetting, NULL, ENT(pev));
-				WRITE_BYTE(s[i].id);
-				WRITE_SHORT(s[i].val);
-				MESSAGE_END();
-			}
-		}
-		// INVENTED-INTEROP (cont.96): the same connect-window drop eats the TeamNames/TeamInfo
+		// INVENTED-INTEROP (cont.96): the connect-window drop eats the TeamNames/TeamInfo
 		// roster catch-up -> blank team headings on the original client until a later MSG_ALL.
 		if (g_pGameRules && g_pGameRules->IsTeamplay())
 			((CHalfLifeTeamplay*)g_pGameRules)->ResendTeamRoster(this);

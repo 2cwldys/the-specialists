@@ -85,6 +85,7 @@ static CHLVoiceStatusHelper g_VoiceStatusHelper;
 extern client_sprite_t* GetSpriteList(client_sprite_t* pList, const char* psz, int iRes, int iCount);
 
 extern float IN_GetMouseSensitivity();
+extern cvar_t* sensitivity; // inputw32.cpp; MsgFunc_SetFOV reads its value as client.dll does
 cvar_t* cl_lw = NULL;
 cvar_t* r_decals = nullptr;
 
@@ -675,40 +676,27 @@ bool CHud::MsgFunc_SetFOV(const char* pszName, int iSize, void* pbuf)
 	BEGIN_READ(pbuf, iSize);
 
 	int newfov = READ_BYTE();
-	int def_fov = CVAR_GET_FLOAT("default_fov");
 
-	//Weapon prediction already takes care of changing the fog. ( g_lastFOV ).
-	//But it doesn't restore correctly so this still needs to be used
-	/*
-	if ( cl_lw && cl_lw->value )
-		return 1;
-		*/
+	// client.dll 0x10049570: ignored while cl_lw is on (weapon prediction carries the zoom, and Think
+	// eases toward it); else 80 for 0, and the sensitivity scales with newfov x 0.0125 (newfov / 80).
+	if (cl_lw && cl_lw->value != 0.0f)
+		return true;
 
 	g_lastFOV = newfov;
 
 	if (newfov == 0)
-	{
-		m_iFOV = def_fov;
-	}
+		m_iFOV = 80;
 	else
-	{
 		m_iFOV = newfov;
-	}
 
-	// the clients fov is actually set in the client data update section of the hud
-
-	// Set a new sensitivity
-	if (m_iFOV == def_fov)
+	if (m_iFOV == 80)
 	{
 		// reset to saved sensitivity
 		m_flMouseSensitivity = 0;
-	}
-	else
-	{
-		// set a new sensitivity that is proportional to the change from the FOV default
-		m_flMouseSensitivity = IN_GetMouseSensitivity() * ((float)newfov / (float)def_fov) * CVAR_GET_FLOAT("zoom_sensitivity_ratio");
+		return true;
 	}
 
+	m_flMouseSensitivity = (float)newfov * 0.0125f * sensitivity->value * CVAR_GET_FLOAT("zoom_sensitivity_ratio");
 	return true;
 }
 
