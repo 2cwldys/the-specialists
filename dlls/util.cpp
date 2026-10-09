@@ -768,8 +768,11 @@ void UTIL_ScreenFadeWrite(const ScreenFade& fade, CBaseEntity* pEntity)
 
 	MESSAGE_BEGIN(MSG_ONE, gmsgTSFade, NULL, pEntity->edict());
 
-	WRITE_SHORT((int)((float)fade.duration / slowMul + 0.5f)); // 4.12 fixed, per-recipient stretch
-	WRITE_SHORT((int)((float)fade.holdTime / slowMul + 0.5f));
+	// 4.12 fixed, per-recipient stretch. @0xdccbf/@0xdccfb: fidivr in x87 precision, then fistp with the
+	// rounding set to chop, so truncated, not rounded: 4096 at slow 0.6 gives 6826. In double, which
+	// truncates the same (a float quotient could round up to the next whole number).
+	WRITE_SHORT((int)((double)fade.duration / (double)slowMul));
+	WRITE_SHORT((int)((double)fade.holdTime / (double)slowMul));
 	WRITE_SHORT(fade.fadeFlags); // fade type (in / out)
 	WRITE_BYTE(fade.r);
 	WRITE_BYTE(fade.g);

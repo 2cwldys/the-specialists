@@ -84,7 +84,6 @@ static CHLVoiceStatusHelper g_VoiceStatusHelper;
 
 extern client_sprite_t* GetSpriteList(client_sprite_t* pList, const char* psz, int iRes, int iCount);
 
-extern float IN_GetMouseSensitivity();
 extern cvar_t* sensitivity; // inputw32.cpp; MsgFunc_SetFOV reads its value as client.dll does
 cvar_t* cl_lw = NULL;
 cvar_t* r_decals = nullptr;

@@ -167,7 +167,8 @@ void CTSWorldGun::Fall()
 		pev->angles.x = 0;
 		pev->angles.z = 0;
 		OnGround();
-		return;
+		// no return: @0x90e4e falls through to the lifetime check, so the settling think still runs
+		// the swept trace and the slow-motion upkeep below (or removes an expired gun)
 	}
 
 	if (gpGlobals->time <= m_flExpire)

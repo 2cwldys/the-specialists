@@ -659,7 +659,11 @@ void CTSGun::HolsterWeapon()
 	LoadActiveFromItem();
 	const s_weapon_info *kf = get_weapon_info(TSW_MELEE);
 	m_pPlayer->pev->viewmodel = MAKE_STRING(kf->pszViewModel); // v_melee
-	SendWeaponAnim(s_drawSeq[TSW_MELEE], 0);                   // kungfu anim block [2] (draw) — @0x75698 passes body 0 EXPLICITLY (fold-plan Y4)
+	// kungfu anim block [2] (draw) — @0x75698 passes skiplocal 0 and body 0 EXPLICITLY (fold-plan Y4):
+	// sent even to a client predicting its weapons (cl_lw 1), which the base's own skiplocal would skip
+	m_ForceSendAnimations = true;
+	SendWeaponAnim(s_drawSeq[TSW_MELEE], 0);
+	m_ForceSendAnimations = false;
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usDraw, 0.0, g_vecZero, g_vecZero,
 		0.0, 0.0, m_weaponType, 0, 0, 0);
 	m_kickCombo = 0;

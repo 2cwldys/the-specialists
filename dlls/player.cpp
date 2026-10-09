@@ -1433,20 +1433,26 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 
 	DropFlag(false); // CTF: entering spectate drops a carried flag (spawns a loose flag)
 
-	// @0x8972b — wipe the TS arsenal to bare kung-fu (round restart / death→spectate). The next
-	// life's loadout is re-given fresh.
-	if (CTSGun *pGun = GetPlayerTSGun(this))
-		pGun->Reset();
-
 	// clear any clientside entities attached to this player
 	MESSAGE_BEGIN(MSG_PAS, SVC_TEMPENTITY, pev->origin);
 	WRITE_BYTE(TE_KILLPLAYERATTACHMENTS);
 	WRITE_BYTE((byte)entindex());
 	MESSAGE_END();
 
-	// Holster weapon immediately, to allow it to cleanup
+	// @0x8970f-0x89755: with the gun (id 16) in hand, wipe the TS arsenal to bare kung fu (Reset) and
+	// holster it (HolsterWeapon); then the active item's Holster(0), which on the gun is HolsterWeapon
+	// again. Each HolsterWeapon of a live player sends the kung fu draw with skiplocal 0, so a joiner,
+	// alive since ClientPutInServer's Spawn, gets two svc_weaponanim here.
 	if (m_pActiveItem)
+	{
+		if (m_pActiveItem->m_iId == TSGUN_WEAPON_ID)
+		{
+			CTSGun *pGun = (CTSGun *)m_pActiveItem;
+			pGun->Reset();
+			pGun->HolsterWeapon();
+		}
 		m_pActiveItem->Holster();
+	}
 
 	if (m_pTank != NULL)
 	{
@@ -1566,8 +1572,9 @@ void CBasePlayer::TSEnterSpectate(bool bResetArmament)
 		SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
 	}
 
-	// fold-plan G7: the original has no entry-time paint — the PreThink spectate block
-	// paints the countdown on the next frame (≤0.1 s later, behaviorally invisible).
+	// fold-plan G7: the original has no entry-time paint. The PreThink spectate block paints the
+	// countdown: for a joiner, whose StartObserver runs from UpdateClientData near the top of PreThink,
+	// in the same frame.
 }
 
 // (TSSendBuyMenu/TSCloseMenu/TSMenuSelect DELETED, dossier-invented B3: the original has NO
@@ -1964,6 +1971,51 @@ void CBasePlayer::PreThink()
 	if (g_fGameOver)
 		return; // intermission or finale
 
+	UTIL_MakeVectors(pev->v_angle); // is this still used?
+
+	ItemPreFrame();
+	WaterMove();
+
+	// (The stock SDK sets or clears HIDEHUD_FLASHLIGHT here every frame. The original PreThink
+	// @0x808cc never writes m_iHideHUD, so TS sends HideWeapon 0, not the flashlight bit.)
+
+	if (m_bResetViewEntity)
+	{
+		m_bResetViewEntity = false;
+
+		CBaseEntity* viewEntity = m_hViewEntity;
+
+		if (viewEntity)
+		{
+			SET_VIEW(edict(), viewEntity->edict());
+		}
+	}
+
+	// in the event that the player JUST spawned, and the level node graph
+	// was loaded, fix all of the node graph pointers before the game starts.
+
+	// !!!BUGBUG - now that we have multiplayer, this needs to be moved!
+	if (0 != WorldGraph.m_fGraphPresent && 0 == WorldGraph.m_fGraphPointersSet)
+	{
+		if (!WorldGraph.FSetGraphPointers())
+		{
+			ALERT(at_console, "**Graph pointers were not set!\n");
+		}
+		else
+		{
+			ALERT(at_console, "**Graph Pointers Set!\n");
+		}
+	}
+
+	// @0x8095b: the client update runs here, before the TS upkeep and the spectate block below, so the
+	// InitHUD frame's StartObserver is followed by that frame's first countdown line.
+	// JOHN: checks if new client data (for HUD and view control) needs to be sent to the client
+	UpdateClientData();
+
+	CheckTimeBasedDamage();
+
+	CheckSuitUpdate();
+
 	// @0x80bb1: the powerup state and the slow-motion flow run for every player, before the
 	// spectator block below, as in the original: a spectator's powerup is dropped or ends there too.
 	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame (sets the slow triple)
@@ -1999,24 +2051,20 @@ void CBasePlayer::PreThink()
 		// Fire-to-play is the CLIENT's "respawn" console command (the original mechanism —
 		// the ClientCommand "respawn" branch gates it); the server watches no buttons here.
 
-		// @0x81458 (PreThink iuser1-block): the 1 Hz lines throttle on the +0x754 CLOCK
-		// (m_flSpecMsgTime), NOT on the displayed-second change — the original computes
-		// ROUND(gate−time), so its LAST tick inside the final half-second paints
-		// "Press Fire To Play!" (hold 30); a change-based throttle never reaches it
-		// (round-7f: the countdown stalled at 1).
-		if (m_flTSRespawnTime > 0.0f && m_flSpecMsgTime < gpGlobals->time)
+		// @0x80e83-0x80fab (PreThink iuser1 block): while the gate (+0x770) is set and still ahead, once a
+		// second on the +0x754 clock, the seconds left, truncated (the fistp with the rounding set to
+		// chop) after a cap at 30; when that truncates to 0, in the last second before the gate,
+		// "Press Fire To Play!" (hold 30). Nothing is painted once the gate has passed.
+		if (m_flTSRespawnTime > 0.0f && m_flTSRespawnTime > gpGlobals->time && m_flSpecMsgTime < gpGlobals->time)
 		{
 			m_flSpecMsgTime = gpGlobals->time + 1.0f;
-			float rem = m_flTSRespawnTime - gpGlobals->time;
-			int r = (int)(rem + 0.5f);
-			if (r < 1)
-				// gate reached (or the final sub-second tick): the prompt — painted while the
-				// player remains in the wait (the sub-second-only window a strict decompile read
-				// gives cannot survive per-tick frame drift; the live original SHOWS the prompt
-				// after "1" — observed behavior wins, VERIFY the original's exact carrier)
+			// in double, exact as the original's x87 difference is: a float difference can round up to
+			// the next whole second (5 - 2^-22 to 5.0) and show a number the original does not
+			const double rem = (double)m_flTSRespawnTime - (double)gpGlobals->time;
+			if ((int)rem <= 0)
 				TSHudMessageOne(0, 0, 0, 16, 30, "Press Fire To Play!", pev);
 			else
-				TSHudMessageOne(0, 0, 0, 16, 20, UTIL_VarArgs("%i", r > 30 ? 30 : r), pev);
+				TSHudMessageOne(0, 0, 0, 16, 20, UTIL_VarArgs("%i", (int)(rem > 30.0 ? 30.0 : rem)), pev);
 		}
 		// the LMS re-entry window paints its own 1 Hz line while it runs (expiry lives in PreThink)
 		else if (m_flRespawnHoldTime != 0.0f && gpGlobals->time <= m_flRespawnHoldTime &&
@@ -2027,18 +2075,8 @@ void CBasePlayer::PreThink()
 				UTIL_VarArgs("%i seconds left for respawn, press Fire to Play!",
 					(int)(m_flRespawnHoldTime - gpGlobals->time + 0.5f)), pev);
 		}
-		// cont.98 ROOT-CAUSE FIX: the original PreThink @0x808cc calls UpdateClientData() near the TOP
-		// (line 62) — BEFORE its iuser1 spectate block (line 202, which returns). So the original runs
-		// the WHOLE TS UCD send (TSHealth/TSArmor/**TSSlowMo**/TSPAward-WAITING/…) EVERY frame for a
-		// spectating player. Our reconstruction added THIS early m_fInSpectateWait return, which sits
-		// BEFORE our per-frame UCD call (the stock tail, ~line 2255) — so a spectate-waiting player never
-		// ran UCD: the client's slow TARGET was never reset (→ stuck slow-mo tint/sound/blur on join) AND
-		// the AWARD/WAITING byte was never sent (→ no "WAITING" on the scoreboard). Run UCD here so the
-		// spectator gets its TS HUD updates like the original. (UpdatePowerUpState/SlowMotionFlow now
-		// run above for spectators too; VERIFY: for full parity the rest of the per-frame work before
-		// the original's iuser1 block — ItemPreFrame, WaterMove, the stunt and anim timers — would
-		// move ahead of this block as well.)
-		UpdateClientData();
+		// (UpdateClientData already ran this frame, near the top of PreThink as in the original, so a
+		// spectator gets his HUD updates: cont.98's slow motion and WAITING fix.)
 		// @0x810c3, @0x810cb, @0x810d3: the block ends with the observer controls, the dead-target
 		// check and the impulse cleared, as the original's does.
 		Observer_HandleButtons();
@@ -2212,49 +2250,6 @@ void CBasePlayer::PreThink()
 		pev->framerate = 1.0f; // restore the normal animation rate
 		m_bSlowMoveApplied = false;
 	}
-
-	UTIL_MakeVectors(pev->v_angle); // is this still used?
-
-	ItemPreFrame();
-	WaterMove();
-
-	// (The stock SDK sets or clears HIDEHUD_FLASHLIGHT here every frame. The original PreThink
-	// @0x808cc never writes m_iHideHUD, so TS sends HideWeapon 0, not the flashlight bit.)
-
-	if (m_bResetViewEntity)
-	{
-		m_bResetViewEntity = false;
-
-		CBaseEntity* viewEntity = m_hViewEntity;
-
-		if (viewEntity)
-		{
-			SET_VIEW(edict(), viewEntity->edict());
-		}
-	}
-
-	// in the event that the player JUST spawned, and the level node graph
-	// was loaded, fix all of the node graph pointers before the game starts.
-
-	// !!!BUGBUG - now that we have multiplayer, this needs to be moved!
-	if (0 != WorldGraph.m_fGraphPresent && 0 == WorldGraph.m_fGraphPointersSet)
-	{
-		if (!WorldGraph.FSetGraphPointers())
-		{
-			ALERT(at_console, "**Graph pointers were not set!\n");
-		}
-		else
-		{
-			ALERT(at_console, "**Graph Pointers Set!\n");
-		}
-	}
-
-	// JOHN: checks if new client data (for HUD and view control) needs to be sent to the client
-	UpdateClientData();
-
-	CheckTimeBasedDamage();
-
-	CheckSuitUpdate();
 
 	// Observer Button Handling: an observer outside the spectate wait (a jointeam while alive) runs
 	// the same two calls as the block above (@0x810c3, @0x810cb). The original has no
@@ -4496,8 +4491,6 @@ void CBasePlayer::UpdateClientData()
 			MESSAGE_END();
 		}
 
-		InitStatusBar();
-
 		// (no forced TSHealth/TSArmor/TSCash here: this block of the original clears none of their
 		// caches; TSInit, Spawn, Precache, Killed and ForceClientDllUpdate do.)
 	}
@@ -4516,15 +4509,8 @@ void CBasePlayer::UpdateClientData()
 	// (cd->fov), which HUD_PostRunCmd copies to g_lastFOV, in client.dll as in the SDK. m_iClientFOV
 	// is still cached at the end of this function for the weapons' change checks.
 
-	// HACKHACK -- send the message to display the game title
-	//TODO: will not work properly in multiplayer
-	if (gDisplayTitle)
-	{
-		MESSAGE_BEGIN(MSG_ONE, gmsgShowGameTitle, NULL, pev);
-		WRITE_BYTE(0);
-		MESSAGE_END();
-		gDisplayTitle = false;
-	}
+	// (no game title: the original registers ShowGameTitle and never sends it; its only GOT use of
+	// gDisplayTitle is CWorld::Precache, which sets it.)
 
 	// (no Health or Battery message: the original registers both and sends neither; its only GOT uses
 	// of gmsgHealth and gmsgBattery are in LinkUserMessages. The HUD and TSX read TSHealth/TSArmor below.)
@@ -4538,84 +4524,16 @@ void CBasePlayer::UpdateClientData()
 	// it. TSX reads dmg_take and dmg_inflictor when TSHealth goes out below and clears dmg_take
 	// itself, so a clear here hid every hit and kill from it. dossier-gmsg U4a.)
 
-	// Update Flashlight (battery drain/charge only — the Flashlight/FlashBat user messages are
-	// NOT registered by the original TS; removed for registration-set parity, dossier-gmsg U0.)
-	if ((0 != m_flFlashLightTime) && (m_flFlashLightTime <= gpGlobals->time))
-	{
-		if (FlashlightIsOn())
-		{
-			if (0 != m_iFlashBattery)
-			{
-				m_flFlashLightTime = FLASH_DRAIN_TIME + gpGlobals->time;
-				m_iFlashBattery--;
+	// (no flashlight upkeep: the original has no flashlight functions and no battery handling here;
+	// no WeaponList, which the original registers and never sends, its only GOT use of gmsgWeaponList
+	// being LinkUserMessages; no SendAmmoUpdate, which nothing in the original calls; no CurWeapon;
+	// no status bar, which the original lacks; no room type, which env_sound sends when it takes
+	// over the player, @0xd0003.)
 
-				if (0 == m_iFlashBattery)
-					FlashlightTurnOff();
-			}
-		}
-		else
-		{
-			if (m_iFlashBattery < 100)
-			{
-				m_flFlashLightTime = FLASH_CHARGE_TIME + gpGlobals->time;
-				m_iFlashBattery++;
-			}
-			else
-				m_flFlashLightTime = 0;
-		}
-	}
-
-
-	if ((m_iTrain & TRAIN_NEW) != 0)
-	{
-		ASSERT(gmsgTrain > 0);
-		// send "health" update message
-		MESSAGE_BEGIN(MSG_ONE, gmsgTrain, NULL, pev);
-		WRITE_BYTE(m_iTrain & 0xF);
-		MESSAGE_END();
-
-		m_iTrain &= ~TRAIN_NEW;
-	}
-
-	// (no WeaponList: the original registers it and never sends it, its only GOT use of gmsgWeaponList
-	// is in LinkUserMessages; TS's one weapon_tsgun needs no weapon-type list on the client.)
-
-
-	SendAmmoUpdate();
-
-	// Update all the items
-	for (int i = 0; i < MAX_ITEM_TYPES; i++)
-	{
-		if (m_rgpPlayerItems[i]) // each item updates it's successors
-			m_rgpPlayerItems[i]->UpdateClientData(this);
-	}
-
-	// (the stock "no weapon selected" CurWeapon is gone: the original's UpdateClientData @0x81d00
-	// sends no CurWeapon)
-
-	// Cache and client weapon change
-	m_pClientActiveItem = m_pActiveItem;
-	m_iClientFOV = m_iFOV;
-
-	// Update Status Bar
-	if (m_flNextSBarUpdateTime < gpGlobals->time)
-	{
-		UpdateStatusBar();
-		m_flNextSBarUpdateTime = gpGlobals->time + 0.2;
-	}
-
-	// (no room type here: env_sound sends it when it takes over the player, @0xd0003.)
-
-	// The Specialists custom-HUD messages (TSHealth/TSArmor/TSCash/...). The original
-	// drives its own HUD from here instead of relying on the stock Health/Battery.
-	// @ the TS block of CBasePlayer::UpdateClientData @0x81d00 (fold-plan G2 — was the invented
-	// helper TSUpdateClientData; the original has no such method, this IS part of UCD). Each
-	// message is throttled-by-change (only sent when the cached value differs) exactly as the
-	// original does. Health is truncated (below); armor is rounded here, where the original
-	// truncates it as well (@0x82074); cash is a short.
-	// NB (G2 follow-ups, ledger): the original ORDERS these differently and interleaves them
-	// with the stock sends (InitHUD-block -> HideWeapon -> TSHealth -> TSArmor -> Train ->
-	// TSState -> TSCash -> TSSpace ...), and sends no stock Health/Battery at all.
+	// The Specialists custom-HUD messages (TSHealth/TSArmor/TSCash/...), in the original's order:
+	// HideWeapon (above), TSHealth, TSArmor, Train, TSState, TSCash, TSSpace, PwUp, TSSlowMo, TSBTime,
+	// ActItems, TSPAward, Wires, then the active gun's own update (@0x81f4c-0x82586). Each goes out
+	// when its value differs from the one cached at the last send.
 	{
 		extern int gmsgTSHealth, gmsgTSArmor, gmsgTSState, gmsgTSCash, gmsgTSSpace; // ts_player.cpp globals
 		extern int gmsgTSPowerUp, gmsgTSSlowAmt, gmsgTSBulletTime, gmsgTSPlayerAward, gmsgTSWires;
@@ -4643,9 +4561,19 @@ void CBasePlayer::UpdateClientData()
 			MESSAGE_END();
 		}
 
+		// Train (@0x820f7-0x82146): after TSArmor, when the train state is flagged new.
+		if ((m_iTrain & TRAIN_NEW) != 0)
+		{
+			MESSAGE_BEGIN(MSG_ONE, gmsgTrain, NULL, pev);
+			WRITE_BYTE(m_iTrain & 0xF);
+			MESSAGE_END();
+
+			m_iTrain &= ~TRAIN_NEW;
+		}
+
 		// TSState — the posture byte (0 stand / 1 duck / 2 stunt-prone), source 0x498 / cache 0x499.
 		// Plain on-change, NO ResetHUD-forced resend (the original's InitHUD memset deliberately
-		// starts at 0x49A and skips this cache). Original send order: TSArmor -> TSState -> TSCash.
+		// starts at 0x49A and skips this cache). Original send order: Train -> TSState -> TSCash.
 		if (m_iPlayerState != m_iClientTSState)
 		{
 			m_iClientTSState = m_iPlayerState;
@@ -4769,8 +4697,13 @@ void CBasePlayer::UpdateClientData()
 		}
 	}
 
-	//Handled anything that needs resetting
-	m_bRestored = false;
+	// @0x82546: only the active item updates its client, and only when it is the gun (id 16): no loop
+	// over every item. Then the active item and the field of view are cached (@0x82574, @0x82580).
+	if (m_pActiveItem && m_pActiveItem->m_iId == TSGUN_WEAPON_ID)
+		m_pActiveItem->UpdateClientData(this);
+
+	m_pClientActiveItem = m_pActiveItem;
+	m_iClientFOV = m_iFOV;
 }
 
 

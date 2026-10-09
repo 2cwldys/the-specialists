@@ -7197,3 +7197,32 @@ Found, not changed: TS 3.0 sends two svc_weaponanim (1, 0) in each joiner StartO
 goes after TSArmor in the original's UpdateClientData; the respawn countdown's first number and frame and
 the "Press Fire To Play!" line differ; Fall goes on after settling in the original. More in amxxbench
 docs/fixes/rets-deviations17-report.md.
+
+## 2026-10-09 — round 18: StartObserver's holster, UpdateClientData, the countdown, TSFade, Fall
+
+Round 18 (amxxbench docs/fixes/rets-deviations18.md), the round-17 leftovers. One patch per item in
+~/stignored/rets-deviations18.
+- 1 StartObserver (@0x8970f-0x89755): with the gun in hand Reset and HolsterWeapon, then Holster(0)
+  (HolsterWeapon again). HolsterWeapon's kung fu draw goes out with skiplocal 0 (@0x75858), now forced
+  with m_ForceSendAnimations, so a joiner gets two svc_weaponanim in his InitHUD frame as on TS 3.0, and
+  a predicting client gets the draw on every switch.
+- 2 UpdateClientData as the original's (@0x81d00-0x82593): Train after TSArmor; no flashlight upkeep,
+  game title, InitStatusBar, status bar, SendAmmoUpdate, item loop or m_bRestored clear; only the
+  active item's update when it is the gun (id 16), then the active item and FOV caches.
+- 3 PreThink runs MakeVectors, ItemPreFrame, WaterMove, UpdateClientData, CheckTimeBasedDamage and
+  CheckSuitUpdate right after the game-over return (@0x80940-0x8096c), before the TS upkeep and the
+  spectate block, so the joiner's first countdown line goes out in his InitHUD frame; the spectate
+  block's own UpdateClientData call (cont.98) is gone. The countdown truncates (@0x80edc chop), shows
+  "Press Fire To Play!" when that gives 0 and paints nothing after the gate (round 7f/7g's rounding and
+  post-gate prompt undone; 7g's missing prompt came from the rounding).
+- 4 TSFade divides by GiveSlowMul and truncates (@0xdccbf, @0xdccfb), no +0.5. The spawn fade's 4095/4096
+  depends only on the spawn time's float bits; reTS computes it as the original for every float time
+  (~/stignored/rets-deviations18/tools/fadecheck.c).
+- 5 CTSWorldGun::Fall goes on after OnGround to the lifetime check, trace and upkeep (@0x90e4e).
+- 6 Client: hud.cpp's unused IN_GetMouseSensitivity declaration removed.
+Tests: ts_messages (two weapon anims at the joiner's StartObserver; Train after TSArmor; the countdown;
+TSFade at slow 0.6), ts_dropped (the settling think runs the slow-motion upkeep), reTS + ts30.
+Found, not changed: StartObserver drops the flag before the holster (the original after); WeaponIdle and
+CCombatIdle send with skiplocal 0 in the original; the LMS window line rounds and its expiry runs outside
+the spectate block; Fall's trace skips players in the original; impulse 100's flashlight has no original;
+PwUp's byte is clamped at 0 in the original. More in amxxbench docs/fixes/rets-deviations18-report.md.
