@@ -30,13 +30,15 @@ _Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI
 
 ### Server console commands (ClientCommand dispatch)
 
-_Commands the server accepts from a client (exact strcmp dispatch). EXTRA = the prime 'invented/HL-leftover' signal. NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths (strstr/sscanf), not captured here — so `weapon_<N>` is not flagged._
+_Commands the server accepts from a client (exact strcmp dispatch in ClientCommand and the game rules' ClientCommand). EXTRA = the prime 'invented/HL-leftover' signal. NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths (strstr/sscanf), not captured here — so `weapon_<N>` is not flagged._
 
-- matched: **20**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **1**
+- matched: **21**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **0**
 
-**EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
+### Server console commands (pfnAddServerCommand)
 
-  `menuselect`
+_Commands the server registers for its own console and rcon. Original = every pfnAddServerCommand call in ts_i386.so; ours = pfnAddServerCommand/ADD_SERVER_COMMAND in dlls/._
+
+- matched: **7**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **0**
 
 ### Client console commands (pfnAddCommand)
 
@@ -96,14 +98,13 @@ _Source = cvar_t structs in ts_i386.so .data (authoritative). MISSING = a gamepl
 
 ---
 ## Coverage status / remaining gaps
-DONE (the by-name swap contract): entity classes, client cldll exports, server+client console commands,
-client cvars (binary `pfnRegisterVariable`) + **server cvars** (binary `cvar_t` scan) both with default
-mismatch, user messages (client-hooked), events, default.cfg input cross-check. Plus vtable layouts for all
+DONE (the by-name swap contract): entity classes, client cldll exports, server console commands (client
+ClientCommand dispatch and pfnAddServerCommand) and client console commands, client cvars (binary
+`pfnRegisterVariable`) + **server cvars** (binary `cvar_t` scan) both with default mismatch, user messages
+(client-hooked) and their wire sizes, events, default.cfg input cross-check. Plus vtable layouts for all
 226 classes (`extract_vtables.py` → VTABLES.md).
 
 NOT yet automated (extend this harness):
-- **user-message wire SIZES** — the `pfnRegUserMsg(name,size)` call sites (name via GOT ptr, size imm); 
-  the NAMES are covered, sizes are the refinement.
 - **cvar call-site tracing** (where each cvar is READ) — xref pfnCVarGetFloat/Pointer to compare usage.
 - **engine-call usage** (which g_engfuncs we call vs original) — by construction we use the SDK's fixed
   engine_t, so we can't call a nonexistent one; a usage diff is informational only.

@@ -912,6 +912,7 @@
   "fullupdate",
   "jointeam",
   "lastinv",
+  "menuselect",
   "motd",
   "powerup",
   "respawn",
@@ -924,6 +925,15 @@
   "use",
   "useitems",
   "usepowerup"
+ ],
+ "server_console_commands": [
+  "addbot",
+  "addcustombot",
+  "globalslow",
+  "loadweapons",
+  "restartround",
+  "saveweapons",
+  "weaponrestriction"
  ],
  "server_cvars": {
   "ammocount": "0",

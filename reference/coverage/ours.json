@@ -726,6 +726,15 @@
   "usepowerup",
   "weapon_<N>"
  ],
+ "server_console_commands": [
+  "addbot",
+  "addcustombot",
+  "globalslow",
+  "loadweapons",
+  "restartround",
+  "saveweapons",
+  "weaponrestriction"
+ ],
  "server_cvars": {
   "ammocount": "0",
   "banfortk": "0",

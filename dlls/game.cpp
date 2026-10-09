@@ -235,8 +235,6 @@ void GameDLLInit()
 	g_engfuncs.pfnAddServerCommand("loadweapons", cmd_loadweapons); // swap-contract command names
 	g_engfuncs.pfnAddServerCommand("saveweapons", cmd_saveweapons);
 
-	InitMapLoadingUtils();
-
 	SERVER_COMMAND("exec skill.cfg\n");
 }
 

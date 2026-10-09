@@ -6,9 +6,9 @@ swap — see mod-ts/CLAUDE.md "compatibility target"):
 
   * server **entity factories** (LINK_ENTITY_TO_CLASS C exports — the engine spawns by these)
   * client **cldll exports** (HUD_*/Initialize/ClientFactory — the engine→client ABI spine)
-  * **console commands** the client/server accept (server ClientCommand dispatch + client
-    pfnAddCommand) — catches commands we INVENTED, ones we MISSED, and HL leftovers we should
-    have removed
+  * **console commands** the client/server accept (server ClientCommand dispatch, server
+    pfnAddServerCommand, client pfnAddCommand) — catches commands we INVENTED, ones we MISSED,
+    and HL leftovers we should have removed
   * **cvars** (names; defaults where the original default.cfg pins them)
   * a **default.cfg cross-check**: every command the original binds must be handled by our
     client OR server (end-to-end: press the key → something answers)
@@ -310,10 +310,23 @@ def fn_range(path, mangled_substr):
             return a, nxt
     return None, None
 
+# ClientCommand and the game rules' ClientCommand methods it falls through to (the original
+# answers "menuselect" in CHalfLifeMultiplay's and CHalfLifeTeamplay's, not in ClientCommand).
+CLIENT_COMMAND_FUNCS = ("ClientCommand__FP7edict_s",
+                        "ClientCommand__18CHalfLifeMultiplayP11CBasePlayerPCc",
+                        "ClientCommand__17CHalfLifeTeamplayP11CBasePlayerPCc")
+
 def server_client_commands_orig(path):
-    """The strcmp(argv0, "...") dispatch in ClientCommand — the commands the original server
-    accepts from a client. Resolves the PIC `lea -off(%ebx)` string operands via the GOT."""
-    start, end = fn_range(path, "ClientCommand__FP7edict_s")
+    """The strcmp(argv0, "...") dispatch in ClientCommand and the game rules' ClientCommand —
+    the commands the original server accepts from a client. Resolves the PIC `lea -off(%ebx)`
+    string operands via the GOT."""
+    cmds = set()
+    for fn in CLIENT_COMMAND_FUNCS:
+        cmds |= strcmp_commands_in(path, fn)
+    return cmds
+
+def strcmp_commands_in(path, fn):
+    start, end = fn_range(path, fn)
     if start is None: return set()
     data = open(path, "rb").read()
     dis = sh("objdump", "-d", f"--start-address=0x{start:x}", f"--stop-address=0x{end:x}", path).splitlines()
@@ -337,6 +350,29 @@ def server_client_commands_orig(path):
             last_lea = None
     return cmds
 
+ADD_SERVER_COMMAND_SLOT = 0x230  # enginefuncs_t::pfnAddServerCommand (index 140)
+
+def server_console_commands_orig(path):
+    """Every pfnAddServerCommand(name, fn) the original registers: `call *0x230(%reg)` with the
+    name the `lea -off(%ebx)` just before it (GOT-relative, as in ClientCommand)."""
+    data = open(path, "rb").read()
+    cmds, last_lea = set(), None
+    for ln in sh("objdump", "-d", path).splitlines():
+        m = re.search(r"lea\s+-0x([0-9a-f]+)\(%ebx\)", ln)
+        if m:
+            va = GOT_BASE - int(m.group(1), 16)
+            end_s = data.find(b"\x00", va)
+            try: last_lea = data[va:end_s].decode("ascii")
+            except (UnicodeDecodeError, ValueError): last_lea = None
+            continue
+        if re.search(r"call\s+\*0x%x\(%%e[a-z]{2}\)" % ADD_SERVER_COMMAND_SLOT, ln):
+            if last_lea and re.fullmatch(r"[A-Za-z_][\w]{0,40}", last_lea):
+                cmds.add(last_lea)
+            last_lea = None
+        elif "call" in ln:
+            last_lea = None
+    return cmds
+
 # ---------------------------------------------------------------- ours (from source)
 def grep_set(pattern, *globs, group=1):
     out = set()
@@ -357,6 +393,10 @@ def our_server_commands():
     if grep_set(r'strncmp\(\s*pcmd\s*,\s*"weapon_"', "dlls", group=0):
         cmds.add("weapon_<N>")
     return cmds
+
+def our_server_console_commands():
+    return (grep_set(r'pfnAddServerCommand\(\s*"([^"]+)"', "dlls") |
+            grep_set(r'ADD_SERVER_COMMAND\(\s*"([^"]+)"', "dlls"))
 
 def our_client_commands():
     return (grep_set(r'HOOK_COMMAND\(\s*"([^"]+)"', "cl_dll") |
@@ -505,6 +545,7 @@ def extract_original():
         "entities": sorted(fgd_entities(ORIG_FGD)),  # FGD = authoritative mapper-facing set
         "client_exports": sorted(pe_exports(ORIG_CLIENT)) if os.path.exists(ORIG_CLIENT) else [],
         "server_commands": sorted(server_client_commands_orig(ORIG_SERVER)) if os.path.exists(ORIG_SERVER) else [],
+        "server_console_commands": sorted(server_console_commands_orig(ORIG_SERVER)) if os.path.exists(ORIG_SERVER) else [],
         "client_commands": sorted(drop_release_halves(client_commands_orig(ORIG_CLIENT))) if os.path.exists(ORIG_CLIENT) else [],
         "client_cvars": client_cvars_orig(ORIG_CLIENT) if os.path.exists(ORIG_CLIENT) else {},  # binary-registered (authoritative)
         "server_cvars": server_cvars_orig(ORIG_SERVER) if os.path.exists(ORIG_SERVER) else {},  # cvar_t scan (authoritative)
@@ -524,6 +565,7 @@ def extract_ours():
         "entities": sorted(our_link_entities()),  # LINK_ENTITY_TO_CLASS classnames
         "client_exports": sorted(elf_dynexports(OUR_CLIENT)) if os.path.exists(OUR_CLIENT) else [],
         "server_commands": sorted(our_server_commands()),
+        "server_console_commands": sorted(our_server_console_commands()),
         "client_commands": sorted(drop_release_halves(our_client_commands())),
         "cvars": our_cvars_with_defaults(),
         "server_cvars": our_server_cvars(),
@@ -586,10 +628,16 @@ def diff():
                       "Engine→client entry points. NB: orig client.dll exports may include MSVC/VGUI decoration; cross-check by base name.")
     L += s
     s, miss_sc, extra_sc = section("Server console commands (ClientCommand dispatch)", o["server_commands"], u["server_commands"],
-                      "Commands the server accepts from a client (exact strcmp dispatch). EXTRA = the prime 'invented/HL-leftover' signal. "
+                      "Commands the server accepts from a client (exact strcmp dispatch in ClientCommand and the game rules' "
+                      "ClientCommand). EXTRA = the prime 'invented/HL-leftover' signal. "
                       "NB the original ALSO accepts the numeric `weapon_<N>` select + the `weapon_%d` buy args via non-strcmp paths "
                       "(strstr/sscanf), not captured here — so `weapon_<N>` is not flagged.",
                       ignore_extra={"weapon_<N>"})
+    L += s
+    s, miss_svc, extra_svc = section("Server console commands (pfnAddServerCommand)", o["server_console_commands"],
+                      u["server_console_commands"],
+                      "Commands the server registers for its own console and rcon. Original = every "
+                      "pfnAddServerCommand call in ts_i386.so; ours = pfnAddServerCommand/ADD_SERVER_COMMAND in dlls/.")
     L += s
     s, _, _ = section("Client console commands (pfnAddCommand)", o["client_commands"], u["client_commands"],
                       "Commands the client registers. Many are stock HL (shared); focus on TS-specific gaps.")
@@ -690,14 +738,13 @@ def diff():
         L += ["", "**SERVER-CVAR DEFAULT MISMATCHES:**", "", "  " + " · ".join(smism), ""]
 
     L += ["---", "## Coverage status / remaining gaps",
-          "DONE (the by-name swap contract): entity classes, client cldll exports, server+client console commands,",
-          "client cvars (binary `pfnRegisterVariable`) + **server cvars** (binary `cvar_t` scan) both with default",
-          "mismatch, user messages (client-hooked), events, default.cfg input cross-check. Plus vtable layouts for all",
+          "DONE (the by-name swap contract): entity classes, client cldll exports, server console commands (client",
+          "ClientCommand dispatch and pfnAddServerCommand) and client console commands, client cvars (binary",
+          "`pfnRegisterVariable`) + **server cvars** (binary `cvar_t` scan) both with default mismatch, user messages",
+          "(client-hooked) and their wire sizes, events, default.cfg input cross-check. Plus vtable layouts for all",
           "226 classes (`extract_vtables.py` → VTABLES.md).",
           "",
           "NOT yet automated (extend this harness):",
-          "- **user-message wire SIZES** — the `pfnRegUserMsg(name,size)` call sites (name via GOT ptr, size imm); ",
-          "  the NAMES are covered, sizes are the refinement.",
           "- **cvar call-site tracing** (where each cvar is READ) — xref pfnCVarGetFloat/Pointer to compare usage.",
           "- **engine-call usage** (which g_engfuncs we call vs original) — by construction we use the SDK's fixed",
           "  engine_t, so we can't call a nonexistent one; a usage diff is informational only.",
@@ -707,7 +754,8 @@ def diff():
     rep = os.path.join(OUT, "REPORT.md")
     open(rep, "w").write("\n".join(L))
     print(f"wrote {rep}")
-    print(f"server commands: {len(miss_sc)} missing, {len(extra_sc)} extra; {len(unanswered)} unanswered binds")
+    print(f"server commands: {len(miss_sc)} missing, {len(extra_sc)} extra; server console commands: "
+          f"{len(miss_svc)} missing, {len(extra_svc)} extra; {len(unanswered)} unanswered binds")
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "all"

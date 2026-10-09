@@ -7331,3 +7331,28 @@ Round 22 (amxxbench docs/fixes/rets-deviations22.md). One patch per item in ~/st
 Tests (reTS + ts30): ts_gamerules (spawn zeroing extended to 0x750/0x788 and chat clock 0, no
 bunnyhop/pushable cvars or bj key, pushable push/pull), ts_damage (seed rerolled). Details in amxxbench
 docs/fixes/rets-deviations22-report.md.
+
+## 2026-10-09 — round 23: the TS 3.0 start-up crash, then the round-22 leftovers
+
+Round 23 (amxxbench docs/fixes/rets-deviations23.md). One patch per item in ~/stignored/rets-deviations23.
+- 1 The TS 3.0 crash of round 22 (core pid 287512): the world edict was free with no private data and
+  classname worldspawn, serial 1 (ED_ParseEdict's no-init path: the engine's GetEntityInit found no
+  "worldspawn" in metamod's or ts_i686.so's handle, though both were in its extension table at the
+  crash). CWorld::Spawn/Precache never ran (27 sound precaches, no ClientPrecache, no rules, no
+  server.cfg from the rules), so the first puppet's ClientConnect called a NULL g_pGameRules. Not the
+  bench's game.cfg handling, not a map change, not the LMS patch; one map load in ~4,900 on that copy.
+  ReHLDS looks entities up the same way, so reTS has the window: ClientConnect now refuses a client when
+  g_pGameRules is NULL (before the ts_playeramount relays count him). The bench runs no tests on a map
+  whose world did not spawn (amxxbench 804c1c6).
+- 2 amxxbench run.sh passes the filter in AMXXBENCH (f4e04bf); bench only.
+- 3 sv_load_all_maps / sv_stop_loading_all_maps removed (halflife-updated 19d94e4, Sam V, for node
+  graph generation; not in ts_i386.so), with their StartFrame hook and includes. coverage.py lists
+  the server's pfnAddServerCommand registrations (original: the `call *0x230` sites in GameDLLInit);
+  REPORT.md: 7 matched, 0 extra.
+- 4 menuselect is the original's: CHalfLifeMultiplay::ClientCommand (@0xbeee8) and
+  CHalfLifeTeamplay::ClientCommand (@0xd43c8) strcmp it (string @0xfd78f). coverage.py only read
+  ClientCommand; it now reads the game rules' too. Server client commands: 21 matched, 0 extra. No code
+  change.
+Tests (reTS + ts30): ts_gamerules no_load_all_maps_commands; ts_powerup_state's duck roll test now
+faces open ground (a spawn spot facing a wall failed it once in 42 runs). Details in amxxbench
+docs/fixes/rets-deviations23-report.md.

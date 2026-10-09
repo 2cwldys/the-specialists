@@ -23,13 +23,8 @@
 
 */
 
-#include <algorithm>
-#include <string>
-#include <vector>
-
 #include "extdll.h"
 #include "util.h"
-#include "filesystem_utils.h"
 #include "cbase.h"
 #include "com_model.h"
 #include "saverestore.h"
@@ -58,7 +53,6 @@ int gmsgTSPlayerInfo = 0;
 #include "usercmd.h"
 #include "netadr.h"
 #include "pm_shared.h"
-#include "pm_defs.h"
 #include "UserMessages.h"
 
 DLL_GLOBAL unsigned int g_ulFrameCount;
@@ -93,6 +87,17 @@ called when a player connects to a server
 */
 qboolean ClientConnect(edict_t* pEntity, const char* pszName, const char* pszAddress, char szRejectReason[128])
 {
+	// No game rules means the map's worldspawn never spawned (the engine found no game class for
+	// it, so CWorld::Precache never installed them). The original calls g_pGameRules unchecked
+	// below and crashes (ClientConnect @0x9cce8; seen once on TS 3.0). Refuse the client instead,
+	// before the relays count him.
+	if (!g_pGameRules)
+	{
+		strncpy(szRejectReason, "The map did not load on the server", 127);
+		szRejectReason[127] = '\0';
+		return 0;
+	}
+
 	// TS: drive the ts_playeramount relays (per-event counter -> connecttarget on == clients).
 	CBaseEntity* pRelay = nullptr;
 	while ((pRelay = UTIL_FindEntityByClassname(pRelay, "ts_playeramount")) != nullptr)
@@ -944,101 +949,6 @@ void ParmsChangeLevel()
 		pSaveData->connectionCount = BuildChangeList(pSaveData->levelList, MAX_LEVEL_CONNECTIONS);
 }
 
-static std::vector<std::string> g_MapsToLoad;
-
-static void LoadNextMap()
-{
-	const std::string mapName = std::move(g_MapsToLoad.back());
-	g_MapsToLoad.pop_back();
-
-	pmove->Con_Printf("Loading map \"%s\" automatically (%d left)\n",
-		mapName.c_str(), static_cast<int>(g_MapsToLoad.size() + 1));
-
-	if (g_MapsToLoad.empty())
-	{
-		pmove->Con_Printf("Loading last map\n");
-		g_MapsToLoad.shrink_to_fit();
-	}
-
-	SERVER_COMMAND(UTIL_VarArgs("map \"%s\"\n", mapName.c_str()));
-}
-
-static void LoadAllMaps()
-{
-	if (!g_MapsToLoad.empty())
-	{
-		pmove->Con_Printf("Already loading all maps (%d remaining)\nUse sv_stop_loading_all_maps to stop\n",
-			static_cast<int>(g_MapsToLoad.size()));
-		return;
-	}
-
-	FileFindHandle_t handle = FILESYSTEM_INVALID_FIND_HANDLE;
-
-	const char* fileName = g_pFileSystem->FindFirst("maps/*.bsp", &handle);
-
-	if (fileName != nullptr)
-	{
-		do
-		{
-			std::string mapName = fileName;
-			mapName.resize(mapName.size() - 4);
-
-			if (std::find_if(g_MapsToLoad.begin(), g_MapsToLoad.end(), [=](const auto& candidate)
-					{ return 0 == stricmp(candidate.c_str(), mapName.c_str()); }) == g_MapsToLoad.end())
-			{
-				g_MapsToLoad.push_back(std::move(mapName));
-			}
-		} while ((fileName = g_pFileSystem->FindNext(handle)) != nullptr);
-
-		g_pFileSystem->FindClose(handle);
-
-		// Sort in reverse order so the first map in alphabetic order is loaded first.
-		std::sort(g_MapsToLoad.begin(), g_MapsToLoad.end(), [](const auto& lhs, const auto& rhs)
-			{ return rhs < lhs; });
-	}
-
-	if (!g_MapsToLoad.empty())
-	{
-		if (CMD_ARGC() == 2)
-		{
-			const char* firstMapToLoad = CMD_ARGV(1);
-
-			// Clear out all maps that would have been loaded before this one.
-			if (auto it = std::find(g_MapsToLoad.begin(), g_MapsToLoad.end(), firstMapToLoad);
-				it != g_MapsToLoad.end())
-			{
-				const std::size_t numberOfMapsToSkip = g_MapsToLoad.size() - (it - g_MapsToLoad.begin());
-
-				g_MapsToLoad.erase(it + 1, g_MapsToLoad.end());
-
-				pmove->Con_Printf("Skipping %d maps to start with \"%s\"\n",
-					static_cast<int>(numberOfMapsToSkip), g_MapsToLoad.back().c_str());
-			}
-			else
-			{
-				pmove->Con_Printf("Unknown map \"%s\", starting from beginning\n", firstMapToLoad);
-			}
-		}
-
-		pmove->Con_Printf("Loading %d maps one at a time to generate files\n", static_cast<int>(g_MapsToLoad.size()));
-
-		// Load the first map right now.
-		LoadNextMap();
-	}
-	else
-	{
-		pmove->Con_Printf("No maps to load\n");
-	}
-}
-
-void InitMapLoadingUtils()
-{
-	g_engfuncs.pfnAddServerCommand("sv_load_all_maps", &LoadAllMaps);
-	// Escape hatch in case the command is executed in error.
-	g_engfuncs.pfnAddServerCommand("sv_stop_loading_all_maps", []()
-		{ g_MapsToLoad.clear(); });
-}
-
 //
 // GLOBALS ASSUMED SET:  g_ulFrameCount
 //
@@ -1052,13 +962,6 @@ void StartFrame()
 
 	gpGlobals->teamplay = teamplay.value;
 	g_ulFrameCount++;
-
-	// If we're loading all maps then change maps after 3 seconds (time starts at 1)
-	// to give the game time to generate files.
-	if (!g_MapsToLoad.empty() && gpGlobals->time > 4)
-	{
-		LoadNextMap();
-	}
 }
 
 
