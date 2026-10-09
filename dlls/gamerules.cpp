@@ -212,13 +212,8 @@ CGameRules* InstallGameRules()
 	SERVER_COMMAND("exec game.cfg\n");
 	SERVER_EXECUTE();
 
-	if (1 == sv_busters.value)
-	{
-		g_teamplay = false;
-		TSGameRules = nullptr;
-		return new CMultiplayBusters;
-	}
-	else if (0 == gpGlobals->deathmatch)
+	// @0xb6050: straight from game.cfg to the deathmatch test (no busters rules in the original)
+	if (0 == gpGlobals->deathmatch)
 	{
 		// generic half-life
 		g_teamplay = false;

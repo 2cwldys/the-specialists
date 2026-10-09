@@ -31,7 +31,6 @@ extern cvar_t friendlyfire;
 extern cvar_t falldamage;
 extern cvar_t weaponstay;
 extern cvar_t forcerespawn;
-extern cvar_t flashlight;
 extern cvar_t aimcrosshair;
 extern cvar_t decalfrequency;
 extern cvar_t teamlist;
@@ -42,7 +41,6 @@ extern cvar_t mp_chattime;
 
 extern cvar_t sv_allowbunnyhopping;
 
-extern cvar_t sv_busters;
 
 // Engine Cvars
 inline cvar_t* g_psv_gravity;

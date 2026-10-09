@@ -170,7 +170,7 @@ void TSPlayerDisconnect(CBasePlayer *pPlayer)
 	pPlayer->pev->frags = 0;
 	// player+0xb30 = 0 / +0xb48 byte = 0 / +0x9b8 = 0 (unnamed transients)
 	pPlayer->m_flNextClientUpdate = -1.0f; // 0x534 (@0x8fa3e): no more UpdateClientData for the leaver
-	pPlayer->m_flTSRespawnTime = -4.0f; // 0x770
+	pPlayer->m_flTSRespawnTime = -1.0f; // 0x770 (@0x8fa06): wait for the next round
 	pPlayer->pev->effects = EF_NODRAW;
 	pPlayer->pev->health = 0;
 	pPlayer->m_bTheOne = 0; // 0x7b9

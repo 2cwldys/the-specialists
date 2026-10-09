@@ -1162,8 +1162,7 @@ void ClientPrecache()
 	PRECACHE_SOUND("debris/glass2.wav");
 	PRECACHE_SOUND("debris/glass3.wav");
 
-	PRECACHE_SOUND(SOUND_FLASHLIGHT_ON);
-	PRECACHE_SOUND(SOUND_FLASHLIGHT_OFF);
+	// (no items/flashlight1.wav: the original has no flashlight and no such string)
 
 	// player gib sounds
 	PRECACHE_SOUND("common/bodysplat.wav");

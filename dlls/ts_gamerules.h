@@ -242,7 +242,7 @@ public:
 // original's home file). INTERIM: the original `TSGameRules` is a static OBJECT @0x1681a0
 // (22,676 bytes, standalone class — no vtable, base null) that COEXISTS with g_pGameRules;
 // the object-ness lands with the rules split (fold-plan R1). Null outside the CTSGameRules
-// branch (deathmatch 0 / busters).
+// branch (deathmatch 0).
 extern CTSGameRules *TSGameRules;
 
 // ---- melee deflect gates (free functions, TS_gamerules.cpp; RE dossier-melee §1.3) ----

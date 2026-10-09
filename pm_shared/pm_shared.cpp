@@ -3105,7 +3105,7 @@ void PM_PlayerMove(qboolean server)
 	// engine) dilates ONLY the movement integration step — origin advances slower — while pmove->velocity
 	// (units/sec) is left UNTOUCHED. That's how the original slows you without dropping |velocity| below the
 	// side-kick's 270 gate. Below 0.1 the original freezes (frametime=0), 0 included: GoSlow(0) is a freeze
-	// (@0xf0928). The server keeps an unset fuser1 at 1.0 (CBasePlayer::PreThink).
+	// (@0xf0928). TSInit and StartObserver set the player's fuser1 to 1.0.
 	if (pmove->fuser1 >= 0.1f)
 		pmove->frametime *= pmove->fuser1;
 	else

@@ -7280,3 +7280,29 @@ Found, not changed: the gate sentinel is -1.0 in the original, -4.0 in reTS (thr
 roll stamp and sound pitch; ItemPostFrame runs impulses during the spawn's attack delay in the original;
 PreThink's fuser1 0 -> 1 guard; mp_flashlight cvar and flashlight1.wav precache; CMultiplayBusters and
 sv_busters; TSInit's unnamed zeroings. Details in amxxbench docs/fixes/rets-deviations20-report.md.
+
+## 2026-10-09 — round 21: three game.cfg tests, then the round-20 leftovers
+
+Round 21 (amxxbench docs/fixes/rets-deviations21.md). One patch per item in ~/stignored/rets-deviations21.
+- 1 ts_gamerules (team spot, repeated team name) and ts_rounds (teamplay wipe) failed on a server whose
+  game.cfg says mp_teamplay 0 (both games): they now set game.cfg aside without that line for their map
+  change. Tests only.
+- 2 The wait-for-next-round mark is -1.0 at all three writers (@0x660dc, @0x80fe9, @0x8fa06); 55f85a0 had
+  made the PreThink one -4.0 from a misread decompile.
+- 3 Super-jump landing: m_flRollNextTime = time + 0.3 before GoRoll (@0x81940), so the duck landing rolls;
+  the plant's sound at pitch 95 + RANDOM_LONG(0, 31) (@0x81997).
+- 4 CBasePlayer::ItemPostFrame's attack-delay hold as @0xcc4ff: only a gun with a weapon in hand is held,
+  and +alt2 on a reloading gun with a bash gets through. Impulses and bare hands run during the delay.
+- 5 No fuser1 0 -> 1.0 step in PreThink (none before @0x80974); the client floors the predicted slow
+  factor at 0.01 (client.dll 0x10055aa0) instead of reading 0 as 1.0.
+- 6 mp_flashlight and the items/flashlight1.wav precache removed.
+- 7 CMultiplayBusters, sv_busters and the busting helpers removed (InstallGameRules @0xb6050).
+- 8 TSInit zeroes 0x740, 0x77c-0x784, the 33 dwords at 0x184 (new members m_iTSInit*, last in
+  CBasePlayer so nothing moves; nothing else in ts_i386.so touches them) and the chat clock (0x7c0 =
+  m_flNextChatTime, read by Host_Say @0x9d09c).
+Tests (reTS + ts30): ts_observer (gate -1.0), ts_powerup_state (landing pitch, duck roll, slow factor
+from 0), ts_cheats (impulse in the spawn delay), ts_damage (bash cuts a reload), ts_gamerules (no
+flashlight/busters, spawn zeroing). Found, not changed: ItemPostFrame's second m_pTank check and its
+missing random_seed reroll (@0xcc575); TSInit also zeroes 0x750 (m_flNextPTakeDamTime) and 0x788;
+Spawn's stock m_flNextChatTime = time; sv_allowbunnyhopping and sv_pushable_fixed_tick_fudge are
+not in the original. Details in amxxbench docs/fixes/rets-deviations21-report.md.

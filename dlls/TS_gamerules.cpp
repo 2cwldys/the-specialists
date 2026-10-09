@@ -158,7 +158,7 @@ edict_t *TSSelectSpawnSpot(const char *szClass, CBaseEntity *pPlayer, const char
 // @0x65ff4 SetPlayerRespawnTime(player, seconds, bool) — EVERY respawn-wait path funnels here
 // (InitHUD join / Killed death / ChangePlayerTeam(5s)). The bool arg is dead in the original.
 // Plain modes: the gate (+0x770) = now + seconds. LAST-MAN-STANDING (mode 0 + lms): respawns
-// are BUDGETED — past the respawnnumber cvar (floor 1) the gate goes NEGATIVE (-4 = out for
+// are BUDGETED — past the respawnnumber cvar (floor 1) the gate goes NEGATIVE (-1.0 = out for
 // the round); otherwise the wait clamps to the round's remaining time and the re-entry HOLD
 // (+0x7bc) arms at min(roundLeft, 10)s. Always stamps the broadcast award byte: 1 out-of-round
 // / 11 respawning (the TSPAward producers).
@@ -178,7 +178,7 @@ void SetPlayerRespawnTime(CBasePlayer *pPlayer, int sec, bool bUnused)
 			maxRespawns = 1.0f;
 		if (maxRespawns <= (float)pPlayer->m_iRespawnsUsed)
 		{
-			pPlayer->m_flTSRespawnTime = -4.0f; // out of respawns this round
+			pPlayer->m_flTSRespawnTime = -1.0f; // out of respawns this round (@0x660dc)
 		}
 		else
 		{

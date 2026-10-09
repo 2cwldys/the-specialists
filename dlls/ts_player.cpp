@@ -606,7 +606,7 @@ void CBasePlayer::TSInit()
 	m_iPowerupTime = 0;
 	m_iClientHeldDur = 0;
 	m_iClientHeldType = 0xff;
-	// player+0x740 = 0 (unnamed transient)
+	m_iTSInit740 = 0;      // 0x740 (@0x82c1a)
 	m_iKillStreak = 0;     // 0x744 (@0x82c24): a streak lasts until he spawns again, not until he dies
 	m_flLastKillTime = 0;  // 0x748 (@0x82c2b)
 	m_iAward = 0;          // 0x74c
@@ -648,7 +648,6 @@ void CBasePlayer::TSInit()
 	m_iClientWires[0] = m_iClientWires[1] = m_iClientWires[2] = 0; // 0x78f-0x791
 	m_flNextWiresCheck = 0; // 0x794
 	m_flMeleeBar = 100.0f;  // 0x774 (0x42c80000)
-	// player+0x798 = 0 (unnamed)
 	m_flWhiffLungeTime = 0;  // 0x79c
 	m_flWhiffLungeForce = 0; // 0x7a0
 	m_iWhiffLungeType = 0;   // 0x7a4
@@ -660,15 +659,15 @@ void CBasePlayer::TSInit()
 		pRules->m_bTheOneActive = false; // rules+0x5878 — the One left the field
 	m_bTheOne = 0; // 0x7b9
 	m_flHealthRegen = 0;
-	// player+0x184[33] = 0 (an unreconstructed transient block)
+	memset(m_iTSInit184, 0, sizeof(m_iTSInit184)); // 0x184[33] (@0x82e21)
 	m_flSlowMotionScale = 0;
 	m_flSlowMotionRamp = 0;
 	m_flNextSlowFlow = 0;
 	memset(m_pSlowedEnts, 0, sizeof(m_pSlowedEnts)); // 0x208[32] — the packed slowed array
 	m_iSlowedEntCount = 0;                           // 0x288
-	// player+0x77c/0x780/0x784 = 0 (unnamed)
+	m_iTSInit77c[0] = m_iTSInit77c[1] = m_iTSInit77c[2] = 0; // 0x77c/0x780/0x784 (@0x82e66)
 	m_flSpreadAccum = 0;
-	// player+0x7c0 = 0 (unnamed)
+	m_flNextChatTime = 0; // 0x7c0 (@0x82e8e): Host_Say's chat clock (@0x9d09c, @0x9d826)
 	memset(&m_flagStatus, 0, sizeof(m_flagStatus)); // 0x7d0
 	PlayerIsCheating(this, g_engfuncs.pfnGetInfoKeyBuffer(edict()));
 	pev->gaitsequence = 0;

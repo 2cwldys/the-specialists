@@ -35,7 +35,6 @@ cvar_t friendlyfire = {"mp_friendlyfire", "0", FCVAR_SERVER};
 cvar_t falldamage = {"mp_falldamage", "0", FCVAR_SERVER};
 cvar_t weaponstay = {"mp_weaponstay", "0", FCVAR_SERVER};
 cvar_t forcerespawn = {"mp_forcerespawn", "1", FCVAR_SERVER};
-cvar_t flashlight = {"mp_flashlight", "0", FCVAR_SERVER};
 cvar_t aimcrosshair = {"mp_autocrosshair", "1", FCVAR_SERVER};
 cvar_t decalfrequency = {"decalfrequency", "30", FCVAR_SERVER};
 cvar_t teamlist = {"mp_teamlist", "hitman;gordon", FCVAR_SERVER}; // TS default (ts_i386.so @0x108dd0; stock is "hgrunt;scientist")
@@ -48,8 +47,6 @@ cvar_t mp_chattime = {"mp_chattime", "10", FCVAR_SERVER};
 cvar_t sv_allowbunnyhopping = {"sv_allowbunnyhopping", "0", FCVAR_SERVER};
 
 cvar_t sv_pushable_fixed_tick_fudge = {"sv_pushable_fixed_tick_fudge", "15"};
-
-cvar_t sv_busters = {"sv_busters", "0", FCVAR_SERVER};
 
 static bool SV_InitServer()
 {
@@ -222,7 +219,6 @@ void GameDLLInit()
 	CVAR_REGISTER(&falldamage);
 	CVAR_REGISTER(&weaponstay);
 	CVAR_REGISTER(&forcerespawn);
-	CVAR_REGISTER(&flashlight);
 	CVAR_REGISTER(&aimcrosshair);
 	CVAR_REGISTER(&decalfrequency);
 	CVAR_REGISTER(&teamlist);
@@ -232,7 +228,6 @@ void GameDLLInit()
 
 	CVAR_REGISTER(&mp_chattime);
 
-	CVAR_REGISTER(&sv_busters);
 
 	CVAR_REGISTER(&sv_allowbunnyhopping);
 

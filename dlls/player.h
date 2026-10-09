@@ -66,9 +66,6 @@
 
 #define CSUITNOREPEAT 32
 
-#define SOUND_FLASHLIGHT_ON "items/flashlight1.wav"
-#define SOUND_FLASHLIGHT_OFF "items/flashlight1.wav"
-
 #define TEAM_NAME_LENGTH 16
 
 typedef enum
@@ -535,7 +532,7 @@ public:
 	byte m_iClientWires[3] = {};                          // 0x78f-0x791 — the last-sent Wires triple
 	float m_flNextWiresCheck = 0;                         // 0x794 — the 0.5 s CheckForWires throttle
 	float m_flTSRespawnTime = 0;                          // 0x770 — the TS respawn gate: the absolute time the
-	                                                      // player may respawn; < 0 = OUT of the round (LMS)
+	                                                      // player may respawn; < 0 = OUT of the round (LMS), -1.0 at all three writers
 	void CheckForWires();                                 // @0x82f08 — sphere-64 armed-ts_bomb wire scan
 	void TSUse();                                         // @0x856e0 — server-side double-tap +use -> UsePowerUp
 	float m_flUseDoubleTap = 0;                           // 0x164 — the double-tap +use window deadline
@@ -598,6 +595,12 @@ public:
 	float m_flDeathCamTime = 0;     // +0x768 — the death-cam hold deadline (Killed: time+3.0; any button skips)
 	Vector m_vecDeathBodyAngles;    // the body yaw frozen at death (the original's body doesn't mouse-rotate
 	                                // during the death cam — VERIFY its mechanism, likely a dead gate in pm)
+	// Fields only TSInit touches (it zeroes them, @0x82c1a, @0x82e21, @0x82e66-0x82e7a); nothing else
+	// in ts_i386.so reads or writes them, so their meaning is unknown. Kept last so no other member
+	// moves.
+	int m_iTSInit740 = 0;          // 0x740
+	int m_iTSInit77c[3] = {};      // 0x77c, 0x780, 0x784
+	int m_iTSInit184[33] = {};     // 0x184..0x204 (a rep stos of 33 dwords)
 };
 
 inline void CBasePlayer::SetWeaponBit(int id)

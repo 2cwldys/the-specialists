@@ -53,8 +53,6 @@
 extern void CopyToBodyQue(entvars_t* pev);
 extern edict_t* EntSelectSpawnPoint(CBaseEntity* pPlayer);
 
-extern bool IsBustingGame();
-
 #define TRAIN_ACTIVE 0x80
 #define TRAIN_NEW 0xc0
 #define TRAIN_OFF 0x00
@@ -822,66 +820,36 @@ void CBasePlayer::PackDeadPlayerItems()
 	iPA = 0;
 	iPW = 0;
 
-	if (IsBustingGame())
+	bool bPackItems = true;
+
+	if (iAmmoRules == GR_PLR_DROP_AMMO_ACTIVE && iWeaponRules == GR_PLR_DROP_GUN_ACTIVE)
 	{
-		if (HasNamedPlayerItem("weapon_egon"))
+		if (rgpPackWeapons[0] && FClassnameIs(rgpPackWeapons[0]->pev, "weapon_satchel") && (iPackAmmo[0] == -1 || (m_rgAmmo[iPackAmmo[0]] == 0)))
 		{
-			for (i = 0; i < MAX_ITEM_TYPES; i++)
-			{
-				CBasePlayerItem* pItem = m_rgpPlayerItems[i];
-
-				if (pItem)
-				{
-					if (!strcmp("weapon_egon", STRING(pItem->pev->classname)))
-					{
-						pWeaponBox->PackWeapon(pItem);
-
-						SET_MODEL(ENT(pWeaponBox->pev), "models/w_egon.mdl");
-
-						pWeaponBox->pev->velocity = Vector(0, 0, 0);
-						pWeaponBox->pev->renderfx = kRenderFxGlowShell;
-						pWeaponBox->pev->renderamt = 25;
-						pWeaponBox->pev->rendercolor = Vector(0, 75, 250);
-
-						break;
-					}
-				}
-			}
+			bPackItems = false;
 		}
 	}
-	else
+
+	if (bPackItems)
 	{
-		bool bPackItems = true;
-
-		if (iAmmoRules == GR_PLR_DROP_AMMO_ACTIVE && iWeaponRules == GR_PLR_DROP_GUN_ACTIVE)
+		// pack the ammo
+		while (iPackAmmo[iPA] != -1)
 		{
-			if (rgpPackWeapons[0] && FClassnameIs(rgpPackWeapons[0]->pev, "weapon_satchel") && (iPackAmmo[0] == -1 || (m_rgAmmo[iPackAmmo[0]] == 0)))
-			{
-				bPackItems = false;
-			}
+			pWeaponBox->PackAmmo(MAKE_STRING(CBasePlayerItem::AmmoInfoArray[iPackAmmo[iPA]].pszName), m_rgAmmo[iPackAmmo[iPA]]);
+			iPA++;
 		}
 
-		if (bPackItems)
+		// now pack all of the items in the lists
+		while (rgpPackWeapons[iPW])
 		{
-			// pack the ammo
-			while (iPackAmmo[iPA] != -1)
-			{
-				pWeaponBox->PackAmmo(MAKE_STRING(CBasePlayerItem::AmmoInfoArray[iPackAmmo[iPA]].pszName), m_rgAmmo[iPackAmmo[iPA]]);
-				iPA++;
-			}
+			// weapon unhooked from the player. Pack it into der box.
+			pWeaponBox->PackWeapon(rgpPackWeapons[iPW]);
 
-			// now pack all of the items in the lists
-			while (rgpPackWeapons[iPW])
-			{
-				// weapon unhooked from the player. Pack it into der box.
-				pWeaponBox->PackWeapon(rgpPackWeapons[iPW]);
-
-				iPW++;
-			}
+			iPW++;
 		}
-
-		pWeaponBox->pev->velocity = pev->velocity * 1.2; // weaponbox has player's velocity, then some.
 	}
+
+	pWeaponBox->pev->velocity = pev->velocity * 1.2; // weaponbox has player's velocity, then some.
 
 	RemoveAllItems(true); // now strip off everything that wasn't handled by the code above.
 }
@@ -1972,9 +1940,9 @@ void CBasePlayer::PreThink()
 	// runs the identical weapon-timer decrement → fire-rate prediction stays in sync. It scales
 	// movement (maxspeed), animation (pev->framerate) and the weapon-timer decrement (PostThink).
 	// RE scratchpad/SLOWMO_PRESENTATION_RE.md §B: ease = InterpolateSlowMotion, anim = max(fuser1,0.01).
-	if (pev->fuser1 == 0.0f && m_flSlowMotionGo != 0.0f)
-		pev->fuser1 = 1.0f; // entvars defaults to 0; the slow factor's neutral is 1.0 (a GoSlow(0)
-		                    // target is a freeze, which the ease reaches exactly)
+	// The ease starts from whatever fuser1 holds: TSInit and StartObserver set it to 1.0, and nothing
+	// here lifts a 0 (the original has no such step before the call @0x80974), so a 0 eases up from
+	// 0, with pm_shared freezing the move while it is below 0.1.
 	// ease CURRENT (fuser1) → TARGET (m_flSlowMotionGo) — the original's TS_shared.cpp helper.
 	InterpolateSlowMotion(gpGlobals->frametime, &pev->fuser1, m_flSlowMotionGo);
 	// Base move speed comes from the inventory-slot encumbrance (GetSpeedBySlots: more/heavier weapons →
@@ -2178,7 +2146,7 @@ void CBasePlayer::PreThink()
 			else
 			{
 				m_flRespawnHoldTime = 0;
-				m_flTSRespawnTime = -4.0f;
+				m_flTSRespawnTime = -1.0f; // @0x80fe9
 				m_iAward = 1;
 				TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
 				if (TSGameRules)
@@ -3053,6 +3021,9 @@ void CBasePlayer::PostThink()
 			bool didRoll = false;
 			if (pev->button & IN_DUCK) // duck on landing -> a landing roll instead of the plant
 			{
+				// @0x81940: the roll's double-tap window is armed first, so GoRoll on the ground takes
+				// the landing as the second tap
+				m_TSStunt.m_flRollNextTime = gpGlobals->time + 0.3; // double 0.3, as the original
 				if (m_TSStunt.GoRoll(0))
 				{
 					didRoll = true;
@@ -3061,7 +3032,9 @@ void CBasePlayer::PostThink()
 			}
 			if (!didRoll)
 			{
-				EMIT_SOUND(ENT(pev), CHAN_BODY, "player/superjump-land.wav", VOL_NORM, ATTN_NORM);
+				// @0x81997: pitch 95..126
+				EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "player/superjump-land.wav", VOL_NORM, ATTN_NORM, 0,
+					95 + RANDOM_LONG(0, 31));
 				pev->iuser4 |= TSSTUNT_PRONE | TSSTUNT_STOP;
 				pev->view_ofs = Vector(0, 0, 16);
 				m_TSStunt.m_flRollTime = 0.75f;
@@ -4211,13 +4184,22 @@ void CBasePlayer::ItemPostFrame()
 	if (m_pTank != NULL)
 		return;
 
-#if defined(CLIENT_WEAPONS)
-	if (m_flNextAttack > 0)
-#else
-	if (gpGlobals->time < m_flNextAttack)
-#endif
+	// @0xcc4ff-0xcc544: the attack delay holds back the impulses and the item's frame only while the
+	// gun has a weapon in hand (its +0xcc item); then +alt2 (IN_CANCEL) on a reloading weapon that
+	// can coldcock still gets through, so the coldcock can cut the reload. With no active item or
+	// bare hands nothing is held back: impulses work from the first frame after a spawn. (A stock
+	// Half-Life weapon, which a TS player does not hold, keeps the stock hold.)
+	if (m_flNextAttack > 0 && m_pActiveItem)
 	{
-		return;
+		if (m_pActiveItem->m_iId != TSGUN_WEAPON_ID)
+			return;
+		CTSGun* pGun = (CTSGun*)m_pActiveItem;
+		if (pGun->m_pActiveItem)
+		{
+			if ((pev->button & IN_CANCEL) == 0 || !pGun->m_fInReload || !pGun->m_pActiveInfo
+				|| pGun->m_pActiveInfo->iColdCockDamage == 0)
+				return;
+		}
 	}
 
 	ImpulseCommands();
