@@ -242,6 +242,7 @@ public:
 	{
 		poweruptype = TS_PWUP_LOWGRAV; // force the super-jump (low-gravity) powerup
 		CTSPowerUp::Spawn();
+		TSGameRules->m_iRandomPowerups = -1; // @0xb9f71: a super jump does not turn the dynamic powerups off
 	}
 };
 

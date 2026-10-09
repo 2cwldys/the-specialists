@@ -207,7 +207,6 @@ public:
 	// Reset clears both to 0. The client keeps the clip, fire mode and attachments itself.
 	int m_iClientWeaponType = 0;
 	int m_iClientReserve = 0;
-	int m_iClientAttach = -1; // last-broadcast ACTIVE attach mask (ActItems change-detect)
 
 	// Cached per-weapon-type WStatus (the weapon-select bar): clip if owned, else -1.
 	// The original sends WStatus per arsenal slot on change; we diff against this.

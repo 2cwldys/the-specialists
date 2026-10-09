@@ -103,6 +103,10 @@ void CTSPowerUp::Precache()
 void CTSPowerUp::Spawn()
 {
 	Precache();
+	// @0x88281: a powerup spawning before the first Think (a map's own) turns the dynamic powerups
+	// off for the map (rules+1, CTSGameRules::Think).
+	if (TSGameRules->m_iRandomPowerups == -1)
+		TSGameRules->m_iRandomPowerups = 0;
 	pev->classname = MAKE_STRING("ts_powerup");
 	SET_MODEL(ENT(pev), POWERUP_MODEL);
 

@@ -120,11 +120,9 @@ public:
 	void Observer_HandleButtons();
 	void Observer_SetMode(int iMode);
 	void Observer_CheckTarget();
-	void Observer_CheckProperties();
 	EHANDLE m_hObserverTarget;
 	float m_flNextObserverInput;   // 0x760 — Observer_HandleButtons' 0.2 s clock
 	float m_flNextObserverIdle = 0; // 0x764 — Observer_Idle's own 0.5 s clock (StartObserver clears it)
-	int m_iObserverWeapon;	 // weapon of current tracked target
 	int m_iObserverLastMode; // 0x76c — the mode StopObserver saved; StartObserver uses it (0: chase)
 	bool IsObserver() { return 0 != pev->iuser1; }
 
@@ -536,6 +534,7 @@ public:
 	byte m_iAward = 0;                                    // 0x74c — the broadcast award/status byte: 0 clear,
 	                                                      // 1 out-of-round, 2/3/4 kill tiers, 10 The One, 11 respawning
 	byte m_iClientAward = 0;                              // 0x74d — last TSPAward value broadcast
+	byte m_iClientActiveItems = 0;                        // 0x720 — last ActItems mask broadcast (GetActiveItems)
 	float m_flNextPTakeDamTime = 0;                       // 0x750 (invented name) — PTakeDam send throttle (+0.3 s)
 	// One-shot: re-broadcast the SrvSett settings shortly after connect. The InitHUD MSG_ONE catch-up
 	// fires during the spawn sequence, before the joining client's netchannel is fully active, so the
@@ -606,6 +605,10 @@ public:
 	float m_flTeamKillTime = 0;     // 0x7c4 — 30 s after his last team kill (PlayerKilled @0x7ac7e)
 	char m_iTeamKills = 0;          // 0x7c8 — team kills 30 s or less apart; a third kicks or bans him.
 	                                // CTSGameRules::InitHUD clears both (@0x694f3)
+	float m_flKickTime = 0;         // 0x7cc — when PreThink kicks him (@0x814c4; 0 = never). InitHUD
+	                                // clears it (@0x69504); nothing in the game sets it.
+	int m_iPlayerModel = 0;         // 0x758 — the team model GetPlayerModel last picked for him, 0-2
+	                                // (@0x69a7c); nothing in the game reads it.
 	int m_iClientSpecSecs = -1;     // last Spectator countdown byte sent (resend on change)
 	void TSEnterSpectate(bool bResetArmament = true); // enter the spectate-wait (join, death, Spawn
 	                                                  // while waiting; a new round keeps the loadout)

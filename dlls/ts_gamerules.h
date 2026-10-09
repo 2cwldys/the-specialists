@@ -58,6 +58,10 @@ public:
 	// 3 = team WITH objectives (InitObjectives promotes 2/3; the Wires system gates on 3).
 	int m_iGameMode = 0;
 
+	// rules+1 — the dynamic powerups: -1 undecided (Init), 0 off (a map's own powerup spawned first,
+	// CTSPowerUp::Spawn; item_longjump puts it back to -1), 1 on (the first Think in mode 0/1).
+	signed char m_iRandomPowerups = -1;
+
 	// --- SrvSett server-settings sync (star_SrvSett.md; dossier-gmsg U3) ---
 	int m_iSrvRealBullet = 0;        // 0x578 — cached (int)round(realbullet.value)
 	byte m_bSrvSuperJump = 0;        // 0x5885 — map-global SUPERJUMP mode (ts_mapglobals SF & 0x40):
@@ -214,7 +218,7 @@ public:
 	// (skipped if a powerup is already nearby). Returns true if one was spawned.
 	bool PutPowerUp(int type);
 
-	float m_flNextPowerupSpawn = 0; // next dynamic-powerup time (DM mode; member @+4 in .so)
+	float m_flNextPowerupSpawn = 0; // next dynamic-powerup time (modes 0/1; member @+4 in .so)
 
 	// Global ("all map") slow-motion. GlobalSlowMotion2 applies `scale` to every
 	// player each call (throttled ~0.5s; scale 0 = restore). SetGlobalSlowMotion is

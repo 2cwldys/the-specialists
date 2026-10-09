@@ -940,6 +940,14 @@ void CBasePlayer::RemoveAllItems(bool removeSuit)
 		m_rgAmmo[i] = 0;
 
 	UpdateClientData();
+
+	// @0xc8ef9: then the ammo HUD is told there is no weapon (CurWeapon 0 0 0), on every strip: the
+	// death (PlayerDeathThink), StartObserver and the rest.
+	MESSAGE_BEGIN(MSG_ONE, gmsgCurWeapon, NULL, pev);
+	WRITE_BYTE(0);
+	WRITE_BYTE(0);
+	WRITE_BYTE(0);
+	MESSAGE_END();
 }
 
 /*
@@ -1275,7 +1283,10 @@ void CBasePlayer::PlayerDeathThink()
 	// path from CTSGameRules::PlayerKilled → TSDropWeaponsOnDeath, so a second stock weaponbox drop
 	// here would be a divergence (and would spawn a CWeaponBox → precache w_weaponbox.mdl mid-game →
 	// Host_Error on a strict engine). See ts_weapons.cpp (w_weaponbox not precached).
-
+	// What it does instead (@0x7ec03-0x7ec15): a dead player still holding anything is stripped,
+	// suit included, which tells his ammo HUD there is no weapon (CurWeapon 0 0 0, RemoveAllItems).
+	if (HasWeapons())
+		RemoveAllItems(true);
 
 	if (0 != pev->modelindex && (!m_fSequenceFinished) && (pev->deadflag == DEAD_DYING))
 	{
@@ -2465,6 +2476,16 @@ void CBasePlayer::PreThink()
 		pev->renderfx = kRenderFxNone;
 		pev->renderamt = 0;
 		pev->rendercolor = Vector(0, 0, 0);
+	}
+
+	// @0x814c4-0x81575: a kick set for a time (player+0x7cc) falls due: he is told, everyone is
+	// told, and the server kicks him by user id. Nothing in the game sets the time.
+	if (m_flKickTime != 0 && m_flKickTime < gpGlobals->time)
+	{
+		ClientPrint(pev, HUD_PRINTCONSOLE, "You have been kicked for some reason...\n");
+		UTIL_ClientPrintAll(HUD_PRINTNOTIFY, UTIL_VarArgs("%s kicked.\n", STRING(pev->netname)));
+		SERVER_COMMAND(UTIL_VarArgs("kick #%i\n", GETPLAYERUSERID(edict())));
+		m_flKickTime = 0;
 	}
 
 	// @0x815b6: the suicide ClientKill armed (player+0x84c) falls due: health 0 and Killed with
@@ -3874,6 +3895,7 @@ void CBasePlayer::ForceClientDllUpdate()
 	m_fKnownItem = false;  // Force weaponinit messages.
 	m_fInitHUD = true;	   // Force HUD gmsgResetHUD message
 	m_flNextClientUpdate = 0; // @0x82620: the update below runs now, whatever the 0.1 s throttle says
+	m_iClientActiveItems = 0; // @0x825f4: ActItems goes again once the mask is not 0
 
 	// @0x82594: the original also re-tells this client its own spectator state —
 	// MSG_ONE (idx, deadflag == DEAD_RESPAWNABLE).
@@ -4823,6 +4845,23 @@ void CBasePlayer::UpdateClientData()
 			MESSAGE_BEGIN(MSG_ONE, gmsgTSBulletTime, NULL, ENT(pev));
 			WRITE_BYTE(m_bSlowBullets);
 			MESSAGE_END();
+		}
+
+		// ActItems (@0x82393-0x82440): a live player holding the gun (id 16) broadcasts his weapon's
+		// active attachments (CTSGun::GetActiveItems: laser 2 / flashlight 4, +0x40 akimbo) to
+		// everyone when they differ from the last sent (player+0x720).
+		if (m_pActiveItem && IsAlive() && m_pActiveItem->m_iId == TSGUN_WEAPON_ID)
+		{
+			const int activeItems = ((CTSGun *)m_pActiveItem)->GetActiveItems();
+			if (m_iClientActiveItems != activeItems)
+			{
+				m_iClientActiveItems = activeItems;
+				extern int gmsgTSActiveItems; // ts_gun.cpp
+				MESSAGE_BEGIN(MSG_ALL, gmsgTSActiveItems);
+				WRITE_BYTE(ENTINDEX(edict()));
+				WRITE_BYTE(m_iClientActiveItems);
+				MESSAGE_END();
+			}
 		}
 
 		// TSPAward — the broadcast award/status byte (source 0x74c, cache 0x74d): MSG_ALL keyed by

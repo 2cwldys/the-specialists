@@ -176,42 +176,6 @@ void CBasePlayer::Observer_CheckTarget()
 	}
 }
 
-void CBasePlayer::Observer_CheckProperties()
-{
-	// try to find a traget if we have no current one
-	if (pev->iuser1 == OBS_IN_EYE && m_hObserverTarget != NULL)
-	{
-		CBasePlayer* target = (CBasePlayer*)(UTIL_PlayerByIndex(ENTINDEX(m_hObserverTarget->edict())));
-
-		if (!target)
-			return;
-
-		int weapon = (target->m_pActiveItem != NULL) ? target->m_pActiveItem->m_iId : 0;
-		// use fov of tracked client
-		if (m_iFOV != target->m_iFOV || m_iObserverWeapon != weapon)
-		{
-			m_iFOV = target->m_iFOV;
-			m_iClientFOV = m_iFOV;
-			// write fov before wepon data, so zoomed crosshair is set correctly
-			MESSAGE_BEGIN(MSG_ONE, gmsgSetFOV, NULL, pev);
-			WRITE_BYTE(m_iFOV);
-			MESSAGE_END();
-
-
-			m_iObserverWeapon = weapon;
-			// (no CurWeapon: the original sends it only from RemoveAllItems and
-			// CBasePlayerWeapon::UpdateClientData)
-		}
-	}
-	else
-	{
-		m_iFOV = 90;
-
-		if (m_iObserverWeapon != 0)
-			m_iObserverWeapon = 0; // (no CurWeapon, as above)
-	}
-}
-
 // @0x89e44 Observer_SetMode — roaming clears the target and sets the client's max speed to 420; the
 // chase, locked chase and map modes need a target (found if there is none) and fall back to roaming
 // without one. Other modes change nothing past the view reset. Nothing is printed and the last mode

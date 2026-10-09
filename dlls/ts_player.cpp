@@ -598,7 +598,7 @@ void CBasePlayer::TSInit()
 	pev->renderfx = kRenderFxNoDissipation; // 0xe (@0x82b83)
 	UTIL_ScreenFade(this, Vector(200, 200, 250), 0.2f, m_flSpawnProtectTime - gpGlobals->time, 25, 0);
 	m_flUseDoubleTap = 0; // 0x164
-	// player+0x720 = 0 (unnamed)
+	m_iClientActiveItems = 0; // 0x720 (@0x82bd7) — the ActItems cache
 	m_iPowerups = 0;
 	m_iHeldPowerup = 0;
 	m_flPowerupExpireTime = 0;

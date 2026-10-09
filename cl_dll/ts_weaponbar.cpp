@@ -185,6 +185,9 @@ void CHudTSWeaponBar::Reset()
 {
 	for (int i = 0; i < TSW_COUNT; i++)
 		m_iClip[i] = -1;
+	// client.dll Reset (@0x1004cd60-0x1004cdc7): kung fu goes in its own cell, clip 1. The server
+	// never sends a WStatus for it (its kung fu slot is not owned).
+	m_iClip[0] = 1;
 }
 
 bool CHudTSWeaponBar::MsgFunc_WStatus(const char* pszName, int iSize, void* pbuf)

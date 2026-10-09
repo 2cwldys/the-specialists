@@ -265,14 +265,14 @@ static int TSSlotsUsed(const CTSGun *pGun)
 float GetSpeedBySlots(CBasePlayer *pPlayer)
 {
 	// @0x66be8: the One, whatever he carries, and empty hands (free > 80) return a fixed 330; only
-	// a laden loadout ramps down. (The final round to int happens in SetPlayerSpeed →
-	// pfnSetClientMaxspeed.)
+	// a laden loadout ramps down, to a whole number: free x (1/81) x 120 + 210, the fistp chopping
+	// (@0x66c04-0x66c40), so SetPlayerSpeed's own rounding has nothing left to round.
 	if (pPlayer->m_bTheOne)
 		return 330.0f;
 	const int remaining = TSPlayerFreeSlots(pPlayer);
 	if (remaining > 80)
 		return 330.0f;
-	return 210.0f + (120.0f / 81.0f) * (float)remaining;
+	return (float)(int)((double)(1.0f / 81.0f) * remaining * 120.0f + 210);
 }
 
 // Remaining inventory-slot capacity (CBasePlayer+0x548, init 81): lighter loadout =
@@ -327,7 +327,6 @@ void CTSGun::Reset()
 	// player who joins and holds kung fu gets none, as on the original.
 	m_iClientWeaponType = TSW_MELEE;
 	m_iClientReserve = 0;
-	m_iClientAttach = -1;
 	m_bWStatusInit = false;
 
 	m_pActiveInfo = get_weapon_info((tsweapon_t)m_weaponType); // gun+0xd0 (inline, fold-plan G5)
@@ -349,9 +348,11 @@ void CTSGun::Spawn()
 
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
 
-	// Seed the arsenal with the placed/initial weapon type.
+	// Seed the arsenal with the placed/initial weapon type. Kung fu is never marked owned: the
+	// original's Spawn (@0x7053c) seeds nothing, and its kung fu slot keeps owned 0, so the WStatus
+	// loop (@0x758c8) never sends one for it (the client puts kung fu in its weapon bar itself).
 	TSItem &it = m_items[m_weaponType];
-	it.owned = true;
+	it.owned = m_weaponType != TSW_MELEE;
 	it.clip = wi->iClip;
 	it.mode = TSDefaultFireMode(wi->iFireModes);
 	AddAmmo(wi->iCaliber, wi->iClip * 3); // seed the caliber's reserve (SLICE: buy menu sets this)
@@ -799,10 +800,9 @@ bool CTSGun::Deploy()
 	// instead in the original, before this).
 	if (m_weaponType != TSW_MELEE)
 		m_flNextClientUpdate = 0;
-	// NB: do NOT reset m_iClientAttach here to force a re-broadcast — it re-fired on every deploy and
-	// broke the fresh-buy laser. The map-change loss was the CLIENT clearing its g_playerAttach array on
-	// VidInit; that clear was removed (cl_dll/ts_attachments.cpp) so the array stays in sync with this
-	// change-detect cache across a level change. See [[map-change-state-reset]].
+	// NB: Deploy does not touch the ActItems cache (CBasePlayer::m_iClientActiveItems, player+0x720):
+	// the client keeps its g_playerAttach array across a level change (cl_dll/ts_attachments.cpp), in
+	// step with that cache. See [[map-change-state-reset]].
 	// Faithful Deploy: view/player model via DefaultDeploy + the attachment BODY via
 	// GetBodyByItems below (the weapon-param message ride-along is WeaponInfo, sent by
 	// UpdateClientData's change-detect).
@@ -2477,23 +2477,9 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	const int caliber = wi->iCaliber;
 	const int reserve = (caliber > 0 && caliber < TS_NUM_CALIBERS) ? m_ammoReserve[caliber] : 0;
 
-	// ActItems — broadcast this player's ACTIVE attachment mask to ALL clients (so everyone sees the
-	// laser/flashlight only while it's toggled ON via `useitems`, not just because it's equipped). The
-	// visible attachments (laser bit 2, flashlight bit 4) are rendered client-side from the muzzle
-	// (cl_dll/ts_attachments.cpp), and the owner's dive-reticle distance gates on the active laser.
-	// Wire: BYTE playerIndex, BYTE activeMask (client handler FUN_1004fa70). Broadcast separately from
-	// the owner-only WeaponInfo below, and BEFORE its early-out, so a toggle always propagates.
-	const int activeAttach = m_items[m_weaponType].active;
-	if (activeAttach != m_iClientAttach)
-	{
-		m_iClientAttach = activeAttach;
-		MESSAGE_BEGIN(MSG_ALL, gmsgTSActiveItems);
-		WRITE_BYTE(ENTINDEX(pPlayer->edict())); // player entity index
-		WRITE_BYTE(activeAttach);               // ACTIVE attach mask (bit 2 laser / 4 flash)
-		MESSAGE_END();
-	}
+	// (No ActItems here: the original sends it from CBasePlayer::UpdateClientData, @0x823c7.)
 
-	// @0x758e7: the rest runs at most every 0.1 s (gun+0x9e0).
+	// @0x758e7: it runs at most every 0.1 s (gun+0x9e0).
 	if (m_flNextClientUpdate > gpGlobals->time)
 		return false;
 	m_flNextClientUpdate = gpGlobals->time + 0.1f;

@@ -231,10 +231,8 @@ bool CBasePlayer::BuyAmmo(int caliber)
 // (respawn + round restart). The queue is only cleared by an explicit rst_cfg (rebuy).
 void CBasePlayer::BuyArmament()
 {
-	// Kung-fu (TSW_MELEE) is the unarmed melee every player ALWAYS has, regardless of loadout — give
-	// it first so the weapon-select bar always offers it even with an empty/minimal config.
-	GiveTSWeapon(this, TSW_MELEE);
-
+	// (No kung fu give: the original gives none here, and marks it owned nowhere. Kung fu is the gun
+	// with no weapon out, and the client keeps its weapon bar cell itself.)
 	for (int i = 0; i < 32; i++)
 	{
 		if (m_armament[i].type == 0)

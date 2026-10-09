@@ -7066,3 +7066,30 @@ RemoveAllItems(1); the kung fu slot's WStatus to a newcomer; Observer_CheckPrope
 original; the One block is skipped for modes > 1 in the original; GetSpeedBySlots truncates in the
 original; ActItems from CTSGun::UpdateClientData is reTS's; client draws (bar for every caliber-0 weapon,
 breathing on any weapon); InitHUD clears player+0x7cc, which reTS lacks.
+
+## 2026-10-08 — round 13: the round-12 leftovers (death strip, kung fu slot, Think, speed, ActItems, client)
+
+Round 13 (amxxbench docs/fixes/rets-deviations13.md). One patch per item in ~/stignored/rets-deviations13.
+- 1 RemoveAllItems ends with CurWeapon 0 0 0 (@0xc8ef9); PlayerDeathThink strips a dead player still
+  holding anything (HasWeapons -> RemoveAllItems(1), @0x7ec03), so death to spectating sends two.
+- 2 Kung fu is never owned: CTSGun::Spawn does not mark a melee seed owned, BuyArmament gives no kung fu
+  (the original's @0x83f10 gives none), so no WStatus for slot 0; the client weapon bar's Reset puts kung
+  fu in its cell itself (client.dll @0x1004cd60), as against the original server.
+- 3 Observer_CheckProperties and m_iObserverWeapon removed (not in the original; reTS never called it).
+- 4 Think: the dynamic powerups, the One check and the LMS rounds run only for rules mode 0/1, in that
+  order. Powerups gated as @0x672e9: rules+1 (m_iRandomPowerups, -1 Init, 0 when a map's own ts_powerup
+  spawns first, -1 again after item_longjump, 1 at the first Think), nopowerup != 1; a slow motion one a
+  quarter of the time unless slowmatch is 1; next 20 s / 1 s; cleared when more than 21 s off.
+- 5 GetSpeedBySlots truncates to a whole number (@0x66c04).
+- 6 ActItems moved from CTSGun::UpdateClientData to CBasePlayer::UpdateClientData (@0x82393): live
+  player holding the gun, GetActiveItems (with the akimbo 0x40), cache m_iClientActiveItems (0x720)
+  cleared by TSInit and ForceClientDllUpdate. CTSGun::m_iClientAttach removed.
+- 7 Client: the melee bar for every weapon without a caliber (M61 included); the breathing is
+  client.dll Think's state machine (below 50: breathe2.wav 0.7 on channel 502; at 50 it fades 0.005 a
+  frame with SND_CHANGE_VOL), whatever is held.
+- 8 m_flKickTime (0x7cc, InitHUD clears it, PreThink's dead delayed kick reads it) and m_iPlayerModel
+  (0x758, GetPlayerModel's pick).
+Tests: ts_messages (newcomer no WStatus, two CurWeapon 0 0 0, ActItems akimbo tag), tsx_player (pickup
+speed truncated), ts_powerup_state (map powerups leave out random ones), reTS + ts30. The amd64 AMX Mod X
+core's floatround_tozero rounds 239.63 to 240: SpeedBySlots helpers now floor.
+Found, not changed: see amxxbench docs/fixes/rets-deviations13-report.md.

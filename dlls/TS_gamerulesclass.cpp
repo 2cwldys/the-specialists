@@ -368,6 +368,8 @@ void CTSGameRules::Init()
 	memset(m_votes, 0, sizeof(m_votes)); // @0x67e4f — a new map starts with no votes
 	m_flRoundRestart = gpGlobals->time + 5.0f; // first round fires 5s into the map
 	m_bRoundTimerEnabled = true;
+	m_iRandomPowerups = -1;    // @0x67d96 (rules+1) — undecided until a map powerup spawns or Think runs
+	m_flNextPowerupSpawn = 0;  // @0x67e14 (rules+4) — the first dynamic powerup comes at once
 	m_bSrvSuperJump = 0; // @0x67ec2 — a map's ts_mapglobals sets it again as it spawns
 	m_bWeaponParamsCustom = 0; // @0x67ebb (+0x5884) — a new map is not "custom" until loadweapons runs again
 	m_flNextTheOneSelect = gpGlobals->time + 10.0f; // @0x67eab (+0x587c) — first The-One crown 10s in
@@ -832,9 +834,9 @@ void CTSGameRules::CheckVotes()
 }
 
 
-// @ CTSGameRules::Think — run the inherited MP think, then (in non-team deathmatch) drive
-// the dynamic powerup spawner: roll a random powerup every ~20s and PutPowerUp it (retry in
-// 1s if no spawn point was free). Mirrors the .so's Think powerup block.
+// @ CTSGameRules::Think — the global slow motion, the deads check, then by rules mode the dynamic
+// powerups, the One check and the rounds (modes 0/1) or the objective round timer (2/3), the votes
+// and the server-setting broadcasts.
 
 void CTSGameRules::Think()
 {
@@ -891,40 +893,62 @@ void CTSGameRules::Think()
 		CheckDeads();
 	}
 
-	// @0x673d9: in The One mode (DecideGamePlay's g_theOneMode; there is no "the_one" cvar), every
-	// 10 s look for the One among the players and draw one when nobody is. The scan runs from index
-	// 0 to maxClients - 1 as the original's does, so it never sees the last slot; SelectRandomTheOne
-	// looks at every slot again before it draws. The players it sees who are not the One are counted
-	// (rules+0x5876, @0x67408-0x67468) for the One's health regeneration in PreThink @0x80bfe.
-	if (g_theOneMode != 0 && gpGlobals->time > m_flNextTheOneSelect)
-	{
-		bool bHaveTheOne = false;
-		m_iTheOneOthers = 0;
-		for (int i = 0; i < gpGlobals->maxClients; i++)
-		{
-			CBaseEntity *p = UTIL_PlayerByIndex(i);
-			if (p && p->IsPlayer() && !p->IsDormant())
-			{
-				if (((CBasePlayer *)p)->m_bTheOne)
-					bHaveTheOne = true;
-				else
-					m_iTheOneOthers++;
-			}
-		}
-		if (!bHaveTheOne)
-			SelectRandomTheOne();
-		m_flNextTheOneSelect = gpGlobals->time + 10.0f;
-	}
-
-	// The round logic comes after the One check, as in the original (@0x673d9, then @0x674a8).
 	// Round control — MODE-GATED exactly like the original Think (@0x67204, tsthink.c lines 96-121).
-	// The round system (RestartRound / round timer / CheckDeads-on-expiry) runs ONLY for
-	// last-man-standing (m_iGameMode==0 + g_lastManStanding) and the dead objective modes
-	// (m_iGameMode>=2, §4.6). PLAIN DEATHMATCH (mode 0) and PLAIN TEAMPLAY/TDM (mode 1) are
-	// FREE-RESPAWN — no rounds. (Fixes cont.94's over-broad `roundBased = g_teamplay || lms`
-	// gate, which made mode-1 TDM round-based: "wait til next round" while alive, timer restarts.)
+	// The powerup spawn, the One check and the round system (RestartRound / round timer /
+	// CheckDeads-on-expiry) run, in that order, ONLY for rules mode 0/1 (@0x672e0: rules+0 <= 1); the
+	// round system there only for last-man-standing (m_iGameMode==0 + g_lastManStanding). The dead
+	// objective modes (m_iGameMode>=2, §4.6) run their own round timer and nothing else. PLAIN
+	// DEATHMATCH (mode 0) and PLAIN TEAMPLAY/TDM (mode 1) are FREE-RESPAWN — no rounds. (Fixes
+	// cont.94's over-broad `roundBased = g_teamplay || lms` gate, which made mode-1 TDM round-based:
+	// "wait til next round" while alive, timer restarts.)
 	if (m_iGameMode < 2)
 	{
+		// @0x672e9-0x673d2: the dynamic powerups. A map's own powerup (CTSPowerUp::Spawn) turned them off
+		// before the first Think; otherwise they are on from here (rules+1: -1 undecided, 0 off, 1 on).
+		// With nopowerup not 1, one is put at a random deathmatch spot when the time has come: a
+		// slow motion one a quarter of the time while slowmatch is off (not 1), else any. The next
+		// comes 20 s later, or 1 s when it could not be placed; a time more than 21 s off is cleared.
+		if (m_iRandomPowerups == -1)
+			m_iRandomPowerups = 1;
+		if (CVAR_GET_FLOAT("nopowerup") != 1.0f && m_iRandomPowerups == 1)
+		{
+			if (m_flNextPowerupSpawn < gpGlobals->time)
+			{
+				int type = TS_PWUP_SLOWMO;
+				if (RANDOM_FLOAT(0, 1) >= 0.25f || CVAR_GET_FLOAT("slowmatch") == 1.0f)
+					type = GetRandomPowerup(TS_PWUP_ALL);
+				m_flNextPowerupSpawn = gpGlobals->time + (PutPowerUp(type) ? 20.0f : 1.0f);
+			}
+			else if (m_flNextPowerupSpawn - gpGlobals->time > 21.0f)
+				m_flNextPowerupSpawn = 0;
+		}
+
+		// @0x673d9: in The One mode (DecideGamePlay's g_theOneMode; there is no "the_one" cvar), every
+		// 10 s look for the One among the players and draw one when nobody is. The scan runs from index
+		// 0 to maxClients - 1 as the original's does, so it never sees the last slot; SelectRandomTheOne
+		// looks at every slot again before it draws. The players it sees who are not the One are counted
+		// (rules+0x5876, @0x67408-0x67468) for the One's health regeneration in PreThink @0x80bfe.
+		if (g_theOneMode != 0 && gpGlobals->time > m_flNextTheOneSelect)
+		{
+			bool bHaveTheOne = false;
+			m_iTheOneOthers = 0;
+			for (int i = 0; i < gpGlobals->maxClients; i++)
+			{
+				CBaseEntity *p = UTIL_PlayerByIndex(i);
+				if (p && p->IsPlayer() && !p->IsDormant())
+				{
+					if (((CBasePlayer *)p)->m_bTheOne)
+						bHaveTheOne = true;
+					else
+						m_iTheOneOthers++;
+				}
+			}
+			if (!bHaveTheOne)
+				SelectRandomTheOne();
+			m_flNextTheOneSelect = gpGlobals->time + 10.0f;
+		}
+
+		// The round logic comes after the One check, as in the original (@0x673d9, then @0x674a8).
 		if (g_lastManStanding != 0 && m_iGameMode == 0) // last-man-standing only
 		{
 			if (m_flRoundRestart != 0 && gpGlobals->time >= m_flRoundRestart)
@@ -947,25 +971,6 @@ void CTSGameRules::Think()
 	}
 
 	CheckVotes(); // tally the players' map/ff/teamplay votes (self-throttled to ~10s)
-
-	// @0x67323: a powerup not yet due skips only the spawn; the rest of Think (the SrvSett tail
-	// below, where a new ammocount reaches Set_ammo_count) runs every frame.
-	if (gpGlobals->time >= m_flNextPowerupSpawn)
-	{
-		// Only deathmatch maps get dynamic powerups. g_teamplay now resolves to the team-mode
-		// proxy (a ts_objective_manager present — see CTSGameRules::IsTeamMode), so the old
-		// explicit objective-manager scan is folded into it.
-		if (g_teamplay)
-		{
-			m_flNextPowerupSpawn = gpGlobals->time + 20.0f;
-		}
-		else
-		{
-			int type = GetRandomPowerup(TS_PWUP_ALL);
-			bool spawned = type != 0 && PutPowerUp(type);
-			m_flNextPowerupSpawn = gpGlobals->time + (spawned ? 20.0f : 1.0f);
-		}
-	}
 
 	// --- SrvSett on-change broadcasts (the tail of the original Think; star_SrvSett.md) ---
 	if (gmsgTSServerSetting != 0)
@@ -1183,7 +1188,7 @@ void CTSGameRules::InitTeamScore(int *pScores) {}
 void CTSGameRules::UpdateTeamScores(int a, int b) {}
 
 // @0x69a08 GetPlayerModel — one of the player's team models (up to three), at random; "" without a
-// team or models. (The original also keeps the pick at player+0x758, which nothing reads.)
+// team or models. The pick is kept at player+0x758 (m_iPlayerModel, @0x69a7c), which nothing reads.
 const char *CTSGameRules::GetPlayerModel(CBasePlayer *pPlayer)
 {
 	if (!pPlayer)
@@ -1197,7 +1202,8 @@ const char *CTSGameRules::GetPlayerModel(CBasePlayer *pPlayer)
 			count++;
 	if (count == 0)
 		return "";
-	return m_teamModels[team][RANDOM_LONG(0, count - 1)];
+	pPlayer->m_iPlayerModel = RANDOM_LONG(0, count - 1);
+	return m_teamModels[team][pPlayer->m_iPlayerModel];
 }
 
 // @0x696c8 TogglePlayerFromSlow — take a player out of slow-motion. The original removes them from
@@ -1265,6 +1271,7 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	pPlayer->m_iRespawnsUsed = 0; // @0x694d1 — a joiner starts with a fresh respawn budget
 	pPlayer->m_flTeamKillTime = 0; // @0x694f3, @0x694fd — and no team kills counted
 	pPlayer->m_iTeamKills = 0;
+	pPlayer->m_flKickTime = 0;     // @0x69504 — and no kick pending
 
 	// items 1-2 of the original @0x69134 (dossier §2.4) — the cheats/damage notices come FIRST.
 	// The damage notice sits inside the cheats test (@0x6918b), as damagemult itself applies only on

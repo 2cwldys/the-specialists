@@ -85,10 +85,10 @@ void TS_Attachments_Init()
 // STALE after a load — drop them so they re-load fresh on next draw.
 //
 // Do NOT clear g_playerAttach here. The server broadcasts ActItems only on CHANGE (it caches the
-// last-sent mask in CTSGun::m_iClientAttach), and that cache SURVIVES a changelevel (the gun object
-// persists) — so it never re-broadcasts on the new map. client.so is not reloaded across a map
-// change either, so this static array stays in sync with the server's surviving cache as long as we
-// leave it alone. Clearing it here desynced the two → the laser/flashlight (and the dive-reticle
+// last-sent mask in CBasePlayer::m_iClientActiveItems, player+0x720, cleared by TSInit and
+// ForceClientDllUpdate, so a zero mask is not sent again). client.so is not reloaded across a map
+// change either, so this static array stays in sync with the server's cache as long as we leave it
+// alone. Clearing it here desynced the two → the laser/flashlight (and the dive-reticle
 // distance) vanished after a map change. The original keeps its array likewise (a static global
 // never cleared on level change), which is why it doesn't have this bug. See [[map-change-state-reset]].
 void TS_Attachments_VidInit()

@@ -40,12 +40,6 @@ void CAM_ToFirstPerson();
 DECLARE_MESSAGE(m_TSAmmo, WeaponInfo)
 DECLARE_MESSAGE(m_TSAmmo, KFuPower)
 
-// Melee weapons (kung-fu / knife / katana / seal-knife) — only these show the block bar.
-static bool TSIsMeleeType(int type)
-{
-	return type == 0 || type == 25 || type == 34 || type == 35;
-}
-
 // Display name per tsweapon_t (the table index = the wire weaponType). Index 0 is the
 // unarmed / kung-fu "weapon"; 29 is the CTF flag (no HUD). Names follow the shipped
 // HUD ("Five-seveN", "MP5K", "Combat Knife", "Kung-Fu").
@@ -208,6 +202,8 @@ bool CHudTSAmmo::MsgFunc_KFuPower(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
+static const int TS_SND_CHANGE_VOL = 1 << 6; // SND_CHANGE_VOL (dlls/util.h), the 0x40 the original passes
+
 // The melee bar regenerates on the client as on the server (client.dll Think @0x1004ceef-0x1004cf53):
 // below 100 it gains 15 a second, or 1 a second while below -0.001, in the time the local slow motion
 // leaves (the frame time scaled by the eased slow factor, at least 0.01), up to 100.
@@ -223,6 +219,42 @@ void CHudTSAmmo::Think()
 		if (m_flMeleeBar > 100.0f)
 			m_flMeleeBar = 100.0f;
 	}
+
+	// The breathing (client.dll Think @0x1004d0ee-0x1004d24c), whatever is in his hands: below 50 on
+	// the melee bar breathe2.wav starts at 0.7 (it is loop-marked, so it keeps going); back at 50 it
+	// fades, 0.005 a frame, re-sent with SND_CHANGE_VOL, and stops at 0. Falling below 50 while it
+	// fades starts it again at 0.7. Channel 502, attenuation 0.8, pitch 25 + 75 x the slow factor,
+	// +-5.
+	if (m_flMeleeBar < 50.0f)
+	{
+		if (m_iBreathState == 0 || m_iBreathState == 1)
+		{
+			m_flBreathVolume = 0.7f;
+			PlayBreath(m_iBreathState == 1 ? TS_SND_CHANGE_VOL : 0);
+			m_iBreathState = 2;
+		}
+	}
+	else if (m_iBreathState == 2)
+		m_iBreathState = 1;
+	if (m_iBreathState == 1)
+	{
+		m_flBreathVolume -= 0.005f;
+		if (m_flBreathVolume <= 0.0f)
+			m_iBreathState = 0;
+		else
+			PlayBreath(TS_SND_CHANGE_VOL);
+	}
+}
+
+void CHudTSAmmo::PlayBreath(int flags)
+{
+	extern float g_flClientSlow; // ts_powerup_hud.cpp — the eased local slow factor
+	const int pitch = gEngfuncs.pfnRandomLong(-5, 5) + 25 - (int)(g_flClientSlow * -75.0f);
+	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+	if (!lp)
+		return;
+	gEngfuncs.pEventAPI->EV_PlaySound(lp->index, lp->origin, 502, "player/breathe2.wav",
+		m_flBreathVolume, 0.8f, flags, pitch);
 }
 
 // The client's CTSGun::UpdateClientData with a weapon out (client.dll @0x100581c0): the predicted
@@ -258,32 +290,6 @@ bool CHudTSAmmo::Draw(float flTime)
 	const char* szName = s_weaponNames[m_iWeaponType];
 	if (!szName || !szName[0])
 		return true;
-
-	// Exhausted breathing: while holding a melee weapon with LOW block stamina (<50%), loop the
-	// breathe2.wav "gasping" clip — RE: client.dll plays player/breathe2.wav off the low KFuPower
-	// melee bar (user-confirmed: below 50%). breathe2.wav is a single breath, so replay it on a timer
-	// while the bar stays low. VERIFY the exact threshold/interval + whether guns keep breathing.
-	{
-		// breathe2.wav is LOOP-MARKED (a 'cue' chunk) -> ONE EV_PlaySound self-loops it forever until
-		// stopped. So EDGE-trigger: start it once when the bar drops below 50%, EV_StopSound when it
-		// recovers (or we leave melee) — otherwise it loops forever. CHAN_STATIC = the persistent-loop
-		// channel, so a pickup (CHAN_ITEM) or other sound won't steal/short-circuit the breathing.
-		static bool s_breathing = false;
-		cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
-		const bool wantBreath = (lp != nullptr && m_flMeleeBar < 50.0f && TSIsMeleeType(m_iWeaponType));
-		if (wantBreath && !s_breathing)
-		{
-			gEngfuncs.pEventAPI->EV_PlaySound(lp->index, lp->origin, CHAN_STATIC,
-				"player/breathe2.wav", 1.0f, ATTN_NORM, 0, 100);
-			s_breathing = true;
-		}
-		else if (s_breathing && !wantBreath)
-		{
-			if (lp)
-				gEngfuncs.pEventAPI->EV_StopSound(lp->index, CHAN_STATIC, "player/breathe2.wav");
-			s_breathing = false;
-		}
-	}
 
 	// Exact geometry recovered from FUN_1004d7e0 (reference/HUD_DRAWCHAIN.md): a
 	// right-anchored box, 0x80 (128px) wide, x = ScreenWidth - 0x88 (136); lines are
@@ -356,8 +362,9 @@ bool CHudTSAmmo::Draw(float flTime)
 	if (knifeCount && n < (int)(sizeof(lines) / sizeof(lines[0])))
 		lines[n++] = {LK_COUNT, nullptr, hr, hg, hb, false, false};
 
-	// Only MELEE weapons (kung-fu/knife/katana/seal-knife) carry the block bar; guns have no bar.
-	const bool meleeBar = TSIsMeleeType(m_iWeaponType);
+	// Every weapon without a caliber (weapon info +0x8 == 0: kung-fu, the M61, knife, katana, seal
+	// knife) carries the block bar (client.dll draw @0x1004da71); guns have no bar.
+	const bool meleeBar = s_weaponCaliber[m_iWeaponType] == 0;
 
 	// Anchor the whole box bottom-right so the bar ends near ScreenHeight - 8 (the original's anchor).
 	const int barH = meleeBar ? LINEH : 0;
@@ -400,7 +407,7 @@ bool CHudTSAmmo::Draw(float flTime)
 	}
 
 	// The MELEE BLOCK bar at the bottom of the box (the original's FUN_1004d5f0) — the block stamina the
-	// server networks via gmsgKFuPower. Shown ONLY for melee weapons (kung-fu/knife/katana/seal-knife);
+	// server networks via gmsgKFuPower. Shown for every weapon without a caliber (above);
 	// each RELOAD-block drains it, and it regens. NOT health, NOT shown on guns. (TSHud_HealthBar is just
 	// the generic bar primitive — full = rested, low = tired/red.)
 	if (meleeBar)
