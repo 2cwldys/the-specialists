@@ -7168,3 +7168,32 @@ Tests: ts_callbacks (a flying gun's ShouldCollide pairs; the world not activated
 gets each SrvSett once), reTS + ts30.
 Found, not changed: CTSWorldGun::Fall settles below GiveSlowMul() x 3 (@0x90df0), reTS below 3; more in
 amxxbench docs/fixes/rets-deviations16-report.md.
+
+## 2026-10-09 — round 17: the invented join resends, Fall's settle speed, the client's sensitivity
+
+Round 17 (amxxbench docs/fixes/rets-deviations17.md). One patch per item in ~/stignored/rets-deviations17.
+Every resend removed here was added in July (ce04557, d99e07c, 6e7ce98, bdb229b, eb117a6, 6a25b0f) for a
+real-client symptom whose cause was the joiner's InitHUD burst going out from inside ClientPutInServer,
+before the client was active. 2999c75 (round 3) moved that send to the joiner's first PreThink as the
+original does; join-stream dumps now show nothing but TSFade and one weapon anim going out before then,
+on both games (amxxbench docs/fixes/srvsett-investigation-report.md).
+- 1 The team roster resends are gone: ResendTeamRoster and its 0.75 s timer (m_flRosterResendTime), and
+  CHalfLifeTeamplay::Think's 3 s MSG_ALL GameMode/TeamNames/TeamInfo. The original sends GameMode only from
+  UpdateGameMode and TeamNames/TeamInfo only from Teamplay InitHUD, ChangePlayerTeam, RecountTeams and
+  StartObserver.
+- 2a The one-shot slow motion and award un-latch (m_flSpecResyncTime) is gone.
+- 2b UpdateClientData's ResetHUD block no longer clears the TSHealth/TSArmor/TSCash caches (0x81d57 clears
+  none). They are cleared where the original clears them: TSInit health and cash (@0x82ac9, @0x82b02),
+  Spawn and Precache armor (@0x7f9a0, @0xca997), Killed cash (@0x7eead), ForceClientDllUpdate all three.
+- 2c No WeaponList (only LinkUserMessages uses gmsgWeaponList).
+- 2d The room type goes out from CEnvSound::Think when an env_sound takes the player over (@0xd0003), not
+  from UpdateClientData on a change (halflife-updated bc3add9), so a join or spawn sends none.
+- 3 CTSWorldGun::Fall settles below GiveSlowMul() x 3.0 (@0x90de9).
+- 4 Client: CHud::Think scales with sensitivity->value (0x10049865), not IN_GetMouseSensitivity.
+Tests: ts_messages (team roster only in the InitHUD frame; no HUD re-sends, WeaponList or room type for a
+waiting joiner; a spawn sends health, armor and cash once), ts_dropped (a gun at a quarter rate does not
+settle at 1.5 u/s), reTS + ts30. Real-client checks listed in amxxbench docs/things-to-test.md.
+Found, not changed: TS 3.0 sends two svc_weaponanim (1, 0) in each joiner StartObserver, reTS none; Train
+goes after TSArmor in the original's UpdateClientData; the respawn countdown's first number and frame and
+the "Press Fire To Play!" line differ; Fall goes on after settling in the original. More in amxxbench
+docs/fixes/rets-deviations17-report.md.

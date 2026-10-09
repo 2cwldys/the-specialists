@@ -580,14 +580,14 @@ void CBasePlayer::TSInit()
 	m_iClientBulletTime = 0xff; // 0x174 — force the first TSBTime send
 	m_iPlayerState = 0;         // 0x498
 	m_iClientTSState = 0xff;    // 0x499 — force the first TSState send
-	// player+0x9e0 = -1 (unnamed transient; no reconstructed state)
+	m_iClientTSHealth = -1;     // 0x9e0 (@0x82ac9) — force the first TSHealth send
 	pev->iuser4 = 0;
 	SetPlayerSpeed(330.0f);
 	// free-slot counter reset (the original's player+0x548 = 81; ours derives from the arsenal, so
 	// only a plugin's adjustment is dropped)
 	m_iFreeSlotsAdjust = 0;
 	m_iClientTSSpace = -1; // 0x54c — force the first TSSpace send
-	// player+0x544 = -1 (unnamed transient)
+	m_iClientTSCash = -1;  // 0x544 (@0x82b02) — force the first TSCash send
 	m_flNextClientUpdate = 0; // 0x534 (@0x82b0c): the next UpdateClientData runs at once
 	m_flSpawnProtectTime = gpGlobals->time + 1.0f; // 0x71c — the SPAWN-PROTECTION deadline
 	m_flNextAttack = UTIL_WeaponTimeBase() + 1.0f; // 0x12c (the stock Spawn tail re-arms it later)

@@ -51,8 +51,6 @@ public:
 	// Public for CTSGameRules::RestartRound, which calls it (@0x67d4e).
 	void RecountTeams(bool bResendInfo = false);
 
-	void ResendTeamRoster(CBasePlayer* pPlayer); // INVENTED-INTEROP: connect-window MSG_ONE drop workaround
-
 private:
 	const char* TeamWithFewestPlayers();
 

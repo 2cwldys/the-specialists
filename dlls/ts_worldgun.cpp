@@ -160,7 +160,8 @@ void CTSWorldGun::Fall()
 {
 	pev->nextthink = gpGlobals->time + 0.1f;
 
-	if ((pev->flags & FL_ONGROUND) && pev->velocity.Length() < 3.0f)
+	// @0x90de9: settles below GiveSlowMul() x 3.0 (.rodata 0xf7f78), so a slowed gun settles slower
+	if ((pev->flags & FL_ONGROUND) && pev->velocity.Length() < GiveSlowMul() * 3.0f)
 	{
 		EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "items/weapondrop1.wav", VOL_NORM, 0.8f, 0, 100);
 		pev->angles.x = 0;

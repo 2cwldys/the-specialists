@@ -119,50 +119,6 @@ void CHalfLifeTeamplay::Think()
 
 	g_VoiceGameMgr.Update(gpGlobals->frametime);
 
-	// INVENTED-INTEROP (cont.97): the connect-window MSG_ONE drop eats the joiner's team roster, and
-	// the +0.75s ResendTeamRoster can still race the client's player-NAME sync. The client's team
-	// list is (re)built ONLY on a TeamInfo message (the scoreboard paint does NOT rebuild it — the
-	// rebuild's paint-side caller @0x1005e633 is past the paint fn), so once an early rebuild counts
-	// 0 teams (names absent) nothing re-fires it -> scoreboard team headers + team HUD stay blank
-	// even though colors work (frag-driven ScoreInfo keeps teamnumber fresh). Periodically
-	// MSG_ALL-rebroadcast TeamNames + per-player TeamInfo so every client's rebuild re-runs with the
-	// now-present names. Verified via a live client-memory sim: the roster data is valid (4 teams),
-	// only the count was stuck at 0. Cheap (~num_teams + N tiny messages every few seconds).
-	static float s_flNextTeamRebroadcast = 0;
-	if (gpGlobals->time >= s_flNextTeamRebroadcast)
-	{
-		s_flNextTeamRebroadcast = gpGlobals->time + 3.0f;
-
-		// THE load-bearing one: gmsgGameMode(1) sets the client's m_Teamplay flag (client.dll
-		// MsgFunc_GameMode stores the byte at the flag @0x100cf97c). That flag gates the ENTIRE
-		// team HUD + team-mode scoreboard (headers, team name over health, green teammate dots) —
-		// with it 0 the scoreboard renders deathmatch-style even with full team data present. It's
-		// sent once at InitHUD (MSG_ONE, eaten by the connect-window drop) and never re-sent, so
-		// without this rebroadcast the joiner is stuck in DM-scoreboard mode. (RE-confirmed:
-		// client.dll FUN_10021a10 -> *(0x100cf920+0x5c)=byte; FUN_1005d5f0 branches on it.)
-		MESSAGE_BEGIN(MSG_ALL, gmsgGameMode);
-		WRITE_BYTE(1);
-		MESSAGE_END();
-
-		MESSAGE_BEGIN(MSG_ALL, gmsgTeamNames);
-		WRITE_BYTE(num_teams);
-		for (int i = 0; i < num_teams; i++)
-			WRITE_STRING(team_names[i]);
-		MESSAGE_END();
-
-		for (int i = 1; i <= gpGlobals->maxClients; i++)
-		{
-			CBaseEntity* plr = UTIL_PlayerByIndex(i);
-			if (plr && plr->TeamID() && plr->TeamID()[0] && IsValidTeam(plr->TeamID()))
-			{
-				MESSAGE_BEGIN(MSG_ALL, gmsgTeamInfo);
-				WRITE_BYTE(plr->entindex());
-				WRITE_STRING(plr->TeamID());
-				MESSAGE_END();
-			}
-		}
-	}
-
 	if (g_fGameOver) // someone else quit the game already
 	{
 		CHalfLifeMultiplay::Think();
@@ -441,49 +397,6 @@ void CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeam
 //=========================================================
 // ClientUserInfoChanged
 //=========================================================
-// INVENTED-INTEROP (cont.96, same class as the SrvSett re-broadcast): the connect-window
-// MSG_ONE drop also eats Teamplay::InitHUD's TeamNames/TeamInfo catch-up on the ORIGINAL
-// client -> blank team headings until some MSG_ALL rebroadcast. Resend the roster to the
-// now-active joiner (idempotent; the client just re-stores names/teams).
-void CHalfLifeTeamplay::ResendTeamRoster(CBasePlayer* pPlayer)
-{
-	// gmsgGameMode(1) FIRST — it sets the client m_Teamplay flag that gates the whole team
-	// scoreboard/HUD. Sending it here (the +0.75s per-joiner resend) instead of only in the 3s
-	// periodic rebroadcast makes the team NAMES render near-instantly on join (they arrive with
-	// this resend but otherwise sit un-rendered until the next 3s tick flips the flag).
-	MESSAGE_BEGIN(MSG_ONE, gmsgGameMode, NULL, pPlayer->edict());
-	WRITE_BYTE(1);
-	MESSAGE_END();
-
-	MESSAGE_BEGIN(MSG_ONE, gmsgTeamNames, NULL, pPlayer->edict());
-	WRITE_BYTE(num_teams);
-	for (int i = 0; i < num_teams; i++)
-		WRITE_STRING(team_names[i]);
-	MESSAGE_END();
-
-	for (int i = 1; i <= gpGlobals->maxClients; i++)
-	{
-		CBaseEntity* plr = UTIL_PlayerByIndex(i);
-		if (plr && plr->TeamID() && plr->TeamID()[0] && IsValidTeam(plr->TeamID()))
-		{
-			MESSAGE_BEGIN(MSG_ONE, gmsgTeamInfo, NULL, pPlayer->edict());
-			WRITE_BYTE(plr->entindex());
-			WRITE_STRING(plr->TeamID());
-			MESSAGE_END();
-			// the SCOREBOARD section name+color key off the ScoreInfo teamid column — the
-			// join-time MP::InitHUD per-player rows are MSG_ONEs in the same drop window.
-			CBasePlayer* pl = (CBasePlayer*)plr;
-			MESSAGE_BEGIN(MSG_ONE, gmsgScoreInfo, NULL, pPlayer->edict());
-			WRITE_BYTE(plr->entindex());
-			WRITE_SHORT((int)plr->pev->frags);
-			WRITE_SHORT(pl->m_iDeaths);
-			WRITE_SHORT(0);
-			WRITE_SHORT(GetTeamIndex(pl->m_szTeamName) + 1);
-			MESSAGE_END();
-		}
-	}
-}
-
 // R1 phase 3 — TS-patched @0xd4d18 (dossier §3.3): calls the TS-relocated MP::CUIC first;
 // the live path (m_teamLimit==1 always) RE-STAMPS the model from GetPlayerModel — the stock
 // model-as-team change mechanism is DEAD in TS (team changes go through `jointeam` ->

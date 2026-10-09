@@ -966,7 +966,12 @@ void CEnvSound::Think()
 				pPlayer->m_SndRoomtype = m_Roomtype;
 				pPlayer->m_flSndRange = flRange;
 
-				// New room type is sent to player in CBasePlayer::UpdateClientData.
+				// @0xd0003: the new room type goes to the player here, MSG_ONE, as in the original
+				// (halflife-updated sends it from UpdateClientData on a change, so every spawn and join
+				// also sent a 0; TS 3.0 sends nothing then).
+				MESSAGE_BEGIN(MSG_ONE, SVC_ROOMTYPE, nullptr, pentPlayer);
+				WRITE_SHORT((short)m_Roomtype);
+				MESSAGE_END();
 
 				// crank up nextthink rate for new active sound entity
 			}

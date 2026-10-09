@@ -143,7 +143,7 @@ public:
 
 	EHANDLE m_SndLast;	   // last sound entity to modify player room type
 	int m_SndRoomtype = 0; // last roomtype set by sound entity. Defaults to 0 on new maps to disable it by default.
-	int m_ClientSndRoomtype;
+	int m_ClientSndRoomtype; // unused: the original sends the room type from env_sound (kept for the layout)
 	float m_flSndRange; // dist from player to sound entity
 
 	float m_flFallVelocity;
@@ -535,19 +535,6 @@ public:
 	byte m_iClientAward = 0;                              // 0x74d — last TSPAward value broadcast
 	byte m_iClientActiveItems = 0;                        // 0x720 — last ActItems mask broadcast (GetActiveItems)
 	float m_flNextPTakeDamTime = 0;                       // 0x750 (invented name) — PTakeDam send throttle (+0.3 s)
-	// One-shot: resend the team roster to a teamplay joiner 0.75 s after InitHUD, once his client is
-	// active (CHalfLifeTeamplay::ResendTeamRoster, INVENTED-INTEROP for the original client; no
-	// original counterpart). It no longer resends the four SrvSett settings: the original sends them
-	// once, from InitHUD.
-	float m_flRosterResendTime = 0;
-	// INVENTED (cont.98) — connect-window MSG-drop ONE-SHOT re-sync sentinel for the slow/award UCD
-	// sends. The joiner's pre-active connect burst (RemoveAllItems→UCD) latches gmsgTSSlowAmt/
-	// gmsgTSPlayerAward's change-detect caches to their final values while SV_Multicast drops the send
-	// (client !active); the first post-active UCD then sees no change. Armed to <0 in TSEnterSpectate;
-	// the PreThink spectate block (which runs only post-active) consumes it once to un-latch the caches
-	// → exactly ONE post-active send that lands reliably (netchan retransmits). RE-verified sole send
-	// sites are UpdateClientData @0x822f9/@0x8245d.
-	float m_flSpecResyncTime = 0;
 	byte m_iWires[3] = {};                                // 0x78c-0x78e — the nearby armed bomb's wire ROLE codes
 	                                                      // (0 cut / 1 defuse / 2 boobytrap / 3 intact)
 	byte m_iClientWires[3] = {};                          // 0x78f-0x791 — the last-sent Wires triple

@@ -42,8 +42,7 @@
 #include "UserMessages.h"
 #include "client.h"
 #include "ts_utils.h" // TSHudMessageOne (the `respawn`-gate "wait" message)
-#include "ts_gamerules.h"
-#include "teamplay_gamerules.h" // ResendTeamRoster (connect-window workaround) // TSGameRules — armor_absorb (kevlar damage reduction)
+#include "ts_gamerules.h" // TSGameRules — armor_absorb (kevlar damage reduction)
 #include "ts_weapons.h" // TS weapon helpers
 #include "ts_gun.h" // CTSGun::Reset (StartObserver arsenal wipe), GetPlayerTSGun
 #include "ts_shared.h" // InterpolateSlowMotion (the fuser1 slow-motion ease)
@@ -996,6 +995,7 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	// @0x7eea7 (Killed): the death-cam hold — watch the body for 3.0 s (any button skips).
 	m_flDeathCamTime = gpGlobals->time + 3.0f;
 	m_vecDeathBodyAngles = pev->angles; // freeze the body yaw at the death pose
+	m_iClientTSCash = -1; // @0x7eead: TSCash goes again at the next update
 
 	// TSPAward: the original's Killed re-runs SetPlayerRespawnTime's +0x770<0 test and writes
 	// 1 (out of round) or 11 (will respawn). Our respawn gate is round-driven; default to 11 —
@@ -1549,7 +1549,6 @@ void CBasePlayer::TSEnterSpectate(bool bResetArmament)
 		ResetArmament(); // no weapons until they pick a loadout + press fire
 	m_fInSpectateWait = true;
 	m_iClientSpecSecs = -1;
-	m_flSpecResyncTime = -1.0f; // arm the one-shot post-active slow/award re-sync (PreThink spectate block)
 
 	// (fold-plan Y6: the WAITING scoreboard status travels on the award byte via
 	// SetPlayerRespawnTime -> TSPAward, not on ScoreInfo playerclass — see below.)
@@ -1943,20 +1942,6 @@ void CBasePlayer::PreThink()
 	// (UpdatePlayerState and CheckForWires run near the end, past the spectator, dead and train
 	// returns, where the original calls them: @0x81416, @0x81450.)
 
-	// One-shot team roster resend (see m_flRosterResendTime in player.h), invented for the original
-	// client. The four SrvSett settings are not sent again here: the original sends them once, from
-	// CTSGameRules::InitHUD (@0x691fe..0x69316).
-	if (m_flRosterResendTime != 0.0f && gpGlobals->time >= m_flRosterResendTime)
-	{
-		m_flRosterResendTime = 0.0f;
-#ifndef CLIENT_DLL
-		// INVENTED-INTEROP (cont.96): the connect-window drop eats the TeamNames/TeamInfo
-		// roster catch-up -> blank team headings on the original client until a later MSG_ALL.
-		if (g_pGameRules && g_pGameRules->IsTeamplay())
-			((CHalfLifeTeamplay*)g_pGameRules)->ResendTeamRoster(this);
-#endif
-	}
-
 	// TS dynamic-accuracy recovery (RE PreThink @0x808cc): the spread accumulator decays back toward 0 each
 	// frame (scaled by the slow-mo factor, so it recovers in game-time during bullet-time), so accuracy
 	// returns when you stop spraying. Growth is in CTSGun::ScaleSpread on each shot.
@@ -2053,24 +2038,6 @@ void CBasePlayer::PreThink()
 		// run above for spectators too; VERIFY: for full parity the rest of the per-frame work before
 		// the original's iuser1 block — ItemPreFrame, WaterMove, the stunt and anim timers — would
 		// move ahead of this block as well.)
-		//
-		// Connect-window drop — ONE-SHOT post-active re-sync (cont.98). RE-CONFIRMED by a live server+client
-		// trace: the joiner's connect sequence (ClientPutInServer → Spawn → RemoveAllItems → UCD, all BEFORE
-		// the engine sets client->active at sv_main.cpp:1504) sends gmsgTSSlowAmt(normal) + gmsgTSPlayerAward
-		// (WAITING) while !active, so SV_Multicast's !active gate (sv_main.cpp:958) DROPS them — but the
-		// change-detect still LATCHES the caches to the final values (slowCache=1.0, awdCache=11). The first
-		// post-active PreThink UCD then sees no change and never re-sends → perma-slow + no WAITING. (The
-		// original's identical burst evidently lands — suspected ReHLDS-vs-GoldSrc active-timing difference,
-		// FLAGGED, engine left untouched.) Fix without a retry: this PreThink spectate block only runs AFTER
-		// active is set, and reliable messages retransmit until acked — so a SINGLE re-arm here, on the first
-		// post-active frame (m_flSpecResyncTime armed to <0 in TSEnterSpectate), makes UCD emit exactly ONE
-		// post-active send that lands, matching the original's observable single send. Not a throttle.
-		if (m_flSpecResyncTime < 0.0f)
-		{
-			m_flSpecResyncTime = 0.0f;   // one-shot: consume it
-			m_flClientSlowAmt = -1.0f;   // un-latch → UCD re-sends TSSlowMo(normal) once, now post-active
-			m_iClientAward = 0xff;       // un-latch → UCD re-sends TSPAward(WAITING) once (0xff matches TSInit)
-		}
 		UpdateClientData();
 		// @0x810c3, @0x810cb, @0x810d3: the block ends with the observer controls, the dead-target
 		// check and the impulse cleared, as the original's does.
@@ -3328,7 +3295,6 @@ void CBasePlayer::Spawn()
 
 	m_iFOV = 0;		   // init field of view.
 	m_iClientFOV = -1; // make sure fov reset is sent
-	m_ClientSndRoomtype = -1;
 
 	m_flNextDecalTime = 0; // let this player decal as soon as he spawns.
 
@@ -3378,6 +3344,7 @@ void CBasePlayer::Spawn()
 	m_fWeapon = false;
 	m_pClientActiveItem = NULL;
 	m_iClientBattery = -1;
+	m_iClientTSArmor = -1; // @0x7f9a0: the original's armor cache is this one (player+0x9e4)
 
 	// reset all ammo values to 0
 	for (int i = 0; i < MAX_AMMO_SLOTS; i++)
@@ -3415,6 +3382,7 @@ void CBasePlayer::Precache()
 	m_bitsHUDDamage = -1;
 
 	m_iClientBattery = -1;
+	m_iClientTSArmor = -1; // @0xca997
 
 	m_iTrain |= TRAIN_NEW;
 
@@ -3469,7 +3437,6 @@ bool CBasePlayer::Restore(CRestore& restore)
 	pev->fixangle = 1; // turn this way immediately
 
 	m_iClientFOV = -1; // Make sure the client gets the right FOV value.
-	m_ClientSndRoomtype = -1;
 
 	// Reset room type on level change.
 	if (!FStrEq(restore.GetData().szCurrentMapName, STRING(gpGlobals->mapname)))
@@ -3849,10 +3816,12 @@ void CBasePlayer::ForceClientDllUpdate()
 {
 	m_iClientHealth = -1;
 	m_iClientBattery = -1;
+	m_iClientTSHealth = -1; // @0x825a7, @0x825b1, @0x825ea: the TS HUD caches (player+0x9e0, 0x9e4, 0x544)
+	m_iClientTSArmor = -1;
+	m_iClientTSCash = -1;
 	m_iClientHideHUD = -1;
 	m_iClientFOV = -1;
 	m_ClientWeaponBits = 0;
-	m_ClientSndRoomtype = -1;
 
 	for (int i = 0; i < MAX_AMMO_SLOTS; ++i)
 	{
@@ -4529,11 +4498,8 @@ void CBasePlayer::UpdateClientData()
 
 		InitStatusBar();
 
-		// Force a resend of the TS custom-HUD values: the client just reset its HUD,
-		// so our cached "last sent" values are stale.
-		m_iClientTSHealth = -1;
-		m_iClientTSArmor = -1;
-		m_iClientTSCash = -1;
+		// (no forced TSHealth/TSArmor/TSCash here: this block of the original clears none of their
+		// caches; TSInit, Spawn, Precache, Killed and ForceClientDllUpdate do.)
 	}
 
 	if (m_iHideHUD != m_iClientHideHUD)
@@ -4611,55 +4577,8 @@ void CBasePlayer::UpdateClientData()
 		m_iTrain &= ~TRAIN_NEW;
 	}
 
-	//
-	// New Weapon?
-	//
-	if (!m_fKnownItem)
-	{
-		m_fKnownItem = true;
-
-		// WeaponInit Message
-		// byte  = # of weapons
-		//
-		// for each weapon:
-		// byte		name str length (not including null)
-		// bytes... name
-		// byte		Ammo Type
-		// byte		Ammo2 Type
-		// byte		bucket
-		// byte		bucket pos
-		// byte		flags
-		// ????		Icons
-
-		// Send ALL the weapon info now
-		int i;
-
-		for (i = 0; i < MAX_WEAPONS; i++)
-		{
-			ItemInfo& II = CBasePlayerItem::ItemInfoArray[i];
-
-			if (WEAPON_NONE == II.iId)
-				continue;
-
-			const char* pszName;
-			if (!II.pszName)
-				pszName = "Empty";
-			else
-				pszName = II.pszName;
-
-			MESSAGE_BEGIN(MSG_ONE, gmsgWeaponList, NULL, pev);
-			WRITE_STRING(pszName);				   // string	weapon name
-			WRITE_BYTE(GetAmmoIndex(II.pszAmmo1)); // byte		Ammo Type
-			WRITE_BYTE(II.iMaxAmmo1);			   // byte     Max Ammo 1
-			WRITE_BYTE(GetAmmoIndex(II.pszAmmo2)); // byte		Ammo2 Type
-			WRITE_BYTE(II.iMaxAmmo2);			   // byte     Max Ammo 2
-			WRITE_BYTE(II.iSlot);				   // byte		bucket
-			WRITE_BYTE(II.iPosition);			   // byte		bucket pos
-			WRITE_BYTE(II.iId);					   // byte		id (bit index into m_WeaponBits)
-			WRITE_BYTE(II.iFlags);				   // byte		Flags
-			MESSAGE_END();
-		}
-	}
+	// (no WeaponList: the original registers it and never sends it, its only GOT use of gmsgWeaponList
+	// is in LinkUserMessages; TS's one weapon_tsgun needs no weapon-type list on the client.)
 
 
 	SendAmmoUpdate();
@@ -4685,15 +4604,7 @@ void CBasePlayer::UpdateClientData()
 		m_flNextSBarUpdateTime = gpGlobals->time + 0.2;
 	}
 
-	// Send new room type to client.
-	if (m_ClientSndRoomtype != m_SndRoomtype)
-	{
-		m_ClientSndRoomtype = m_SndRoomtype;
-
-		MESSAGE_BEGIN(MSG_ONE, SVC_ROOMTYPE, nullptr, edict());
-		WRITE_SHORT((short)m_SndRoomtype); // sequence number
-		MESSAGE_END();
-	}
+	// (no room type here: env_sound sends it when it takes over the player, @0xd0003.)
 
 	// The Specialists custom-HUD messages (TSHealth/TSArmor/TSCash/...). The original
 	// drives its own HUD from here instead of relying on the stock Health/Battery.

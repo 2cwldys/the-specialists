@@ -33,7 +33,7 @@ extern bool g_iVisibleMouse;
 
 float HUD_GetFOV();
 
-extern float IN_GetMouseSensitivity();
+extern cvar_t* sensitivity; // inputw32.cpp; 0x10049865 reads its value directly (no clamp)
 
 extern float v_frametime; // view.cpp, the last V_CalcRefdef's frametime
 
@@ -115,7 +115,7 @@ void CHud::Think()
 	else
 	{
 		// set a new sensitivity that is proportional to the change from the FOV default
-		m_flMouseSensitivity = ((float)newfov / def) * IN_GetMouseSensitivity() * CVAR_GET_FLOAT("zoom_sensitivity_ratio");
+		m_flMouseSensitivity = ((float)newfov / def) * sensitivity->value * CVAR_GET_FLOAT("zoom_sensitivity_ratio");
 	}
 
 	// think about default fov
