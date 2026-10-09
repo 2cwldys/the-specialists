@@ -22,6 +22,8 @@
 #include "ts_gun.h"             // CTSGun (RestartRound's loadout refund)
 #include "game.h"          // g_flWeaponCheat (sv_cheats as the map started)
 
+extern cvar_t dmcashbased; // ts_cvars.cpp, registered as "usecash" (Think's SrvSett)
+
 // Defined in ts_objectives.cpp — fire the objective manager's targetontimeleft on round timeout.
 void TSFireTimeLeftTarget();
 
@@ -843,14 +845,9 @@ void CTSGameRules::Think()
 	// (R1 phase 2: no base call — this is the original's NON-VIRTUAL Think @0x67204, invoked
 	// by the TS-patched CHalfLifeMultiplay::Think @0xbf302 / CHalfLifeTeamplay::Think @0xd439a.)
 
-	g_BulletManager.Think(); // TS: fly the slow-motion bullets-as-models each frame (ts_bullet.cpp)
-
 	// `globalslow` command / SetGlobalSlowMotion driver (RE CTSGameRules::Think @0x67204, the FIRST
 	// block): expire a timed slow, restore normal speed ONCE when it goes inactive (and clear
-	// scale/end), else re-apply the scale each Think (GlobalSlowMotion2 self-throttles ~0.5s). Without
-	// this, the newly-registered `globalslow` command set m_flGlobalSlowActive but nothing consumed it.
-	// cont.91 (cvar_settings_audit.md fix 1). NOTE: coexists with the slowmatch block below — both call
-	// GlobalSlowMotion2; they are mutually-exclusive server settings in practice. VERIFY if both on.
+	// scale/end), else re-apply the scale each Think (GlobalSlowMotion2 self-throttles ~0.5s).
 	if (m_flGlobalSlowEnd != 0.0f && m_flGlobalSlowEnd < gpGlobals->time)
 		m_flGlobalSlowActive = 0;
 	if (m_flGlobalSlowActive == 0.0f)
@@ -867,23 +864,8 @@ void CTSGameRules::Think()
 		GlobalSlowMotion2(m_flGlobalSlowScale, 0); // maintain the global slow
 	}
 
-	// `slowmatch` cvar (default 1.0): a value in (0,1) runs the entire match in global
-	// slow-motion at that scale (the .so's "SlowMatch" mode). GlobalSlowMotion2 is self-
-	// throttled (~0.5s) and re-applies the slow to every player, so calling it each Think
-	// keeps the match slowed; when slowmatch returns to >=1.0 we restore once.
-	{
-		const float sm = CVAR_GET_FLOAT("slowmatch");
-		if (sm > 0.0f && sm < 1.0f)
-		{
-			GlobalSlowMotion2(sm, 0);
-			m_bSlowMatchActive = true;
-		}
-		else if (m_bSlowMatchActive)
-		{
-			m_bSlowMatchActive = false;
-			GlobalSlowMotion2(0, 0); // restore normal speed
-		}
-	}
+	// (No per-frame slowmatch block: the original's Think has none. slowmatch is read where the
+	// powerups are drawn, below.)
 
 	// A scheduled deads-check (from CallCheckDeads, on a player death) resolves the round.
 	// (@0x67204 — unconditional; m_flCheckDeads is only armed in round modes.)
@@ -984,7 +966,17 @@ void CTSGameRules::Think()
 			WRITE_SHORT(v);
 			MESSAGE_END();
 		}
-		v = (int)(CVAR_GET_FLOAT("usecash") + 0.5f);
+	}
+
+	// @0x67635: the slow-motion bullets fly here, after the realbullet setting and only while the
+	// manager counts any (rules+0x5864, its +0x4000).
+	if (g_BulletManager.m_iActive != 0)
+		g_BulletManager.Think();
+
+	if (gmsgTSServerSetting != 0)
+	{
+		// @0x67650: the usecash setting is the dmcashbased cvar (registered as "usecash").
+		int v = (int)(dmcashbased.value + 0.5f);
 		if (v != m_iSrvUseCash)
 		{
 			m_iSrvUseCash = v;
@@ -1353,6 +1345,15 @@ void CTSGameRules::InitHUD(CBasePlayer *pPlayer)
 	// that also drops a deadline left from the previous map's clock (cont.96).
 	pPlayer->m_flTSRespawnTime = 0.0f;
 	pPlayer->TSEnterSpectate();
+
+	// @0x69592: in the objective modes (g_teamplay 2 or 3 in the original; reTS keeps the mode in
+	// m_iGameMode, its rules+0 copy, and g_teamplay as a bool) the random model index is cleared and
+	// the joiner is sent the objective list.
+	if ((unsigned char)(m_iGameMode - 2) <= 1)
+	{
+		pPlayer->m_iPlayerModel = 0; // player+0x758
+		SendObjectiveList(pPlayer);
+	}
 
 	// @0x695e3: and the joiner starts with no votes (his block reset, as "vote reset" does).
 	const int idx = ENTINDEX(pPlayer->edict());

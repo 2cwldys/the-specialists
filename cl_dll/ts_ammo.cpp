@@ -220,6 +220,31 @@ void CHudTSAmmo::Think()
 			m_flMeleeBar = 100.0f;
 	}
 
+	// The heartbeat (client.dll Think @0x1004cf8b-0x1004d0e4), the same machine on the local slow
+	// factor: while it is under 1, heartbeat1.wav starts at volume 1.0; back at 1 it fades, 0.01 a
+	// frame, re-sent with SND_CHANGE_VOL, and stops at 0. Slowing again while it fades starts it again
+	// at 1.0. Channel 501, attenuation 0.8, the breathing's pitch.
+	extern float g_flClientSlow; // ts_powerup_hud.cpp — the eased local slow factor
+	if (g_flClientSlow < 1.0f)
+	{
+		if (m_iHeartState == 0 || m_iHeartState == 1)
+		{
+			m_flHeartVolume = 1.0f;
+			PlayLoop(501, "player/heartbeat1.wav", m_flHeartVolume, m_iHeartState == 1 ? TS_SND_CHANGE_VOL : 0);
+			m_iHeartState = 2;
+		}
+	}
+	else if (m_iHeartState == 2)
+		m_iHeartState = 1;
+	if (m_iHeartState == 1)
+	{
+		m_flHeartVolume -= 0.01f;
+		if (m_flHeartVolume <= 0.0f)
+			m_iHeartState = 0;
+		else
+			PlayLoop(501, "player/heartbeat1.wav", m_flHeartVolume, TS_SND_CHANGE_VOL);
+	}
+
 	// The breathing (client.dll Think @0x1004d0ee-0x1004d24c), whatever is in his hands: below 50 on
 	// the melee bar breathe2.wav starts at 0.7 (it is loop-marked, so it keeps going); back at 50 it
 	// fades, 0.005 a frame, re-sent with SND_CHANGE_VOL, and stops at 0. Falling below 50 while it
@@ -230,7 +255,7 @@ void CHudTSAmmo::Think()
 		if (m_iBreathState == 0 || m_iBreathState == 1)
 		{
 			m_flBreathVolume = 0.7f;
-			PlayBreath(m_iBreathState == 1 ? TS_SND_CHANGE_VOL : 0);
+			PlayLoop(502, "player/breathe2.wav", m_flBreathVolume, m_iBreathState == 1 ? TS_SND_CHANGE_VOL : 0);
 			m_iBreathState = 2;
 		}
 	}
@@ -242,19 +267,20 @@ void CHudTSAmmo::Think()
 		if (m_flBreathVolume <= 0.0f)
 			m_iBreathState = 0;
 		else
-			PlayBreath(TS_SND_CHANGE_VOL);
+			PlayLoop(502, "player/breathe2.wav", m_flBreathVolume, TS_SND_CHANGE_VOL);
 	}
 }
 
-void CHudTSAmmo::PlayBreath(int flags)
+// The heartbeat's and the breathing's sound: on the local player, attenuation 0.8, pitch 25 + 75 x
+// the slow factor, +-5.
+void CHudTSAmmo::PlayLoop(int channel, const char* sample, float volume, int flags)
 {
 	extern float g_flClientSlow; // ts_powerup_hud.cpp — the eased local slow factor
 	const int pitch = gEngfuncs.pfnRandomLong(-5, 5) + 25 - (int)(g_flClientSlow * -75.0f);
 	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
 	if (!lp)
 		return;
-	gEngfuncs.pEventAPI->EV_PlaySound(lp->index, lp->origin, 502, "player/breathe2.wav",
-		m_flBreathVolume, 0.8f, flags, pitch);
+	gEngfuncs.pEventAPI->EV_PlaySound(lp->index, lp->origin, channel, sample, volume, 0.8f, flags, pitch);
 }
 
 // The client's CTSGun::UpdateClientData with a weapon out (client.dll @0x100581c0): the predicted
@@ -408,10 +434,9 @@ bool CHudTSAmmo::Draw(float flTime)
 
 	// The MELEE BLOCK bar at the bottom of the box (the original's FUN_1004d5f0) — the block stamina the
 	// server networks via gmsgKFuPower. Shown for every weapon without a caliber (above);
-	// each RELOAD-block drains it, and it regens. NOT health, NOT shown on guns. (TSHud_HealthBar is just
-	// the generic bar primitive — full = rested, low = tired/red.)
+	// each RELOAD-block drains it, and it regens. NOT health, NOT shown on guns.
 	if (meleeBar)
-		TSHud_HealthBar(x, y, (int)m_flMeleeBar);
+		TSHud_MeleeBar(x, y, m_flMeleeBar);
 
 	return true;
 }

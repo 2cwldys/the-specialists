@@ -119,7 +119,6 @@ public:
 	void Observer_Idle();                                 // @0x89ca4 — move on from a dead or spectating target
 	void Observer_HandleButtons();
 	void Observer_SetMode(int iMode);
-	void Observer_CheckTarget();
 	EHANDLE m_hObserverTarget;
 	float m_flNextObserverInput;   // 0x760 — Observer_HandleButtons' 0.2 s clock
 	float m_flNextObserverIdle = 0; // 0x764 — Observer_Idle's own 0.5 s clock (StartObserver clears it)

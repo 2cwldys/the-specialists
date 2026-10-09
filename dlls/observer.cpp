@@ -132,50 +132,6 @@ void CBasePlayer::Observer_HandleButtons()
 	}
 }
 
-void CBasePlayer::Observer_CheckTarget()
-{
-	if (pev->iuser1 == OBS_ROAMING)
-		return;
-
-	// try to find a traget if we have no current one
-	if (m_hObserverTarget == NULL)
-	{
-		Observer_FindNextPlayer(false);
-
-		if (m_hObserverTarget == NULL)
-		{
-			// no target found at all
-
-			int lastMode = pev->iuser1;
-
-			Observer_SetMode(OBS_ROAMING);
-
-			m_iObserverLastMode = lastMode; // don't overwrite users lastmode
-
-			return; // we still have np target return
-		}
-	}
-
-	CBasePlayer* target = (CBasePlayer*)(UTIL_PlayerByIndex(ENTINDEX(m_hObserverTarget->edict())));
-
-	if (!target)
-	{
-		Observer_FindNextPlayer(false);
-		return;
-	}
-
-	// check taget
-	if (target->pev->deadflag == DEAD_DEAD)
-	{
-		if ((target->m_fDeadTime + 2.0f) < gpGlobals->time)
-		{
-			// 3 secs after death change target
-			Observer_FindNextPlayer(false);
-			return;
-		}
-	}
-}
-
 // @0x89e44 Observer_SetMode — roaming clears the target and sets the client's max speed to 420; the
 // chase, locked chase and map modes need a target (found if there is none) and fall back to roaming
 // without one. Other modes change nothing past the view reset. Nothing is printed and the last mode

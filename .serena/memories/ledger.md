@@ -7093,3 +7093,34 @@ Tests: ts_messages (newcomer no WStatus, two CurWeapon 0 0 0, ActItems akimbo ta
 speed truncated), ts_powerup_state (map powerups leave out random ones), reTS + ts30. The amd64 AMX Mod X
 core's floatround_tozero rounds 239.63 to 240: SpeedBySlots helpers now floor.
 Found, not changed: see amxxbench docs/fixes/rets-deviations13-report.md.
+
+## 2026-10-08 — round 14: the round-13 leftovers (RemoveAllItems, spawn, Think, SetFOV, client, ActItems)
+
+Round 14 (amxxbench docs/fixes/rets-deviations14.md). One patch per item in ~/stignored/rets-deviations14.
+- 3 RemoveAllItems (@0xc8cec): no func_tank release, no SetHasSuit; removeSuit clears every weapon bit,
+  otherwise only a held suit bit stays (pev->weapons &= 0x80000000).
+- 4 PlayerSpawn strips nothing (@0x790ac); the round-restart guard is gone (RestartRound already sends
+  every player in play to spectate, which strips him).
+- 5 CTSGun::Spawn (@0x7053c) seeds nothing: Reset, classname, Precache, glock model, id 16, m_iClip 1,
+  m_iDefaultAmmo 1, type 0, FallInit. GiveTSWeapon (reTS's, uncalled) spawns an empty gun and gives the
+  weapon through TakeWeapon.
+- 6 Observer_CheckTarget removed (not in the original, never called).
+- 7 UpdateClientData sends no SetFOV; the zoom reaches the client in cd->fov (HUD_PostRunCmd copies it to
+  g_lastFOV, client.dll @0x100045e6 as in the SDK). SetFOV only from Killed and StartObserver.
+- 8 Think: no per-frame slowmatch block; CBulletManager::m_iActive (+0x4000, rules+0x5864: recounted in
+  Think, +1 per FireBullet, 0 in Reset) gates the bullet Think, which runs after the realbullet SrvSett
+  (@0x67635); usecash's SrvSett reads dmcashbased (registered as "usecash").
+- 9 InitHUD in the objective modes (m_iGameMode 2/3) clears m_iPlayerModel and calls SendObjectiveList
+  (@0x69592). Not reachable on these maps.
+- 10 Client: the melee bar as client.dll @0x1004d5f0 (raw hud_r/g/b; at 0.01 or below only the frame in
+  0xc3,0x2d,0x2d; else fill (int)(bar*1.28)-2 wide in (r*128/255, w*g/255, w*b/255) at alpha 255-w, then
+  the 128x19 frame at alpha 0x1e). The heartbeat is Think's state machine (@0x1004cf8b: slow < 1 starts
+  heartbeat1.wav at 1.0 on channel 501, fading 0.01 a frame); the four beats on slow motion entry are gone.
+- 11 StartObserver sends ActItems {idx, 0} itself, before its SetFOV (@0x897b4), so a teamplay joiner's
+  team change (StartObserver alone) sends one: two ActItems 0 for a teamplay joiner, as TS 3.0.
+Tests: ts_messages (no weapon bits after death, spawn while armed strips nothing, no SetFOV after a spawn,
+joiner ActItems per StartObserver), ts_powerup_state (slowmatch slows nobody), reTS + ts30.
+Found, not changed: the global ShouldCollide dereferences a NULL pentOther (a plugin trace with no entity
+to skip crashed rets-r11); StartObserver strips with RemoveAllItems(false) where the original passes 1;
+Spectator 1 1 is sent from TSEnterSpectate, not StartObserver; more in amxxbench
+docs/fixes/rets-deviations14-report.md.

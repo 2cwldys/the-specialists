@@ -101,31 +101,28 @@ void TSHud_Color(int& r, int& g, int& b)
 int g_iTSHealth = 100;
 int g_iTSActiveWeapon = -1;
 
-void TSHud_HealthBar(int x, int y, int health)
+// The melee bar (client.dll @0x1004d5f0), from the bar value (this+0x3700, -100..100) and the raw
+// hud_r/hud_g/hud_b values (truncated, unclamped). At 0.01 or below only the frame is drawn, in
+// (0xc3, 0x2d, 0x2d); above, the fill is (int)(bar x 1.28) - 2 wide in (r x 128/255, w x g/255,
+// w x b/255) at alpha 255 - w, then the 128 x 19 frame in the colour at alpha 0x1e.
+void TSHud_MeleeBar(int x, int y, float bar)
 {
-	int r, g, b;
-	TSHud_Color(r, g, b);
+	int r = (int)(s_hud_r ? s_hud_r->value : 150.0f);
+	int g = (int)(s_hud_g ? s_hud_g->value : 175.0f);
+	int b = (int)(s_hud_b ? s_hud_b->value : 255.0f);
 
-	// Faint bar background (the original uses alpha 0x1e).
-	FillRGBA(x, y, 0x80, 0x13, r, g, b, 0x1e);
-
-	if (health < 0)
-		health = 0;
-	if (health > 100)
-		health = 100;
-
-	// Fill width is proportional to the value across the inset bar (0x80 - 4 px).
-	const int fillW = (health * (0x80 - 4)) / 100;
-	if (fillW > 0)
+	if (bar <= 0.01f)
 	{
-		// Colour FADES from the HUD colour (full) toward red (empty) — redder the closer to 0, not a
-		// hard switch at a threshold (the original lerps the colour across the bar's progress).
-		const float frac = health / 100.0f; // 1 = full, 0 = empty
-		const int fr = (int)(0xc3 + (r - 0xc3) * frac);
-		const int fg = (int)(0x2d + (g - 0x2d) * frac);
-		const int fb = (int)(0x2d + (b - 0x2d) * frac);
-		FillRGBA(x + 2, y + 2, fillW, 0x10, fr, fg, fb, 0xb4);
+		r = 0xc3;
+		g = 0x2d;
+		b = 0x2d;
 	}
+	else
+	{
+		const int w = (int)(bar * 1.28f);
+		FillRGBA(x + 2, y + 2, w - 2, 0x10, (r * 0x80) / 0xff, (w * g) / 0xff, (w * b) / 0xff, 0xff - w);
+	}
+	FillRGBA(x, y, 0x80, 0x13, r, g, b, 0x1e);
 }
 
 int TSHud_DrawString(int x, int y, int maxX, const char* str, int r, int g, int b)

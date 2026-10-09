@@ -570,8 +570,8 @@ void CHalfLifeMultiplay::PlayerThink(CBasePlayer* pPlayer)
 // stock crowbar+9mmhandgun loadout. Shape: weapons flag → game_player_equip loop → if none:
 // GiveNamedItem("weapon_tsgun") + BuyArmament (its ONLY caller, @0x79122) → spawn-cash snapshot.
 // Tagged local shims kept from the dissolved override: SetHasSuit (stock-derived HUD needs the
-// suit bit), the spectate-wait no-equip gate (coupled to Y7), RemoveAllItems (round-restart
-// double-tsgun guard), TSDeployArsenal (engine auto-deploy skips kung-fu).
+// suit bit), the spectate-wait no-equip gate (coupled to Y7), TSDeployArsenal (engine auto-deploy
+// skips kung-fu).
 void CHalfLifeMultiplay::PlayerSpawn(CBasePlayer* pPlayer)
 {
 	pPlayer->pev->weapons |= 0x80000000; // @0x890c4 — the suit/weapons marker bit
@@ -598,13 +598,9 @@ void CHalfLifeMultiplay::PlayerSpawn(CBasePlayer* pPlayer)
 	// the flag and is equipped, as in the original; InitHUD's ResetArmament takes it back.
 	if (addDefault && !pPlayer->m_fInSpectateWait)
 	{
-		// Round restart respawns STILL-ALIVE players and Spawn does NOT strip items — clear
-		// first so the re-equip is clean (one tsgun; the old double fought over WStatus).
-		// Only when he still holds the arsenal: RemoveAllItems ends in UpdateClientData, which for
-		// a joiner would run his first-frame InitHUD (and send him to spectate) inside
-		// ClientPutInServer. The original's PlayerSpawn (@0x790ac) strips nothing.
-		if (GetPlayerTSGun(pPlayer))
-			pPlayer->RemoveAllItems(false);
+		// No strip first: the original's PlayerSpawn (@0x790ac) strips nothing. A round restart
+		// sends every player in play to spectate (RestartRound @0x67a4d), which strips him, so
+		// he enters play again without the gun.
 		pPlayer->GiveNamedItem("weapon_tsgun");
 		pPlayer->BuyArmament();
 		// force the arsenal active + deployed (auto-deploy skips kung-fu; a kung-fu-only

@@ -64,8 +64,6 @@ void CHudTSPowerUp::Reset()
 	m_bKungFu = false;    // per-life independent powerups clear on respawn (ResetHUD)
 	m_bSuperJump = false;
 	m_bSlowActive = false;
-	m_iHeartbeatsLeft = 0;
-	m_flNextHeartbeat = 0;
 	m_flCountdownEnd = 0;
 	m_flSlowAmt = 100.0f;
 }
@@ -116,9 +114,9 @@ bool CHudTSPowerUp::MsgFunc_TSSlowMo(const char* pszName, int iSize, void* pbuf)
 	float amt = READ_COORD();
 	m_flSlowAmt = (amt == 0.0f) ? 100.0f : amt;
 
-	// Slow-mo INITIATION (RE FUN_1004bef0): the normal->slow transition plays goslow.wav, and (RE the
-	// heartbeat state machine in FUN_1004ce10) kicks off heartbeat1.wav beats that fade in volume. We
-	// edge-detect entry here: slowing means m_flSlowAmt drops below ~normal.
+	// Slow-mo INITIATION (RE FUN_1004bef0): the normal->slow transition plays goslow.wav. We
+	// edge-detect entry here: slowing means m_flSlowAmt drops below ~normal. (The heartbeat is the
+	// ammo HUD's Think, on the eased slow factor, as client.dll's @0x1004ce10.)
 	const bool slowNow = m_flSlowAmt < 99.0f;
 	if (slowNow && !m_bSlowActive)
 	{
@@ -128,8 +126,6 @@ bool CHudTSPowerUp::MsgFunc_TSSlowMo(const char* pszName, int iSize, void* pbuf)
 		if (lp)
 			gEngfuncs.pEventAPI->EV_PlaySound(lp->index, lp->origin, CHAN_AUTO, "goslow.wav",
 				1.0f, ATTN_NORM, 0, 100);
-		m_iHeartbeatsLeft = 4;                    // 4 heartbeats, fading
-		m_flNextHeartbeat = 0.0f;                 // 0 = "play the first beat on the next Draw" (uses flTime)
 	}
 	m_bSlowActive = slowNow;
 	return true;
@@ -194,18 +190,6 @@ bool CHudTSPowerUp::Draw(float flTime)
 	// The slow-motion screen tint is drawn in V_CalcRefdef (cl_dll/view.cpp) via the engine screen-
 	// fade — the faithful teal RGBA(0,100,125) at alpha (1-slow)*50, NOT a green fill here. (That
 	// drives off g_flClientSlow, which this element eases above.)
-
-	// Slow-mo init heartbeats: 4 beats of heartbeat1.wav fading in volume (1.0 -> 0.25), spaced ~0.75s
-	// apart (slow, distinct beats — a stressed heartbeat in dilated time), kicked off on slow-mo entry.
-	// m_flNextHeartbeat == 0 is the "play the first beat now" sentinel; all timing is in flTime so the
-	// beats don't bunch up. heartbeat1.wav is a single beat, so we replay it.
-	if (m_iHeartbeatsLeft > 0 && (m_flNextHeartbeat == 0.0f || flTime >= m_flNextHeartbeat))
-	{
-		float vol = (float)m_iHeartbeatsLeft / 4.0f; // 1.0, 0.75, 0.5, 0.25
-		gEngfuncs.pfnPlaySoundByName("player/heartbeat1.wav", vol);
-		m_iHeartbeatsLeft--;
-		m_flNextHeartbeat = flTime + 0.75f;
-	}
 
 	// INDEPENDENT persistent powerups (kung-fu / super-jump): two bottom-center FIGURE indicators, shown
 	// the whole life once picked up and coexisting with any held slow/double powerup. RE (status-HUD

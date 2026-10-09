@@ -228,7 +228,6 @@ public:
 
 	float m_flNextGlobalSlow = 0;   // 0x56c — GlobalSlowMotion2 throttle
 	float m_flGlobalSlowActive = 0; // 0x560 — SetGlobalSlowMotion: active flag
-	bool m_bSlowMatchActive = false; // the `slowmatch` cvar < 1.0 runs the whole match slowed
 	float m_flGlobalSlowScale = 0;  // 0x564 — current global slow scale
 	float m_flGlobalSlowEnd = 0;    // 0x568 — global slow end time (0 = no limit)
 

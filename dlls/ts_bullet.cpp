@@ -151,6 +151,7 @@ void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vec
 				UTIL_SetOrigin(flash->pev, src);
 				b.flash = flash;
 			}
+			m_iActive++; // @0x5ef32
 			return;
 		}
 	}
@@ -158,14 +159,16 @@ void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vec
 	UTIL_ClientPrintAll(HUD_PRINTTALK, "WARNING:cannot create bullet!\n");
 }
 
-// @ Reset__14CBulletManager (@0x5ec50) — clear every slot. The original zeroes the whole ring (and
-// two counters after it, which reTS does not keep) and frees nothing; CTSGameRules::Init calls it as
+// @ Reset__14CBulletManager (@0x5ec50) — clear every slot. The original zeroes the whole ring and
+// the two words after it (+0x4000, the active count m_iActive; +0x4004, which reTS does not keep) and
+// frees nothing; CTSGameRules::Init calls it as
 // each map starts (@0x67e83). By then the old map's trail and head sprites are gone with their
 // edicts, and their handles could name the new map's entities, so they must not be removed here.
 void CBulletManager::Reset()
 {
 	for (int i = 0; i < 256; i++)
 		m_bullets[i] = TSSlowBullet();
+	m_iActive = 0; // +0x4000 (@0x5ec66)
 }
 
 // @ Think__14CBulletManager (@0x5ec7c) — per frame (from CTSGameRules::Think): a bullet whose
@@ -175,15 +178,20 @@ void CBulletManager::Reset()
 void CBulletManager::Think()
 {
 	CTSGameRules *rules = TSGameRules;
+	m_iActive = 0; // @0x5ec96: recounted here, each active bullet whether or not it moves this frame
 	for (int i = 0; i < 256; i++)
 	{
 		TSSlowBullet &b = m_bullets[i];
-		if (!b.active || b.nextUpdate >= gpGlobals->time)
+		if (!b.active)
 			continue;
-		b.nextUpdate = gpGlobals->time;
-		if (rules && (unsigned int)rules->m_iSrvRealBullet < 2)
-			b.nextUpdate += 0.1f / (float)(rules->m_iSrvRealBullet + 1);
-		UpdateBullet(i);
+		if (b.nextUpdate < gpGlobals->time)
+		{
+			b.nextUpdate = gpGlobals->time;
+			if (rules && (unsigned int)rules->m_iSrvRealBullet < 2)
+				b.nextUpdate += 0.1f / (float)(rules->m_iSrvRealBullet + 1);
+			UpdateBullet(i);
+		}
+		m_iActive++; // @0x5ed0c
 	}
 }
 

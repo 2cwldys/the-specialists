@@ -900,12 +900,7 @@ void CBasePlayer::RemoveAllItems(bool removeSuit)
 
 	m_pLastItem = NULL;
 
-	if (m_pTank != NULL)
-	{
-		m_pTank->Use(this, this, USE_OFF, 0);
-		m_pTank = NULL;
-	}
-
+	// @0xc8cec: no func_tank release here, unlike the SDK (the original's has none).
 	int i;
 	CBasePlayerItem* pPendingItem;
 	for (i = 0; i < MAX_ITEM_TYPES; i++)
@@ -924,17 +919,19 @@ void CBasePlayer::RemoveAllItems(bool removeSuit)
 	pev->viewmodel = 0;
 	pev->weaponmodel = 0;
 
-	m_WeaponBits = 0ULL;
-	// Mirror m_WeaponBits = 0 onto the documented pev->weapons mask so
-	// server-side consumers (Metamod plugins, the engine's
-	// cdata->iWeaponBits delivery to vanilla clients) see the wipe too.
-	// SetHasSuit() below goes through SetWeaponBit() / ClearWeaponBit(),
-	// which are paired to maintain pev->weapons in lockstep with
-	// m_WeaponBits.
-	pev->weapons = 0;
-
-	//Re-add suit bit if needed.
-	SetHasSuit(!removeSuit);
+	// @0xc8e3c: removeSuit clears every weapon bit; otherwise only the suit bit (0x80000000) is kept,
+	// if the player has it. No SetHasSuit: a player without the suit is not given it. pev->weapons
+	// stays in lockstep with m_WeaponBits (see SetWeaponBit).
+	if (removeSuit)
+	{
+		m_WeaponBits = 0ULL;
+		pev->weapons = 0;
+	}
+	else
+	{
+		m_WeaponBits &= 1ULL << WEAPON_SUIT;
+		pev->weapons &= 1u << WEAPON_SUIT;
+	}
 
 	for (i = 0; i < MAX_AMMO_SLOTS; i++)
 		m_rgAmmo[i] = 0;
@@ -1460,6 +1457,16 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	// clear out the suit message cache so we don't keep chattering
 	SetSuitUpdate(NULL, false, 0);
 
+	// @0x897b4: everyone is told the player has no active items (TSActiveItems {idx, 0}), so every
+	// client stops drawing his laser and flashlight beams (round-7g: dead players' beams haunted the
+	// corpse). Here in StartObserver, as the original, so a teamplay joiner's team change, which calls
+	// StartObserver alone, sends it too.
+	extern int gmsgTSActiveItems;
+	MESSAGE_BEGIN(MSG_ALL, gmsgTSActiveItems);
+	WRITE_BYTE(ENTINDEX(edict()));
+	WRITE_BYTE(0);
+	MESSAGE_END();
+
 	// (no CurWeapon to the ammo HUD here: the original sends CurWeapon only from RemoveAllItems
 	// and CBasePlayerWeapon::UpdateClientData)
 
@@ -1552,15 +1559,6 @@ void CBasePlayer::TSEnterSpectate(bool bResetArmament)
 			rt = 30;
 		SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
 	}
-
-	// @0x89634 (StartObserver): the original broadcasts TSActiveItems{idx, 0} — every client
-	// stops rendering this player's laser/flashlight beams (round-7g: dead players' beams
-	// haunted the corpse position).
-	extern int gmsgTSActiveItems;
-	MESSAGE_BEGIN(MSG_ALL, gmsgTSActiveItems);
-	WRITE_BYTE(ENTINDEX(edict()));
-	WRITE_BYTE(0);
-	MESSAGE_END();
 
 	// @0x89634 (StartObserver end): broadcast the stock-shaped spectator state — (idx, 1).
 	MESSAGE_BEGIN(MSG_ALL, gmsgSpectator);
@@ -4576,14 +4574,10 @@ void CBasePlayer::UpdateClientData()
 		m_iClientHideHUD = m_iHideHUD;
 	}
 
-	if (m_iFOV != m_iClientFOV)
-	{
-		MESSAGE_BEGIN(MSG_ONE, gmsgSetFOV, NULL, pev);
-		WRITE_BYTE(m_iFOV);
-		MESSAGE_END();
-
-		// cache FOV change at end of function, so weapon updates can see that FOV has changed
-	}
+	// No SetFOV on a change: the original sends SetFOV only from Killed and StartObserver (every
+	// reference to its gmsgSetFOV slot). A scope's zoom reaches the client in the client data
+	// (cd->fov), which HUD_PostRunCmd copies to g_lastFOV, in client.dll as in the SDK. m_iClientFOV
+	// is still cached at the end of this function for the weapons' change checks.
 
 	// HACKHACK -- send the message to display the game title
 	//TODO: will not work properly in multiplayer

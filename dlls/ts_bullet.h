@@ -41,6 +41,8 @@ public:
 	void UpdateBulletTimeSlice(int slot);                              // advance one bullet over a time slice
 
 	TSSlowBullet m_bullets[256];
+	int m_iActive = 0; // +0x4000 (rules+0x5864): the bullets active as Think last ran, plus those fired
+	                   // since; CTSGameRules::Think runs Think only while it is not 0 (@0x67635)
 };
 
 extern CBulletManager g_BulletManager;

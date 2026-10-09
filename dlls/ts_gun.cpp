@@ -336,41 +336,25 @@ void CTSGun::Reset()
 // @ Spawn__6CTSGun — classname weapon_tsgun, id 16, fall-init as a pickup.
 void CTSGun::Spawn()
 {
+	// @0x7053c, as the original: Reset (every item unowned, no reserve, type 0 = kung fu), classname,
+	// Precache, the generic world model, then the id and the stock clip and default ammo of 1. It
+	// seeds nothing: what a player carries comes from BuyArmament, TakeWeapon and the pickups.
+	Reset();
 	pev->classname = MAKE_STRING("weapon_tsgun");
 	Precache();
-	m_iId = TSGUN_WEAPON_ID;
 
-	// @0x70555 — the original Spawn wipes the arsenal clean (Reset). Preserve the placed/initial
-	// weapon type across the wipe (our SLICE seeds it loaded below; the original leaves bare kung-fu).
-	const int initialType = m_weaponType;
-	Reset();
-	m_weaponType = initialType;
-
-	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-
-	// Seed the arsenal with the placed/initial weapon type. Kung fu is never marked owned: the
-	// original's Spawn (@0x7053c) seeds nothing, and its kung fu slot keeps owned 0, so the WStatus
-	// loop (@0x758c8) never sends one for it (the client puts kung fu in its weapon bar itself).
-	TSItem &it = m_items[m_weaponType];
-	it.owned = m_weaponType != TSW_MELEE;
-	it.clip = wi->iClip;
-	it.mode = TSDefaultFireMode(wi->iFireModes);
-	AddAmmo(wi->iCaliber, wi->iClip * 3); // seed the caliber's reserve (SLICE: buy menu sets this)
-	m_fireMode = it.mode;
-	m_iClip = wi->iClip; // SLICE: deploy loaded
-
-	// @0x70568 — the original hardcodes the GLOCK world model here as the generic CTSGun
-	// pickup/drop model (NOT a per-type pszWorldModel lookup). It's already precached by the
-	// Precache() call above (→ PrecacheAllTSWeapons, the whole roster). Our earlier
-	// `wi->pszWorldModel ? … : "models/w_weaponbox.mdl"` fallback was drift from the RE:
-	// w_weaponbox is never precached, so a null-world-model type (0 = bare kung-fu) SET_MODEL'd
-	// an un-precached model → Host_Error on a strict engine (ReHLDS/GoldSrc). xash's lenient
-	// late-precache hid it. Match the original exactly.
+	// @0x7057e: the glock world model is the generic CTSGun pickup/drop model (not a per-type
+	// pszWorldModel lookup). It is precached by Precache() (PrecacheAllTSWeapons, the whole roster);
+	// w_weaponbox is never precached, so a null-world-model type SET_MODEL'd there was a Host_Error
+	// on a strict engine.
 	SET_MODEL(ENT(pev), "models/w_glock18.mdl");
 
-	m_iDefaultAmmo = wi->iClip; // SLICE: stock ammo; TS runs its own ammo system
-	m_pActiveInfo = get_weapon_info((tsweapon_t)m_weaponType); // gun+0xd0 (inline, fold-plan G5)
-	m_pActiveItem = (m_weaponType > TSW_MELEE && m_weaponType < TSW_COUNT) ? &m_items[m_weaponType] : nullptr; // gun+0xcc — NULL = kung-fu
+	m_iId = TSGUN_WEAPON_ID;  // +0x88
+	m_iClip = 1;              // +0xb4
+	m_iDefaultAmmo = 1;       // +0xc4
+	m_weaponType = TSW_MELEE; // +0xc8 (Reset has already set it)
+	// +0x9e4 = 0 (written only here, read nowhere) and +0x9e8 (m_flLastShotTime) = 0.
+	m_flLastShotTime = 0.0f;
 	FallInit();
 }
 
@@ -2412,9 +2396,9 @@ int CTSGun::AddItem(int bits)
 // the original (you look through the scope, not at the gun).
 void CTSGun::Zoom(int fov)
 {
-	// BOTH carriers: pev->fov (the server-side cycle state) AND m_iFOV — the client's refdef
-	// only honors gHUD.m_iFOV (HUD_UpdateClientData reports it back to the engine), which the
-	// stock SetFOV message feeds from m_iFOV (round-7k: the zoom never changed the view).
+	// BOTH carriers: pev->fov (the server-side cycle state) AND m_iFOV, which the client data
+	// carries (cd->fov); the client's HUD_PostRunCmd copies it to g_lastFOV and CHud::Think to
+	// gHUD.m_iFOV, which the refdef honors. No SetFOV message: the original sends none for a zoom.
 	m_pPlayer->pev->fov = (float)fov;
 #ifndef CLIENT_DLL
 	m_pPlayer->m_iFOV = fov;
@@ -2861,27 +2845,25 @@ void CTSGun::SwitchFireMode()
 CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
 {
 	CTSGun *pHeld = GetPlayerTSGun(pPlayer);
-	if (pHeld)
+	if (!pHeld)
 	{
-		if (!pHeld->TakeWeapon(type))
-			return NULL; // won't fit the slot capacity (or invalid) — caller leaves it on the floor
-		return pHeld;
+		// A new gun is spawned empty (CTSGun::Spawn seeds nothing, as the original), picked up,
+		// then given the weapon like a held one.
+		edict_t *pent = CREATE_NAMED_ENTITY(MAKE_STRING("weapon_tsgun"));
+		if (FNullEnt(pent))
+			return NULL;
+		pent->v.origin = pPlayer->pev->origin;
+		pent->v.spawnflags |= SF_NORESPAWN;
+		DispatchSpawn(pent);
+		DispatchTouch(pent, pPlayer->edict());
+		pHeld = GetPlayerTSGun(pPlayer);
+		if (!pHeld)
+			return NULL;
 	}
 
-	edict_t *pent = CREATE_NAMED_ENTITY(MAKE_STRING("weapon_tsgun"));
-	if (FNullEnt(pent))
-		return NULL;
-
-	CTSGun *pGun = (CTSGun *)CBaseEntity::Instance(pent);
-	pGun->m_weaponType = type;
-	pGun->m_pActiveInfo = get_weapon_info((tsweapon_t)pGun->m_weaponType); // inline (fold-plan G5)
-	pGun->m_pActiveItem = (pGun->m_weaponType > TSW_MELEE && pGun->m_weaponType < TSW_COUNT)
-		? &pGun->m_items[pGun->m_weaponType] : nullptr;
-	pGun->pev->origin = pPlayer->pev->origin;
-	pGun->pev->spawnflags |= SF_NORESPAWN;
-	DispatchSpawn(pent);
-	DispatchTouch(pent, pPlayer->edict());
-	return pGun;
+	if (!pHeld->TakeWeapon(type))
+		return NULL; // won't fit the slot capacity (or invalid) — caller leaves it on the floor
+	return pHeld;
 }
 
 // Force the player's TS arsenal to be the active item + deploy its current weapon. Called at the

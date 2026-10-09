@@ -54,10 +54,9 @@ int TSHud_NumberWidth(int value);
 // the x past the last digit. (The bottom weapon box ammo readout.)
 int TSHud_DrawNumberPair(int x0, int x1, int y, int a, int b_, int r, int g, int b);
 
-// The TS health bar (FUN_1004d5f0): a 0x80(128)-wide bar at (x,y) — faint background
-// (alpha 0x1e) + a fill proportional to health, in the HUD colour (red when low). The
-// original draws it bottom-right, stacked with the weapon/ammo box.
-void TSHud_HealthBar(int x, int y, int health);
+// The melee bar (FUN_1004d5f0): a 0x80(128)-wide frame at (x,y) at alpha 0x1e and a fill from
+// the bar value, at the bottom of the weapon/ammo box (ts_hud.cpp has the colours).
+void TSHud_MeleeBar(int x, int y, float bar);
 
 // Last health value received (TSHealth). Set by CHudTSStatus, read by the ammo HUD so
 // the health bar can be drawn stacked above the ammo box exactly as the original does.

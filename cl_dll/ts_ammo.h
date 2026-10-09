@@ -30,8 +30,8 @@ public:
 	bool VidInit() override;
 	bool Draw(float flTime) override;
 	void Reset() override;
-	void Think() override; // the melee bar's own regeneration and the breathing (client.dll @0x1004ce10)
-	void PlayBreath(int flags); // breathe2.wav at m_flBreathVolume
+	void Think() override; // the melee bar's regeneration, the heartbeat and the breathing (client.dll @0x1004ce10)
+	void PlayLoop(int channel, const char* sample, float volume, int flags); // heartbeat1.wav or breathe2.wav
 	bool MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_KFuPower(const char* pszName, int iSize, void* pbuf);
 	// The predicted gun's clip, fire mode and attachments (CTSGun::UpdateClientData, client side).
@@ -40,6 +40,8 @@ public:
 private:
 	int m_iWeaponType; // active tsweapon_t
 	float m_flMeleeBar; // melee block stamina -100..100 (this+0x3700): KFuPower sets it, Think regenerates it
+	int m_iHeartState = 0;       // this+0x3708 — the heartbeat: 0 off, 2 playing, 1 fading out
+	float m_flHeartVolume = 0;   // this+0x370c — its volume (1.0, down 0.01 a frame while fading)
 	int m_iBreathState = 0;      // this+0x3710 — the breathing: 0 off, 2 playing, 1 fading out
 	float m_flBreathVolume = 0;  // this+0x3714 — its volume (0.7, down 0.005 a frame while fading)
 	int m_iClip;       // rounds currently loaded
