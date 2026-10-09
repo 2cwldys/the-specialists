@@ -19,7 +19,7 @@
 #ifndef RETS_API_H
 #define RETS_API_H
 
-#define RETS_INTERFACE_VERSION 4
+#define RETS_INTERFACE_VERSION 5
 #define RETS_GETINTERFACE_NAME "ReTS_GetInterface"
 
 struct edict_s;
@@ -60,8 +60,8 @@ typedef struct rets_interface_s
 	void (*SetHeldPowerup)(struct edict_s *player, int powerup);
 	float (*GetPowerupExpireTime)(struct edict_s *player);
 	void (*SetPowerupExpireTime)(struct edict_s *player, float time);
-	float (*GetPowerupTime)(struct edict_s *player);
-	void (*SetPowerupTime)(struct edict_s *player, float time);
+	int (*GetPowerupTime)(struct edict_s *player); // whole seconds, an int as the original's 0x730
+	void (*SetPowerupTime)(struct edict_s *player, int time);
 
 	int (*GetAward)(struct edict_s *player); // the award/status byte
 	void (*SetAward)(struct edict_s *player, int award);

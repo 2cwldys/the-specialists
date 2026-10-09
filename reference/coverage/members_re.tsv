@@ -14,7 +14,7 @@ CBasePlayer	0x714	INTEGER	byte	m_iGrenadeBuys	1
 CBasePlayer	0x724	INTEGER	uint	m_iPowerups	6
 CBasePlayer	0x728	INTEGER	undefined4	m_iHeldPowerup	4
 CBasePlayer	0x72c	FLOAT	float	m_flPowerupExpireTime	3
-CBasePlayer	0x730	INTEGER	uint	m_flPowerupTime	4
+CBasePlayer	0x730	INTEGER	uint	m_iPowerupTime	4
 CBasePlayer	0x734	INTEGER	undefined4	m_iClientHeldDur	3
 CBasePlayer	0x738	INTEGER	undefined4	m_iClientHeldType	3
 CBasePlayer	0x73c	FLOAT	float	m_flHealthRegen	3

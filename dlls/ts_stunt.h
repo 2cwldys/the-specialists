@@ -35,6 +35,7 @@ class CBasePlayer;
 #define TSSTUNT_ROLL        0x040000 // landing roll
 #define TSSTUNT_WHEEL_DONE  0x100000 // wheel finished
 #define TSSTUNT_WHEEL_TRIG  0x200000 // wheel trigger (HandleStunt wall-dive -> wheel)
+#define TSSTUNT_NOVIEWOFS   0x400000 // view_ofs is zero (PreThink @0x80b4a sets or clears it each frame)
 #define TSSTUNT_WALLDIVE    0x800000 // dive faces forward, not velocity
 
 #define TSSTUNT_DIVE_HEIGHT (TSSTUNT_DIVE_HIGH | TSSTUNT_DIVE_LOW | TSSTUNT_DIVE_MED)
@@ -46,7 +47,7 @@ class CTSStunt
 	// code (kick/katana duck-slash "land low, get up"); grant that direct access rather than invent
 	// a setter. See CTSGun::CCombatAttack / KatanaFire.
 	friend class CTSGun;
-	friend class CBasePlayer; // PostThink's superjump land handler writes m_flRollTime (RE @0x81a22)
+	friend class CBasePlayer; // PreThink stamps m_flLastStunt (@0x809ab); PostThink's superjump landing writes m_flRollTime (@0x81a15)
 public:
 	// +0x20 — the stunt/dive direction stored by GoRoll/GoWheel/GoDive (normalize(velocity), or
 	// -v_forward for a standing wheel). CTSStunt is embedded at CBasePlayer+0x4f0 in the original,

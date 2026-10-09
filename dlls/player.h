@@ -283,9 +283,6 @@ public:
 	int ObjectCaps() override { return CBaseMonster::ObjectCaps() & ~FCAP_ACROSS_TRANSITION; }
 	void Precache() override;
 	bool IsOnLadder();
-	bool FlashlightIsOn();
-	void FlashlightTurnOn();
-	void FlashlightTurnOff();
 
 	void UpdatePlayerSound();
 	void DeathSound() override;
@@ -392,7 +389,7 @@ public:
 	int m_iPowerups = 0;            // 0x724 — active powerup bitfield (TS_PWUP_*)
 	int m_iHeldPowerup = 0;         // 0x728 — held powerup awaiting activation
 	float m_flPowerupExpireTime = 0;// 0x72c — active timed-powerup end time
-	float m_flPowerupTime = 0;      // 0x730 — held powerup duration (seconds)
+	int m_iPowerupTime = 0;        // 0x730 — held powerup duration, whole seconds (an int, mov @0x82259)
 	float m_flHealthRegen = 0;      // 0x73c — health-powerup regen tick time
 	byte m_iKillStreak = 0;         // 0x744 — kills since he last spawned, stopping at 255 (PlayerKilled @0x797f3);
 	                                // TSInit clears it, and so does the One's death (@0x7a2ff)
@@ -543,7 +540,7 @@ public:
 	void TSUse();                                         // @0x856e0 — server-side double-tap +use -> UsePowerUp
 	float m_flUseDoubleTap = 0;                           // 0x164 — the double-tap +use window deadline
 	float m_flSetMaxSpeed = 0;                            // 0x550 — the last SetPlayerSpeed value (clamped)
-	float m_flGravityValue = 0;                           // 0x4ec — the SetPlayerGravity stored value
+	float m_flGravityValue = 0;                           // 0x4ec — the gravity timer SetPlayerGravity arms (PreThink counts it down, gravity 1.0 on expiry)
 
 	int  GiveCash(int amount);                            // add cash (clamped 0..30000)
 	void ResetArmament();                                 // clear the pending loadout

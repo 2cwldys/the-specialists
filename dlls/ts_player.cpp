@@ -264,7 +264,7 @@ bool CBasePlayer::UsePowerUp()
 	// don't model that mode flag yet, so slow-motion is always permitted here.
 
 	m_iPowerups = m_iHeldPowerup;
-	m_flPowerupExpireTime = (float)(int)m_flPowerupTime + gpGlobals->time;
+	m_flPowerupExpireTime = (float)m_iPowerupTime + gpGlobals->time;
 
 	// PwUpTime — the green countdown the client ticks down locally (whole seconds remaining).
 	MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUpTime, NULL, ENT(pev));
@@ -286,12 +286,12 @@ bool CBasePlayer::UsePowerUp()
 
 // A dead player's powerup goes back into the world where he lies (UpdatePowerUpState @0x858a5,
 // @0x85928): CreatePowerUp(type, -1) with his origin, unless the game mode is past 1 (rules+0, the
-// objective modes) or it is a slow motion of 2 s or less (m_flPowerupTime, the int at player+0x730).
+// objective modes) or it is a slow motion of 2 s or less (m_iPowerupTime, the int at player+0x730).
 static void TSRedropPowerup(CBasePlayer *pPlayer, int type)
 {
 	if (TSGameRules && TSGameRules->m_iGameMode > 1)
 		return;
-	if ((type & TS_PWUP_SLOWMO) && pPlayer->m_flPowerupTime <= 2)
+	if ((type & TS_PWUP_SLOWMO) && pPlayer->m_iPowerupTime <= 2)
 		return;
 	CTSPowerUp *pDrop = CTSPowerUp::CreatePowerUp(type, -1);
 	if (pDrop)
@@ -356,7 +356,7 @@ void CBasePlayer::UpdatePowerUpState()
 	}
 
 	m_flPowerupExpireTime = 0;
-	m_flPowerupTime = 0;
+	m_iPowerupTime = 0;
 	m_iPowerups = 0;
 	m_iHeldPowerup = 0;
 }
@@ -466,7 +466,8 @@ void CBasePlayer::SetPlayerSpeed(float speed)
 }
 
 // @0x85b70 SetPlayerGravity — set the player's gravity, but only when they're at normal gravity
-// (>= 1.0) so an already-applied low-gravity effect isn't stomped. Stores the set value.
+// (>= 1.0) so an already-applied low-gravity effect isn't stomped. setval arms the gravity timer
+// (+0x4ec), which PreThink counts down and ends with gravity 1.0.
 void CBasePlayer::SetPlayerGravity(float setval, float gravity)
 {
 	if (pev->gravity >= 1.0f)
@@ -602,7 +603,7 @@ void CBasePlayer::TSInit()
 	m_iPowerups = 0;
 	m_iHeldPowerup = 0;
 	m_flPowerupExpireTime = 0;
-	m_flPowerupTime = 0;
+	m_iPowerupTime = 0;
 	m_iClientHeldDur = 0;
 	m_iClientHeldType = 0xff;
 	// player+0x740 = 0 (unnamed transient)
@@ -641,7 +642,7 @@ void CBasePlayer::TSInit()
 	m_flGravityValue = 0;  // 0x4ec
 	m_bHasKevlar = false;  // 0x718
 	m_flTSRespawnTime = 0; // 0x770
-	// player+0x7bc = 0 (unnamed)
+	m_flRespawnHoldTime = 0; // 0x7bc (@0x82d5b): a re-entry window ends with the spawn that used it
 	m_hRunThroughLast = NULL; // 0x798
 	m_iWires[0] = m_iWires[1] = m_iWires[2] = 0;                   // 0x78c-0x78e
 	m_iClientWires[0] = m_iClientWires[1] = m_iClientWires[2] = 0; // 0x78f-0x791

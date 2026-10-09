@@ -64,8 +64,6 @@ extern bool IsBustingGame();
 #define TRAIN_FAST 0x04
 #define TRAIN_BACK 0x05
 
-#define FLASH_DRAIN_TIME 1.2  //100 units/3 minutes
-#define FLASH_CHARGE_TIME 0.2 // 100 units/20 seconds  (seconds per unit)
 
 // Global Savedata for player
 TYPEDESCRIPTION CBasePlayer::m_playerSaveData[] =
@@ -1938,16 +1936,6 @@ void CBasePlayer::PreThink()
 	// (UpdatePlayerState and CheckForWires run near the end, past the spectator, dead and train
 	// returns, where the original calls them: @0x81416, @0x81450.)
 
-	// TS dynamic-accuracy recovery (RE PreThink @0x808cc): the spread accumulator decays back toward 0 each
-	// frame (scaled by the slow-mo factor, so it recovers in game-time during bullet-time), so accuracy
-	// returns when you stop spraying. Growth is in CTSGun::ScaleSpread on each shot.
-	if (m_flSpreadAccum > 0)
-	{
-		m_flSpreadAccum -= m_flSlowMotionGo * gpGlobals->frametime * 0.1f;
-		if (m_flSpreadAccum < 0)
-			m_flSpreadAccum = 0;
-	}
-
 	int buttonsChanged = (m_afButtonLast ^ pev->button); // These buttons have changed this frame
 
 	// Debounced button codes for pressed/released
@@ -2002,16 +1990,12 @@ void CBasePlayer::PreThink()
 	// @0x83068: TSInit, PickUpWeapon, DropWeapon, TakeArmor, TakeFlag, DropFlag, SetPlayerTheOne, and the
 	// knife/katana/grenade throws and MultiplyClips), never here, so a plugin's maxspeed holds until the
 	// next of those.
-	if (pev->fuser1 < 0.999f)
-	{
-		pev->framerate = pev->fuser1 < 0.01f ? 0.01f : pev->fuser1; // slowed animation (StudioFrameAdvance)
-		m_bSlowMoveApplied = true;
-	}
-	else if (m_bSlowMoveApplied)
-	{
-		pev->framerate = 1.0f; // restore the normal animation rate
-		m_bSlowMoveApplied = false;
-	}
+	// @0x80993-0x8099f: the animation rate is the slow factor, written every frame for every player.
+	pev->framerate = GiveSlowMul();
+	// @0x809ab: on the ground, the last-on-ground stamp (+0xb88) for every player, spectators and the
+	// dead included; the dive window in HandleStunt reads how long ago he left the ground.
+	if ((pev->flags & FL_ONGROUND) != 0)
+		m_TSStunt.m_flLastStunt = gpGlobals->time;
 
 	// TS melee timer lifecycle (RE PreThink @0x808cc, addendum L2): the deflect windows, the
 	// BlockPlayer root timer and the whiff-lunge window are all VALUES counted down by the same
@@ -2021,46 +2005,20 @@ void CBasePlayer::PreThink()
 	float flDecay = GiveSlowMul() * gpGlobals->frametime;
 	if ((m_iPowerups & TS_PWUP_DBLFIRE) != 0)
 		flDecay *= 1.5f;
+	// the run-through window (+0x79c), the root timer (+0x4dc) and the gravity timer (+0x4ec) run
+	// down while set, floored at 0.001 (@0x809f4-0x80a90); their expiries come further down.
 	if (m_flWhiffLungeTime != 0.0f)
-		m_flWhiffLungeTime -= flDecay;
+		m_flWhiffLungeTime = V_max(m_flWhiffLungeTime - flDecay, 0.001f);
 	if (m_flBlockTime != 0.0f)
-		m_flBlockTime -= flDecay;
-	// deflect windows (+0x7a8/ac/b0): floor 0
+		m_flBlockTime = V_max(m_flBlockTime - flDecay, 0.001f);
+	if (m_flGravityValue != 0.0f)
+		m_flGravityValue = V_max(m_flGravityValue - flDecay, 0.001f);
+	// deflect windows (+0x7a8/b0/ac): floor 0
 	m_flKungFuBlock = V_max(m_flKungFuBlock - flDecay, 0.0f);
 	m_flKatanaBlock = V_max(m_flKatanaBlock - flDecay, 0.0f);
 	m_flKnifeBlock = V_max(m_flKnifeBlock - flDecay, 0.0f);
 	// disarm pressure (+0x7b4): decays at 5x the delta (RE PreThink +0x237)
 	m_flDisarmPressure = V_max(m_flDisarmPressure - flDecay * 5.0f, 0.0f);
-
-	// TS SUPER-JUMP LANDING (RE PostThink @0x81a22; here it runs ahead of the stunt Play, before the
-	// spectate block). The jump itself is the "mj" high jump in PM_Jump
-	// (velocity.z=400, one-shot, DUCK+JUMP) which arms iuser4 |= WHEEL_TRIG -> CTSStunt::Play plays the
-	// morfy_jump(_guns) flight pose + airwheel and sets WHEEL_DONE. When that flight touches down, screen-
-	// shake + either a GoRoll (DUCK held on landing) or the superjump_land plant (view low + PRONE|STOP +
-	// roll 0.75 + the superjump_land pose). No sustained lift, no fuel — the arc is pure jump physics, so
-	// hitting a ceiling just drops you. (Replaces the invented m_bLowGravity thrust model.)
-	if ((pev->flags & FL_ONGROUND) && (pev->iuser4 & TSSTUNT_WHEEL_DONE))
-	{
-		pev->iuser4 &= ~TSSTUNT_WHEEL_DONE;
-		UTIL_ScreenShake(pev->origin, 20.0f, 30.0f, 0.3f, 512.0f);
-		bool didRoll = false;
-		if (pev->button & IN_DUCK) // duck on landing -> a landing roll instead of the plant
-		{
-			if (m_TSStunt.GoRoll(0))
-			{
-				didRoll = true;
-				m_flNextAttack = UTIL_WeaponTimeBase() + 0.75f;
-			}
-		}
-		if (!didRoll)
-		{
-			EMIT_SOUND(ENT(pev), CHAN_BODY, "player/superjump-land.wav", VOL_NORM, ATTN_NORM);
-			pev->iuser4 |= TSSTUNT_PRONE | TSSTUNT_STOP;
-			pev->view_ofs = Vector(0, 0, 16);
-			m_TSStunt.m_flRollTime = 0.75f;
-			m_TSAnim.Animate(this, TSA_CC_SUPERJUMP_LAND); // superjump_land pose
-		}
-	}
 
 	// TS STUNT/ACROBATICS (RECONSTRUCTED CTSStunt — dlls/ts_stunt.cpp, RE reference/STUNT.md).
 	// Replaces the old ad-hoc dive/roll/wall-climb/prone approximations. Play() runs the real
@@ -2073,28 +2031,85 @@ void CBasePlayer::PreThink()
 
 	m_TSAnim.UpdateTimers(this); // TS: decay the gait aim/leg/grenade hold timers (@0x80b42)
 
+	// @0x80b4a-0x80ba3: iuser4 bit 0x400000 says the view offset is zero; set or cleared every frame.
+	if (pev->view_ofs == g_vecZero)
+		pev->iuser4 |= TSSTUNT_NOVIEWOFS;
+	else
+		pev->iuser4 &= ~TSSTUNT_NOVIEWOFS;
+
 	// @0x80bb1: the powerup state and the slow-motion flow run for every player, before the
 	// spectator block below, as in the original: a spectator's powerup is dropped or ends there too.
 	UpdatePowerUpState(); // TS: expire/apply the active timed powerup each frame (sets the slow triple)
 	SlowMotionFlow();     // TS: every 0.5s, slow self + LOS-visible enemies while a slow powerup is active
 
-	// BlockPlayer root timer (+0x4dc) expiry (@0x80cda): clear the STOP bit + zero
-	if (m_flBlockTime != 0.0f && m_flBlockTime < 0.01f)
+	// TS health-powerup over-heal decay (@0x80bc1, before the spectate block, for every player,
+	// player+0x73c = m_flHealthRegen): the health powerup boosts health past max_health; while
+	// m_flHealthRegen is armed it bleeds 1 HP/sec back down until health reaches max_health, then
+	// disarms. (Set by the health powerup grant.)
+	// The One instead regenerates (@0x80bd8-0x80c7d): each tick adds 0.16 health for every other
+	// player Think last counted, up to 150, and the ticks come faster with more of them, every
+	// 1 / max(0.32 x others, 1) seconds. His clock never disarms.
+	if (m_flHealthRegen != 0.0f)
 	{
-		m_flBlockTime = 0.0f;
-		pev->iuser4 &= ~TSSTUNT_STOP;
+		if (m_bTheOne)
+		{
+			if (m_flHealthRegen < gpGlobals->time)
+			{
+				const float others = TSGameRules ? (float)TSGameRules->m_iTheOneOthers : 0.0f;
+				m_flHealthRegen = gpGlobals->time + 1.0f / V_max(others * 0.32f, 1.0f);
+				pev->health = V_min(others * 0.16f + pev->health, 150.0f);
+			}
+		}
+		else if (pev->health <= pev->max_health)
+		{
+			m_flHealthRegen = 0.0f; // back to max — stop the decay
+		}
+		else if (m_flHealthRegen < gpGlobals->time)
+		{
+			m_flHealthRegen = gpGlobals->time + 1.0f; // next tick in 1s
+			pev->health -= 1.0f;
+		}
 	}
 
-	// TS melee-stamina regen (RE PreThink @0x808cc +0x4eb, dossier-melee addendum L1): the bar
-	// refills at 15/s in slow-scaled game time (x1.5 under the double-fire powerup), clamped 100.
-	// The regen is SILENT — KFuPower is only sent by UpdateMeleeBar (drains); the client tracks
-	// the refill via the WeaponInfo melee bar byte. @0x80d66: a living player's only.
-	if (IsAlive() && m_flMeleeBar < 100.0f)
+	// BlockPlayer root timer (+0x4dc) expiry (@0x80cda): only with the STOP bit set (@0x80cf6), clear
+	// it + zero. Without the bit the timer waits at its 0.001 floor.
+	if (m_flBlockTime != 0.0f && (pev->iuser4 & TSSTUNT_STOP) != 0 && m_flBlockTime < 0.01f)
 	{
-		// the original adds the raw (unscaled) delta on a negative-bar sentinel; kept verbatim
-		m_flMeleeBar += (m_flMeleeBar >= -0.001f) ? flDecay * 15.0f : flDecay;
-		if (m_flMeleeBar >= 100.0f)
-			m_flMeleeBar = 100.0f;
+		pev->iuser4 &= ~TSSTUNT_STOP;
+		m_flBlockTime = 0.0f;
+	}
+
+	// gravity timer (+0x4ec, SetPlayerGravity) expiry (@0x80d24-0x80d55): normal gravity back
+	if (m_flGravityValue != 0.0f && m_flGravityValue < 0.01f)
+	{
+		pev->gravity = 1.0f;
+		m_flGravityValue = 0.0f;
+	}
+
+	// @0x80d66: a living player's only.
+	if (IsAlive())
+	{
+		// TS dynamic-accuracy recovery (@0x80d77): the spread accumulator decays back toward 0 by the
+		// timers' delta x 0.1 (the slow factor x frametime, x1.5 under double fire rate), so accuracy
+		// returns when you stop spraying. Growth is in CTSGun::ScaleSpread on each shot.
+		if (m_flSpreadAccum > 0.0f)
+		{
+			m_flSpreadAccum -= flDecay * 0.1f;
+			if (m_flSpreadAccum < 0.0f)
+				m_flSpreadAccum = 0.0f;
+		}
+
+		// TS melee-stamina regen (@0x80db7, dossier-melee addendum L1): the bar refills at 15/s in
+		// slow-scaled game time (x1.5 under the double-fire powerup), clamped 100. The regen is
+		// SILENT — KFuPower is only sent by UpdateMeleeBar (drains); the client tracks the refill via
+		// the WeaponInfo melee bar byte.
+		if (m_flMeleeBar < 100.0f)
+		{
+			// the original adds the raw (unscaled) delta on a negative-bar sentinel; kept verbatim
+			m_flMeleeBar += (m_flMeleeBar >= -0.001f) ? flDecay * 15.0f : flDecay;
+			if (m_flMeleeBar >= 100.0f)
+				m_flMeleeBar = 100.0f;
+		}
 	}
 
 	// run-through window (+0x79c) expiry (@0x80e13): <0.01, or force==0 (the halving in
@@ -2186,34 +2201,6 @@ void CBasePlayer::PreThink()
 	// close-combat package to PLAYERS — disarm + >30 knockback (cont.96; dossier melee_knockback_disarm.md). The former duplicate
 	// TSCheckRunThrough (ts_gun.cpp) is deleted — the original has ONE function.
 	m_TSStunt.CheckForBreakables();
-
-	// TS health-powerup over-heal decay (RE PreThink @0x808cc, player+0x73c = m_flHealthRegen): the
-	// health powerup boosts health past max_health; while m_flHealthRegen is armed it bleeds 1 HP/sec
-	// back down until health reaches max_health, then disarms. (Set by the health powerup grant.)
-	// The One instead regenerates (@0x80bd8-0x80c7d): each tick adds 0.16 health for every other
-	// player Think last counted, up to 150, and the ticks come faster with more of them, every
-	// 1 / max(0.32 x others, 1) seconds. His clock never disarms.
-	if (m_flHealthRegen != 0.0f)
-	{
-		if (m_bTheOne)
-		{
-			if (m_flHealthRegen < gpGlobals->time)
-			{
-				const float others = TSGameRules ? (float)TSGameRules->m_iTheOneOthers : 0.0f;
-				m_flHealthRegen = gpGlobals->time + 1.0f / V_max(others * 0.32f, 1.0f);
-				pev->health = V_min(others * 0.16f + pev->health, 150.0f);
-			}
-		}
-		else if (pev->health <= pev->max_health)
-		{
-			m_flHealthRegen = 0.0f; // back to max — stop the decay
-		}
-		else if (m_flHealthRegen < gpGlobals->time)
-		{
-			m_flHealthRegen = gpGlobals->time + 1.0f; // next tick in 1s
-			pev->health -= 1.0f;
-		}
-	}
 
 	// Observer Button Handling: an observer outside the spectate wait (a jointeam while alive) runs
 	// the same two calls as the block above (@0x810c3, @0x810cb). The original has no
@@ -3051,6 +3038,36 @@ void CBasePlayer::PostThink()
 			// ALERT( at_console, "fall %f\n", m_flFallVelocity );
 		}
 		m_flFallVelocity = 0;
+
+		// TS SUPER-JUMP LANDING (@0x818ec-0x81a31: in the landing block, after the fall velocity is
+		// cleared, a living player's only). The jump itself is the "mj" high jump in PM_Jump
+		// (velocity.z=400, one-shot, DUCK+JUMP) which arms iuser4 |= WHEEL_TRIG -> CTSStunt::Play plays the
+		// morfy_jump(_guns) flight pose + airwheel and sets WHEEL_DONE. When that flight touches down, screen-
+		// shake + either a GoRoll (DUCK held on landing) or the superjump_land plant (view low + PRONE|STOP +
+		// roll 0.75 + the superjump_land pose). No sustained lift, no fuel — the arc is pure jump physics, so
+		// hitting a ceiling just drops you. (Replaces the invented m_bLowGravity thrust model.)
+		if ((pev->iuser4 & TSSTUNT_WHEEL_DONE) != 0)
+		{
+			pev->iuser4 &= ~TSSTUNT_WHEEL_DONE;
+			UTIL_ScreenShake(pev->origin, 20.0f, 30.0f, 0.3f, 512.0f);
+			bool didRoll = false;
+			if (pev->button & IN_DUCK) // duck on landing -> a landing roll instead of the plant
+			{
+				if (m_TSStunt.GoRoll(0))
+				{
+					didRoll = true;
+					m_flNextAttack = UTIL_WeaponTimeBase() + 0.75f;
+				}
+			}
+			if (!didRoll)
+			{
+				EMIT_SOUND(ENT(pev), CHAN_BODY, "player/superjump-land.wav", VOL_NORM, ATTN_NORM);
+				pev->iuser4 |= TSSTUNT_PRONE | TSSTUNT_STOP;
+				pev->view_ofs = Vector(0, 0, 16);
+				m_TSStunt.m_flRollTime = 0.75f;
+				m_TSAnim.Animate(this, TSA_CC_SUPERJUMP_LAND); // superjump_land pose
+			}
+		}
 	}
 
 	// select the proper animation for the player character
@@ -3730,38 +3747,6 @@ void CBasePlayer::GiveNamedItem(const char* szName, int defaultAmmo)
 	DispatchTouch(pent, ENT(pev));
 }
 
-bool CBasePlayer::FlashlightIsOn()
-{
-	return FBitSet(pev->effects, EF_DIMLIGHT);
-}
-
-
-void CBasePlayer::FlashlightTurnOn()
-{
-	if (!g_pGameRules->FAllowFlashlight())
-	{
-		return;
-	}
-
-	if (HasSuit())
-	{
-		EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, SOUND_FLASHLIGHT_ON, 1.0, ATTN_NORM, 0, PITCH_NORM);
-		SetBits(pev->effects, EF_DIMLIGHT);
-		// (no Flashlight user message — the original TS never registers one; the flashlight
-		// ATTACHMENT state rides ActItems. Registration-set parity, dossier-gmsg U0.)
-		m_flFlashLightTime = FLASH_DRAIN_TIME + gpGlobals->time;
-	}
-}
-
-
-void CBasePlayer::FlashlightTurnOff()
-{
-	EMIT_SOUND_DYN(ENT(pev), CHAN_WEAPON, SOUND_FLASHLIGHT_OFF, 1.0, ATTN_NORM, 0, PITCH_NORM);
-	ClearBits(pev->effects, EF_DIMLIGHT);
-	// (no Flashlight user message — see FlashlightTurnOn.)
-	m_flFlashLightTime = FLASH_CHARGE_TIME + gpGlobals->time;
-}
-
 /*
 ===============
 ForceClientDllUpdate
@@ -3869,6 +3854,10 @@ void CBasePlayer::ImpulseCommands()
 
 		break;
 
+	case 204: // @0xcb9b0: resend the client .dll's data, no cheats needed
+		ForceClientDllUpdate();
+		break;
+
 	default:
 		// check all of the cheat impulse commands now
 		CheatImpulseCommands(iImpulse);
@@ -3892,52 +3881,8 @@ void CBasePlayer::CheatImpulseCommands(int iImpulse)
 
 	switch (iImpulse)
 	{
-	case 76:
-	{
-		if (!giPrecacheGrunt)
-		{
-			giPrecacheGrunt = true;
-			ALERT(at_console, "You must now restart to use Grunt-o-matic.\n");
-		}
-		else
-		{
-			UTIL_MakeVectors(Vector(0, pev->v_angle.y, 0));
-			Create("monster_human_grunt", pev->origin + gpGlobals->v_forward * 128, pev->angles);
-		}
-		break;
-	}
-
-
-	case 101:
-		gEvilImpulse101 = true;
-		GiveNamedItem("item_suit");
-		GiveNamedItem("item_battery");
-		GiveNamedItem("weapon_crowbar");
-		GiveNamedItem("weapon_9mmhandgun");
-		GiveNamedItem("ammo_9mmclip");
-		GiveNamedItem("weapon_shotgun");
-		GiveNamedItem("ammo_buckshot");
-		GiveNamedItem("weapon_9mmAR");
-		GiveNamedItem("ammo_9mmAR");
-		GiveNamedItem("ammo_ARgrenades");
-		GiveNamedItem("weapon_handgrenade");
-		GiveNamedItem("weapon_tripmine");
-		GiveNamedItem("weapon_357");
-		GiveNamedItem("ammo_357");
-		GiveNamedItem("weapon_crossbow");
-		GiveNamedItem("ammo_crossbow");
-		GiveNamedItem("weapon_egon");
-		GiveNamedItem("weapon_gauss");
-		GiveNamedItem("ammo_gaussclip");
-		GiveNamedItem("weapon_rpg");
-		GiveNamedItem("ammo_rpgclip");
-		GiveNamedItem("weapon_satchel");
-		GiveNamedItem("weapon_snark");
-		GiveNamedItem("weapon_hornetgun");
-
-		gEvilImpulse101 = false;
-		break;
-
+	// (the original's table @0xcba3c starts at 76 but sends 76 and 101 nowhere, nor 203: no
+	// grunt-o-matic, no impulse 101 give-all, no remove creature)
 	case 102:
 		// Gibbage!!!
 		CGib::SpawnRandomGibs(pev, 1, true);
@@ -4041,14 +3986,6 @@ void CBasePlayer::CheatImpulseCommands(int iImpulse)
 		{ // line hit something, so paint a decal
 			CBloodSplat* pBlood = GetClassPtr((CBloodSplat*)NULL);
 			pBlood->Spawn(pev);
-		}
-		break;
-	case 203: // remove creature.
-		pEntity = UTIL_FindEntityForward(this);
-		if (pEntity)
-		{
-			if (0 != pEntity->pev->takedamage)
-				pEntity->SetThink(&CBaseEntity::SUB_Remove);
 		}
 		break;
 	}
@@ -4561,7 +4498,7 @@ void CBasePlayer::UpdateClientData()
 		// sends gmsgTSPowerUp on change from UpdateClientData: WriteShort(held type 0x728) +
 		// WriteByte(duration 0x730). The client shows the icon for the held type and the seconds
 		// available; double-tap +use activates it (then PwUpTime drives the live countdown).
-		int heldDur = (int)m_flPowerupTime;
+		int heldDur = m_iPowerupTime;
 		if (m_iHeldPowerup != m_iClientHeldType || heldDur != m_iClientHeldDur)
 		{
 			m_iClientHeldType = m_iHeldPowerup;

@@ -7251,3 +7251,32 @@ regen position, framerate, +0xb88 stamp, iuser4 0x400000 bit, timer floors and t
 landing check belongs to PostThink; impulse 204 missing and cheat impulses 76/101/203 extra; flashlight
 and status-bar leftovers; m_flPowerupTime float vs int; a reTS team-change test failure when the server
 starts in deathmatch. Details in amxxbench docs/fixes/rets-deviations19-report.md.
+
+## 2026-10-09 — round 20: a test fix, then the round-19 leftovers
+
+Round 20 (amxxbench docs/fixes/rets-deviations20.md). One patch per item in ~/stignored/rets-deviations20.
+- 1 ts_observer "team change keeps the jump clock" failed on reTS started in deathmatch because the map
+  change execs game.cfg (InstallGameRules @0xb6050, both games) and that run's game.cfg says mp_teamplay 0;
+  TS 3.0 fails the same with such a game.cfg. The test (reTS and ts30 copies) now sets game.cfg aside
+  without its mp_teamplay line for the switch, as ts_kills does. No game change.
+- 2 TSInit clears the re-entry window (+0x7bc, @0x82d5b).
+- 3 PreThink as the original: framerate = GiveSlowMul() every frame (@0x80999); the +0xb88 ground stamp
+  for every player (@0x809ab, no longer in CTSStunt::Play); the run-through, root and gravity timers
+  floored at 0.001 (@0x809f4-0x80a90); iuser4 0x400000 (TSSTUNT_NOVIEWOFS) for a zero view_ofs
+  (@0x80b4a); the health regen before the spectate block (@0x80bc1); the root timer expires only with
+  STOP set (@0x80cf6); the gravity timer expires to gravity 1.0 (@0x80d24); the spread decays in the
+  IsAlive block with the timers' delta x 0.1 (@0x80d77). m_bSlowMoveApplied is now unused (kept).
+- 4 The super-jump landing check is in PostThink's landing block (@0x818ec-0x81a31).
+- 5 Impulse 204 (ForceClientDllUpdate) without cheats (@0xcb9b0); cheat impulses 76, 101, 203 removed
+  (table @0xcba3c). Impulse 101 with sv_cheats 1 ended a 267b362 server with a Host_Error (w_battery.mdl
+  precache); gone with it.
+- 6 FlashlightIsOn/TurnOn/TurnOff and FAllowFlashlight removed (gamerules vtables one slot shorter, as the
+  original's); the save fields and status-bar members stay (moving offsets, see the report).
+- 7 m_flPowerupTime is m_iPowerupTime, an int (@0x82259); rets_api v5 (Get/SetPowerupTime int), both
+  header copies; reTSX on tsx-ts3 updated.
+Tests: ts_observer (re-entry window ends with the life, zero view offset bit, the jump clock fix),
+ts_cheats (impulse 204, cheat impulses not in the table), ts_powerup_state (animation rate), reTS + ts30.
+Found, not changed: the gate sentinel is -1.0 in the original, -4.0 in reTS (three sites); the landing's
+roll stamp and sound pitch; ItemPostFrame runs impulses during the spawn's attack delay in the original;
+PreThink's fuser1 0 -> 1 guard; mp_flashlight cvar and flashlight1.wav precache; CMultiplayBusters and
+sv_busters; TSInit's unnamed zeroings. Details in amxxbench docs/fixes/rets-deviations20-report.md.

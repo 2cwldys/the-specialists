@@ -12,7 +12,7 @@ slowmo_ramp	CBasePlayer	0x180	m_flSlowMotionRamp	field	TSE	curated RE name
 powerups	CBasePlayer	0x724	m_iPowerups	field	TSE	curated RE name
 powerup_held	CBasePlayer	0x728	m_iHeldPowerup	field	TSX,TSE	curated RE name
 powerup_expire	CBasePlayer	0x72c	m_flPowerupExpireTime	field	TSE	curated RE name
-powerup_time	CBasePlayer	0x730	m_flPowerupTime	field	TSX,TSE	curated RE name
+powerup_time	CBasePlayer	0x730	m_iPowerupTime	field	TSX,TSE	curated RE name
 award	CBasePlayer	0x74c	m_iAward	field	TSX,TSE	Killed, PlayerKilled, RestartRound, SetPlayerTheOne
 melee_bar	CBasePlayer	0x774	m_flMeleeBar	field	TSE	curated RE name
 lunge_time	CBasePlayer	0x79c	m_flWhiffLungeTime	field	TSE	curated RE name

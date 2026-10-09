@@ -265,9 +265,6 @@ bool CBasePlayer::Restore(CRestore& restore) { return false; }
 void CBasePlayer::SelectNextItem(int iItem) {}
 bool CBasePlayer::HasWeapons() { return false; }
 void CBasePlayer::SelectPrevItem(int iItem) {}
-bool CBasePlayer::FlashlightIsOn() { return false; }
-void CBasePlayer::FlashlightTurnOn() {}
-void CBasePlayer::FlashlightTurnOff() {}
 void CBasePlayer::ForceClientDllUpdate() {}
 void CBasePlayer::ImpulseCommands() {}
 void CBasePlayer::CheatImpulseCommands(int iImpulse) {}

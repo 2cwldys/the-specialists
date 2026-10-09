@@ -477,7 +477,7 @@ void CTSGameRules::RestartRound()
 		p->m_iGrenadeBuys = 0;  // 0x714
 		p->m_iRespawnsUsed = 0; // 0x7ba, @0x67b2e
 		p->m_flPowerupExpireTime = 0;
-		p->m_flPowerupTime = 0;
+		p->m_iPowerupTime = 0;
 		p->m_iPowerups = 0;
 		p->m_iHeldPowerup = 0;
 
@@ -631,7 +631,7 @@ void CTSGameRules::SetPlayerTheOne(CBasePlayer *pPlayer)
 		pPlayer->m_iPowerups = 0;
 		pPlayer->m_iHeldPowerup = 8; // the slow motion powerup (@0x6b1b5)
 		pPlayer->m_flPowerupExpireTime = 0;
-		pPlayer->m_flPowerupTime = 3;
+		pPlayer->m_iPowerupTime = 3;
 	}
 	pPlayer->m_iAward = 10; // TSPAward: The One (0xa) — never overwritten by kill tiers
 	m_bTheOneActive = true; // rules+0x5878 (and rules+0x5877 = 0, a byte nothing reads)

@@ -122,13 +122,11 @@ void CTSStunt::Play()
 	const bool onGround = (pev->flags & FL_ONGROUND) != 0;
 
 	// FL_ONGROUND-only resets: the wall-climb budget refreshes each airtime (Play @ pev+0x1a5&2).
-	// AND: m_flLastStunt is stamped to NOW every frame on the ground (RE PreThink @0x808cc line:
-	// `if (FL_ONGROUND) m_flLastStunt = time`). So `time - m_flLastStunt` = how long since you LEFT
-	// the ground — HandleStunt allows a mid-air dive within 0.7/timescale of leaving (jump→dive),
-	// and on-ground (running) dives directly. This is the dive window the original opens.
+	// (m_flLastStunt, the last time on the ground, is stamped by CBasePlayer::PreThink @0x809ab for
+	// every player, not here; `time - m_flLastStunt` = how long since you LEFT the ground, so
+	// HandleStunt allows a mid-air dive within 0.7/timescale of leaving and on-ground dives directly.)
 	if (onGround)
 	{
-		m_flLastStunt = gpGlobals->time;
 		m_flWallClimbFuel = 0;
 		m_flWallClimbNextTime = 0;
 		m_iWallClimbCount = 0;

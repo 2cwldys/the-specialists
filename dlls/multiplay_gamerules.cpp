@@ -928,7 +928,7 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 						peKiller->m_iPowerups = 0;
 						peKiller->m_iHeldPowerup = 8; // the slow motion powerup (@0x7a69f)
 						peKiller->m_flPowerupExpireTime = 0;
-						peKiller->m_flPowerupTime = 2;
+						peKiller->m_iPowerupTime = 2;
 					}
 				}
 				char szSpree[24]; // the original's buffer ends at its 24th byte (@0x7a6e5)
@@ -967,7 +967,7 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 					peKiller->m_iPowerups = 0;
 					peKiller->m_iHeldPowerup = 8;
 					peKiller->m_flPowerupExpireTime = 0;
-					peKiller->m_flPowerupTime = 2;
+					peKiller->m_iPowerupTime = 2;
 				}
 				peKiller->m_iAward = (peKiller->m_iAward == 10) ? 10 : 4; // The One keeps his 10
 			}
@@ -1024,10 +1024,10 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 		{
 			peKiller->m_iPowerups = 0;
 			peKiller->m_iHeldPowerup = 1;
-			int hold = (int)peKiller->m_flPowerupTime + 1;
+			int hold = peKiller->m_iPowerupTime + 1;
 			if (hold > 3)
 				hold = 3;
-			peKiller->m_flPowerupTime = hold;
+			peKiller->m_iPowerupTime = hold;
 		}
 
 		// @0x7ac7e: a team kill. Three within 30 s of each other (player+0x7c4, the count +0x7c8)
@@ -1618,11 +1618,6 @@ bool CHalfLifeMultiplay::PlayFootstepSounds(CBasePlayer* pl, float fvol)
 		return true; // only make step sounds in multiplayer if the player is moving fast enough
 
 	return false;
-}
-
-bool CHalfLifeMultiplay::FAllowFlashlight()
-{
-	return flashlight.value != 0;
 }
 
 //=========================================================

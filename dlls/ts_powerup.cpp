@@ -254,7 +254,7 @@ void CTSPowerUp::WaitTouch(CBaseEntity *pOther)
 	// (special case: a near-spent slow-motion may be re-taken). Pressing USE lets
 	// the player swap. Instant powerups bypass the held-slot gate entirely.
 	bool canTakeTimed = (pPlayer->m_iHeldPowerup == 0) ||
-		(pPlayer->m_iHeldPowerup == TS_PWUP_SLOWMO && poweruptype == TS_PWUP_SLOWMO && pPlayer->m_flPowerupTime < 3);
+		(pPlayer->m_iHeldPowerup == TS_PWUP_SLOWMO && poweruptype == TS_PWUP_SLOWMO && pPlayer->m_iPowerupTime < 3);
 	bool pressingUse = (pPlayer->pev->button & IN_USE) != 0;
 	bool slotFree = (canTakeTimed || pressingUse) && (pPlayer->m_iPowerups == 0);
 	bool apply = slotFree || (poweruptype & TS_PWUP_INSTANT);
@@ -265,7 +265,7 @@ void CTSPowerUp::WaitTouch(CBaseEntity *pOther)
 	int swapType = 0;
 	if (pressingUse && pPlayer->m_iHeldPowerup != 0 && !(poweruptype & TS_PWUP_INSTANT))
 	{
-		if (pPlayer->m_iHeldPowerup != TS_PWUP_SLOWMO || pPlayer->m_flPowerupTime > 2)
+		if (pPlayer->m_iHeldPowerup != TS_PWUP_SLOWMO || pPlayer->m_iPowerupTime > 2)
 			swapType = pPlayer->m_iHeldPowerup;
 	}
 
@@ -453,7 +453,7 @@ bool PlayerAddPowerUp(CBasePlayer *pPlayer, int type, CTSPowerUp *pPowerup)
 		pPlayer->m_iPowerups = 0;
 		pPlayer->m_iHeldPowerup = type;
 		pPlayer->m_flPowerupExpireTime = 0;
-		pPlayer->m_flPowerupTime = pPowerup->m_iDuration;
+		pPlayer->m_iPowerupTime = pPowerup->m_iDuration;
 	}
 
 	EMIT_SOUND_DYN(ENT(pPlayer->pev), CHAN_ITEM, "items/gunpickup2.wav", VOL_NORM, 0.8f, 0, 100); // @0x87dd9
@@ -502,9 +502,9 @@ void TSPowerupCheat(CBasePlayer *pPlayer, int n)
 	WRITE_BYTE(0);
 	MESSAGE_END();
 	if (pPlayer->m_iHeldPowerup == timed)
-		pPlayer->m_flPowerupTime += 5;
+		pPlayer->m_iPowerupTime += 5;
 	else
-		pPlayer->m_flPowerupTime = 5;
+		pPlayer->m_iPowerupTime = 5;
 	pPlayer->m_iHeldPowerup = timed;
 	pPlayer->m_flPowerupExpireTime = 0;
 }

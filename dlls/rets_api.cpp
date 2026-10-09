@@ -46,7 +46,7 @@ RETS_PLAYER_FIELD(SlowMotionRamp, float, m_flSlowMotionRamp)      // orig 0x180
 RETS_PLAYER_FIELD(Powerups, int, m_iPowerups)                     // orig 0x724
 RETS_PLAYER_FIELD(HeldPowerup, int, m_iHeldPowerup)               // orig 0x728
 RETS_PLAYER_FIELD(PowerupExpireTime, float, m_flPowerupExpireTime) // orig 0x72c
-RETS_PLAYER_FIELD(PowerupTime, float, m_flPowerupTime)            // orig 0x730
+RETS_PLAYER_FIELD(PowerupTime, int, m_iPowerupTime)              // orig 0x730, an int
 RETS_PLAYER_FIELD(Award, int, m_iAward)                           // orig 0x74c (byte)
 RETS_PLAYER_FIELD(MeleeBar, float, m_flMeleeBar)                  // orig 0x774
 RETS_PLAYER_FIELD(LungeTime, float, m_flWhiffLungeTime)           // orig 0x79c
