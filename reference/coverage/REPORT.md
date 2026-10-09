@@ -92,11 +92,7 @@ _Source = pfnRegisterVariable sites in client.dll (authoritative — NOT config.
 
 _Source = cvar_t structs in ts_i386.so .data (authoritative). MISSING = a gameplay/mp_ cvar the original registers that we don't; EXTRA = ours-only (invented or HL-leftover)._
 
-- matched: **43**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **5**
-
-**EXTRA (in ours, not in original — invented or HL-leftover, candidate to remove):**
-
-  `mp_flashlight`, `mp_teamlist`, `sv_allowbunnyhopping`, `sv_busters`, `sv_pushable_fixed_tick_fudge`
+- matched: **44**  |  missing (orig→not ours): **0**  |  extra (ours→not orig): **0**
 
 ---
 ## Coverage status / remaining gaps

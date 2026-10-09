@@ -949,6 +949,7 @@
   "mp_fraglimit": "0",
   "mp_fragsleft": "0",
   "mp_friendlyfire": "0",
+  "mp_teamlist": "hitman;gordon",
   "mp_teammodels": "",
   "mp_teamoverride": "1",
   "mp_teamplay": "0",

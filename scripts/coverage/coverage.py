@@ -195,7 +195,8 @@ def server_cvars_orig(path):
         if not name or dflt is None: continue
         if not re.fullmatch(r"[a-z_][a-z0-9_]{2,30}", name): continue
         # cvar defaults are short values; drop the weapon/ammo classname-pair false positives.
-        if len(dflt) > 12 or re.match(r"(weapon_|ammo_|item_|func_|info_)", dflt): continue
+        # (The limit was 12, which dropped mp_teamlist's "hitman;gordon"; 40 adds nothing else.)
+        if len(dflt) > 40 or re.match(r"(weapon_|ammo_|item_|func_|info_)", dflt): continue
         if re.match(r"(weapon_|ammo_)", name): continue
         # CDeadHEV/CDeadHGrunt::m_szPoses string ARRAYS alias as cvar_t pairs
         # ({"deadback","deadsitting","deadstomach","deadtable"}, {"deadstomach","deadside",...}):

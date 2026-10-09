@@ -595,12 +595,13 @@ public:
 	float m_flDeathCamTime = 0;     // +0x768 — the death-cam hold deadline (Killed: time+3.0; any button skips)
 	Vector m_vecDeathBodyAngles;    // the body yaw frozen at death (the original's body doesn't mouse-rotate
 	                                // during the death cam — VERIFY its mechanism, likely a dead gate in pm)
-	// Fields only TSInit touches (it zeroes them, @0x82c1a, @0x82e21, @0x82e66-0x82e7a); nothing else
-	// in ts_i386.so reads or writes them, so their meaning is unknown. Kept last so no other member
-	// moves.
+	// Fields only TSInit touches (it zeroes them, @0x82c1a, @0x82e21, @0x82e66-0x82e7a, @0x82d65);
+	// nothing else in ts_i386.so reads or writes them, so their meaning is unknown. Kept last so no
+	// other member moves.
 	int m_iTSInit740 = 0;          // 0x740
 	int m_iTSInit77c[3] = {};      // 0x77c, 0x780, 0x784
 	int m_iTSInit184[33] = {};     // 0x184..0x204 (a rep stos of 33 dwords)
+	int m_iTSInit788 = 0;          // 0x788
 };
 
 inline void CBasePlayer::SetWeaponBit(int id)

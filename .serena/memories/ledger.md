@@ -7306,3 +7306,28 @@ flashlight/busters, spawn zeroing). Found, not changed: ItemPostFrame's second m
 missing random_seed reroll (@0xcc575); TSInit also zeroes 0x750 (m_flNextPTakeDamTime) and 0x788;
 Spawn's stock m_flNextChatTime = time; sv_allowbunnyhopping and sv_pushable_fixed_tick_fudge are
 not in the original. Details in amxxbench docs/fixes/rets-deviations21-report.md.
+
+## 2026-10-09 — round 22: a test guard, then the round-21 leftovers
+
+Round 22 (amxxbench docs/fixes/rets-deviations22.md). One patch per item in ~/stignored/rets-deviations22.
+- 1 ts_gamerules' spawn zeroing test wrote past the end of the player on reTS before 58c5ca9 and ended
+  both servers in round 21. It now reads the player's block size (new amxxbench native
+  bench_private_size, malloc_usable_size) and writes nothing unless the fields fit; on 8dd2877 it
+  refuses (3864 bytes, 4016 needed). Tests only.
+- 2 CBasePlayer::ItemPostFrame: no second m_pTank check (halflife-updated #3345), and random_seed =
+  RANDOM_LONG(0, 32000) after the item's frame (@0xcc575). Only the guns' fire functions read it
+  (@0x72303-0x73201), always after CmdStart's write; client.dll has no reroll.
+- 3 TSInit zeroes m_flNextPTakeDamTime (0x750, @0x82ca8) and 0x788 (@0x82d65, new m_iTSInit788, last
+  in CBasePlayer: amd64 size unchanged at 4016 (tail padding), i386 3380 -> 3384).
+- 4 Spawn no longer sets m_flNextChatTime = time (stock SDK line; the original leaves 0x7c0 to TSInit).
+- 5 sv_allowbunnyhopping (halflife-updated a1cf2d3) and sv_pushable_fixed_tick_fudge (HL25 backport
+  4f0d502) removed with the "bj" physinfo key; PM_PreventMegaBunnyJumping always runs (@0xf00d4).
+  CPushable::Move is the original's (@0xb1c50): pre-HL25 Move plus TS's 0.3 scaling of the toucher's
+  velocity while he holds +use. coverage.py's server cvar scan let defaults up to 40 chars through
+  (mp_teamlist's "hitman;gordon" was dropped at 12); REPORT.md regenerated: 44 matched, 0 extra.
+- 6 Client: HUD_WeaponsPostThink's gate is client.dll's (0x10003d46): deadflag != 5, !CL_IsDead
+  (0x10026860) and m_flNextAttack <= 0. The spectator and viewmodel/zoom tests are gone; round 7l had
+  narrowed the gate for a hang that was TS_EvWeaponAnim calling itself (fixed in 7l-b, fea3cb3).
+Tests (reTS + ts30): ts_gamerules (spawn zeroing extended to 0x750/0x788 and chat clock 0, no
+bunnyhop/pushable cvars or bj key, pushable push/pull), ts_damage (seed rerolled). Details in amxxbench
+docs/fixes/rets-deviations22-report.md.

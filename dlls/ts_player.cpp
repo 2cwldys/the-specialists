@@ -625,6 +625,7 @@ void CBasePlayer::TSInit()
 		m_bLowGravity = 0;
 		g_engfuncs.pfnSetPhysicsKeyValue(edict(), "mj", "0");
 	}
+	m_flNextPTakeDamTime = 0; // 0x750 (@0x82ca8): the PTakeDam 0.3 s throttle
 	m_flSpecMsgTime = 0; // +0x754 — the spectate HUD-line 1 Hz throttle clock
 	if (pev->iuser1 != 0 || pev->iuser2 != 0)
 	{
@@ -643,6 +644,7 @@ void CBasePlayer::TSInit()
 	m_bHasKevlar = false;  // 0x718
 	m_flTSRespawnTime = 0; // 0x770
 	m_flRespawnHoldTime = 0; // 0x7bc (@0x82d5b): a re-entry window ends with the spawn that used it
+	m_iTSInit788 = 0;        // 0x788 (@0x82d65)
 	m_hRunThroughLast = NULL; // 0x798
 	m_iWires[0] = m_iWires[1] = m_iWires[2] = 0;                   // 0x78c-0x78e
 	m_iClientWires[0] = m_iClientWires[1] = m_iClientWires[2] = 0; // 0x78f-0x791

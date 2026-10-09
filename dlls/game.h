@@ -39,7 +39,6 @@ extern cvar_t defaultteam;
 extern cvar_t allowmonsters;
 extern cvar_t mp_chattime;
 
-extern cvar_t sv_allowbunnyhopping;
 
 
 // Engine Cvars

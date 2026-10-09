@@ -1128,12 +1128,22 @@ void CPushable::Move(CBaseEntity* pOther, bool push)
 	entvars_t* pevToucher = pOther->pev;
 	bool playerTouch = false;
 
+	// @0xb1c71: TS moves the pushable by a copy of the toucher's velocity, at 0.3 of it while a
+	// player holds +use (so a pull drags it slower than he walks).
+	Vector vecToucherVelocity = pevToucher->velocity;
+	if (pOther->IsPlayer() && (pevToucher->button & IN_USE) != 0)
+	{
+		vecToucherVelocity.x = vecToucherVelocity.x * 0.3;
+		vecToucherVelocity.y = vecToucherVelocity.y * 0.3;
+		vecToucherVelocity.z = vecToucherVelocity.z * 0.3;
+	}
+
 	// Is entity standing on this pushable ?
 	if (FBitSet(pevToucher->flags, FL_ONGROUND) && pevToucher->groundentity && VARS(pevToucher->groundentity) == pev)
 	{
 		// Only push if floating
 		if (pev->waterlevel > 0)
-			pev->velocity.z += pevToucher->velocity.z * 0.1;
+			pev->velocity.z += vecToucherVelocity.z * 0.1;
 
 		return;
 	}
@@ -1141,11 +1151,7 @@ void CPushable::Move(CBaseEntity* pOther, bool push)
 
 	if (pOther->IsPlayer())
 	{
-		// JoshA: Used to check for FORWARD too and logic was inverted
-		// from comment which seems wrong.
-		// Fixed to just check for USE being not set for PUSH.
-		// Should have the right effect.
-		if (push && !!(pevToucher->button & IN_USE)) // Don't push unless the player is not useing (pull)
+		if (push && (pevToucher->button & (IN_FORWARD | IN_USE)) == 0) // Don't push unless the player is pushing forward and NOT use (pull)
 			return;
 		playerTouch = true;
 	}
@@ -1167,38 +1173,21 @@ void CPushable::Move(CBaseEntity* pOther, bool push)
 	else
 		factor = 0.25;
 
-	// This used to be added every 'frame', but to be consistent at high fps,
-	// now act as if it's added at a constant rate with a fudge factor.
-	extern cvar_t sv_pushable_fixed_tick_fudge;
-
-	if (!push && sv_pushable_fixed_tick_fudge.value >= 0.0f)
-	{
-		factor *= gpGlobals->frametime * sv_pushable_fixed_tick_fudge.value;
-	}
-
-	// JoshA: Always apply this if pushing, or if under the player's velocity.
-	if (push || (abs(pev->velocity.x) < abs(pevToucher->velocity.x - pevToucher->velocity.x * factor)))
-		pev->velocity.x += pevToucher->velocity.x * factor;
-	if (push || (abs(pev->velocity.y) < abs(pevToucher->velocity.y - pevToucher->velocity.y * factor)))
-		pev->velocity.y += pevToucher->velocity.y * factor;
+	// (the original adds the velocity every touch: no sv_pushable_fixed_tick_fudge, HL25's per-second
+	// rate, @0xb1da2)
+	pev->velocity.x += vecToucherVelocity.x * factor;
+	pev->velocity.y += vecToucherVelocity.y * factor;
 
 	float length = sqrt(pev->velocity.x * pev->velocity.x + pev->velocity.y * pev->velocity.y);
-	if (length > MaxSpeed())
+	if (push && (length > MaxSpeed()))
 	{
 		pev->velocity.x = (pev->velocity.x * MaxSpeed() / length);
 		pev->velocity.y = (pev->velocity.y * MaxSpeed() / length);
 	}
 	if (playerTouch)
 	{
-		// JoshA: Match the player to our pushable's velocity.
-		// Previously this always happened, but it should only
-		// happen if the player is pushing (or rather, being pushed.)
-		// This either stops the player in their tracks or nudges them along.
-		if (push)
-		{
-			pevToucher->velocity.x = pev->velocity.x;
-			pevToucher->velocity.y = pev->velocity.y;
-		}
+		pevToucher->velocity.x = pev->velocity.x;
+		pevToucher->velocity.y = pev->velocity.y;
 
 		if ((gpGlobals->time - m_soundTime) > 0.7)
 		{

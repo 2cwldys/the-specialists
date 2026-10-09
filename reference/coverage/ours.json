@@ -746,7 +746,6 @@
   "mp_chattime": "10",
   "mp_defaultteam": "0",
   "mp_falldamage": "0",
-  "mp_flashlight": "0",
   "mp_forcerespawn": "1",
   "mp_fraglimit": "0",
   "mp_fragsleft": "0",
@@ -768,10 +767,7 @@
   "roundtime": "150",
   "slowmatch": "1.0",
   "spectacularness": "1",
-  "sv_allowbunnyhopping": "0",
   "sv_alltalk": "0",
-  "sv_busters": "0",
-  "sv_pushable_fixed_tick_fudge": "15",
   "usecash": "0.0",
   "voice_serverdebug": "0",
   "weaponstay": "15"

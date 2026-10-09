@@ -44,10 +44,6 @@ cvar_t allowmonsters = {"mp_allowmonsters", "0", FCVAR_SERVER};
 
 cvar_t mp_chattime = {"mp_chattime", "10", FCVAR_SERVER};
 
-cvar_t sv_allowbunnyhopping = {"sv_allowbunnyhopping", "0", FCVAR_SERVER};
-
-cvar_t sv_pushable_fixed_tick_fudge = {"sv_pushable_fixed_tick_fudge", "15"};
-
 static bool SV_InitServer()
 {
 	if (!FileSystem_LoadFileSystem())
@@ -229,8 +225,6 @@ void GameDLLInit()
 	CVAR_REGISTER(&mp_chattime);
 
 
-	CVAR_REGISTER(&sv_allowbunnyhopping);
-
 	// The Specialists game cvars (mp_teammodels, roundtime, slowmatch, cash economy, …)
 	extern void TSRegisterCvars();
 	TSRegisterCvars();
@@ -240,8 +234,6 @@ void GameDLLInit()
 	g_engfuncs.pfnAddServerCommand("restartround", cmd_restartround); // @0xb5afc, after globalslow as in the original
 	g_engfuncs.pfnAddServerCommand("loadweapons", cmd_loadweapons); // swap-contract command names
 	g_engfuncs.pfnAddServerCommand("saveweapons", cmd_saveweapons);
-
-	CVAR_REGISTER(&sv_pushable_fixed_tick_fudge);
 
 	InitMapLoadingUtils();
 

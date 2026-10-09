@@ -3240,7 +3240,6 @@ void CBasePlayer::Spawn()
 
 	g_engfuncs.pfnSetPhysicsKeyValue(edict(), "slj", "0");
 	g_engfuncs.pfnSetPhysicsKeyValue(edict(), "hl", "1");
-	g_engfuncs.pfnSetPhysicsKeyValue(edict(), "bj", UTIL_dtos1(sv_allowbunnyhopping.value != 0 ? 1 : 0));
 
 	m_iFOV = 0;		   // init field of view.
 	m_iClientFOV = -1; // make sure fov reset is sent
@@ -3304,7 +3303,7 @@ void CBasePlayer::Spawn()
 
 	m_lastx = m_lasty = 0;
 
-	m_flNextChatTime = gpGlobals->time;
+	// (no m_flNextChatTime = time here: the original's Spawn leaves 0x7c0 to TSInit, which zeroes it)
 
 	g_pGameRules->PlayerSpawn(this);
 
@@ -4204,14 +4203,14 @@ void CBasePlayer::ItemPostFrame()
 
 	ImpulseCommands();
 
-	// check again if the player is using a tank if they started using it in PlayerUse
-	if (m_pTank != NULL)
-		return;
-
+	// @0xcc556: no second m_pTank check (halflife-updated's #3345 fix is not in the original); then
+	// after the item's frame the shared seed is rerolled (@0xcc575, the original's +0x7ec). CmdStart
+	// writes it again before the next command's frame, so the weapons only ever read the usercmd's.
 	if (!m_pActiveItem)
 		return;
 
 	m_pActiveItem->ItemPostFrame();
+	random_seed = RANDOM_LONG(0, 32000);
 }
 
 int CBasePlayer::AmmoInventory(int iAmmoIndex)
