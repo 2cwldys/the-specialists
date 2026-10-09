@@ -8,7 +8,8 @@
 *  — a player-dropped weapon. Derives CTSPhysicObject (slow-motion bounce physics), is MOVETYPE_BOUNCE,
 *  carries the full s_weapon_status (our TSItem) of the dropped weapon, and hands it back on pickup
 *  (USE, or on touch for the throwable type 0x1d). A thrown gun damages what it flies into (Fall's
-*  swept trace); it passes THROUGH players (ShouldCollide) and only stacks on other guns/knives.
+*  swept trace). Its ShouldCollide decides what a move or trace that touches it hits (the global hook
+*  asks the touched entity only, @0x9b7b4): players pass through it, guns and knives do not.
 *
 *  CTSAmmoPack (@0xa1334 CreateAmmoPack / @0xa13f4 Spawn / @0xa1544 Fall / @0xa15c0 WaitThink /
 *    @0xa1610 OnGround / @0xa16c0 WaitTouch) — a dropped consumable pack carrying per-caliber rounds
@@ -404,18 +405,16 @@ void CTSAmmoPack::WaitTouch(CBaseEntity *pOther)
 }
 
 //============================================================================
-// Global ShouldCollide hook (NEW_DLL_FUNCTIONS::pfnShouldCollide). Default = collide (1); routes a
-// CTSWorldGun pair to its filter so dropped guns pass through players. Called for every pair, so it
-// stays cheap (a classname check) and returns 1 for all non-WorldGun pairs.
+// Global ShouldCollide hook (NEW_DLL_FUNCTIONS::pfnShouldCollide, @0x9b7b4): the touched entity's own
+// ShouldCollide virtual decides, unless it is being removed (FL_KILLME); either edict may be NULL (the
+// engine passes a trace's NULL passedict), and then it collides.
 //============================================================================
 extern "C" int ShouldCollide(edict_t *pentTouched, edict_t *pentOther)
 {
-	if (FClassnameIs(&pentTouched->v, "WorldGun"))
-		return ((CTSWorldGun *)CBaseEntity::Instance(pentTouched))
-			->ShouldCollide(CBaseEntity::Instance(pentOther)) ? 1 : 0;
-	if (FClassnameIs(&pentOther->v, "WorldGun"))
-		return ((CTSWorldGun *)CBaseEntity::Instance(pentOther))
-			->ShouldCollide(CBaseEntity::Instance(pentTouched)) ? 1 : 0;
+	CBaseEntity *pTouched = pentTouched ? CBaseEntity::Instance(pentTouched) : NULL;
+	CBaseEntity *pOther = pentOther ? CBaseEntity::Instance(pentOther) : NULL;
+	if (pTouched && !(pTouched->pev->flags & FL_KILLME))
+		return pTouched->ShouldCollide(pOther) ? 1 : 0;
 	return 1;
 }
 

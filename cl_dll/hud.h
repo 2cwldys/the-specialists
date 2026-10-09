@@ -598,6 +598,7 @@ public:
 	void Init();
 	void VidInit();
 	void Think();
+	void EaseFOV(int target); // client.dll 0x10049620
 	bool Redraw(float flTime, bool intermission);
 	bool UpdateClientData(client_data_t* cdata, float time);
 

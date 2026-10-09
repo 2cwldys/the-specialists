@@ -23,6 +23,7 @@
 #include "game.h"          // g_flWeaponCheat (sv_cheats as the map started)
 
 extern cvar_t dmcashbased; // ts_cvars.cpp, registered as "usecash" (Think's SrvSett)
+extern cvar_t realbullet, cv_ammocount; // ts_cvars.cpp (Think's SrvSett reads the cvar_t values, @0x675b3)
 
 // Defined in ts_objectives.cpp — fire the objective manager's targetontimeleft on round timeout.
 void TSFireTimeLeftTarget();
@@ -867,13 +868,10 @@ void CTSGameRules::Think()
 	// (No per-frame slowmatch block: the original's Think has none. slowmatch is read where the
 	// powerups are drawn, below.)
 
-	// A scheduled deads-check (from CallCheckDeads, on a player death) resolves the round.
-	// (@0x67204 — unconditional; m_flCheckDeads is only armed in round modes.)
-	if (m_flCheckDeads != 0 && gpGlobals->time >= m_flCheckDeads)
-	{
-		m_flCheckDeads = 0;
+	// A scheduled deads-check (from CallCheckDeads, on a player death) resolves the round, once its
+	// time has passed (@0x672ac: rules+0x5880 not 0 and below the time). CheckDeads clears it itself.
+	if (m_flCheckDeads != 0 && m_flCheckDeads < gpGlobals->time)
 		CheckDeads();
-	}
 
 	// Round control — MODE-GATED exactly like the original Think (@0x67204, tsthink.c lines 96-121).
 	// The powerup spawn, the One check and the round system (RestartRound / round timer /
@@ -955,15 +953,17 @@ void CTSGameRules::Think()
 	CheckVotes(); // tally the players' map/ff/teamplay votes (self-throttled to ~10s)
 
 	// --- SrvSett on-change broadcasts (the tail of the original Think; star_SrvSett.md) ---
+	// @0x675b3: realbullet and usecash are compared as floats, the cached int against the cvar's value,
+	// and the value is stored chopped toward zero (fistp with the chop mode), so a fractional value is
+	// sent again every frame, truncated. ammocount is chopped first and compared as an int (@0x676d8).
 	if (gmsgTSServerSetting != 0)
 	{
-		int v = (int)(CVAR_GET_FLOAT("realbullet") + 0.5f);
-		if (v != m_iSrvRealBullet)
+		if ((float)m_iSrvRealBullet != realbullet.value)
 		{
-			m_iSrvRealBullet = v;
+			m_iSrvRealBullet = (int)realbullet.value;
 			MESSAGE_BEGIN(MSG_ALL, gmsgTSServerSetting);
 			WRITE_BYTE(0);
-			WRITE_SHORT(v);
+			WRITE_SHORT(m_iSrvRealBullet);
 			MESSAGE_END();
 		}
 	}
@@ -976,16 +976,15 @@ void CTSGameRules::Think()
 	if (gmsgTSServerSetting != 0)
 	{
 		// @0x67650: the usecash setting is the dmcashbased cvar (registered as "usecash").
-		int v = (int)(dmcashbased.value + 0.5f);
-		if (v != m_iSrvUseCash)
+		if ((float)m_iSrvUseCash != dmcashbased.value)
 		{
-			m_iSrvUseCash = v;
+			m_iSrvUseCash = (int)dmcashbased.value;
 			MESSAGE_BEGIN(MSG_ALL, gmsgTSServerSetting);
 			WRITE_BYTE(1);
-			WRITE_SHORT(v != 0 ? 1 : 0); // cached rounded, WIRED as a bool
+			WRITE_SHORT(m_iSrvUseCash != 0 ? 1 : 0); // cached chopped, WIRED as a bool
 			MESSAGE_END();
 		}
-		v = (int)(CVAR_GET_FLOAT("ammocount") + 0.5f);
+		const int v = (int)cv_ammocount.value;
 		if (v != m_iSrvAmmoCount)
 		{
 			m_iSrvAmmoCount = v;

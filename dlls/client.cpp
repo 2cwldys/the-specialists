@@ -1529,7 +1529,10 @@ int AddToFullPack(struct entity_state_s* state, int e, edict_t* ent, edict_t* ho
 		state->eflags &= ~EFLAG_SLERP;
 	}
 
-	state->eflags |= entity->m_EFlags;
+	// halflife-updated's entity flags. An edict with no game entity (a plugin's bare CreateEntity given
+	// a model) reaches here too; the original reads no private data for it (@0x9f180), so neither do we.
+	if (entity)
+		state->eflags |= entity->m_EFlags;
 
 	state->scale = ent->v.scale;
 	state->solid = ent->v.solid;

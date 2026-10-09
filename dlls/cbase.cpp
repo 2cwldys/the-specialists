@@ -93,7 +93,7 @@ static DLL_FUNCTIONS gFunctionTable =
 		AllowLagCompensation,	  //pfnAllowLagCompensation
 };
 
-// CTSWorldGun's collision filter (ts_worldgun.cpp) — dropped guns pass through players.
+// The global collision filter (ts_worldgun.cpp, @0x9b7b4): the touched entity's ShouldCollide decides.
 extern "C" int ShouldCollide(edict_t *pentTouched, edict_t *pentOther);
 
 NEW_DLL_FUNCTIONS gNewDLLFunctions =
@@ -262,7 +262,10 @@ void DispatchBlocked(edict_t* pentBlocked, edict_t* pentOther)
 
 void DispatchSave(edict_t* pent, SAVERESTOREDATA* pSaveData)
 {
-	gpGlobals->time = pSaveData->time;
+	// halflife-updated's save-time sync. The original checks the save data for NULL before it reads it
+	// (@0x9af18, @0x9b128); this read came first.
+	if (pSaveData)
+		gpGlobals->time = pSaveData->time;
 
 	CBaseEntity* pEntity = (CBaseEntity*)GET_PRIVATE(pent);
 
@@ -336,7 +339,10 @@ CBaseEntity* FindGlobalEntity(string_t classname, string_t globalname)
 
 int DispatchRestore(edict_t* pent, SAVERESTOREDATA* pSaveData, int globalEntity)
 {
-	gpGlobals->time = pSaveData->time;
+	// halflife-updated's save-time sync. The original checks the save data for NULL before it reads it
+	// (@0x9af18, @0x9b128); this read came first.
+	if (pSaveData)
+		gpGlobals->time = pSaveData->time;
 
 	CBaseEntity* pEntity = (CBaseEntity*)GET_PRIVATE(pent);
 

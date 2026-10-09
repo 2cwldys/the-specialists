@@ -7124,3 +7124,24 @@ Found, not changed: the global ShouldCollide dereferences a NULL pentOther (a pl
 to skip crashed rets-r11); StartObserver strips with RemoveAllItems(false) where the original passes 1;
 Spectator 1 1 is sent from TSEnterSpectate, not StartObserver; more in amxxbench
 docs/fixes/rets-deviations14-report.md.
+
+## 2026-10-08 — round 15: the ShouldCollide crash and the round-14 leftovers
+
+Round 15 (amxxbench docs/fixes/rets-deviations15.md). One patch per item in ~/stignored/rets-deviations15.
+- 1 The global ShouldCollide is the original's (@0x9b7b4): either edict may be NULL; the touched entity's
+  ShouldCollide decides unless it has FL_KILLME, else 1. It crashed on a plugin trace with no skip entity.
+  Of the other exported callbacks, AddToFullPack's m_EFlags read (halflife-updated) and DispatchSave/
+  DispatchRestore's save-time read now check for NULL first, as the original does; the rest already matched.
+- 2 StartObserver strips with RemoveAllItems(true) (@0x89983): a spectator has no weapon bits.
+- 3 StartObserver ends with Spectator {idx, 1} (@0x899c2), not TSEnterSpectate: two for a teamplay joiner.
+- 4 Think's SrvSett: realbullet and usecash compare (float)cache != value and cache the value chopped;
+  ammocount is chopped and compared as an int (@0x675b3, @0x67650, @0x676d8).
+- 5 CTSGun::Reset leaves the active item and weapon info NULL (@0x7061c).
+- 6 Think runs CheckDeads when rules+0x5880 is set and below the time (@0x672ac); CheckDeads clears it.
+- 7 Client: CHud::Think eases m_iFOV toward the target as client.dll 0x10049760/0x10049620 (default_fov held
+  to 70..110, 80 under 0.001; step |gap|/2 x frametime x 50, at least 1); V_CalcRefdef keeps v_frametime
+  on entry (0x10069b9e). Checked by build and disassembly only.
+Tests: ts_callbacks (NULL-skip trace hits a player; fixed build only), ts_messages (joiner spectates
+without weapon bits, Spectator right after each StartObserver's strip, SrvSett truncation), reTS + ts30.
+Found, not changed: CTSWorldGun::ShouldCollide is the original's inverted (@0x91290 collides with everything
+but guns and knives); more in amxxbench docs/fixes/rets-deviations15-report.md.

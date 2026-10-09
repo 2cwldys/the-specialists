@@ -1807,8 +1807,6 @@ void V_CalcSpectatorRefdef(struct ref_params_s* pparams)
 		}
 	}
 
-	v_frametime = pparams->frametime;
-
 	if (pparams->nextView == 0)
 	{
 		// first renderer cycle, full screen
@@ -1902,6 +1900,10 @@ void V_CalcSpectatorRefdef(struct ref_params_s* pparams)
 
 void DLLEXPORT V_CalcRefdef(struct ref_params_s* pparams)
 {
+	// client.dll 0x10069b9e: every view frame keeps its frametime (the HUD's FOV easing and the
+	// spectator cameras read it), not only the spectator one
+	v_frametime = pparams->frametime;
+
 	//	RecClCalcRefdef(pparams);
 
 	// intermission / finale rendering

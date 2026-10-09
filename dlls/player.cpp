@@ -1503,8 +1503,8 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	WRITE_STRING(TeamID());
 	MESSAGE_END();
 
-	// Remove all the player's stuff
-	RemoveAllItems(false);
+	// Remove all the player's stuff, the suit too (@0x89983 passes 1), so a spectator has no weapon bits
+	RemoveAllItems(true);
 
 	// Move them to the new position
 	UTIL_SetOrigin(pev, vecPosition);
@@ -1515,6 +1515,13 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 	// none yet, so a joiner starts out chasing a player (Observer_SetMode falls back to roaming
 	// when there is nobody to chase).
 	Observer_SetMode(m_iObserverLastMode != 0 ? m_iObserverLastMode : OBS_CHASE_FREE);
+
+	// @0x899c2: everyone is told he spectates (Spectator {idx, 1}). Sent here, so a teamplay joiner's
+	// team change, which calls StartObserver alone, sends one too (two for him, as TS 3.0).
+	MESSAGE_BEGIN(MSG_ALL, gmsgSpectator);
+	WRITE_BYTE(ENTINDEX(edict()));
+	WRITE_BYTE(1);
+	MESSAGE_END();
 }
 
 //=========================================================
@@ -1559,12 +1566,6 @@ void CBasePlayer::TSEnterSpectate(bool bResetArmament)
 			rt = 30;
 		SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
 	}
-
-	// @0x89634 (StartObserver end): broadcast the stock-shaped spectator state — (idx, 1).
-	MESSAGE_BEGIN(MSG_ALL, gmsgSpectator);
-	WRITE_BYTE(ENTINDEX(edict()));
-	WRITE_BYTE(1);
-	MESSAGE_END();
 
 	// fold-plan G7: the original has no entry-time paint — the PreThink spectate block
 	// paints the countdown on the next frame (≤0.1 s later, behaviorally invisible).

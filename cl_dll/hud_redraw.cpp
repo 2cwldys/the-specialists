@@ -35,6 +35,41 @@ float HUD_GetFOV();
 
 extern float IN_GetMouseSensitivity();
 
+extern float v_frametime; // view.cpp, the last V_CalcRefdef's frametime
+
+// client.dll 0x10049620: move m_iFOV toward the target by half the gap times frametime x 50, at least
+// 1 degree a call, chopped to a whole number, never past the target. Unset (under 0.001), it jumps.
+void CHud::EaseFOV(int target)
+{
+	if ((float)m_iFOV < 0.001f)
+	{
+		m_iFOV = target;
+		return;
+	}
+	if (target == m_iFOV)
+		return;
+
+	int gap = target - m_iFOV;
+	if (gap <= 0)
+		gap = -gap;
+	double step = (double)(gap / 2) * v_frametime * 50.0;
+	if (!(step > 1.0))
+		step = 1.0;
+
+	if (target > m_iFOV)
+	{
+		m_iFOV = (int)((double)m_iFOV + step);
+		if (m_iFOV >= target)
+			m_iFOV = target;
+	}
+	else
+	{
+		m_iFOV = (int)((double)m_iFOV - step);
+		if (m_iFOV <= target)
+			m_iFOV = target;
+	}
+}
+
 // Think
 void CHud::Think()
 {
@@ -51,20 +86,30 @@ void CHud::Think()
 		pList = pList->pNext;
 	}
 
-	newfov = HUD_GetFOV();
-	if (newfov == 0)
-	{
-		m_iFOV = default_fov->value;
-	}
+	// client.dll 0x10049760: the default is default_fov held to 70..110, or 80 when it is under 0.001.
+	// The field of view eases toward the target (the zoom, else that default) instead of jumping
+	// (0x10049620), and the sensitivity scales with the target over the default while the eased
+	// view is still 0.01 or more away from the default.
+	const float fovValue = default_fov->value;
+	float def;
+	if (fovValue < 0.001f)
+		def = 80.0f;
+	else if (fovValue < 110.0f && !(fovValue > 70.0f))
+		def = 70.0f;
+	else if (fovValue < 110.0f)
+		def = fovValue;
 	else
-	{
-		m_iFOV = newfov;
-	}
+		def = 110.0f;
+
+	newfov = (int)HUD_GetFOV();
+	EaseFOV((float)newfov < 0.001f ? (int)def : newfov);
 
 	// the clients fov is actually set in the client data update section of the hud
 
-	// Set a new sensitivity
-	if (m_iFOV == default_fov->value)
+	float diff = (float)m_iFOV - def;
+	if (diff <= 0.0f)
+		diff = -diff;
+	if (diff < 0.01f)
 	{
 		// reset to saved sensitivity
 		m_flMouseSensitivity = 0;
@@ -72,16 +117,12 @@ void CHud::Think()
 	else
 	{
 		// set a new sensitivity that is proportional to the change from the FOV default
-		// TS: normalize against the actual default (80), not a 90 floor
-		m_flMouseSensitivity = IN_GetMouseSensitivity() * ((float)newfov / (float)default_fov->value) * CVAR_GET_FLOAT("zoom_sensitivity_ratio");
+		m_flMouseSensitivity = ((float)newfov / def) * IN_GetMouseSensitivity() * CVAR_GET_FLOAT("zoom_sensitivity_ratio");
 	}
 
 	// think about default fov
-	if (m_iFOV == 0)
-	{
-		// TS: honor the 80 default — the stock 90 floor would defeat it
-		m_iFOV = default_fov->value;
-	}
+	if ((float)m_iFOV < 0.001f)
+		m_iFOV = (int)def;
 
 	if (0 != gEngfuncs.IsSpectateOnly())
 	{

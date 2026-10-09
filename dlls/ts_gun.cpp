@@ -329,8 +329,7 @@ void CTSGun::Reset()
 	m_iClientReserve = 0;
 	m_bWStatusInit = false;
 
-	m_pActiveInfo = get_weapon_info((tsweapon_t)m_weaponType); // gun+0xd0 (inline, fold-plan G5)
-	m_pActiveItem = (m_weaponType > TSW_MELEE && m_weaponType < TSW_COUNT) ? &m_items[m_weaponType] : nullptr; // gun+0xcc — NULL = kung-fu
+	// the active item and its weapon info stay cleared (@0x70612 gun+0xcc, @0x7061c gun+0xd0 = 0)
 }
 
 // @ Spawn__6CTSGun — classname weapon_tsgun, id 16, fall-init as a pickup.
