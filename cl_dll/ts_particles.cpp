@@ -91,6 +91,18 @@ static int TSP_RegisterSprite(const char* name, short rendermode)
 	return idx;
 }
 
+int TSParticles_Sprite(const char* name, short rendermode)
+{
+	return TSP_RegisterSprite(name, rendermode);
+}
+
+HSPRITE TSParticles_SpriteHandle(int idx)
+{
+	if (idx < 0 || idx >= g_tsPool.nSprites)
+		return 0;
+	return g_tsPool.sprites[idx].handle;
+}
+
 // FUN_100509a0 — a random frame in [0, frames-1] for sprite table index `idx`.
 static float TSP_RandomFrame(int idx)
 {
@@ -248,7 +260,7 @@ void TSParticles_Update()
 				Vector c[4];
 				const float half = (p->size > 0.0f) ? p->size : 1.0f;
 				float speed = p->vel.Length();
-				if (p->stretch > 0.0f && speed * p->stretch > 2.0f * half)
+				if (p->shape != 4 && p->stretch > 0.0f && speed * p->stretch > 2.0f * half)
 				{
 					Vector vdir = p->vel * (1.0f / speed);
 					Vector wide = CrossProduct(vdir, fwd);
@@ -260,6 +272,12 @@ void TSParticles_Update()
 					c[1] = head - wide;
 					c[2] = head + wide;
 					c[3] = tail + wide;
+				}
+				else if (p->shape == 4)
+				{
+					// FUN_10050ce0: shape 4 copies the quad stored at spawn (the bullet trail).
+					for (int k = 0; k < 4; k++)
+						c[k] = p->quad[k];
 				}
 				else
 				{
@@ -608,6 +626,34 @@ static int __MsgFunc_TSPSys(const char* pszName, int iSize, void* pbuf)
 	// CONSUMER DEFERRED: the TSP wind pass (~FUN@0x10051aa0) that applies this to the
 	// particles is un-reconstructed — g_tsWindState is the seam it will read.
 	return 1;
+}
+
+// BULLET TRAIL — FUN_10046240 (from the client bullet simulation's cl_wavedetail gate, 0x10035a66).
+// Shape 4: the corners are fixed at spawn from the view up of that frame, last - up*size,
+// last + up*size, pos + up*size, pos - up*size. Life 0, so it only fades: bright = alpha * 0.75
+// (_DAT_1007d474), fade rate 0.1 (bright -= dt * 10), no motion.
+void TSP_BulletTrail(const Vector& pos, const Vector& last, float size, float alpha)
+{
+	const int idx = TSP_RegisterSprite("sprites/bullet_trail.spr", kRenderTransAdd);
+	if (idx == -1)
+		return;
+	Vector fwd, right, up;
+	AngleVectors(v_angles, fwd, right, up);
+
+	TSParticle* p = TSP_Scratch();
+	p->orient = 0;
+	p->active = true;
+	p->bright = alpha * 0.75f;
+	p->fadeRate = 0.1f;
+	p->spriteIdx = (short)idx;
+	p->size = size;
+	p->pos = pos;
+	p->shape = 4;
+	p->quad[0] = last - up * size;
+	p->quad[1] = last + up * size;
+	p->quad[2] = pos + up * size;
+	p->quad[3] = pos - up * size;
+	TSP_Commit(p);
 }
 
 void TSParticles_Init()

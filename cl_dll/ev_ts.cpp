@@ -38,6 +38,7 @@
 #include "ts_weapon_predict.h" // the active-weapon param cache (refreshed by each TS event)
 #include "ts_recoil.h"      // TS_AddViewRecoil — the per-shot aim-recoil kick
 #include "ts_particles.h"   // TS_ImpactEffect — the byte-ported per-surface impact dispatcher
+#include "ts_bullets.h"     // the client bullet simulation (realbullet / slow motion)
 
 #include <string.h>
 
@@ -160,20 +161,13 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
 // server's FireBulletsPlayer already does blood + the texture impact SOUND + the bullet decal,
 // this only adds the missing VISUAL). Client-side + predicted via the fire event (no lag, no
 // double sound/decal). The old R_SparkShower/R_TempSprite approximation is gone (cont.69x).
-static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
+//
+// EV_TSBulletHit is the hit half of EV_TSBulletImpact: what client.dll's FUN_10044bf0 (impact sound and particles,
+// `mode` going on to the dispatcher) and FUN_10001180 (the decal) do with a trace that hit. The
+// client bullet simulation (ts_bullets.cpp) calls it for each surface its bullets reach. The
+// caller holds the pushed PM states; src/end are the points EV_TraceTexture probes between.
+void EV_TSBulletHit(int idx, const float* src, const float* end, pmtrace_t& tr, int mode)
 {
-	Vector end;
-	for (int i = 0; i < 3; i++)
-		end[i] = src[i] + dir[i] * 8192.0f;
-
-	gEngfuncs.pEventAPI->EV_SetUpPlayerPrediction(0, 1);
-	gEngfuncs.pEventAPI->EV_PushPMStates();
-	gEngfuncs.pEventAPI->EV_SetSolidPlayers(idx - 1);
-	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
-	pmtrace_t tr;
-	gEngfuncs.pEventAPI->EV_PlayerTrace((float*)src, end, PM_NORMAL, -1, &tr);
-
-	if (tr.fraction < 1.0f)
 	{
 		// Classify the hit surface. Brush (world/breakable) -> texture material char; anything else
 		// (player/monster bbox) -> flesh.
@@ -182,7 +176,7 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 		bool isBrush = pe && (pe->solid == SOLID_BSP || pe->movetype == MOVETYPE_PUSH || tr.ent == 0);
 		if (isBrush)
 		{
-			const char* texName = gEngfuncs.pEventAPI->EV_TraceTexture(tr.ent, (float*)src, end);
+			const char* texName = gEngfuncs.pEventAPI->EV_TraceTexture(tr.ent, (float*)src, (float*)end);
 			if (texName && texName[0])
 			{
 				char buf[64];
@@ -232,7 +226,7 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 		for (int i = 0; i < 3; i++)
 			pos[i] = tr.endpos[i] + tr.plane.normal[i] * 2.0f;
 
-		TS_ImpactEffect(pos, tr.plane.normal, 0, chType);
+		TS_ImpactEffect(pos, tr.plane.normal, mode, chType);
 
 		// Bullet ric impact sound — played CLIENT-side here (positional, predicted), NOT server-side:
 		// the old server path used EMIT_AMBIENT_SOUND on the WORLD entity, which the engine spawns as a
@@ -254,8 +248,38 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 			gEngfuncs.pEventAPI->EV_PlaySound(0, pos, CHAN_STATIC, ric, VOL_NORM, ATTN_NORM, 0, pitch);
 		}
 	}
+}
+
+static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
+{
+	Vector end;
+	for (int i = 0; i < 3; i++)
+		end[i] = src[i] + dir[i] * 8192.0f;
+
+	gEngfuncs.pEventAPI->EV_SetUpPlayerPrediction(0, 1);
+	gEngfuncs.pEventAPI->EV_PushPMStates();
+	gEngfuncs.pEventAPI->EV_SetSolidPlayers(idx - 1);
+	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
+	pmtrace_t tr;
+	gEngfuncs.pEventAPI->EV_PlayerTrace((float*)src, end, PM_NORMAL, -1, &tr);
+
+	if (tr.fraction < 1.0f)
+		EV_TSBulletHit(idx, src, end, tr, 0);
 
 	gEngfuncs.pEventAPI->EV_PopPMStates();
+}
+
+// One round of a fire event. client.dll's fire core (FUN_100450c0, 0x10045193) takes the realbullet
+// branch when the server's realbullet setting (SrvSett id 0) is not 0 or this client's slow-motion
+// scale is under 0.99: the round is then not traced at once but handed to the client bullet
+// simulation (FUN_10035c20) with the weapon's damage (wi+0x1c), caliber (wi+0x8) and shot mode
+// (wi+0x20), and flies from there (ts_bullets.cpp).
+static void EV_TSShot(int idx, const float* src, const float* dir, const s_weapon_info* wi)
+{
+	if (TSBullets_RealBullet())
+		TSBullets_Fire(idx, src, dir, wi->flDamage, wi->iCaliber, wi->iKnifeType);
+	else
+		EV_TSBulletImpact(idx, src, dir);
 }
 
 // (EV_TSKnife — the faithful knife.sc handler — is defined below the shared melee kit.)
@@ -918,7 +942,7 @@ void EV_TSFire(event_args_t* args)
 		const float spread = wi->flSpread > 0 ? wi->flSpread : 0.0f;
 		if (cPellets <= 1 || spread <= 0.0f)
 		{
-			EV_TSBulletImpact(idx, vecSrc, fwd);
+			EV_TSShot(idx, vecSrc, fwd, wi);
 		}
 		else
 		{
@@ -932,7 +956,7 @@ void EV_TSFire(event_args_t* args)
 				const float len = dir.Length();
 				if (len > 0.001f)
 					dir = dir * (1.0f / len);
-				EV_TSBulletImpact(idx, vecSrc, dir);
+				EV_TSShot(idx, vecSrc, dir, wi);
 			}
 		}
 		TS_BulletWhizz(idx, vecSrc, fwd); // a near-miss flyby "whizz" if this round grazes the local player
@@ -1032,7 +1056,7 @@ void EV_TSFireLinked(event_args_t* args)
 			Vector src2;
 			for (int c = 0; c < 3; c++)
 				src2[c] = vecSrc[c] + right[c] * (b == 0 ? 5.0f : -5.0f);
-			EV_TSBulletImpact(idx, src2, fwd);
+			EV_TSShot(idx, src2, fwd, wi);
 		}
 		TS_BulletWhizz(idx, vecSrc, fwd);
 	}

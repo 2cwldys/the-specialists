@@ -22,6 +22,7 @@
 #include "tri.h"
 #include "ts_particles.h" // TS client impact-effect particle pool
 #include "ts_attachments.h" // TS gun lasersight + flashlight render
+#include "ts_bullets.h"     // the client bullet simulation
 extern IParticleMan* g_pParticleMan;
 
 /*
@@ -68,4 +69,9 @@ void DLLEXPORT HUD_DrawTransparentTriangles()
 	// TS player blob shadows (ombra.spr ground blob under each player, cl_shadow-gated) — original
 	// client.dll drew these from HUD_DrawTransparentTriangles per-player. cont.86c.
 	TS_Shadows_Draw();
+
+	// The client bullet simulation: step every queued round, draw them in slow motion. Last in
+	// client.dll's HUD_DrawTransparentTriangles too (FUN_10034e60 at 0x10056e59, after the
+	// particle pool and before the fog is switched off).
+	TSBullets_Update();
 }

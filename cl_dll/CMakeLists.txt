@@ -165,6 +165,7 @@ target_sources(client PRIVATE
 	message.cpp
 	roundtime.cpp
 	ts_hud.cpp
+	ts_bullets.cpp
 	ts_buymenu.cpp
 	ts_message.cpp
 	ts_powerup_hud.cpp

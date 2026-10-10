@@ -26,6 +26,7 @@
 #include "ts_attachments.h" // TS_Attachments_Init — the per-player laser/flashlight attach state
 #include "ts_hud.h"			// TSHud_RegisterCvars — registers `nohud` (the original's HUD-off cvar)
 #include "ts_particles.h"   // TSParticles_Reset — drop stale per-map sprite handles on VidInit
+#include "ts_bullets.h"     // TSBullets_Reset
 #include "ts_motionblur.h"  // TS_MotionBlur_Init — the TSMBlur ghost-trail hook
 #include "vgui_int.h"
 #include "vgui_TeamFortressViewport.h"
@@ -541,6 +542,7 @@ void CHud::VidInit()
 	m_TSDebris.VidInit();
 	m_TSObjectives.VidInit();
 	TSParticles_Reset();     // drop stale per-map sprite handles (impact particle pool)
+	TSBullets_Reset();       // no round carries across a map (client.dll clears them on the FX root's first frame, 0x10056de3)
 	TS_Attachments_VidInit(); // drop stale per-map laser/flashlight sprite handles
 	GetClientVoiceMgr()->VidInit();
 }
