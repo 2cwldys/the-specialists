@@ -1032,102 +1032,24 @@ void CHudSpectator::FindPlayer(const char* name)
 	gViewPort->MsgFunc_ResetFade(NULL, 0, NULL);
 }
 
+// TS (client.dll 0x10023450): the original replaced the stock body. Every button-down handler that
+// calls it (+attack, +attack2, +jump, +duck and the four moves; not +use) stamps the 0.2 s observer
+// throttle, and a +attack press that gets past it sends "respawn". There is no spectate, menu or demo
+// test: the server's "respawn" branch decides (a living player or a spectator still in his wait is
+// ignored there). This is the whole fire-to-play: the press sends it, holding does not repeat it, and
+// the throttle restarts at 0 on Init, VidInit and InitHUDData as the original's +0xc94 does, so a
+// new map's clock is never compared with the last one's.
 void CHudSpectator::HandleButtonsDown(int ButtonPressed)
 {
-	double time = gEngfuncs.GetClientTime();
+	const double time = gEngfuncs.GetClientTime();
 
-	int newMainMode = g_iUser1;
-	int newInsetMode = m_pip->value;
-
-	// gEngfuncs.Con_Printf(" HandleButtons:%i\n", ButtonPressed );
-
-	if (!gViewPort)
-		return;
-
-	//Not in intermission.
-	if (gHUD.m_iIntermission)
-		return;
-
-	if (0 == g_iUser1)
-		return; // dont do anything if not in spectator mode
-
-	// don't handle buttons during normal demo playback
-	if (0 != gEngfuncs.pDemoAPI->IsPlayingback() && 0 == gEngfuncs.IsSpectateOnly())
-		return;
-	// Slow down mouse clicks.
 	if (m_flNextObserverInput > time)
 		return;
 
-	// enable spectator screen
-	if ((ButtonPressed & IN_DUCK) != 0)
-		gViewPort->m_pSpectatorPanel->ShowMenu(!gViewPort->m_pSpectatorPanel->m_menuVisible);
-
-	//  'Use' changes inset window mode
-	if ((ButtonPressed & IN_USE) != 0)
-	{
-		newInsetMode = ToggleInset(true);
-	}
-
-	// if not in HLTV mode, buttons are handled server side
-	if (0 != gEngfuncs.IsSpectateOnly())
-	{
-		// changing target or chase mode not in overviewmode without inset window
-
-		// Jump changes main window modes
-		if ((ButtonPressed & IN_JUMP) != 0)
-		{
-			if (g_iUser1 == OBS_CHASE_LOCKED)
-				newMainMode = OBS_CHASE_FREE;
-
-			else if (g_iUser1 == OBS_CHASE_FREE)
-				newMainMode = OBS_IN_EYE;
-
-			else if (g_iUser1 == OBS_IN_EYE)
-				newMainMode = OBS_ROAMING;
-
-			else if (g_iUser1 == OBS_ROAMING)
-				newMainMode = OBS_MAP_FREE;
-
-			else if (g_iUser1 == OBS_MAP_FREE)
-				newMainMode = OBS_MAP_CHASE;
-
-			else
-				newMainMode = OBS_CHASE_FREE; // don't use OBS_CHASE_LOCKED anymore
-		}
-
-		// Attack moves to the next player
-		if ((ButtonPressed & (IN_ATTACK | IN_ATTACK2)) != 0)
-		{
-			FindNextPlayer((ButtonPressed & IN_ATTACK2) != 0);
-
-			if (g_iUser1 == OBS_ROAMING)
-			{
-				gEngfuncs.SetViewAngles(vJumpAngles);
-				iJumpSpectator = true;
-			}
-			// release directed mode if player wants to see another player
-			m_autoDirector->value = 0.0f;
-		}
-	}
-
-	SetModes(newMainMode, newInsetMode);
-
-	if (g_iUser1 == OBS_MAP_FREE)
-	{
-		if ((ButtonPressed & IN_FORWARD) != 0)
-			m_zoomDelta = 0.01f;
-
-		if ((ButtonPressed & IN_BACK) != 0)
-			m_zoomDelta = -0.01f;
-
-		if ((ButtonPressed & IN_MOVELEFT) != 0)
-			m_moveDelta = -12.0f;
-
-		if ((ButtonPressed & IN_MOVERIGHT) != 0)
-			m_moveDelta = 12.0f;
-	}
-
 	m_flNextObserverInput = time + 0.2;
+
+	if ((ButtonPressed & IN_ATTACK) != 0)
+		gEngfuncs.pfnClientCmd("respawn");
 }
 
 void CHudSpectator::HandleButtonsUp(int ButtonPressed)

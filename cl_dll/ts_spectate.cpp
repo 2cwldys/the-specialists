@@ -8,7 +8,6 @@
 #include "ts_spectate.h"
 
 #include <stdio.h>
-#include "kbutton.h" // in_attack state — the fire-to-play "respawn" sender
 #include "Exports.h" // CL_IsThirdPerson
 
 // in_camera.cpp — the cl_thirdperson camera edges (below)
@@ -18,8 +17,6 @@ void CAM_ToFirstPerson();
 // Per-player spectator flags from the (idx, flag) broadcast — the ORIGINAL wire
 // (client.dll FUN_10065250 parses exactly BYTE idx + BYTE flag into a per-player array).
 static bool s_bPlayerSpectating[MAX_PLAYERS + 1];
-
-extern kbutton_t in_attack; // cl_dll/input.cpp
 
 bool CHudSpectate::Init()
 {
@@ -77,20 +74,10 @@ int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 	return 1;
 }
 
-// Fire-to-play: the ORIGINAL client sends the "respawn" console command on +attack while
-// spectating (client.dll @0x10023450, 0.2 s ratelimit) — the server's respawn gate decides.
-// Gated on the buy menu being closed: while the menu is up, a click belongs to the menu.
-static void TS_SpectateFireCheck()
-{
-	static float s_flNextSend;
-	const float now = gEngfuncs.GetClientTime();
-	if ((in_attack.state & 1) == 0 || gHUD.m_TSBuyMenu.IsUp())
-		return;
-	if (now < s_flNextSend)
-		return;
-	s_flNextSend = now + 0.2f;
-	gEngfuncs.pfnClientCmd("respawn");
-}
+// (Fire-to-play is not here: the original sends "respawn" from the +attack press itself, through the
+// TS body of CHudSpectator::HandleButtonsDown, hud_spectator.cpp. reTS polled +attack here once a frame
+// behind a function-static 0.2 s clock that no map change reset and a buy-menu test the original has
+// not got; see the ledger, 2026-10-10.)
 
 bool CHudSpectate::Draw(float flTime)
 {
@@ -135,8 +122,6 @@ bool CHudSpectate::Draw(float flTime)
 	m_iState = spec ? 1 : 0;
 	if (!spec)
 		return true;
-
-	TS_SpectateFireCheck(); // fire-to-play -> the "respawn" console command (original mechanism)
 
 	// (The respawn countdown number + "Press Fire To Play!" arrive as server TSMessage lines
 	// now — the original mechanism; nothing to draw here for them.)

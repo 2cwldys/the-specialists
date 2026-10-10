@@ -7374,3 +7374,28 @@ amxxbench docs/fixes/grenade-powerup.md. Scratch in ~/stignored/grenade-powerup.
   without +0), so its DropWeapon @0x100085d0 is a no-op. Fixed: no owned flag on the client; the
   coldcock event plays on any active item on the client (client.dll @0x10008dc8 has no gate), owned
   gate kept on the server (@0x81f80). Server libraries byte-identical to 52113a0.
+
+## 2026-10-10 — fire-to-play: the press sends "respawn", and its clock restarts on a new map
+
+amxxbench docs/fixes/join-spawn-click.md (report join-spawn-click-report.md). Scratch in ~/stignored/join-spawn.
+- TS 3.0's fire-to-play is client-side: TS replaced CHudSpectator::HandleButtonsDown (client.dll
+  0x10023450, 67 bytes) with a 0.2 s throttle on +0xc94 and, for IN_ATTACK, ClientCmd("respawn"). The
+  +attack/+attack2/+jump/+duck/move down handlers call it (not +use); +0xc94 is zeroed by Init
+  (0x10022c70), VidInit (0x10022fe0) and the director reset (0x10023380). No spectate or menu test. The
+  server (both games) takes only the command: Observer_HandleButtons (@0x89d34) reads jump, forward and
+  back, never attack. While the buy menu is up with the cursor shown, IN_MouseEvent (0x100273d0) gives a
+  click to the menu only (FUN_10038360: outside an entry = key 1, "use config", which closes it), so the
+  first click on joining closes the menu and later clicks send "respawn".
+- reTS (55f85a0, July 3) polled in_attack.state once a frame in CHudSpectate::Draw behind a
+  function-static 0.2 s clock and an IsUp() test. The static was never reset, so after a map change or
+  a reconnect in the same game process (client time starts again near 0) no "respawn" went out until the
+  new clock passed the previous map's last fire time. The July client.so has the same code.
+- Now as the original: HandleButtonsDown's TS body (throttle on m_flNextObserverInput, which Init,
+  VidInit and InitHUDData already zero; IN_ATTACK sends "respawn"), +use no longer calls it,
+  TS_SpectateFireCheck gone. The stock body (duck toggling the spectator menu and its cursor, use for
+  the inset, HLTV target and mode keys) is gone with it, as in client.dll. Server libraries
+  byte-identical to 31eabf7.
+- Not done: client.dll's IN_*Down handlers for +attack, +attack2, +jump and the moves call KeyDown only
+  when HUD_Key_Event saw a key bound to one of them this frame (0x100df5cc, set at 0x10025c9c, cleared
+  by HUD_Frame), so those commands from a script or alias do nothing there. reTS has no such gate.
+Test (reTS + ts30): ts_observer held_fire_does_not_spawn_a_joiner, passing on both games in both modes.

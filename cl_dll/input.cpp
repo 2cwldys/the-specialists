@@ -465,8 +465,9 @@ void IN_Attack2Down()
 void IN_Attack2Up() { KeyUp(&in_attack2); }
 void IN_UseDown()
 {
+	// the original's +use (client.dll) stamps no observer throttle, so a use press cannot hold back the
+	// next fire-to-play (CHudSpectator::HandleButtonsDown)
 	KeyDown(&in_use);
-	gHUD.m_Spectator.HandleButtonsDown(IN_USE);
 }
 void IN_UseUp() { KeyUp(&in_use); }
 void IN_JumpDown()
