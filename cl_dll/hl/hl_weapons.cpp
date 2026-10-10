@@ -49,6 +49,7 @@ float g_flApplyVel = 0.0;
 // with (0x1018d188), both set by the weapon prediction below.
 int g_iTSLaserSettled = 0;
 float g_flTSSpreadAdd = 0;
+int g_iTSPowerups = 0; // the predicted player's powerup bits (client.dll 0x1018a464)
 bool g_irunninggausspred = false;
 
 Vector previousorigin;
@@ -752,6 +753,7 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 	// powerup bits ride vuser1.y: TS 3.0's UpdateClientData (0xa0475) sends (float)m_iPowerups there and
 	// client.dll (0x10003949) reads it into the predicted player.
 	player.m_iPowerups = (int)from->client.vuser1[1];
+	g_iTSPowerups = player.m_iPowerups; // the view model's animation rate reads it (0x10003960)
 
 	//Stores all our ammo info, so the client side weapons can use them.
 	player.ammo_9mm = (int)from->client.vuser1[0];

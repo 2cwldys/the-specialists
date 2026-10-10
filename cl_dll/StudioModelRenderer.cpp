@@ -1182,6 +1182,34 @@ bool CStudioModelRenderer::StudioDrawModel(int flags)
 	IEngineStudio.GetViewInfo(m_vRenderOrigin, m_vUp, m_vRight, m_vNormal);
 	IEngineStudio.GetAliasScale(&m_fSoftwareXScale, &m_fSoftwareYScale);
 
+	// client.dll's StudioDrawModel (0x10031b3d): with the double fire rate powerup or a slow factor
+	// away from 1 (outside 0.999..1.001), the view model animates at the slow factor times 3.5556 under
+	// slow pause, 1.7143 under slow motion and 1.5 under double fire rate; the rate is worked out once
+	// per frame, or again when the view model's animation restarts.
+	{
+		extern float g_flClientSlow;
+		extern int g_iTSPowerups;
+		static int s_rateFrame = -1;
+		static float s_rateAnimtime = 0;
+		static float s_rate = 1.0f;
+		if (((g_iTSPowerups & 0x10) != 0 || g_flClientSlow < 0.999f || g_flClientSlow > 1.001f) &&
+			m_pCurrentEntity == gEngfuncs.GetViewModel())
+		{
+			float rate = g_flClientSlow;
+			if ((g_iTSPowerups & 8) != 0)
+				rate *= 3.5555558f;
+			if ((g_iTSPowerups & 1) != 0)
+				rate *= 1.7142859f;
+			if ((g_iTSPowerups & 0x10) != 0)
+				rate *= 1.5f;
+			if (s_rateFrame != m_nFrameCount || s_rateAnimtime + 0.001f < m_pCurrentEntity->curstate.animtime)
+				s_rate = rate;
+			m_pCurrentEntity->curstate.framerate = s_rate;
+			s_rateAnimtime = m_pCurrentEntity->curstate.animtime;
+			s_rateFrame = m_nFrameCount;
+		}
+	}
+
 	if (m_pCurrentEntity->curstate.renderfx == kRenderFxDeadPlayer)
 	{
 		entity_state_t deadplayer;
