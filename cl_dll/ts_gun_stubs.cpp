@@ -1,18 +1,12 @@
 /***
-*  ts_gun_stubs.cpp — CLIENT-side stubs for the server-only symbols CTSGun references.
+*  ts_gun_stubs.cpp — the client's versions of the server-only functions CTSGun references.
 *
-*  Step 3a of making CTSGun client-predicted (reference/EVENTS.md): dlls/ts_gun.cpp is now
-*  compiled into client.so too (like the HL SDK weapon .cpp files) so the client can run
-*  CTSGun's clip/timer/anim logic each prediction frame and the predicted viewmodel anim
-*  sticks. ts_gun.cpp COMPILES client-side unchanged; it only fails to LINK against a handful
-*  of genuinely server-only functions (entity creation, the 3rd-person CTSAnimation, the map
-*  precache, the powerup query). Those are server-authoritative side-effects the prediction
-*  must NOT perform, so here they are no-ops on the client. Zero edits to the verified
-*  ts_gun.cpp — the real clip/timer/SendWeaponAnim/event logic runs; only the side-effects
-*  are stubbed.
-*
-*  (None of CTSGun's server-only standalone helpers — drop/pickup/death scatter — are reached
-*  during prediction; they link here as dead code via these stubs.)
+*  dlls/ts_gun.cpp is compiled into client.so too (like the HL SDK weapon .cpp files) so the
+*  client predicts CTSGun's clip, timers and animations. The server-only functions it calls
+*  (entity creation, the third-person CTSAnimation, the map precache, engine entity glue) do
+*  nothing here: those side effects are the server's. The powerup queries are real, as in
+*  client.dll. CTSGun's drop, pickup and death-scatter helpers are never reached by the
+*  prediction.
 ***/
 #include "extdll.h"
 #include "util.h"
@@ -26,10 +20,11 @@
 // other players' gait from prediction; the server replicates it. No-op client-side.
 void CTSAnimation::Animate(CBasePlayer *, int) {}
 
-// --- powerup query (ts_player.cpp): the double-fire-rate powerup isn't shipped to client
-// prediction yet, so assume "off". VERIFY: predicted fire rate ignores the powerup until its
-// flag is mirrored via weapon_data (step 3c). First-cut acceptable (powerup is transient).
-bool DoubleFireRate(CBasePlayer *) { return false; }
+// --- powerup queries: client.dll has its own (DoubleFireRate 0x10007100 and InfiniteClips
+// 0x100070f0), reading the predicted player's powerup bits, which HUD_WeaponsPostThink takes from
+// clientdata vuser1.y.
+bool DoubleFireRate(CBasePlayer *p) { return (p->m_iPowerups & 0x10) != 0; }
+bool InfiniteClips(CBasePlayer *p) { return (p->m_iPowerups & 2) != 0; }
 
 // --- map-time precache (ts_weapons.cpp, server-only). The client precaches via its own paths.
 void PrecacheAllTSWeapons() {}
@@ -37,13 +32,9 @@ void PrecacheAllTSWeapons() {}
 // --- world-entity spawners (server-only): thrown grenades / knives are created authoritatively by
 // the server. Never reached during prediction. (Dropped guns/ammo packs are now spawned via the
 // static CTSWorldGun::CreateWeapon / CTSAmmoPack::CreateAmmoPack factories, whose only callers — the
-// drop helpers in ts_gun.cpp — are #ifndef CLIENT_DLL, so they need no client stub.)
+// drop helpers in ts_gun.cpp — are #ifndef CLIENT_DLL, so they need no client version.)
 CBaseEntity *TSThrowM61(entvars_s *, const Vector &, const Vector &, float) { return nullptr; }
 CBaseEntity *TSThrowKnife(CBasePlayer *, const Vector &, const Vector &, int) { return nullptr; }
-
-// --- powerup query (ts_player.cpp): infinite-clips isn't mirrored into prediction; assume "off"
-// (same accepted tradeoff as DoubleFireRate above — a mispredicted consume resyncs from the server).
-bool InfiniteClips(CBasePlayer *) { return false; }
 
 // --- server-side movement-speed push (ts_player.cpp): prediction doesn't drive maxspeed; no-op.
 void CBasePlayer::SetPlayerSpeed(float) {}
