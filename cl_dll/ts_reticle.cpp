@@ -15,7 +15,7 @@
 #include "triangleapi.h" // pTriAPI->WorldToScreen (3rd-person reticle projection)
 #include "ts_hud.h"
 #include "event_api.h"
-#include "ts_attachments.h" // TS_LocalHasLaser
+#include "ts_attachments.h" // the local laser pass's dots and range
 #include "ts_reticle.h"
 #include "player_info.h" // g_PlayerExtraInfo, g_PlayerInfoList
 #include "com_model.h"
@@ -38,7 +38,7 @@ static Vector s_vecAimPoint;
 
 // The eye the aim trace and the laser range use (0x10057270): the refdef eye in first person, the
 // player's origin plus the view height in third person (0x10068b2b).
-static Vector TS_AimEye()
+Vector TS_AimEye()
 {
 	if (0 != CL_IsThirdPerson())
 	{
@@ -153,17 +153,19 @@ bool CHudTSReticle::VidInit()
 }
 
 // The laser dots (0x1004e6f0), drawn by the weapon bar before any other test. With the local player's
-// laser on (ActItems bit 2), a 2 x 2 dot in his laser colour: at the crosshair centre (the screen
-// centre, or the projected aim point in third person) jittered by -1..1 pixel when the predicted gun's
-// active attachments are not 0 and it may attack (g_iTSLaserSettled) and cl_laser is below 1, else
-// at the projected beam end.
+// laser on (ActItems bit 2), 2 x 2 dots in his laser colour, one per beam end the laser pass projected
+// (none for an end off screen). The pass's dot sits at the beam end, (x - 1, y - 1); while the predicted
+// gun's active attachments are set and it may attack (g_iTSLaserSettled) and cl_laser is below 1 it
+// sits at the crosshair centre instead (the screen centre, or the projected aim point in third person),
+// jittered by jx, jy of -1..1 pixel: at (cx - 1 + jx, cy - 1 + jy), or with the akimbo bit at
+// (cx + 3 + jx, cy - 1 + jy) for the first gun and (cx - 5 + jy, cy - 1 + jx) for the second.
 void CHudTSReticle::DrawLaserDots()
 {
-	if (!TS_LocalHasLaser())
+	int r, g, b;
+	float x0, y0, x1, y1;
+	if (!TS_LocalLaserDot(0, x0, y0, r, g, b))
 		return;
-	int lx, ly, r, g, b;
-	if (!TS_LocalLaserDot(lx, ly, r, g, b))
-		return;
+	TS_LocalLaserDot(1, x1, y1, r, g, b);
 	const int jx = gEngfuncs.pfnRandomLong(-10, 10) / 10;
 	const int jy = gEngfuncs.pfnRandomLong(-10, 10) / 10;
 	int cx = ScreenWidth / 2, cy = ScreenHeight / 2;
@@ -173,10 +175,30 @@ void CHudTSReticle::DrawLaserDots()
 	if (s_cl_laser == nullptr)
 		s_cl_laser = gEngfuncs.pfnGetCvarPointer("cl_laser");
 	extern int g_iTSLaserSettled;
-	if (g_iTSLaserSettled != 0 && s_cl_laser != nullptr && s_cl_laser->value < 1.0f)
-		FillRGBA(cx - 1 + jx, cy - 1 + jy, 2, 2, r, g, b, 0xff);
+	const bool centred = g_iTSLaserSettled != 0 && s_cl_laser != nullptr && s_cl_laser->value < 1.0f;
+	if ((TS_LocalActiveAttach() & 0x40) == 0)
+	{
+		if (x0 == -1.0f || y0 == -1.0f)
+			return;
+		if (centred)
+			FillRGBA(cx - 1 + jx, cy - 1 + jy, 2, 2, r, g, b, 0xff);
+		else
+			FillRGBA((int)(x0 - 1.0f), (int)(y0 - 1.0f), 2, 2, r, g, b, 0xff);
+		return;
+	}
+	if (x0 != -1.0f && y0 != -1.0f)
+	{
+		if (centred)
+			FillRGBA(cx + 3 + jx, cy - 1 + jy, 2, 2, r, g, b, 0xff);
+		else
+			FillRGBA((int)(x0 - 1.0f), (int)(y0 - 1.0f), 2, 2, r, g, b, 0xff);
+	}
+	if (x1 == -1.0f || y1 == -1.0f)
+		return;
+	if (centred)
+		FillRGBA(cx - 5 + jy, cy - 1 + jx, 2, 2, r, g, b, 0xff);
 	else
-		FillRGBA(lx, ly, 2, 2, r, g, b, 0xff);
+		FillRGBA((int)(x1 - 1.0f), (int)(y1 - 1.0f), 2, 2, r, g, b, 0xff);
 }
 
 // The bomb wires (0x1004d550), in place of the crosshair while any Wires byte is set: three sprites
@@ -344,20 +366,16 @@ bool CHudTSReticle::Draw(float flTime)
 		if (TS_ScopedIn())
 		{
 			TS_DrawScopeOverlayHUD();
-			int lx, ly, lr2, lg2, lb2;
-			if (TS_LocalHasLaser() && TS_LocalLaserDot(lx, ly, lr2, lg2, lb2))
+			float lx, ly;
+			int lr2, lg2, lb2;
+			if (TS_LocalLaserDot(0, lx, ly, lr2, lg2, lb2))
 				FillRGBA(ScreenWidth / 2 - 1, ScreenHeight / 2 - 1, 3, 3, lr2, lg2, lb2, 235);
 			return true;
 		}
 	}
 
-	// The laser range (weapon bar +0x18, 0x1003d170): the distance from the eye to the beam's end
-	// x 0.025, truncated.
-	{
-		Vector muzzle, endpoint;
-		if (TS_LocalLaserEndpoint(muzzle, endpoint))
-			m_iLaserRange = (int)((endpoint - TS_AimEye()).Length() * 0.025f);
-	}
+	// The laser range (weapon bar +0x18), left by the laser pass (0x1003d170).
+	m_iLaserRange = TS_LocalLaserRange();
 
 	DrawLaserDots();
 	if (TSHud_NoHud() || TSHud_PlayerPartsHidden())

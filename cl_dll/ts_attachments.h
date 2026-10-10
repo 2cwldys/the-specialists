@@ -1,14 +1,6 @@
 /***
-*  ts_attachments.h — client render of the TS gun attachments that are VISIBLE in the world:
-*  the lasersight (attach bit 2) and the flashlight (attach bit 4). The silencer (bit 1) and
-*  scope (bit 8) are handled elsewhere (the fire event / the player FOV); these two are drawn
-*  per-frame from the muzzle of every player who has them.
-*
-*  RE: client.dll FUN_1003d600 (laser: beam sprites/laserbeam.spr muzzle->aim-trace + the
-*  sprites/laserdot.spr dot, colour by index 1=green/2=blue/else=red — FUN_100582f0) and
-*  FUN_1003b750 (flashlight: a flash beam + a white dynamic light at the surface). Each iterates
-*  all players, gated by the per-player attach byte the server broadcasts in the `ActItems`
-*  user message (BYTE playerIndex, BYTE attachMask) — client handler FUN_1004fa70.
+*  ts_attachments.h — the ActItems / PlInfo attachment state, the lasersights and flashlights drawn in
+*  the world (client.dll 0x1003bb00, 0x1003d600, 0x1003b250, 0x1003b750) and the player blob shadows.
 ***/
 #ifndef TS_ATTACHMENTS_H
 #define TS_ATTACHMENTS_H
@@ -17,15 +9,17 @@ void TS_Attachments_Init();    // hook the ActItems message (call from HUD_Init)
 void TS_Attachments_VidInit(); // drop cached sprite handles on a map change (call from HUD VidInit)
 void TS_Attachments_Draw();    // per-frame render (call from HUD_DrawTransparentTriangles)
 void TS_Shadows_Draw();        // per-frame player blob shadows (ombra.spr; call from HUD_DrawTransparentTriangles)
-bool TS_LocalHasLaser();        // is the LOCAL player's lasersight ACTIVE? (dive-reticle distance/ticks)
-int  TS_LocalActiveAttach();    // the LOCAL player's ACTIVE attach mask (laser 2 / flash 4), 0 on error
+bool TS_LocalHasLaser();        // the local player's ActItems laser bit is set
+int  TS_LocalActiveAttach();    // the local player's ActItems byte (laser 2, flashlight 4, akimbo 0x40)
 
-// The LOCAL player's laser dot is NOT a world sprite (only OTHER players get that) — it's a HUD dot
-// projected from where the gun model is actually pointing (the viewmodel muzzle aim), drawn near the
-// reticle by ts_reticle.cpp. Fills sx,sy (pixels) + the laser colour; returns false if no active laser
-// or the aim point is behind the view.
-bool TS_LocalLaserDot(int& sx, int& sy, int& r, int& g, int& b);
-// The local laser beam's muzzle and end (false without an active laser).
-bool TS_LocalLaserEndpoint(Vector& muzzle, Vector& endpoint);
+// HUD_AddEntity lets player `index` through this frame (client.dll 0x1018bd44); the passes draw only
+// those, and the flags are cleared after them.
+void TS_AttachPlayerAdded(int index);
+
+// The local laser as the weapon bar keeps it after the pass: beam end `which` (0, or 1 for the akimbo
+// second beam) projected to the screen, -1 when off screen, and the laser colour; false without the
+// laser on. TS_LocalLaserRange is the range number (+0x18).
+bool TS_LocalLaserDot(int which, float& x, float& y, int& r, int& g, int& b);
+int TS_LocalLaserRange();
 
 #endif // TS_ATTACHMENTS_H

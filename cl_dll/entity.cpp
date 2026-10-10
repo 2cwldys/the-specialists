@@ -54,6 +54,8 @@ int DLLEXPORT HUD_AddEntity(int type, struct cl_entity_s* ent, const char* model
 		if (TS_PlayerSpectating(ent->index))
 			return 0;
 		TSHud_PlayerSeen(ent->index);
+		extern void TS_AttachPlayerAdded(int index);
+		TS_AttachPlayerAdded(ent->index);
 	}
 
 	// each frame every entity passes this function, so the overview hooks it to filter the overview entities

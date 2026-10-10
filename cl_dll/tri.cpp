@@ -59,17 +59,11 @@ void DLLEXPORT HUD_DrawTransparentTriangles()
 	if (g_pParticleMan)
 		g_pParticleMan->Update();
 
-	// TS custom impact-effect particle pool (sparks/smoke/debris) — original client.dll
-	// drew this from HUD_DrawTransparentTriangles via FUN_100520d0(pool). cont.69x.
-	TSParticles_Update();
-
-	// TS gun attachments drawn from each player's muzzle: the lasersight beam+dot and the
-	// flashlight beam+light (original client.dll FUN_1003d600 / FUN_1003b750, per-frame).
-	TS_Attachments_Draw();
-
-	// TS player blob shadows (ombra.spr ground blob under each player, cl_shadow-gated) — original
-	// client.dll drew these from HUD_DrawTransparentTriangles per-player. cont.86c.
+	// client.dll's FX root (0x10056dd0) runs, in order: the player shadows (0x10055760), the lasers
+	// (0x1003de00) and flashlights (0x1003bad0), then the particle pool (0x100520d0).
 	TS_Shadows_Draw();
+	TS_Attachments_Draw();
+	TSParticles_Update();
 
 	// The client bullet simulation: step every queued round, draw them in slow motion. Last in
 	// client.dll's HUD_DrawTransparentTriangles too (FUN_10034e60 at 0x10056e59, after the
