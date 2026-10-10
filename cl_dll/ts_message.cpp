@@ -104,6 +104,10 @@ bool CHudTSMessage::MsgFunc_TSMessage(const char* pszName, int iSize, void* pbuf
 
 bool CHudTSMessage::Draw(float flTime)
 {
+	// client.dll draws these (0x1004af40) from its status draw, after its nohud test (0x10049f06)
+	if (TSHud_NoHud())
+		return true;
+
 	int line = 0;
 	for (auto& m : m_msgs)
 	{

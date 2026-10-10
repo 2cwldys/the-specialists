@@ -43,7 +43,7 @@ public:
 	// a highlight cursor through the owned arsenal; pressing FIRE commits the highlighted weapon
 	// (`weapon_<N>` -> server holster->deploy). It times out / cancels if no key is pressed.
 	void Step(bool fNext);     // invnext/invprev: open + move the cursor to the next/prev owned weapon
-	void SelectColumn(int col); // slot1-5: open + jump to (or advance within) HUD column 1..5
+	void SelectSlot(int slot);  // slot1..slot10 after the menu test (client.dll 0x1004f220)
 	void Commit();              // FIRE: send `weapon_<N>` for the cursor, close the menu
 	void CloseSelect();
 	bool IsSelecting() const { return m_selecting; }
@@ -53,6 +53,8 @@ public:
 
 private:
 	void OpenSelect();          // seed the cursor from the active weapon, mark selecting
+	int CellType(int row, int col) const; // the owned weapon in grid cell (row, col), or -1
+	void SetCursor(int t);      // cursor (row, col) to weapon t's cell
 	int FindOwned(int from, bool fNext, int colOnly) const; // next/prev owned in display order (colOnly<0 = any)
 
 	static const int TSW_COUNT = 38;
@@ -61,7 +63,9 @@ private:
 	Rect m_rcIcon[TSW_COUNT];        // full-sprite rect
 
 	bool m_selecting = false;        // the select menu is open (this+0x73c)
-	int m_selType = -1;              // highlighted tsweapon_t (the cursor)
+	int m_selType = -1;              // highlighted tsweapon_t (the cursor's cell, -1 when empty)
+	int m_selRow = 0;                // cursor row (this+0x740)
+	int m_selCol = 0;                // cursor column (this+0x744)
 	float m_selTime = 0;             // last input time (for the auto-close timeout)
 	bool m_swallowAttack = false;    // after a FIRE-commit, ignore +attack until released (no stray shot)
 	bool m_swallowAttack2 = false;   // after a right-click DROP, ignore +attack2 until released (no stray 2nd fire)

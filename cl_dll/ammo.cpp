@@ -700,8 +700,9 @@ void CHudAmmo::SlotInput(int iSlot)
 	gWR.SelectSlot(iSlot, false, 1);
 }
 
-// TS: slot1-5 open the TS weapon-select bar at HUD column 1-5 (CHudTSWeaponBar), NOT the stock
-// gWR yellow weapon menu (TS has one weapon_tsgun arsenal).
+// TS: slot1..slot10 go to the TS weapon bar's slot handler (CHudTSWeaponBar::SelectSlot: the buy
+// menu, bomb wires, kung fu, the select grid), NOT the stock gWR yellow weapon menu (TS has one
+// weapon_tsgun arsenal).
 // client.dll's slot handler (0x1004f220, slotN -> N) first hands 1..10 to an open text menu (a
 // server's ShowMenu, e.g. an AMX Mod X menu) as menuselect and stops there; only without one does a
 // slot reach the weapon bar. Without that check the number keys opened the weapon bar under a menu.
@@ -718,56 +719,61 @@ static bool TS_MenuTakesSlot(int slot)
 void CHudAmmo::UserCmd_Slot1()
 {
 	if (!TS_MenuTakesSlot(1))
-		gHUD.m_TSWeaponBar.SelectColumn(1);
+		gHUD.m_TSWeaponBar.SelectSlot(1);
 }
 
 void CHudAmmo::UserCmd_Slot2()
 {
 	if (!TS_MenuTakesSlot(2))
-		gHUD.m_TSWeaponBar.SelectColumn(2);
+		gHUD.m_TSWeaponBar.SelectSlot(2);
 }
 
 void CHudAmmo::UserCmd_Slot3()
 {
 	if (!TS_MenuTakesSlot(3))
-		gHUD.m_TSWeaponBar.SelectColumn(3);
+		gHUD.m_TSWeaponBar.SelectSlot(3);
 }
 
 void CHudAmmo::UserCmd_Slot4()
 {
 	if (!TS_MenuTakesSlot(4))
-		gHUD.m_TSWeaponBar.SelectColumn(4);
+		gHUD.m_TSWeaponBar.SelectSlot(4);
 }
 
 void CHudAmmo::UserCmd_Slot5()
 {
 	if (!TS_MenuTakesSlot(5))
-		gHUD.m_TSWeaponBar.SelectColumn(5);
+		gHUD.m_TSWeaponBar.SelectSlot(5);
 }
 
 void CHudAmmo::UserCmd_Slot6()
 {
-	TS_MenuTakesSlot(6);
+	if (!TS_MenuTakesSlot(6))
+		gHUD.m_TSWeaponBar.SelectSlot(6);
 }
 
 void CHudAmmo::UserCmd_Slot7()
 {
-	TS_MenuTakesSlot(7);
+	if (!TS_MenuTakesSlot(7))
+		gHUD.m_TSWeaponBar.SelectSlot(7);
 }
 
 void CHudAmmo::UserCmd_Slot8()
 {
-	TS_MenuTakesSlot(8);
+	if (!TS_MenuTakesSlot(8))
+		gHUD.m_TSWeaponBar.SelectSlot(8);
 }
 
 void CHudAmmo::UserCmd_Slot9()
 {
-	TS_MenuTakesSlot(9);
+	if (!TS_MenuTakesSlot(9))
+		gHUD.m_TSWeaponBar.SelectSlot(9);
 }
 
 void CHudAmmo::UserCmd_Slot10()
 {
-	TS_MenuTakesSlot(10);
+	if (!TS_MenuTakesSlot(10))
+		gHUD.m_TSWeaponBar.SelectSlot(10);
 }
 
 void CHudAmmo::UserCmd_Close()
@@ -850,7 +856,7 @@ void CHudAmmo::UserCmd_PrevWeapon_stock()
 bool CHudAmmo::Draw(float flTime)
 {
 	// TS draws ammo (CHudTSAmmo) + the weapon bar (CHudTSWeaponBar). Weapon-SELECT logic lives in Think /
-	// m_TSWeaponBar.SelectColumn (NOT here), so suppressing this render-only Draw is safe — it removes the
+	// m_TSWeaponBar.SelectSlot (NOT here), so suppressing this render-only Draw is safe — it removes the
 	// stock weapon-menu + bottom-right ammo number that duplicated the TS HUD.
 	return true;
 

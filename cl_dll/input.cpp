@@ -20,6 +20,8 @@
 
 #include "vgui_TeamFortressViewport.h"
 #include "filesystem_utils.h"
+#include "ts_hud.h"
+#include "ts_weapon_info.h"
 
 
 extern bool g_iAlive;
@@ -365,14 +367,8 @@ int DLLEXPORT HUD_Key_Event(int down, int keynum, const char* pszCurrentBinding)
 {
 	//	RecClKeyEvent(down, keynum, pszCurrentBinding);
 
-	// TS buy menu: the REAL menu is HUD-drawn (CHudTSBuyMenu), driven entirely by number keys
-	// ('0'-'9') routed through here — exactly as the original (client.dll FUN_1004f220 ->
-	// FUN_10038840). reference/MENUS.md "★★ THE REAL BUY MENU".
-	if (0 != down && keynum >= '0' && keynum <= '9' && gHUD.m_TSBuyMenu.IsUp())
-	{
-		if (gHUD.m_TSBuyMenu.HandleKey(keynum))
-			return 0; // consumed
-	}
+	// (The TS buy menu takes its keys through the slot commands, as client.dll's slot handler
+	// 0x1004f220 does: CHudTSWeaponBar::SelectSlot.)
 
 	if (gViewPort)
 		return static_cast<int>(gViewPort->KeyInput(0 != down, keynum, pszCurrentBinding));
@@ -454,15 +450,43 @@ void IN_StrafeUp() { KeyUp(&in_strafe); }
 // needs capture by hud/vgui also
 extern void __CmdFunc_InputPlayerSpecial();
 
+// cl_attackswitch (client.dll's +attack2/-attack2 0x10025f40/0x10025fc0 and +alt2/-alt2
+// 0x10026110/0x10026180): while it is not 0 and the held weapon (the weapon bar's current type) is not
+// kung fu and its fire type (weapon info +0x348) is not a grenade, knife, katana or flag, +attack2 drives
+// the alt2 button (IN_CANCEL, the coldcock) and +alt2 drives attack2. Each press and release tests it
+// again.
+bool TS_AttackSwitched()
+{
+	static cvar_t* s_attackswitch = nullptr;
+	if (s_attackswitch == nullptr)
+		s_attackswitch = gEngfuncs.pfnGetCvarPointer("cl_attackswitch");
+	if (s_attackswitch == nullptr || s_attackswitch->value == 0.0f)
+		return false;
+	const int type = g_iTSActiveWeapon;
+	if (type <= 0 || type >= TSW_COUNT)
+		return false;
+	const int fireType = get_weapon_info((tsweapon_t)type)->iFireType;
+	return fireType != TSFT_GRENADE && fireType != TSFT_KNIFE && fireType != TSFT_KATANA && fireType != TSFT_FLAG;
+}
+
 void IN_Attack2Down()
 {
-	KeyDown(&in_attack2);
+	if (TS_AttackSwitched())
+		in_cancel = true;
+	else
+		KeyDown(&in_attack2);
 
 
 	gHUD.m_Spectator.HandleButtonsDown(IN_ATTACK2);
 }
 
-void IN_Attack2Up() { KeyUp(&in_attack2); }
+void IN_Attack2Up()
+{
+	if (TS_AttackSwitched())
+		in_cancel = false;
+	else
+		KeyUp(&in_attack2);
+}
 void IN_UseDown()
 {
 	// the original's +use (client.dll) stamps no observer throttle, so a use press cannot hold back the

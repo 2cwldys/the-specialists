@@ -208,7 +208,14 @@ static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
 			// e.g. bulletproof glass) -> "{bproof1". (Original uses the bare names; TS's decals.wad has
 			// bare "{break"/"{bproof1" but only numbered "{shot1..5", so {shot is numbered here.)
 			char decalName[16];
-			if (pe->classnumber == 1)
+			// r_paintball (client.dll 0x10001000, cvar_t* 0x100987ac): while it is not 0 every hit takes
+			// "{splat%i" with RandomLong(0, 17) instead (decals.wad has {splat0..17 but no {splat11).
+			static cvar_t* s_paintball = nullptr;
+			if (s_paintball == nullptr)
+				s_paintball = gEngfuncs.pfnGetCvarPointer("r_paintball");
+			if (s_paintball != nullptr && s_paintball->value != 0.0f)
+				sprintf(decalName, "{splat%d", gEngfuncs.pfnRandomLong(0, 0x11));
+			else if (pe->classnumber == 1)
 				sprintf(decalName, "{break%d", gEngfuncs.pfnRandomLong(1, 3)); // FUN_10001000: pe+0x8c == 1 (glass cracks; bare "{break" is a debug "BREAK" lump)
 			else if (pe->rendermode == kRenderNormal)
 				sprintf(decalName, "{shot%d", gEngfuncs.pfnRandomLong(1, 5)); // FUN_10001000: pe+0x68 == 0

@@ -25,9 +25,9 @@ public:
 	void Close();
 	bool IsUp() const { return m_active; }
 
-	// A number key ('0'-'9') was pressed (HUD_Key_Event) — drives the current column. Returns true
-	// if consumed. (Faithful: FUN_1004f220 -> FUN_10038840(obj, currentLevel, key).)
-	bool HandleKey(int ascii);
+	// slotN while the menu is up (client.dll 0x1004f220 -> 0x10038840(obj, current level, N)):
+	// drives the current column.
+	void HandleSlot(int slot);
 	// A mouse button state changed (IN_MouseEvent) — FUN_10038360: left-click an entry fires its key
 	// (miss -> key 1), right-click -> key 10 (Go Back). Hit-test = FUN_10038410.
 	void HandleMouse(int buttons);

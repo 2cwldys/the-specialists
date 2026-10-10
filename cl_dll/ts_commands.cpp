@@ -24,15 +24,33 @@
 
 #include "hud.h"
 #include "cl_util.h"
+#include "kbutton.h"
 
 // +alt2 (coldcock) is a BUTTON, not a server command: the original client's +alt2 sets the
 // IN_CANCEL bit (0x40) in the usercmd, and the SERVER's base ItemPostFrame dispatches
 // AlternateAttack off `pev->button & IN_CANCEL` (@0x903d4 — the original server has no
 // "+alt2" ClientCommand at all; ours was removed for parity). input.cpp already maps the
 // `in_cancel` state to the IN_CANCEL bit in CL_ButtonBits.
+// With cl_attackswitch on, +alt2 drives attack2 instead (TS_AttackSwitched, input.cpp).
 extern bool in_cancel; // cl_dll/input.cpp
-static void IN_Alt2Down() { in_cancel = true; }
-static void IN_Alt2Up() { in_cancel = false; }
+extern kbutton_t in_attack2;
+bool TS_AttackSwitched();
+void KeyDown(kbutton_t* b);
+void KeyUp(kbutton_t* b);
+static void IN_Alt2Down()
+{
+	if (TS_AttackSwitched())
+		KeyDown(&in_attack2);
+	else
+		in_cancel = true;
+}
+static void IN_Alt2Up()
+{
+	if (TS_AttackSwitched())
+		KeyUp(&in_attack2);
+	else
+		in_cancel = false;
+}
 
 // `buy` (bound to `b` in the original) opens/closes the buy/config menu — the REAL HUD-drawn cascade
 // (CHudTSBuyMenu), driven by number keys. Only in the spectate-wait (buy) phase, so it can't be

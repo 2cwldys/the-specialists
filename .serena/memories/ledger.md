@@ -7447,3 +7447,35 @@ shows "#Buy_ConfigEmpty" (red 195 45 45, hold 20) and goes on: it returns false 
 ("#Buy_NoCash") or the slot cap. reTS's Apply returned at once when m_spent <= 0 (258a447), so an empty
 config could not be closed by any click. A config is empty whenever the menu opens with no applied
 config to reload (only the first open on a map randomizes one). Now as client.dll.
+
+## 2026-10-10 — client cvars audited against client.dll; cl_realhud; the slot handler
+
+Every pfnRegisterVariable in client.dll (107: name, default, flags, kept pointer) and every read of it
+was listed and the reads decompiled (tools in ~/stignored/client-cvars: regs.py, reads.py, table.py;
+table in reference/API_SURFACE.md section 3). Fixed, each against the disassembly:
+- cl_realhud: not 0 makes the status draw (0x1004a3e0, with the kung-fu/super-jump figures), the
+  weapon panel (0x1004d7e0; kung fu's 0x1004d700 is not gated) and the crosshair draw (0x1004e9f0:
+  ring, dive arc, laser range) return at once. The laser dot (0x1004e6f0) stays.
+- nohud: no global gate in client.dll's Redraw; it hides the death notices (0x1001b020), the status
+  draw's parts (0x10049f06: timer, TSMessage, flags, status, powerup label, objectives) and the weapon
+  bar Draw after the laser dot (0x1004d3f9: buy menu, bar, weapon box, crosshair). Flags 0.
+- cl_attackswitch (0x10025f40/0x10026110): swaps +attack2 and +alt2 unless kung fu or fire type
+  grenade/knife/katana/flag. r_paintball (0x10001000): {splat0..17} decals.
+- cl_bob: client.dll's bob is its own (0x10066e70 + 0x10066de0), not the Quake bob; ported, default
+  "4.0". It replaced reTS's approximate sway (7cce5a7, halved later) and the tuned "aim up with
+  speed" pitch, which the bob's amplitude gives (0x100674a0). cl_bobcycle/cl_bobup are never read.
+- cl_buykevlar: ResetConfig (0x10038800) seeds kevlar; client.dll never writes the cvar.
+- cl_drawnames gates the overview names (0x1002318f, the stock spec_drawnames test); cont94's note
+  that it was a different consumer was wrong.
+- Flags/defaults: hud_deathnotice_time, zoom_sensitivity_ratio, default_fov, nohud, cl_slowfade 0;
+  cl_camtype/cam_back/cam_right/cam_up/cl_drawnames ARCHIVE; sensitivity ARCHIVE only; cam_idealdist
+  "100".
+- Slot keys: CHudTSWeaponBar::SelectSlot ports 0x1004f220 after 1796729's menu test: buy menu at its
+  level (the HUD_Key_Event digit path removed), bomb wires cutwire_<n>, slot 10 weapon_0, the 17x11
+  grid by weapon_info +0x85 row / +0x84 column (rows read from every Write_<weapon>), hud_fastswitch
+  0 and 1.
+- Server: UpdateClientData sends pev->fov (0xa0294), not m_iFOV.
+Not done: gl_fog* (ts_fog lump parser + fog pass), cl_wavedetail (no client bullet simulation), cl_fx's
+particle config. default_fov: both servers send fov 0 unzoomed (puppets) and the native reTS client
+applies it live (Steven's hl_linux: default_fov 90 -> HUD FOV 90, engine FOV 90); the Windows report
+needs a real-client check.

@@ -496,7 +496,7 @@ void CAM_Init()
 	cam_snapto = gEngfuncs.pfnRegisterVariable("cam_snapto", "0", 0);		  // snap to thirdperson view
 	cam_idealyaw = gEngfuncs.pfnRegisterVariable("cam_idealyaw", "0", 0);	  // thirdperson yaw: 0 = directly behind the player, looking the same direction (TS over-the-shoulder; stock 90 = side profile)
 	cam_idealpitch = gEngfuncs.pfnRegisterVariable("cam_idealpitch", "0", 0); // thirperson pitch
-	cam_idealdist = gEngfuncs.pfnRegisterVariable("cam_idealdist", "64", 0);  // thirdperson distance
+	cam_idealdist = gEngfuncs.pfnRegisterVariable("cam_idealdist", "100", 0); // thirdperson distance (client.dll 0x10025511: "100", stock "64")
 	cam_contain = gEngfuncs.pfnRegisterVariable("cam_contain", "0", 0);		  // contain camera to world
 
 	c_maxpitch = gEngfuncs.pfnRegisterVariable("c_maxpitch", "90.0", 0);
@@ -506,14 +506,13 @@ void CAM_Init()
 	c_maxdistance = gEngfuncs.pfnRegisterVariable("c_maxdistance", "200.0", 0);
 	c_mindistance = gEngfuncs.pfnRegisterVariable("c_mindistance", "30.0", 0);
 
-	// TS over-the-shoulder camera preset cvars (defaults RE'd from CAM_Init in client.dll).
-	// cl_camtype default "0" matches the binary + the clean original's shipped config.cfg
-	// (camtype 0 = back-48/right+16/up+12). A user's config.cfg can select 3 (centered, back
-	// cam_back=90) as a personal preference — that's what the reference rig runs.
-	cl_camtype = gEngfuncs.pfnRegisterVariable("cl_camtype", "0", 0);
-	cam_back = gEngfuncs.pfnRegisterVariable("cam_back", "90", 0);
-	cam_right = gEngfuncs.pfnRegisterVariable("cam_right", "0", 0);
-	cam_up = gEngfuncs.pfnRegisterVariable("cam_up", "12", 0);
+	// TS over-the-shoulder camera preset cvars. client.dll registers them in InitInput (0x10026ff7..
+	// 0x1002703c, cam_back, cam_right, cam_up, cl_camtype), all FCVAR_ARCHIVE. cl_camtype default "0"
+	// (back-48/right+16/up+12); 3 = custom from cam_back/cam_right/cam_up.
+	cl_camtype = gEngfuncs.pfnRegisterVariable("cl_camtype", "0", FCVAR_ARCHIVE);
+	cam_back = gEngfuncs.pfnRegisterVariable("cam_back", "90", FCVAR_ARCHIVE);
+	cam_right = gEngfuncs.pfnRegisterVariable("cam_right", "0", FCVAR_ARCHIVE);
+	cam_up = gEngfuncs.pfnRegisterVariable("cam_up", "12", FCVAR_ARCHIVE);
 }
 
 void CAM_ClearStates()

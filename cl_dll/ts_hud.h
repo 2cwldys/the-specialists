@@ -27,6 +27,18 @@
 // defaults. Idempotent; call from HUD init.
 void TSHud_RegisterCvars();
 
+// cl_realhud: true when the cvar is not 0. client.dll tests `cl_realhud->value == 0.0f` at the top of
+// three draws (the status panel 0x1004a3e0, the weapon panel 0x1004d7e0, the crosshair 0x1004e9f0)
+// and draws none of them otherwise.
+bool TSHud_RealHud();
+
+// nohud: true when the cvar is not 0. client.dll has no global HUD gate for it: it tests
+// `nohud->value == 0.0f` in the death notices (0x1001b020), the status draw (0x10049f06: round timer,
+// messages, flags, team dots, aim names, status panel, powerup label, objectives), the weapon bar's
+// Draw after the laser dot (0x1004d3f9: buy menu, slots, weapon panel, crosshair) and the spectator
+// panel (0x1006389d, 0x10063912, 0x10064984). Chat, menus, the scoreboard and text messages stay.
+bool TSHud_NoHud();
+
 // The current HUD text colour (hud_r/g/b, clamped 0..255). Defaults to the TS steel
 // blue 150/175/255 if the cvars are missing.
 void TSHud_Color(int& r, int& g, int& b);

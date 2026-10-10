@@ -28,6 +28,8 @@
 static cvar_t* s_hud_r = nullptr;
 static cvar_t* s_hud_g = nullptr;
 static cvar_t* s_hud_b = nullptr;
+static cvar_t* s_realhud = nullptr;
+static cvar_t* s_nohud = nullptr;
 
 void TSHud_RegisterCvars()
 {
@@ -40,13 +42,12 @@ void TSHud_RegisterCvars()
 	s_hud_b = CVAR_CREATE("hud_b", "255", FCVAR_ARCHIVE);
 	CVAR_CREATE("hud_color", "150,175,255", FCVAR_ARCHIVE);
 
-	// The remaining TS-specific client cvars, with the exact defaults recovered from
-	// client.dll (reference/API_SURFACE.md). Registering them stops the "Unknown
-	// command" spam when the player's TS config sets them, and lets the HUD/effects
-	// read them later. (gl_fog* are MOD cvars registered in CHud::Init — the original's
-	// slot; cl_thirdperson is registered below. Stock-HL / engine cvars like cl_bob,
-	// hud_centerid, sensitivity are already registered by the engine/base client.)
-	CVAR_CREATE("cl_realhud", "0", FCVAR_ARCHIVE);
+	// The remaining TS-specific client cvars, with client.dll's defaults and flags (its InitInput
+	// block 0x10026fdd..0x10027211; the full audit is reference/API_SURFACE.md section 3).
+	// The rest of that block is registered where the stock code has it: cl_vsmoothing in input.cpp,
+	// cl_camtype and cam_back/right/up in in_camera.cpp, hud_classautokill, hud_takesshots
+	// and gl_fog* in CHud::Init, cl_bob and cl_slowfade in V_Init.
+	s_realhud = CVAR_CREATE("cl_realhud", "0", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_motionblur", "1", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_gore", "2", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_laser", "0", FCVAR_ARCHIVE);
@@ -57,7 +58,6 @@ void TSHud_RegisterCvars()
 	CVAR_CREATE("cl_showequipment", "1", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_shadow", "2", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_thirdtransparency", "1", FCVAR_ARCHIVE);
-	CVAR_CREATE("cl_camtype", "0", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_attackswitch", "0", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_thirdpersonswitch", "0", FCVAR_ARCHIVE);
 	// Preferred camera on (re)spawn/unspectate — 1 forces third person, 0 (default) forces
@@ -66,11 +66,7 @@ void TSHud_RegisterCvars()
 	CVAR_CREATE("cl_thirdperson", "0", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_wavedetail", "0", FCVAR_ARCHIVE);
 	CVAR_CREATE("cl_fx", "1", FCVAR_ARCHIVE);
-	CVAR_CREATE("cl_slowfade", "1", FCVAR_ARCHIVE);
-	CVAR_CREATE("cl_vsmoothing", "0.05", FCVAR_ARCHIVE);
-	CVAR_CREATE("hud_classautokill", "1", FCVAR_ARCHIVE);
-	CVAR_CREATE("hud_takesshots", "0", FCVAR_ARCHIVE);
-	CVAR_CREATE("nohud", "0", FCVAR_ARCHIVE);
+	s_nohud = CVAR_CREATE("nohud", "0", 0); // flags 0, as client.dll (0x100270e0)
 	CVAR_CREATE("r_paintball", "0", FCVAR_ARCHIVE);
 }
 
@@ -96,6 +92,16 @@ void TSHud_Color(int& r, int& g, int& b)
 		g = 175;
 		b = 255;
 	}
+}
+
+bool TSHud_RealHud()
+{
+	return s_realhud != nullptr && s_realhud->value != 0.0f;
+}
+
+bool TSHud_NoHud()
+{
+	return s_nohud != nullptr && s_nohud->value != 0.0f;
 }
 
 int g_iTSHealth = 100;

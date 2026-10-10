@@ -203,20 +203,19 @@ bool CHudSpectator::Init()
 	gEngfuncs.pfnAddCommand("togglescores", ToggleScores);
 	// TS original spectator init block (@0x22cd5): cl_drawnames "1", then the "specmode"
 	// client command right after it (HLTV-only; see SpectatorSpecMode above).
-	gEngfuncs.pfnRegisterVariable("cl_drawnames", "1", 0);
+	// cl_drawnames is the overview map's name gate: client.dll's overview draw (0x1002318f, the stock
+	// SDK's spec_drawnames test) returns when it is 0, else draws each player's name in team colours.
+	m_drawnames = gEngfuncs.pfnRegisterVariable("cl_drawnames", "1", FCVAR_ARCHIVE); // ARCHIVE, as client.dll (0x10022cca)
 	gEngfuncs.pfnAddCommand("specmode", SpectatorSpecMode);
 
 	// TS parity: the original spectator registers ONLY cl_drawnames (above) — none of the
 	// SDK-2.3 spec_* cvars exist in client.dll. Keep UNREGISTERED file-static instances so
 	// the stock spectator code (and ev_common.cpp's IS_FIRSTPERSON_SPEC) keeps working with
-	// today's defaults, without the console/config surface. NOT aliased to cl_drawnames — the
-	// original's cl_drawnames consumer (in-eye name drawing) is a separate RE item.
-	static cvar_t s_spec_drawnames = {"spec_drawnames", "1", 0, 1.0f, nullptr};
+	// today's defaults, without the console/config surface.
 	static cvar_t s_spec_drawcone = {"spec_drawcone", "1", 0, 1.0f, nullptr};
 	static cvar_t s_spec_drawstatus = {"spec_drawstatus", "1", 0, 1.0f, nullptr};
 	static cvar_t s_spec_autodirector = {"spec_autodirector", "1", 0, 1.0f, nullptr};
 	static cvar_t s_spec_pip = {"spec_pip", "0", 0, 0.0f, nullptr}; // TS: inset pip forced OFF (no top-left overlay)
-	m_drawnames = &s_spec_drawnames;
 	m_drawcone = &s_spec_drawcone;
 	m_drawstatus = &s_spec_drawstatus;
 	m_autoDirector = &s_spec_autodirector;

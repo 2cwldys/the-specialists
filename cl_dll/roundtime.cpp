@@ -29,6 +29,7 @@
 #include "hud.h"
 #include "cl_util.h"
 #include "parsemsg.h"
+#include "ts_hud.h"
 
 #include <stdio.h>
 
@@ -81,6 +82,9 @@ bool CHudRoundTime::MsgFunc_RoundTime(const char* pszName, int iSize, void* pbuf
 bool CHudRoundTime::Draw(float flTime)
 {
 	if ((m_iFlags & HUD_ACTIVE) == 0 || m_flEndTime == 0)
+		return true;
+	// client.dll draws the timer (0x1004a130) from its status draw, after its nohud test (0x10049f06)
+	if (TSHud_NoHud())
 		return true;
 
 	int remaining = (int)(m_flEndTime - gHUD.m_flTime);

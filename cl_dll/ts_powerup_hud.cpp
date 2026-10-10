@@ -197,6 +197,9 @@ bool CHudTSPowerUp::Draw(float flTime)
 	// sprites/player/movement.spr @ (SW/2, SH-56) — side by side. (The old sprites/weapons/kungfu.spr was
 	// the weapon-bar icon and sprites/weapons/superjump.spr doesn't exist — SPR_Load returned a stale
 	// handle, so it drew the last weapon/numbers sprite.)
+	// client.dll draws these two inside the status draw (0x1004a3e0, flags +0x29/+0x2a), after its
+	// cl_realhud test, so they go with the status panel.
+	if (!TSHud_RealHud() && !TSHud_NoHud())
 	{
 		const int py = ScreenHeight - 56;
 		if (m_bKungFu)    DrawIndependentPowerup("sprites/player/kungfu.spr", "Kung-Fu", ScreenWidth / 2 - 48, py);
@@ -224,6 +227,10 @@ bool CHudTSPowerUp::Draw(float flTime)
 	{
 		secs = m_iSecondsAvail;
 	}
+
+	// the label is client.dll's 0x1004a2e0, drawn from its status draw after the nohud test (0x10049f06)
+	if (TSHud_NoHud())
+		return true;
 
 	const char* name;
 	switch (m_iHeldType)

@@ -317,6 +317,15 @@ bool CHudTSAmmo::Draw(float flTime)
 	if (!szName || !szName[0])
 		return true;
 
+	// cl_realhud: the weapon bar's Draw (0x1004d3f0) draws this box for a held weapon through
+	// 0x1004d7e0, which returns at once unless cl_realhud is 0; with kung fu (type 0) it calls 0x1004d700
+	// instead ("Kung-Fu" and the melee bar), which has no such test, so kung fu's box stays.
+	if (m_iWeaponType != 0 && TSHud_RealHud())
+		return true;
+	// both boxes come after the weapon bar Draw's nohud test (0x1004d3f9)
+	if (TSHud_NoHud())
+		return true;
+
 	// Exact geometry recovered from FUN_1004d7e0 (reference/HUD_DRAWCHAIN.md): a
 	// right-anchored box, 0x80 (128px) wide, x = ScreenWidth - 0x88 (136); lines are
 	// 0x14 (20px) tall and stack UPWARD from y = ScreenHeight - 8 (each line drops y

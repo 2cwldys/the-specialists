@@ -182,10 +182,16 @@ bool CHudTSReticle::Draw(float flTime)
 	const bool laser = TS_LocalHasLaser();
 	const int tr = 80, tg = 130, tb = 185;
 
+	// cl_realhud: client.dll's crosshair draw (0x1004e9f0: the crosshair, the dive arc of 0x1004ef50
+	// and the laser range number) returns at once unless cl_realhud is 0. The laser dot is the weapon
+	// bar's own call (0x1004e6f0, before the nohud test) and has no such test, so it stays.
+	// nohud: the weapon bar Draw (0x1004d3f9) stops after the laser dot, before the crosshair.
+	const bool hideCross = TSHud_RealHud() || TSHud_NoHud();
+
 	// The aiming crosshair (donut "sprite sight" + the NSEW ticks) shows ONLY for guns — melee/
 	// grenade/flag suppress it (only the dive/weight arc below stays). RE: the original client.dll
 	// gates the reticle crosshair on the active weapon (column>=2 == a firearm).
-	if (TS_ActiveWeaponIsGun())
+	if (!hideCross && TS_ActiveWeaponIsGun())
 	{
 		// center crosshair (64x64) — the donut RING, style-gated by cl_solidcross (dossier cont94 §6,
 		// FUN_1004e9f0 @0x4ed01): 0 = ADDITIVE cross_e.spr in the HUD colour; >0 = SOLID cross2.spr,
@@ -231,7 +237,7 @@ bool CHudTSReticle::Draw(float flTime)
 	const int ax = cx - 40;      // x of the arc, just left of the donut — TUNED
 	const int ay = cy - 40;      // 80px-tall arc, vertically centered — TUNED
 	const HSPRITE step[3] = { m_hDiveT, m_hDiveC, m_hDiveB };
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < 3 && !hideCross; i++)
 	{
 		if (!step[i])
 			continue;
@@ -273,7 +279,8 @@ bool CHudTSReticle::Draw(float flTime)
 	const int dotX = cx - (int)(R * cosf(pr)); // dot rides the arc, same x-origin as the arc sprite
 	const int dotY = cy + (int)(R * sinf(pr));
 	// the dot is ALWAYS the tick blue ~30% brighter — it does NOT turn red over unavailable tiers.
-	FillRGBA(dotX - 1, dotY - 1, 2, 2, 104, 169, 240, 255);
+	if (!hideCross)
+		FillRGBA(dotX - 1, dotY - 1, 2, 2, 104, 169, 240, 255);
 
 	// LASERSIGHT HUD dot: a small (red) 2x2 marker at where the gun MODEL is pointing, projected to the
 	// screen near the reticle (the local player's laser is the HUD dot, NOT a world sprite — RE
@@ -303,7 +310,7 @@ bool CHudTSReticle::Draw(float flTime)
 
 	// LASERSIGHT distance readout: trace from the eye along aim, show the distance (metres) right of
 	// the reticle in numbers.spr. Only with a lasersight (the laser gives you the ranged readout).
-	if (laser)
+	if (laser && !hideCross)
 	{
 		float fwd[3];
 		gEngfuncs.pfnAngleVectors(v_angles, fwd, NULL, NULL);

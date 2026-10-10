@@ -173,10 +173,8 @@ bool CHud::Redraw(float flTime, bool intermission)
 	// if no redrawing is necessary
 	// return 0;
 
-	// draw all registered HUD elements — nohud == 0 (the original's cvar; no hud_draw in TS).
-	// VERIFY: the original reads nohud at 7 sites (per-element), not one global redraw gate —
-	// per-site semantics are a follow-up RE item (cont94 client_cvar_parity.md B#14).
-	if (0 == m_pCvarNoHud->value)
+	// draw all registered HUD elements. client.dll's Redraw (0x10021aa0) has no HUD-off gate: nohud is
+	// tested by the elements it hides (TSHud_NoHud, ts_hud.h).
 	{
 		HUDLIST* pList = m_pHudList;
 

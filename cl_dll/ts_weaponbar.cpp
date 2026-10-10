@@ -49,6 +49,23 @@ static const int s_weaponColumn[] = {
 	/*36 contender */ 2, /*37 skorpion_ak*/5,
 };
 
+// Per-tsweapon_t select-grid row (0..16), each weapon's s_weapon_info +0x85 byte, read from every
+// Write_<weapon> in ts_i386.so (`movb $row,0x85(...)`). client.dll keeps the owned weapons in a 17 x 11
+// grid at this+0x164 (cell (row * 11 + column) * 8: the type, -1 when empty; WStatus 0x1004f990 and
+// WeaponInfo 0x1004f800 fill it), and the slot keys walk a column of it by row.
+static const int s_weaponRow[] = {
+	/* 0 melee     */ 6, /* 1 glock18   */ 1, /* 2 beretta   */ 9, /* 3 uzi       */ 1,
+	/* 4 benellim3 */ 1, /* 5 m4        */ 2, /* 6 mp5sd     */ 2, /* 7 mp5k      */ 3,
+	/* 8 beretta_ak*/ 1, /* 9 mk23      */ 2, /*10 mk23_ak   */ 2, /*11 usas12    */ 11,
+	/*12 desert    */ 3, /*13 ak47      */ 3, /*14 fnh       */ 4, /*15 aug       */ 4,
+	/*16 uzi_ak    */ 3, /*17 skorpion  */ 4, /*18 barrett   */ 5, /*19 pdw       */ 5,
+	/*20 spas12    */ 6, /*21 gold      */ 4, /*22 glock22   */ 5, /*23 mac10/ump */ 6,
+	/*24 m61       */ 1, /*25 knife     */ 3, /*26 mossberg  */ 7, /*27 m16       */ 8,
+	/*28 ruger     */ 6, /*29 flag      */ 5, /*30 fnh_ak    */ 5, /*31 bull      */ 7,
+	/*32 m60       */ 9, /*33 sawedoff  */ 10, /*34 katana    */ 2, /*35 sealknife */ 4,
+	/*36 contender */ 8, /*37 skorpion_ak*/6,
+};
+
 // Short display names for the bar (compact forms of the ammo HUD's names).
 static const char* const s_shortName[] = {
 	"Kung-Fu", "Glock-18", "Beretta", "Mini-Uzi", "Benelli M3", "M4", "MP5SD", "MP5K",
@@ -280,13 +297,37 @@ int CHudTSWeaponBar::FindOwned(int from, bool fNext, int colOnly) const
 	return order[next];
 }
 
+// The grid cell (row, column): the owned weapon there, or -1 (client.dll this+0x164).
+int CHudTSWeaponBar::CellType(int row, int col) const
+{
+	if (row < 0 || row > 16 || col < 0 || col > 10)
+		return -1;
+	for (int t = 0; t < TSW_COUNT_LOCAL && t < TSW_COUNT; t++)
+	{
+		if (m_iClip[t] >= 0 && s_weaponRow[t] == row && s_weaponColumn[t] == col)
+			return t;
+	}
+	return -1;
+}
+
+// Point the cursor (this+0x740 row, +0x744 column) at weapon t's cell.
+void CHudTSWeaponBar::SetCursor(int t)
+{
+	m_selType = t;
+	if (t >= 0 && t < TSW_COUNT_LOCAL)
+	{
+		m_selRow = s_weaponRow[t];
+		m_selCol = s_weaponColumn[t];
+	}
+}
+
 // Open the select menu, seeding the cursor from the active weapon (FUN_1004f500 this+0x73c/0x740).
 void CHudTSWeaponBar::OpenSelect()
 {
 	if (!m_selecting)
 	{
 		m_selecting = true;
-		m_selType = g_iTSActiveWeapon;
+		SetCursor(g_iTSActiveWeapon);
 	}
 	m_selTime = gHUD.m_flTime;
 }
@@ -300,21 +341,126 @@ void CHudTSWeaponBar::Step(bool fNext)
 	OpenSelect();
 	int t = FindOwned(m_selType, fNext, -1);
 	if (t >= 0)
-		m_selType = t;
+		SetCursor(t);
 }
 
-// slot1-5: open the menu + jump to HUD column `col` (or advance within it if already there).
-void CHudTSWeaponBar::SelectColumn(int col)
+// slot1..slot10 once no text menu took the key (client.dll 0x1004f220; the menu test is in ammo.cpp).
+// The buy menu, when up, gets the slot at its current level. Then, alive and not spectating:
+// - near a bomb (any Wires byte set), slots 1..3 send "cutwire_<slot - 1>";
+// - slot 10 sends "weapon_0" (kung fu) and puts the cursor at (0, 0) unless the select is open, and
+//   closes it;
+// - slots 1..5 with hud_fastswitch 0 open the select at that column: the same column again moves
+//   the cursor down to the next owned row (rows 1..16, wrapping to 1), a new column starts from its
+//   first owned row (row 1 when it has none); FIRE then commits (Think);
+// - slots 1..5 with hud_fastswitch on send "weapon_<type>" for the column's next owned row after the
+//   cursor's (rows 0..16, wrapping), at once, and close the select; the cursor's column stays;
+// - slots 6..9 do nothing.
+void CHudTSWeaponBar::SelectSlot(int slot)
 {
-	if (col < 1 || col > 5)
+	if (gHUD.m_TSBuyMenu.IsUp())
+	{
+		gHUD.m_TSBuyMenu.HandleSlot(slot);
 		return;
-	if (gHUD.m_fPlayerDead)
-		return; // no weapon select while dead/spectating
-	OpenSelect();
-	int from = (m_selType >= 0 && m_selType < TSW_COUNT_LOCAL && s_weaponColumn[m_selType] == col) ? m_selType : -1;
-	int t = FindOwned(from, true, col);
+	}
+	if (gHUD.m_fPlayerDead || gHUD.m_Spectate.IsActive())
+		return;
+
+	char cmd[32];
+	if (m_wires[0] != 0 || m_wires[1] != 0 || m_wires[2] != 0)
+	{
+		if (slot > 0 && slot < 4)
+		{
+			sprintf(cmd, "cutwire_%i", slot - 1);
+			ServerCmd(cmd);
+		}
+		return;
+	}
+
+	if (slot == 10)
+	{
+		if (!m_selecting)
+		{
+			ServerCmd("weapon_0");
+			m_selRow = 0;
+			m_selCol = 0;
+			m_selType = CellType(0, 0);
+		}
+		m_selecting = false;
+		return;
+	}
+	if (slot >= 6)
+		return;
+
+	if (CVAR_GET_FLOAT("hud_fastswitch") == 0.0f)
+	{
+		if (!m_selecting)
+			m_selecting = true;
+		m_selTime = gHUD.m_flTime;
+		if (slot == m_selCol)
+		{
+			bool found = false;
+			int row = m_selRow + 1;
+			if (row > 16)
+				row = 1;
+			for (; row < 17 && !found; row++)
+			{
+				if (CellType(row, m_selCol) != -1)
+				{
+					m_selRow = row;
+					found = true;
+				}
+			}
+			if (!found)
+			{
+				m_selRow = 1;
+				if (CellType(1, slot) == -1)
+				{
+					while (m_selRow < 17)
+					{
+						m_selRow++;
+						if (CellType(m_selRow, slot) != -1)
+							break;
+					}
+				}
+			}
+		}
+		else
+		{
+			m_selRow = 0;
+			if (CellType(0, slot) == -1)
+			{
+				bool found = false;
+				while (!found && ++m_selRow <= 16)
+					found = CellType(m_selRow, slot) != -1;
+				if (!found)
+					m_selRow = 1;
+			}
+		}
+		m_selCol = slot;
+		m_selType = CellType(m_selRow, m_selCol);
+		return;
+	}
+
+	int row = m_selRow + 1;
+	if (row > 16)
+		row = 0;
+	m_selRow = row;
+	do
+	{
+		if (CellType(row, slot) != -1)
+			break;
+		if (++row > 16)
+			row = 0;
+	} while (m_selRow != row);
+	m_selRow = row;
+	const int t = CellType(row, slot);
 	if (t >= 0)
-		m_selType = t;
+	{
+		sprintf(cmd, "weapon_%i", t);
+		ServerCmd(cmd);
+	}
+	m_selType = t;
+	m_selecting = false;
 }
 
 // FIRE: commit the highlighted weapon to the server via `weapon_<N>` (-> CTSGun holster->deploy
@@ -344,6 +490,9 @@ bool CHudTSWeaponBar::Draw(float flTime)
 	if (gHUD.m_fPlayerDead || gHUD.m_Spectate.IsActive())
 		return true;
 	if (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL))
+		return true;
+	// client.dll's weapon bar Draw (0x1004d3f9) stops after the laser dot while nohud is set
+	if (TSHud_NoHud())
 		return true;
 
 	// TS cl_showequipment (dossier cont94 §2 — the alphaScale switch at the top of FUN_1004e030):

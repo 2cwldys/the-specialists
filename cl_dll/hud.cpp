@@ -307,7 +307,7 @@ void CHud::Init()
 	m_iLogo = 0;
 	m_iFOV = 0;
 
-	CVAR_CREATE("zoom_sensitivity_ratio", "1.2", FCVAR_ARCHIVE);
+	CVAR_CREATE("zoom_sensitivity_ratio", "1.2", 0); // flags 0, as client.dll (0x10020364)
 	// TS fog cvars — the original registers all six HERE, right after zoom_sensitivity_ratio
 	// (client.dll CHud::Init, sites 0x20372–0x203d4); only gl_fog is ARCHIVE, and every read is
 	// by-name (pfnGetCvarFloat), so the returned pointers are unused. Semantics: gl_fog 0
@@ -321,7 +321,7 @@ void CHud::Init()
 	gEngfuncs.pfnRegisterVariable("gl_fog_red", ".5", 0);
 	gEngfuncs.pfnRegisterVariable("gl_fog_green", ".5", 0);
 	gEngfuncs.pfnRegisterVariable("gl_fog_blue", ".5", 0);
-	default_fov = CVAR_CREATE("default_fov", "80", FCVAR_ARCHIVE); // TS default FOV is 80 (user-confirmed vs the original)
+	default_fov = CVAR_CREATE("default_fov", "80", 0); // TS default FOV is 80 (user-confirmed vs the original); flags 0 as client.dll (0x100203fe)
 	m_pCvarStealMouse = CVAR_CREATE("hud_capturemouse", "1", FCVAR_ARCHIVE);
 	// TS parity: no `hud_draw` in the original client — its HUD-off switch is the `nohud` cvar
 	// (registered in TSHud_RegisterCvars); the draw gates test nohud == 0.

@@ -1182,7 +1182,7 @@ IN_Init
 void IN_Init()
 {
 	m_filter = gEngfuncs.pfnRegisterVariable("m_filter", "0", FCVAR_ARCHIVE);
-	sensitivity = gEngfuncs.pfnRegisterVariable("sensitivity", "3", FCVAR_ARCHIVE | FCVAR_FILTERSTUFFTEXT); // user mouse sensitivity setting.
+	sensitivity = gEngfuncs.pfnRegisterVariable("sensitivity", "3", FCVAR_ARCHIVE); // user mouse sensitivity setting (client.dll 0x10028343: ARCHIVE only)
 
 	// TS mouse accel — registered here in the original (client.dll FUN_10028320, right after
 	// m_filter/sensitivity, before the joystick block; replaces the stock m_customaccel*).

@@ -171,50 +171,88 @@ void V_InterpolateAngles( float *start, float *end, float *output, float frac )
 	V_NormalizeAngles( output );
 } */
 
-// Quakeworld bob code, this fixes jitters in the mutliplayer since the clock (pparams->time) isn't quite linear
+// The weapon bob, client.dll 0x10066e70 (with its height smoothing 0x10066de0). It replaces the stock
+// Quake bob: cl_bobcycle and cl_bobup are registered but never read. It fills s_bobOffset, added to the
+// view model's origin, and s_bobPitch, added to the eye's pitch, and returns the bob amplitude, which
+// the gun angle adds to the view model's pitch. cl_bob picks the level, truncated: 0..3 scale the
+// offset by 0.1, 0.3, 0.5, 0.7 and the eye pitch by 0, 0, 0.15, 0.5; anything else (the default 4.0)
+// by 1 and 1. In third person and while spectating it returns 0 and leaves the offset as it was.
+// client.dll also returns 0 while its stunt camera flags (0x101914ec, set by its client-side stunt
+// camera at 0x1002c790) are set without bit 8; reTS has no such camera, so the flags are always 0.
+static Vector s_bobOffset;	 // 0x10191428
+static float s_bobPitch;	 // 0x10190b78
+static float s_bobAmp;		 // 0x10191d6c
+static float s_bobAmpLast;	 // 0x10191d78
+static float s_bobPhase;	 // 0x10191d74
+static float s_bobLastTime; // 0x10191d70
+static float s_bobHeight;	 // 0x1019144c
+
+// 0x10066de0: the offset's height follows its target at frametime x 20 of the gap, never past it.
+static void V_SmoothBobHeight(float* offset, struct ref_params_s* pparams)
+{
+	const float gap = s_bobHeight - offset[2];
+	float step = gap * pparams->frametime * 20.0f;
+	if (fabs(step) > fabs(gap))
+		step = gap;
+	s_bobHeight -= step;
+	offset[2] = s_bobHeight;
+}
+
 float V_CalcBob(struct ref_params_s* pparams)
 {
-	static double bobtime = 0;
-	static float bob = 0;
-	float cycle;
-	static float lasttime = 0;
-	Vector vel;
+	if (0 != CL_IsThirdPerson() || 0 != pparams->spectator)
+		return 0.0f;
 
-
-	if (pparams->onground == -1 ||
-		pparams->time == lasttime)
+	float grip, pitchScale;
+	switch ((int)cl_bob->value)
 	{
-		// just use old value
-		return bob;
+	case 0: grip = 0.1f; pitchScale = 0.0f; break;
+	case 1: grip = 0.3f; pitchScale = 0.0f; break;
+	case 2: grip = 0.5f; pitchScale = 0.15f; break;
+	case 3: grip = 0.7f; pitchScale = 0.5f; break;
+	default: grip = 1.0f; pitchScale = 1.0f; break;
 	}
 
-	lasttime = pparams->time;
-
-	//TODO: bobtime will eventually become a value so large that it will no longer behave properly.
-	//Consider resetting the variable if a level change is detected (pparams->time < lasttime might do the trick).
-	bobtime += pparams->frametime;
-	cycle = bobtime - (int)(bobtime / cl_bobcycle->value) * cl_bobcycle->value;
-	cycle /= cl_bobcycle->value;
-
-	if (cycle < cl_bobup->value)
+	extern float g_flClientSlow; // ts_powerup_hud.cpp, client.dll's slow-motion scale 0x100963e8
+	float forwardScale;
+	if (0 != pparams->onground && pparams->time != s_bobLastTime && pparams->viewheight[2] != 0.0f)
 	{
-		cycle = M_PI * cycle / cl_bobup->value;
+		s_bobLastTime = pparams->time;
+		const double speed = sqrt(pparams->simvel[1] * pparams->simvel[1] + pparams->simvel[0] * pparams->simvel[0]);
+		double pace = speed * 0.003333333406;
+		if (pace > 1.100000024)
+			pace = 1.100000024;
+		s_bobPhase = (float)(pparams->frametime * 5.5f * g_flClientSlow * pace * 100.0 + s_bobPhase);
+		if (s_bobPhase > 360.0)
+			s_bobPhase = 0.0f;
+		if (s_bobAmpLast > s_bobAmp)
+			s_bobAmp = (float)((s_bobAmp + 2.5f) * pace * 0.5f);
+		else
+		{
+			s_bobAmp = (float)(speed * 0.01);
+			s_bobAmpLast = s_bobAmp;
+		}
+		const float up = (float)(sin(s_bobPhase * 0.03490658504) * s_bobAmp);
+		const float side = (float)(sin(s_bobPhase * 0.01745329252) * (double)s_bobAmp);
+		forwardScale = (float)(0.75 - s_bobAmp * 0.5);
+		for (int i = 0; i < 3; i++)
+			s_bobOffset[i] = (float)(side * pparams->right[i] * 0.3 + pparams->forward[i] * forwardScale + up * pparams->up[i] * 0.11);
+		s_bobPitch = up * pitchScale * 0.25f;
 	}
 	else
 	{
-		cycle = M_PI + M_PI * (cycle - cl_bobup->value) / (1.0 - cl_bobup->value);
+		if (s_bobAmp > 0.01)
+			s_bobAmp = (float)(s_bobAmp * 0.5);
+		forwardScale = (float)(0.75 - s_bobAmp * 0.5);
+		for (int i = 0; i < 3; i++)
+			s_bobOffset[i] = pparams->forward[i] * forwardScale;
+		s_bobPitch = 0.0f;
 	}
-
-	// bob is proportional to simulated velocity in the xy plane
-	// (don't count Z, or jumping messes it up)
-	VectorCopy(pparams->simvel, vel);
-	vel[2] = 0;
-
-	bob = sqrt(vel[0] * vel[0] + vel[1] * vel[1]) * cl_bob->value;
-	bob = bob * 0.3 + bob * 0.7 * sin(cycle);
-	bob = V_min(bob, 4.0f);
-	bob = V_max(bob, -7.0f);
-	return bob;
+	s_bobOffset[0] *= grip;
+	s_bobOffset[1] *= grip;
+	s_bobOffset[2] = (float)((0.5 - s_bobAmp * 0.65) + s_bobOffset[2]) * grip;
+	V_SmoothBobHeight(s_bobOffset, pparams);
+	return s_bobAmp;
 }
 
 /*
@@ -740,13 +778,14 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 
 	// refresh position
 	VectorCopy(pparams->simorg, pparams->vieworg);
-	// RE original client.dll V_CalcRefdef (FUN_10067890 + FUN_100674a0): the bob is applied ONLY to the
-	// VIEWMODEL, never to the main view origin. Stock HL adds `bob` to vieworg[2] here, but at TS's high run
-	// speed V_CalcBob saturates its -7 clamp, dropping the eye ~7u (looks like half-ducking). The viewmodel
-	// still bobs below (view->origin[2] += bob). So the main view must NOT bob:
-	// pparams->vieworg[2] += (bob);   // <- removed: TS bobs the gun, not the eyes
+	// client.dll (0x10067890) bobs only the view model, never the eye's origin (stock HL adds the bob
+	// to vieworg[2] here).
 	VectorAdd(pparams->vieworg, pparams->viewheight, pparams->vieworg);
 	VectorCopy(pparams->vieworg, v_aimeye); // the true eye (pre-3rd-person-offset) = bullet origin
+
+	// the bob's eye pitch, a tenth of it, then cleared (client.dll 0x10067d14)
+	pparams->cl_viewangles[PITCH] += s_bobPitch * 0.1f;
+	s_bobPitch = 0.0f;
 
 	VectorCopy(pparams->cl_viewangles, pparams->viewangles);
 
@@ -910,53 +949,11 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 	// Let the viewmodel shake at about 10% of the amplitude
 	gEngfuncs.V_ApplyShake(view->origin, view->angles, 0.9);
 
-	// --- TS faithful weapon sway (RE'd from client.dll FUN_10066e70; constants read live from the running
-	// original). NOT stock HL's vertical-only bob: a phase-accumulation FIGURE-8 ("pendulum") sway. The
-	// phase advances with movement speed and wraps at 360; the gun sways along the RIGHT axis at 1x and the
-	// UP axis at 2x the phase frequency (the 2:1 ratio = figure-8), amplitude proportional to speed. The
-	// original also scales by weapon GRIP (0.1/0.3/0.5/0.7/1.0) and smooths the amplitude — simplified here
-	// to the default grip + linear amplitude pending validation against the original's feel.
-	{
-		static float s_swayPhase = 0.0f;
-		static float s_swayAmp = 0.0f;
-		float sv[2] = { pparams->simvel[0], pparams->simvel[1] };
-		float speed = sqrt(sv[0] * sv[0] + sv[1] * sv[1]);
-		// RE FUN_10066e70: the phase only advances + the amplitude only tracks speed while ON GROUND
-		// (field +0x50). Airborne, the phase freezes and the amplitude decays out — so the sway STOPS in
-		// mid-air (you don't bob while jumping). (Original decays amp by half/frame down toward ampvel.)
-		if (0 != pparams->onground)
-		{
-			float velterm = speed * 0.00333333f;                 // velmult = 1/300
-			if (velterm > 1.1f) velterm = 1.1f;                  // cap
-			s_swayPhase += velterm * pparams->frametime * 5.5f * 100.0f; // accumscale * scale
-			if (s_swayPhase > 360.0f) s_swayPhase = 0.0f;        // RE phasereset = 360
-			s_swayAmp = speed * 0.01f;                           // ampvel
-		}
-		else
-		{
-			s_swayAmp *= 0.5f; // mid-air: decay the sway out (phase frozen), RE else-branch
-		}
-		float swayUp = sin(s_swayPhase * 0.0349066f) * s_swayAmp;  // up axis, 2x frequency
-		float swayRight = sin(s_swayPhase * 0.0174533f) * s_swayAmp; // right axis, 1x frequency -> figure-8
-		for (i = 0; i < 3; i++)
-			view->origin[i] += pparams->right[i] * swayRight * 0.15f  // rightscale (halved — sway was too large)
-			                 + pparams->up[i] * swayUp * 0.055f;      // upscale (halved)
-	}
-
-	// TS: the gun MODEL aims HIGHER the faster you move (all weapons) — pitch the viewmodel up with
-	// ground speed. This is the source of the lasersight's rise: the laser reads the viewmodel muzzle
-	// attachments, so its dot rides up with the model. On the ground only (no aim-up while airborne).
-	{
-		float sv[2] = { pparams->simvel[0], pparams->simvel[1] };
-		float speed = sqrt(sv[0] * sv[0] + sv[1] * sv[1]);
-		if (0 != pparams->onground)
-		{
-			float up = speed * 0.015f; // degrees of up-pitch per unit speed — TUNED
-			if (up > 6.0f)
-				up = 6.0f;             // cap
-			view->angles[PITCH] += up; // aim the muzzle UP (viewmodel pitch convention)
-		}
-	}
+	// The weapon bob (V_CalcBob, client.dll 0x10066e70): the offset goes on the view model's origin
+	// after its shake (0x10068571), and the amplitude on its pitch, as client.dll's gun angle
+	// (0x100674a0) adds it, so the gun aims higher the faster it moves.
+	VectorAdd(view->origin, s_bobOffset, view->origin);
+	view->angles[PITCH] += bob;
 
 	// pushing the view origin down off of the same X/Z plane as the ent's origin will give the
 	// gun a very nice 'shifting' effect when the player looks up/down. If there is a problem
@@ -2021,10 +2018,13 @@ void V_Init()
 	v_centermove = gEngfuncs.pfnRegisterVariable("v_centermove", "0.15", 0);
 	v_centerspeed = gEngfuncs.pfnRegisterVariable("v_centerspeed", "500", 0);
 
-	cl_bobcycle = gEngfuncs.pfnRegisterVariable("cl_bobcycle", "0.8", 0); // best default for my experimental gun wag (sjb)
-	cl_bob = gEngfuncs.pfnRegisterVariable("cl_bob", "0.01", FCVAR_ARCHIVE); // best default for my experimental gun wag (sjb)
+	// client.dll V_Init (0x10069e40): cl_bobcycle and cl_bobup are registered and never read; cl_bob is the
+	// weapon bob's level (V_CalcBob), default "4.0"; cl_slowfade (flags 0) gates the slow-motion tint.
+	cl_bobcycle = gEngfuncs.pfnRegisterVariable("cl_bobcycle", "0.8", 0);
+	cl_bob = gEngfuncs.pfnRegisterVariable("cl_bob", "4.0", FCVAR_ARCHIVE);
 	cl_bobup = gEngfuncs.pfnRegisterVariable("cl_bobup", "0.5", 0);
 	cl_waterdist = gEngfuncs.pfnRegisterVariable("cl_waterdist", "4", 0);
+	gEngfuncs.pfnRegisterVariable("cl_slowfade", "1", 0);
 }
 
 

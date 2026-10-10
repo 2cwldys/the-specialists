@@ -454,12 +454,16 @@ void CHudTSBuyMenu::RemoveSlot(int i)
 	m_useNewConfig = true;
 }
 
+// client.dll 0x10038800: an emptied config starts with kevlar while cl_buykevlar is not 0 (its only
+// reader; client.dll never writes the cvar).
 void CHudTSBuyMenu::ResetConfig()
 {
 	memset(m_slots, 0, sizeof(m_slots));
 	m_spent = 0;
 	m_slotsUsed = 0;
 	m_useNewConfig = true;
+	if (gEngfuncs.pfnGetCvarFloat("cl_buykevlar") != 0.0f)
+		QueueWeapon(TS_ACC_KEVLAR, 0, false, true);
 }
 
 void CHudTSBuyMenu::BuyRandom()
@@ -563,7 +567,6 @@ void CHudTSBuyMenu::Apply()
 	}
 	if (kevlar)
 		gEngfuncs.pfnClientCmd("tki 16\n"); // equipment items ride tki (kevlar = 0x10)
-	gEngfuncs.Cvar_SetValue("cl_buykevlar", kevlar ? 1.0f : 0.0f);
 
 	// the centred notice (FUN_10039400's "Using new/last config." via the TSMessage queue) + save
 	// this loadout as the "last config" (obj+0x14 -> obj+0x41c) so the next open reuses it.
@@ -577,15 +580,11 @@ void CHudTSBuyMenu::Apply()
 
 //----------------------------------- input -----------------------------------
 
-bool CHudTSBuyMenu::HandleKey(int ascii)
+void CHudTSBuyMenu::HandleSlot(int slot)
 {
 	if (!m_active)
-		return false;
-	int key = (ascii == '0') ? 10 : (ascii - '0');
-	if (key < 1 || key > 10)
-		return false;
-	Dispatch(m_level, key); // keyboard always acts on the current column
-	return true;
+		return;
+	Dispatch(m_level, slot); // the keys always act on the current column
 }
 
 // FUN_10038840 — run `key` at `level`. The mouse can target any visible column's level.
@@ -1170,6 +1169,10 @@ void CHudTSBuyMenu::DrawColumnChangeTeam()
 bool CHudTSBuyMenu::Draw(float flTime)
 {
 	if (!m_active)
+		return true;
+	// client.dll draws the buy menu from the weapon bar's Draw (0x1004d441), after its nohud test
+	// (0x1004d3f9); its keys still work
+	if (TSHud_NoHud())
 		return true;
 
 	if (m_level == LVL_CHANGETEAM)

@@ -194,6 +194,12 @@ bool CHudTSStatus::Draw(float flTime)
 	if (gHUD.m_Spectate.IsActive())
 		return true;
 
+	// cl_realhud: client.dll's status draw (0x1004a3e0) returns at once unless cl_realhud is 0, and it is
+	// reached only while nohud is 0 (0x10049f06). The
+	// kung-fu and super-jump figures it also draws are CHudTSPowerUp's here (ts_powerup_hud.cpp).
+	if (TSHud_RealHud() || TSHud_NoHud())
+		return true;
+
 	// The TS bottom-left status HUD, RE'd from client.dll CHudTSStatus::Draw (FUN_1004a3e0) —
 	// see reference/dossiers/cont87/hud_bottomleft.md. FIXED-PIXEL layout (X absolute: 8/72/104/136/144,
 	// box width 127; only Y is bottom-anchored SH-k). Three boxes: HEALTH (always), TEAM (team mode,

@@ -18,6 +18,7 @@
 #include "hud.h"
 #include "cl_util.h"
 #include "parsemsg.h"
+#include "ts_hud.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -82,7 +83,7 @@ bool CHudDeathNotice::Init()
 
 	HOOK_MESSAGE(DeathMsg);
 
-	CVAR_CREATE("hud_deathnotice_time", "6", FCVAR_ARCHIVE);
+	CVAR_CREATE("hud_deathnotice_time", "6", 0); // flags 0, as client.dll (0x1001afc7)
 
 	return true;
 }
@@ -107,6 +108,10 @@ bool CHudDeathNotice::VidInit()
 bool CHudDeathNotice::Draw(float flTime)
 {
 	int x, y, r, g, b;
+
+	// client.dll 0x1001b020: nothing while nohud is set
+	if (TSHud_NoHud())
+		return true;
 
 	for (int i = 0; i < MAX_DEATHNOTICES; i++)
 	{
