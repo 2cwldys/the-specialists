@@ -1930,7 +1930,9 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 	strcpy(cd->physinfo, ENGINE_GETPHYSINFO(ent));
 
 	cd->maxspeed = pev->maxspeed;
-	cd->fov = pl->m_iFOV;
+	// the original (0xa0294) sends pev->fov, not m_iFOV (the stock SDK's): a scope zoom sets both, but
+	// a plugin that sets only pev->fov changes what the client sees on TS 3.0
+	cd->fov = pev->fov;
 	cd->weaponanim = pev->weaponanim;
 
 	cd->pushmsec = pev->pushmsec;
