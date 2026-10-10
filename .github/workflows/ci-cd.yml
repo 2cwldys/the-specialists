@@ -202,25 +202,29 @@ jobs:
           name: Win64
           path: staged-win64/**
 
-  # Package — fan in every build job into ONE combined artifact. Both game libraries
-  # for every arch, laid out the way the engine expects: dlls/ (server) + cl_dlls/
-  # (client). i386 keeps the plain name; every non-i386 build gets its arch suffixed
-  # (xash convention: hl_amd64.so / hl_aarch64.so / hl_amd64.dll, likewise client_*).
+  # Package — fan in every build job. Two artifacts, both under TS's own file names (TS's liblist.gam
+  # names dlls/mp.dll and dlls/ts_i386.so; the client is always cl_dlls/client.*):
+  #  - reTS-<commit>: the patch for a stock TS 3.0 install, i386 + Win32 (scripts/assemble-dropin.sh,
+  #    the same layout scripts/package.sh builds locally).
+  #  - ts-gamelibs-all: every arch for Xash, which adds the arch to the base name from liblist
+  #    (ts_amd64.so, ts_arm64.so, mp_amd64.dll, client_amd64.so, client_arm64.so, client_amd64.dll).
   package:
-    name: Package (all arches, one zip)
+    name: Package
     runs-on: ubuntu-latest
     needs: [linux-i386, linux-amd64, linux-aarch64, win32, win64]
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Assemble combined tree
+      - name: Assemble
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist/dlls dist/cl_dlls
           # pick <artifact-dir> <filename> -> first matching file (robust to nesting)
           pick() {
             local f
@@ -228,22 +232,32 @@ jobs:
             if [ -z "$f" ]; then echo "MISSING: $2 in artifact $1" >&2; exit 1; fi
             echo "$f"
           }
-          # server libraries -> dlls/
-          cp "$(pick Linux-i386     hl.so)"     dist/dlls/hl.so
-          cp "$(pick Linux-amd64    hl.so)"     dist/dlls/hl_amd64.so
-          cp "$(pick Linux-aarch64  hl.so)"     dist/dlls/hl_aarch64.so
-          cp "$(pick Win32          hl.dll)"    dist/dlls/hl.dll
-          cp "$(pick Win64          hl.dll)"    dist/dlls/hl_amd64.dll
-          # client libraries -> cl_dlls/
+          REV=$(git rev-parse --short HEAD)
+          scripts/assemble-dropin.sh "$REV" \
+            "$(pick Linux-i386 hl.so)" "$(pick Linux-i386 client.so)" \
+            "$(pick Win32 hl.dll)" "$(pick Win32 client.dll)" dropin
+          echo "REV=$REV" >> "$GITHUB_ENV"
+
+          mkdir -p dist/dlls dist/cl_dlls
+          cp "$(pick Linux-i386     hl.so)"      dist/dlls/ts.so
+          cp "$(pick Linux-amd64    hl.so)"      dist/dlls/ts_amd64.so
+          cp "$(pick Linux-aarch64  hl.so)"      dist/dlls/ts_arm64.so
+          cp "$(pick Win32          hl.dll)"     dist/dlls/mp.dll
+          cp "$(pick Win64          hl.dll)"     dist/dlls/mp_amd64.dll
           cp "$(pick Linux-i386     client.so)"  dist/cl_dlls/client.so
           cp "$(pick Linux-amd64    client.so)"  dist/cl_dlls/client_amd64.so
-          cp "$(pick Linux-aarch64  client.so)"  dist/cl_dlls/client_aarch64.so
+          cp "$(pick Linux-aarch64  client.so)"  dist/cl_dlls/client_arm64.so
           cp "$(pick Win32          client.dll)" dist/cl_dlls/client.dll
           cp "$(pick Win64          client.dll)" dist/cl_dlls/client_amd64.dll
-          echo "=== combined tree ==="
-          find dist -type f | sort
+          find dropin dist -type f | sort
 
-      - name: Upload combined artifact
+      - name: Upload the TS 3.0 patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: reTS-${{ env.REV }}
+          path: dropin/reTS-${{ env.REV }}/**
+
+      - name: Upload the Xash libraries
         uses: actions/upload-artifact@v4
         with:
           name: ts-gamelibs-all
