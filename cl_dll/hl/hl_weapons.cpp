@@ -724,17 +724,13 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 	player.m_flNextAttack = from->client.m_flNextAttack;
 	player.m_flNextAmmoBurn = from->client.fuser2;
 	player.m_flAmmoStartCharge = from->client.fuser3;
-	// cont.89: clientdata.iuser4 now carries the STUNT FLAGS (pev->iuser4), matching the original — the
-	// client needs them for stunt prediction (TS_pm_shared reads pmove->iuser4). So do NOT read iuser4 as
-	// powerups here (that was the invented DoubleFire predicted gate). Powerup effects (DoubleFireRate /
-	// InfiniteClips) are server-authoritative for now; if the original predicts them it's via a separate
-	// channel (TODO: relocate the powerup bits to a spare clientdata field if predicted). Zero = no predicted
-	// powerup effect, which is safe (semi stays semi client-side during the double-fire powerup — edge case).
-	player.m_iPowerups = 0;
+	// clientdata.iuser4 carries the stunt flags (pev->iuser4), which the stunt prediction reads. The
+	// powerup bits ride vuser1.y: TS 3.0's UpdateClientData (0xa0475) sends (float)m_iPowerups there and
+	// client.dll (0x10003949) reads it into the predicted player.
+	player.m_iPowerups = (int)from->client.vuser1[1];
 
 	//Stores all our ammo info, so the client side weapons can use them.
 	player.ammo_9mm = (int)from->client.vuser1[0];
-	player.ammo_357 = (int)from->client.vuser1[1];
 	player.ammo_argrens = (int)from->client.vuser1[2];
 	player.ammo_bolts = (int)from->client.ammo_nails; //is an int anyways...
 	player.ammo_buckshot = (int)from->client.ammo_shells;
@@ -811,7 +807,7 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 
 	//HL Weapons
 	to->client.vuser1[0] = player.ammo_9mm;
-	to->client.vuser1[1] = player.ammo_357;
+	to->client.vuser1[1] = (float)player.m_iPowerups;
 	to->client.vuser1[2] = player.ammo_argrens;
 
 	to->client.ammo_nails = player.ammo_bolts;
@@ -852,10 +848,12 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 	// client.fuser1, into the player's pev) — so the predicted fire rate matches the server PostThink.
 	// Not the playerstate: entity_state_player_t in delta.lst has no fuser1, so that one is always 0.
 	// Floored at 0.01 (FixedSlowAmt, client.dll 0x1000b9b0 -> 0x10055aa0), 0 included, as the server's
-	// PostThink. (SLICE: the DoubleFireRate ×1.5 isn't predicted.)
+	// PostThink, and x1.5 with the double fire rate powerup (0x10003ece).
 	float predSlow = from->client.fuser1;
 	if (predSlow < 0.01f) predSlow = 0.01f;
-	const double slowMsec = (cmd->msec / 1000.0) * predSlow;
+	double slowMsec = (cmd->msec * 0.001) * predSlow;
+	if ((player.m_iPowerups & 0x10) != 0)
+		slowMsec *= 1.5;
 
 	for (i = 0; i < MAX_WEAPONS; i++)
 	{
