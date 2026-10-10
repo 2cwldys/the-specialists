@@ -91,8 +91,14 @@ void TS_Attachments_Init()
 // alone. Clearing it here desynced the two → the laser/flashlight (and the dive-reticle
 // distance) vanished after a map change. The original keeps its array likewise (a static global
 // never cleared on level change), which is why it doesn't have this bug. See [[map-change-state-reset]].
+static int s_shadowSpr = 0; // sprites/ombra.spr, the player shadow (TS_Shadows_Draw)
+
 void TS_Attachments_VidInit()
 {
+	// Sprite handles change on every map load (HUD VidInit reloads hud.txt since 753f738, as
+	// client.dll), so a handle cached from the previous map draws another sprite. client.dll looks
+	// ombra.spr up again on every draw (0x10055801 -> 0x100509d0).
+	s_shadowSpr = 0;
 	s_laserBeamSpr = 0;
 	s_laserDotSpr = 0;
 	s_flashSpr = 0;
@@ -315,7 +321,6 @@ static bool LocalLaserEndpoint(Vector& muzzle, Vector& endpoint)
 // ALSO the local player's own blob in first-person). Per player: trace straight down to the ground,
 // dist = |origin - hit| - 12; skip if dist >= 200; alpha fades 1.0 - dist*0.005; a flat quad at the hit.
 // Pure client presentation — no wire change. (RE HUD_DrawTransparentTriangles @0x34e50 -> the shadow pass.)
-static int s_shadowSpr = 0;
 static cvar_t* s_cl_shadow = nullptr;
 
 void TS_Shadows_Draw()
