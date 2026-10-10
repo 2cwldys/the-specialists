@@ -71,11 +71,9 @@ void PrecacheAllTSWeapons()
 	PRECACHE_MODEL("sprites/woodfrag.spr");
 	PRECACHE_MODEL("sprites/debris_concrete3.spr");
 
-	PRECACHE_SOUND("weapons/scock1.wav"); // pump-shotgun per-shell insert (ShotgunReload)
 	// Pump-action rack sounds (CTSGun::WeaponIdle — the pump between shots).
 	PRECACHE_SOUND("weapons/m3/m3-pump.wav");
 	PRECACHE_SOUND("weapons/spas12/spas12-pump.wav");
-	PRECACHE_SOUND("weapons/mossberg/scock.wav");
 
 	// Lasersight sprites (client EV draws the beam+dot from the muzzle for any player with a laser —
 	// cl_dll/ts_attachments.cpp). The flashlight uses a dynamic light (no sprite to precache).

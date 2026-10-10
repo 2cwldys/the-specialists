@@ -101,7 +101,7 @@ void TSPrecache(void)
 
 	// 3. the post-loop fixed set
 	static const char *const fixed2[] = {
-		"weapons/pistol-empty.wav", "weapons/insert-shell.wav", "weapons/goslow.wav",
+		"weapons/pistol-empty.wav", "weapons/insert-shell.wav", "goslow.wav",
 		"weapons/whizz1.wav", "weapons/whizz2.wav", "weapons/whizz3.wav", "weapons/whizz4.wav",
 		"weapons/whizz5.wav", "player/closecombat.wav", "player/kungfuhit.wav",
 		"weapons/weapondrop.wav", "weapons/items.wav", "weapons/draw.wav", "weapons/switch.wav",
