@@ -19,11 +19,9 @@
 #include <memory.h>
 #include "Exports.h"
 
-int g_demosniper = 0;
-int g_demosniperdamage = 0;
-float g_demosniperorg[3];
-float g_demosniperangles[3];
 float g_demozoom;
+int g_iTSDemoHold;
+int g_iTSDemoThirdPerson;
 
 // FIXME:  There should be buffer helper functions to avoid all of the *(int *)& crap.
 
@@ -65,32 +63,14 @@ void DLLEXPORT Demo_ReadBuffer(int size, unsigned char* buffer)
 	i += sizeof(int);
 	switch (type)
 	{
-	case TYPE_SNIPERDOT:
-		g_demosniper = *(int*)&buffer[i];
-		i += sizeof(int);
-
-		if (0 != g_demosniper)
-		{
-			g_demosniperdamage = *(int*)&buffer[i];
-			i += sizeof(int);
-
-			g_demosniperangles[0] = *(float*)&buffer[i];
-			i += sizeof(float);
-			g_demosniperangles[1] = *(float*)&buffer[i];
-			i += sizeof(float);
-			g_demosniperangles[2] = *(float*)&buffer[i];
-			i += sizeof(float);
-			g_demosniperorg[0] = *(float*)&buffer[i];
-			i += sizeof(float);
-			g_demosniperorg[1] = *(float*)&buffer[i];
-			i += sizeof(float);
-			g_demosniperorg[2] = *(float*)&buffer[i];
-			i += sizeof(float);
-		}
-		break;
 	case TYPE_ZOOM:
 		g_demozoom = *(float*)&buffer[i];
-		i += sizeof(float);
+		break;
+	case TYPE_HOLD:
+		g_iTSDemoHold = *(int*)&buffer[i];
+		break;
+	case TYPE_THIRDPERSON:
+		g_iTSDemoThirdPerson = *(int*)&buffer[i];
 		break;
 	default:
 		gEngfuncs.Con_DPrintf("Unknown demo buffer type, skipping.\n");

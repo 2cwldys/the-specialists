@@ -37,9 +37,8 @@ void DLLEXPORT HUD_DrawNormalTriangles()
 {
 	//	RecClDrawNormalTriangles();
 
-	// The original RUNS the stock spectator (incl. the overview map modes — its client.dll keeps
-	// the whole overview parser); the cont.69n suppression was part of the suppress-and-replace
-	// invention, removed cont.84. DrawOverview self-gates on the map camera modes.
+	// client.dll runs the stock spectator overview here (it keeps the overview parser, 0x10022da0);
+	// DrawOverview draws only in the map camera modes.
 	gHUD.m_Spectator.DrawOverview();
 }
 

@@ -1366,9 +1366,7 @@ void TeamFortressViewport::SetCurrentMenu(CMenuPanel* pMenu)
 	}
 	else
 	{
-		// ("closemenus;" send removed: the original client.dll has NO "closemenus" string and
-		// the original server has no such branch — it would just print "Unknown command".
-		// RE dossier cont94 §2.)
+		// (client.dll sends nothing here: neither it nor ts_i386.so has a "closemenus" string.)
 	}
 }
 

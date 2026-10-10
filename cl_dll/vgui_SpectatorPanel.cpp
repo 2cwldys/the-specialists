@@ -407,11 +407,10 @@ void SpectatorPanel::Update()
 	int iTimeHeight, iTimeWidth;
 	int offset, j;
 
-	// The Specialists RUNS the stock spectator panel — the original client.dll keeps the whole
-	// stock CHudSpectator/SpectatorPanel and only RE-SKINS it (its strings: #Spec_TSHelp%d,
-	// #Spec_Help_TSTitle + ts/titles.txt carries the texts). TS-patched delta: NO TOP bar (no
-	// "Map:" banner — user-verified vs the live original), the bottom bar + its labels stay
-	// stock. (cont.84 — replaces the cont.69l suppress-and-replace invention.)
+	// TS runs the stock spectator panel: client.dll keeps the stock CHudSpectator/SpectatorPanel and
+	// reskins it (its strings #Spec_TSHelp%d and #Spec_Help_TSTitle, the texts in ts/titles.txt). It
+	// shows no top bar (no "Map:" banner, checked by Steven against the running original); the bottom
+	// bar and its labels are stock.
 	if (gHUD.m_Spectate.IsActive())
 	{
 		m_TopBorder->setVisible(false);

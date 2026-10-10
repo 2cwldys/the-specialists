@@ -97,10 +97,9 @@ bool CHudTSAmmo::MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf)
 
 	g_iTSActiveWeapon = m_iWeaponType; // the weapon-select bar highlights this slot
 
-	// cl_thirdpersonswitch (dossier cont94 §8 — the WeaponInfo handler FUN_1004f800 @0x4f93b/0x4f958):
-	// auto third-person while on BARE HANDS (type 0 = kung fu), back to first person on leaving them.
-	// The test is the original's BIT-EXACT == 1.0f — value 2 must NOT trigger. The original's toggle
-	// (FUN_1004fe00) skips while spectating; VERIFY our CAM_To*Person no-ops match there.
+	// cl_thirdpersonswitch (the WeaponInfo handler 0x1004f93b/0x1004f958): exactly 1.0 turns third
+	// person on with kung fu (type 0) and off again on leaving it, both through the thirdperson toggle
+	// (0x1004fe00, CAM_ToThirdPerson), which does nothing while spectating in first person.
 	{
 		static cvar_t* s_tpswitch = nullptr;
 		if (s_tpswitch == nullptr)
@@ -110,7 +109,7 @@ bool CHudTSAmmo::MsgFunc_WeaponInfo(const char* pszName, int iSize, void* pbuf)
 			if (m_iWeaponType == 0 && 0 == CL_IsThirdPerson())
 				CAM_ToThirdPerson();
 			else if (m_iWeaponType > 0 && 0 != CL_IsThirdPerson() && oldType == 0)
-				CAM_ToFirstPerson();
+				CAM_ToThirdPerson();
 		}
 	}
 

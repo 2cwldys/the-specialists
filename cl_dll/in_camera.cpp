@@ -6,6 +6,8 @@
 //=============================================================================
 
 #include "hud.h"
+#include "demo.h"
+#include "demo_api.h"
 #include "cl_util.h"
 #include "camera.h"
 #include "kbutton.h"
@@ -432,32 +434,39 @@ void CAM_InUp() { KeyUp(&cam_in); }
 void CAM_OutDown() { KeyDown(&cam_out); }
 void CAM_OutUp() { KeyUp(&cam_out); }
 
+// The thirdperson command, client.dll 0x1004fe00, a toggle. Outside demo playback it does nothing
+// while spectating in first person; during playback it does nothing while the camera already matches
+// the state the demo recorded (Demo_ReadBuffer type 2). Turning third person on starts cam_ofs at the
+// view's pitch and yaw, 30 out. cam_command goes to 0, and while a demo records the new state is
+// written into it (type 2).
 void CAM_ToThirdPerson()
 {
+	if (0 == gEngfuncs.pDemoAPI->IsPlayingback())
+	{
+		if (gHUD.m_Spectate.IsActive() && !cam_thirdperson)
+			return;
+	}
+	else if ((cam_thirdperson ? 1 : 0) == g_iTSDemoThirdPerson)
+		return;
+
 	Vector viewangles;
-
-	// The Specialists permits third-person in multiplayer (it's a real TS feature, the
-	// `thirdperson`/`cl_thirdperson` toggle); the stock HL client blocked it in MP, which
-	// is why the command did nothing. Gate removed.
-
-	// `thirdperson` is a TOGGLE: if already in third-person, drop back to first-person (so the
-	// one key flips the view). `firstperson` (below) only ever switches to first-person.
+	gEngfuncs.GetViewAngles((float*)viewangles);
+	cam_thirdperson = !cam_thirdperson;
 	if (cam_thirdperson)
 	{
-		CAM_ToFirstPerson();
-		return;
+		cam_ofs[YAW] = viewangles[YAW];
+		cam_ofs[PITCH] = viewangles[PITCH];
+		cam_ofs[2] = CAM_MIN_DIST;
 	}
-
-	gEngfuncs.GetViewAngles((float*)viewangles);
-
-	cam_thirdperson = true;
-	cam_ofs[YAW] = viewangles[YAW];
-	cam_ofs[PITCH] = viewangles[PITCH];
-	cam_ofs[2] = CAM_MIN_DIST;
-
 	gEngfuncs.Cvar_SetValue("cam_command", 0);
+	if (0 != gEngfuncs.pDemoAPI->IsRecording())
+	{
+		int state = cam_thirdperson ? 1 : 0;
+		Demo_WriteBuffer(TYPE_THIRDPERSON, sizeof(state), (unsigned char*)&state);
+	}
 }
 
+// The firstperson command, client.dll 0x10025320.
 void CAM_ToFirstPerson()
 {
 	cam_thirdperson = false;
@@ -631,11 +640,9 @@ int DLLEXPORT CL_IsThirdPerson()
 {
 	//	RecClCL_IsThirdPerson();
 
-	// TS DEATH CAM: while dead and not yet observing, report third person so the ENGINE
-	// renders the local player's body (first-person deaths never drew it — round 8).
-	if (gHUD.m_Health.m_iHealth <= 0 && 0 == g_iUser1 && gEngfuncs.GetLocalPlayer())
-		return 1;
-	return static_cast<int>(cam_thirdperson || (0 != g_iUser1 && (g_iUser2 == gEngfuncs.GetLocalPlayer()->index)));
+	// client.dll (0x1004fec0): the camera state alone. Death turns it on through the thirdperson
+	// toggle (TSHealth, ts_status.cpp), the death camera being the third-person camera (view.cpp).
+	return static_cast<int>(cam_thirdperson);
 }
 
 void DLLEXPORT CL_CameraOffset(float* ofs)

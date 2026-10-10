@@ -65,11 +65,10 @@ bool CHudSpectate::IsActive() const
 	return TS_LocalSpectating();
 }
 
-// The ORIGINAL wire: BYTE playerIndex (1..32), BYTE flag (1 = spectating, 0 = playing).
-// (The old state+seconds payload was an invented wire — refuted by the cont.84 dossier;
-// the respawn countdown/"Press Fire To Play!" lines arrive as TSMessage texts instead.)
-// Parse ONLY stores the table — all local-state consequences (menu open/close, the HUD) are
-// derived per-frame where the local index is reliable.
+// Spectator (client.dll 0x10065250): BYTE playerIndex (1..64), BYTE flag (1 = spectating, 0 =
+// playing); the respawn countdown and "Press Fire To Play!" arrive as TSMessage texts. Parse stores
+// the table and clears that player's ActItems byte, as client.dll does; the local player's camera,
+// recoil and buy menu consequences run on the edges in Draw, where the local index is reliable.
 int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
@@ -77,6 +76,9 @@ int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 	const int flag = READ_BYTE();
 	if (idx >= 1 && idx <= MAX_PLAYERS)
 		s_bPlayerSpectating[idx] = (flag != 0);
+	extern void TS_ClearPlayerAttach(int idx);
+	if (idx >= 1 && idx <= 0x40)
+		TS_ClearPlayerAttach(idx);
 	return 1;
 }
 
@@ -87,25 +89,21 @@ int CHudSpectate::MsgFunc_Spectator(const char* pszName, int iSize, void* pbuf)
 
 bool CHudSpectate::Draw(float flTime)
 {
-	// Per-frame local-state derivation + edge detection (parse time is too early — see above).
-	// The original applies the camera logic at Spectator parse time (client.dll FUN_10065250,
-	// which re-runs on every local Spectator message); applying it on these SAME edges is
-	// behaviorally equivalent.
+	// The local player's Spectator consequences (0x10065290..0x10065300), on the edges of his state:
+	// entering spectate the camera leaves third person through the thirdperson toggle and the buy
+	// menu opens (0x10036670); entering play cl_thirdperson exactly 1 turns third person on and exactly
+	// 0 turns it off, any other value keeps the camera. Both reset the predicted recoil (0x10004600).
 	const bool spec = TS_LocalSpectating();
+	extern void HUD_TSResetRecoil();
 	if (spec && m_iState == 0)
 	{
-		// entering spectate-wait: always force FIRST person…
 		if (0 != CL_IsThirdPerson())
-			CAM_ToFirstPerson();
-		// VERIFY: the original also calls FUN_10036670/FUN_10004600 here (unidentified —
-		// camera/interp-save resets?). Not reconstructed; trace live if spectate entry glitches.
-		gHUD.m_TSBuyMenu.Open(); // …and the buy/config menu comes up once
+			CAM_ToThirdPerson();
+		gHUD.m_TSBuyMenu.Open();
+		HUD_TSResetRecoil();
 	}
 	else if (!spec && m_iState != 0)
 	{
-		// entering play (spawning): cl_thirdperson = the preferred camera. BIT-exact tests
-		// (client.dll 0x652c4/0x652db): only exactly 1.0 forces third person, only exactly
-		// 0.0 forces first; any other value keeps the current camera.
 		static cvar_t* s_cl_thirdperson = nullptr;
 		if (!s_cl_thirdperson)
 			s_cl_thirdperson = gEngfuncs.pfnGetCvarPointer("cl_thirdperson");
@@ -120,10 +118,13 @@ bool CHudSpectate::Draw(float flTime)
 			else if (v == 0.0f)
 			{
 				if (0 != CL_IsThirdPerson())
-					CAM_ToFirstPerson();
+					CAM_ToThirdPerson();
 			}
 		}
+		// client.dll closes the buy menu from the weapon bar Draw instead (0x1004d42f: alive, not
+		// spectating and not at level 8); reTS closes it here, on the same edge.
 		gHUD.m_TSBuyMenu.Close();
+		HUD_TSResetRecoil();
 	}
 	m_iState = spec ? 1 : 0;
 	if (!spec)
@@ -132,8 +133,7 @@ bool CHudSpectate::Draw(float flTime)
 	// (The respawn countdown number + "Press Fire To Play!" arrive as server TSMessage lines
 	// now — the original mechanism; nothing to draw here for them.)
 
-	// (The bottom bar is the STOCK SpectatorPanel — the original re-skins the stock spectator
-	// rather than drawing its own; our old custom orange bar was the invention. cont.84)
+	// (The bottom bar is the stock SpectatorPanel, reskinned, as client.dll's.)
 
 	return true;
 }

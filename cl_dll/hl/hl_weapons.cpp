@@ -83,8 +83,24 @@ int TS_PredictedViewmodelBody()
 
 // The event handlers' hold-stance probe (the original FUN_1003df60 reads its own client cache;
 // ours is the predicted weapon's synced m_bHoldPosition).
+// client.dll 0x1000b9d0, run by its Spectator handler for the local player (0x10004600): the predicted
+// player's spread accumulator and the vector beside it, the client punch and the crosshair spread go
+// to 0.
+void HUD_TSResetRecoil()
+{
+	player.m_flSpreadAccum = 0;
+	player.m_iTSInit77c[0] = player.m_iTSInit77c[1] = player.m_iTSInit77c[2] = 0;
+	extern Vector ev_punchangle;
+	ev_punchangle = Vector(0, 0, 0);
+	g_flTSSpreadAdd = 0;
+}
+
+// The hold-position stance the view model's anim block follows (client.dll 0x10189f9d): the predicted
+// gun's, or during demo playback the demo's (0x1003df5c).
 bool TS_LocalHoldPosition()
 {
+	if (0 != gEngfuncs.pDemoAPI->IsPlayingback())
+		return g_iTSDemoHold != 0;
 	return g_TSGun.m_bHoldPosition;
 }
 // NB: the stock HL weapon prediction placeholders (g_Glock/g_Crowbar/g_Python/g_Mp5/g_Crossbow/
@@ -667,6 +683,15 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 				if (from->client.m_flNextAttack > 0.0f)
 					g_iTSLaserSettled = 0;
 				it.holdPosition = (from->client.vuser2[2] != 0.0f);   // cd+0x1c0 = hold-position stance
+				// client.dll 0x10003bc0: a stance unlike the last one predicted is written into a
+				// recording demo (type 1)
+				{
+					static int s_iLastHold = 0;
+					int hold = (int)from->client.vuser2[2];
+					if ((hold & 0xff) != s_iLastHold && 0 != gEngfuncs.pDemoAPI->IsRecording())
+						Demo_WriteBuffer(TYPE_HOLD, sizeof(hold), (unsigned char*)&hold);
+					s_iLastHold = hold & 0xff;
+				}
 				g_TSGun.m_bHoldPosition = it.holdPosition;            // seed the PREDICTED base (the active-pointer
 				                                                      //   reseed above ran off the stale item) so SecondaryAttack
 				                                                      //   toggles from the server truth -> no stance blink

@@ -34,6 +34,9 @@
 
 #include <stdio.h>
 
+extern "C" int CL_IsThirdPerson();
+void CAM_ToThirdPerson();
+
 DECLARE_MESSAGE(m_TSStatus, TSHealth)
 DECLARE_MESSAGE(m_TSStatus, TSArmor)
 DECLARE_MESSAGE(m_TSStatus, TSCash)
@@ -110,6 +113,10 @@ bool CHudTSStatus::MsgFunc_TSHealth(const char* pszName, int iSize, void* pbuf)
 	// client keeps it from TSHealth (its handler @0x1004b748 stores the byte that @0x10026860, the
 	// "health < 1" test, reads), since the server never sends the stock Health message.
 	gHUD.m_Health.m_iHealth = m_iHealth;
+	// The death camera (0x1004b75a): a health of 0 while playing turns the camera to third person
+	// through the thirdperson toggle, unless it already is.
+	if (!gHUD.m_Spectate.IsActive() && m_iHealth == 0 && 0 == CL_IsThirdPerson())
+		CAM_ToThirdPerson();
 	m_iFlags |= HUD_ACTIVE;
 	return true;
 }

@@ -66,6 +66,14 @@ int MsgFunc_PlInfo(const char* pszName, int iSize, void* pbuf)
 	return 1;
 }
 
+// client.dll's Spectator handler (0x1006530c) clears the player's ActItems byte on every Spectator
+// message for him.
+void TS_ClearPlayerAttach(int idx)
+{
+	if (idx >= 0 && idx < TS_MAXPLAYERS)
+		g_playerAttach[idx] = 0;
+}
+
 void TS_Attachments_Init()
 {
 	memset(g_playerAttach, 0, sizeof(g_playerAttach));

@@ -44,6 +44,7 @@ void VectorAngles(const float* forward, float* angles);
 #include "com_model.h"
 #include "kbutton.h"
 #include "ts_recoil.h"
+#include "../dlls/ts_weapon_info.h"
 #include "ts_emitter.h"
 
 extern engine_studio_api_t IEngineStudio;
@@ -99,10 +100,8 @@ cvar_t* cl_bob;
 cvar_t* cl_bobup;
 cvar_t* cl_waterdist;
 
-// TS parity: the original client registers no cl_chasedist. 112 = the SDK default distance.
-// VERIFY: original chase distance un-RE'd (its spectator refdef hardcodes it; RE with the
-// spectator subsystem — cont94 client_cvar_parity.md B#12).
-constexpr float V_CHASE_DISTANCE = 112.0f;
+// client.dll registers no cl_chasedist: its V_GetChasePos (0x10068d40) passes 90 to the chase origin.
+constexpr float V_CHASE_DISTANCE = 90.0f;
 
 // These cvars are not registered (so users can't cheat), so set the ->value field directly
 // Register these cvars in V_Init() if needed for easy tweaking
@@ -451,30 +450,55 @@ V_CalcViewRoll
 Roll is induced by movement and damage
 ==============
 */
+// client.dll 0x100675b0. The roll is TS's own, not the movevars': none while the local player's
+// iuser1 is set (rolled to 0); on the ground it eases toward 0; in the air it rolls with the sideways
+// speed (0x100671f0: |speed x 0.01| against 10) up to 35 degrees with stunt flag 0x10, -10 with 0xc00,
+// else -5.5, eased at 7.5, 5 and 15 a second (15 on the ground). Dead with a view height it is 80.
 void V_CalcViewRoll(struct ref_params_s* pparams)
 {
-	float side;
-	cl_entity_t* viewentity;
-
-	viewentity = gEngfuncs.GetEntityByIndex(pparams->viewentity);
-	if (!viewentity)
+	static float s_flRoll = 0;
+	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
+	cl_entity_t* viewentity = gEngfuncs.GetEntityByIndex(pparams->viewentity);
+	if (!viewentity || !local)
 		return;
-
-	// TS parity (HL25 drift): the HL25 SDK's cl_rollangle "2.0" ADDED a view roll the original
-	// doesn't have — the original client registers neither cl_rollangle nor cl_rollspeed. Revert
-	// to the SDK-2.3 form: roll comes from movevars (server rollangle default 0 → no roll).
-	// VERIFY (low risk): confirm FUN_10067890 sources roll from movevars when next in Ghidra.
-	side = V_CalcRoll(viewentity->angles, pparams->simvel, pparams->movevars->rollangle, pparams->movevars->rollspeed);
-
-	pparams->viewangles[ROLL] += side;
-
-	if (pparams->health <= 0 && (pparams->viewheight[2] != 0) && g_iUser1 != 0)
+	if (local->prevstate.iuser1 > 0)
 	{
-		// stock dead ROLL tilt — observers only; the TS death cam (above) chases the body
-		// level instead of tilting (round 8).
-		pparams->viewangles[ROLL] = 80; // dead view angle
+		pparams->viewangles[ROLL] = 0;
 		return;
 	}
+
+	float rollangle = 0.0f, rate = 15.0f;
+	if (0 == pparams->onground)
+	{
+		if ((local->prevstate.iuser4 & 0x10) != 0)
+		{
+			rollangle = 35.0f;
+			rate = 7.5f;
+		}
+		else if ((local->prevstate.iuser4 & 0xc00) != 0)
+		{
+			rollangle = -10.0f;
+			rate = 5.0f;
+		}
+		else
+			rollangle = -5.5f;
+	}
+
+	Vector forward, right, up;
+	AngleVectors(viewentity->angles, forward, right, up);
+	const float dot = DotProduct(pparams->simvel, right);
+	const float sign = dot >= 0.0f ? 1.0f : -1.0f;
+	const float v = fabs(dot) * 0.01f;
+	const float roll = (v < 10.0f ? v * rollangle / 10.0f : rollangle) * sign;
+
+	float k = rate * pparams->frametime;
+	if (k > 1.0f)
+		k = 1.0f;
+	s_flRoll += (roll - s_flRoll) * k;
+	pparams->viewangles[ROLL] += s_flRoll;
+
+	if (pparams->health <= 0 && pparams->viewheight[2] != 0)
+		pparams->viewangles[ROLL] = 80; // dead view angle
 }
 
 
@@ -873,60 +897,101 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 
 	// (client.dll registers scr_ofsx/y/z but never reads them: no single player view offset here.)
 
-	// TS DEATH CAM first (round 8, user-verified vs the original): dying pulls the camera
-	// out third-person to watch your own death anim ease into the death idle. This branch
-	// must run BEFORE the CL_IsThirdPerson one — the export now reports third person while
-	// dead (so the engine renders the body), but cam_ofs is unmaintained in that state.
-	// VERIFY: the original's exact distance/lift + wall-trace (the chase-cam RE item).
-	if (pparams->health <= 0 && g_iUser1 == 0)
+	// The third-person camera (client.dll 0x10067fb0..0x10068508). Its direction is cam_ofs's pitch and
+	// yaw (smoothed toward the view by CAM_Think); its offset is a cl_camtype preset of back, side and
+	// up (0: -48, 16, 12; 1: -48, -16, 12; 2: -90, 0, 12; 3: -cam_back, cam_right, cam_up), back held to
+	// -128..24 and side and up to -24..24. Two eases at 5 a second ride on it: the height, toward
+	// 32 - up while ducked (view height under 28 and not 0), else 0, added only while alive; and the
+	// distance, toward -180 - back while dead, toward -92 - back while a stunt flag of 0x130c30 is set
+	// (with back above -128), else 0. Dying turns the camera to third person (TSHealth, ts_status.cpp),
+	// so this is also the death camera. A back of 0 puts the eye at the player's eye, 8 up ducked and 1
+	// otherwise, pushed by the pitch; anything else offsets the eye, then a line from 28 + up above the
+	// player's origin (the origin itself when that point is in solid) to it pulls the eye in to 4 units
+	// off the wall it hits, 1 higher. The local model's height then eases toward its origin at 16 a
+	// second.
+	if (0 != CL_IsThirdPerson())
 	{
-		VectorCopy(pparams->cl_viewangles, camAngles);
-		camAngles[ROLL] = 0;
-		AngleVectors(camAngles, camForward, camRight, camUp);
-		pparams->vieworg[2] += 24.0f; // lift off the floor-level dead eye
-		for (i = 0; i < 3; i++)
-			pparams->vieworg[i] += -80.0f * camForward[i];
-	}
-	// TS over-the-shoulder 3rd-person camera (RE: client.dll V_CalcNormalRefdef @0x67890,
-	// dossier reference/dossiers/cont87/thirdperson_camera_reticle.md). TS ignores
-	// cam_idealdist; only cam_ofs pitch/yaw (smoothed by CAM_Think) feed the camera
-	// DIRECTION, and the POSITION comes from a cl_camtype (0-3) preset of back/right/up
-	// offsets — an over-the-shoulder rig, not a straight-back distance orbit.
-	else if (0 != CL_IsThirdPerson())
-	{
+		static float s_flCamUp = 0, s_flCamBack = 0, s_flModelZ = 0;
 		Vector camOfs;
 		camOfs[0] = camOfs[1] = camOfs[2] = 0.0f;
-		CL_CameraOffset((float*)&camOfs); // [0]=pitch, [1]=yaw (smoothed toward the view)
+		CL_CameraOffset((float*)&camOfs);
 
 		VectorCopy(camOfs, camAngles);
 		camAngles[ROLL] = 0;
 		AngleVectors(camAngles, camForward, camRight, camUp);
 
-		// cl_camtype preset offset (RE: V_CalcNormalRefdef 0x67fb0). camtype 0 (default) =
-		// back -48, right +16 (over the right shoulder), up +12.
-		float back, side, lift;
-		const float TSCAM_UP = 12.0f;
+		const bool ducked = pparams->viewheight[2] < 28.0f && pparams->viewheight[2] != 0.0f;
+		float back, side, lift = 12.0f;
 		switch ((int)cl_camtype->value)
 		{
-		case 1:  back = -48.0f; side = -16.0f; lift = TSCAM_UP; break;
-		case 2:  back = -90.0f; side =   0.0f; lift = TSCAM_UP; break;
+		case 1:  back = -48.0f; side = -16.0f; break;
+		case 2:  back = -90.0f; side =   0.0f; break;
 		case 3:  back = -cam_back->value; side = cam_right->value; lift = cam_up->value; break;
-		default: back = -48.0f; side =  16.0f; lift = TSCAM_UP; break; // camtype 0
+		default: back = -48.0f; side =  16.0f; break;
 		}
-		// clamps (0x68033): back [-128,24], right/up [-24,24]
-		if (back < -128.0f) back = -128.0f; else if (back > 24.0f) back = 24.0f;
-		if (side < -24.0f)  side = -24.0f;  else if (side > 24.0f)  side = 24.0f;
-		if (lift < -24.0f)  lift = -24.0f;  else if (lift > 24.0f)  lift = 24.0f;
+		if (back > -128.0f && back >= 24.0f)
+			back = 24.0f;
+		else if (back <= -128.0f)
+			back = -128.0f;
+		if (side < -24.0f) side = -24.0f; else if (side > 24.0f) side = 24.0f;
+		if (lift < -24.0f) lift = -24.0f; else if (lift > 24.0f) lift = 24.0f;
 
-		for (i = 0; i < 3; i++)
-			pparams->vieworg[i] += back * camForward[i] + lift * camUp[i] + side * camRight[i];
+		const float upTarget = (ducked && lift < 32.0f) ? 32.0f - lift : 0.0f;
+		s_flCamUp += (upTarget - s_flCamUp) * pparams->frametime * 5.0f;
+		float backTarget = 0.0f;
+		if (pparams->health < 1)
+			backTarget = -180.0f - back;
+		else if (ent && (ent->prevstate.iuser4 & 0x130c30) != 0 && back > -128.0f)
+			backTarget = -92.0f - back;
+		s_flCamBack += (backTarget - s_flCamBack) * pparams->frametime * 5.0f;
+		back += s_flCamBack;
+		if (pparams->health > 0)
+			lift += s_flCamUp;
 
-		// TS renders the camera with the SMOOTHED cam_ofs angles, so the whole rig orbits
-		// with a rotational lag as you turn (0x67d60). This lag is what makes the 3rd-person
-		// reticle float behind the mouse — ts_reticle.cpp projects the INSTANT aim through
-		// this lagging view. VERIFY: the dynamic back-ease (48->92 when moving) is omitted
-		// pending a live read of the 0x130c30 player-state gate.
-		VectorCopy(camAngles, pparams->viewangles);
+		if (back == 0.0f)
+		{
+			float push = sin(camAngles[PITCH] * (M_PI / 180.0));
+			if (push < 0.0f)
+				push = 0.0f;
+			for (i = 0; i < 3; i++)
+				pparams->vieworg[i] = (ent ? ent->origin[i] : 0.0f) + pparams->viewheight[i];
+			pparams->vieworg[2] += ducked ? 8.0f : 1.0f;
+			for (i = 0; i < 3; i++)
+			{
+				if (ducked)
+					pparams->vieworg[i] += (1.0f - push) * camForward[i] * 8.0f;
+				pparams->vieworg[i] += push * camForward[i] * 4.0f + push * camUp[i] * 18.0f;
+			}
+		}
+		else
+		{
+			for (i = 0; i < 3; i++)
+				pparams->vieworg[i] += back * camForward[i] + lift * camUp[i] + side * camRight[i];
+			if (ent)
+			{
+				Vector start = ent->origin;
+				start[2] += lift + 28.0f;
+				if (gEngfuncs.PM_PointContents(start, NULL) == CONTENTS_SOLID)
+					start = ent->origin;
+				pmtrace_t* tr = gEngfuncs.PM_TraceLine(start, pparams->vieworg, PM_NORMAL, 2, -1);
+				if (tr && tr->fraction != 1.0f)
+				{
+					for (i = 0; i < 3; i++)
+						pparams->vieworg[i] = tr->endpos[i] + tr->plane.normal[i] * 4.0f;
+					pparams->vieworg[2] += 1.0f;
+				}
+			}
+		}
+
+		if (ent)
+		{
+			const float d = s_flModelZ - ent->origin[2];
+			float step = d * pparams->frametime * 16.0f;
+			if (fabs(d) < fabs(step))
+				step = d;
+			s_flModelZ -= step;
+			ent->origin[2] = s_flModelZ;
+		}
 	}
 
 	// Give gun our viewangles
@@ -1087,7 +1152,8 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 		VectorCopy(camAngles, pparams->viewangles);
 	}
 
-	//Apply this at all times
+	// client.dll slams the local model's pitch from the camera's only in third person (0x10068a2c)
+	if (0 != CL_IsThirdPerson())
 	{
 		float pitch = pparams->viewangles[0];
 
@@ -1688,21 +1754,22 @@ void V_GetMapChasePosition(int target, float* cl_angles, float* origin, float* a
 	VectorMA(origin, -1536, forward, origin);
 }
 
+// Spectator in-eye: the view model for the spectated player's world weapon model. client.dll
+// (0x10068ef0) takes the model's name and finds the first weapon whose p_ model, or silenced p_
+// model, it starts with (types 0..37), then loads that weapon's v_ model (0x10069a3e).
 int V_FindViewModelByWeaponModel(int weaponindex)
 {
-	// Spectator in-eye: given the spectated player's WORLD weapon model, return the
-	// VIEW model index to draw in first person. The stock Half-Life weapon rows
-	// (p_crossbow/p_egon/p_gauss/p_357/... -> v_*) were removed: TS players carry TS
-	// world models (p_glock18/p_beretta/p_uzi/..., see ts_weapon_info.cpp), which never
-	// matched the HL table, so this already returned 0 (no spectator viewmodel) for
-	// every TS weapon. Removing the HL rows is behaviour-neutral and drops the HL model
-	// references.
-	//
-	// TODO(reconstruction): to actually draw TS viewmodels in spectator in-eye, resolve
-	// the spectated player's TS weapon -> its viewmodel index here. RE the original TS
-	// client first — it likely keys off the weapon TYPE (weapon_tsgun's predicted state),
-	// not a model-name string match — before reintroducing a mapping.
-	(void)weaponindex;
+	model_t* m = IEngineStudio.GetModelByIndex(weaponindex);
+	if (m == nullptr || m->name[0] == '\0')
+		return 0;
+	const size_t len = strlen(m->name);
+	for (int t = 0; t < TSW_COUNT; t++)
+	{
+		const s_weapon_info* wi = get_weapon_info((tsweapon_t)t);
+		if ((wi->pszPlayerModel && strncmp(m->name, wi->pszPlayerModel, len) == 0) ||
+			(wi->pszPlayerModelSil && strncmp(m->name, wi->pszPlayerModelSil, len) == 0))
+			return wi->pszViewModel ? gEngfuncs.pEventAPI->EV_FindModelIndex(wi->pszViewModel) : 0;
+	}
 	return 0;
 }
 
