@@ -13,6 +13,8 @@
 #   scripts/build.sh [i386|amd64|aarch64] [hl|client|all]   (defaults: amd64 hl)
 #
 # Output: build-<arch>/dlls/hl.so  (+ build-<arch>/cl_dll/client.so for client/all)
+# BUILDTYPE=Debug builds -O0 with DWARF; BUILD_DIR=<dir under the repo> builds there instead of
+# build-<arch> (scripts/package.sh keeps its Debug build apart this way).
 #
 # The client links VGUI: 32-bit (i386) uses Valve's bundled vgui.so; 64-bit (amd64) uses
 # openvgui's ABI-compatible libvgui.so (vendored as linux/release/vgui64.so) — see cl_dll/CMakeLists.txt.
@@ -22,6 +24,7 @@ ARCH="${1:-amd64}"
 TARGET="${2:-hl}"
 IMAGE="${IMAGE:-hlds64-buildchain:debian10}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+BDIR="${BUILD_DIR:-build-$ARCH}"
 
 case "$TARGET" in
   hl)     BUILD_TARGETS="hl" ;;
@@ -52,15 +55,15 @@ docker run --rm -i \
   -v "$ROOT":/work/mod-ts \
   "$IMAGE" \
   bash -lc "set -e; \
-    mkdir -p /work/mod-ts/build-$ARCH; \
-    cd /work/mod-ts/build-$ARCH; \
+    mkdir -p /work/mod-ts/$BDIR; \
+    cd /work/mod-ts/$BDIR; \
     $ENV cmake -S /work/mod-ts -B . -DCMAKE_BUILD_TYPE=${BUILDTYPE:-Release} $TC; \
     cmake --build . -j\$(nproc)$TARGET_FLAGS"
 
 for t in $BUILD_TARGETS; do
   case "$t" in
-    hl)     SO="$ROOT/build-$ARCH/dlls/hl.so" ;;
-    client) SO="$ROOT/build-$ARCH/cl_dll/client.so" ;;
+    hl)     SO="$ROOT/$BDIR/dlls/hl.so" ;;
+    client) SO="$ROOT/$BDIR/cl_dll/client.so" ;;
   esac
   [ -f "$SO" ] || continue
   echo ">>> done: ${SO#$ROOT/}"

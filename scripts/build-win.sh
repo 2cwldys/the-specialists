@@ -9,11 +9,12 @@
 #
 # Usage: scripts/build-win.sh [hl|client|all]   (default all)
 # Output: build-win32-clangcl/dlls/hl.dll, build-win32-clangcl/cl_dll/client.dll
+# BUILDTYPE=Debug builds the Debug profile (with PDBs); BUILD_DIR=<dir under the repo> builds there.
 set -euo pipefail
 
 TARGET="${1:-all}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BUILD="$ROOT/build-win32-clangcl"
+BUILD="$ROOT/${BUILD_DIR:-build-win32-clangcl}"
 XWIN_DIR="${XWIN_DIR:-$HOME/.cache/xwin/splat-x86}"
 export XWIN_DIR
 
@@ -31,7 +32,7 @@ if [ ! -d "$XWIN_DIR/crt/lib/x86" ]; then
 fi
 
 GEN="Unix Makefiles"; command -v ninja >/dev/null && GEN=Ninja
-cmake -S "$ROOT" -B "$BUILD" -G "$GEN" -DCMAKE_BUILD_TYPE=Release \
+cmake -S "$ROOT" -B "$BUILD" -G "$GEN" -DCMAKE_BUILD_TYPE="${BUILDTYPE:-Release}" \
   -DCMAKE_TOOLCHAIN_FILE="$ROOT/cmake/WindowsClangClToolchain.cmake"
 cmake --build "$BUILD" "${TARGETS[@]}" -j"$(nproc)"
 

@@ -1,6 +1,15 @@
 name: CI/CD
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  # Run by hand (Actions -> CI/CD -> Run workflow) to also build and package the Debug profile.
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: "Also build the Debug profile (i386 + Win32) and package reTS-<commit>-debug"
+        type: boolean
+        default: false
 
 # Every arch builds through the SAME CMake authority now — the legacy i386 Makefile
 # and the MSVC .vcxproj/.sln are gone. CMake carries the i386 toolchain (classic
@@ -43,6 +52,23 @@ jobs:
           mkdir -p staged-i386/dlls staged-i386/cl_dlls
           cp build-i386/dlls/hl.so staged-i386/dlls/hl.so
           cp build-i386/cl_dll/client.so staged-i386/cl_dlls/client.so
+
+      - name: Build the Debug profile (workflow_dispatch with debug only)
+        if: ${{ inputs.debug }}
+        run: |
+          cmake -B build-i386-debug -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/LinuxToolchain.cmake
+          cmake --build build-i386-debug --target hl client -j$(nproc)
+          mkdir -p staged-i386-debug/dlls staged-i386-debug/cl_dlls
+          cp build-i386-debug/dlls/hl.so staged-i386-debug/dlls/hl.so
+          cp build-i386-debug/cl_dll/client.so staged-i386-debug/cl_dlls/client.so
+
+      - name: Upload the Debug profile
+        if: ${{ inputs.debug }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Linux-i386-debug
+          path: staged-i386-debug/**
 
       - name: Deploy
         uses: actions/upload-artifact@v7
@@ -154,14 +180,28 @@ jobs:
           mkdir -p staged-win32/dlls staged-win32/cl_dlls
           cp build-win32/dlls/Release/hl.dll        staged-win32/dlls/hl.dll
           cp build-win32/cl_dll/Release/client.dll  staged-win32/cl_dlls/client.dll
-          cp build-win32/dlls/Release/hl.pdb        staged-win32/dlls/       2>/dev/null || true
-          cp build-win32/cl_dll/Release/client.pdb  staged-win32/cl_dlls/    2>/dev/null || true
 
       - name: Deploy
         uses: actions/upload-artifact@v7
         with:
           name: Win32
           path: staged-win32/**
+
+      - name: Build the Debug profile (workflow_dispatch with debug only)
+        if: ${{ inputs.debug }}
+        shell: bash
+        run: |
+          cmake --build build-win32 --config Debug --target hl client --parallel 2
+          mkdir -p staged-win32-debug/dlls staged-win32-debug/cl_dlls
+          cp build-win32/dlls/Debug/hl.dll build-win32/dlls/Debug/hl.pdb staged-win32-debug/dlls/
+          cp build-win32/cl_dll/Debug/client.dll build-win32/cl_dll/Debug/client.pdb staged-win32-debug/cl_dlls/
+
+      - name: Upload the Debug profile
+        if: ${{ inputs.debug }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Win32-debug
+          path: staged-win32-debug/**
 
   # Win64 — CMake/MSVC. 64-bit static-links openvgui (submodule, built as part of the
   # client via VGUI_STATIC) + the vgui_support shim: no vgui.dll companion to ship, and
@@ -257,11 +297,22 @@ jobs:
           name: reTS-${{ env.REV }}
           path: dropin/reTS-${{ env.REV }}/**
 
-      - name: Upload the unstripped Linux libraries (crash symbols, not for release)
+      - name: Assemble the Debug package
+        if: ${{ inputs.debug }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pick() { find "artifacts/$1" -type f -name "$2" | head -1; }
+          scripts/assemble-dropin.sh --debug "$REV" \
+            "$(pick Linux-i386-debug hl.so)" "$(pick Linux-i386-debug client.so)" \
+            "$(pick Win32-debug hl.dll)" "$(pick Win32-debug client.dll)" dropin
+
+      - name: Upload the Debug package
+        if: ${{ inputs.debug }}
         uses: actions/upload-artifact@v7
         with:
-          name: reTS-${{ env.REV }}-symbols
-          path: dropin/reTS-${{ env.REV }}-symbols/**
+          name: reTS-${{ env.REV }}-debug
+          path: dropin/reTS-${{ env.REV }}-debug/**
 
       - name: Upload the Xash libraries
         uses: actions/upload-artifact@v7
