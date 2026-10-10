@@ -1,0 +1,3 @@
+LIBRARY hl
+EXPORTS
+	GiveFnptrsToDll			@1

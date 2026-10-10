@@ -146,6 +146,13 @@ scripts/build.sh i386
 BUILDTYPE=Debug scripts/build.sh i386   # -O0 + DWARF; use for vtable/layout comparison
 ```
 
+**Win32 (`hl.dll`, installed as `dlls/mp.dll`, and `client.dll`)**: CI builds them with MSVC on
+`windows-latest`, but Actions is off on this private repo. Locally, `scripts/build-win.sh` cross-builds
+them with clang-cl + lld-link (MSVC ABI, so Valve's win32 `vgui.lib` links) against an xwin splat of the
+x86 MSVC CRT and Windows SDK (`~/.cache/xwin/splat-x86`; the script prints the xwin command if it is
+missing). Output: `build-win32-clangcl/`. lld-link rejects `hl.def`'s `SECTIONS` block, so that build
+uses `dlls/hl-lld.def`.
+
 Always build deployables through the image, never natively (a native build on
 this host links glibc 2.38+ and won't run on Debian 12 / AL2023). Verify:
 `objdump -T build-<arch>/dlls/hl.so | grep -oE 'GLIBC_[0-9.]+' | sort -V | tail -1`.
