@@ -257,6 +257,12 @@ jobs:
           name: reTS-${{ env.REV }}
           path: dropin/reTS-${{ env.REV }}/**
 
+      - name: Upload the unstripped Linux libraries (crash symbols, not for release)
+        uses: actions/upload-artifact@v7
+        with:
+          name: reTS-${{ env.REV }}-symbols
+          path: dropin/reTS-${{ env.REV }}-symbols/**
+
       - name: Upload the Xash libraries
         uses: actions/upload-artifact@v7
         with:
