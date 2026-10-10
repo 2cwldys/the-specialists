@@ -510,6 +510,11 @@ int TS_LocalActiveAttach()
 	return g_playerAttach[idx];
 }
 
+bool TS_LocalLaserEndpoint(Vector& muzzle, Vector& endpoint)
+{
+	return LocalLaserEndpoint(muzzle, endpoint);
+}
+
 // The LOCAL player's laser dot is a HUD dot, not a world sprite (RE: the 3D laser draw FUN_1003d600
 // skips the local player). It marks where the gun MODEL is actually pointing — trace along the
 // viewmodel's muzzle aim and project the hit to screen, so the dot sits near the reticle and shifts

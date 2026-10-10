@@ -28,6 +28,7 @@
 #include "ts_weapon_info.h" // Set_ammo_count (the SrvSett id-2 shared call)
 #include "ts_hud.h"
 #include "demo_api.h"
+#include "triangleapi.h"
 #include "player_info.h" // g_PlayerExtraInfo (team name)
 #include "vgui_TeamFortressViewport.h" // iTeamColors / iNumberOfTeamColors (team box color)
 
@@ -185,6 +186,45 @@ bool CHudTSStatus::MsgFunc_SrvSett(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
+// Players HUD_AddEntity let through this frame (client.dll status +0x1444, set at 0x10044863).
+static bool s_bSeen[MAX_PLAYERS + 2];
+
+void TSHud_PlayerSeen(int index)
+{
+	if (index >= 0 && index < MAX_PLAYERS + 2)
+		s_bSeen[index] = true;
+}
+
+// client.dll 0x1004ab40: each other player HUD_AddEntity let through this frame (the flag is used up
+// here) who is on the local player's team gets a 4 x 4 dot in (45, 195, 45) at alpha 0x75, centred 40
+// units above his origin (0x1004b470), when on screen. (Its other branch, a flag.spr marker, is keyed on
+// an extra-info field client.dll never sets.)
+void CHudTSStatus::DrawTeamDots()
+{
+	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+	const int local = lp ? lp->index : 0;
+	const int maxClients = gEngfuncs.GetMaxClients();
+	for (int i = 0; i <= maxClients && i < MAX_PLAYERS + 2; i++)
+	{
+		if (!s_bSeen[i])
+			continue;
+		s_bSeen[i] = false;
+		if (i == local || g_PlayerExtraInfo[i].teamnumber != g_PlayerExtraInfo[local].teamnumber)
+			continue;
+		cl_entity_t* ent = gEngfuncs.GetEntityByIndex(i);
+		if (ent == nullptr || 0 == ent->player)
+			continue;
+		Vector top = ent->origin;
+		top.z += 40.0f;
+		float screen[3];
+		if (0 != gEngfuncs.pTriAPI->WorldToScreen((float*)&top, screen))
+			continue;
+		const int x = (int)((1.0f + screen[0]) * ScreenWidth / 2);
+		const int y = (int)((1.0f - screen[1]) * ScreenHeight / 2);
+		FillRGBA(x - 2, y - 2, 4, 4, 0x2d, 0xc3, 0x2d, 0x75);
+	}
+}
+
 // client.dll 0x1004c250: dead for the HUD = the last TSHealth is 0, unless a demo is playing or
 // being recorded. The status draw (0x10049ea0) shows the status panel, the powerup label and the
 // team and objective parts only while not dead and not spectating (0x1004c280).
@@ -208,10 +248,17 @@ bool CHudTSStatus::Draw(float flTime)
 	if (gHUD.m_iHideHUDDisplay & (HIDEHUD_HEALTH | HIDEHUD_ALL))
 		return true;
 
-	// The status draw (0x10049ea0) reaches the panel only while nohud is 0, not dead and not spectating;
-	// the panel (0x1004a3e0) returns at once unless cl_realhud is 0. The kung-fu and super-jump figures
-	// it also draws are CHudTSPowerUp's here (ts_powerup_hud.cpp).
-	if (TSHud_NoHud() || TSHud_PlayerPartsHidden() || TSHud_RealHud())
+	// The status draw (0x10049ea0) runs these only while nohud is 0, not dead and not spectating: the
+	// teammate dots when the GameMode byte is not 0, the aim trace with the aimed player's name, then
+	// the panel (0x1004a3e0), which returns at once unless cl_realhud is 0. The kung-fu and super-jump
+	// figures the panel also draws are CHudTSPowerUp's here (ts_powerup_hud.cpp).
+	if (TSHud_NoHud() || TSHud_PlayerPartsHidden())
+		return true;
+	if (gHUD.m_iTeamplay != 0)
+		DrawTeamDots();
+	extern void TS_AimNames();
+	TS_AimNames();
+	if (TSHud_RealHud())
 		return true;
 
 	// client.dll 0x1004a3e0, fixed pixels (only y follows the screen height). The boxes use the full HUD

@@ -45,6 +45,10 @@ static globalvars_t Globals;
 static CBasePlayerWeapon* g_pWpns[MAX_WEAPONS];
 
 float g_flApplyVel = 0.0;
+// The laser dot's "settled" test (client.dll 0x1018a628) and the predicted spread the crosshair widens
+// with (0x1018d188), both set by the weapon prediction below.
+int g_iTSLaserSettled = 0;
+float g_flTSSpreadAdd = 0;
 bool g_irunninggausspred = false;
 
 Vector previousorigin;
@@ -617,6 +621,7 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		if (pCurrent == &g_TSGun)
 		{
 			const int wt = (int)from->client.vuser3[0];
+			g_iTSLaserSettled = 0; // 0x10003a04: 0 with kung fu (type 0)
 			g_TSGun.m_weaponType = wt;
 			g_TSGun.m_fireMode = (int)from->client.vuser3[1];
 			g_TSGun.m_pActiveInfo = get_weapon_info((tsweapon_t)wt); // inline (fold-plan G5)
@@ -657,6 +662,11 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 				g_TSGun.m_fInReload = (from->client.vuser4[2] != 0.0f); // cd+0x1d8 = the RELOAD flag (not leftClip)
 				it.leftClip = (int)from->client.ammo_nails;            // cd+0x70 = akimbo LEFT barrel clip
 				it.active = (int)from->client.vuser1[2];
+				// client.dll 0x10003b9c: the laser dot's "settled" test is the active attachments as the
+				// server sends them, cleared below while the player may not attack yet.
+				g_iTSLaserSettled = wt != 0 ? it.active : 0;
+				if (from->client.m_flNextAttack > 0.0f)
+					g_iTSLaserSettled = 0;
 				it.holdPosition = (from->client.vuser2[2] != 0.0f);   // cd+0x1c0 = hold-position stance
 				g_TSGun.m_bHoldPosition = it.holdPosition;            // seed the PREDICTED base (the active-pointer
 				                                                      //   reseed above ran off the stale item) so SecondaryAttack
@@ -974,6 +984,19 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 	if (to->client.fuser3 < -0.001)
 	{
 		to->client.fuser3 = -0.001;
+	}
+
+	// client.dll 0x10004083: on a first prediction the spread accumulator recovers by a tenth of the
+	// weapon frame time, to 0, and the crosshair reads it.
+	if (g_runfuncs)
+	{
+		if (player.m_flSpreadAccum > 0.0f)
+		{
+			player.m_flSpreadAccum -= (float)slowMsec * 0.1f;
+			if (player.m_flSpreadAccum < 0.0f)
+				player.m_flSpreadAccum = 0.0f;
+		}
+		g_flTSSpreadAdd = player.m_flSpreadAccum;
 	}
 
 	// client.dll @0x10003f6c: on a first prediction with the arsenal out, the predicted gun hands its

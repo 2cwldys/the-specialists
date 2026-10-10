@@ -82,4 +82,3 @@ extern int g_iTSHealth;
 // Active weapon tsweapon_t (from WeaponInfo). Set by the ammo HUD, read by the weapon-
 // select bar to highlight the held weapon's slot.
 extern int g_iTSActiveWeapon;
-bool TS_ActiveWeaponIsGun(); // reticle crosshair shows only for guns (column>=2); melee/grenade suppress it

@@ -40,6 +40,8 @@ public:
 	bool MsgFunc_TSPAward(const char* pszName, int iSize, void* pbuf); // per-player award/status byte
 	bool MsgFunc_SrvSett(const char* pszName, int iSize, void* pbuf); // server settings sync (id + short)
 	bool IsDead() const; // client.dll 0x1004c250
+	int FreeSlots() const { return m_iSpace; } // status +0x28, the dive arc's load test
+	void DrawTeamDots();  // client.dll 0x1004ab40
 
 private:
 	int m_iHealth; // last TSHealth byte received

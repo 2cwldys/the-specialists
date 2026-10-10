@@ -723,9 +723,7 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 	// HUD_ProcessPlayerState (entity.cpp:123) writes the networked entity_state used for prediction,
 	// not this post-refdef rendered curstate, so the value survives to the studio draw.
 	{
-		extern int g_iTSAimTarget;
-		extern void TS_UpdateAimTarget();
-		TS_UpdateAimTarget();
+		extern int g_iTSAimTarget; // set by the status draw's aim trace (ts_reticle.cpp, client.dll 0x1004acc0)
 		cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
 		if (lp)
 		{

@@ -54,6 +54,12 @@ static bool TS_LocalSpectating()
 	return g_iUser1 != 0;
 }
 
+// The Spectator table entry for a player (client.dll 0x101900ec).
+bool TS_PlayerSpectating(int idx)
+{
+	return idx >= 1 && idx <= MAX_PLAYERS && s_bPlayerSpectating[idx];
+}
+
 bool CHudSpectate::IsActive() const
 {
 	return TS_LocalSpectating();

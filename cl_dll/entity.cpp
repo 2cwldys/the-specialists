@@ -45,6 +45,17 @@ int DLLEXPORT HUD_AddEntity(int type, struct cl_entity_s* ent, const char* model
 	default:
 		break;
 	}
+	// client.dll's HUD_AddEntity (0x100447f0) leaves out players the Spectator table marks spectating and
+	// notes every other player it lets through for the teammate dots (0x1004485a).
+	if (type == ET_PLAYER && ent->index >= 0 && ent->index < 0x22)
+	{
+		extern bool TS_PlayerSpectating(int idx);
+		extern void TSHud_PlayerSeen(int index);
+		if (TS_PlayerSpectating(ent->index))
+			return 0;
+		TSHud_PlayerSeen(ent->index);
+	}
+
 	// each frame every entity passes this function, so the overview hooks it to filter the overview entities
 	// in spectator mode:
 	// each frame every entity passes this function, so the overview hooks

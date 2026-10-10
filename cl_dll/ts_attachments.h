@@ -25,5 +25,7 @@ int  TS_LocalActiveAttach();    // the LOCAL player's ACTIVE attach mask (laser 
 // reticle by ts_reticle.cpp. Fills sx,sy (pixels) + the laser colour; returns false if no active laser
 // or the aim point is behind the view.
 bool TS_LocalLaserDot(int& sx, int& sy, int& r, int& g, int& b);
+// The local laser beam's muzzle and end (false without an active laser).
+bool TS_LocalLaserEndpoint(Vector& muzzle, Vector& endpoint);
 
 #endif // TS_ATTACHMENTS_H
