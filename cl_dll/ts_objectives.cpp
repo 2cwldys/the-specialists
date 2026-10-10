@@ -15,14 +15,12 @@
 #include "parsemsg.h"
 #include "cl_entity.h"   // cl_entity_t (GetLocalPlayer)
 #include "triangleapi.h" // pTriAPI->WorldToScreen (objective marker projection)
-#include "pm_shared.h"   // OBS_IN_EYE
 #include "ts_hud.h"      // TSHud_Color / TSHud_DrawString
 #include "player_info.h" // g_PlayerInfoList (carrier name)
+#include "vgui_TeamFortressViewport.h" // iTeamColors
 #include "ts_objectives.h"
 
 #include <string.h>
-
-extern Vector v_origin; // view origin (cl_dll/view.cpp) — the local view z for the up/down cue
 
 DECLARE_MESSAGE(m_TSObjectives, TSFlag)
 DECLARE_MESSAGE(m_TSObjectives, Objective)
@@ -171,14 +169,9 @@ bool CHudTSObjectives::Draw(float flTime)
 	if ((m_iFlags & HUD_ACTIVE) == 0)
 		return true;
 
-	// The original master Draw gates everything on the nohud-ish cvar (0x100df50c) == 0.
-	{
-		static cvar_t* s_nohud = nullptr;
-		if (s_nohud == nullptr)
-			s_nohud = gEngfuncs.pfnGetCvarPointer("nohud");
-		if (s_nohud != nullptr && s_nohud->value != 0.0f)
-			return true;
-	}
+	// The status draw (0x10049ea0) runs the flags and the objectives only while nohud is 0.
+	if (TSHud_NoHud())
+		return true;
 
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
@@ -186,8 +179,31 @@ bool CHudTSObjectives::Draw(float flTime)
 	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
 	const int localIdx = (lp != nullptr) ? lp->index : 0;
 
-	// ---- Flag HUD (FUN_1004b0e0): one row per team at the right edge, only for flags
-	// AWAY from base (action != 0). ----
+	// ---- Flag HUD (client.dll 0x1004b0e0), from the status draw whatever the player's state. Two
+	// blink clocks run down by the frame time times the slow motion factor: every 0.1 s and every 0.5 s
+	// each flips its state. For each flag id away from base (action not 0) of team 1..4: flag.spr at
+	// (ScreenWidth - 56, team x 48 + 40) in the team's colour x 0.75, x 0.5 more while its clock's state
+	// is off (the fast clock for a carried flag, action 1, the slow one otherwise). A carried flag also
+	// shows its carrier's name (24 characters) ending at the icon, (40, 175, 40) for a carrier on another
+	// team than the local player's and (175, 40, 40) for one on his, and to the local carrier "Take the
+	// Briefcase to the base!" at (ScreenWidth - its width - 32, 320) in the HUD colour with red + 35. ----
+	{
+		extern float g_flClientSlow;
+		const float dt = (float)gHUD.m_flTimeDelta * (g_flClientSlow < 0.01f ? 0.01f : g_flClientSlow);
+		m_flBlinkFast -= dt;
+		m_flBlinkSlow -= dt;
+		if (m_flBlinkFast < 0.0f)
+		{
+			m_flBlinkFast = 0.1f;
+			m_bBlinkFast = !m_bBlinkFast;
+		}
+		if (m_flBlinkSlow < 0.0f)
+		{
+			m_flBlinkSlow = 0.5f;
+			m_bBlinkSlow = !m_bBlinkSlow;
+		}
+	}
+	const int localTeam = g_PlayerExtraInfo[localIdx].teamnumber;
 	for (int id = 1; id < 16; id++)
 	{
 		const flagentry_t& f = m_Flags[id];
@@ -196,43 +212,33 @@ bool CHudTSObjectives::Draw(float flTime)
 
 		const int iconX = ScreenWidth - 0x38;
 		const int iconY = f.team * 0x30 + 0x28;
-		if (m_hFlag != 0)
-		{
-			SPR_Set(m_hFlag, hr, hg, hb);
-			SPR_DrawAdditive(0, iconX, iconY, &m_rcFlag);
-		}
+		const bool lit = (f.action == 1) ? m_bBlinkFast : m_bBlinkSlow;
+		const float k = (lit ? 1.0f : 0.5f) * 0.75f;
+		const int tc = f.team < iNumberOfTeamColors ? f.team : 0;
+		SPR_Set(m_hFlag, (int)(iTeamColors[tc][0] * k), (int)(iTeamColors[tc][1] * k), (int)(iTeamColors[tc][2] * k));
+		SPR_DrawAdditive(0, iconX, iconY, nullptr);
 
-		// Carrier name (client player-info array, strncpy 24) left of the icon.
-		if (f.carrier > 0 && f.carrier <= MAX_PLAYERS_HUD)
+		if (f.carrier > 0 && f.carrier < 0x41)
 		{
-			gEngfuncs.pfnGetPlayerInfo(f.carrier, &g_PlayerInfoList[f.carrier]);
-			if (g_PlayerInfoList[f.carrier].name != nullptr)
-			{
-				char name[25];
-				strncpy(name, g_PlayerInfoList[f.carrier].name, 24);
-				name[24] = 0;
-				// x = iconX - stringwidth - 0x20 (the original's exact gap was decompiler-elided
-				// — "0x20-ish" in the dossier). VERIFY at playtest.
-				TSHud_DrawString(iconX - ObjStringWidth(name) - 0x20, iconY, iconX, name, hr, hg, hb);
-			}
-
-			// The local player carries this flag: the centered carry prompt at y = 0x140.
 			if (f.carrier == localIdx)
 			{
 				const char* prompt = "Take the Briefcase to the base!";
-				TSHud_DrawString((ScreenWidth - ObjStringWidth(prompt)) / 2, 0x140,
-					ScreenWidth, prompt, hr, hg, hb);
+				const int pr = hr + 0x23 > 0xff ? 0xff : hr + 0x23;
+				TSHud_DrawString(ScreenWidth - ObjStringWidth(prompt) - 0x20, 0x140, ScreenWidth, prompt, pr, hg, hb);
 			}
+			char name[25] = "";
+			if (g_PlayerInfoList[f.carrier].name != nullptr)
+				strncpy(name, g_PlayerInfoList[f.carrier].name, 24);
+			name[24] = 0;
+			const bool other = g_PlayerExtraInfo[f.carrier].teamnumber != localTeam;
+			TSHud_DrawString(iconX - ObjStringWidth(name), iconY, ScreenWidth, name,
+				(int)((other ? 0x2d : 0xc3) * 0.9f), (int)((other ? 0xc3 : 0x2d) * 0.9f), 0x28);
 		}
-		// Blink state: the original updates two countdowns here (+0x1530/+0x1534, reset
-		// 0.1/0.5 s, toggling bools +0x152c/+0x152d, decrement m_flTimeDelta/timescale);
-		// their exact visual coupling was decompiler-elided (likely icon/text blink).
-		// VERIFY at playtest — not reconstructed yet.
 	}
 
-	// ---- Objective HUD (FUN_10049fc0): drawn only from a first-person view (the original
-	// gates it behind FirstPersonState/spectator checks @0x1004c250/0x1004c280). ----
-	if (g_iUser1 == 0 || g_iUser1 == OBS_IN_EYE)
+	// ---- Objective HUD (client.dll 0x10049fc0): the status draw runs it when the GameMode byte is
+	// above 1 and the player is neither dead for the HUD nor spectating. ----
+	if (gHUD.m_iTeamplay > 1 && !TSHud_PlayerPartsHidden())
 	{
 		const int mr = 100, mg = 100, mb = 0xcd; // the marker/label color (100,100,205)
 		for (int i = 0; i <= m_iMaxObjIdx && i < 32; i++)
@@ -255,8 +261,9 @@ bool CHudTSObjectives::Draw(float flTime)
 				SPR_DrawAdditive(0, sx - 16, sy - 16, &m_rcCompass);
 			}
 
-			// Vertical cue vs the local view z ± 72: entry higher -> uparrow, lower -> downarrow.
-			const float zdelta = e.z - v_origin.z;
+			// Vertical cue against the player's origin z (CHud m_vecOrigin) +- 72: higher -> uparrow,
+			// lower -> downarrow.
+			const float zdelta = e.z - gHUD.m_vecOrigin[2];
 			if (zdelta > 72.0f && m_hUpArrow != 0)
 			{
 				SPR_Set(m_hUpArrow, mr, mg, mb);

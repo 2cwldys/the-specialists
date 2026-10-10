@@ -751,8 +751,6 @@ void ScorePanel::FillGrid()
 			}
 			else
 			{
-				bool bShowClass = false;
-
 				switch (col)
 				{
 				case COLUMN_NAME:
@@ -776,41 +774,27 @@ void ScorePanel::FillGrid()
 					GetClientVoiceMgr()->UpdateSpeakerImage(pLabel, m_iSortedRows[row]);
 					break;
 				case COLUMN_CLASS:
-					// TS: a spectate-waiting player (class 11 — the original scoreboard's case
-					// 0xb) shows "WAITING" regardless of team, in DM and teamplay alike. Runs
-					// before the TFC team gate below (which would otherwise hide it).
-					if (g_PlayerExtraInfo[m_iSortedRows[row]].playerclass == 11)
+				{
+					// client.dll's FillGrid (0x1005e212) shows the player's TSPAward byte here: 1 DEAD,
+					// 2 3 KILLS, 3 6 KILLS, 4 SPECIALIST, 5 UNSTOPPABLE, 10 THE ONE (each kill tier in its
+					// own green), 11 WAITING; any other value WAITING while the Spectator table marks him,
+					// else nothing.
+					extern int g_iTSPlayerAward[];
+					extern bool TS_PlayerSpectating(int idx);
+					const int idx = m_iSortedRows[row];
+					switch (g_iTSPlayerAward[idx])
 					{
-						strcpy(sz, "WAITING");
-						break;
-					}
-					// No class for other team's members (unless allied or spectator)
-					if (gViewPort && EV_TFC_IsAllyTeam(g_iTeamNumber, g_PlayerExtraInfo[m_iSortedRows[row]].teamnumber))
-						bShowClass = true;
-					// Don't show classes if this client hasnt picked a team yet
-					if (g_iTeamNumber == 0)
-						bShowClass = false;
-
-					if (bShowClass)
-					{
-						// Only print Civilian if this team are all civilians
-						bool bNoClass = false;
-						if (g_PlayerExtraInfo[m_iSortedRows[row]].playerclass == 0)
-						{
-							if (gViewPort->GetValidClasses(g_PlayerExtraInfo[m_iSortedRows[row]].teamnumber) != -1)
-								bNoClass = true;
-						}
-
-						if (bNoClass)
-							sz[0] = '\0';
-						else
-							sprintf(sz, "%s", CHudTextMessage::BufferedLocaliseTextString(sLocalisedClasses[g_PlayerExtraInfo[m_iSortedRows[row]].playerclass]));
-					}
-					else
-					{
-						strcpy(sz, "");
+					case 1: strcpy(sz, "DEAD"); break;
+					case 2: strcpy(sz, "3 KILLS"); pLabel->setFgColor(0x7d, 0xff, 0x7d, 5); break;
+					case 3: strcpy(sz, "6 KILLS"); pLabel->setFgColor(0x87, 0xff, 0x87, 5); break;
+					case 4: strcpy(sz, "SPECIALIST"); pLabel->setFgColor(0x91, 0xff, 0x91, 5); break;
+					case 5: strcpy(sz, "UNSTOPPABLE"); pLabel->setFgColor(0x9b, 0xff, 0x9b, 5); break;
+					case 10: strcpy(sz, "THE ONE"); pLabel->setFgColor(0xaf, 0xff, 0xaf, 5); break;
+					case 11: strcpy(sz, "WAITING"); break;
+					default: strcpy(sz, TS_PlayerSpectating(idx) ? "WAITING" : ""); break;
 					}
 					break;
+				}
 
 				case COLUMN_TRACKER:
 					/*

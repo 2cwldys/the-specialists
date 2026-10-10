@@ -31,6 +31,8 @@ private:
 		int team;    // the wire team+1 value (1..4)
 	};
 	flagentry_t m_Flags[16];
+	float m_flBlinkFast = 0, m_flBlinkSlow = 0; // +0x1530, +0x1534: the flag icons' blink clocks
+	bool m_bBlinkFast = false, m_bBlinkSlow = false; // +0x152c, +0x152d
 
 	// Objective table (original @element+0xa30, 32 entries stride 0x50), indexed by idx.
 	struct objentry_t

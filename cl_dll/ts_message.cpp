@@ -1,7 +1,5 @@
 /***
-*  ts_message.cpp — The Specialists centred HUD notification. See ts_message.h.
-*  Faithful to client.dll FUN_1004b520 (queue) / FUN_1004c0a0 (TSMessage parse) / the centred draw:
-*  flags 0 => centred horizontally, anchored at screen centre (just below); messages stack down.
+*  ts_message.cpp — the TS notices. See ts_message.h.
 ***/
 
 #include "hud.h"
@@ -34,128 +32,121 @@ void CHudTSMessage::Reset()
 		m.die = 0;
 }
 
+// The TS font's width of a string up to maxX (client.dll 0x10021ca0).
+static int TSStringWidth(int maxX, const char* str)
+{
+	int x = 0;
+	for (const char* p = str; *p && *p != '\n'; p++)
+	{
+		const int w = gHUD.m_scrinfo.charWidths[(unsigned char)*p];
+		if (x + w > maxX)
+			break;
+		x += w;
+	}
+	return x;
+}
+
+// client.dll 0x1004b520. The first free slot of the first fifteen, else the last when free, else
+// the notice is dropped. The text is localised; a notice naming the local player is drawn grey
+// (155, 155, 155). The place comes from the flags; then, against every live notice at the same place
+// with the same flags, a 0x10 notice ends that one, any other moves 16 up (16 down at the top) and
+// checks again, up to 16 times. It lasts hold x 0.1 s.
 void CHudTSMessage::Add(const char* text, int r, int g, int b, int holdtime, int flags)
 {
-	if (!text || !text[0])
+	int slot = 0;
+	while (slot < MAX_MSG - 1 && !(m_msgs[slot].die < gHUD.m_flTime))
+		slot++;
+	if (gHUD.m_flTime < m_msgs[slot].die)
 		return;
-	// flags 0x10 (the spectate countdown class) = a SINGLE-SLOT message: a new one REPLACES the
-	// live one in place instead of stacking (the 1 Hz "%i" lines otherwise pile up and bump the
-	// queue down — round-7c). VERIFY vs FUN_1004b520's exact flag semantics when it gets RE'd.
-	if ((flags & 0x10) != 0)
-	{
-		for (int i = 0; i < MAX_MSG; i++)
-		{
-			if (m_msgs[i].die > gHUD.m_flTime && (m_msgs[i].flags & 0x10) != 0)
-			{
-				Msg& mm = m_msgs[i];
-				strncpy(mm.text, text, sizeof(mm.text) - 1);
-				mm.text[sizeof(mm.text) - 1] = '\0';
-				mm.r = r; mm.g = g; mm.b = b; mm.flags = flags;
-				int h = holdtime < 0 ? -holdtime : holdtime;
-				if (h <= 0 || h > 100) h = 30;
-				mm.die = gHUD.m_flTime + h * 0.1f + 1.0f;
-				return;
-			}
-		}
-	}
-	// find a free (or the oldest) slot
-	int slot = -1;
-	float oldest = 1e9f;
-	for (int i = 0; i < MAX_MSG; i++)
-	{
-		if (m_msgs[i].die <= gHUD.m_flTime)
-		{
-			slot = i;
-			break;
-		}
-		if (m_msgs[i].die < oldest)
-		{
-			oldest = m_msgs[i].die;
-			slot = i;
-		}
-	}
 	Msg& m = m_msgs[slot];
-	strncpy(m.text, text, sizeof(m.text) - 1);
+	char buf[128];
+	CHudTextMessage::LocaliseTextString(text, buf, sizeof(buf));
+	strncpy(m.text, buf, sizeof(m.text) - 1);
 	m.text[sizeof(m.text) - 1] = '\0';
+
 	m.r = r;
 	m.g = g;
 	m.b = b;
+	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+	if (lp != nullptr && lp->index >= 0 && g_PlayerInfoList[lp->index].name != nullptr &&
+		strstr(m.text, g_PlayerInfoList[lp->index].name) != nullptr)
+		m.r = m.g = m.b = 0x9b;
+
+	if ((flags & 1) != 0)
+		m.y = 0x20;
+	else if ((flags & 8) != 0)
+		m.y = ScreenHeight - 0x40;
+	else
+		m.y = ScreenHeight / 2;
+	if ((flags & 2) != 0)
+		m.x = 0x20;
+	else if ((flags & 4) != 0)
+		m.x = ScreenWidth - TSStringWidth(ScreenWidth, m.text) - 0x20;
+	else
+		m.x = ScreenWidth / 2 - TSStringWidth(ScreenWidth, m.text) / 2;
 	m.flags = flags;
-	// holdtime is the original's |dur|-clamped-to-100 field; show for a few seconds.
-	int hold = holdtime < 0 ? -holdtime : holdtime;
-	if (hold <= 0 || hold > 100)
-		hold = 30;
-	m.die = gHUD.m_flTime + hold * 0.1f + 1.0f;
+
+	for (int i = 0, moves = 0; i < MAX_MSG && moves <= 15; i++)
+	{
+		const Msg& o = m_msgs[i];
+		if (!(gHUD.m_flTime < o.die) || o.y != m.y || o.flags != m.flags)
+			continue;
+		if ((flags & 0x10) != 0)
+		{
+			m_msgs[i].die = 0;
+			break;
+		}
+		m.y += (m.flags & 1) != 0 ? 0x10 : -0x10;
+		i = -1;
+		moves++;
+	}
+	m.die = holdtime * 0.1f + gHUD.m_flTime;
 }
 
+// TSMessage (0x1004c0a0): byte r, g, b, flags, hold (its size held to 100), string.
 bool CHudTSMessage::MsgFunc_TSMessage(const char* pszName, int iSize, void* pbuf)
 {
-	// wire: byte R, byte G, byte B, byte flags, byte holdtime, string text (dlls/ts_utils.cpp).
 	BEGIN_READ(pbuf, iSize);
-	int r = READ_BYTE();
-	int g = READ_BYTE();
-	int b = READ_BYTE();
-	int flags = READ_BYTE();
+	const int r = READ_BYTE();
+	const int g = READ_BYTE();
+	const int b = READ_BYTE();
+	const int flags = READ_BYTE();
 	int hold = READ_BYTE();
-	const char* text = READ_STRING();
+	if (hold < 1)
+		hold = -hold;
+	if (hold > 100)
+		hold = 100;
+	char text[128];
+	strncpy(text, READ_STRING(), sizeof(text) - 1);
+	text[sizeof(text) - 1] = '\0';
 	Add(text, r, g, b, hold, flags);
+	m_iFlags |= HUD_ACTIVE;
 	return true;
 }
 
+// client.dll 0x1004af40, from the status draw after its nohud test: each live notice no further
+// than 10 s from its end, in its colour (the HUD colour for 0, 0, 0) faded over its last second, in
+// the TS font at its place.
 bool CHudTSMessage::Draw(float flTime)
 {
-	// client.dll draws these (0x1004af40) from its status draw, after its nohud test (0x10049f06)
 	if (TSHud_NoHud())
 		return true;
-
-	int line = 0;
+	int hr, hg, hb;
+	TSHud_Color(hr, hg, hb);
 	for (auto& m : m_msgs)
 	{
-		if (m.die <= flTime)
+		if (!(gHUD.m_flTime < m.die))
 			continue;
-
-		// colour: a 0,0,0 message (the config-apply notices) draws in light text, like the original;
-		// a server-coloured TSMessage uses its colour.
-		int r = m.r, g = m.g, b = m.b;
-		if ((r | g | b) == 0)
-		{
-			r = g = b = 230;
-		}
-
-		// Fade out as the message expires (the original's notify queue ramps the message down over its
-		// remaining lifetime; +0x70 lifetime field). The TS HUD font draws additively, so scaling the
-		// colour toward 0 fades the text to invisible. Ramp over the last second.
-		float remaining = m.die - flTime;
-		if (remaining < 1.0f)
-		{
-			float f = remaining < 0.0f ? 0.0f : remaining;
-			r = (int)(r * f);
-			g = (int)(g * f);
-			b = (int)(b * f);
-		}
-
-		int w, h;
-		GetConsoleStringSize(m.text, &w, &h);
-
-		// position (FUN_1004b520): flags bit1=top(y=0x20), bit4=bottom; else centre. bit2=left(x=0x20),
-		// bit3=right; else centred. The config notices use flags 0 -> centred, anchored at centre.
-		int x, y;
-		if (m.flags & 2)
-			x = XRES(0x20);
-		else if (m.flags & 4)
-			x = ScreenWidth - w - XRES(0x20);
-		else
-			x = (ScreenWidth - w) / 2;
-		if (m.flags & 1)
-			y = YRES(0x20);
-		else if (m.flags & 8)
-			y = ScreenHeight - YRES(0x40);
-		else
-			y = ScreenHeight / 2;
-		// The original OVERLAPS all centre messages at the same spot (round 7e, user-verified:
-		// the countdown overwrites "Press fire to play"; nothing drops down a line).
-		gHUD.DrawHudString(x, y, ScreenWidth, m.text, r, g, b);
-		line++;
+		if (m.die - gHUD.m_flTime > 10.0f)
+			m.die = gHUD.m_flTime + 10.0f;
+		const bool hud = m.r == 0 && m.g == 0 && m.b == 0;
+		float k = m.die - gHUD.m_flTime;
+		if (k >= 1.0f)
+			k = 1.0f;
+		const int r = (int)((hud ? hr : m.r) * k);
+		const int g = (int)((hud ? hg : m.g) * k);
+		const int b = (int)((hud ? hb : m.b) * k);
+		TSHud_DrawString(m.x, m.y, ScreenWidth, m.text, r, g, b);
 	}
 	return true;
 }

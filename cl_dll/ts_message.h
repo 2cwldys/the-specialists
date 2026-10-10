@@ -1,9 +1,7 @@
 /***
-*  ts_message.h — The Specialists centred HUD notification ("Using last config.", kill/award
-*  notices, etc.). RE'd from client.dll: the server's "TSMessage" user message
-*  (R,G,B,flags,holdtime,string — dlls/ts_utils.cpp) is parsed by FUN_1004c0a0 and queued into the
-*  notify ring FUN_1004b520, drawn centred just below screen centre (flags 0). The buy menu's
-*  config-apply notices ("Using new/last config.") go through the same path. reference/MENUS.md.
+*  ts_message.h — the TS notices: the server's "TSMessage" (R, G, B, flags, hold, string) parsed by
+*  client.dll's 0x1004c0a0 into its sixteen-slot queue (0x1004b520) and drawn by 0x1004af40. The buy
+*  menu's notices go through the same queue.
 ***/
 #pragma once
 
@@ -16,17 +14,20 @@ public:
 	void Reset() override;
 	bool MsgFunc_TSMessage(const char* pszName, int iSize, void* pbuf);
 
-	// Queue a notification (used by the buy menu for the config-apply notices). flags bit1=top,
-	// bit2=left, bit3=right, bit4=bottom (FUN_1004b520); 0 = centred. r/g/b 0 => default light text.
+	// Queue a notice (0x1004b520): flags 1 top, 8 bottom, else the middle; 2 left, 4 right, else
+	// centred; 0x10 replaces a live notice with the same place and flags instead of stacking. hold in
+	// tenths of a second. r, g, b 0 draws in the HUD colour.
 	void Add(const char* text, int r, int g, int b, int holdtime, int flags);
 
 private:
-	enum { MAX_MSG = 8 };
+	enum { MAX_MSG = 16 };
 	struct Msg
 	{
-		char text[128];
-		int r, g, b, flags;
-		float die; // client time at which it expires (0 = free)
+		float die;  // +0x70 when it goes (0 = free)
+		int r, g, b; // +0x74
+		char text[128]; // +0x80
+		int x, y;   // +0x100, +0x104
+		int flags;  // +0x108
 	};
 	Msg m_msgs[MAX_MSG] = {};
 };
