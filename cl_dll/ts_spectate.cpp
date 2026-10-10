@@ -121,9 +121,6 @@ bool CHudSpectate::Draw(float flTime)
 					CAM_ToThirdPerson();
 			}
 		}
-		// client.dll closes the buy menu from the weapon bar Draw instead (0x1004d42f: alive, not
-		// spectating and not at level 8); reTS closes it here, on the same edge.
-		gHUD.m_TSBuyMenu.Close();
 		HUD_TSResetRecoil();
 	}
 	m_iState = spec ? 1 : 0;

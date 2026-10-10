@@ -24,6 +24,7 @@ public:
 	void Open();
 	void Close();
 	bool IsUp() const { return m_active; }
+	bool AtChangeTeam() const { return m_level == LVL_CHANGETEAM; }
 
 	// slotN while the menu is up (client.dll 0x1004f220 -> 0x10038840(obj, current level, N)):
 	// drives the current column.

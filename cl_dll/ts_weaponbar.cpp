@@ -464,6 +464,10 @@ bool CHudTSWeaponBar::Draw(float flTime)
 		return true;
 	if (TSHud_NoHud() || TSHud_PlayerPartsHidden())
 		return true;
+	// Alive and playing with the buy menu up anywhere but its change team level, the weapon bar Draw
+	// closes it (0x1004d42f).
+	if (gHUD.m_TSBuyMenu.IsUp() && !gHUD.m_TSBuyMenu.AtChangeTeam())
+		gHUD.m_TSBuyMenu.Close();
 	DrawBar(!m_selecting || 0 != gEngfuncs.pDemoAPI->IsPlayingback());
 	return true;
 }
