@@ -109,20 +109,28 @@ void PrecacheAllTSWeapons()
 	PRECACHE_SOUND("player/airwheel.wav");       // double-jump wall-climb kick (player.cpp PreThink)
 	PRECACHE_SOUND("player/land.wav");           // dive-roll landing (player.cpp PreThink)
 	PRECACHE_SOUND("player/dive.wav");           // +alt1 dive (player.cpp PreThink)
-	for (int i = 1; i <= 5; i++) { char w[24]; sprintf(w, "weapons/whizz%d.wav", i); PRECACHE_SOUND(w); } // bullet flyby (cl_dll ev_ts)
+	PRECACHE_SOUND("weapons/whizz1.wav"); // bullet flyby (cl_dll ev_ts)
+	PRECACHE_SOUND("weapons/whizz2.wav");
+	PRECACHE_SOUND("weapons/whizz3.wav");
+	PRECACHE_SOUND("weapons/whizz4.wav");
+	PRECACHE_SOUND("weapons/whizz5.wav");
 	PRECACHE_SOUND("goslow.wav");                // slow-mo initiation sound (cl_dll powerup HUD)
 	PRECACHE_SOUND("player/heartbeat1.wav");     // slow-mo init heartbeats (faded x4)
 
 	// TS damage feedback (player.cpp TraceAttack body-impact + Pain voice): bullet/melee hit on flesh,
 	// vest, head; the pain grunt.
-	{
-		char p[28];
-		for (int i = 1; i <= 4; i++) { sprintf(p, "player/bodyhit%d.wav", i); PRECACHE_SOUND(p); }
-		for (int i = 1; i <= 4; i++) { sprintf(p, "player/pain%d.wav", i); PRECACHE_SOUND(p); }
-		PRECACHE_SOUND("player/headshot.wav");
-		PRECACHE_SOUND("player/headshot2.wav"); // only headshot.wav + headshot2.wav exist (no headshot1.wav)
-		PRECACHE_SOUND("player/kevlarhit.wav");
-	}
+	// The engine keeps the name pointer it is given, so a name must outlive the map: string literals only.
+	PRECACHE_SOUND("player/bodyhit1.wav");
+	PRECACHE_SOUND("player/bodyhit2.wav");
+	PRECACHE_SOUND("player/bodyhit3.wav");
+	PRECACHE_SOUND("player/bodyhit4.wav");
+	PRECACHE_SOUND("player/pain1.wav");
+	PRECACHE_SOUND("player/pain2.wav");
+	PRECACHE_SOUND("player/pain3.wav");
+	PRECACHE_SOUND("player/pain4.wav");
+	PRECACHE_SOUND("player/headshot.wav");
+	PRECACHE_SOUND("player/headshot2.wav"); // only headshot.wav + headshot2.wav exist (no headshot1.wav)
+	PRECACHE_SOUND("player/kevlarhit.wav");
 
 	// weapon event scripts (CTSGun::Precache @0x80660) — must be precached at map
 	// load so a runtime weapon give doesn't precache an event mid-game.

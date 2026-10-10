@@ -119,8 +119,8 @@ void CTSParticle::Spawn()
 		UTIL_Remove(this);
 		return;
 	}
-	if (m_data.soundonemit[0])
-		PRECACHE_SOUND(m_data.soundonemit);
+	if (m_data.soundonemit[0]) // the engine keeps the pointer; the entity's copy dies with it
+		PRECACHE_SOUND((char *)STRING(ALLOC_STRING(m_data.soundonemit)));
 	// persists — held in s_Emitter.particles[]
 }
 
