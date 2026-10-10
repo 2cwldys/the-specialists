@@ -11,6 +11,7 @@
 #include "event_api.h"
 #include "pm_defs.h"
 #include "pmtrace.h"
+#include "ts_particles.h" // g_tsFx, TSParticles_InView
 #include "pm_shared.h"
 #include "Exports.h"
 #include "ts_motionblur.h" // TS_UpdateMotionBlur (the TSMBlur ghost spawner)
@@ -56,6 +57,56 @@ int DLLEXPORT HUD_AddEntity(int type, struct cl_entity_s* ent, const char* model
 		TSHud_PlayerSeen(ent->index);
 		extern void TS_AttachPlayerAdded(int index);
 		TS_AttachPlayerAdded(ent->index);
+	}
+	else if (type != ET_PLAYER)
+	{
+		// Anything else the server tags in curstate.iuser4 (0x1004486f): bit 1 is left out past 592
+		// units from the eye, bit 4 past 256, bit 2 (dropped guns, thrown grenades, the flag) past 1024,
+		// each distance doubled below a field of view of 40, and all three while out of view
+		// (0x100570b0); unzoomed (field of view 80 and up) they fade out over their last 100, 50 and
+		// 200 units, drawn TransColor with renderfx 0. Bit 8 picks a body by distance (0x10056fc0).
+		const int tag = ent->curstate.iuser4;
+		int farUnits = 0;
+		float fadeFrom = 0, fadeTo = 0, k = 0;
+		if ((tag & 1) != 0) { farUnits = 0x250; fadeFrom = 492.0f; fadeTo = 592.0f; k = 2.55f; }
+		else if ((tag & 4) != 0) { farUnits = 0x100; fadeFrom = 206.0f; fadeTo = 256.0f; k = 5.1f; }
+		else if ((tag & 2) != 0) { farUnits = 0x400; fadeFrom = 824.0f; fadeTo = 1024.0f; k = 1.275f; }
+		if (farUnits != 0 || (tag & 8) != 0)
+		{
+			extern Vector TS_AimEye();
+			extern bool TSParticles_InView(const float* at);
+			const float d = (ent->origin - TS_AimEye()).Length();
+			if (farUnits != 0)
+			{
+				if (!(d < (float)(gHUD.m_iFOV < 40 ? farUnits * 2 : farUnits)))
+					return 0;
+				if (!TSParticles_InView(ent->origin))
+					return 0;
+				if (d > fadeFrom && gHUD.m_iFOV >= 80)
+				{
+					ent->curstate.renderfx = 0;
+					ent->curstate.rendermode = kRenderTransColor;
+					ent->curstate.renderamt = (int)((fadeTo - d) * k);
+				}
+			}
+			if ((tag & 8) != 0)
+			{
+				int body;
+				if (g_tsFx.low)
+					body = 0;
+				else if (gHUD.m_iFOV < 80 && gHUD.m_iFOV < 14 && d < 2048.0f)
+					body = 3;
+				else if (gHUD.m_iFOV < 80 && gHUD.m_iFOV < 41 && d < 512.0f)
+					body = 2;
+				else if (d > 256.0f)
+					body = 0;
+				else if (d <= 128.0f)
+					body = d <= 64.0f ? 3 : 2;
+				else
+					body = 1;
+				ent->curstate.body = body;
+			}
+		}
 	}
 
 	// each frame every entity passes this function, so the overview hooks it to filter the overview entities

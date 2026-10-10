@@ -338,6 +338,11 @@ static bool TSP_InView(const Vector& at)
 	return !(lod > 0.9f);
 }
 
+bool TSParticles_InView(const float* at)
+{
+	return TSP_InView(Vector(at[0], at[1], at[2]));
+}
+
 // FUN_100572a0: a clear line from the camera to the point (a world trace that ignores glass and the
 // local player, hull 2, run to the end).
 static bool TSP_LineClear(const Vector& at)

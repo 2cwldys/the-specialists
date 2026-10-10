@@ -114,6 +114,7 @@ void TSParticles_Init();
 
 // Per-frame update + render — call once from HUD_DrawTransparentTriangles.
 void TSParticles_Update();
+bool TSParticles_InView(const float* at); // client.dll's view cull 0x100570b0
 void TSParticles_Reset();  // drop cached sprite handles + particles on a map change (call from VidInit)
 
 // The view the pool last rendered with (client.dll's FX root FUN_10056f60 keeps fwd/right/up at
