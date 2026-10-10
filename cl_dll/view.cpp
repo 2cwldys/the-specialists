@@ -1919,41 +1919,52 @@ void DLLEXPORT V_CalcRefdef(struct ref_params_s* pparams)
 		V_CalcNormalRefdef(pparams);
 	}
 
-	// TS slow-motion screen tint (RE scratchpad/SLOWMO_PRESENTATION_RE.md §C-redux): the original
-	// reimplements it by hijacking the engine SCREEN-FADE at the tail of V_CalcRefdef — a desaturated
-	// teal RGBA(0,100,125) at alpha (1-slow)*50, alpha-blended over the whole screen (incl. HUD),
-	// gated by cl_slowfade. (Our earlier green FillRGBA was the wrong color AND the wrong mechanism.)
-	// slow = the smoothed client slow factor (1.0 = normal).
+	// The screen fade, set every frame (client.dll 0x10069bd0..0x10069e1e): the slow motion tint while
+	// cl_slowfade is not 0 and the slow factor is under 1, alpha (1 - slow) x 50, else nothing; while the
+	// last TSFade runs (its arrival to arrival + duration / 4096 s) a blend toward its colour, rising over
+	// the first half of the time outside the hold, holding, then falling; flags 5 (out, stay out). The
+	// fade's own flags and the long fade scale are not used. client.dll's tint is (0, 100, 125); reTS
+	// keeps (0, 60, 160), set in the playtest of b8080fb.
 	{
 		extern float g_flClientSlow; // cl_dll/ts_powerup_hud.cpp
-		static bool s_slowFadeOn = false;
 		static cvar_t* cl_slowfade = NULL;
 		if (!cl_slowfade)
 			cl_slowfade = gEngfuncs.pfnGetCvarPointer("cl_slowfade");
-		bool enabled = (!cl_slowfade || cl_slowfade->value != 0.0f);
-		if (enabled && g_flClientSlow < 1.0f)
+		int tr = 0, tg = 0, tb = 0, ta = 0;
+		if (cl_slowfade && cl_slowfade->value != 0.0f && g_flClientSlow < 1.0f)
 		{
-			screenfade_t sf;
-			gEngfuncs.pfnGetScreenFade(&sf);
-			sf.fader = 0;
-			sf.fadeg = 60;
-			sf.fadeb = 160; // a clearly BLUE slow-mo tint (the original uses motion blur with no fixed
-			                // colour, so this is a tuned blue per playtest — was the greener 0,100,125)
-			int a = (int)((1.0f - g_flClientSlow) * 50.0f);
-			sf.fadealpha = (byte)(a > 50 ? 50 : a);
-			sf.fadeFlags = FFADE_OUT | FFADE_STAYOUT; // = 5: straight alpha, stays until changed
-			gEngfuncs.pfnSetScreenFade(&sf);
-			s_slowFadeOn = true;
+			tg = 60;
+			tb = 160;
+			ta = (int)((1.0f - g_flClientSlow) * 50.0f);
 		}
-		else if (s_slowFadeOn) // slow-motion ended → clear our tint
+		screenfade_t sf;
+		gEngfuncs.pfnGetScreenFade(&sf);
+		const float dur = g_tsFade.duration * (1.0f / 4096.0f);
+		const float hold = g_tsFade.hold * (1.0f / 4096.0f);
+		const float t = pparams->time - g_tsFade.start;
+		if (pparams->time > g_tsFade.start && g_tsFade.start + dur > pparams->time)
 		{
-			screenfade_t sf;
-			gEngfuncs.pfnGetScreenFade(&sf);
-			sf.fadealpha = 0;
-			sf.fadeFlags = 0;
-			gEngfuncs.pfnSetScreenFade(&sf);
-			s_slowFadeOn = false;
+			const float half = (dur - hold) * 0.5f;
+			float k = 1.0f;
+			if (t < half)
+				k = t / half;
+			else if (half + hold < t)
+				k = 1.0f - (t - hold - half) / half;
+			const float fa = g_tsFade.a * (1.0f / 255.0f);
+			sf.fader = (byte)(int)(g_tsFade.r * k);
+			sf.fadeg = (byte)(int)(g_tsFade.g * k + tg * (1.0f - k));
+			sf.fadeb = (byte)(int)(g_tsFade.b * k + tb * (1.0f - k));
+			sf.fadealpha = (byte)(int)(ta * (1.0f - k) + k * fa * 255.0f);
 		}
+		else
+		{
+			sf.fader = (byte)tr;
+			sf.fadeg = (byte)tg;
+			sf.fadeb = (byte)tb;
+			sf.fadealpha = (byte)ta;
+		}
+		sf.fadeFlags = FFADE_OUT | FFADE_STAYOUT;
+		gEngfuncs.pfnSetScreenFade(&sf);
 	}
 
 	// client.dll's last call here (0x10069e29): the fog pass, FUN_10056c20 (cl_dll/ts_emitter.cpp)

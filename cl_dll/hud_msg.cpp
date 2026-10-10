@@ -143,50 +143,21 @@ bool CHud::MsgFunc_Concuss(const char* pszName, int iSize, void* pbuf)
 // TS wire; registration-set parity, dossier-gmsg U0. m_iWeaponBits stays 0: the stock ammo
 // HUD it gated is suppressed in TS anyway, and the TS HUD rides WeaponInfo/WStatus.)
 
-// "TSFade" — the TS screen fade (same layout as the stock ScreenFade; the server already
-// stretched duration/holdTime by the recipient's slow factor). The engine never sees this
-// message name, so we replicate its ScreenFade parse math exactly (xash CL_ParseScreenFade)
-// and hand the result to pfnSetScreenFade. NB: while slow-mo is active, the view.cpp tint
-// rewrites the engine fade each frame — coexistence is the documented VERIFY tail.
+// "TSFade" (client.dll 0x1004c1e0): short duration, short hold, short flags, byte r, g, b, a, kept
+// with the time it arrived. It sets no engine fade itself: V_CalcRefdef composes the screen fade from
+// it and the slow motion tint every frame (view.cpp).
+TSFade_t g_tsFade;
+
 bool CHud::MsgFunc_TSFade(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
-	const float duration = (float)READ_SHORT();
-	const float holdTime = (float)READ_SHORT();
-	const int flags = READ_SHORT();
-	const int r = READ_BYTE(), g = READ_BYTE(), b = READ_BYTE(), a = READ_BYTE();
-
-	const float flScale = (flags & FFADE_LONGFADE) ? (1.0f / 256.0f) : (1.0f / 4096.0f);
-	const float now = gEngfuncs.GetClientTime();
-
-	screenfade_t sf;
-	memset(&sf, 0, sizeof(sf));
-	sf.fadeFlags = flags;
-	sf.fader = r;
-	sf.fadeg = g;
-	sf.fadeb = b;
-	sf.fadealpha = a;
-	sf.fadeSpeed = 0.0f;
-	sf.fadeEnd = duration * flScale;
-	sf.fadeReset = holdTime * flScale;
-	if (duration > 0.0f)
-	{
-		if (flags & FFADE_OUT)
-		{
-			if (sf.fadeEnd != 0.0f)
-				sf.fadeSpeed = -(float)sf.fadealpha / sf.fadeEnd;
-			sf.fadeEnd += now;
-			sf.fadeTotalEnd = sf.fadeEnd;
-			sf.fadeReset += sf.fadeEnd;
-		}
-		else
-		{
-			if (sf.fadeEnd != 0.0f)
-				sf.fadeSpeed = (float)sf.fadealpha / sf.fadeEnd;
-			sf.fadeReset += now;
-			sf.fadeEnd += sf.fadeReset;
-		}
-	}
-	gEngfuncs.pfnSetScreenFade(&sf);
+	g_tsFade.duration = (unsigned short)READ_SHORT();
+	g_tsFade.hold = (unsigned short)READ_SHORT();
+	g_tsFade.flags = READ_SHORT();
+	g_tsFade.r = READ_BYTE();
+	g_tsFade.g = READ_BYTE();
+	g_tsFade.b = READ_BYTE();
+	g_tsFade.a = READ_BYTE();
+	g_tsFade.start = m_flTime;
 	return true;
 }

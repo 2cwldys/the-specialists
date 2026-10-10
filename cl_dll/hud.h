@@ -493,6 +493,15 @@ private:
 //
 
 
+// The last TSFade (hud_msg.cpp), composed into the screen fade by V_CalcRefdef.
+struct TSFade_t
+{
+	int duration = 0, hold = 0, flags = 0; // the message's shorts (duration and hold in 1/4096 s)
+	int r = 0, g = 0, b = 0, a = 0;
+	float start = 0;                       // gHUD.m_flTime when it arrived
+};
+extern TSFade_t g_tsFade;
+
 class CHud
 {
 private:
