@@ -313,9 +313,9 @@ void CHud::Init()
 	// (client.dll CHud::Init, sites 0x20372–0x203d4); only gl_fog is ARCHIVE, and every read is
 	// by-name (pfnGetCvarFloat), so the returned pointers are unused. Semantics: gl_fog 0
 	// (default) = fog OFF even on fog maps; 1 = honor the map's ts_fog; 2 = (single-player only)
-	// force user fog from gl_fog_red/green/blue/start/end. Consumer seam: the un-reconstructed
-	// client fog pass (FUN_10056c20, called from the V_CalcRefdef tail) + the ts_fog BSP
-	// entity-lump parse — see reference/dossiers/cont94/client_cvar_parity.md §A1.
+	// force user fog from gl_fog_red/green/blue/start/end. The consumer is the fog pass
+	// TS_ApplyFog (FUN_10056c20, the V_CalcRefdef tail) over the ts_fog parsed from the map's
+	// entity lump (cl_dll/ts_emitter.cpp).
 	CVAR_CREATE("gl_fog", "0", FCVAR_ARCHIVE);
 	gEngfuncs.pfnRegisterVariable("gl_fog_start", "0", 0);
 	gEngfuncs.pfnRegisterVariable("gl_fog_end", "2048", 0);

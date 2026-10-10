@@ -23,6 +23,7 @@
 #include "ts_particles.h" // TS client impact-effect particle pool
 #include "ts_attachments.h" // TS gun lasersight + flashlight render
 #include "ts_bullets.h"     // the client bullet simulation
+#include "ts_emitter.h" // TS map fog
 extern IParticleMan* g_pParticleMan;
 
 /*
@@ -74,4 +75,8 @@ void DLLEXPORT HUD_DrawTransparentTriangles()
 	// client.dll's HUD_DrawTransparentTriangles too (FUN_10034e60 at 0x10056e59, after the
 	// particle pool and before the fog is switched off).
 	TSBullets_Update();
+
+	// client.dll's FX root (FUN_10056dd0) ends with glDisable(GL_FOG): the fog the V_CalcRefdef tail
+	// turned on covers the world and the transparent pass, not what is drawn after it.
+	TS_FogFrameEnd();
 }

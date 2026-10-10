@@ -43,6 +43,7 @@ TeamFortressViewport* gViewPort = NULL;
 
 
 #include "particleman.h"
+#include "ts_emitter.h" // TSEmitter_Frame
 IParticleMan* g_pParticleMan = nullptr;
 
 void CL_LoadParticleMan();
@@ -262,6 +263,7 @@ void DLLEXPORT HUD_Frame(double time)
 	//	RecClHudFrame(time);
 
 	GetClientVoiceMgr()->Frame(time);
+	TSEmitter_Frame(time); // client.dll HUD_Frame -> FUN_1003ab40: the map's ts_emitter effects
 }
 
 

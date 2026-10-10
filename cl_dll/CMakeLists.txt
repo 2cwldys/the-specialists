@@ -172,6 +172,7 @@ target_sources(client PRIVATE
 	ts_reticle.cpp
 	ts_scope.cpp
 	ts_debris.cpp
+	ts_emitter.cpp
 	ts_particles.cpp
 	ts_motionblur.cpp
 	ts_objectives.cpp

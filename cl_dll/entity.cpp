@@ -379,6 +379,8 @@ CL_UpdateTEnts
 Simulation and cleanup of temporary entities
 =================
 */
+float g_flClientGravity = 800.0f; // client.dll DAT_100963ec (initial 800)
+
 void DLLEXPORT HUD_TempEntUpdate(
 	double frametime,			  // Simulation time
 	double client_time,			  // Absolute time on client
@@ -405,6 +407,10 @@ void DLLEXPORT HUD_TempEntUpdate(
 	// Nothing to simulate
 	if (!*ppTempEntActive)
 		return;
+
+	// client.dll keeps cl_gravity for its particle pool's fall, after this same test (0x1001bd25 ->
+	// DAT_100963ec)
+	g_flClientGravity = (float)cl_gravity;
 
 	// in order to have tents collide with players, we have to run the player prediction code so
 	// that the client has the player list. We run this code once when we detect any COLLIDEALL

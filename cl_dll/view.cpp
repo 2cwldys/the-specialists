@@ -44,6 +44,7 @@ void VectorAngles(const float* forward, float* angles);
 #include "com_model.h"
 #include "kbutton.h"
 #include "ts_recoil.h"
+#include "ts_emitter.h"
 
 extern engine_studio_api_t IEngineStudio;
 
@@ -77,6 +78,7 @@ Vector v_origin, v_angles, v_cl_angles, v_sim_org, v_lastAngles;
 // true aim point (parallax when you strafe; correct where-shots-land).
 Vector v_aimeye;
 float v_frametime, v_lastDistance;
+Vector g_tspLocalSimVel; // client.dll 0x10191d20: the local player's simvel, read by the particle push
 float v_cameraRelaxAngle = 5.0f;
 float v_cameraFocusAngle = 35.0f;
 int v_cameraMode = CAM_MODE_FOCUS;
@@ -1914,6 +1916,7 @@ void DLLEXPORT V_CalcRefdef(struct ref_params_s* pparams)
 	}
 	else if (0 == pparams->paused)
 	{
+		g_tspLocalSimVel = pparams->simvel; // client.dll keeps it in its normal refdef (0x1006789f)
 		V_CalcNormalRefdef(pparams);
 	}
 
@@ -1953,6 +1956,9 @@ void DLLEXPORT V_CalcRefdef(struct ref_params_s* pparams)
 			s_slowFadeOn = false;
 		}
 	}
+
+	// client.dll's last call here (0x10069e29): the fog pass, FUN_10056c20 (cl_dll/ts_emitter.cpp)
+	TS_ApplyFog();
 
 	/*
 // Example of how to overlay the whole screen with red at 50 % alpha
