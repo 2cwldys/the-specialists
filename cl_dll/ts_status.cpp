@@ -141,14 +141,13 @@ bool CHudTSStatus::MsgFunc_TSState(const char* pszName, int iSize, void* pbuf)
 bool CHudTSStatus::MsgFunc_TSSpace(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
-	m_iSpace = READ_BYTE(); // free carry slots (panel styling VERIFY — stored, drawn later)
+	m_iSpace = READ_BYTE(); // free carry slots (status +0x28): the free slots box and the dive arc
 	m_iFlags |= HUD_ACTIVE;
 	return true;
 }
 
-// TSPAward — every player's broadcast award/status byte (0 clear / 1 out-of-round / 2-4 kill
-// tiers / 10 The One / 11 respawning), keyed by entindex. Stored per-player (the original keeps
-// a stride-8 per-player table); the popup/scoreboard presentation is a client-RE VERIFY.
+// TSPAward (client.dll 0x1004b790): BYTE player index, BYTE award, kept per player (extra info +4)
+// for 0 < index < 65. The scoreboard's status column shows it (vgui_ScorePanel.cpp, 0x1005e212).
 int g_iTSPlayerAward[MAX_PLAYERS + 1] = {};
 
 bool CHudTSStatus::MsgFunc_TSPAward(const char* pszName, int iSize, void* pbuf)
@@ -162,12 +161,13 @@ bool CHudTSStatus::MsgFunc_TSPAward(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
-// SrvSett — the server-settings sync (BYTE id + SHORT value; star_SrvSett.md). Case 2 runs
-// the SHARED Set_ammo_count so the client's purchase/ammo bookkeeping matches the server's;
-// the other ids land in globals (cash-HUD hide / buy-menu filter consumers are a VERIFY tail).
+// SrvSett (client.dll 0x1004b840): BYTE id, SHORT value. Id 0 is realbullet (0x1018d16c: the client
+// bullet simulation, ts_bullets.cpp), 1 the cash economy (0x1018d170: the credits box), 2 the ammo
+// count mode through the shared Set_ammo_count, 3 the weapon restriction mask (0x1018d174: the buy
+// menu's restriction test 0x100365e0); other ids change nothing.
 int g_iTSRealBullet = 0;         // id 0 — bullets-are-projectiles mode
 int g_iTSUseCash = 0;            // id 1 — the cash economy toggle (bool on the wire)
-int g_iTSWeaponRestriction = 0x1f; // id 3 — the allowed-categories bitmask
+int g_iTSWeaponRestriction = 0;    // id 3 — the allowed-categories mask (0 until the server sends it)
 
 bool CHudTSStatus::MsgFunc_SrvSett(const char* pszName, int iSize, void* pbuf)
 {
@@ -180,7 +180,7 @@ bool CHudTSStatus::MsgFunc_SrvSett(const char* pszName, int iSize, void* pbuf)
 	case 1: g_iTSUseCash = val; break;
 	case 2: Set_ammo_count(val); break; // the shared max-carry column (both libs, like the original)
 	case 3: g_iTSWeaponRestriction = val; break;
-	default: break; // unknown ids tolerated (the original's switch falls through)
+	default: break; // ids above 3 are dropped (the jump table at 0x1004b867 covers 0..3)
 	}
 	m_iFlags |= HUD_ACTIVE;
 	return true;

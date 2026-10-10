@@ -3,12 +3,12 @@
 *
 *  A faithful reconstruction of the menu the game actually draws — the HUD-drawn cascade
 *  (Config | Categories | Weapons | Detail columns all visible at once), RE'd from
-*  client.dll's 0x10037xxx cluster (orchestrator FUN_10036750, builders FUN_10037540/
+*  client.dll's buy menu functions (orchestrator FUN_10036750, builders FUN_10037540/
 *  100377d0/10037960/10037ba0, header+preview FUN_10036af0, input FUN_10038840, mouse
 *  FUN_10038360/10038410, apply FUN_10039400). See reference/MENUS.md "★★ THE REAL BUY MENU".
 *
-*  NOT vgui: it draws with TSHud_DrawString + the TS HUD font and reads number keys (via
-*  HUD_Key_Event) AND mouse clicks (via IN_MouseEvent) — exactly as the original. "Use New
+*  NOT vgui: it draws with TSHud_DrawString + the TS HUD font and takes the slot commands (via
+*  CHudTSWeaponBar::SelectSlot, as client.dll's 0x1004f220) and mouse clicks (via IN_MouseEvent). "Use New
 *  Config" emits the swap-contract commands rst_cfg / tkw (reference/BUY.md).
 ***/
 #pragma once
@@ -85,7 +85,7 @@ private:
 
 	// helpers
 	int  TeamCount() const;
-	bool Restricted(int id) const;
+	bool Restricted(int id, bool accessory = false) const; // client.dll 0x100365e0
 	bool AttachAvailable(int id, int bit) const;
 	int  WeaponCost(int id, int attachMask, bool akimboOrFull) const;
 	int  WeaponSlotCost(int id, bool akimboOrFull) const;

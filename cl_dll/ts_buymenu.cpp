@@ -1,7 +1,7 @@
 /***
 *  ts_buymenu.cpp — The Specialists REAL buy/config menu (cont.69l).
 *  See ts_buymenu.h + reference/MENUS.md "★★ THE REAL BUY MENU". A HUD-drawn cascade
-*  (NOT vgui), a faithful port of client.dll's 0x10037xxx cluster:
+*  (NOT vgui), a port of client.dll's buy menu functions at 0x10036000-0x10039fff:
 *    - draw   : FUN_10036750 orchestrator + FUN_10036af0 header/preview + the column builders,
 *               each entry via FUN_1004ff10 (-> TSHud_DrawString + the TS HUD font).
 *    - input  : FUN_10038840 (number-key + mouse cascade navigation, via Dispatch()).
@@ -284,7 +284,50 @@ void CHudTSBuyMenu::Close()
 
 int CHudTSBuyMenu::TeamCount() const { return gViewPort ? gViewPort->GetNumberOfTeams() : 0; }
 
-bool CHudTSBuyMenu::Restricted(int id) const { return id == 24 && TeamCount() < 2; }
+// client.dll 0x1000b670: the restriction category of a weapon, its fire type (weapon info +0x348)
+// except the katana (3), the sawed-off (1), the akimbo SMGs (9) and the akimbo pistols (8).
+static int RestrictionCategory(int id)
+{
+	switch (id)
+	{
+	case 0x22: return 3;
+	case 0x21: return 1;
+	case 0x10: case 0x25: return 9;
+	case 10: case 0x1e: case 8: case 0x15: return 8;
+	default: return get_weapon_info((tsweapon_t)id)->iFireType;
+	}
+}
+
+// client.dll 0x1000b6d0: a weapon (1..37) the server's restriction mask leaves out. A mask of 0 leaves
+// out every weapon; otherwise category 1 needs bit 0x10, 3 bit 1, 6 and 7 bit 8, 8 bit 2, 9 bit 4, and
+// the other categories are never left out.
+static bool WeaponRestricted(int id, int mask)
+{
+	if (id <= 0 || id >= 0x26)
+		return false;
+	if (mask == 0)
+		return true;
+	switch (RestrictionCategory(id))
+	{
+	case 1: return (mask & 0x10) == 0;
+	case 3: return (mask & 1) == 0;
+	case 6: case 7: return (mask & 8) == 0;
+	case 8: return (mask & 2) == 0;
+	case 9: return (mask & 4) == 0;
+	default: return false;
+	}
+}
+
+// client.dll 0x100365e0: a weapon is left out when the restriction mask (SrvSett id 3) leaves it out,
+// and the M61 while the GameMode byte is below 2; an accessory with bit 0x20 (the stealth shoes) while
+// the GameMode byte is below 2.
+bool CHudTSBuyMenu::Restricted(int id, bool accessory) const
+{
+	extern int g_iTSWeaponRestriction; // ts_status.cpp
+	if (!accessory)
+		return WeaponRestricted(id, g_iTSWeaponRestriction) || (gHUD.m_iTeamplay < 2 && id == 24);
+	return gHUD.m_iTeamplay < 2 && (id & 0x20) != 0;
+}
 
 bool CHudTSBuyMenu::AttachAvailable(int id, int bit) const
 {
@@ -655,7 +698,7 @@ void CHudTSBuyMenu::Dispatch(int level, int key)
 
 	case LVL_ACCESSORY:
 		if (key == 1) { QueueWeapon(TS_ACC_KEVLAR, 0, false, true); m_level = LVL_CATEGORY; }
-		else if (key == 2 && TeamCount() >= 2) { QueueWeapon(TS_ACC_STEALTH, 0, false, true); m_level = LVL_CATEGORY; }
+		else if (key == 2 && !Restricted(TS_ACC_STEALTH, true)) { QueueWeapon(TS_ACC_STEALTH, 0, false, true); m_level = LVL_CATEGORY; }
 		else if (key == 10) m_level = LVL_CATEGORY;
 		break;
 
@@ -1069,16 +1112,25 @@ void CHudTSBuyMenu::DrawColumnDetail()
 	DrawColumnWeapons();
 }
 
-// FUN_10037fe0 — accessory column (sits at the weapons X). Kevlar + (team) Stealth Shoes.
+// FUN_10037fe0 — the accessory column (at the weapons x): Kevlar (1900, 10 slots) and Stealth Shoes
+// (700, no slots), each unless restricted (0x100365e0), red when it would pass the budget or the slot
+// cap, else dim.
 void CHudTSBuyMenu::DrawColumnAccessory()
 {
 	Cursor c;
 	int dr, dg, db, r, g, b;
 	ColDim(dr, dg, db);
 	SetCursor(c, TS_X_WEAPONS, ScreenMidY(), TS_ROWH, TS_COLW);
-	DrawEntry(c, "1 Kevlar  1900", dr, dg, db);
-	if (TeamCount() >= 2)
-		DrawEntry(c, "2 Stealth Shoes  700", dr, dg, db);
+	if (!Restricted(TS_ACC_KEVLAR, true))
+	{
+		if (m_spent + 1900 > TS_BUDGET || m_slotsUsed + 10 > TS_SLOTCAP) { COL_RED; } else { r = dr; g = dg; b = db; }
+		DrawEntry(c, "1 Kevlar  1900", r, g, b);
+	}
+	if (!Restricted(TS_ACC_STEALTH, true))
+	{
+		if (m_spent + 700 > TS_BUDGET || m_slotsUsed > TS_SLOTCAP) { COL_RED; } else { r = dr; g = dg; b = db; }
+		DrawEntry(c, "2 Stealth Shoes  700", r, g, b);
+	}
 	COL_BLUE;
 	DrawEntry(c, "0 Go Back", r, g, b);
 	DrawColumnCategory();
