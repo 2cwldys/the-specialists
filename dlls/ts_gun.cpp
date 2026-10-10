@@ -1847,8 +1847,13 @@ void CTSGun::ColdCock()
 	// events/coldcock.sc (@0x81f80, gated on the item being owned): the CLIENT owns the whole
 	// presentation — the block[28] viewmodel anim, the ALWAYS-whoosh, the texture note + smoke
 	// puff on a hit (EV_TSColdCock). iparam1=type, iparam2=attach; fparam1/2 carry the aim dir
-	// x/y (unconsumed by the handler — kept for byte-faithfulness).
+	// x/y (unconsumed by the handler — kept for byte-faithfulness). client.dll's predicted ColdCock
+	// plays it with any active item (@0x10008dc8): the client marks no item owned.
+#ifdef CLIENT_DLL
+	if (m_pActiveItem)
+#else
 	if (m_pActiveItem && m_pActiveItem->owned)
+#endif
 		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usColdCock, 0.0, g_vecZero,
 			g_vecZero, gpGlobals->v_forward.x, gpGlobals->v_forward.y,
 			m_weaponType, m_pActiveItem->attach, 0, 0);

@@ -661,7 +661,11 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 				g_TSGun.m_bHoldPosition = it.holdPosition;            // seed the PREDICTED base (the active-pointer
 				                                                      //   reseed above ran off the stale item) so SecondaryAttack
 				                                                      //   toggles from the server truth -> no stance blink
-				it.owned = true; // the wielded item is owned (predicted-event gate)
+				// No owned flag: client.dll fills the wielded item here (@0x10003a4d-0x10003b20) but never
+				// marks any item owned (Reset @0x10008470 clears them, nothing sets them), so its predicted
+				// DropWeapon (@0x100085d0) is a no-op and the last grenade's throw picks no next weapon
+				// locally; the server's vuser3.x brings the next one. Marking every wielded type owned
+				// made the predicted GetBetterWeapon pick a weapon dropped long ago and give it a bar cell.
 				// cd+0x6c (ammo_shells) = the PAIRED akimbo/single variant's clip (server pack @0xb0294). Store
 				// it back into the parked variant's clip so our client knows it for the bar/prediction — the
 				// inverse of the server pack, completing drop-in parity vs the ORIGINAL server. [[dropin-both-directions]]

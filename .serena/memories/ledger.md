@@ -7356,3 +7356,21 @@ Round 23 (amxxbench docs/fixes/rets-deviations23.md). One patch per item in ~/st
 Tests (reTS + ts30): ts_gamerules no_load_all_maps_commands; ts_powerup_state's duck roll test now
 faces open ground (a spawn spot facing a wall failed it once in 42 runs). Details in amxxbench
 docs/fixes/rets-deviations23-report.md.
+
+## 2026-10-10 — grenade powerup refused; a phantom weapon on the bar after the last grenade
+
+amxxbench docs/fixes/grenade-powerup.md. Scratch in ~/stignored/grenade-powerup.
+- Grenade powerup not picking up: TS 3.0 refuses it the same way. PlayerAddPowerUp @0x87d4e calls
+  PickUpWeapon(M61, 0, 0, select, no owner); PickUpWeapon @0x8314c refuses when player+0x548 (free
+  slots) minus the M61's 7 is below 0; TakeWeapon @0x70a04 refuses a third M61 (cap 2); WaitTouch
+  @0x88614 leaves a refused powerup where it is. Steven's Mossberg, Raging Bull, katana and Skorpion
+  use 80 of 81 slots. Puppets agree on both games (ts_pickups, 8 tests). No game change.
+- Phantom M4 on the weapon bar after throwing the last M61: the server is right (both games send
+  TSSpace, WStatus 24 0 0 and WeaponInfo for the next weapon, nothing for the M4). The reTS client
+  marked every wielded type owned in HUD_WeaponsPostThink (8922f0c7, for the coldcock event gate) and
+  never cleared it, so its predicted DropWeapon -> GetBetterWeapon picked a weapon wielded earlier in
+  the session (M4 is 4th in priority) and TSHud_GunUpdate gave it a bar cell the server never clears.
+  client.dll never sets an item owned (Reset @0x10008470 clears, HUD_WeaponsPostThink fills the item
+  without +0), so its DropWeapon @0x100085d0 is a no-op. Fixed: no owned flag on the client; the
+  coldcock event plays on any active item on the client (client.dll @0x10008dc8 has no gate), owned
+  gate kept on the server (@0x81f80). Server libraries byte-identical to 52113a0.
