@@ -22,3 +22,6 @@ __pycache__/
 
 # Local MCP server config (machine-specific absolute paths)
 .mcp.json
+
+# reTS drop-in packages (scripts/package.sh)
+dist/
