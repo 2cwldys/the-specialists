@@ -202,8 +202,8 @@ void CHudTSWeaponBar::SetClip(int type, int clip, bool bOwn)
 }
 
 // "Wires" (3 bytes) — the nearby armed bomb's wire ROLE codes (0 cut / 1 defuse / 2 boobytrap /
-// 3 intact; all-zero = walked away). Stored at the original's provenance (+0x36fc..fe on the
-// weapon-bar object); the wires-UI crosshair swap (FUN_1004d550) is a VERIFY draw tail.
+// 3 intact; all-zero = walked away), weapon bar +0x36fc..0x36fe. While any is set the slot keys 1..3
+// cut wires and the wires replace the crosshair (CHudTSReticle::DrawWires, 0x1004d550).
 bool CHudTSWeaponBar::MsgFunc_Wires(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);

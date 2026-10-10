@@ -168,9 +168,9 @@ void TS_UpdateMotionBlur()
 			cs.iuser4 = 0;
 			cs.fuser2 = 120.0f; // the float alpha accumulator the fade callback drains
 
-			// Player remap block -> the ghost's colormap/gait snapshot (original reads
-			// pi+0x178/0x17c/0x180/0x184). VERIFY fields — mapped by player_info_t layout:
-			// 0x178 renderframe / 0x17c gaitsequence / 0x180 gaitframe / 0x184 gaityaw.
+			// The player's gait snapshot (0x10029908..0x1002992c): player_info_t +0x178 renderframe,
+			// +0x17c gaitsequence, +0x180 gaitframe, +0x184 gaityaw into the ghost's curstate iuser2,
+			// iuser1, fuser3, fuser4 (tempent +0x3fc, +0x3f8, +0x410, +0x414).
 			player_info_t* pi = IEngineStudio.PlayerInfo(i - 1);
 			if (pi != nullptr)
 			{
