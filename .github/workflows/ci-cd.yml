@@ -266,8 +266,9 @@ jobs:
 
   # Package — fan in every build job. Two artifacts, both under TS's own file names (TS's liblist.gam
   # names dlls/mp.dll and dlls/ts_i386.so; the client is always cl_dlls/client.*):
-  #  - reTS-<commit>: the patch for a stock TS 3.0 install, i386 + Win32 (scripts/assemble-dropin.sh,
-  #    the same layout scripts/package.sh builds locally).
+  #  - reTS-<commit>: the patch for a stock TS 3.0 install (scripts/assemble-dropin.sh, the layout
+  #    scripts/package.sh builds locally): i386 + Win32 under TS's names, plus the 64-bit builds under
+  #    the names Xash builds from TS's liblist.
   #  - ts-gamelibs-all: every arch for Xash, which adds the arch to the base name from liblist
   #    (ts_amd64.so, ts_arm64.so, mp_amd64.dll, client_amd64.so, client_arm64.so, client_amd64.dll).
   package:
@@ -283,6 +284,11 @@ jobs:
         with:
           path: artifacts
 
+      - name: llvm-strip for the aarch64 libraries (GNU strip on x86 cannot read them)
+        run: |
+          ls /usr/bin/llvm-strip* >/dev/null 2>&1 || { sudo apt-get update -q && sudo apt-get install -y -q llvm; }
+          ls /usr/bin/llvm-strip*
+
       - name: Assemble
         shell: bash
         run: |
@@ -297,7 +303,11 @@ jobs:
           # On a tag (release.yml) the version is the tag as pushed, read from the event like sitrep.ai
           # does (no tag history needed in the checkout); otherwise the short commit.
           if [ "${{ github.ref_type }}" = tag ]; then REV="${{ github.ref_name }}"; else REV=$(git rev-parse --short HEAD); fi
-          scripts/assemble-dropin.sh "$REV" \
+          scripts/assemble-dropin.sh \
+            --amd64 "$(pick Linux-amd64 hl.so)" "$(pick Linux-amd64 client.so)" \
+            --arm64 "$(pick Linux-aarch64 hl.so)" "$(pick Linux-aarch64 client.so)" \
+            --win64 "$(pick Win64 hl.dll)" "$(pick Win64 client.dll)" \
+            "$REV" \
             "$(pick Linux-i386 hl.so)" "$(pick Linux-i386 client.so)" \
             "$(pick Win32 hl.dll)" "$(pick Win32 client.dll)" dropin
           echo "REV=$REV" >> "$GITHUB_ENV"
