@@ -1,7 +1,9 @@
 name: CI/CD
 
 on:
+  # Branch pushes only: a vX.Y.Z tag runs release.yml, which calls this workflow.
   push:
+    branches: ['**']
   pull_request:
   # Run by hand (Actions -> CI/CD -> Run workflow) to also build and package the Debug profile.
   workflow_dispatch:
@@ -10,6 +12,17 @@ on:
         description: "Also build the Debug profile (i386 + Win32) and package reTS-<commit>-debug"
         type: boolean
         default: false
+  # release.yml builds a tagged commit through this workflow.
+  workflow_call:
+    inputs:
+      debug:
+        type: boolean
+        default: false
+
+# The version every build stamps (cmake/Version.cmake): the pushed tag on a tag build, else empty and
+# CMake uses git describe or the commit.
+env:
+  RETS_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
 # Every arch builds through the SAME CMake authority now — the legacy i386 Makefile
 # and the MSVC .vcxproj/.sln are gone. CMake carries the i386 toolchain (classic
@@ -45,7 +58,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE=cmake/LinuxToolchain.cmake
 
       - name: Build (hl gamedll + client)
-        run: cmake --build build-i386 --target hl client -j$(nproc)
+        run: cmake --build build-i386 --target hl client -j"$(nproc)"
 
       - name: Stage per-arch
         run: |
@@ -58,7 +71,7 @@ jobs:
         run: |
           cmake -B build-i386-debug -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_TOOLCHAIN_FILE=cmake/LinuxToolchain.cmake
-          cmake --build build-i386-debug --target hl client -j$(nproc)
+          cmake --build build-i386-debug --target hl client -j"$(nproc)"
           mkdir -p staged-i386-debug/dlls staged-i386-debug/cl_dlls
           cp build-i386-debug/dlls/hl.so staged-i386-debug/dlls/hl.so
           cp build-i386-debug/cl_dll/client.so staged-i386-debug/cl_dlls/client.so
@@ -97,7 +110,7 @@ jobs:
         run: cmake -B build-amd64 -DCMAKE_BUILD_TYPE=Release
 
       - name: Build (hl gamedll + client)
-        run: cmake --build build-amd64 --target hl client -j$(nproc)
+        run: cmake --build build-amd64 --target hl client -j"$(nproc)"
 
       - name: Stage per-arch
         run: |
@@ -139,7 +152,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE=cmake/LinuxToolchain-aarch64.cmake
 
       - name: Build (hl gamedll + client)
-        run: cmake --build build-aarch64 --target hl client -j$(nproc)
+        run: cmake --build build-aarch64 --target hl client -j"$(nproc)"
 
       - name: Stage per-arch
         run: |
@@ -272,7 +285,9 @@ jobs:
             if [ -z "$f" ]; then echo "MISSING: $2 in artifact $1" >&2; exit 1; fi
             echo "$f"
           }
-          REV=$(git rev-parse --short HEAD)
+          # On a tag (release.yml) the version is the tag as pushed, read from the event like sitrep.ai
+          # does (no tag history needed in the checkout); otherwise the short commit.
+          if [ "${{ github.ref_type }}" = tag ]; then REV="${{ github.ref_name }}"; else REV=$(git rev-parse --short HEAD); fi
           scripts/assemble-dropin.sh "$REV" \
             "$(pick Linux-i386 hl.so)" "$(pick Linux-i386 client.so)" \
             "$(pick Win32 hl.dll)" "$(pick Win32 client.dll)" dropin

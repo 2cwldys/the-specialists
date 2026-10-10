@@ -23,7 +23,9 @@ if [ -n "$(git status --porcelain --untracked-files=no -- . ':!.serena/project.y
   git status --short --untracked-files=no -- . ':!.serena/project.yml' >&2
   exit 1
 fi
-REV="$(git rev-parse --short HEAD)"
+# The package name: the v* tag on a tagged commit, <tag>-N-g<hash> after it, the bare hash before
+# any tag (the same describe cmake/Version.cmake stamps into the Windows version resource).
+REV="$(git describe --tags --match 'v*' 2>/dev/null || git rev-parse --short HEAD)"
 
 if [ ${#DEBUG[@]} -eq 0 ]; then
   LIN=build-i386; WIN=build-win32-clangcl

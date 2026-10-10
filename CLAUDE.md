@@ -153,6 +153,14 @@ x86 MSVC CRT and Windows SDK (`~/.cache/xwin/splat-x86`; the script prints the x
 missing). Output: `build-win32-clangcl/`. lld-link rejects `hl.def`'s `SECTIONS` block, so that build
 uses `dlls/hl-lld.def`.
 
+**Packages, versions, releases.** `scripts/package.sh` builds the patch for a stock TS 3.0 install
+(`dist/reTS-<version>.zip`, laid out by `scripts/assemble-dropin.sh`: TS's own file names, Linux libraries
+stripped, README and MANIFEST.tsv); `--debug` packages the Debug profile instead (not stripped, with PDBs).
+The version is the pushed `v*` tag (`cmake/Version.cmake`: `$RETS_VERSION`, else `git describe`, else the
+commit); Windows builds carry it in a version resource. Pushing a tag (`git tag v0.0.1 && git push origin
+v0.0.1`) runs `.github/workflows/release.yml`, which builds through `ci-cd.yml` and creates the GitHub
+release with `reTS-<tag>.zip`. CI builds Debug only when run by hand with `debug` ticked.
+
 Always build deployables through the image, never natively (a native build on
 this host links glibc 2.38+ and won't run on Debian 12 / AL2023). Verify:
 `objdump -T build-<arch>/dlls/hl.so | grep -oE 'GLIBC_[0-9.]+' | sort -V | tail -1`.

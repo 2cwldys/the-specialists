@@ -1,0 +1,44 @@
+name: Release
+
+# Push a version tag to cut a GitHub release:
+#   git tag v0.0.1 && git push origin v0.0.1
+# The tag is the version, as pushed (v0.0.1, v1.2.0-rc1, ...): ci-cd.yml stamps it into the Windows
+# version resources and names the package reTS-<tag>. This builds the tagged commit through ci-cd.yml,
+# then creates the release with the patch for TS 3.0 attached as reTS-<tag>.zip. A tag with a "-"
+# (v1.2.0-rc1) is marked as a prerelease.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    uses: ./.github/workflows/ci-cd.yml
+    secrets: inherit
+
+  release:
+    name: GitHub release
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - name: Download the patch for TS 3.0
+        uses: actions/download-artifact@v8
+        with:
+          name: reTS-${{ github.ref_name }}
+          path: reTS-${{ github.ref_name }}
+
+      - name: Create the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ( cd "reTS-$TAG" && zip -qr "../reTS-$TAG.zip" ts README.txt MANIFEST.tsv )
+          PRE=()
+          case "$TAG" in *-*) PRE=(--prerelease) ;; esac
+          gh release create "$TAG" "reTS-$TAG.zip" -R "$GITHUB_REPOSITORY" "${PRE[@]}" \
+            --title "reTS $TAG" --generate-notes --verify-tag

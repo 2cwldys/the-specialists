@@ -13,6 +13,11 @@ project(HalfLifeMod
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+if(WIN32)
+	enable_language(RC)
+endif()
+include(cmake/Version.cmake)
+
 # Detect Emscripten for WASM side module builds
 if(EMSCRIPTEN OR CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
 	set(HALFLIFE_EMSCRIPTEN ON)
@@ -170,6 +175,9 @@ endfunction()
 
 add_subdirectory(cl_dll)
 add_subdirectory(dlls)
+
+rets_version_resource(hl mp.dll "reTS server (The Specialists)")
+rets_version_resource(client client.dll "reTS client (The Specialists)")
 
 if(HALFLIFE_EMSCRIPTEN)
 	set_target_properties(hl PROPERTIES OUTPUT_NAME "hl_emscripten_wasm32")
