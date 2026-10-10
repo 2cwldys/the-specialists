@@ -701,50 +701,73 @@ void CHudAmmo::SlotInput(int iSlot)
 }
 
 // TS: slot1-5 open the TS weapon-select bar at HUD column 1-5 (CHudTSWeaponBar), NOT the stock
-// gWR yellow weapon menu (TS has one weapon_tsgun arsenal). slot6-10 are unused in TS.
+// gWR yellow weapon menu (TS has one weapon_tsgun arsenal).
+// client.dll's slot handler (0x1004f220, slotN -> N) first hands 1..10 to an open text menu (a
+// server's ShowMenu, e.g. an AMX Mod X menu) as menuselect and stops there; only without one does a
+// slot reach the weapon bar. Without that check the number keys opened the weapon bar under a menu.
+static bool TS_MenuTakesSlot(int slot)
+{
+	if (gHUD.m_Menu.m_fMenuDisplayed && slot > 0 && slot < 11)
+	{
+		gHUD.m_Menu.SelectMenuItem(slot);
+		return true;
+	}
+	return false;
+}
+
 void CHudAmmo::UserCmd_Slot1()
 {
-	gHUD.m_TSWeaponBar.SelectColumn(1);
+	if (!TS_MenuTakesSlot(1))
+		gHUD.m_TSWeaponBar.SelectColumn(1);
 }
 
 void CHudAmmo::UserCmd_Slot2()
 {
-	gHUD.m_TSWeaponBar.SelectColumn(2);
+	if (!TS_MenuTakesSlot(2))
+		gHUD.m_TSWeaponBar.SelectColumn(2);
 }
 
 void CHudAmmo::UserCmd_Slot3()
 {
-	gHUD.m_TSWeaponBar.SelectColumn(3);
+	if (!TS_MenuTakesSlot(3))
+		gHUD.m_TSWeaponBar.SelectColumn(3);
 }
 
 void CHudAmmo::UserCmd_Slot4()
 {
-	gHUD.m_TSWeaponBar.SelectColumn(4);
+	if (!TS_MenuTakesSlot(4))
+		gHUD.m_TSWeaponBar.SelectColumn(4);
 }
 
 void CHudAmmo::UserCmd_Slot5()
 {
-	gHUD.m_TSWeaponBar.SelectColumn(5);
+	if (!TS_MenuTakesSlot(5))
+		gHUD.m_TSWeaponBar.SelectColumn(5);
 }
 
 void CHudAmmo::UserCmd_Slot6()
 {
+	TS_MenuTakesSlot(6);
 }
 
 void CHudAmmo::UserCmd_Slot7()
 {
+	TS_MenuTakesSlot(7);
 }
 
 void CHudAmmo::UserCmd_Slot8()
 {
+	TS_MenuTakesSlot(8);
 }
 
 void CHudAmmo::UserCmd_Slot9()
 {
+	TS_MenuTakesSlot(9);
 }
 
 void CHudAmmo::UserCmd_Slot10()
 {
+	TS_MenuTakesSlot(10);
 }
 
 void CHudAmmo::UserCmd_Close()
