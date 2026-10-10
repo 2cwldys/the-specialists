@@ -21,7 +21,7 @@ jobs:
     container: ghcr.io/goldsrc-net/build-containers/debian10:latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           # Fine-grained PAT / GitHub App token with Contents:Read on the private
@@ -45,7 +45,7 @@ jobs:
           cp build-i386/cl_dll/client.so staged-i386/cl_dlls/client.so
 
       - name: Deploy
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Linux-i386
           path: staged-i386/**
@@ -58,7 +58,7 @@ jobs:
     container: ghcr.io/goldsrc-net/build-containers/debian10:latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           # Fine-grained PAT / GitHub App token with Contents:Read on the private
@@ -80,7 +80,7 @@ jobs:
           cp build-amd64/cl_dll/client.so staged-amd64/cl_dlls/client.so
 
       - name: Deploy
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Linux-amd64
           path: staged-amd64/**
@@ -92,7 +92,7 @@ jobs:
     container: ghcr.io/goldsrc-net/build-containers/debian10:latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           # Fine-grained PAT / GitHub App token with Contents:Read on the private
@@ -122,7 +122,7 @@ jobs:
           cp build-aarch64/cl_dll/client.so staged-aarch64/cl_dlls/client.so
 
       - name: Deploy
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Linux-aarch64
           path: staged-aarch64/**
@@ -133,7 +133,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           # Fine-grained PAT / GitHub App token with Contents:Read on the private
@@ -158,7 +158,7 @@ jobs:
           cp build-win32/cl_dll/Release/client.pdb  staged-win32/cl_dlls/    2>/dev/null || true
 
       - name: Deploy
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Win32
           path: staged-win32/**
@@ -172,7 +172,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           # Fine-grained PAT / GitHub App token with Contents:Read on the private
@@ -197,7 +197,7 @@ jobs:
           cp build-win64/cl_dll/Release/client.pdb  staged-win64/cl_dlls/    2>/dev/null || true
 
       - name: Deploy
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Win64
           path: staged-win64/**
@@ -214,10 +214,10 @@ jobs:
     needs: [linux-i386, linux-amd64, linux-aarch64, win32, win64]
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -252,13 +252,13 @@ jobs:
           find dropin dist -type f | sort
 
       - name: Upload the TS 3.0 patch
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reTS-${{ env.REV }}
           path: dropin/reTS-${{ env.REV }}/**
 
       - name: Upload the Xash libraries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ts-gamelibs-all
           path: dist/**
