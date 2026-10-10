@@ -124,7 +124,9 @@ void CHudTSWeaponBar::Think()
 			m_swallowAttack2 = false;
 	}
 
-	if (!m_selecting)
+	// client.dll's think (0x1004d28b) takes FIRE and the right click only while the player is neither
+	// dead for the HUD nor spectating.
+	if (!m_selecting || TSHud_PlayerPartsHidden())
 		return;
 
 	if ((gHUD.m_iKeyBits & IN_ATTACK) != 0)
@@ -331,7 +333,7 @@ void CHudTSWeaponBar::SelectSlot(int slot)
 		gHUD.m_TSBuyMenu.HandleSlot(slot);
 		return;
 	}
-	if (gHUD.m_fPlayerDead || gHUD.m_Spectate.IsActive())
+	if (TSHud_PlayerPartsHidden()) // 0x1004c250 dead for the HUD, 0x1004c280 spectating
 		return;
 
 	char cmd[32];
@@ -436,7 +438,9 @@ void CHudTSWeaponBar::SelectSlot(int slot)
 // with the draw anim, server side), then close. Re-selecting the active weapon just closes.
 void CHudTSWeaponBar::Commit()
 {
-	if (m_selType >= 0 && m_selType != g_iTSActiveWeapon)
+	// client.dll's think (0x1004d2b6) sends weapon_<type> for the cursor's cell whenever it holds a
+	// weapon, the one already in hand included.
+	if (m_selType >= 0)
 	{
 		char cmd[24];
 		sprintf(cmd, "weapon_%d\n", m_selType);

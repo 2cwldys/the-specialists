@@ -41,6 +41,7 @@ public:
 private:
 	int m_iWeaponType; // active tsweapon_t
 	float m_flMeleeBar; // melee block stamina -100..100 (this+0x3700): KFuPower sets it, Think regenerates it
+	int m_iLastFireMode = 0;     // this+0x7bc — the fire mode the switch sound last played for
 	int m_iLastKeyBits = 0;      // this+0x3724 — the HUD key bits at the last think (the +use edge)
 	float m_flUseDeadline = 0;   // this+0x3720 — a +use press before this time sends usepowerup
 	int m_iHeartState = 0;       // this+0x3708 — the heartbeat: 0 off, 2 playing, 1 fading out

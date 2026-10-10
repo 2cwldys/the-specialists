@@ -363,9 +363,34 @@ HUD_Key_Event
 Return 1 to allow engine to process the key, otherwise, act on it as needed
 ============
 */
+// Set by HUD_Key_Event (client.dll 0x100df5cc) when the key's binding is one of the nine movement and
+// attack buttons below, cleared at the end of HUD_Frame. Their + commands press only while it is set,
+// so a + command that does not come straight from a key bound to it (an alias, a script, the console)
+// does nothing.
+bool g_bTSKeyBound = false;
+
 int DLLEXPORT HUD_Key_Event(int down, int keynum, const char* pszCurrentBinding)
 {
 	//	RecClKeyEvent(down, keynum, pszCurrentBinding);
+
+	// client.dll (0x10025a80): pressing the A key also sends slot 11 to the slot handler (0x1004f220),
+	// which the buy menu takes as its eleventh key.
+	if (0 != down && keynum == 'a')
+		gHUD.m_TSWeaponBar.SelectSlot(11);
+
+	if (pszCurrentBinding != nullptr)
+	{
+		static const char* const s_bound[] = {"+attack", "+attack2", "+alt2", "+reload", "+forward", "+back",
+			"+moveleft", "+moveright", "+jump"};
+		for (const char* b : s_bound)
+		{
+			if (strcmp(pszCurrentBinding, b) == 0)
+			{
+				g_bTSKeyBound = true;
+				break;
+			}
+		}
+	}
 
 	// (The TS buy menu takes its keys through the slot commands, as client.dll's slot handler
 	// 0x1004f220 does: CHudTSWeaponBar::SelectSlot.)
@@ -394,6 +419,8 @@ void IN_RightUp() { KeyUp(&in_right); }
 
 void IN_ForwardDown()
 {
+	if (!g_bTSKeyBound)
+		return;
 	KeyDown(&in_forward);
 	gHUD.m_Spectator.HandleButtonsDown(IN_FORWARD);
 }
@@ -406,6 +433,8 @@ void IN_ForwardUp()
 
 void IN_BackDown()
 {
+	if (!g_bTSKeyBound)
+		return;
 	KeyDown(&in_back);
 	gHUD.m_Spectator.HandleButtonsDown(IN_BACK);
 }
@@ -421,6 +450,8 @@ void IN_LookdownDown() { KeyDown(&in_lookdown); }
 void IN_LookdownUp() { KeyUp(&in_lookdown); }
 void IN_MoveleftDown()
 {
+	if (!g_bTSKeyBound)
+		return;
 	KeyDown(&in_moveleft);
 	gHUD.m_Spectator.HandleButtonsDown(IN_MOVELEFT);
 }
@@ -433,6 +464,8 @@ void IN_MoveleftUp()
 
 void IN_MoverightDown()
 {
+	if (!g_bTSKeyBound)
+		return;
 	KeyDown(&in_moveright);
 	gHUD.m_Spectator.HandleButtonsDown(IN_MOVERIGHT);
 }
@@ -471,6 +504,8 @@ bool TS_AttackSwitched()
 
 void IN_Attack2Down()
 {
+	if (!g_bTSKeyBound)
+		return;
 	if (TS_AttackSwitched())
 		in_cancel = true;
 	else
@@ -496,6 +531,8 @@ void IN_UseDown()
 void IN_UseUp() { KeyUp(&in_use); }
 void IN_JumpDown()
 {
+	if (!g_bTSKeyBound)
+		return;
 	KeyDown(&in_jump);
 	gHUD.m_Spectator.HandleButtonsDown(IN_JUMP);
 }
@@ -506,7 +543,11 @@ void IN_DuckDown()
 	gHUD.m_Spectator.HandleButtonsDown(IN_DUCK);
 }
 void IN_DuckUp() { KeyUp(&in_duck); }
-void IN_ReloadDown() { KeyDown(&in_reload); }
+void IN_ReloadDown()
+{
+	if (g_bTSKeyBound)
+		KeyDown(&in_reload);
+}
 void IN_ReloadUp() { KeyUp(&in_reload); }
 void IN_Alt1Down() { KeyDown(&in_alt1); }
 void IN_Alt1Up() { KeyUp(&in_alt1); }
@@ -515,6 +556,8 @@ void IN_GraphUp() { KeyUp(&in_graph); }
 
 void IN_AttackDown()
 {
+	if (!g_bTSKeyBound)
+		return;
 	KeyDown(&in_attack);
 	gHUD.m_Spectator.HandleButtonsDown(IN_ATTACK);
 }

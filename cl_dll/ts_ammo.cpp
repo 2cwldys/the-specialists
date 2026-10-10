@@ -193,6 +193,20 @@ void CHudTSAmmo::Think()
 			PlayLoop(501, "player/heartbeat1.wav", m_flHeartVolume, TS_SND_CHANGE_VOL);
 	}
 
+	// The fire mode switch (0x1004d340): alive and playing with a weapon (type 1 and up), a fire mode
+	// other than the one last heard plays weapons/switch.wav on the local player, channel 3, volume
+	// 0.92..1, attenuation 1.25, the breathing's pitch.
+	if (!TSHud_PlayerPartsHidden() && m_iWeaponType > 0 && m_iLastFireMode != m_iFireMode)
+	{
+		extern float g_flClientSlow;
+		const int pitch = gEngfuncs.pfnRandomLong(-5, 5) + 25 - (int)(g_flClientSlow * -75.0f);
+		cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+		if (lp)
+			gEngfuncs.pEventAPI->EV_PlaySound(lp->index, lp->origin, CHAN_ITEM, "weapons/switch.wav",
+				gEngfuncs.pfnRandomFloat(0.92f, 1.0f), 1.25f, 0, pitch);
+		m_iLastFireMode = m_iFireMode;
+	}
+
 	// The breathing (client.dll Think @0x1004d0ee-0x1004d24c), whatever is in his hands: below 50 on
 	// the melee bar breathe2.wav starts at 0.7 (it is loop-marked, so it keeps going); back at 50 it
 	// fades, 0.005 a frame, re-sent with SND_CHANGE_VOL, and stops at 0. Falling below 50 while it

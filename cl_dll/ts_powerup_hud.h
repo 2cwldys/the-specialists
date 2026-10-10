@@ -22,6 +22,7 @@ public:
 	bool MsgFunc_TSSlowMo(const char* pszName, int iSize, void* pbuf);
 	bool MsgFunc_TSBTime(const char* pszName, int iSize, void* pbuf); // bullet-time variant flag
 
+	void InterpolateSlow(float frametime); // client.dll 0x10055ae0, run from HUD_Frame
 	int HeldFlags() const { return m_iHeld; } // the held powerup bits (client.dll status +0x14)
 
 private:

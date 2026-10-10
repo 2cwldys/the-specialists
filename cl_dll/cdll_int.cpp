@@ -264,6 +264,9 @@ void DLLEXPORT HUD_Frame(double time)
 
 	GetClientVoiceMgr()->Frame(time);
 	TSEmitter_Frame(time); // client.dll HUD_Frame -> FUN_1003ab40: the map's ts_emitter effects
+	gHUD.m_TSPowerUp.InterpolateSlow((float)time); // 0x10055ae0, the slow factor's easing
+	extern bool g_bTSKeyBound;
+	g_bTSKeyBound = false; // 0x1001ab27
 }
 
 

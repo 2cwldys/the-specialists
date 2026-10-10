@@ -141,23 +141,25 @@ bool CHudTSPowerUp::MsgFunc_TSBTime(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
+// client.dll's HUD_Frame (0x1001ab0e -> 0x10055ae0) eases the slow factor toward TSSlowMo's target
+// every frame: at once within 0.05, else by min(frame time x 7, 1) of the difference.
+void CHudTSPowerUp::InterpolateSlow(float frametime)
+{
+	const float target = m_flSlowAmt * 0.01f;
+	float d = target - g_flClientSlow;
+	const float ad = d < 0.0f ? -d : d;
+	if (ad > 0.05f)
+	{
+		float k = frametime * 7.0f;
+		if (k > 1.0f)
+			k = 1.0f;
+		d *= k;
+	}
+	g_flClientSlow += d;
+}
+
 bool CHudTSPowerUp::Draw(float flTime)
 {
-	// Ease the smoothed slow factor toward the TSSlowMo target (RE client InterpolateSlowMotion:
-	// snap when within 0.05, else step by min(frametime*7, 1)). This feeds the gunshot sound pitch.
-	{
-		float target = m_flSlowAmt * 0.01f;
-		float d = target - g_flClientSlow;
-		float ad = d < 0.0f ? -d : d;
-		if (ad > 0.05f)
-		{
-			float s = gHUD.m_flTimeDelta * 7.0f;
-			if (s > 1.0f) s = 1.0f;
-			d *= s;
-		}
-		g_flClientSlow += d;
-	}
-
 	// The slow-motion screen tint is drawn in V_CalcRefdef (cl_dll/view.cpp) via the engine screen-
 	// fade — the faithful teal RGBA(0,100,125) at alpha (1-slow)*50, NOT a green fill here. (That
 	// drives off g_flClientSlow, which this element eases above.)

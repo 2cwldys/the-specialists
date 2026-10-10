@@ -37,8 +37,11 @@ extern kbutton_t in_attack2;
 bool TS_AttackSwitched();
 void KeyDown(kbutton_t* b);
 void KeyUp(kbutton_t* b);
+extern bool g_bTSKeyBound; // input.cpp: the + commands press only from a key bound to them
 static void IN_Alt2Down()
 {
+	if (!g_bTSKeyBound)
+		return;
 	if (TS_AttackSwitched())
 		KeyDown(&in_attack2);
 	else
