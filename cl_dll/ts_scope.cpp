@@ -1,11 +1,10 @@
 /***
-*  ts_scope.cpp — the TS scope overlay. The original ships ONLY `quarterscope.spr` (one quarter
-*  of the mask — the top-left) and composes the full circle at RENDER TIME by painting that
-*  quarter 4x, ROTATED 90° into each quadrant, via the TriAPI (RE: client.dll scope draw @0x10054516
-*  — SpriteTexture(quarterscope) → Begin(TRI_QUADS) → per-vertex TexCoord2f/Vertex3fv from screen
-*  dims). We do the same — NO generated/baked sprite (the round-7l `ts_scopefull.spr` full-mask
-*  was an invented asset the original doesn't have; removed). Drawn in HUD/screen space so the
-*  reticle/side bars/laser dot draw around + over it in CHudTSReticle.
+*  ts_scope.cpp — the TS scope overlay. TS ships only `quarterscope.spr` (the top-left quarter of
+*  the mask); client.dll's scope draw (0x10054510, in its FX pass, hardware renderer only, first
+*  person, alive and playing, field of view under 40) paints that quarter four times, each rotated
+*  into its quadrant, as a TriAPI quad in front of the eye sized by the field of view. reTS paints
+*  the same four quarters in screen space at Steven's size (1.45 x the screen height, 7m) with
+*  black side bars, so the reticle's side bars and pinned laser dot draw around and over it.
 ***/
 #include "hud.h"
 #include "cl_util.h"

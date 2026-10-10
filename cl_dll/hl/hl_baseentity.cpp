@@ -39,7 +39,7 @@ CBaseEntity* CBaseEntity::GetNextTarget() { return NULL; }
 bool CBaseEntity::Save(CSave& save) { return true; }
 bool CBaseEntity::Restore(CRestore& restore) { return true; }
 void CBaseEntity::SetObjectCollisionBox() {}
-int CBaseEntity::eoffset() { return 0; } // client stub (server returns OFFSET(pev))
+int CBaseEntity::eoffset() { return 0; } // 0 on the client (the server's is OFFSET(pev))
 bool CBaseEntity::Intersects(CBaseEntity* pOther) { return false; }
 void CBaseEntity::MakeDormant() {}
 bool CBaseEntity::IsDormant() { return false; }
@@ -67,9 +67,9 @@ void UTIL_PrecacheOther(const char* szClassname) {}
 void UTIL_BloodDrips(const Vector& origin, const Vector& direction, int color, int amount) {}
 void UTIL_DecalTrace(TraceResult* pTrace, int decalNumber) {}
 void UTIL_GunshotDecalTrace(TraceResult* pTrace, int decalNumber) {}
-// NOT a stub: predicted TS code branches on gpGlobals->v_forward (CTSGun::CCombatAttack's
-// fwdDot picks the SIDE KICK, B3) — with the stock empty stub the client predictor read
-// dot=0.00 vs the server's 0.88 and played the wrong FPV kick (cont.86 [CCK] trace).
+// UTIL_MakeVectors fills gpGlobals' vectors on the client too: the predicted CTSGun::CCombatAttack
+// picks its side kick from v_forward (the cont.86 trace: an empty one read 0.00 where the server
+// read 0.88 and played the wrong kick).
 void UTIL_MakeVectors(const Vector& vecAngles)
 {
 	AngleVectors(vecAngles, &gpGlobals->v_forward, &gpGlobals->v_right, &gpGlobals->v_up);

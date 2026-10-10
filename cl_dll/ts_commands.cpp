@@ -15,11 +15,9 @@
 //
 // ts_commands.cpp
 //
-// The Specialists client console commands. The original client registers ~12 TS
-// commands (reference/API_SURFACE.md). Registering them stops the "Unknown command"
-// spam and lets the player's TS keybinds work. The input/action commands forward to
-// the server (where the gameplay handler lives / will live); the pure-client UI
-// commands are stubs for now (the menus are a VGUI cl_dll feature still to build).
+// The TS client commands that have no stock home: +alt2/-alt2, buy and togglebrowser
+// (client.dll's command list: reference/API_SURFACE.md). The stock ones TS keeps (+alt1, +break,
+// +commandmenu, ForceCloseCommandMenu, special, specmode) are registered where the SDK has them.
 //
 
 #include "hud.h"
@@ -66,16 +64,12 @@ static void TS_Buy()
 		gHUD.m_TSBuyMenu.Open();
 }
 
-// Pure-client UI command stub (the server browser is a VGUI feature still to build).
+// togglebrowser: client.dll's (0x1001fec0 -> 0x10063590) shows or hides the SDK 2.3 in-game server
+// browser panel, which halflife-updated no longer has; here it does nothing.
 static void TS_NoOp() {}
 
 void TSRegisterCommands()
 {
-	// NOTE: xash3d-fwgs provides +alt1/-alt1, +break/-break, +commandmenu/-commandmenu,
-	// ForceCloseCommandMenu and `special` as engine built-ins (re-registering them errors,
-	// and they already forward to the server, which accepts them in dlls/client.cpp). On
-	// stock GoldSrc the client.dll registers them; here we register only the TS commands
-	// the engine lacks. See reference/API_SURFACE.md.
 	gEngfuncs.pfnAddCommand("+alt2", IN_Alt2Down);
 	gEngfuncs.pfnAddCommand("-alt2", IN_Alt2Up);
 	gEngfuncs.pfnAddCommand("buy", TS_Buy);

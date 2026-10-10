@@ -3,7 +3,7 @@
 *  weapon events (.sc). See reference/EVENTS.md.
 *
 *  In the original, every TS weapon-event handler (draw/fire/reload/…) caches its
-*  event args into a block of DAT_10189xxx globals at entry (active type, the
+*  event args into a block of globals near 0x10189000 at entry (active type, the
 *  get_weapon_info() ptr, the barrel mask, the entindex, the origin/angles/velocity)
 *  and then reproduces the predicted viewmodel anim / sound / effects from them. The
 *  ~70 globals are the client's INTERNAL prediction state — NOT part of the protocol.

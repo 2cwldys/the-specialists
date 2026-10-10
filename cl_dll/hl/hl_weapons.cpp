@@ -331,7 +331,8 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	g_irunninggausspred = false;
 }
 
-// Client stubs for the TS slow-motion virtuals (server runs the real logic; prediction doesn't).
+// The TS slow motion virtuals do nothing on the client: the predicted player's slow factor is the
+// clientdata fuser1 the server sends (HUD_WeaponsPostThink, as client.dll's 0x1000b9b0 reads it).
 void CBasePlayer::GoSlow(float scale, int slowBullets) {}
 int CBasePlayer::InSlow() { return 0; }
 
@@ -613,10 +614,8 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		pCurrent->m_fInAttack = pfrom->iuser2;
 		pCurrent->m_fireState = pfrom->iuser3;
 
-		// TS weapon-state channel (cont.89): the active weapon's predicted state comes from the clientdata
-		// vuser block the server sends (this REPLACES the removed invented CTSGun::SetWeaponData/weapon_data
-		// override, which corrupted the stock fire-state fields for the ORIGINAL client). Same slot layout the
-		// original client reads: vuser3.x=type, vuser3.y=fireMode, vuser3.z=attach, vuser4.x=altMode,
+		// TS weapon-state channel: the active weapon's predicted state comes from the clientdata vuser block
+		// the server sends, as client.dll reads it (0x10003a4d..0x10003b20), not from weapon_data: vuser3.x=type, vuser3.y=fireMode, vuser3.z=attach, vuser4.x=altMode,
 		// vuser4.y=clip, vuser4.z=2nd/left clip, vuser2.x=bloody, vuser1.z=active-attach.
 		if (pCurrent == &g_TSGun)
 		{
@@ -924,8 +923,8 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		if (pCurrent == &g_TSGun)
 			g_TSGun.m_flNextAlternateAttack = V_max((float)(g_TSGun.m_flNextAlternateAttack - slowMsec), -0.001f);
 
-		// (cont.89: the invented pCurrent->GetWeaponData(*pto) is removed — TS predicted weapon state now
-		// rides the clientdata vuser block written above, matching the original client's layout.)
+		// (The predicted TS weapon state rides the clientdata vuser block written above, as in client.dll;
+		// weapon_data carries only the stock fields.)
 
 		/*		if ( pto->m_flPumpTime != -9999 )
 		{

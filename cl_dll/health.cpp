@@ -142,9 +142,8 @@ bool CHudHealth::MsgFunc_Damage(const char* pszName, int iSize, void* pbuf)
 
 // PTakeDam — the TS pain/hit-feedback wire (RE dossier cont94 §8, handler FUN_1004bcd0):
 // hit point (3 COORDs), hit direction (3 COORDs), encoded damage byte (bit7 = armored/
-// upper-body hit, low 7 bits = dmg*0.5, x8 pre-scale under damage bit 25). The original
-// does NOTHING but the blood spray (FUN_10048840) — it does NOT feed a pain-direction
-// indicator (the earlier CalcDamageDirection call here was an invention; removed).
+// upper-body hit, low 7 bits = dmg*0.5, x8 pre-scale under damage bit 25). client.dll does
+// nothing with it but the blood spray (FUN_10048840); there is no pain-direction indicator.
 bool CHudHealth::MsgFunc_PTakeDam(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
