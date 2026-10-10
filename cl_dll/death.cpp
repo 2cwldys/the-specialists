@@ -37,12 +37,14 @@ struct DeathNoticeItem
 	float flDisplayTime;
 	float* KillerColor;
 	float* VictimColor;
+	char szWeapon[32]; // the weapon's name, drawn as text in place of a sprite (client.dll item +0x9c)
 };
 
 #define MAX_DEATHNOTICES 4
 static int DEATHNOTICE_DISPLAY_TIME = 6;
 
-#define DEATHNOTICE_TOP 64
+// The notices stack from y 20, 20 apart, text and sprite on the same line (client.dll @0x1001b020).
+#define DEATHNOTICE_TOP 20
 
 DeathNoticeItem rgDeathNoticeList[MAX_DEATHNOTICES + 1];
 
@@ -99,19 +101,12 @@ bool CHudDeathNotice::VidInit()
 	return true;
 }
 
+// As client.dll @0x1001b020: a notice names its weapon in text (orange) when it has one, and only a
+// notice with none (a suicide, a team kill, a weapon-less death) draws the skull, white, or green for
+// a team kill.
 bool CHudDeathNotice::Draw(float flTime)
 {
-	int x, y, r, g, b, texty;
-
-	int gap = 20;
-
-	Rect sprite = gHUD.GetSpriteRect(m_HUD_d_skull);
-	gap = sprite.bottom - sprite.top;
-
-	SCREENINFO screenInfo;
-	screenInfo.iSize = sizeof(SCREENINFO);
-	gEngfuncs.pfnGetScreenInfo(&screenInfo);
-	gap = V_max(gap, screenInfo.iCharHeight);
+	int x, y, r, g, b;
 
 	for (int i = 0; i < MAX_DEATHNOTICES; i++)
 	{
@@ -132,12 +127,14 @@ bool CHudDeathNotice::Draw(float flTime)
 		if (gViewPort && gViewPort->AllowedToPrintText())
 		{
 			// Draw the death notice
-			y = DEATHNOTICE_TOP + 2 + (gap * i);
+			y = DEATHNOTICE_TOP * (i + 1);
 
-			texty = y + 4;
-
+			const bool weaponText = '\0' != rgDeathNoticeList[i].szWeapon[0];
 			int id = (rgDeathNoticeList[i].iId == -1) ? m_HUD_d_skull : rgDeathNoticeList[i].iId;
-			x = ScreenWidth - ConsoleStringLen(rgDeathNoticeList[i].szVictim) - (gHUD.GetSpriteRect(id).right - gHUD.GetSpriteRect(id).left) - 4;
+			if (!weaponText)
+				x = ScreenWidth - ConsoleStringLen(rgDeathNoticeList[i].szVictim) - (gHUD.GetSpriteRect(id).right - gHUD.GetSpriteRect(id).left) - 5;
+			else
+				x = ScreenWidth - ConsoleStringLen(rgDeathNoticeList[i].szVictim) - ConsoleStringLen(rgDeathNoticeList[i].szWeapon) - 10;
 
 			if (!rgDeathNoticeList[i].iSuicide)
 			{
@@ -146,31 +143,40 @@ bool CHudDeathNotice::Draw(float flTime)
 				// Draw killers name
 				if (rgDeathNoticeList[i].KillerColor)
 					gEngfuncs.pfnDrawSetTextColor(rgDeathNoticeList[i].KillerColor[0], rgDeathNoticeList[i].KillerColor[1], rgDeathNoticeList[i].KillerColor[2]);
-				x = 5 + DrawConsoleString(x, texty, rgDeathNoticeList[i].szKiller);
+				x = 5 + DrawConsoleString(x, y, rgDeathNoticeList[i].szKiller);
 			}
 
-			r = 255;
-			g = 80;
-			b = 0;
-			if (rgDeathNoticeList[i].iTeamKill)
+			if (!weaponText)
 			{
-				r = 10;
-				g = 240;
-				b = 10; // display it in sickly green
+				r = 255;
+				g = 255;
+				b = 255;
+				if (rgDeathNoticeList[i].iTeamKill)
+				{
+					r = 10;
+					g = 240;
+					b = 10; // display it in sickly green
+				}
+
+				// Draw death weapon
+				SPR_Set(gHUD.GetSprite(id), r, g, b);
+				SPR_DrawAdditive(0, x, y, &gHUD.GetSpriteRect(id));
+
+				x += (gHUD.GetSpriteRect(id).right - gHUD.GetSpriteRect(id).left);
 			}
-
-			// Draw death weapon
-			SPR_Set(gHUD.GetSprite(id), r, g, b);
-			SPR_DrawAdditive(0, x, y, &gHUD.GetSpriteRect(id));
-
-			x += (gHUD.GetSpriteRect(id).right - gHUD.GetSpriteRect(id).left);
+			else
+			{
+				// the weapon's name, orange
+				gEngfuncs.pfnDrawSetTextColor(1.0f, 0.5f, 0.2f);
+				x = 5 + DrawConsoleString(x, y, rgDeathNoticeList[i].szWeapon);
+			}
 
 			// Draw victims name (if it was a player that was killed)
 			if (!rgDeathNoticeList[i].iNonPlayerKill)
 			{
 				if (rgDeathNoticeList[i].VictimColor)
 					gEngfuncs.pfnDrawSetTextColor(rgDeathNoticeList[i].VictimColor[0], rgDeathNoticeList[i].VictimColor[1], rgDeathNoticeList[i].VictimColor[2]);
-				x = DrawConsoleString(x, texty, rgDeathNoticeList[i].szVictim);
+				x = DrawConsoleString(x, y, rgDeathNoticeList[i].szVictim);
 			}
 		}
 	}
@@ -259,10 +265,12 @@ bool CHudDeathNotice::MsgFunc_DeathMsg(const char* pszName, int iSize, void* pbu
 			rgDeathNoticeList[i].iTeamKill = true;
 	}
 
-	// Find the sprite in the list
-	int spr = gHUD.GetSpriteIndex(killedwith);
-
-	rgDeathNoticeList[i].iId = spr;
+	// No sprite lookup (client.dll @0x1001b581): every notice takes the skull, which Draw uses only
+	// when there is no weapon name to write. The name is the message's string, when it has one.
+	rgDeathNoticeList[i].iId = -1;
+	rgDeathNoticeList[i].szWeapon[0] = 0;
+	if (strlen(killedwith) > 2)
+		strcpy(rgDeathNoticeList[i].szWeapon, killedwith + 2);
 
 	DEATHNOTICE_DISPLAY_TIME = CVAR_GET_FLOAT("hud_deathnotice_time");
 	rgDeathNoticeList[i].flDisplayTime = gHUD.m_flTime + DEATHNOTICE_DISPLAY_TIME;
@@ -273,10 +281,12 @@ bool CHudDeathNotice::MsgFunc_DeathMsg(const char* pszName, int iSize, void* pbu
 		ConsolePrint(" killed a ");
 		ConsolePrint(rgDeathNoticeList[i].szVictim);
 		ConsolePrint("\n");
+		rgDeathNoticeList[i].szWeapon[0] = 0;
 	}
 	else
 	{
-		// record the death notice in the console
+		// record the death notice in the console; a suicide and a team kill keep no weapon name, so
+		// they draw the skull (client.dll @0x1001b615-0x1001b6c9)
 		if (rgDeathNoticeList[i].iSuicide)
 		{
 			ConsolePrint(rgDeathNoticeList[i].szVictim);
@@ -289,12 +299,14 @@ bool CHudDeathNotice::MsgFunc_DeathMsg(const char* pszName, int iSize, void* pbu
 			{
 				ConsolePrint(" killed self");
 			}
+			rgDeathNoticeList[i].szWeapon[0] = 0;
 		}
 		else if (rgDeathNoticeList[i].iTeamKill)
 		{
 			ConsolePrint(rgDeathNoticeList[i].szKiller);
 			ConsolePrint(" killed his teammate ");
 			ConsolePrint(rgDeathNoticeList[i].szVictim);
+			rgDeathNoticeList[i].szWeapon[0] = 0;
 		}
 		else
 		{

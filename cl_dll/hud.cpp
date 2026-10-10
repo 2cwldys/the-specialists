@@ -438,14 +438,13 @@ void CHud::VidInit()
 	m_hsprLogo = 0;
 	m_hsprCursor = 0;
 
-	if (ScreenWidth > 2560 && ScreenHeight > 1600)
-		m_iRes = 2560;
-	else if (ScreenWidth >= 1280 && ScreenHeight > 720)
-		m_iRes = 1280;
-	else if (ScreenWidth >= 640)
-		m_iRes = 640;
-	else
+	// 320 or 640 on every call, as client.dll (@0x100206e1); TS's hud.txt has nothing else. HL25's
+	// 1280/2560 matched no entry after the first call, so no sprite was reloaded at a map change and
+	// the engine gave their handles to other sprites (the death notice's skull became crouched.spr).
+	if (ScreenWidth < 640)
 		m_iRes = 320;
+	else
+		m_iRes = 640;
 
 	// Only load this once
 	if (!m_pSpriteList)
@@ -455,26 +454,6 @@ void CHud::VidInit()
 
 		if (m_pSpriteList)
 		{
-			// TS (like other pre-2007 mods) ships a hud.txt with only 320/640-res
-			// entries; the modern client picks m_iRes = 1280/2560 at high resolutions,
-			// which then matches NOTHING here -> no HUD at all. Drop m_iRes to the
-			// largest resolution actually present in this mod's hud.txt.
-			while (m_iRes > 320)
-			{
-				bool found = false;
-				for (int k = 0; k < m_iSpriteCountAllRes; k++)
-				{
-					if (m_pSpriteList[k].iRes == m_iRes)
-					{
-						found = true;
-						break;
-					}
-				}
-				if (found)
-					break;
-				m_iRes = (m_iRes > 1280) ? 1280 : (m_iRes > 640 ? 640 : 320);
-			}
-
 			// count the number of sprites of the appropriate res
 			m_iSpriteCount = 0;
 			client_sprite_t* p = m_pSpriteList;

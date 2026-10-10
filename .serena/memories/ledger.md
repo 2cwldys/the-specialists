@@ -7399,3 +7399,28 @@ amxxbench docs/fixes/join-spawn-click.md (report join-spawn-click-report.md). Sc
   when HUD_Key_Event saw a key bound to one of them this frame (0x100df5cc, set at 0x10025c9c, cleared
   by HUD_Frame), so those commands from a script or alias do nothing there. reTS has no such gate.
 Test (reTS + ts30): ts_observer held_fire_does_not_spawn_a_joiner, passing on both games in both modes.
+
+## 2026-10-10 — the death notice: HUD sprites reloaded on every map, weapon named in text
+
+amxxbench docs/fixes/grenade-death-icon.md (report grenade-death-icon-report.md). Scratch in
+~/stignored/grenade-death-icon.
+- Steven saw a crouching figure where a grenade death's notice should show the skull. The server is not
+  involved: on both games a grenade death sends DeathMsg (killer, victim, "M61 Grenade") and no TSState
+  (puppets, other, ducked and self). It was the reTS client's death notice drawing the skull through a
+  stale sprite handle.
+- client.dll CHud::VidInit (@0x100206e1) sets m_iRes to 320 below 640 wide and 640 otherwise, on every
+  call. reTS kept HL25's 1280/2560 pick (halflife-updated 246c1d5) plus a fallback to 640 that ran only
+  on the first load (e5ca177, 2026-06-21). From the second VidInit on (every map) m_iRes was 1280 again,
+  matched nothing in TS's hud.txt, and no hud.txt sprite was reloaded; the engine handed their handles
+  to sprites loaded later. Read live from Steven's hl_linux at 1920x1080: m_iRes 1280, d_skull handle 10
+  (640hud1 at startup), m_TSStatus crouched.spr handle 10. Now 320/640 on every call as client.dll.
+- client.dll's death notice (Draw @0x1001b020, DeathMsg @0x1001b360) never looks a sprite up (iId -1):
+  it keeps the weapon name (item +0x9c) and writes it in orange (1, 0.5, 0.2) between the names; the
+  name is cleared for a suicide, a team kill and a non-player kill, which draw the skull, white (team
+  kill green). Rows at y 20, 40, 60, 80, text and sprite on the same line. reTS drew the stock HL sprite
+  lookup (d_<weapon>, so always the skull for TS's weapon names) in orange at y 66 + gap. Now as client.dll.
+- Not done: GetClientColor (@0x1001af40) returns white for the local player, team 1-4 colours and no
+  colour otherwise; reTS's stock one (yellow for team 0, grey default) is shared with say text, the
+  status bar and the spectator HUD. ammo.cpp's weapon sprite list still picks 1280/2560 (HL25).
+  TS 3.0 sends a red TSFade (1228 614 0 150 10 10 75) to the victim at death and reTS sends none.
+Server libraries byte-identical to edffa35's.
