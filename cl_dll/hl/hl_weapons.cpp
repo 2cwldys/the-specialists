@@ -833,11 +833,13 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 	}
 
 	// TS slow-motion fire-rate prediction (RE scratchpad/SLOWMO_PRESENTATION_RE.md §B): scale the
-	// per-frame weapon-timer decrement by the player's current slow factor — the networked
-	// pev->fuser1 (in the playerstate) — so the predicted fire rate matches the server PostThink.
+	// per-frame weapon-timer decrement by the player's current slow factor — pev->fuser1 as the
+	// clientdata carries it (UpdateClientData's cd->fuser1; client.dll 0x10003830 copies from+0x2f0,
+	// client.fuser1, into the player's pev) — so the predicted fire rate matches the server PostThink.
+	// Not the playerstate: entity_state_player_t in delta.lst has no fuser1, so that one is always 0.
 	// Floored at 0.01 (FixedSlowAmt, client.dll 0x1000b9b0 -> 0x10055aa0), 0 included, as the server's
 	// PostThink. (SLICE: the DoubleFireRate ×1.5 isn't predicted.)
-	float predSlow = from->playerstate.fuser1;
+	float predSlow = from->client.fuser1;
 	if (predSlow < 0.01f) predSlow = 0.01f;
 	const double slowMsec = (cmd->msec / 1000.0) * predSlow;
 
