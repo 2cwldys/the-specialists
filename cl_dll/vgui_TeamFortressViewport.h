@@ -552,6 +552,7 @@ public:
 	CCommandMenu *	CreateDisguiseSubmenu( CommandButton *pButton, CCommandMenu *pParentMenu, const char *commandText, int iYOffset, int iXOffset = 0 );
 
 	void UpdateCursorState( void );
+	bool IsVGUIMenuUp( void );
 	void UpdateCommandMenu(int menuIndex);
 	void UpdateOnPlayerInfo( void );
 	void UpdateHighlights( void );

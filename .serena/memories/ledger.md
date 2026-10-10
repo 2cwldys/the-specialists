@@ -7424,3 +7424,16 @@ amxxbench docs/fixes/grenade-death-icon.md (report grenade-death-icon-report.md)
   status bar and the spectator HUD. ammo.cpp's weapon sprite list still picks 1280/2560 (HL25).
   TS 3.0 sends a red TSFade (1228 614 0 150 10 10 75) to the victim at death and reTS sends none.
 Server libraries byte-identical to edffa35's.
+
+## 2026-10-10 — buy menu clicks wait for VGUI windows, as client.dll's IN_MouseEvent
+
+Steven (753f738 client, native): after the join click the cursor stayed and the mouse was not captured.
+client.dll IN_MouseEvent (0x100273d0): cursor hidden -> key events; cursor shown -> the buy menu's mouse
+(0x10038360) only when no VGUI window is up (viewport +0xa9c current menu, +0xaa0 and +0xad0 visible,
+squelch, +0xad4 command menu), else nothing (VGUI has it). reTS (258a447, June) gave the buy menu every
+click first. A join opens the MOTD (MsgFunc_MOTD -> ShowVGUIMenu 5 on both clients, 0x10064f60) with
+the buy menu, so a click closed the buy menu under the MOTD and the MOTD kept g_iVisibleMouse set: cursor
+shown, IN_MouseMove never re-grabbing. Now as client.dll (TeamFortressViewport::IsVGUIMenuUp,
+TS_VGUIMenuUp). On GoldSrc Linux the grab is the client's SDL relative mode, re-enabled in IN_MouseMove
+once g_iVisibleMouse is false; hw.so's EngineSurfaceWrap::setCursor (0x1ab660) only shows/hides the OS
+cursor (m_rawinput 0). Not seen live: Steven did not join while ~/stignored/join-spawn/peek2.py watched.

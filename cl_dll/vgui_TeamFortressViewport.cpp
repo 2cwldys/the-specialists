@@ -1702,6 +1702,20 @@ void TeamFortressViewport::UpdateCursorState()
 	App::getInstance()->setCursorOveride(App::getInstance()->getScheme()->getCursor(Scheme::scu_none));
 }
 
+// A VGUI window that owns the cursor is up: the current menu (the MOTD at a join, team, class), the
+// team menu, the spectator options menu, the squelch mode or a command menu. client.dll's IN_MouseEvent
+// (0x100273d0) tests these panels (viewport +0xa9c, +0xaa0 visible, +0xad0 visible, the squelch mode,
+// +0xad4) before it gives a click to the buy menu, so while one is up the click is VGUI's alone.
+bool TeamFortressViewport::IsVGUIMenuUp()
+{
+	return m_pCurrentMenu || m_pTeamMenu->isVisible() || m_pSpectatorPanel->m_menuVisible || GetClientVoiceMgr()->IsInSquelchMode() || m_pCurrentCommandMenu;
+}
+
+bool TS_VGUIMenuUp()
+{
+	return gViewPort && gViewPort->IsVGUIMenuUp();
+}
+
 void TeamFortressViewport::UpdateHighlights()
 {
 	if (m_pCurrentCommandMenu)

@@ -44,6 +44,7 @@
 #endif
 
 void IN_ResetMouse();
+bool TS_VGUIMenuUp(); // vgui_TeamFortressViewport.cpp
 
 #define MOUSE_BUTTON_COUNT 5
 
@@ -504,22 +505,26 @@ void DLLEXPORT IN_MouseEvent(int mstate)
 {
 	int i;
 
-	// TS buy menu: when it's up the cursor is free, so route clicks to it (left=select an entry,
-	// right=Go Back; FUN_10038360). The original handles the menu here even with the cursor visible.
-	if (gHUD.m_TSBuyMenu.IsUp())
+	// client.dll 0x100273d0: with the cursor hidden every button change is a key event. With it shown
+	// (a VGUI window or the TS buy menu is up) a click goes to the buy menu (left = an entry or, off
+	// every entry, key 1 "use config", which closes it; right = Go Back; FUN_10038360) only while no
+	// VGUI window is up, and otherwise to VGUI alone. So at a join the MOTD takes the clicks until it is
+	// closed, then the buy menu, and the click that closes the buy menu gives the mouse back to the game.
+	// (reTS gave the buy menu every click first, so a click closed it under the MOTD, whose cursor then
+	// stayed with the mouse never captured again.)
+	if (iMouseInUse || g_iVisibleMouse)
 	{
-		gHUD.m_TSBuyMenu.HandleMouse(mstate);
-		// Keep the edge-detect state in sync while the menu absorbs clicks. Otherwise mouse_oldbuttonstate
-		// stays frozen (the early return skips the update below), and when the menu closes the next
-		// IN_MouseEvent compares the live button to that stale state and synthesizes a spurious
-		// Key_Event(K_MOUSE1) = +attack DOWN — which then fires the freshly-spawned weapon (the
-		// "buy-menu click -> fire on spawn" bug). The click was consumed by the menu; it must NOT leak.
+		if (gHUD.m_TSBuyMenu.IsUp() && !TS_VGUIMenuUp())
+			gHUD.m_TSBuyMenu.HandleMouse(mstate);
+
+		// Keep the edge-detect state in sync while the cursor is up. Otherwise mouse_oldbuttonstate stays
+		// frozen, and once the cursor goes the next IN_MouseEvent compares the live button to that stale
+		// state and synthesizes a spurious Key_Event(K_MOUSE1) = +attack DOWN, which fires the freshly
+		// spawned weapon (the "buy-menu click -> fire on spawn" bug). A click the menu or VGUI consumed
+		// must not leak.
 		mouse_oldbuttonstate = mstate;
 		return;
 	}
-
-	if (iMouseInUse || g_iVisibleMouse)
-		return;
 
 	// perform button actions
 	for (i = 0; i < mouse_buttons; i++)
