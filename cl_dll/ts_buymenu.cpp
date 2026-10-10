@@ -483,7 +483,17 @@ void CHudTSBuyMenu::BuyRandom()
 
 void CHudTSBuyMenu::Apply()
 {
-	if (m_spent <= 0)
+	// FUN_10039400's gates: an empty config only says so (red) and is applied anyway, so the menu
+	// still closes and the player gets a spawn with nothing bought; over the budget it says so and
+	// stays open; over the slot cap it stays open silently.
+	if (m_spent < 1)
+		gHUD.m_TSMessage.Add("Your config is empty!", 195, 45, 45, 20, 0);
+	if (TS_BUDGET < m_spent)
+	{
+		gHUD.m_TSMessage.Add("No cash left!", 195, 45, 45, 20, 0);
+		return;
+	}
+	if (TS_SLOTCAP < m_slotsUsed)
 		return;
 
 	gEngfuncs.pfnClientCmd("rst_cfg\n");

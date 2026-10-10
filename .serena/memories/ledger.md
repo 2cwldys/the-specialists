@@ -7437,3 +7437,13 @@ shown, IN_MouseMove never re-grabbing. Now as client.dll (TeamFortressViewport::
 TS_VGUIMenuUp). On GoldSrc Linux the grab is the client's SDL relative mode, re-enabled in IN_MouseMove
 once g_iVisibleMouse is false; hw.so's EngineSurfaceWrap::setCursor (0x1ab660) only shows/hides the OS
 cursor (m_rawinput 0). Not seen live: Steven did not join while ~/stignored/join-spawn/peek2.py watched.
+
+## 2026-10-10 — an empty config still closes the buy menu, as client.dll
+
+Steven (14a17a2 client): clicks after the MOTD closed reached the client (IN_MouseEvent, buy menu up,
+no VGUI window) but the menu never closed. client.dll's key 1 at the config level (0x10038840 case 0)
+calls apply (0x10039400) and closes the menu (0x10036720) when it returns true. Apply with nothing bought
+shows "#Buy_ConfigEmpty" (red 195 45 45, hold 20) and goes on: it returns false only over the budget
+("#Buy_NoCash") or the slot cap. reTS's Apply returned at once when m_spent <= 0 (258a447), so an empty
+config could not be closed by any click. A config is empty whenever the menu opens with no applied
+config to reload (only the first open on a map randomizes one). Now as client.dll.
