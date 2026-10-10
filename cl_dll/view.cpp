@@ -411,7 +411,10 @@ void V_DriftPitch(struct ref_params_s* pparams)
 V_CalcGunAngle
 ==================
 */
-void V_CalcGunAngle(struct ref_params_s* pparams)
+// client.dll 0x100674a0: the view model takes the view angles, its pitch inverted plus the bob's
+// amplitude, and follows the client-side punch (ev_punchangle) by 1.25 in pitch and yaw. TS has no
+// crosshair angle or idle sway terms here.
+void V_CalcGunAngle(struct ref_params_s* pparams, float bob)
 {
 	cl_entity_t* viewent;
 
@@ -419,13 +422,11 @@ void V_CalcGunAngle(struct ref_params_s* pparams)
 	if (!viewent)
 		return;
 
-	viewent->angles[YAW] = pparams->viewangles[YAW] + pparams->crosshairangle[YAW];
-	viewent->angles[PITCH] = -pparams->viewangles[PITCH] + pparams->crosshairangle[PITCH] * 0.25;
-	viewent->angles[ROLL] -= v_idlescale * sin(pparams->time * v_iroll_cycle.value) * v_iroll_level.value;
-
-	// don't apply all of the v_ipitch to prevent normally unseen parts of viewmodel from coming into view.
-	viewent->angles[PITCH] -= v_idlescale * sin(pparams->time * v_ipitch_cycle.value) * (v_ipitch_level.value * 0.5);
-	viewent->angles[YAW] -= v_idlescale * sin(pparams->time * v_iyaw_cycle.value) * v_iyaw_level.value;
+	viewent->angles[YAW] = pparams->viewangles[YAW];
+	viewent->angles[PITCH] = bob - pparams->viewangles[PITCH];
+	viewent->angles[ROLL] = pparams->viewangles[ROLL];
+	viewent->angles[PITCH] -= ev_punchangle[0] * 1.25f;
+	viewent->angles[YAW] += ev_punchangle[1] * 1.25f;
 }
 
 /*
@@ -938,22 +939,22 @@ void V_CalcNormalRefdef(struct ref_params_s* pparams)
 	// Give gun our viewangles
 	VectorCopy(pparams->cl_viewangles, view->angles);
 
-	// set up gun position
-	V_CalcGunAngle(pparams);
+	// set up gun position; the bob's amplitude goes on its pitch, so the gun aims higher the faster it
+	// moves (0x100674a0)
+	V_CalcGunAngle(pparams, bob);
 
-	// Use predicted origin as view origin.
-	VectorCopy(pparams->simorg, view->origin);
-	view->origin[2] += (waterOffset);
-	VectorAdd(view->origin, pparams->viewheight, view->origin);
-
-	// Let the viewmodel shake at about 10% of the amplitude
+	// client.dll (0x10068547) starts the view model at the eye as it stands here, already shaken, and
+	// shakes it again at 0.9.
+	VectorCopy(pparams->vieworg, view->origin);
 	gEngfuncs.V_ApplyShake(view->origin, view->angles, 0.9);
 
-	// The weapon bob (V_CalcBob, client.dll 0x10066e70): the offset goes on the view model's origin
-	// after its shake (0x10068571), and the amplitude on its pitch, as client.dll's gun angle
-	// (0x100674a0) adds it, so the gun aims higher the faster it moves.
+	// The weapon bob (V_CalcBob, client.dll 0x10066e70): its offset goes on the view model's origin
+	// after the shake (0x10068571).
 	VectorAdd(view->origin, s_bobOffset, view->origin);
-	view->angles[PITCH] += bob;
+
+	// Then forward by (80 - the HUD field of view) x 0.15 (0x100685a7): a zoomed gun sits further out.
+	for (i = 0; i < 3; i++)
+		view->origin[i] += (80 - gHUD.m_iFOV) * 0.15f * pparams->forward[i];
 
 	// pushing the view origin down off of the same X/Z plane as the ent's origin will give the
 	// gun a very nice 'shifting' effect when the player looks up/down. If there is a problem
@@ -1984,12 +1985,14 @@ V_DropPunchAngle
 
 =============
 */
+// client.dll 0x10069e40: the stock decay, slowed by the client's slow motion factor.
 void V_DropPunchAngle(float frametime, float* ev_punchangle)
 {
 	float len;
+	extern float g_flClientSlow;
 
 	len = VectorNormalize(ev_punchangle);
-	len -= (10.0 + len * 0.5) * frametime;
+	len -= (10.0 + len * 0.5) * g_flClientSlow * frametime;
 	len = V_max(len, 0.0f);
 	VectorScale(ev_punchangle, len, ev_punchangle);
 }
