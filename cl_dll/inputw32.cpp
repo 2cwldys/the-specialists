@@ -221,23 +221,6 @@ cvar_t* joy_wwhack2;
 
 bool joy_avail = false, joy_advancedinit, joy_haspov;
 
-/*
-===========
-Force_CenterView_f
-===========
-*/
-void Force_CenterView_f()
-{
-	Vector viewangles;
-
-	if (!iMouseInUse)
-	{
-		gEngfuncs.GetViewAngles((float*)viewangles);
-		viewangles[PITCH] = 0;
-		gEngfuncs.SetViewAngles((float*)viewangles);
-	}
-}
-
 #ifdef WIN32
 struct MouseThread
 {
@@ -664,13 +647,12 @@ void IN_MouseMove(float frametime, usercmd_t* cmd)
 		// Apply mouse scaling/acceleration (the raw int deltas carry the sign for the accel term)
 		IN_ScaleMouse(pos.x, pos.y, &mouse_x, &mouse_y);
 
-		// add mouse X/Y movement to cmd
-		if ((in_strafe.state & 1) != 0 || (0 != lookstrafe->value && (in_mlook.state & 1) != 0))
-			cmd->sidemove += m_side->value * mouse_x;
-		else
-			viewangles[YAW] -= m_yaw->value * mouse_x;
+		// add mouse X/Y movement to cmd: client.dll's IN_MouseMove (0x100277c0) always yaws by the mouse
+		// (it has no +strafe or +mlook commands and never reads m_side) and pitches unless in_strafe is
+		// down, which nothing can press
+		viewangles[YAW] -= m_yaw->value * mouse_x;
 
-		if ((in_mlook.state & 1) != 0 && (in_strafe.state & 1) == 0)
+		if ((in_strafe.state & 1) == 0)
 		{
 			viewangles[PITCH] += m_pitch->value * mouse_y;
 			// TS parity: HARDCODED +/-89 — the original registers no cl_pitchup/cl_pitchdown
@@ -1222,7 +1204,6 @@ void IN_Init()
 	}
 #endif
 
-	gEngfuncs.pfnAddCommand("force_centerview", Force_CenterView_f);
 	gEngfuncs.pfnAddCommand("joyadvancedupdate", Joy_AdvancedUpdate_f);
 
 	// TS is an always-mouselook game (no legacy keyboard-look mode). The stock HL

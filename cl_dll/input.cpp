@@ -407,7 +407,6 @@ void IN_KLookDown() { KeyDown(&in_klook); }
 void IN_KLookUp() { KeyUp(&in_klook); }
 void IN_JLookDown() { KeyDown(&in_jlook); }
 void IN_JLookUp() { KeyUp(&in_jlook); }
-void IN_MLookDown() { KeyDown(&in_mlook); }
 void IN_UpDown() { KeyDown(&in_up); }
 void IN_UpUp() { KeyUp(&in_up); }
 void IN_DownDown() { KeyDown(&in_down); }
@@ -477,8 +476,6 @@ void IN_MoverightUp()
 }
 void IN_SpeedDown() { KeyDown(&in_speed); }
 void IN_SpeedUp() { KeyUp(&in_speed); }
-void IN_StrafeDown() { KeyDown(&in_strafe); }
-void IN_StrafeUp() { KeyUp(&in_strafe); }
 
 // needs capture by hud/vgui also
 extern void __CmdFunc_InputPlayerSpecial();
@@ -594,15 +591,6 @@ void IN_ScoreUp()
 	if (gViewPort)
 	{
 		gViewPort->HideScoreBoard();
-	}
-}
-
-void IN_MLookUp()
-{
-	KeyUp(&in_mlook);
-	if ((in_mlook.state & 1) == 0 && 0 != lookspring->value)
-	{
-		V_StartPitchDrift();
 	}
 }
 
@@ -1019,8 +1007,6 @@ void InitInput()
 	gEngfuncs.pfnAddCommand("-lookup", IN_LookupUp);
 	gEngfuncs.pfnAddCommand("+lookdown", IN_LookdownDown);
 	gEngfuncs.pfnAddCommand("-lookdown", IN_LookdownUp);
-	gEngfuncs.pfnAddCommand("+strafe", IN_StrafeDown);
-	gEngfuncs.pfnAddCommand("-strafe", IN_StrafeUp);
 	gEngfuncs.pfnAddCommand("+moveleft", IN_MoveleftDown);
 	gEngfuncs.pfnAddCommand("-moveleft", IN_MoveleftUp);
 	gEngfuncs.pfnAddCommand("+moveright", IN_MoverightDown);
@@ -1038,8 +1024,6 @@ void InitInput()
 	gEngfuncs.pfnAddCommand("impulse", IN_Impulse);
 	gEngfuncs.pfnAddCommand("+klook", IN_KLookDown);
 	gEngfuncs.pfnAddCommand("-klook", IN_KLookUp);
-	gEngfuncs.pfnAddCommand("+mlook", IN_MLookDown);
-	gEngfuncs.pfnAddCommand("-mlook", IN_MLookUp);
 	gEngfuncs.pfnAddCommand("+jlook", IN_JLookDown);
 	gEngfuncs.pfnAddCommand("-jlook", IN_JLookUp);
 	gEngfuncs.pfnAddCommand("+duck", IN_DuckDown);

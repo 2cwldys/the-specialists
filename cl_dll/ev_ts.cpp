@@ -196,11 +196,10 @@ void EV_TSBulletHit(int idx, const float* src, const float* end, pmtrace_t& tr, 
 		// and NO server sends a decal temp-entity, so original-client + our-server never double-decals.
 		if (isBrush && pe && gEngfuncs.pfnGetCvarFloat("r_decals") > 0.0f)
 		{
-			// Decal pick mimicking the original's DamageDecal (client.dll FUN_10001000): a BREAKABLE
-			// (classnumber == 1, e.g. glass) -> the cracked "{break" decal; a NORMAL-rendermode wall
-			// (rendermode == 0) -> the "{shot" bullet hole; anything else (transparent/special render,
-			// e.g. bulletproof glass) -> "{bproof1". (Original uses the bare names; TS's decals.wad has
-			// bare "{break"/"{bproof1" but only numbered "{shot1..5", so {shot is numbered here.)
+			// The decal pick, client.dll's DamageDecal (0x10001000): a breakable (classnumber 1, glass)
+			// takes "{break%i" with RandomLong(0, 2), a normal-rendermode wall "{shot%i" with
+			// RandomLong(0, 4), anything else "{bproof1". decals.wad holds {break1..3} and {shot1..5}, so
+			// the 0 picks name no decal and the engine gets decal index 0 for them, as from TS 3.0's client.
 			char decalName[16];
 			// r_paintball (client.dll 0x10001000, cvar_t* 0x100987ac): while it is not 0 every hit takes
 			// "{splat%i" with RandomLong(0, 17) instead (decals.wad has {splat0..17 but no {splat11).
@@ -210,11 +209,11 @@ void EV_TSBulletHit(int idx, const float* src, const float* end, pmtrace_t& tr, 
 			if (s_paintball != nullptr && s_paintball->value != 0.0f)
 				sprintf(decalName, "{splat%d", gEngfuncs.pfnRandomLong(0, 0x11));
 			else if (pe->classnumber == 1)
-				sprintf(decalName, "{break%d", gEngfuncs.pfnRandomLong(1, 3)); // FUN_10001000: pe+0x8c == 1 (glass cracks; bare "{break" is a debug "BREAK" lump)
+				sprintf(decalName, "{break%d", gEngfuncs.pfnRandomLong(0, 2)); // pe+0x8c == 1
 			else if (pe->rendermode == kRenderNormal)
-				sprintf(decalName, "{shot%d", gEngfuncs.pfnRandomLong(1, 5)); // FUN_10001000: pe+0x68 == 0
+				sprintf(decalName, "{shot%d", gEngfuncs.pfnRandomLong(0, 4)); // pe+0x68 == 0
 			else
-				strcpy(decalName, "{bproof1");                               // FUN_10001000: rendermode != 0
+				strcpy(decalName, "{bproof1"); // rendermode not 0
 			int decalIdx = gEngfuncs.pEfxAPI->Draw_DecalIndex(
 				gEngfuncs.pEfxAPI->Draw_DecalIndexFromName(decalName));
 			gEngfuncs.pEfxAPI->R_DecalShoot(decalIdx,
