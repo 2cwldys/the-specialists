@@ -1,12 +1,6 @@
 /***
-*  ts_debris.h — The Specialists glass-shatter sprite shower (client side).
-*
-*  Faithful to client.dll FUN_10047cb0 (the debris spawner) + its MsgFunc @0x1004becc.
-*  GLASS breakables (CBreakable::Die material 0, @0x752e0) send the custom "TSFrags" (gmsgTSCreateDebris)
-*  message instead of TE_BREAKMODEL; the client lays a 9x9 = 81-fragment grid of
-*  `sprites/glassfrag.spr` across the pane FACE, each fragment flying in the shatter direction
-*  (= the bullet/attack direction, g_vecAttackDir) with spread + gravity, living 2-5s. Other
-*  materials (wood/metal/...) keep TE_BREAKMODEL (the gib MODEL) — see reference/BULLETS.md.
+*  ts_debris.h — the TSFrags message (client.dll 0x1004bd50): kind 0 the glass shower (FUN_10047cb0,
+*  sent by CBreakable::Die for glass, 0x752e0), 1 a grenade explosion (FUN_100481b0), 2 a metal hit.
 ***/
 #if !defined(TS_DEBRIS_H)
 #define TS_DEBRIS_H

@@ -15,9 +15,13 @@
 #include "pm_defs.h"
 #include "event_api.h"
 #include "r_studioint.h"
+#include "r_efx.h"
+#include "pmtrace.h"
+#include "dlight.h"
 #include "com_weapons.h" // UTIL_SharedRandomFloat/Long (client.dll FUN_1001aea0/FUN_1001ae60)
 #include "ts_particles.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 
@@ -332,6 +336,35 @@ static bool TSP_InView(const Vector& at)
 	const float u = fabs(DotProduct(g_tspViewUp, d));
 	const float lod = (float)((dist * 0.00012207f * 0.2 + 1.0) * (r + u * 0.5));
 	return !(lod > 0.9f);
+}
+
+// FUN_100572a0: a clear line from the camera to the point (a world trace that ignores glass and the
+// local player, hull 2, run to the end).
+static bool TSP_LineClear(const Vector& at)
+{
+	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+	pmtrace_t tr;
+	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
+	gEngfuncs.pEventAPI->EV_PlayerTrace((float*)&TSP_CameraOrigin(), (float*)&at, PM_GLASS_IGNORE, lp ? lp->index : -1, &tr);
+	return tr.fraction == 1.0f;
+}
+
+// The impact spawners' first test: in view (FUN_100570b0) and in sight (FUN_100572a0).
+static bool TSP_Seen(const Vector& at)
+{
+	return TSP_InView(at) && TSP_LineClear(at);
+}
+
+// FUN_10050ad0 / FUN_10050b00: a spawner kind may spawn again once its timer has passed; the timer is
+// then set the given interval ahead.
+static bool TSP_Due(int kind)
+{
+	return g_tsPool.throttle[kind] <= TSP_Now();
+}
+
+static void TSP_Hold(int kind, float interval)
+{
+	g_tsPool.throttle[kind] = TSP_Now() + interval;
 }
 
 // FUN_10051d10: the particle lands and stops.
@@ -789,10 +822,18 @@ static void TSP_Scintille(const float* o, const float* n, const char* spr, short
 // SPARK-SHOWER — FUN_100492b0. Hardcodes sprites/sparks.spr (rendermode 5). The visible spray.
 static void TSP_SparkShower(const float* o, const float* n, int count, float spreadMul, float speed)
 {
+	// FUN_100492b0's gates: within 512 units of the camera (1024 zoomed under 40, FUN_10057910) and in
+	// view. All sparks start at the point (the template's size is still 0 there).
+	const Vector at(o[0], o[1], o[2]);
+	const float near = (gHUD.m_iFOV < 40) ? 1024.0f : 512.0f;
+	if (!((at - TSP_CameraOrigin()).Length() < near) || !TSP_InView(at))
+		return;
 	int idx = TSP_RegisterSprite("sprites/sparks.spr", 5 /*kRenderTransAdd*/);
 	if (idx < 0)
 		return;
-	int cnt = gEngfuncs.pfnRandomLong(count / 2, count);
+	// the count: RandomLong(count / 2, count) x cl_fx's count scale, at most 1
+	const float cs = (g_tsFx.countScale < 1.0f) ? g_tsFx.countScale : 1.0f;
+	int cnt = (int)(gEngfuncs.pfnRandomLong(count / 2, count) * cs);
 	for (int i = 0; i < cnt; i++)
 	{
 		TSParticle* p = TSP_Scratch();
@@ -811,9 +852,10 @@ static void TSP_SparkShower(const float* o, const float* n, int count, float spr
 		p->vel.y = n[1] * 17.0f + gEngfuncs.pfnRandomFloat(-speed, speed);
 		p->vel.z = n[2] * 17.0f + gEngfuncs.pfnRandomFloat(0, speed);
 		p->life = gEngfuncs.pfnRandomFloat(0.1f, 1.0f);
-		p->collide = (p->life > 0.7f) ? 3 : 0;
+		// traced against the world only when it lives past 0.7 s and the count scale is above 0.9
+		p->collide = (p->life <= 0.7f || g_tsFx.countScale <= 0.9f) ? 0 : 3;
 		p->collideMode = 2;        // +0x120 = 2 (0x10049396)
-		p->pos = Vector(o[0] + n[0] * p->size, o[1] + n[1] * p->size, o[2] + n[2] * p->size);
+		p->pos = at;
 		p->frame = TSP_RandomFrame(idx);
 		if (TSP_Commit(p, NULL, NULL) == -1)
 			return;
@@ -914,6 +956,8 @@ static void TSP_Debris(const float* o, const float* n, const char* spr, short re
 static void TSP_Pellets(const float* o, const float* n, const char* spr, short rendermode,
 	int framecnt, float life, float bright, float fade, float accel)
 {
+	if (!TSP_InView(Vector(o[0], o[1], o[2]))) // FUN_10046a70's view cull
+		return;
 	int idx = TSP_RegisterSprite(spr, rendermode);
 	if (idx < 0)
 		return;
@@ -937,17 +981,21 @@ static void TSP_Pellets(const float* o, const float* n, const char* spr, short r
 // skipped entirely when cl_fx is 0 (float != 0.0). The cl_fx levels themselves (g_tsFx) are built
 // in TSParticles_Update; the impact spawners' own reads of them (the spawn throttles and count
 // scales at 0x10046680/0x10046bd0/0x100492b0/0x10048f60) are not in these spawners.
-static bool TSP_FxSmokeOn()
-{
-	cvar_t* clfx = TSP_ClFx();
-	return clfx == nullptr || clfx->value != 0.0f;
-}
 
 //-----------------------------------------------------------------------------
 // Visual dispatcher  (FUN_10048f60) — per-surface texture-char switch + roll gating.
 //-----------------------------------------------------------------------------
 void TS_ImpactEffect(const float* origin, const float* normal, int mode, char texChar)
 {
+	// FUN_10048f60's gates: at most once per cl_fx rate1 of slowed time (kind 7), except modes 1 and 2,
+	// which go through regardless (without rearming it); then in view and in sight.
+	if (TSP_Due(7))
+		TSP_Hold(7, TSP_SlowScaled(g_tsFx.rate1));
+	else if (mode != 1 && mode != 2)
+		return;
+	const Vector at(origin[0], origin[1], origin[2]);
+	if (!TSP_Seen(at))
+		return;
 	const int roll = gEngfuncs.pfnRandomLong(0, 100);
 	// smoke puff count = mode-derived (FUN_10048f60: 1 if mode==1, 2 if mode==2, else 4).
 	const int smokeN = (mode == 1) ? 1 : (mode == 2) ? 2 : 4;
@@ -975,8 +1023,7 @@ void TS_ImpactEffect(const float* origin, const float* normal, int mode, char te
 		TSP_SparkShower(origin, normal, 23, 1.15f, 25.0f);
 		if (roll > 70)
 			TSP_Pellets(origin, normal, "sprites/shotgun_pellets.spr", 5, 5, 0.0f, 0.75f, 0.015f, 0.25f);
-		if (TSP_FxSmokeOn())
-			TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 50.0f);
+		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 50.0f);
 		break;
 
 	case 'P': // computer
@@ -984,16 +1031,14 @@ void TS_ImpactEffect(const float* origin, const float* normal, int mode, char te
 		TSP_Scintille(origin, normal, "sprites/scintille_metal.spr", 5, 48);
 		if (roll > 50)
 			TSP_SparkShower(origin, normal, 3, 1.15f, 25.0f);
-		if (TSP_FxSmokeOn())
-			TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 50.0f);
+		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 50.0f);
 		break;
 
 	default: // concrete / tile / snow / etc. (RE: count=RandomLong(5/2,5)=2-5, spread=32)
 		// debris_concrete3 is INDEXALPHA — the original's rendermode 1 (TransColor) renders as an
 		// unmasked square in our TriAPI; kRenderTransAlpha(4) masks it to white chips. (engine deviation)
 		TSP_Debris(origin, normal, "sprites/debris_concrete3.spr", 4, 5, 4.0f, 32, 1.0f, 1.0f, 1);
-		if (TSP_FxSmokeOn())
-			TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 20.0f);
+		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 20.0f);
 		if (roll > 50)
 		{
 			TSP_Scintille(origin, normal, "sprites/scintille_metal.spr", 5, 3);
@@ -1099,121 +1144,445 @@ void TSParticles_Init()
 }
 
 //-----------------------------------------------------------------------------
-// PTakeDam blood tail (FUN_10048840) — the bloodfrag2.spr spray on the TSP pool.
-// Called from CHudHealth::MsgFunc_PTakeDam (cl_dll/health.cpp). The original does
-// NOTHING but blood here (no pain-direction indicator).
+// The armour hit puff (FUN_100464f0) and the PTakeDam blood (FUN_10048840 with its landing callback
+// FUN_10048710). Called from CHudHealth::MsgFunc_PTakeDam (cl_dll/health.cpp).
 //-----------------------------------------------------------------------------
+
+// FUN_100464f0: one puff, at most once per cl_fx rate2 (kind 0, slowed by the slow motion), when the
+// point is in view and in sight: sprite `spr` in `rendermode`, size `size`, `frameRate` frames a
+// second, at point + dir x size / 2, sinking at 2 units a second, growing (0.5), drag 3.3, stretch 7.
+void TSP_Puff(const Vector& point, const Vector& dir, const char* spr, short rendermode, int size, int frameRate)
+{
+	if (!TSP_Due(0))
+		return;
+	TSP_Hold(0, TSP_SlowScaled(g_tsFx.rate2));
+	if (!TSP_Seen(point))
+		return;
+	const int idx = TSP_RegisterSprite(spr, rendermode);
+	if (idx < 0)
+		return;
+	TSParticle* p = TSP_Scratch();
+	p->orient = 0;
+	p->active = true;
+	p->fadeRate = 0.0f;
+	p->bright = 1.0f;
+	p->frameRate = (float)frameRate;
+	p->spriteIdx = (short)idx;
+	p->life = 0.0f;
+	p->frame = 0;
+	p->size = (float)size;
+	const float half = (float)size * 0.5f;
+	p->pos = point + dir * half;
+	p->collide = 0;
+	p->vel = Vector(0, 0, -2.0f);
+	p->accelRate = 0.5f;
+	p->drag = 3.3f;
+	p->stretch = 7.0f;
+	TSP_Commit(p, NULL, NULL);
+}
+
+// FUN_10048710: a blood drop that hits the world leaves {blood1..8} on a brush (solid BSP or
+// MOVETYPE_PUSHSTEP) while r_decals is not 0, one in ten (RandomLong(0, 100) above 90) plays
+// player/splat.wav there (volume 1, attenuation 0.99, pitch 25 + 75 x slow +-5), and the drop is gone.
+static void TSP_BloodLanded(TSParticle* p, struct pmtrace_s* tr)
+{
+	char name[32];
+	sprintf(name, "{blood%i", gEngfuncs.pfnRandomLong(1, 8));
+	physent_t* pe = gEngfuncs.pEventAPI->EV_GetPhysent(tr->ent);
+	if (name[0] != '\0' && pe != nullptr && (pe->solid == SOLID_BSP || pe->movetype == MOVETYPE_PUSHSTEP) &&
+		gEngfuncs.pfnGetCvarFloat("r_decals") != 0.0f)
+	{
+		gEngfuncs.pEfxAPI->R_DecalShoot(gEngfuncs.pEfxAPI->Draw_DecalIndex(gEngfuncs.pEfxAPI->Draw_DecalIndexFromName(name)),
+			gEngfuncs.pEventAPI->EV_IndexFromTrace(tr), 0, tr->endpos, 0);
+	}
+	if (gEngfuncs.pfnRandomLong(0, 100) > 90)
+	{
+		const int pitch = gEngfuncs.pfnRandomLong(-5, 5) + 25 - (int)(g_flClientSlow * -75.0f);
+		gEngfuncs.pEventAPI->EV_PlaySound(-1, tr->endpos, CHAN_AUTO, "player/splat.wav", 1.0f, 0.99f, 0, pitch);
+	}
+	p->active = false;
+}
+
+// FUN_10048840: the blood of a PTakeDam, when the point is in view and in sight. The byte is half the
+// damage, plus 128 for an armoured hit. The spray runs back along the hit direction; an armoured hit
+// jitters it (x and y by +-0.3, z by +-0.1), puffs gun_smoke_add (5, size 4, 20 fps) 12 units out and
+// halves the damage. bloodfrag2.spr (client.dll registers it TransColor; reTS draws it TransAlpha,
+// which its triangle code needs for the indexalpha sprite), size damage x 0.075 held to 1..5. Drops:
+// damage x 0.2 held to 5..15, halved when armoured, times cl_gore's factor (1: 0.5, 2: 1, 3: 2.5,
+// 4: 5, 5..10: 10, above 10: the value, up to 33, 0 or below: none). The spray direction then takes
+// +0.5..1 upward and is normalised. The first drop flies along the hit at 32; the rest along the spray
+// at 8..24 plus -1..1 in x and y, each started where the streak stood before it stepped on (size x 0.3
+// along the spray, sinking by its growing droop over the count). Each drop lives 1..2 s, grows by
+// 0.075, falls at half gravity and is traced against the world, landing in TSP_BloodLanded. A drop
+// inside solid ends the spray.
 void TSP_BloodSpray(const float* point, const float* dir, int encByte)
 {
-	// (The original first runs view-relative visibility culls — FUN_100570b0 +
-	// FUN_10057270/FUN_100572a0 — and skips unseen sprays; our pool simply doesn't
-	// render what's offscreen, so the cull is omitted.)
-
-	Vector bloodvel(-dir[0], -dir[1], -dir[2]); // inverted hit dir (dir * -1.0)
-	const bool armored = encByte > 127;         // bit7 = armored/upper-body hit
-	int enc = encByte;
-	if (armored)
-		enc -= 128;
-	float base = (float)enc * 2.0f; // server encodes dmg*0.5 -> base ≈ original damage
-
+	const Vector at(point[0], point[1], point[2]);
+	if (!TSP_Seen(at))
+		return;
+	Vector spray(dir[0] * -1.0f, dir[1] * -1.0f, dir[2] * -1.0f);
+	const bool armored = encByte >= 0x80;
+	int dmg = (armored ? encByte - 0x80 : encByte) * 2;
 	if (armored)
 	{
-		// Armored: jitter bloodvel per component + normalize, and spawn a gun_smoke_add
-		// dust puff INSTEAD of extra blood (FUN_100464f0, count 5, near point + dir*6 —
-		// exact params decompiler-elided, VERIFY).
-		Vector jit(bloodvel.x + gEngfuncs.pfnRandomFloat(-1.0f, 1.0f),
-			bloodvel.y + gEngfuncs.pfnRandomFloat(-1.0f, 1.0f),
-			bloodvel.z + gEngfuncs.pfnRandomFloat(-1.0f, 1.0f));
-		jit = jit.Normalize();
-		Vector puffAt(point[0] + dir[0] * 6.0f, point[1] + dir[1] * 6.0f, point[2] + dir[2] * 6.0f);
-		TSP_Smoke(puffAt, jit, "sprites/gun_smoke_add.spr", 5, 5, 16, 50.0f);
-		// base is further randomized + halved (decompiler-elided; VERIFY the jitter form).
-		base *= 0.5f;
+		spray.x += gEngfuncs.pfnRandomFloat(-0.3f, 0.3f);
+		spray.y += gEngfuncs.pfnRandomFloat(-0.3f, 0.3f);
+		spray.z += gEngfuncs.pfnRandomFloat(-0.1f, 0.1f);
+		spray = spray.Normalize();
+		TSP_Puff(at, spray * 6.0f, "sprites/gun_smoke_add.spr", 5, 4, 0x14);
+		dmg = (int)(dmg * 0.5f);
 	}
 
-	// Blood particle count from cl_gore (client_display_cvars §3 table, confirmed):
-	// 0 -> 0 · 1 -> base*0.5 · 2 -> base · 3 -> base*2.5 · 4 -> base*5 · 5..10 -> base*10 ·
-	// >10 -> base*min(v,33).
-	static cvar_t* s_cl_gore = nullptr;
-	if (s_cl_gore == nullptr)
-		s_cl_gore = gEngfuncs.pfnGetCvarPointer("cl_gore");
-	const int gore = (int)(s_cl_gore != nullptr ? s_cl_gore->value : 2.0f);
-	float fcount;
-	if (gore <= 0)
-		return;
-	else if (gore == 1)
-		fcount = base * 0.5f;
-	else if (gore == 2)
-		fcount = base;
-	else if (gore == 3)
-		fcount = base * 2.5f;
-	else if (gore == 4)
-		fcount = base * 5.0f;
-	else if (gore <= 10)
-		fcount = base * 10.0f;
-	else
-		fcount = base * (float)(gore < 33 ? gore : 33);
-	const int count = (int)fcount;
-	if (count <= 0)
-		return;
-
-	// Template (FUN_1004ffe0 + FUN_100509d0, texture sprites/bloodfrag2.spr). client.dll registers
-	// it with rendermode 1, kRenderTransColor (push 0x1 at 0x10048981); reTS uses
-	// kRenderTransAlpha(4), which masks the indexalpha sprite in our TriAPI (the debris_concrete3
-	// precedent). The template's dword [0x48] = 2 is the collide mode (+0x120), set below.
 	const int idx = TSP_RegisterSprite("sprites/bloodfrag2.spr", 4 /*kRenderTransAlpha*/);
 	if (idx < 0)
 		return;
+	TSParticle* p = TSP_Scratch();
+	p->spriteIdx = (short)idx;
+	p->active = true;
+	p->gravity = 0.5f;
+	p->orient = 0;
+	p->fadeRate = 0.0f;
+	p->bright = 1.0f;
+	p->frameRate = 0.0f;
+	float size = dmg * 0.075f;
+	if (size <= 1.0f)
+		size = 1.0f;
+	else if (size >= 5.0f)
+		size = 5.0f;
+	p->size = size;
+	p->stretch = 2.0f;
+	p->collide = 3;
+	p->collideMode = 2;
 
-	// size = clamp(base * 0.075, 1..5)  (template dword [0x42])
-	float size = base * 0.075f;
-	if (size < 1.0f) size = 1.0f;
-	if (size > 5.0f) size = 5.0f;
+	double c = dmg * 0.2;
+	if (c <= 5.0)
+		c = 5.0;
+	else if (c >= 15.0)
+		c = 15.0;
+	int count = (int)c;
+	if (armored)
+		count /= 2;
+	static cvar_t* s_cl_gore = nullptr;
+	if (s_cl_gore == nullptr)
+		s_cl_gore = gEngfuncs.pfnGetCvarPointer("cl_gore");
+	const float gore = s_cl_gore != nullptr ? s_cl_gore->value : 2.0f;
+	if (gore > 10.0f)
+		count = (int)(count * (gore < 33.0f ? gore : 33.0f));
+	else
+	{
+		switch ((int)(gore < 5.0f ? gore : 5.0f))
+		{
+		case 1: count = (int)(count * 0.5f); break;
+		case 2: count = (int)(float)count; break;
+		case 3: count = (int)(count * 2.5f); break;
+		case 4: count = (int)(count * 5.0f); break;
+		case 5: count = (int)(count * 10.0f); break;
+		default: count = 0; break;
+		}
+	}
+	spray.z += gEngfuncs.pfnRandomFloat(0.5f, 1.0f);
+	spray = spray.Normalize();
 
-	Vector pos(point[0], point[1], point[2]);
-	float droop = 0.0f; // the accumulating streak droop
+	Vector streak = at;
+	float droop = 0.0f;
 	for (int i = 0; i < count; i++)
 	{
-		if (i > 0)
+		p->frame = TSP_RandomFrame(idx);
+		p->accelRate = 0.075f;
+		p->life = gEngfuncs.pfnRandomFloat(1.0f, 2.0f);
+		if (i < 1)
 		{
-			// the spawn pos WALKS a streak along bloodvel, drooping as it goes.
-			pos = pos + bloodvel * (size * 0.3f);
-			droop += size * 0.1f;
-			pos.z -= droop / (float)count;
-		}
-
-		// skip particles inside solid (PM_PointContents == CONTENTS_SOLID(-2)).
-		if (gEngfuncs.PM_PointContents((float*)&pos, NULL) == CONTENTS_SOLID)
-			continue;
-
-		TSParticle* p = TSP_Scratch();
-		p->spriteIdx = (short)idx;
-		p->active = true;   // byte@0 = 1
-		p->collide = 3;     // byte +4 = 3 (0x10048a3a): the motion is traced against the world
-		p->collideMode = 2; // dword +0x120 = 2 (0x10048a3e): the trace runs
-		p->gravity = 0.5f;  // [0x34]
-		p->bright = 1.0f;   // [0x37]
-		p->fadeRate = 0.0f; // [0x38]
-		p->frameRate = 0.0f;// [0x3f]
-		p->size = size;     // [0x42]
-		p->stretch = 2.0f;  // [0x4a]
-		p->accelRate = 0.075f; // per-particle [0x39] — the droplet grows as it flies
-		p->life = gEngfuncs.pfnRandomFloat(0.0f, 1.0f); // per-particle [0x36] = RandomFloat (range elided, VERIFY)
-		if (i == 0)
-		{
-			// the main spurt: straight along the HIT direction.
 			p->vel = Vector(dir[0], dir[1], dir[2]) * 32.0f;
-			p->pos = Vector(point[0], point[1], point[2]);
+			p->pos = at;
 		}
 		else
 		{
-			p->vel = bloodvel * gEngfuncs.pfnRandomFloat(0.0f, 1.0f); // VERIFY range (elided)
-			p->vel.x += gEngfuncs.pfnRandomFloat(-2.0f, 2.0f); // xy jitter (range elided, VERIFY)
-			p->vel.y += gEngfuncs.pfnRandomFloat(-2.0f, 2.0f);
-			p->pos = pos;
+			p->vel = spray * gEngfuncs.pfnRandomFloat(8.0f, 24.0f);
+			p->vel.x += gEngfuncs.pfnRandomFloat(-1.0f, 1.0f);
+			p->vel.y += gEngfuncs.pfnRandomFloat(-1.0f, 1.0f);
+			p->pos = streak;
+			streak = streak + spray * (p->size * 0.3f);
+			droop += p->size * 0.1f;
+			streak.z -= droop / (float)count;
 		}
-		p->frame = TSP_RandomFrame(idx);
+		if (gEngfuncs.PM_PointContents((float*)&p->pos, NULL) == CONTENTS_SOLID)
+			return;
+		if (TSP_Commit(p, NULL, TSP_BloodLanded) == -1)
+			return;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// TSFrags (client.dll's handler 0x1004bd50, ts_debris.cpp): the glass shower FUN_10047cb0, the
+// explosion FUN_100481b0 and the metal hit of material 2.
+//-----------------------------------------------------------------------------
+
+// FUN_10047cb0: glassfrag.spr (additive) in a 9 x 9 grid over the pane's face (the smallest size
+// component is the pane's normal and is left out), from origin - size / 2 in steps of size / 9. Each
+// shard: size (the two face sizes) / 18 x 0.7, at most 20; view-facing and rolled (orient 1) at
+// -90..90 a second; full gravity, bright 0.7 fading at 0.05 once its 2..5 s are over; traced against
+// the world; a passing player pushes it by 0.5. Its velocity: for a bullet or blast hit (damage bits
+// 0x8000002) -9..9, -9..9, 0..10 plus the direction x velMag / (its distance to the hit + 1) x 10, else
+// each component RandomFloat(dir x velMag x 0.5, dir x velMag + 15).
+void TSP_GlassShatter(const Vector& origin, const Vector& size, const Vector& dir, const Vector& hit, int dmgBits, float velMag)
+{
+	Vector face = size;
+	if (size.x <= size.y)
+	{
+		if (size.x <= size.z)
+			face.x = 0;
+		else
+			face.z = 0;
+	}
+	else if (size.y <= size.z)
+		face.y = 0;
+	else
+		face.z = 0;
+
+	const int idx = TSP_RegisterSprite("sprites/glassfrag.spr", 5);
+	if (idx == -1)
+		return;
+	TSParticle* p = TSP_Scratch();
+	p->gravity = 1.0f;
+	p->attachment = 0;
+	p->imode = 0;
+	p->orient = 1;
+	p->active = true;
+	p->fadeRate = 0.05f;
+	p->bright = 0.7f;
+	p->spriteIdx = (short)idx;
+	p->frameRate = 0;
+	p->collide = 3;
+	p->collideMode = 2;
+	p->react = 0.5f;
+	p->stretch = 0;
+	float s = (face.z + face.y + face.x) * 0.0555555556f * 0.7f;
+	if (20.0f <= s)
+		s = 20.0f;
+	p->size = s;
+	p->avel.x = 0;
+	p->avel.y = 0;
+
+	const Vector corner(origin.x - size.x * 0.5f, origin.y - size.y * 0.5f, origin.z - size.z * 0.5f);
+	Vector pos = origin;
+	if (face.x != 0.0f)
+		pos.x = corner.x;
+	if (face.y != 0.0f)
+		pos.y = corner.y;
+	if (face.z != 0.0f)
+		pos.z = corner.z;
+	const bool scatter = (dmgBits & 0x8000002) != 0;
+	for (int i = 0; i < 9; i++)
+	{
+		if (face.x == 0.0f)
+			pos.y = size.y * 0.111111112f * i + corner.y;
+		else
+			pos.x = size.x * 0.111111112f * i + corner.x;
+		for (int j = 0; j < 9; j++)
+		{
+			if (face.x == 0.0f || face.y == 0.0f)
+				pos.z = size.z * 0.111111112f * j + corner.z;
+			else
+				pos.y = size.y * 0.111111112f * j + corner.y;
+			p->frame = TSP_RandomFrame(idx);
+			p->pos = pos;
+			if (!scatter)
+			{
+				p->vel.x = gEngfuncs.pfnRandomFloat(dir.x * velMag * 0.5f, dir.x * velMag + 15.0f);
+				p->vel.y = gEngfuncs.pfnRandomFloat(dir.y * velMag * 0.5f, dir.y * velMag + 15.0f);
+				p->vel.z = gEngfuncs.pfnRandomFloat(dir.z * velMag * 0.5f, dir.z * velMag + 15.0f);
+			}
+			else
+			{
+				p->vel.x = gEngfuncs.pfnRandomFloat(-9.0f, 9.0f);
+				p->vel.y = gEngfuncs.pfnRandomFloat(-9.0f, 9.0f);
+				p->vel.z = (float)gEngfuncs.pfnRandomLong(0, 10);
+				const float k = velMag / ((p->pos - hit).Length() + 1.0f);
+				p->vel = p->vel + dir * (k * 10.0f);
+			}
+			p->avel.z = (float)gEngfuncs.pfnRandomLong(-90, 90);
+			p->life = gEngfuncs.pfnRandomFloat(2.0f, 5.0f);
+			if (TSP_Commit(p, NULL, NULL) == -1)
+				return;
+		}
+	}
+}
+
+// FUN_100524c0 with no extra direction: with cl_fx's interaction on, every particle within `radius`
+// is pushed away from the point by power x (radius - distance) / radius; a landed one lifts off (a
+// falling speed is turned upward and scaled by half that fraction, then 10 x the fraction added up),
+// and a rolled one (orient 1) takes -90..90 x the fraction more roll.
+static void TSP_BlastPush(const Vector& at, float radius, float power)
+{
+	if (!g_tsFx.interact)
+		return;
+	for (int i = 0; i <= g_tsPool.highWater && i < g_tsPool.max; i++)
+	{
+		TSParticle* p = &g_tsPool.particles[i];
+		if (!p->active)
+			continue;
+		Vector d = p->pos - at;
+		const float len = d.Length();
+		if (len != 0.0f)
+			d = d * (1.0f / len);
+		if (!(len <= radius))
+			continue;
+		const float f = (radius - len) / radius;
+		p->vel = p->vel + d * (power * f);
+		if (p->settled)
+		{
+			if (p->vel.z < 0.0f)
+				p->vel.z = fabsf(p->vel.z) * f * 0.5f;
+			p->settled = false;
+			p->vel.z = f * 10.0f + p->vel.z;
+		}
+		if (p->orient == 1)
+			p->avel.z = gEngfuncs.pfnRandomFloat(-90.0f, 90.0f) * f + p->avel.z;
+	}
+}
+
+// FUN_10048e60: with the high cl_fx level, the explosion's light, at most once per 0.1 s of slowed
+// time: radius 192, (240, 221, 172), for 0.06 s of slowed time.
+static void TSP_BlastLight(const Vector& at)
+{
+	static float s_last = 0;
+	if (!g_tsFx.high)
+		return;
+	const float now = TSP_Now();
+	const float since = now - s_last;
+	if (since < 0.0f)
+	{
+		s_last = now;
+		return;
+	}
+	if (TSP_SlowScaled(0.1f) <= since)
+	{
+		s_last = now;
+		dlight_t* dl = gEngfuncs.pEfxAPI->CL_AllocDlight(0);
+		if (dl != nullptr)
+		{
+			dl->origin = at;
+			dl->radius = 192.0f;
+			dl->color.r = 0xf0;
+			dl->color.g = 0xdd;
+			dl->color.b = 0xac;
+			dl->die = TSP_SlowScaled(0.06f) + TSP_Now();
+		}
+	}
+}
+
+// FUN_100481b0, material 1 of TSFrags with `mag` = the size's x (truncated): one of explode.wav,
+// explode1..4.wav on channel 6 (volume 0.92..1, attenuation 0.2, pitch 100 + 300 x slow); a blast push
+// of 512 units at mag x 10; grenade_asplode.spr puffs (cl_fx scale x 24 of them, size mag / 2,
+// 70 out, 25..30 fps) and gun_smoke_add.spr puffs (scale x 48, size mag x 0.7, 54 out, 2..10 fps),
+// both raised by half their size, barely falling (0.01), bright 0.3, growing at 0.1, drag 3.3; the
+// light 32 units up; one scintille_metal.spr flash of size mag x 2 growing at 2 and fading at 0.05.
+void TSP_Explosion(const Vector& origin, int mag)
+{
+	static const char* const s_boom[5] = {"explo/explode.wav", "explo/explode1.wav", "explo/explode2.wav",
+		"explo/explode3.wav", "explo/explode4.wav"};
+	const int k = gEngfuncs.pfnRandomLong(0, 4);
+	if (k >= 0 && k <= 4)
+	{
+		const int pitch = 100 - (int)(g_flClientSlow * -300.0f);
+		gEngfuncs.pEventAPI->EV_PlaySound(0, (float*)&origin, CHAN_STATIC, s_boom[k],
+			gEngfuncs.pfnRandomFloat(0.92f, 1.0f), 0.2f, 0, pitch);
+	}
+	TSP_BlastPush(origin, 512.0f, (float)(mag * 10));
+
+	int idx = TSP_RegisterSprite("sprites/grenade_asplode.spr", 5);
+	if (idx == -1)
+		return;
+	TSParticle* p = TSP_Scratch();
+	p->spriteIdx = (short)idx;
+	p->gravity = 0.01f;
+	p->attachment = 0;
+	p->imode = 0;
+	p->orient = 0;
+	p->size = (float)(mag * 0.5);
+	p->active = true;
+	p->fadeRate = 0;
+	p->bright = 0.3f;
+	p->life = 0;
+	p->frame = 0;
+	p->pos = origin;
+	p->pos.z = p->size * 0.5f + p->pos.z;
+	p->collide = 0;
+	p->accelRate = 0.1f;
+	p->drag = 3.3f;
+	p->stretch = 0;
+	int count = (int)(g_tsFx.scale * 24.0f);
+	for (int i = 0; i < count; i++)
+	{
+		p->vel.x = gEngfuncs.pfnRandomFloat(-70.0f, 70.0f);
+		p->vel.y = gEngfuncs.pfnRandomFloat(-70.0f, 70.0f);
+		p->vel.z = gEngfuncs.pfnRandomFloat(0.0f, 70.0f);
+		p->frameRate = (float)gEngfuncs.pfnRandomLong(0x19, 0x1e);
 		if (TSP_Commit(p, NULL, NULL) == -1)
 			return;
 	}
+
+	idx = TSP_RegisterSprite("sprites/gun_smoke_add.spr", 5);
+	if (idx == -1)
+		return;
+	p->gravity = 0.01f;
+	p->attachment = 0;
+	p->imode = 0;
+	p->orient = 0;
+	p->active = true;
+	p->size = (float)(mag * 0.7);
+	p->fadeRate = 0;
+	p->bright = 0.3f;
+	p->spriteIdx = (short)idx;
+	p->life = 0;
+	p->frame = 0;
+	p->pos = origin;
+	p->pos.z = p->size * 0.5f + p->pos.z;
+	p->collide = 0;
+	p->accelRate = 0.1f;
+	p->drag = 3.3f;
+	p->stretch = 0;
+	count = (int)(g_tsFx.scale * 48.0f);
+	for (int i = 0; i < count; i++)
+	{
+		p->vel.x = gEngfuncs.pfnRandomFloat(-54.0f, 54.0f);
+		p->vel.y = gEngfuncs.pfnRandomFloat(-54.0f, 54.0f);
+		p->vel.z = gEngfuncs.pfnRandomFloat(0.0f, 54.0f);
+		p->frameRate = (float)gEngfuncs.pfnRandomLong(2, 10);
+		if (TSP_Commit(p, NULL, NULL) == -1)
+			return;
+	}
+
+	TSP_BlastLight(origin + Vector(0, 0, 32));
+
+	idx = TSP_RegisterSprite("sprites/scintille_metal.spr", 5);
+	if (idx == -1)
+		return;
+	p->gravity = 0;
+	p->attachment = 0;
+	p->imode = 0;
+	p->orient = 0;
+	p->active = true;
+	p->fadeRate = 0.05f;
+	p->vel = Vector(0, 0, 0);
+	p->spriteIdx = (short)idx;
+	p->bright = 1.0f;
+	p->frameRate = 0;
+	p->life = 0;
+	p->size = (float)(mag * 2);
+	p->pos = origin;
+	p->pos.z = p->size * 0.5f + p->pos.z;
+	p->collide = 0;
+	p->frame = TSP_RandomFrame(idx);
+	p->accelRate = 2.0f;
+	TSP_Commit(p, NULL, NULL);
+}
+
+// TSFrags material 2 (0x1004be6b): a scintille_metal.spr glint (count 9) and a spark shower (7, 1.15,
+// 25) at the point. client.dll passes a normal it never fills (uninitialised stack); reTS passes 0.
+void TSP_MetalHit(const Vector& origin)
+{
+	const float n[3] = {0, 0, 0};
+	TSP_Scintille(&origin.x, n, "sprites/scintille_metal.spr", 5, 9);
+	TSP_SparkShower(&origin.x, n, 7, 1.15f, 25.0f);
 }

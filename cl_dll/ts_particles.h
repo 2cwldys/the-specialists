@@ -162,6 +162,15 @@ extern TSWindState g_tsWindState;
 // (bit7 = armored hit -> dust puff variant, low 7 bits = dmg*0.5).
 void TSP_BloodSpray(const float* point, const float* dir, int encByte);
 
+// TSFrags' spawners (ts_debris.cpp): the glass shower FUN_10047cb0, the explosion FUN_100481b0 and the
+// material 2 metal hit.
+void TSP_GlassShatter(const Vector& origin, const Vector& size, const Vector& dir, const Vector& hit, int dmgBits, float velMag);
+void TSP_Explosion(const Vector& origin, int mag);
+void TSP_MetalHit(const Vector& origin);
+
+// The puff spawner (client.dll FUN_100464f0): one sprite puff at point + dir x size / 2.
+void TSP_Puff(const Vector& point, const Vector& dir, const char* spr, short rendermode, int size, int frameRate);
+
 // The per-surface visual dispatcher (original FUN_10048f60). texChar is a CHAR_TEX_* material class
 // (pm_materials.h). mode: 0 = normal, 1/2 = forced (skip throttle).
 void TS_ImpactEffect(const float* origin, const float* normal, int mode, char texChar);

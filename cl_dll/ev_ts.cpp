@@ -160,7 +160,7 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
 // wood/concrete -> tumbling debris chips + smoke; dirt -> smoke; flesh/water -> nothing (the
 // server's FireBulletsPlayer already does blood + the texture impact SOUND + the bullet decal,
 // this only adds the missing VISUAL). Client-side + predicted via the fire event (no lag, no
-// double sound/decal). The old R_SparkShower/R_TempSprite approximation is gone (cont.69x).
+// double sound/decal).
 //
 // EV_TSBulletHit is the hit half of EV_TSBulletImpact: what client.dll's FUN_10044bf0 (impact sound and particles,
 // `mode` going on to the dispatcher) and FUN_10001180 (the decal) do with a trace that hit. The
@@ -501,33 +501,15 @@ void EV_TSKatana(event_args_t* args)
 	gEngfuncs.pEventAPI->EV_PopPMStates();
 }
 
-// The coldcock hit-puff (dossier-ev-melee §4/§5 step: FUN_100464f0(endpos, normal, spr, 5, 12, 30)):
-// wood/dirt -> wood_smoke_add.spr, flesh -> nothing, else gun_smoke_add.spr. A short additive
-// smoke sprite at the impact. (VERIFY the 5/12/30 args' exact scale/life mapping.)
+// The close combat and coldcock hit puff (client.dll 0x100436ba, 0x10043bbf): on a dirt or wood
+// texture wood_smoke_add.spr, on flesh nothing, else gun_smoke_add.spr, through the puff spawner
+// FUN_100464f0 (TSP_Puff) at the hit along its normal, rendermode 5, size 12, 30 frames a second.
 static void TS_MeleeSmokePuff(pmtrace_t* tr, char chType)
 {
-	const char* spr;
 	if (chType == CHAR_TEX_FLESH)
 		return;
-	// cl_fx gun-smoke gate (dossier cont94 §5): the smoke-puff spawn is skipped when cl_fx is 0
-	// (exact original test: float != 0.0). Only the smoke part of cl_fx is reconstructed.
-	{
-		static cvar_t* s_cl_fx = nullptr;
-		if (s_cl_fx == nullptr)
-			s_cl_fx = gEngfuncs.pfnGetCvarPointer("cl_fx");
-		if (s_cl_fx != nullptr && s_cl_fx->value == 0.0f)
-			return;
-	}
-	if (chType == CHAR_TEX_WOOD || chType == CHAR_TEX_DIRT)
-		spr = "sprites/wood_smoke_add.spr";
-	else
-		spr = "sprites/gun_smoke_add.spr";
-	const int mdl = gEngfuncs.pEventAPI->EV_FindModelIndex(spr);
-	if (!mdl)
-		return;
-	Vector up(tr->plane.normal[0] * 12.0f, tr->plane.normal[1] * 12.0f, tr->plane.normal[2] * 12.0f);
-	gEngfuncs.pEfxAPI->R_TempSprite(tr->endpos, up, 0.5f, mdl,
-		kRenderTransAdd, kRenderFxNone, 0.35f, 0.3f, FTENT_SPRANIMATE | FTENT_FADEOUT);
+	const char* spr = (chType == CHAR_TEX_WOOD || chType == CHAR_TEX_DIRT) ? "sprites/wood_smoke_add.spr" : "sprites/gun_smoke_add.spr";
+	TSP_Puff(tr->endpos, tr->plane.normal, spr, 5, 12, 30);
 }
 
 // events/closecombat.sc → EV_TSCloseCombat — the original FUN_10043200 (dossier-ev-melee.md §5).
@@ -643,7 +625,7 @@ void EV_TSColdCock(event_args_t* args)
 // The original gates it on the perpendicular distance from the local view origin to the bullet line
 // (Heron's-formula area / base) against _DAT_1007cccc = 75.0 (read from client.dll .rdata @0x1007cccc);
 // we use the equivalent closest-point-on-segment distance. Your own rounds never whizz you (FUN_100450c0
-// gates on shooter entindex != local player). cont.91: radius was 56 (guessed) -> 75 (RE'd constant).
+// gates on shooter entindex != local player).
 static void TS_BulletWhizz(int idx, const Vector& start, const Vector& dir)
 {
 	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
