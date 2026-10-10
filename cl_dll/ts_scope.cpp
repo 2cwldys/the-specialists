@@ -27,11 +27,17 @@ bool TS_ScopedIn()
 // The quarter sprite's texture maps: uv(1,1) = the circle CENTRE, uv(0,0) = the outer corner of
 // the circle. We place uv(1,1) at the screen centre for all 4 quads and the outer corner at each
 // screen corner — that rotates the one quarter into the 4 quadrants to form the full circle.
+// quarterscope.spr, loaded again on every map: sprite handles index the per-map sprite list, so a
+// handle kept from the last map draws whatever sprite took its slot.
+static HSPRITE s_hQuarter = 0;
+
+void TS_ScopeVidInit()
+{
+	s_hQuarter = SPR_Load("sprites/quarterscope.spr");
+}
+
 void TS_DrawScopeOverlayHUD()
 {
-	static HSPRITE s_hQuarter;
-	if (!s_hQuarter)
-		s_hQuarter = SPR_Load("sprites/quarterscope.spr");
 	if (!s_hQuarter)
 		return;
 	struct model_s *pSpr = (struct model_s *)gEngfuncs.GetSpritePointer(s_hQuarter);

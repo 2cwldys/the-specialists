@@ -1754,23 +1754,34 @@ void V_GetMapChasePosition(int target, float* cl_angles, float* origin, float* a
 	VectorMA(origin, -1536, forward, origin);
 }
 
-// Spectator in-eye: the view model for the spectated player's world weapon model. client.dll
+// Spectator in-eye: the weapon type for the spectated player's world weapon model. client.dll
 // (0x10068ef0) takes the model's name and finds the first weapon whose p_ model, or silenced p_
-// model, it starts with (types 0..37), then loads that weapon's v_ model (0x10069a3e).
-int V_FindViewModelByWeaponModel(int weaponindex)
+// model, it starts with (types 0..37), -1 for none.
+static int V_FindWeaponByWeaponModel(int weaponindex)
 {
 	model_t* m = IEngineStudio.GetModelByIndex(weaponindex);
 	if (m == nullptr || m->name[0] == '\0')
-		return 0;
+		return -1;
 	const size_t len = strlen(m->name);
 	for (int t = 0; t < TSW_COUNT; t++)
 	{
 		const s_weapon_info* wi = get_weapon_info((tsweapon_t)t);
 		if ((wi->pszPlayerModel && strncmp(m->name, wi->pszPlayerModel, len) == 0) ||
 			(wi->pszPlayerModelSil && strncmp(m->name, wi->pszPlayerModelSil, len) == 0))
-			return wi->pszViewModel ? gEngfuncs.pEventAPI->EV_FindModelIndex(wi->pszViewModel) : 0;
+			return t;
 	}
-	return 0;
+	return -1;
+}
+
+// The view model index for that weapon, looked up every frame as client.dll does (0x10069a3e,
+// EV_FindModelIndex of its v_ model): model indices change with the map, the weapon type does not.
+int V_FindViewModelByWeaponModel(int weaponindex)
+{
+	const int t = V_FindWeaponByWeaponModel(weaponindex);
+	if (t < 0)
+		return 0;
+	const s_weapon_info* wi = get_weapon_info((tsweapon_t)t);
+	return wi->pszViewModel ? gEngfuncs.pEventAPI->EV_FindModelIndex(wi->pszViewModel) : 0;
 }
 
 
@@ -1846,6 +1857,7 @@ void V_CalcSpectatorRefdef(struct ref_params_s* pparams)
 
 			if (0 != lastViewModelIndex)
 			{
+				lastViewModelIndex = V_FindViewModelByWeaponModel(lastWeaponModelIndex);
 				gunModel->model = IEngineStudio.GetModelByIndex(lastViewModelIndex);
 				gunModel->curstate.modelindex = lastViewModelIndex;
 				gunModel->curstate.frame = 0;

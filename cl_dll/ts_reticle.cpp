@@ -149,6 +149,8 @@ bool CHudTSReticle::VidInit()
 	m_hWireCut[2] = SPR_Load("sprites/wires/bwirecutted.spr");
 	m_flStuntTime = 0;
 	m_iLaserRange = 0;
+	extern void TS_ScopeVidInit();
+	TS_ScopeVidInit();
 	return true;
 }
 
