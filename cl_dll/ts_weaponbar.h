@@ -30,6 +30,7 @@ public:
 	bool Init() override;
 	bool VidInit() override;
 	bool Draw(float flTime) override;
+	void DrawBar(bool passive); // client.dll 0x1004e030
 	void Think() override; // FIRE-commits the highlighted weapon while the select menu is open
 	void Reset() override;
 	bool MsgFunc_WStatus(const char* pszName, int iSize, void* pbuf);
@@ -60,7 +61,6 @@ private:
 	static const int TSW_COUNT = 38;
 	int m_iClip[TSW_COUNT];          // loaded rounds if owned, else -1
 	HSPRITE m_hIcon[TSW_COUNT];      // sprites/weapons/<name>.spr handle (0 if none)
-	Rect m_rcIcon[TSW_COUNT];        // full-sprite rect
 
 	bool m_selecting = false;        // the select menu is open (this+0x73c)
 	int m_selType = -1;              // highlighted tsweapon_t (the cursor's cell, -1 when empty)

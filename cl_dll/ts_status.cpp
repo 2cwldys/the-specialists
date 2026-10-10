@@ -27,6 +27,7 @@
 #include "parsemsg.h"
 #include "ts_weapon_info.h" // Set_ammo_count (the SrvSett id-2 shared call)
 #include "ts_hud.h"
+#include "demo_api.h"
 #include "player_info.h" // g_PlayerExtraInfo (team name)
 #include "vgui_TeamFortressViewport.h" // iTeamColors / iNumberOfTeamColors (team box color)
 
@@ -61,8 +62,7 @@ bool CHudTSStatus::Init()
 	return true;
 }
 
-// Load one sprites/player/<name>.spr and capture its full-frame rect. Returns 0 if
-// the sprite is absent (Draw then falls back to text), so a missing file never crashes.
+// Load one sprites/player/<name>.spr and its frame size.
 static HSPRITE LoadStatusSprite(const char* name, Rect& rc)
 {
 	char path[64];
@@ -90,9 +90,13 @@ bool CHudTSStatus::VidInit()
 	return true;
 }
 
+// client.dll's status Reset (0x10049e70) clears the health, armour and posture bytes (and the powerup
+// and round-timer state, CHudTSPowerUp's and CHudRoundTime's here); the server resends them.
 void CHudTSStatus::Reset()
 {
-	// Keep drawing across respawns; the server resends the values on HUD init.
+	m_iHealth = 0;
+	m_iArmor = 0;
+	m_iState = 0;
 	m_iFlags |= HUD_ACTIVE;
 }
 
@@ -181,6 +185,21 @@ bool CHudTSStatus::MsgFunc_SrvSett(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
+// client.dll 0x1004c250: dead for the HUD = the last TSHealth is 0, unless a demo is playing or
+// being recorded. The status draw (0x10049ea0) shows the status panel, the powerup label and the
+// team and objective parts only while not dead and not spectating (0x1004c280).
+bool CHudTSStatus::IsDead() const
+{
+	if (0 != gEngfuncs.pDemoAPI->IsPlayingback() || 0 != gEngfuncs.pDemoAPI->IsRecording())
+		return false;
+	return m_iHealth == 0;
+}
+
+bool TSHud_PlayerPartsHidden()
+{
+	return gHUD.m_TSStatus.IsDead() || gHUD.m_Spectate.IsActive();
+}
+
 bool CHudTSStatus::Draw(float flTime)
 {
 	if ((m_iFlags & HUD_ACTIVE) == 0)
@@ -189,106 +208,101 @@ bool CHudTSStatus::Draw(float flTime)
 	if (gHUD.m_iHideHUDDisplay & (HIDEHUD_HEALTH | HIDEHUD_ALL))
 		return true;
 
-	// Hide the status panel while dead/spectating (the original shows no health area then) — the
-	// spectate/buy phase owns the screen. cont.69l.
-	if (gHUD.m_Spectate.IsActive())
+	// The status draw (0x10049ea0) reaches the panel only while nohud is 0, not dead and not spectating;
+	// the panel (0x1004a3e0) returns at once unless cl_realhud is 0. The kung-fu and super-jump figures
+	// it also draws are CHudTSPowerUp's here (ts_powerup_hud.cpp).
+	if (TSHud_NoHud() || TSHud_PlayerPartsHidden() || TSHud_RealHud())
 		return true;
 
-	// cl_realhud: client.dll's status draw (0x1004a3e0) returns at once unless cl_realhud is 0, and it is
-	// reached only while nohud is 0 (0x10049f06). The
-	// kung-fu and super-jump figures it also draws are CHudTSPowerUp's here (ts_powerup_hud.cpp).
-	if (TSHud_RealHud() || TSHud_NoHud())
-		return true;
-
-	// The TS bottom-left status HUD, RE'd from client.dll CHudTSStatus::Draw (FUN_1004a3e0) —
-	// see reference/dossiers/cont87/hud_bottomleft.md. FIXED-PIXEL layout (X absolute: 8/72/104/136/144,
-	// box width 127; only Y is bottom-anchored SH-k). Three boxes: HEALTH (always), TEAM (team mode,
-	// above health), FREE-SLOTS (always, to the right). Box backgrounds use the full HUD color at faint
-	// alpha (0x0f), the team box the team color at 0x23; elements use half-HUD, turning warn-red when low.
+	// client.dll 0x1004a3e0, fixed pixels (only y follows the screen height). The boxes use the full HUD
+	// colour at alpha 0x0f, their contents half of it, (195, 45, 45) when low.
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
-	const int halfR = hr / 2, halfG = hg / 2, halfB = hb / 2; // element tint
-	const int wR = 195, wG = 45, wB = 45;                     // warn/low color (195,45,45)
+	const int halfR = hr / 2, halfG = hg / 2, halfB = hb / 2;
+	const int wR = 195, wG = 45, wB = 45;
 
 	const int SW = ScreenWidth;
 	const int SH = ScreenHeight;
-	const int BOXW = 0x7f; // 127px, fixed
+	const int BOXW = 0x7f;
 
 	// Posture figure (server TSState byte: 0 stand / 1 crouch / 2 prone).
 	HSPRITE hFig = m_hStand;
 	Rect* rcF = &m_rcStand;
-	if (m_iState == 2 && m_hProne != 0) { hFig = m_hProne; rcF = &m_rcProne; }
-	else if (m_iState == 1 && m_hCrouch != 0) { hFig = m_hCrouch; rcF = &m_rcCrouch; }
+	if (m_iState == 2) { hFig = m_hProne; rcF = &m_rcProne; }
+	else if (m_iState == 1) { hFig = m_hCrouch; rcF = &m_rcCrouch; }
 
-	// ---- B. HEALTH box (always) ----
-	const int hbY = SH - 0x30; // SH-48
+	// Health box at (8, SH-48).
+	const int hbY = SH - 0x30;
 	FillRGBA(8, hbY, BOXW, 0x27, hr, hg, hb, 0x0f);
 
-	// The figure is a two-tone vertical HEALTH-FILL GAUGE: the missing top portion in warn-red, the
-	// filled bottom in half-HUD (empties from the top as health drops).
-	if (hFig != 0)
+	// The figure is a health gauge: the missing top part in (195, 45, 45), the rest in half colour.
 	{
 		const int figH = rcF->bottom - rcF->top;
 		const int cap = (m_iHealth < 100) ? m_iHealth : 100;
 		const int missing = figH - (cap * figH) / 100;
-		const int figX = 8, figY = hbY - 4; // (8, SH-52)
+		const int figX = 8, figY = hbY - 4;
 		if (m_iHealth < 100)
 		{
-			Rect rt = { rcF->left, rcF->right, rcF->top, rcF->top + missing };
+			Rect rt = {0, rcF->right, 0, missing};
 			SPR_Set(hFig, wR, wG, wB);
 			SPR_DrawAdditive(0, figX, figY, &rt);
 		}
-		Rect rb = { rcF->left, rcF->right, rcF->top + missing, rcF->bottom };
+		Rect rb = {0, rcF->right, missing, figH};
 		SPR_Set(hFig, halfR, halfG, halfB);
 		SPR_DrawAdditive(0, figX, figY + missing, &rb);
 	}
 
-	// health number @ (72, SH-44) + heart @ (104, SH-48)
+	// Health number at (72, SH-44), three digits wide; heart at (104, SH-48); both red below 50.
 	{
 		const bool lo = m_iHealth < 50;
 		const int nr = lo ? wR : halfR, ng = lo ? wG : halfG, nb = lo ? wB : halfB;
-		TSHud_DrawNumber(0x48, hbY + 4, m_iHealth, nr, ng, nb);
-		if (m_hHeart != 0)
-		{
-			SPR_Set(m_hHeart, nr, ng, nb);
-			SPR_DrawAdditive(0, 0x68, hbY, &m_rcHeart);
-		}
+		TSHud_DrawNumber(0x48, hbY + 4, TSHN_DRAWZERO | TSHN_3DIGITS, m_iHealth, nr, ng, nb);
+		SPR_Set(m_hHeart, nr, ng, nb);
+		SPR_DrawAdditive(0, 0x68, hbY, nullptr);
 	}
-	// kevlar sprite (armor>0 only) @ (72, SH-28)
-	if (m_iArmor > 0 && m_hKevlar != 0)
+	// Kevlar at (72, SH-28) while armoured, red below 50.
+	if (m_iArmor != 0)
 	{
 		const bool lo = m_iArmor < 50;
 		SPR_Set(m_hKevlar, lo ? wR : halfR, lo ? wG : halfG, lo ? wB : halfB);
-		SPR_DrawAdditive(0, 0x48, hbY + 0x14, &m_rcKevlar);
+		SPR_DrawAdditive(0, 0x48, hbY + 0x14, nullptr);
 	}
 
-	// ---- A. TEAM box (team mode only), above the health box ----
-	cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
-	if (lp != nullptr)
+	// Team box above it, whenever the GameMode byte is not 0: the local player's team name in his team
+	// colour, the box in that colour at alpha 0x23.
+	if (gHUD.m_iTeamplay != 0)
 	{
-		const char* team = g_PlayerExtraInfo[lp->index].teamname;
-		if (team != nullptr && team[0] != '\0')
-		{
-			int tn = g_PlayerExtraInfo[lp->index].teamnumber;
-			if (tn < 0) tn = 0;
-			if (iNumberOfTeamColors > 0) tn %= iNumberOfTeamColors;
-			const int tr = iTeamColors[tn][0], tg = iTeamColors[tn][1], tb = iTeamColors[tn][2];
-			const int tbY = SH - 0x44; // SH-68
-			FillRGBA(8, tbY, BOXW, 0x13, tr, tg, tb, 0x23); // team color, alpha 35
-			TSHud_DrawString(10, tbY, SW, team, tr, tg, tb);
-		}
+		cl_entity_t* lp = gEngfuncs.GetLocalPlayer();
+		const int idx = lp ? lp->index : 0;
+		int tn = g_PlayerExtraInfo[idx].teamnumber;
+		if (tn < 0 || tn >= iNumberOfTeamColors)
+			tn = 0;
+		const int tr = iTeamColors[tn][0], tg = iTeamColors[tn][1], tb = iTeamColors[tn][2];
+		const int tbY = hbY - 0x14;
+		FillRGBA(8, tbY, BOXW, 0x13, tr, tg, tb, 0x23);
+		TSHud_DrawString(10, tbY, SW, g_PlayerExtraInfo[idx].teamname, tr, tg, tb);
 	}
 
-	// ---- C. FREE-SLOTS box (always), to the right ----
+	// Free slots box at (136, SH-28): the count two digits wide, then "#HUD_Free_Slots"; red at 0.
+	int boxY = SH - 0x1c;
 	{
-		const int fbY = SH - 0x1c; // SH-28
-		FillRGBA(0x88, fbY, BOXW, 0x13, hr, hg, hb, 0x0f); // (136, SH-28)
+		FillRGBA(0x88, boxY, BOXW, 0x13, hr, hg, hb, 0x0f);
 		const bool lo = m_iSpace == 0;
 		const int nr = lo ? wR : halfR, ng = lo ? wG : halfG, nb = lo ? wB : halfB;
-		const int xEnd = TSHud_DrawNumber(0x90, fbY + 2, m_iSpace, nr, ng, nb); // (144, SH-26)
-		const char* lbl = gHUD.m_TextMessage.LookupString("#HUD_FreeSlots"); // -> "free slots"
-		if (lbl == nullptr || lbl[0] == '\0' || lbl[0] == '#') lbl = "free slots";
-		TSHud_DrawString(xEnd + 8, fbY, SW, lbl, nr, ng, nb);
+		const int xEnd = TSHud_DrawNumber(0x90, boxY + 2, TSHN_DRAWZERO | TSHN_2DIGITS, m_iSpace, nr, ng, nb);
+		TSHud_DrawString(xEnd + 8, boxY, SW, CHudTextMessage::BufferedLocaliseTextString("#HUD_FreeSlots"), nr, ng, nb);
+	}
+
+	// Credits box above it when the GameMode byte is above 1 or the server runs the cash economy
+	// (SrvSett id 1): the cash five digits wide, then "#HUD_Credits"; red below 1000.
+	if (gHUD.m_iTeamplay > 1 || g_iTSUseCash != 0)
+	{
+		boxY -= 0x14;
+		FillRGBA(0x88, boxY, BOXW, 0x13, hr, hg, hb, 0x0f);
+		const bool lo = m_iCash < 1000;
+		const int nr = lo ? wR : halfR, ng = lo ? wG : halfG, nb = lo ? wB : halfB;
+		const int xEnd = TSHud_DrawNumber(0x88, boxY + 2, TSHN_DRAWZERO | TSHN_5DIGITS, m_iCash, nr, ng, nb);
+		TSHud_DrawString(xEnd + 8, boxY, SW, CHudTextMessage::BufferedLocaliseTextString("#HUD_Credits"), nr, ng, nb);
 	}
 
 	return true;

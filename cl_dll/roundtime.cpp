@@ -15,15 +15,9 @@
 //
 // roundtime.cpp
 //
-// The Specialists round-time countdown HUD.
-//
-// The server (CTSGameRules::RestartRound (inline round-timer arm)) registers a user
-// message named "RoundTime" (fixed size 2) and writes two bytes: the seconds
-// remaining in the round, then a flag byte (0 at start/restart, 2 at timeout —
-// matches the original CTSGameRules wire format). We turn the remaining
-// seconds into an absolute client-time expiry and count it down locally so the
-// clock keeps ticking between server updates, then draw it as MM:SS near the top
-// of the screen.
+// The Specialists round timer. client.dll keeps it in its status element (0x100d43cc): RoundTime
+// (0x1004bb20) stores the seconds and a mode byte, and the status draw (0x10049ea0) runs the timer
+// draw (0x1004a130) whenever the seconds are not 0, dead or not.
 //
 
 #include "hud.h"
@@ -37,7 +31,9 @@ DECLARE_MESSAGE(m_RoundTime, RoundTime)
 
 bool CHudRoundTime::Init()
 {
-	m_flEndTime = 0;
+	m_flSeconds = 0;
+	m_flNextTick = 0;
+	m_iMode = 0;
 	m_iFlags = 0;
 
 	HOOK_MESSAGE(RoundTime);
@@ -49,63 +45,65 @@ bool CHudRoundTime::Init()
 
 bool CHudRoundTime::VidInit()
 {
+	m_flSeconds = 0;
+	m_flNextTick = 0;
+	m_iMode = 0;
 	return true;
 }
 
+// client.dll's status Reset (0x10049e70) clears the timer too.
 void CHudRoundTime::Reset()
 {
-	m_flEndTime = 0;
-	m_iFlags &= ~HUD_ACTIVE;
+	m_flSeconds = 0;
+	m_flNextTick = 0;
+	m_iMode = 0;
 }
 
+// RoundTime: byte seconds, byte mode (0 counting, 1 counting ten times as fast, 2 held). The next
+// tick is due at once.
 bool CHudRoundTime::MsgFunc_RoundTime(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
-	int seconds = READ_BYTE();
-	READ_BYTE(); // flag byte — 0 at round start/restart, 2 at timeout (original RoundTime is 2 bytes)
-
-	if (seconds <= 0)
-	{
-		// the round timer was cleared / ran out — stop drawing the clock
-		m_flEndTime = 0;
-		m_iFlags &= ~HUD_ACTIVE;
-	}
-	else
-	{
-		m_flEndTime = gHUD.m_flTime + seconds;
-		m_iFlags |= HUD_ACTIVE;
-	}
-
+	m_flSeconds = (float)READ_BYTE();
+	m_iMode = READ_BYTE();
+	m_flNextTick = 0;
+	m_iFlags |= HUD_ACTIVE;
 	return true;
 }
 
+// client.dll 0x1004a130. Each tick (every second, every 0.1 s in mode 1) takes a second off unless the
+// mode is 2, down to 0. The minutes are drawn two digits wide at (ScreenWidth - 72, 12), then ":", then
+// the seconds two digits with a leading zero, all in the HUD colour, (195, 45, 45) under a minute.
 bool CHudRoundTime::Draw(float flTime)
 {
-	if ((m_iFlags & HUD_ACTIVE) == 0 || m_flEndTime == 0)
+	if ((m_iFlags & HUD_ACTIVE) == 0 || m_flSeconds == 0.0f)
 		return true;
-	// client.dll draws the timer (0x1004a130) from its status draw, after its nohud test (0x10049f06)
+	// the status draw runs it after its nohud test (0x10049f06)
 	if (TSHud_NoHud())
 		return true;
 
-	int remaining = (int)(m_flEndTime - gHUD.m_flTime);
-	if (remaining < 0)
-		remaining = 0;
+	if (m_flNextTick < gHUD.m_flTime)
+	{
+		if (m_iMode != 2)
+			m_flSeconds -= 1.0f;
+		if (m_flSeconds <= 0.0f)
+			m_flSeconds = 0;
+		m_flNextTick = gHUD.m_flTime + (m_iMode == 1 ? 0.1f : 1.0f);
+	}
 
-	char szTime[16];
-	sprintf(szTime, "%d:%02d", remaining / 60, remaining % 60);
-
+	const int secs = (int)m_flSeconds;
 	int r, g, b;
-	// flash red in the last ten seconds, otherwise the standard yellowish HUD tone
-	UnpackRGB(r, g, b, remaining <= 10 ? RGB_REDISH : RGB_YELLOWISH);
-	ScaleColors(r, g, b, 255);
+	if (secs < 60)
+	{
+		r = 195;
+		g = 45;
+		b = 45;
+	}
+	else
+		TSHud_Color(r, g, b);
 
-	// centred just below the top of the screen
-	int width, height;
-	GetConsoleStringSize(szTime, &width, &height);
-	int x = (ScreenWidth - width) / 2;
-	int y = ScreenHeight / 40;
-
-	gHUD.DrawHudString(x, y, ScreenWidth, szTime, r, g, b);
-
+	int x = TSHud_DrawNumber(ScreenWidth - 0x48, 0xc, TSHN_DRAWZERO | TSHN_2DIGITS, secs / 60, r, g, b);
+	x = TSHud_DrawString(x, 0xc, ScreenWidth, ":", r, g, b);
+	TSHud_DrawNumber(x, 0xc, TSHN_DRAWZERO | TSHN_2DIGITS | TSHN_ZEROPAD, secs % 60, r, g, b);
 	return true;
 }

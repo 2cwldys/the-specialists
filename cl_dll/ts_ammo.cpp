@@ -29,7 +29,8 @@
 #include "ts_hud.h"
 #include "ts_attachments.h" // TS_LocalActiveAttach — which equipped attachments are toggled ON
 #include "event_api.h"      // pEventAPI->EV_PlaySound (the breathing loop; PlaySoundByName is unreliable)
-#include "../dlls/ts_weapon_info.h" // get_weapon_info (the melee-bar byte routing)
+#include "in_buttons.h"
+#include "../dlls/ts_weapon_info.h" // get_weapon_info, get_ammo_info
 
 #include <stdio.h>
 
@@ -40,62 +41,6 @@ void CAM_ToFirstPerson();
 DECLARE_MESSAGE(m_TSAmmo, WeaponInfo)
 DECLARE_MESSAGE(m_TSAmmo, KFuPower)
 
-// Display name per tsweapon_t (the table index = the wire weaponType). Index 0 is the
-// unarmed / kung-fu "weapon"; 29 is the CTF flag (no HUD). Names follow the shipped
-// HUD ("Five-seveN", "MP5K", "Combat Knife", "Kung-Fu").
-static const char* const s_weaponNames[] = {
-	/* 0*/ "Kung-Fu",        /* 1*/ "Glock-18",       /* 2*/ "Beretta 92F",
-	/* 3*/ "Mini-Uzi",       /* 4*/ "Benelli M3",     /* 5*/ "M4",
-	/* 6*/ "MP5SD",          /* 7*/ "MP5K",           /* 8*/ "Akimbo Berettas",
-	/* 9*/ "SOCOM-MK23",     /*10*/ "Akimbo MK23",    /*11*/ "USAS-12",
-	/*12*/ "Desert Eagle",   /*13*/ "AK-47",          /*14*/ "Five-seveN",
-	/*15*/ "Steyr AUG",      /*16*/ "Akimbo Mini-Uzi",/*17*/ "Skorpion",
-	/*18*/ "Barrett M82A1",  /*19*/ "PDW",            /*20*/ "SPAS-12",
-	/*21*/ "Golden Colts",   /*22*/ "Glock-20C",      /*23*/ "UMP",
-	/*24*/ "M61 Grenade",    /*25*/ "Combat Knife",   /*26*/ "Mossberg 500",
-	/*27*/ "M16",            /*28*/ "Ruger-MK1",      /*29*/ "",
-	/*30*/ "Akimbo Five-seveN",/*31*/ "Raging Bull",  /*32*/ "M60",
-	/*33*/ "Sawed-off",      /*34*/ "Katana",         /*35*/ "SEAL Knife",
-	/*36*/ "Contender G2",   /*37*/ "Akimbo Skorpions",
-};
-static const int s_numWeapons = sizeof(s_weaponNames) / sizeof(s_weaponNames[0]);
-
-// Per-weapon caliber index (s_weapon_info+0x8, recovered server-side; mirrored here for
-// the cartridge label). 0 = no cartridge (melee/grenade).
-static const int s_weaponCaliber[] = {
-	/* 0*/ 0, /* 1*/ 1, /* 2*/ 1, /* 3*/ 1, /* 4*/ 3, /* 5*/ 4, /* 6*/ 1, /* 7*/ 1,
-	/* 8*/ 1, /* 9*/ 2, /*10*/ 2, /*11*/ 3, /*12*/ 5, /*13*/ 6, /*14*/ 7, /*15*/ 4,
-	/*16*/ 1, /*17*/12, /*18*/ 8, /*19*/ 7, /*20*/ 3, /*21*/ 2, /*22*/ 9, /*23*/ 2,
-	/*24*/ 0, /*25*/ 0, /*26*/ 3, /*27*/ 4, /*28*/10, /*29*/ 0, /*30*/ 7, /*31*/11,
-	/*32*/ 4, /*33*/ 3, /*34*/ 0, /*35*/ 0, /*36*/13, /*37*/12,
-};
-
-// Cartridge name per caliber index. 1/7 confirmed against the shipped HUD (9 x 19mm /
-// 5.7 x 28); the strings come from the .so's ammo registry. The rarer ones (8/10/13)
-// are best-effort // VERIFY against the original.
-static const char* const s_caliberNames[] = {
-	/* 0*/ "",            /* 1*/ "9 x 19mm",    /* 2*/ ".45 ACP",
-	/* 3*/ "12 Gauge",    /* 4*/ "5.56 Nato",   /* 5*/ ".50 AE",
-	/* 6*/ "7.62 x 39mm", /* 7*/ "5.7 x 28",    /* 8*/ "7.62 x 51mm",
-	/* 9*/ "10mm AUTO",   /*10*/ ".22 LR",      /*11*/ ".454 Casull",
-	/*12*/ ".32 ACP",     /*13*/ ".45-70",
-};
-static const int s_numCalibers = sizeof(s_caliberNames) / sizeof(s_caliberNames[0]);
-
-// Fire-mode labels, indexed by the WeaponInfo fireMode byte (tsfiremode_mode_t). RE'd from the
-// client.dll ammo-panel switch (FUN_1004a3e0-adjacent, #HUD_* tokens @0x95e20..): 0 Full Auto,
-// 1 Semi Auto, 2 Burst, 3 Pump Action, 4 Free Semi, 5 Free Full. "Free" = the akimbo per-barrel
-// firemode (click to fire the respective gun): akimbo pistols toggle Semi Auto<->Free Semi, akimbo
-// SMGs (uzi) toggle Full Auto<->Free Full. NOT "Akimbo" (that was wrong).
-static const char* const s_fireModeNames[] = {"Full Auto", "Semi Auto", "Burst", "Pump Action", "Free Semi", "Free Full"};
-static const int s_numFireModes = sizeof(s_fireModeNames) / sizeof(s_fireModeNames[0]);
-
-// Melee/grenade weapons (no magazine) show just the name — no caliber/clip/reserve.
-static bool TSWeaponHasAmmo(int type)
-{
-	return !(type == 0 || type == 24 || type == 25 || type == 34 || type == 35);
-}
-
 bool CHudTSAmmo::Init()
 {
 	m_iWeaponType = -1;
@@ -104,7 +49,6 @@ bool CHudTSAmmo::Init()
 	m_iFireMode = 1;
 	m_iEquip = 0;
 	m_hInstalled = 0;
-	m_hNotInstalled = 0;
 	m_flMeleeBar = 100.0f;
 
 	HOOK_MESSAGE(WeaponInfo);
@@ -120,22 +64,9 @@ bool CHudTSAmmo::Init()
 bool CHudTSAmmo::VidInit()
 {
 	m_flMeleeBar = 100.0f; // @0x1004cd2d: a new map starts the melee bar full
-	// The attachment-row on/off dot the original draws (far right of each row). Re-resolved each map
-	// (sprite handles go stale on a load — see [[map-change-state-reset]]).
+	// The attachment rows' dot (weapon bar +0x144, loaded with the weapon sprites at 0x1004cbb5);
+	// handles go stale across a map change, so it is reloaded here.
 	m_hInstalled = SPR_Load("sprites/weapons/item_installed.spr");
-	m_hNotInstalled = SPR_Load("sprites/weapons/item_not_installed.spr");
-	m_rcInstalled = {0, 0, 0, 0};
-	m_rcNotInstalled = {0, 0, 0, 0};
-	if (m_hInstalled)
-	{
-		m_rcInstalled.right = SPR_Width(m_hInstalled, 0);
-		m_rcInstalled.bottom = SPR_Height(m_hInstalled, 0);
-	}
-	if (m_hNotInstalled)
-	{
-		m_rcNotInstalled.right = SPR_Width(m_hNotInstalled, 0);
-		m_rcNotInstalled.bottom = SPR_Height(m_hNotInstalled, 0);
-	}
 	return true;
 }
 
@@ -209,6 +140,23 @@ static const int TS_SND_CHANGE_VOL = 1 << 6; // SND_CHANGE_VOL (dlls/util.h), th
 // leaves (the frame time scaled by the eased slow factor, at least 0.01), up to 100.
 void CHudTSAmmo::Think()
 {
+	// The powerup double tap (0x1004ce5b): with cl_usepowerup not 0 and a powerup held, a new +use press
+	// (the HUD's key bits against the last think's) within 0.3 s of the one before sends usepowerup.
+	// The last bits are kept every think.
+	{
+		static cvar_t* s_usepowerup = nullptr;
+		if (s_usepowerup == nullptr)
+			s_usepowerup = gEngfuncs.pfnGetCvarPointer("cl_usepowerup");
+		if (s_usepowerup != nullptr && s_usepowerup->value != 0.0f && gHUD.m_TSPowerUp.HeldFlags() != 0 &&
+			((m_iLastKeyBits ^ gHUD.m_iKeyBits) & gHUD.m_iKeyBits & IN_USE) != 0)
+		{
+			if (gHUD.m_flTime <= m_flUseDeadline)
+				gEngfuncs.pfnClientCmd("usepowerup");
+			m_flUseDeadline = gHUD.m_flTime + 0.3f;
+		}
+		m_iLastKeyBits = gHUD.m_iKeyBits;
+	}
+
 	if (m_flMeleeBar < 100.0f)
 	{
 		extern float g_flClientSlow; // ts_powerup_hud.cpp — the eased local slow factor
@@ -307,145 +255,121 @@ void TSHud_GunUpdate(int type, int clip, int fireMode, int equip, int akimboType
 
 bool CHudTSAmmo::Draw(float flTime)
 {
-	if ((m_iFlags & HUD_ACTIVE) == 0 || m_iWeaponType < 0 || m_iWeaponType >= s_numWeapons)
+	if ((m_iFlags & HUD_ACTIVE) == 0 || m_iWeaponType < 0 || m_iWeaponType >= TSW_COUNT)
 		return true;
 
-	if (gHUD.m_fPlayerDead || (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL)))
+	if (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL))
 		return true;
 
-	const char* szName = s_weaponNames[m_iWeaponType];
-	if (!szName || !szName[0])
+	// Both boxes come after the weapon bar Draw's nohud test (0x1004d3f9) and its dead and spectating
+	// tests (0x1004c250, 0x1004c280). With kung fu (type 0) the
+	// weapon bar Draw calls 0x1004d700, which has no cl_realhud test; otherwise 0x1004d7e0, which
+	// returns at once unless cl_realhud is 0.
+	if (TSHud_NoHud() || TSHud_PlayerPartsHidden())
+		return true;
+	if (m_iWeaponType == 0)
+	{
+		DrawKungFu();
+		return true;
+	}
+	if (TSHud_RealHud())
 		return true;
 
-	// cl_realhud: the weapon bar's Draw (0x1004d3f0) draws this box for a held weapon through
-	// 0x1004d7e0, which returns at once unless cl_realhud is 0; with kung fu (type 0) it calls 0x1004d700
-	// instead ("Kung-Fu" and the melee bar), which has no such test, so kung fu's box stays.
-	if (m_iWeaponType != 0 && TSHud_RealHud())
-		return true;
-	// both boxes come after the weapon bar Draw's nohud test (0x1004d3f9)
-	if (TSHud_NoHud())
-		return true;
-
-	// Exact geometry recovered from FUN_1004d7e0 (reference/HUD_DRAWCHAIN.md): a
-	// right-anchored box, 0x80 (128px) wide, x = ScreenWidth - 0x88 (136); lines are
-	// 0x14 (20px) tall and stack UPWARD from y = ScreenHeight - 8 (each line drops y
-	// by 20 before drawing). Each strip is a FillRGBA of the HUD colour at alpha 0x0f.
-	// Text is inset +2px; descriptive lines (caliber/fire-mode) draw at half
-	// brightness, the name + ammo numbers at full.
-	const int BOXW = 0x80;          // 128
-	const int LINEH = 0x14;         // 20
-	const int x = ScreenWidth - 0x88;
-	const bool hasAmmo = TSWeaponHasAmmo(m_iWeaponType);
-
+	// client.dll 0x1004d7e0: a 128 wide box at x = ScreenWidth - 136, rows 20 tall stacked upward from
+	// ScreenHeight - 8, each backed by a 128 x 19 fill of the HUD colour. Bottom to top: the equipped
+	// attachments, then for a gun the ammo, fire mode and caliber rows, for a weapon without a caliber
+	// the melee bar and (for the stackable knives and the M61) the count; the name row on top.
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
-	// (No dimmed label tint: the original draws caliber + fire-mode at the FULL hud color, not
-	// half — RE'd from the ammo-panel draw (firemode string drawn at the raw hud-color ftol, no /2),
-	// user-confirmed against the original. Our earlier half-brightness note was wrong.)
+	const int tr = hr * 2 / 3, tg = hg * 2 / 3, tb = hb * 2 / 3; // text: two thirds of the HUD colour
+	const int SW = ScreenWidth;
+	const int x = SW - 0x88;
+	const int LINEH = 0x14;
+	int y = ScreenHeight - 8;
+	const s_weapon_info* wi = get_weapon_info((tsweapon_t)m_iWeaponType);
 
-	// The box, top→bottom (matching the reference image): name, caliber, fire-mode, ammo, then one line
-	// per EQUIPPED attachment (dot bullet + label), then the bar at the very bottom. The active
-	// attachments (laser/flash toggled ON via `useitems`) are drawn at full brightness with a bright dot;
-	// inactive ones are dimmed. Silencer/scope are always-on when equipped.
-	enum LineKind { LK_TEXT, LK_AMMO, LK_ATTACH, LK_COUNT };
-	struct Line { LineKind kind; const char* s; int r, g, b; bool light; bool active; };
-	Line lines[10];
-	int n = 0;
-
-	lines[n++] = {LK_TEXT, szName, hr, hg, hb, true, false}; // name (top) — lighter background (header)
-
-	if (hasAmmo)
+	// The attachments, silencer at the bottom: an active one (the local player's ActItems bit, which
+	// the weapon bar Draw copies to +0x14 each frame) gets a fill of alpha 0x2d instead of 0x0f and
+	// its item_installed dot in the full colour instead of half.
+	static const char* const s_attach[4] = {"#HUD_Silencer", "#HUD_Lasersight", "#HUD_Flashlight", "#HUD_Scope"};
+	const int active = TS_LocalActiveAttach();
+	for (int i = 0; i < 4; i++)
 	{
-		const int cal = s_weaponCaliber[m_iWeaponType];
-		if (cal > 0 && cal < s_numCalibers && s_caliberNames[cal][0])
-			lines[n++] = {LK_TEXT, s_caliberNames[cal], hr, hg, hb, false, false};
-
-		const int mode = (m_iFireMode >= 0 && m_iFireMode < s_numFireModes) ? m_iFireMode : 1;
-		lines[n++] = {LK_TEXT, s_fireModeNames[mode], hr, hg, hb, false, false};
-
-		int ar = hr, ag = hg, ab = hb;
-		if (m_iClip == 0)
-		{
-			UnpackRGB(ar, ag, ab, RGB_REDISH);
-			ScaleColors(ar, ag, ab, 255);
-		}
-		lines[n++] = {LK_AMMO, nullptr, ar, ag, ab, false, false};
-	}
-
-	// Equipped attachments, in the reference order (top→bottom): Flashlight, Lasersight, Scope, Silencer.
-	// The ACTIVE ones (laser/flash toggled on; silencer/scope always-on) get a LIGHTER background + the
-	// item_installed dot; inactive ones a normal background + the item_not_installed dot. The TEXT
-	// brightness stays constant — the highlight is the background + the dot, not the text.
-	struct Att { int bit; const char* name; bool toggleable; };
-	static const Att atts[] = {
-		{4, "Flashlight", true}, {2, "Lasersight", true}, {8, "Scope", false}, {1, "Silencer", false}};
-	const int activeMask = TS_LocalActiveAttach();
-	for (const Att& a : atts)
-	{
-		if ((m_iEquip & a.bit) == 0)
+		if ((m_iEquip & (1 << i)) == 0)
 			continue;
-		const bool act = a.toggleable ? ((activeMask & a.bit) != 0) : true;
-		lines[n++] = {LK_ATTACH, a.name, hr, hg, hb, act, act};
-		if (n >= (int)(sizeof(lines) / sizeof(lines[0])))
-			break;
-	}
-
-	// The weapons that count what he carries (weapon info +0xdc, set by Write_knife, Write_m61 and
-	// Write_sealknife) show the CLIP as a number line just ABOVE the block bar (client.dll draw
-	// @0x1004dabe); kung-fu/katana have no count. Not for guns (they use the ammo line).
-	const bool knifeCount = (m_iWeaponType == 25 /*knife*/ || m_iWeaponType == 24 /*m61*/ || m_iWeaponType == 35 /*sealknife*/);
-	if (knifeCount && n < (int)(sizeof(lines) / sizeof(lines[0])))
-		lines[n++] = {LK_COUNT, nullptr, hr, hg, hb, false, false};
-
-	// Every weapon without a caliber (weapon info +0x8 == 0: kung-fu, the M61, knife, katana, seal
-	// knife) carries the block bar (client.dll draw @0x1004da71); guns have no bar.
-	const bool meleeBar = s_weaponCaliber[m_iWeaponType] == 0;
-
-	// Anchor the whole box bottom-right so the bar ends near ScreenHeight - 8 (the original's anchor).
-	const int barH = meleeBar ? LINEH : 0;
-	int y = ScreenHeight - 8 - (n * LINEH + barH);
-	for (int i = 0; i < n; i++)
-	{
-		// Background panel — lighter (higher alpha) for the name row + active-attachment rows.
-		FillRGBA(x, y, BOXW, LINEH - 1, hr, hg, hb, lines[i].light ? 0x2a : 0x0f);
-		if (lines[i].kind == LK_AMMO)
-		{
-			// "[  clip  /  reserve  ]" — slash centred in the box, each number centred in its half.
-			TSHud_DrawNumberPair(x + 2, x + BOXW - 2, y + (LINEH - 1 - TS_NUMBER_H) / 2, m_iClip, m_iReserve,
-				lines[i].r, lines[i].g, lines[i].b);
-		}
-		else if (lines[i].kind == LK_ATTACH)
-		{
-			TSHud_DrawString(x + 4, y, x + BOXW, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
-			// on/off dot at the FAR RIGHT (item_installed = active, item_not_installed = off).
-			const HSPRITE dot = lines[i].active ? m_hInstalled : m_hNotInstalled;
-			const Rect* rc = lines[i].active ? &m_rcInstalled : &m_rcNotInstalled;
-			if (dot)
-			{
-				const int dw = rc->right - rc->left, dh = rc->bottom - rc->top;
-				SPR_Set(dot, 255, 255, 255);
-				SPR_DrawAdditive(0, x + BOXW - dw - 3, y + (LINEH - 1 - dh) / 2, (Rect*)rc);
-			}
-		}
-		else if (lines[i].kind == LK_COUNT)
-		{
-			// the carry count — a single number, centred in the box (like the ammo readout).
-			const int cw = TSHud_NumberWidth(m_iClip);
-			TSHud_DrawNumber(x + (BOXW - cw) / 2, y + (LINEH - 1 - TS_NUMBER_H) / 2, m_iClip,
-				lines[i].r, lines[i].g, lines[i].b);
-		}
+		const bool on = (active & (1 << i)) != 0;
+		y -= LINEH;
+		FillRGBA(x, y, 0x80, LINEH - 1, hr, hg, hb, on ? 0x2d : 0x0f);
+		TSHud_DrawString(x + 2, y, SW, CHudTextMessage::BufferedLocaliseTextString(s_attach[i]), hr / 2, hg / 2, hb / 2);
+		if (on)
+			SPR_Set(m_hInstalled, hr, hg, hb);
 		else
-		{
-			TSHud_DrawString(x + 2, y, x + BOXW, lines[i].s, lines[i].r, lines[i].g, lines[i].b);
-		}
-		y += LINEH;
+			SPR_Set(m_hInstalled, hr / 2, hg / 2, hb / 2);
+		SPR_DrawAdditive(0, x + 0x70, y, nullptr);
 	}
 
-	// The MELEE BLOCK bar at the bottom of the box (the original's FUN_1004d5f0) — the block stamina the
-	// server networks via gmsgKFuPower. Shown for every weapon without a caliber (above);
-	// each RELOAD-block drains it, and it regens. NOT health, NOT shown on guns.
-	if (meleeBar)
+	y -= LINEH;
+	FillRGBA(x, y, 0x80, LINEH - 1, hr, hg, hb, 0x0f);
+	if (wi->iCaliber == 0)
+	{
 		TSHud_MeleeBar(x, y, m_flMeleeBar);
+		y -= LINEH;
+		if (wi->iStackable != 0)
+		{
+			const bool lo = m_iClip <= 0;
+			TSHud_DrawNumber(x + 94, y, TSHN_DRAWZERO | TSHN_3DIGITS, m_iClip, lo ? 195 : tr, lo ? 45 : tg, lo ? 45 : tb);
+		}
+	}
+	else
+	{
+		// The ammo row: each number in two thirds of the HUD colour, (195, 45, 45) at 0, the slash in a
+		// quarter of it. client.dll draws the clip three digits wide at x+2, the slash at x+64 and the
+		// reserve three digits wide at x+94; reTS centres each number in its half of the row and the
+		// slash in the row (Steven's layout, 1cf4923).
+		const int slashW = gHUD.m_scrinfo.charWidths[(unsigned char)'/'];
+		const int slashX = x + 0x40 - slashW / 2;
+		const bool loClip = m_iClip <= 0, loRes = m_iReserve <= 0;
+		TSHud_DrawNumber((x + 2 + slashX) / 2 - TSHud_NumberWidth(m_iClip) / 2, y, TSHN_DRAWZERO, m_iClip,
+			loClip ? 195 : tr, loClip ? 45 : tg, loClip ? 45 : tb);
+		TSHud_DrawString(slashX, y, SW, "/", hr / 4, hg / 4, hb / 4);
+		TSHud_DrawNumber((slashX + slashW + x + 0x7e) / 2 - TSHud_NumberWidth(m_iReserve) / 2, y, TSHN_DRAWZERO, m_iReserve,
+			loRes ? 195 : tr, loRes ? 45 : tg, loRes ? 45 : tb);
+
+		// Fire mode (0x1004dd74: modes 1..5, anything else Full Auto), then the caliber's name.
+		static const char* const s_mode[6] = {"#HUD_FullAuto", "#HUD_SemiAuto", "#HUD_Burst", "#HUD_PumpAction", "#HUD_FreeSemi", "#HUD_FreeFull"};
+		const int mode = (m_iFireMode >= 1 && m_iFireMode <= 5) ? m_iFireMode : 0;
+		y -= LINEH;
+		FillRGBA(x, y, 0x80, LINEH - 1, hr, hg, hb, 0x0f);
+		TSHud_DrawString(x + 2, y, SW, CHudTextMessage::BufferedLocaliseTextString(s_mode[mode]), tr, tg, tb);
+		y -= LINEH;
+		FillRGBA(x, y, 0x80, LINEH - 1, hr, hg, hb, 0x0f);
+		TSHud_DrawString(x + 2, y, SW, get_ammo_info(wi->iCaliber)->szName, tr, tg, tb);
+	}
+
+	// The name row, alpha 0x23: the weapon table's name (weapon info +0x44).
+	y -= LINEH;
+	FillRGBA(x, y, 0x80, LINEH - 1, hr, hg, hb, 0x23);
+	TSHud_DrawString(x + 2, y, SW, wi->pszName, tr, tg, tb);
+
+	// Zoomed below a field of view of 40, "<80 / fov>x" at (24, 24) in the full colour (0x1004dfb8).
+	if (gHUD.m_iFOV < 40 && gHUD.m_iFOV > 0)
+	{
+		char buf[16];
+		sprintf(buf, "%ix", 80 / gHUD.m_iFOV);
+		TSHud_DrawString(0x18, 0x18, SW, buf, hr, hg, hb);
+	}
 
 	return true;
+}
+
+// client.dll 0x1004d700, kung fu's box: the melee bar at (ScreenWidth - 136, ScreenHeight - 28), the
+// name row above it (alpha 0x23) with "Kung-Fu" in the full HUD colour.
+void CHudTSAmmo::DrawKungFu()
+{
+	int hr, hg, hb;
+	TSHud_Color(hr, hg, hb);
+	const int x = ScreenWidth - 0x88;
+	TSHud_MeleeBar(x, ScreenHeight - 0x1c, m_flMeleeBar);
+	FillRGBA(x, ScreenHeight - 0x30, 0x80, 0x13, hr, hg, hb, 0x23);
+	TSHud_DrawString(ScreenWidth - 0x86, ScreenHeight - 0x30, ScreenWidth, "Kung-Fu", hr, hg, hb);
 }

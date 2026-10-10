@@ -34,5 +34,7 @@ public:
 	bool MsgFunc_RoundTime(const char* pszName, int iSize, void* pbuf);
 
 private:
-	float m_flEndTime; // client-time at which the round runs out (0 = no active timer)
+	float m_flSeconds; // status +0x2c, the seconds left (drawn while not 0)
+	float m_flNextTick; // status +0x30, when the next second comes off
+	int m_iMode;       // status +0x34, the RoundTime mode byte: 0 counting, 1 ten times as fast, 2 held
 };

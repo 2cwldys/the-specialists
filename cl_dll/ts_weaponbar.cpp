@@ -27,6 +27,8 @@
 #include "cl_util.h"
 #include "parsemsg.h"
 #include "ts_hud.h"
+#include "demo_api.h"
+#include "../dlls/ts_weapon_info.h" // get_weapon_info: names, clip sizes, carry caps
 
 #include <stdio.h>
 
@@ -66,15 +68,6 @@ static const int s_weaponRow[] = {
 	/*36 contender */ 8, /*37 skorpion_ak*/6,
 };
 
-// Short display names for the bar (compact forms of the ammo HUD's names).
-static const char* const s_shortName[] = {
-	"Kung-Fu", "Glock-18", "Beretta", "Mini-Uzi", "Benelli M3", "M4", "MP5SD", "MP5K",
-	"Akimbo Beretta", "MK23", "Akimbo MK23", "USAS-12", "Desert Eagle", "AK-47",
-	"Five-seveN", "AUG", "Akimbo Uzi", "Skorpion", "Barrett", "PDW", "SPAS-12",
-	"Golden Colts", "Glock-20C", "UMP", "M61", "Knife", "Mossberg", "M16", "Ruger",
-	"", "Akimbo 5-7", "Raging Bull", "M60", "Sawed-off", "Katana", "SEAL Knife",
-	"Contender", "Akimbo Skorpion",
-};
 // Per-tsweapon_t icon sprite base name → sprites/weapons/<name>.spr (the files the
 // original loads; recovered from the client.dll string table). "" = no icon.
 static const char* const s_spriteName[] = {
@@ -96,13 +89,6 @@ bool TS_ActiveWeaponIsGun()
 		return false; // unarmed / unknown -> no crosshair
 	return s_weaponColumn[t] >= 2;
 }
-
-// Per-weapon clip capacity (max rounds per clip), indexed by tsweapon_t — the iClip column of the
-// server weapon table (dlls/ts_weapons.cpp; the client has the same data in its own weapon table).
-// Drawn as "curclip/maxclip" for the highlighted weapon. 0 = none (flag).
-static const int s_weaponMaxClip[] = {
-	0, 17, 15, 32, 7, 30, 30, 30, 30, 12, 24, 20, 7, 30, 20, 30, 64, 40, 5, 40,
-	8, 16, 15, 25, 25, 18, 8, 18, 17, 0, 40, 5, 100, 2, 1, 1, 1, 40};
 
 // Per-weapon akimbo variant (weapon_info +0x32), indexed by tsweapon_t; -1 = no akimbo. Used by the
 // mouse-scroll cursor to SKIP a single weapon whose akimbo is owned (FUN_1004f500). RE'd from the
@@ -187,13 +173,6 @@ bool CHudTSWeaponBar::VidInit()
 			continue;
 		sprintf(path, "sprites/weapons/%s.spr", s_spriteName[t]);
 		m_hIcon[t] = SPR_Load(path);
-		if (m_hIcon[t] != 0)
-		{
-			m_rcIcon[t].left = 0;
-			m_rcIcon[t].top = 0;
-			m_rcIcon[t].right = SPR_Width(m_hIcon[t], 0);
-			m_rcIcon[t].bottom = SPR_Height(m_hIcon[t], 0);
-		}
 	}
 	return true;
 }
@@ -484,137 +463,127 @@ void CHudTSWeaponBar::CloseSelect()
 
 bool CHudTSWeaponBar::Draw(float flTime)
 {
-	// The bar is ALWAYS drawn (it's the in-game weapon HUD) but very transparent; opening the select
-	// (invnext/invprev/slot1-5) brightens it, and the cursor weapon is the most opaque (FUN_1004e030
-	// + the reference images). The highlight is OPACITY, not a box. Only drawn while alive.
-	if (gHUD.m_fPlayerDead || gHUD.m_Spectate.IsActive())
-		return true;
+	// client.dll's weapon bar Draw (0x1004d3f0) draws the bar after the laser dot, only while nohud is 0
+	// and the player is neither dead for the HUD nor spectating; with the select open (and no demo
+	// playing) in full, else passively.
 	if (gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL))
 		return true;
-	// client.dll's weapon bar Draw (0x1004d3f9) stops after the laser dot while nohud is set
-	if (TSHud_NoHud())
+	if (TSHud_NoHud() || TSHud_PlayerPartsHidden())
 		return true;
+	DrawBar(!m_selecting || 0 != gEngfuncs.pDemoAPI->IsPlayingback());
+	return true;
+}
 
-	// TS cl_showequipment (dossier cont94 §2 — the alphaScale switch at the top of FUN_1004e030):
-	// gates/scales ONLY the PASSIVE (non-select) equipment overlay — 1 = x0.25, 2 = x0.5 (default),
-	// 3 = x1.0, anything else (incl. 0) draws nothing. The open select menu is never gated (x1.0).
-	float equipScale = 1.0f;
-	if (!m_selecting)
+// client.dll 0x1004e030. Passively the bar draws only for cl_showequipment 1, 2 or 3, every colour
+// scaled by 0.25, 0.5 or 1. Five 128 wide columns at x = column * 128 - 120. With the select open each
+// column has a 128 x 20 header at y 8 (alpha 100 on the cursor's column, 50 elsewhere) and its number
+// two digits wide, in the HUD colour scaled by 200/255 on the cursor's column and 100/255 elsewhere.
+// Below, from y 28 in steps of 48, the owned weapons in grid row order: the icon in the HUD colour,
+// (195, 45, 45) with an empty clip, scaled by 255/255 for the cursor's cell and 100/255 for the rest;
+// right of it a 5 wide gauge of the clip against the clip size (the carry cap for the knives and the
+// M61), alpha 100 filled and 50 empty, none for kung fu, the katana and the flag. The cursor's cell
+// also shows the weapon's name and its count ("%d" for the knives and the M61, "%d/%d" with the clip
+// size for the guns) to the right of the column. Passively nothing marks a cursor and kung fu is left
+// out.
+void CHudTSWeaponBar::DrawBar(bool passive)
+{
+	float scale = 1.0f;
+	if (passive)
 	{
 		static cvar_t* s_showequip = nullptr;
 		if (s_showequip == nullptr)
 			s_showequip = gEngfuncs.pfnGetCvarPointer("cl_showequipment");
-		switch (s_showequip != nullptr ? (int)s_showequip->value : 2)
+		switch (s_showequip != nullptr ? (int)s_showequip->value : 1)
 		{
-		case 1:
-			equipScale = 0.25f;
-			break;
-		case 2:
-			equipScale = 0.5f;
-			break;
-		case 3:
-			equipScale = 1.0f;
-			break;
-		default:
-			return true; // hidden (0 or anything else)
+		case 1: scale = 0.25f; break;
+		case 2: scale = 0.5f; break;
+		case 3: scale = 1.0f; break;
+		default: return;
 		}
 	}
-
-	int hr, hg, hb;
-	TSHud_Color(hr, hg, hb);
-
-	// Geometry recovered from FUN_1004e030: five 0x80-wide columns at x = col*0x80-0x78.
-	// Each column has a header panel (y=8, h=0x14) carrying the slot NUMBER, then its
-	// weapons stacked below from y=0x1c (28) at 0x30 (48) per row.
-	const int SLOTW = 0x80;   // 128
-	const int HDRY = 8, HDRH = 0x14;
-	const int ROW0 = 0x1c, ROWH = 0x30; // first weapon row y, row stride
-
-	// The cursor (m_selType) column gets the bright header; FIRE will commit it.
-	const int selCol = (m_selType >= 0 && m_selType < TSW_COUNT_LOCAL)
-		? s_weaponColumn[m_selType]
-		: -1;
+	auto scaled = [](int& r, int& g, int& b, int a) { // ScaleColors (0x10021c60): x a x (float)(1/255)
+		const double k = (double)a * (double)(1.0f / 255.0f);
+		r = (int)(r * k);
+		g = (int)(g * k);
+		b = (int)(b * k);
+	};
 
 	for (int col = 1; col <= 5; col++)
 	{
-		const int x = col * SLOTW - 0x78;
-
-		// The column header bar + slot number only show while the select menu is open (the bright
-		// header = the cursor's column, alpha 100 vs 50 — FUN_1004e030).
-		if (m_selecting)
+		int r, g, b;
+		TSHud_Color(r, g, b);
+		const int x = col * 0x80 - 0x78;
+		if (!passive)
 		{
-			gEngfuncs.pfnFillRGBA(x, HDRY, SLOTW, HDRH, hr, hg, hb, (col == selCol) ? 100 : 50);
-			// Slot number (1..5) in the numbers.spr digit font, centred in the header panel.
-			const int nw = TSHud_NumberWidth(col);
-			TSHud_DrawNumber(x + (SLOTW - nw) / 2, HDRY + (HDRH - TS_NUMBER_H) / 2, col, hr, hg, hb);
+			const bool hlCol = col == m_selCol;
+			FillRGBA(x, 8, 0x80, 0x14, (int)(r * scale), (int)(g * scale), (int)(b * scale), hlCol ? 100 : 50);
+			scaled(r, g, b, hlCol ? 200 : 100);
+			TSHud_DrawNumber(x, 8, TSHN_2DIGITS, col, (int)(r * scale), (int)(g * scale), (int)(b * scale));
 		}
 
-		// Weapons in this column, stacked below the header.
-		int y = ROW0;
-		for (int t = 0; t < TSW_COUNT_LOCAL && t < TSW_COUNT; t++)
+		int y = 0x1c;
+		for (int row = 0; row < 17; row++)
 		{
-			if (m_iClip[t] < 0 || s_weaponColumn[t] != col)
+			const int t = CellType(row, col);
+			if (t < 0)
 				continue;
+			bool hl = false;
+			if (passive)
+			{
+				if (t == 0)
+				{
+					y += 0x30;
+					continue;
+				}
+			}
+			else if (row == m_selRow && col == m_selCol)
+			{
+				hl = true;
+				const s_weapon_info* wi = get_weapon_info((tsweapon_t)t);
+				TSHud_Color(r, g, b);
+				scaled(r, g, b, 200);
+				const int tr = (int)(r * scale), tg = (int)(g * scale), tb = (int)(b * scale);
+				TSHud_DrawString(x + 0x80, y, ScreenWidth, wi->pszName, tr, tg, tb);
+				char buf[32];
+				buf[0] = '\0';
+				if (t == 25 || t == 35 || t == 24) // knife, seal knife, M61
+					sprintf(buf, "%d", m_iClip[t]);
+				else if (t != 34 && t != 0 && t != 29) // not the katana, kung fu, the flag
+					sprintf(buf, "%d/%d", m_iClip[t], wi->iClip);
+				if (buf[0] != '\0')
+					TSHud_DrawString(x + 0x80, y + 0x10, ScreenWidth, buf, tr, tg, tb);
+			}
 
-			const bool cursor = m_selecting && (t == m_selType); // the highlighted weapon
-
-			// Three opacity levels (the highlight is brightness, not a box): NOT selecting -> very
-			// transparent; selecting non-cursor -> medium; cursor -> full. Additive draw, so scaling
-			// the colour down = more transparent. The passive BASE (~1/3) is ours-tuned so the
-			// default cl_showequipment 2 (x0.5) reproduces the observed ~1/6 faintness; VERIFY the
-			// original's un-scaled base alphas when FUN_1004e030's body is fully RE'd.
-			float opacity = equipScale / 3.0f; // passive: base x the cl_showequipment scale
-			if (m_selecting)
-				opacity = cursor ? 1.0f : 0.5f; // cursor full, others ~half — never cvar-gated
-			// no-ammo weapons tint red (the original's empty-clip colour), scaled by the opacity.
-			// Clipless weapons (kung-fu/knife/katana, maxClip 0) have no ammo to be out of — never red.
-			const int maxClip = (t < (int)(sizeof(s_weaponMaxClip) / sizeof(s_weaponMaxClip[0]))) ? s_weaponMaxClip[t] : 0;
-			const bool noAmmo = (maxClip > 0 && m_iClip[t] == 0);
-			const int ir = (int)((noAmmo ? 0xc3 : hr) * opacity);
-			const int ig = (int)((noAmmo ? 0x2d : hg) * opacity);
-			const int ib = (int)((noAmmo ? 0x2d : hb) * opacity);
-
-			if (m_hIcon[t] != 0)
+			if (m_iClip[t] <= 0)
+			{
+				r = 0xc3;
+				g = 0x2d;
+				b = 0x2d;
+			}
+			else
+				TSHud_Color(r, g, b);
+			scaled(r, g, b, hl ? 255 : 100);
+			const int ir = (int)(r * scale), ig = (int)(g * scale), ib = (int)(b * scale);
+			if (m_hIcon[t] != 0) // the flag has no icon (client.dll sets handle 0, which draws nothing)
 			{
 				SPR_Set(m_hIcon[t], ir, ig, ib);
-				SPR_DrawAdditive(0, x, y, &m_rcIcon[t]);
-			}
-			else if (s_shortName[t][0])
-			{
-				TSHud_DrawString(x + 2, y, x + SLOTW, s_shortName[t], ir, ig, ib);
+				SPR_DrawAdditive(0, x, y, nullptr);
 			}
 
-			// The cursor weapon (while selecting): its name + curclip/maxclip, at full opacity.
-			if (cursor)
+			if (t != 34 && t != 0 && t != 29)
 			{
-				int nw, nh;
-				GetConsoleStringSize("0", &nw, &nh);
-				const char* nm = (t < TSW_COUNT_LOCAL && s_shortName[t][0]) ? s_shortName[t] : "";
-				gHUD.DrawHudString(x + SLOTW + 4, y, ScreenWidth, nm, hr, hg, hb);
-				int maxc = (t < (int)(sizeof(s_weaponMaxClip) / sizeof(s_weaponMaxClip[0]))) ? s_weaponMaxClip[t] : 0;
-				// Melee throwables (knife/seal-knife/katana) show only the COUNT you HAVE — "x", not "x/max"
-				// (you carry a stack of throwables, not a magazine). Kung-fu (no count) shows nothing.
-				const bool isMelee = (t == 0 || t == 25 || t == 34 || t == 35);
-				if (isMelee)
-				{
-					if (t != 0 && m_iClip[t] >= 0)
-					{
-						char ammo[16];
-						sprintf(ammo, "%d", m_iClip[t]);
-						gHUD.DrawHudString(x + SLOTW + 4, y + nh + 2, ScreenWidth, ammo, hr, hg, hb);
-					}
-				}
-				else if (m_iClip[t] >= 0 && maxc > 0)
-				{
-					// "curclip/maxclip" (e.g. 8/8) — current loaded rounds over the clip capacity.
-					char ammo[16];
-					sprintf(ammo, "%d/%d", m_iClip[t], maxc);
-					gHUD.DrawHudString(x + SLOTW + 4, y + nh + 2, ScreenWidth, ammo, hr, hg, hb);
-				}
+				const s_weapon_info* wi = get_weapon_info((tsweapon_t)t);
+				const float have = (float)m_iClip[t];
+				const float full = (float)(wi->iStackable != 0 ? wi->iPellets : wi->iClip);
+				int h = full != 0.0f ? (int)(have * 44.0f / full) : 0;
+				if (h < 0)
+					h = 0;
+				if (full > 0.0f)
+					FillRGBA(x + 0x7b, y - h + 0x2e, 5, h, ir, ig, ib, 100);
+				if (have < full)
+					FillRGBA(x + 0x7b, y + 2, 5, 0x2c - h, ir, ig, ib, 0x32);
 			}
-			y += ROWH;
+			y += 0x30;
 		}
 	}
-
-	return true;
 }

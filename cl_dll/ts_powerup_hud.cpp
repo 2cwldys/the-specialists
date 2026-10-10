@@ -2,10 +2,9 @@
 *  ts_powerup_hud.cpp — The Specialists held-powerup HUD (green top-left timer). See ts_powerup_hud.h.
 *
 *  Powerups are picked up by RUNNING OVER them (touch). A timed powerup (slow-motion / slow-pause /
-*  double-firerate) is then HELD: this HUD shows its icon-name + the seconds you have available to use.
-*  Double-tapping +use (cl_dll/input.cpp, gated by cl_usepowerup) activates it; the server then sends
-*  PwUpTime and this HUD counts the remaining seconds down. Mutually-exclusive by design — you only ever
-*  hold one (picking up a different slow powerup replaces it).
+*  double-firerate) is then HELD: this HUD shows its name + the seconds you have available to use.
+*  Double-tapping +use (CHudTSAmmo::Think, gated by cl_usepowerup) activates it; the server then sends
+*  PwUpTime and this HUD counts the remaining seconds down.
 ***/
 
 #include "hud.h"
@@ -17,16 +16,13 @@
 #include "ts_powerup_hud.h"
 
 #include <stdio.h>
+#include <string.h>
 
 DECLARE_MESSAGE(m_TSPowerUp, PwUp)
 DECLARE_MESSAGE(m_TSPowerUp, PwUpTime)
 DECLARE_MESSAGE(m_TSPowerUp, TSSlowMo)
 DECLARE_MESSAGE(m_TSPowerUp, TSBTime)
 
-// held powerup type bits (dlls/ts_gamerules.h TS_PWUP_*)
-#define PWUP_SLOWMO    0x01
-#define PWUP_SLOWPAUSE 0x08
-#define PWUP_DBLFIRE   0x10
 // independent persistent powerups (bottom-center indicators)
 #define TS_PWUP_KUNGFU_BIT    0x04
 #define TS_PWUP_SUPERJUMP_BIT 0x100
@@ -53,54 +49,51 @@ bool CHudTSPowerUp::VidInit()
 	extern float g_flClientSlow;
 	g_flClientSlow = 1.0f; // current (matches the original's VidInit reset)
 	m_flSlowAmt = 100.0f;  // target  (ours isn't otherwise reset on connect — belt-and-suspenders)
+	// The figures' sprites, loaded with the status sprites (0x10049d1f: +100 and +0x68).
+	m_hKungFu = SPR_Load("sprites/player/kungfu.spr");
+	m_hSuperJump = SPR_Load("sprites/player/movement.spr");
 	return true;
 }
 
+// client.dll's status Reset (0x10049e70) clears the held powerup bits, the countdown end and the
+// kung-fu and super-jump flags; the held seconds stay (nothing draws them while no bit is held).
 void CHudTSPowerUp::Reset()
 {
-	m_iHeldType = 0;
-	m_iSecondsAvail = 0;
-	m_bActive = false;
-	m_bKungFu = false;    // per-life independent powerups clear on respawn (ResetHUD)
+	m_iHeld = 0;
+	m_flCountdownEnd = 0;
+	m_bKungFu = false;
 	m_bSuperJump = false;
 	m_bSlowActive = false;
-	m_flCountdownEnd = 0;
 	m_flSlowAmt = 100.0f;
 }
 
-// PwUp — the held powerup state (type + seconds available). type 0 = nothing held.
+// PwUp (client.dll 0x1004b9e0): short type, byte seconds. A type with the kung-fu (4) or super-jump
+// (0x100) bit only raises that figure's flag; any other type, 0 included, replaces the held bits and
+// seconds.
 bool CHudTSPowerUp::MsgFunc_PwUp(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
-	int type = READ_SHORT();
-	int dur = READ_BYTE();
-	// The INDEPENDENT persistent powerups (kung-fu = bit 4, super-jump/low-grav = bit 0x100) come through
-	// PwUp with dur 0 — they're NOT the held timed slot; latch a bottom-center indicator that persists
-	// until respawn (Reset). They coexist with a held slow/double powerup.
-	if (type == TS_PWUP_KUNGFU_BIT)  { m_bKungFu = true; return true; }
-	if (type == TS_PWUP_SUPERJUMP_BIT) { m_bSuperJump = true; return true; }
-
-	if (type == PWUP_SLOWMO || type == PWUP_SLOWPAUSE || type == PWUP_DBLFIRE)
+	const int type = READ_SHORT();
+	const int secs = READ_BYTE();
+	if ((type & (TS_PWUP_KUNGFU_BIT | TS_PWUP_SUPERJUMP_BIT)) == 0)
 	{
-		if (type != m_iHeldType)
-			m_bActive = false; // a freshly-held (or swapped) powerup is not yet activated
-		m_iHeldType = type;
-		m_iSecondsAvail = dur;
+		m_iHeld = type;
+		m_iSeconds = secs;
 	}
+	else if ((type & TS_PWUP_KUNGFU_BIT) != 0)
+		m_bKungFu = true;
 	else
-	{
-		m_iHeldType = 0;
-		m_bActive = false;
-	}
+		m_bSuperJump = true;
 	return true;
 }
 
-// PwUpTime — sent on activation: start (or refresh) the local countdown.
+// PwUpTime (client.dll 0x1004bad0), sent on activation: the countdown ends that many seconds from now
+// and the held seconds go to 0.
 bool CHudTSPowerUp::MsgFunc_PwUpTime(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
-	int secs = READ_BYTE();
-	m_bActive = true;
+	const int secs = READ_BYTE();
+	m_iSeconds = 0;
 	m_flCountdownEnd = gHUD.m_flTime + secs;
 	return true;
 }
@@ -148,28 +141,6 @@ bool CHudTSPowerUp::MsgFunc_TSBTime(const char* pszName, int iSize, void* pbuf)
 	return true;
 }
 
-// Draw one independent-powerup indicator centred horizontally at row `y`: the named sprite (additive,
-// drawn at its natural colour) if it loads, otherwise a whitish text label. It's a binary "have it /
-// don't" indicator — NOT tinted green like the timed slow-powerup HUD. The original shows
-// sprites/weapons/<n>.spr here; that file isn't in this (partial) game-data extraction, so the by-name
-// SPR_Load returns 0 and we fall back to a label. (When the .spr is present it draws as the sprite.)
-static void DrawIndependentPowerup(const char* spriteName, const char* label, int x, int y)
-{
-	const int wr = 200, wg = 200, wb = 200; // soft white
-	HSPRITE spr = SPR_Load(spriteName);
-	if (spr)
-	{
-		SPR_Set(spr, wr, wg, wb);
-		SPR_DrawAdditive(0, x, y, NULL); // NULL rect = the whole sprite frame; x = sprite top-left
-	}
-	else
-	{
-		int tw, th;
-		GetConsoleStringSize(label, &tw, &th);
-		TSHud_DrawString(x, y, ScreenWidth, label, wr, wg, wb);
-	}
-}
-
 bool CHudTSPowerUp::Draw(float flTime)
 {
 	// Ease the smoothed slow factor toward the TSSlowMo target (RE client InterpolateSlowMotion:
@@ -191,61 +162,59 @@ bool CHudTSPowerUp::Draw(float flTime)
 	// fade — the faithful teal RGBA(0,100,125) at alpha (1-slow)*50, NOT a green fill here. (That
 	// drives off g_flClientSlow, which this element eases above.)
 
-	// INDEPENDENT persistent powerups (kung-fu / super-jump): two bottom-center FIGURE indicators, shown
-	// the whole life once picked up and coexisting with any held slow/double powerup. RE (status-HUD
-	// dossier): kung-fu = sprites/player/kungfu.spr @ (SW/2-48, SH-56); super-jump = the "movement" figure
-	// sprites/player/movement.spr @ (SW/2, SH-56) — side by side. (The old sprites/weapons/kungfu.spr was
-	// the weapon-bar icon and sprites/weapons/superjump.spr doesn't exist — SPR_Load returned a stale
-	// handle, so it drew the last weapon/numbers sprite.)
-	// client.dll draws these two inside the status draw (0x1004a3e0, flags +0x29/+0x2a), after its
-	// cl_realhud test, so they go with the status panel.
-	if (!TSHud_RealHud() && !TSHud_NoHud())
-	{
-		const int py = ScreenHeight - 56;
-		if (m_bKungFu)    DrawIndependentPowerup("sprites/player/kungfu.spr", "Kung-Fu", ScreenWidth / 2 - 48, py);
-		if (m_bSuperJump) DrawIndependentPowerup("sprites/player/movement.spr", "Super Jump", ScreenWidth / 2, py);
-	}
-
-	// The held-powerup label + seconds, at the TOP-LEFT, on the weapon-bar header row (raw
-	// coords: the bar's header is at y=8 with slot 1 at x=8, so the label overlays its left edge —
-	// matches the original). While HELD it shows the seconds available; once activated it counts down.
-	if (m_iHeldType == 0)
+	// The status draw (0x10049ea0) draws these only while nohud is 0, not dead and not spectating.
+	if (TSHud_NoHud() || TSHud_PlayerPartsHidden())
 		return true;
 
-	int secs;
-	if (m_bActive)
+	// The kung-fu and super-jump figures at the bottom centre, in two thirds of the HUD colour. client.dll
+	// draws them at the end of the status panel (0x1004a3e0, flags +0x29 and +0x2a), past its cl_realhud
+	// test.
+	if (!TSHud_RealHud())
 	{
-		secs = (int)(m_flCountdownEnd - flTime + 0.999f); // ceil
-		if (secs <= 0)
+		int hr, hg, hb;
+		TSHud_Color(hr, hg, hb);
+		const int py = ScreenHeight - 0x38;
+		if (m_bKungFu)
 		{
-			m_iHeldType = 0; // expired (the server also clears it via PwUp(0))
-			m_bActive = false;
-			return true;
+			SPR_Set(m_hKungFu, hr * 2 / 3, hg * 2 / 3, hb * 2 / 3);
+			SPR_DrawAdditive(0, ScreenWidth / 2 - 0x30, py, nullptr);
+		}
+		if (m_bSuperJump)
+		{
+			SPR_Set(m_hSuperJump, hr * 2 / 3, hg * 2 / 3, hb * 2 / 3);
+			SPR_DrawAdditive(0, ScreenWidth / 2, py, nullptr);
 		}
 	}
-	else
-	{
-		secs = m_iSecondsAvail;
-	}
 
-	// the label is client.dll's 0x1004a2e0, drawn from its status draw after the nohud test (0x10049f06)
-	if (TSHud_NoHud())
+	// The held powerup's label (client.dll 0x1004a2e0, reached only while a bit is held; with none the
+	// status draw clears the countdown end): at (8, 8) in (45, 195, 45), the name by the first held bit
+	// of slow motion (1), infinite ammo (2), slow pause (8), double fire rate (0x10). Then, four pixels
+	// on, the seconds left while the countdown runs (truncated), else the held seconds when not 0, two
+	// digits wide.
+	if (m_iHeld == 0)
+	{
+		m_flCountdownEnd = 0;
 		return true;
-
-	const char* name;
-	switch (m_iHeldType)
-	{
-	case PWUP_SLOWMO:    name = "Slow Motion"; break;
-	case PWUP_SLOWPAUSE: name = "Slow Pause";  break;
-	case PWUP_DBLFIRE:   name = "Double Fire"; break;
-	default:             name = "Power-Up";    break;
 	}
-
-	// Label in green; the seconds a touch brighter and a fixed distance over (so the number sits in
-	// the slot-1 area like the reference). Raw pixel coords (the TS bar isn't resolution-scaled).
-	const int y = 10; // weapon-bar header text row (HDRY + 2)
-	TSHud_DrawString(2, y, ScreenWidth, name, 0, 200, 0);
-	// seconds available/remaining in the numbers.spr digit font (centred on the text row).
-	TSHud_DrawNumber(112, y + (gHUD.m_scrinfo.iCharHeight - TS_NUMBER_H) / 2, secs, 96, 255, 96);
+	const char* name = nullptr;
+	if ((m_iHeld & 0x01) != 0)
+		name = "#Pwr_SlowMotion";
+	else if ((m_iHeld & 0x02) != 0)
+		name = "#Pwr_InfiniteAmmo";
+	else if ((m_iHeld & 0x08) != 0)
+		name = "#Pwr_SlowPause";
+	else if ((m_iHeld & 0x10) != 0)
+		name = "#Pwr_DoubleFireRate";
+	if (name != nullptr) // client.dll keeps its last label in a static buffer when no known bit is set
+		strncpy(m_szLabel, CHudTextMessage::BufferedLocaliseTextString(name), sizeof(m_szLabel) - 1);
+	const int x = TSHud_DrawString(8, 8, ScreenWidth, m_szLabel, 45, 195, 45);
+	int secs;
+	if (m_flCountdownEnd > gHUD.m_flTime)
+		secs = (int)(m_flCountdownEnd - gHUD.m_flTime);
+	else if (m_iSeconds != 0)
+		secs = m_iSeconds;
+	else
+		return true;
+	TSHud_DrawNumber(x + 4, 8, TSHN_DRAWZERO | TSHN_2DIGITS, secs, 45, 195, 45);
 	return true;
 }

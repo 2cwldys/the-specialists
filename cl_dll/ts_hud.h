@@ -39,8 +39,12 @@ bool TSHud_RealHud();
 // panel (0x1006389d, 0x10063912, 0x10064984). Chat, menus, the scoreboard and text messages stay.
 bool TSHud_NoHud();
 
-// The current HUD text colour (hud_r/g/b, clamped 0..255). Defaults to the TS steel
-// blue 150/175/255 if the cvars are missing.
+// True while client.dll's status draw (0x10049ea0) skips the player's own parts: dead for the HUD
+// (CHudTSStatus::IsDead) or spectating.
+bool TSHud_PlayerPartsHidden();
+
+// The HUD colour: hud_r/hud_g/hud_b truncated to int, as client.dll reads them (no clamp). 150/175/255
+// before the cvars exist.
 void TSHud_Color(int& r, int& g, int& b);
 
 // Draw the translucent dark panel behind a HUD cluster (x,y,w,h in pixels).
@@ -51,20 +55,21 @@ void TSHud_Panel(int x, int y, int w, int h);
 // before any glyph that would cross maxX). Returns the ending x.
 int TSHud_DrawString(int x, int y, int maxX, const char* str, int r, int g, int b);
 
-// Draw an unsigned integer with sprites/numbers.spr (the TS digit imagemap). x,y top-left; ~11px
-// per digit; additive, tinted. Returns the x past the last digit. (Health/ammo/powerup/distance.)
-int TSHud_DrawNumber(int x, int y, int value, int r, int g, int b);
+// The HUD number (client.dll 0x1004c290) in the hud.txt number sprites; flags below. x,y top-left;
+// returns the x past the last digit.
+#define TSHN_DRAWZERO 0x01 // draw "0" for a value of 0 or less (else nothing)
+#define TSHN_2DIGITS 0x02  // reserve the width of two digits
+#define TSHN_3DIGITS 0x04
+#define TSHN_4DIGITS 0x08
+#define TSHN_5DIGITS 0x10
+#define TSHN_ZEROPAD 0x20  // draw the reserved leading digits as zeros
+int TSHud_DrawNumber(int x, int y, int flags, int value, int r, int g, int b);
 
-// Pixel width of `value` rendered by TSHud_DrawNumber (digit count * 11). For right-aligning.
+// Pixel width of `value` drawn by TSHud_DrawNumber with no padding flags.
 int TSHud_NumberWidth(int value);
 
-// Height of a numbers.spr digit (the imagemap cell height), for vertical centring against text.
+// Height of a number sprite (hud.txt number_0..9 are 16 tall), for vertical centring against text.
 #define TS_NUMBER_H 16
-
-// Draw "a / b" (clip / reserve) in the [x0,x1] span: the '/' is centred in the span, a is centred
-// in the left half and b in the right half ("[  x  /  x  ]"). y = top of the digit cell. Returns
-// the x past the last digit. (The bottom weapon box ammo readout.)
-int TSHud_DrawNumberPair(int x0, int x1, int y, int a, int b_, int r, int g, int b);
 
 // The melee bar (FUN_1004d5f0): a 0x80(128)-wide frame at (x,y) at alpha 0x1e and a fill from
 // the bar value, at the bottom of the weapon/ammo box (ts_hud.cpp has the colours).

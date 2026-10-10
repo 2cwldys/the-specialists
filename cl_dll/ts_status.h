@@ -39,13 +39,14 @@ public:
 	bool MsgFunc_TSSpace(const char* pszName, int iSize, void* pbuf); // free carry slots
 	bool MsgFunc_TSPAward(const char* pszName, int iSize, void* pbuf); // per-player award/status byte
 	bool MsgFunc_SrvSett(const char* pszName, int iSize, void* pbuf); // server settings sync (id + short)
+	bool IsDead() const; // client.dll 0x1004c250
 
 private:
 	int m_iHealth; // last TSHealth byte received
 	int m_iArmor;  // last TSArmor byte received
 	int m_iCash;   // last TSCash short received
 	int m_iState = 0; // last TSState byte — drives the posture figure directly (server-authoritative)
-	int m_iSpace = 0; // last TSSpace byte — free carry slots (panel styling VERIFY)
+	int m_iSpace = 0; // last TSSpace byte: free carry slots, drawn in the free slots box
 
 	// Custom TS status-panel sprites (sprites/player/*.spr), loaded in VidInit and
 	// drawn bottom-left in Draw — the posture figure (stand/crouched/prone), the

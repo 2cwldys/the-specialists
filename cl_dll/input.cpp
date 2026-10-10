@@ -762,25 +762,6 @@ void DLLEXPORT CL_CreateMove(float frametime, struct usercmd_s* cmd, int active)
 	if (GetClientVoiceMgr()->IsInSquelchMode())
 		cmd->buttons &= ~IN_ATTACK;
 
-	// TS: DOUBLE-TAP +use activates the held powerup. The server side is the `usepowerup` command
-	// (CBasePlayer::UsePowerUp); the double-tap lives here, exactly as the original client.dll
-	// CL_CreateMove: on the rising edge of IN_USE, if a second press lands within 0.30s, fire the
-	// command. Gated by cl_usepowerup (default 1). Pressing +use once does nothing (so +use stays a
-	// normal use key); powerups themselves are pickup-by-touch, never +use-able.
-	{
-		static int s_lastButtons = 0;
-		static float s_useDeadline = 0.0f;
-		if (gEngfuncs.pfnGetCvarFloat("cl_usepowerup") != 0.0f &&
-			((s_lastButtons ^ cmd->buttons) & cmd->buttons & IN_USE) != 0) // rising edge of IN_USE
-		{
-			float now = gEngfuncs.GetClientTime();
-			if (now <= s_useDeadline)
-				gEngfuncs.pfnClientCmd("usepowerup");
-			s_useDeadline = now + 0.30f; // RE: window const 0.30
-		}
-		s_lastButtons = cmd->buttons;
-	}
-
 	// Using joystick?
 	if (0 != in_joystick->value)
 	{

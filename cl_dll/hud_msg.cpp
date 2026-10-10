@@ -83,10 +83,9 @@ void CHud::MsgFunc_InitHUD(const char* pszName, int iSize, void* pbuf)
 bool CHud::MsgFunc_GameMode(const char* pszName, int iSize, void* pbuf)
 {
 	BEGIN_READ(pbuf, iSize);
-	//Note: this user message could be updated to include multiple gamemodes, so make sure this checks for game mode 1
-	//See CHalfLifeTeamplay::UpdateGameMode
-	//TODO: define game mode constants
-	m_Teamplay = READ_BYTE() == 1;
+	// client.dll keeps the byte itself (CHud +0x5c, 0x10021a10) and tests it as 0 / not 0 and above 1.
+	m_iTeamplay = READ_BYTE();
+	m_Teamplay = m_iTeamplay != 0;
 
 #ifdef STEAM_RICH_PRESENCE
 	if (m_Teamplay)

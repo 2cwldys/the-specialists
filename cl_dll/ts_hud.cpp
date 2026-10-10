@@ -70,28 +70,11 @@ void TSHud_RegisterCvars()
 	CVAR_CREATE("r_paintball", "0", FCVAR_ARCHIVE);
 }
 
-static int Clamp255(float v)
-{
-	if (v < 0)
-		return 0;
-	if (v > 255)
-		return 255;
-	return (int)v;
-}
-
 void TSHud_Color(int& r, int& g, int& b)
 {
-	r = s_hud_r ? Clamp255(s_hud_r->value) : 150;
-	g = s_hud_g ? Clamp255(s_hud_g->value) : 175;
-	b = s_hud_b ? Clamp255(s_hud_b->value) : 255;
-
-	// A fully-zero colour would draw invisible text; fall back to the default.
-	if ((r | g | b) == 0)
-	{
-		r = 150;
-		g = 175;
-		b = 255;
-	}
+	r = s_hud_r ? (int)s_hud_r->value : 150;
+	g = s_hud_g ? (int)s_hud_g->value : 175;
+	b = s_hud_b ? (int)s_hud_b->value : 255;
 }
 
 bool TSHud_RealHud()
@@ -160,63 +143,69 @@ void TSHud_Panel(int x, int y, int w, int h)
 	FillRGBA(x, y, w, h, r, g, b, 0x0f);
 }
 
-// Draw an unsigned integer using sprites/numbers.spr — the TS digit imagemap (10 digits, each ~11px
-// wide x 16 tall; rects from sprites/hud.txt number_0..number_9). x,y = top-left of the first digit;
-// returns the x past the last digit. Additive, tinted (r,g,b). Used by the dive-reticle distance,
-// and (TODO) the health / ammo / powerup counters.
-int TSHud_DrawNumber(int x, int y, int value, int r, int g, int b)
+// client.dll 0x1004c290: the stock CHud::DrawHudNumber widened to five digits, drawing the hud.txt
+// number_0..number_9 sprites. A value of 0 or less draws a single 0 only with TSHN_DRAWZERO. Each
+// TSHN_nDIGITS flag reserves the width of the leading digits a smaller value lacks (TSHN_5DIGITS
+// pads ten thousands, thousands, hundreds and tens; TSHN_4DIGITS from thousands; and so on), and
+// TSHN_ZEROPAD draws those reserved digits as zeros. Returns the x past the last digit.
+int TSHud_DrawNumber(int x, int y, int flags, int value, int r, int g, int b)
 {
-	HSPRITE numbers = SPR_Load("sprites/numbers.spr");
-	if (!numbers)
+	const int n0 = gHUD.m_HUD_number_0;
+	if (n0 < 0)
 		return x;
-	static const int lefts[10] = { 0, 11, 21, 32, 44, 55, 67, 79, 89, 101 };
-	char buf[16];
-	int n = value < 0 ? 0 : value;
-	int len = 0;
-	do { buf[len++] = (char)('0' + n % 10); n /= 10; } while (n && len < 15); // reversed digits
-	SPR_Set(numbers, r, g, b);
-	for (int i = len - 1; i >= 0; --i)
+	const int w = gHUD.GetSpriteRect(n0).right - gHUD.GetSpriteRect(n0).left;
+	auto digit = [&](int k) {
+		SPR_Set(gHUD.GetSprite(n0 + k), r, g, b);
+		SPR_DrawAdditive(0, x, y, &gHUD.GetSpriteRect(n0 + k));
+		x += w;
+	};
+	auto pad = [&](int mask) {
+		if ((flags & mask) == 0)
+			return;
+		if ((flags & TSHN_ZEROPAD) != 0)
+			digit(0);
+		else
+			x += w;
+	};
+
+	if (value > 0)
 	{
-		int d = buf[i] - '0';
-		Rect rc;
-		rc.left = lefts[d];
-		rc.right = lefts[d] + 11;
-		rc.top = 0;
-		rc.bottom = 16;
-		SPR_DrawAdditive(0, x, y, &rc);
-		x += 11;
+		if (value >= 10000)
+			digit(value / 10000);
+		else
+			pad(TSHN_5DIGITS);
+		if (value >= 1000)
+			digit((value % 10000) / 1000);
+		else
+			pad(TSHN_5DIGITS | TSHN_4DIGITS);
+		if (value >= 100)
+			digit((value % 1000) / 100);
+		else
+			pad(TSHN_4DIGITS | TSHN_3DIGITS);
+		if (value >= 10)
+			digit((value % 100) / 10);
+		else
+			pad(TSHN_3DIGITS | TSHN_2DIGITS);
+		digit(value % 10);
+		return x;
 	}
+	if ((flags & TSHN_DRAWZERO) == 0)
+		return x;
+	pad(TSHN_5DIGITS);
+	pad(TSHN_5DIGITS | TSHN_4DIGITS);
+	pad(TSHN_4DIGITS | TSHN_3DIGITS);
+	pad(TSHN_3DIGITS | TSHN_2DIGITS);
+	digit(0);
 	return x;
 }
 
-// Pixel width of `value` as drawn by TSHud_DrawNumber (digits * 11px).
+// Pixel width of `value` as TSHud_DrawNumber draws it without padding flags.
 int TSHud_NumberWidth(int value)
 {
+	const int n0 = gHUD.m_HUD_number_0;
+	if (n0 < 0)
+		return 0;
 	int n = value < 0 ? 0 : value, digits = 1;
 	while (n >= 10) { n /= 10; digits++; }
-	return digits * 11;
-}
-
-// Draw "a / b" with the numbers.spr digit font and a slash between (the bottom weapon-box ammo
-// readout — e.g. clip / reserve, "30 / 120"). numbers.spr is digits only, so the slash is a text
-// glyph drawn at the digit baseline (the original's separate "divider" sprite isn't in this data
-// extraction). Returns x past the last digit.
-int TSHud_DrawNumberPair(int x0, int x1, int y, int a, int b_, int r, int g, int b)
-{
-	// Layout "[  x  /  x  ]": the '/' is fixed-centred in the [x0,x1] span, the clip (a) is
-	// centred in the LEFT half, the reserve (b) centred in the RIGHT half — so the slash stays
-	// put and each number is balanced within its own half (the original's centred readout).
-	const int centerX = (x0 + x1) / 2;
-	const int slashW = gHUD.m_scrinfo.charWidths[(unsigned char)'/'];
-	const int slashX = centerX - slashW / 2;
-	const int slashY = y + (TS_NUMBER_H - gHUD.m_scrinfo.iCharHeight) / 2; // slash on the digit baseline
-
-	// slash, centred
-	TSHud_DrawString(slashX, slashY, slashX + slashW + 2, "/", r, g, b);
-	// clip: centred in the left half [x0, slashX]
-	const int leftMid = (x0 + slashX) / 2;
-	TSHud_DrawNumber(leftMid - TSHud_NumberWidth(a) / 2, y, a, r, g, b);
-	// reserve: centred in the right half [slashX+slashW, x1]
-	const int rightMid = (slashX + slashW + x1) / 2;
-	return TSHud_DrawNumber(rightMid - TSHud_NumberWidth(b_) / 2, y, b_, r, g, b);
+	return digits * (gHUD.GetSpriteRect(n0).right - gHUD.GetSpriteRect(n0).left);
 }

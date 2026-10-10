@@ -322,7 +322,7 @@ bool CHudTSReticle::Draw(float flTime)
 			Vector hit = tr2->endpos;
 			float dist = (hit - start).Length();
 			int meters = (int)(dist / 52.0f + 0.5f); // HL units -> metres — TUNED
-			TSHud_DrawNumber(cx + 28, cy - 8, meters, tr, tg, tb);
+			TSHud_DrawNumber(cx + 28, cy - 8, TSHN_DRAWZERO, meters, tr, tg, tb);
 		}
 	}
 	return true;

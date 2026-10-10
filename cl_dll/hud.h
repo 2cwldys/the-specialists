@@ -516,6 +516,7 @@ public:
 	int m_iHideHUDDisplay;
 	int m_iFOV;
 	bool m_Teamplay;
+	int m_iTeamplay = 0; // the GameMode byte as sent (TS's status draw tests != 0 and > 1)
 	int m_iRes;
 	cvar_t* m_pCvarStealMouse;
 	cvar_t* m_pCvarNoHud; // the original's `nohud` cvar (0 = draw the HUD) — replaces the SDK's hud_draw
