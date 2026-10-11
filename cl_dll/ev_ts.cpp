@@ -57,7 +57,7 @@ static const char* const s_fireSound[] = {
 	/*18*/ "weapons/barrett/fire.wav", /*19*/ "weapons/pdw/fire.wav", /*20*/ "weapons/spas12/spas12-fire.wav",
 	/*21*/ "weapons/gold/gold-fire.wav", /*22*/ "weapons/glock22/glock22-fire.wav", /*23*/ "weapons/ump/ump-fire.wav",
 	/*24*/ nullptr, /*25*/ nullptr, /*26*/ "weapons/mossberg/fire.wav", /*27*/ "weapons/m16/fire.wav",
-	/*28*/ "weapons/ruger/ruger-fire.wav", /*29*/ nullptr, /*30*/ "weapons/fnh/fnh-fire.wav",
+	/*28*/ "weapons/ruger/fire.wav", /*29*/ nullptr, /*30*/ "weapons/fnh/fnh-fire.wav",
 	/*31*/ "weapons/bull/fire01.wav", /*32*/ "weapons/m60/m60-fire.wav", /*33*/ "weapons/sawedoff/fire.wav",
 	/*34*/ nullptr, /*35*/ nullptr, /*36*/ "weapons/contender/fire.wav", /*37*/ "weapons/tmp/fire.wav",
 };
