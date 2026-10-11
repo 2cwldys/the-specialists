@@ -120,6 +120,12 @@ void TS_AttachPlayerAdded(int index)
 		s_bAdded[index] = true;
 }
 
+// FUN_100579a0: the flag for players 0..32, false for any other index.
+bool TS_AttachPlayerWasAdded(int index)
+{
+	return index >= 0 && index < TS_MAXPLAYERS && s_bAdded[index];
+}
+
 // The view vectors the passes use (client.dll 0x1018bd90 / 0x1018bd9c / 0x1018bda8).
 static Vector s_vForward, s_vRight, s_vUp;
 

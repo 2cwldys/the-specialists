@@ -15,6 +15,7 @@ int  TS_LocalActiveAttach();    // the local player's ActItems byte (laser 2, fl
 // HUD_AddEntity lets player `index` through this frame (client.dll 0x1018bd44); the passes draw only
 // those, and the flags are cleared after them.
 void TS_AttachPlayerAdded(int index);
+bool TS_AttachPlayerWasAdded(int index); // read by the fire events' third-person gun smoke
 
 // The local laser as the weapon bar keeps it after the pass: beam end `which` (0, or 1 for the akimbo
 // second beam) projected to the screen, -1 when off screen, and the laser colour; false without the

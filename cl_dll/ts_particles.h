@@ -172,6 +172,18 @@ void TSP_MetalHit(const Vector& origin);
 // The puff spawner (client.dll FUN_100464f0): one sprite puff at point + dir x size / 2.
 void TSP_Puff(const Vector& point, const Vector& dir, const char* spr, short rendermode, int size, int frameRate);
 
+// The gun smoke of a shot (client.dll FUN_10047130), laid by the fire events: five gun_smoke_add puffs
+// from `origin` along `dir`, `size` big and shrinking, `frameRate` +- half, drifting at vel + dir x
+// speed. Unless `force`, at most once per 0.1 s of slowed time. Nothing with cl_fx 0, or out of view or
+// out of sight.
+void TSP_MuzzleSmoke(int size, int frameRate, const Vector& origin, const Vector& vel, const Vector& dir, float speed, bool force);
+
+// The fire core's pushes on the pool (client.dll FUN_100524c0 with no direction, and FUN_10052720), both
+// only while cl_fx's interaction is on: every particle within `radius` of `at` pushed away from it, and
+// every particle near the line start..end pushed along it (and around it with `swirl`).
+void TSP_BlastPush(const Vector& at, float radius, float power);
+void TSP_BulletPush(const Vector& start, const Vector& end, float power, bool swirl);
+
 // The per-surface visual dispatcher (original FUN_10048f60). texChar is a CHAR_TEX_* material class
 // (pm_materials.h). mode: 0 = normal, 1/2 = forced (skip throttle).
 void TS_ImpactEffect(const float* origin, const float* normal, int mode, char texChar);

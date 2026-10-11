@@ -39,8 +39,10 @@
 #include "ts_recoil.h"      // TS_AddViewRecoil — the per-shot aim-recoil kick
 #include "ts_particles.h"   // TS_ImpactEffect — the byte-ported per-surface impact dispatcher
 #include "ts_bullets.h"     // the client bullet simulation (realbullet / slow motion)
+#include "ts_attachments.h" // TS_AttachPlayerWasAdded — the third-person gun smoke gate
 
 #include <string.h>
+#include <math.h>
 
 void V_PunchAxis(int axis, float punch); // view recoil kick (cl_dll/view.cpp)
 
@@ -162,10 +164,10 @@ static void EV_TSMuzzleFlare(int idx, int weaponType, int side, bool silenced)
 // this only adds the missing VISUAL). Client-side + predicted via the fire event (no lag, no
 // double sound/decal).
 //
-// EV_TSBulletHit is the hit half of EV_TSBulletImpact: what client.dll's FUN_10044bf0 (impact sound and particles,
-// `mode` going on to the dispatcher) and FUN_10001180 (the decal) do with a trace that hit. The
-// client bullet simulation (ts_bullets.cpp) calls it for each surface its bullets reach. The
-// caller holds the pushed PM states; src/end are the points EV_TraceTexture probes between.
+// EV_TSBulletHit is what client.dll's FUN_10044bf0 (impact sound and particles, `mode` going on to the
+// dispatcher) and FUN_10001180 (the decal) do with a trace that hit. The fire core (TS_FireCore) and
+// the client bullet simulation (ts_bullets.cpp) call it for each surface a round reaches; src/end are
+// the points EV_TraceTexture probes between.
 void EV_TSBulletHit(int idx, const float* src, const float* end, pmtrace_t& tr, int mode)
 {
 	{
@@ -249,36 +251,154 @@ void EV_TSBulletHit(int idx, const float* src, const float* end, pmtrace_t& tr, 
 	}
 }
 
-static void EV_TSBulletImpact(int idx, const float* src, const float* dir)
+// client.dll's shared random (FUN_1001aea0): HL's UTIL_SharedRandomFloat seeding, but the range is a
+// float, where the SDK's (com_weapons.cpp) truncates it to an unsigned int (so -pi..pi would draw from
+// a range of 6).
+unsigned int U_Random();
+void U_Srand(unsigned int seed);
+static float TS_SharedRandomFloat(unsigned int seed, float low, float high)
 {
-	Vector end;
-	for (int i = 0; i < 3; i++)
-		end[i] = src[i] + dir[i] * 8192.0f;
-
-	gEngfuncs.pEventAPI->EV_SetUpPlayerPrediction(0, 1);
-	gEngfuncs.pEventAPI->EV_PushPMStates();
-	gEngfuncs.pEventAPI->EV_SetSolidPlayers(idx - 1);
-	gEngfuncs.pEventAPI->EV_SetTraceHull(2);
-	pmtrace_t tr;
-	gEngfuncs.pEventAPI->EV_PlayerTrace((float*)src, end, PM_NORMAL, -1, &tr);
-
-	if (tr.fraction < 1.0f)
-		EV_TSBulletHit(idx, src, end, tr, 0);
-
-	gEngfuncs.pEventAPI->EV_PopPMStates();
+	U_Srand(seed + *(unsigned int*)&low + *(unsigned int*)&high);
+	U_Random();
+	U_Random();
+	const float range = high - low;
+	if (range == 0.0f)
+		return low;
+	return (float)(U_Random() & 0xffff) * (1.0f / 65536.0f) * range + low;
 }
 
-// One round of a fire event. client.dll's fire core (FUN_100450c0, 0x10045193) takes the realbullet
-// branch when the server's realbullet setting (SrvSett id 0) is not 0 or this client's slow-motion
-// scale is under 0.99: the round is then not traced at once but handed to the client bullet
-// simulation (FUN_10035c20) with the weapon's damage (wi+0x1c), caliber (wi+0x8) and shot mode
-// (wi+0x20), and flies from there (ts_bullets.cpp).
-static void EV_TSShot(int idx, const float* src, const float* dir, const s_weapon_info* wi)
+extern Vector v_origin; // cl_dll/view.cpp: the refdef view origin (client.dll 0x10190b28)
+
+static float s_flCoreDamage;  // 0x1018a164: what is left of the last pellet that hit, for the pierce
+static Vector s_vecCoreDir;   // 0x1018a1a8: the last pellet's direction
+static int s_iWhizzCount;     // 0x1018a1c4: flips the whizz channel between 503 and 504
+
+// The fire core, client.dll FUN_100450c0, called by every fire event with the shooter, its view basis,
+// the weapon's pellets (wi+0x24), the gun position, the aim, the spread (TS 3.0's server sends it in
+// both fparam1 and fparam2), the weapon's damage (wi+0x1c), shot mode (wi+0x20) and caliber (wi+0x8),
+// and the event's seed (bparam2). Mode 2 is a pierce leg: one trace 4096 on with its impact, nothing
+// else. Otherwise:
+//  - one trace 4096 along the aim with no prediction set up (where the round lands, for the rest):
+//    another player's round more than 200 long that passes the view inside the sphere about its middle
+//    (radius half its length less 100) and within 75 of the view by the triangle-area test (Heron's
+//    formula with (s - c) squared in place of (s - b), kept) cracks a weapons/whizz1..5.wav at the view,
+//    volume 2 / (distance + 0.1) at most 1, attenuation 0.8, the melee pitch, channel 503/504 in turn;
+//  - with cl_fx's interaction on, the pool is pushed from the gun (radius 512) and along the round's
+//    path, by the damage (x 8 for caliber 3), swirling for calibers 5, 8 and 13;
+//  - each pellet k = 1..pellets turns the aim by a seeded angle (seed + k, -pi..pi) and radius
+//    1 - u^3 (u seeded seed + k + 1, 0..the caliber's flMult) in the right/up plane scaled by the
+//    spread, and goes the caliber's iMaxTravel. With realbullet on or this client slowed it is handed
+//    to the client bullet simulation; else it is traced (PM_STUDIO_BOX, the shooter not solid) and a
+//    hit lays its impact and decal and leaves range multiplier x damage x the caliber's flFactor2;
+//  - if that is over 5 (and the mode is not 1, and nothing was handed on), the last pellet goes on up
+//    to min(it, 48) units through anything that is not solid there: the far face is traced back
+//    (PM_NORMAL, the PM states already popped) for its impact, and a mode 2 leg goes on from there.
+//    The leftover is client.dll's global, so a last pellet that hit nothing pierces with the value an
+//    earlier one left (kept).
+static void TS_FireCore(int idx, const Vector& fwd, const Vector& right, const Vector& up, int pellets,
+	const Vector& src, const Vector& dir, float spreadX, float spreadY, float damage, int mode, int caliber,
+	int seed)
 {
-	if (TSBullets_RealBullet())
-		TSBullets_Fire(idx, src, dir, wi->flDamage, wi->iCaliber, wi->iKnifeType);
-	else
-		EV_TSBulletImpact(idx, src, dir);
+	event_api_t* ev = gEngfuncs.pEventAPI;
+	const bool real = TSBullets_RealBullet();
+	const s_ammo_info* ai = get_ammo_info(caliber);
+	pmtrace_t tr;
+
+	if (mode == 2)
+	{
+		Vector end = src + dir * 4096.0f;
+		ev->EV_SetUpPlayerPrediction(0, 1);
+		ev->EV_PushPMStates();
+		ev->EV_SetSolidPlayers(idx - 1);
+		ev->EV_SetTraceHull(2);
+		ev->EV_PlayerTrace((float*)&src, end, PM_STUDIO_BOX, -1, &tr);
+		if (tr.fraction != 1.0f)
+			EV_TSBulletHit(idx, src, end, tr, 2);
+		ev->EV_PopPMStates();
+		return;
+	}
+
+	Vector end = src + dir * 4096.0f;
+	ev->EV_PlayerTrace((float*)&src, end, PM_STUDIO_BOX, -1, &tr);
+	const Vector hit = tr.endpos;
+	const Vector mid = (src + hit) * 0.5f;
+	const Vector half = mid - hit;
+
+	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
+	if (local && idx != local->index && (src - hit).Length() > 200.0f &&
+		(mid - v_origin).Length() < half.Length() - 100.0f)
+	{
+		const float a = (v_origin - src).Length();
+		const float b = (v_origin - hit).Length();
+		const float c = (src - hit).Length();
+		const float s = (b + c + a) * 0.5f;
+		const float area = sqrtf((s - a) * (s - c) * (s - c) * s);
+		const float d = (area + area) / c;
+		if (d < 75.0f)
+		{
+			char sample[32];
+			sprintf(sample, "weapons/whizz%d.wav", gEngfuncs.pfnRandomLong(1, 5));
+			float vol = 1.0f / (d + 0.1f) * 2.0f;
+			if (1.0f < vol)
+				vol = 1.0f;
+			extern float g_flClientSlow;
+			const int pitch = gEngfuncs.pfnRandomLong(-5, 5) + 25 - (int)(g_flClientSlow * -75.0f);
+			const int channel = 503 + s_iWhizzCount % 2;
+			s_iWhizzCount++;
+			ev->EV_PlaySound(-1, v_origin, channel, sample, vol, 0.8f, 0, pitch);
+		}
+	}
+
+	const float power = (caliber == 3) ? damage * 8.0f : damage;
+	if (g_tsFx.interact)
+	{
+		TSP_BlastPush(src, 512.0f, power);
+		TSP_BulletPush(src, hit, power, caliber == 5 || caliber == 8 || caliber == 13);
+	}
+
+	for (int k = 1; k <= pellets; k++)
+	{
+		const float ang = TS_SharedRandomFloat(k + seed, -3.1415927f, 3.1415927f);
+		const float u = TS_SharedRandomFloat(k + 1 + seed, 0.0f, ai->flMult);
+		const float r = 1.0f - u * u * u;
+		const float x = r * cosf(ang);
+		const float y = r * sinf(ang);
+		for (int i = 0; i < 3; i++)
+			s_vecCoreDir[i] = x * right[i] * spreadX + y * up[i] * spreadY + dir[i];
+		end = src + s_vecCoreDir * (float)ai->iMaxTravel;
+		if (real)
+		{
+			TSBullets_Fire(idx, src, s_vecCoreDir, damage, caliber, mode);
+			continue;
+		}
+		ev->EV_SetUpPlayerPrediction(0, 1);
+		ev->EV_PushPMStates();
+		ev->EV_SetSolidPlayers(idx - 1);
+		ev->EV_SetTraceHull(2);
+		ev->EV_PlayerTrace((float*)&src, end, PM_STUDIO_BOX, -1, &tr);
+		if (tr.fraction != 1.0f)
+		{
+			const float range = (src - Vector(tr.endpos)).Length() / ((float)ai->iRangeUnit * 10.0f);
+			s_flCoreDamage = get_range_multipler((int)(range * 10.0f)) * damage;
+			EV_TSBulletHit(idx, src, end, tr, mode);
+			s_flCoreDamage = s_flCoreDamage * ai->flFactor2;
+		}
+		ev->EV_PopPMStates();
+	}
+
+	if (real || mode == 1 || !(s_flCoreDamage > 5.0f))
+		return;
+	const float depth = (s_flCoreDamage < 48.0f) ? s_flCoreDamage : 48.0f;
+	Vector exitPos = Vector(tr.endpos) + s_vecCoreDir * depth;
+	if (gEngfuncs.PM_PointContents(exitPos, nullptr) == CONTENTS_SOLID)
+		return;
+	Vector face = tr.endpos;
+	ev->EV_SetTraceHull(2);
+	ev->EV_PlayerTrace(exitPos, face, PM_NORMAL, -1, &tr);
+	if (tr.fraction != 1.0f)
+		EV_TSBulletHit(idx, exitPos, face, tr, 2);
+	const Vector legDir = s_vecCoreDir;
+	TS_FireCore(idx, fwd, right, up, 1, exitPos, legDir, 0.0f, 0.0f, s_flCoreDamage, 2, caliber, seed);
 }
 
 // (EV_TSKnife — the faithful knife.sc handler — is defined below the shared melee kit.)
@@ -620,36 +740,61 @@ void EV_TSColdCock(event_args_t* args)
 	gEngfuncs.pEventAPI->EV_PopPMStates();
 }
 
-// Bullet-flyby "whizz" (RE client.dll FUN_100450c0 tracer path): when a round fired by SOMEONE ELSE
-// passes within a glaze radius of the LOCAL player, a random weapons/whizz1-5.wav cracks past your ear.
-// The original gates it on the perpendicular distance from the local view origin to the bullet line
-// (Heron's-formula area / base) against _DAT_1007cccc = 75.0 (read from client.dll .rdata @0x1007cccc);
-// we use the equivalent closest-point-on-segment distance. Your own rounds never whizz you (FUN_100450c0
-// gates on shooter entindex != local player).
-static void TS_BulletWhizz(int idx, const Vector& start, const Vector& dir)
+// Where a fire event's gun smoke comes out (the FUN_10047130 call sites in 0x1003dfa0, 0x1003f090,
+// 0x10040c20 and 0x100419a0): the shooter's own first-person view takes viewmodel attachment `vmAtt`,
+// everyone else player gun anchor `plAtt`, and only for a player drawn this frame (0x100579a0).
+// `firstPerson` says which.
+static bool TS_SmokeOrigin(int idx, int vmAtt, int plAtt, Vector& pos, bool& firstPerson)
 {
-	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
-	if (!local || local->index == idx)
-		return;
-
-
-	Vector end = start + dir * 8192.0f;
-	Vector p(local->origin[0], local->origin[1], local->origin[2] + 20.0f); // ~head height
-	Vector seg = end - start;
-	float segLen2 = DotProduct(seg, seg);
-	if (segLen2 < 1.0f)
-		return;
-	float t = DotProduct(p - start, seg) / segLen2;
-	if (t < 0.0f) t = 0.0f;
-	else if (t > 1.0f) t = 1.0f;
-	Vector closest = start + seg * t;
-	if ((p - closest).Length() < 75.0f) // glaze radius — RE'd _DAT_1007cccc (client.dll)
+	firstPerson = (EV_IsLocal(idx) || TS_InEyeSpectating(idx)) && 0 == CL_IsThirdPerson();
+	if (firstPerson)
 	{
-		char w[24];
-		sprintf(w, "weapons/whizz%d.wav", gEngfuncs.pfnRandomLong(1, 5));
-		gEngfuncs.pEventAPI->EV_PlaySound(local->index, p, CHAN_STATIC, w, VOL_NORM, ATTN_NORM, 0,
-			95 + gEngfuncs.pfnRandomLong(0, 15));
+		cl_entity_t* vm = gEngfuncs.GetViewModel();
+		if (!vm)
+			return false;
+		pos = vm->attachment[vmAtt];
+		return true;
 	}
+	if (!TS_AttachPlayerWasAdded(idx))
+		return false;
+	const float* att = TS_PlayerGunAtt(idx, plAtt);
+	pos = Vector(att[0], att[1], att[2]);
+	return true;
+}
+
+// The fire.sc / firelinked.sc gun smoke, drifting with a tenth of the shooter's velocity: a pump
+// shotgun (0x10040c20) a slow puff, 16 in first person and 24 seen from outside; a silenced shot
+// (attach bit 0) a size 8 wisp along the aim and a forced size 1 trail off the eject port (the
+// attachment less the aim x the shell setback) to the right; else a 16 puff, slow for the sawed-off
+// (0x1003dfa0 only, not the akimbo path 0x1003f090).
+static void TS_FireSmoke(event_args_t* args, const s_weapon_info* wi, int weaponType, int vmAtt, int plAtt,
+	bool silenced)
+{
+	Vector pos;
+	bool firstPerson;
+	if (!TS_SmokeOrigin(args->entindex, vmAtt, plAtt, pos, firstPerson))
+		return;
+	Vector angles, fwd, right, up, vel;
+	VectorCopy(args->angles, angles);
+	AngleVectors(angles, fwd, right, up);
+	for (int i = 0; i < 3; i++)
+		vel[i] = args->velocity[i] / 10.0f;
+	if (wi->iFireType == TSFT_PUMP)
+	{
+		TSP_MuzzleSmoke(firstPerson ? 0x10 : 0x18, gEngfuncs.pfnRandomLong(5, 10), pos, vel, fwd, 24.0f, false);
+		return;
+	}
+	if (silenced)
+	{
+		TSP_MuzzleSmoke(8, gEngfuncs.pfnRandomLong(0x32, 0x3c), pos, vel, fwd, 24.0f, false);
+		TSP_MuzzleSmoke(1, gEngfuncs.pfnRandomLong(0x32, 0x50), pos - fwd * (float)wi->iShellSetback, vel, right,
+			4.0f, true);
+		return;
+	}
+	const bool akimbo = (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY);
+	const int frameRate = (!akimbo && weaponType == TSW_SAWEDOFF) ? gEngfuncs.pfnRandomLong(5, 10)
+	                                                              : gEngfuncs.pfnRandomLong(0x2d, 0x37);
+	TSP_MuzzleSmoke(0x10, frameRate, pos, vel, fwd, 24.0f, false);
 }
 
 // ===================== the gun-tail event handlers (dossier-ev-guntail.md) =====================
@@ -770,7 +915,8 @@ void EV_TSReload(event_args_t* args)
 // events/pump.sc → EV_TSPump — FUN_100419a0 faithful (the rack half of the pump cycle).
 // iparam1=weaponType, iparam2=attach. Anim = block[13+RandomLong(0,1)] (client-random) for the
 // local/spectated viewer; a shell ejects from the vm eject port (attachment 0 − fwd·setback)
-// first-person or player attachment 3 third-person; the RACK SOUND (wi+0x306 — m3-pump /
+// first-person or player attachment 3 third-person (a player drawn this frame), each with a thin
+// smoke trail from the port; the RACK SOUND (wi+0x306 — m3-pump /
 // spas12-pump) plays for EVERYONE at ent −1 so it never channel-cuts the still-playing gunshot.
 void EV_TSPump(event_args_t* args)
 {
@@ -804,9 +950,13 @@ void EV_TSPump(event_args_t* args)
 				sv[c] = vel[c] + fwd[c] * r1 + up[c] * r2 + right[c] * r1;
 			}
 			EV_EjectBrass(pos, sv, angles[1], shell, TE_BOUNCE_SHOTSHELL);
+			// the forced size 1 smoke trail off the eject port, to the right (0x10041f26)
+			if (vm)
+				TSP_MuzzleSmoke(1, gEngfuncs.pfnRandomLong(0x14, 0x28), pos, vel / 10.0f, right, 4.0f, true);
 		}
 	}
-	if ((CL_IsThirdPerson() || !localish) && shell)
+	// seen from outside only for a player drawn this frame (0x100420e2)
+	if ((CL_IsThirdPerson() || !localish) && shell && TS_AttachPlayerWasAdded(idx))
 	{
 		cl_entity_t* pl = gEngfuncs.GetEntityByIndex(idx);
 		if (pl)
@@ -818,6 +968,7 @@ void EV_TSPump(event_args_t* args)
 				sv[c] = vel[c] + fwd[c] * r1 + up[c] * r2 + right[c] * r1;
 			}
 			EV_EjectBrass(pos, sv, angles[1], shell, TE_BOUNCE_SHOTSHELL);
+			TSP_MuzzleSmoke(1, gEngfuncs.pfnRandomLong(0x14, 0x28), pos, vel / 10.0f, right, 4.0f, true); // 0x100423be
 		}
 	}
 	// the rack — ent −1, EVERY viewer (the no-channel-cut trick; replaces our CHAN_ITEM hack)
@@ -908,39 +1059,25 @@ void EV_TSFire(event_args_t* args)
 	EV_GetDefaultShellInfo(args, origin, velocity, shellVel, shellOrigin, fwd, right, up, 20, -12, 4);
 	EV_EjectBrass(shellOrigin, shellVel, angles[1], shell, TE_BOUNCE_SHELL);
 
-	// Bullet impact puff (smoke on surfaces, sparks on metal/glass) at where the shot lands. Melee/
-	// grenade fire-types don't fire bullets, so skip them; the rest trace a centre ray (the server
-	// does the per-pellet damage/decal/sound — this is the missing visual feedback).
+	// The gun smoke at the fired barrel: client.dll's fire.sc handler sends an akimbo class to
+	// 0x1003f090 (the barrel's attachment, viewmodel and player alike), a pump shotgun to 0x10040c20
+	// (viewmodel 0, player 3) and the rest to 0x1003dfa0 (viewmodel 0, player 3 for fire types 6 and 7,
+	// else 0).
 	const s_weapon_info* wi = get_weapon_info((tsweapon_t)weaponType);
-	if (wi->iFireType != TSFT_GRENADE && wi->iFireType != TSFT_KNIFE && wi->iFireType != TSFT_KATANA)
+	if (akimboClass)
+		TS_FireSmoke(args, wi, weaponType, barrelSide ? 2 : 0, barrelSide ? 2 : 0, silenced);
+	else if (wi->iFireType == TSFT_PUMP)
+		TS_FireSmoke(args, wi, weaponType, 0, 3, silenced);
+	else
+		TS_FireSmoke(args, wi, weaponType, 0,
+			(wi->iFireType == TSFT_AUTOSHOTGUN || wi->iFireType == TSFT_SNIPER) ? 3 : 0, silenced);
+
+	// The rounds, through the fire core from the gun position along the aim.
 	{
 		Vector vecSrc;
 		EV_GetGunPosition(args, vecSrc, origin);
-		// A shotgun fires iPellets pellets in one blast — trace EACH with the spread cone so the local
-		// player sees the spread of impacts (the server does the per-pellet damage/decal). A single-
-		// bullet weapon just traces the centre ray.
-		const int cPellets = wi->iPellets > 0 ? wi->iPellets : 1;
-		const float spread = wi->flSpread > 0 ? wi->flSpread : 0.0f;
-		if (cPellets <= 1 || spread <= 0.0f)
-		{
-			EV_TSShot(idx, vecSrc, fwd, wi);
-		}
-		else
-		{
-			for (int p = 0; p < cPellets; p++)
-			{
-				const float sx = (gEngfuncs.pfnRandomFloat(-0.5f, 0.5f) + gEngfuncs.pfnRandomFloat(-0.5f, 0.5f)) * spread;
-				const float sy = (gEngfuncs.pfnRandomFloat(-0.5f, 0.5f) + gEngfuncs.pfnRandomFloat(-0.5f, 0.5f)) * spread;
-				Vector dir;
-				for (int k = 0; k < 3; k++)
-					dir[k] = fwd[k] + sx * right[k] + sy * up[k];
-				const float len = dir.Length();
-				if (len > 0.001f)
-					dir = dir * (1.0f / len);
-				EV_TSShot(idx, vecSrc, dir, wi);
-			}
-		}
-		TS_BulletWhizz(idx, vecSrc, fwd); // a near-miss flyby "whizz" if this round grazes the local player
+		TS_FireCore(idx, fwd, right, up, (unsigned char)wi->iPellets, vecSrc, fwd, args->fparam1, args->fparam1,
+			wi->flDamage, wi->iKnifeType, (unsigned char)wi->iCaliber, args->bparam2);
 	}
 
 	// The silenced flag = iparam2 & 1 (dossier-attachments §1b/§5 — the fire-sound alt branch
@@ -969,7 +1106,7 @@ void EV_TSFire(event_args_t* args)
 // dossier §5): the akimbo BOTH-BARRELS shot. iparam1=weaponType, iparam2=attach, fparam1/2 =
 // spread, bparam2 = the FireBullets seed. Divergences from fire.sc: anim = block[3+RL(0,2)]
 // (the both-barrel set); muzzle flare at BOTH attachments; TWO casings; ONE bang — wi+0x306
-// (the linked sample, vol RF(0.84,0.92), attn DOUBLED); two impact volleys at gunpos ± right·5.
+// (the linked sample, vol RF(0.84,0.92), attn DOUBLED); two fire-core volleys at gunpos ± right·5.
 void EV_TSFireLinked(event_args_t* args)
 {
 	const int idx = args->entindex;
@@ -1028,18 +1165,22 @@ void EV_TSFireLinked(event_args_t* args)
 		}
 	}
 
-	// two impact volleys at gunpos ± right·5 (the visual half; damage is server-side)
+	// One gun smoke, at the attachment of the barrel bparam1 names, as for a single akimbo shot
+	// (0x1003f090 reads the barrel for the smoke on the linked shot too).
+	const int smokeAtt = args->bparam1 ? 2 : 0;
+	TS_FireSmoke(args, wi, weaponType, smokeAtt, smokeAtt, silenced);
+
+	// The rounds, through the fire core from the gun position 5 units to the right (the event's seed)
+	// and 5 to the left (the seed + 33), along the aim (0x10040a61, 0x10040b0c).
 	{
 		Vector vecSrc;
 		EV_GetGunPosition(args, vecSrc, origin);
 		for (int b = 0; b < 2; b++)
 		{
-			Vector src2;
-			for (int c = 0; c < 3; c++)
-				src2[c] = vecSrc[c] + right[c] * (b == 0 ? 5.0f : -5.0f);
-			EV_TSShot(idx, src2, fwd, wi);
+			const Vector src2 = vecSrc + right * (b == 0 ? 5.0f : -5.0f);
+			TS_FireCore(idx, fwd, right, up, (unsigned char)wi->iPellets, src2, fwd, args->fparam1, args->fparam1,
+				wi->flDamage, wi->iKnifeType, (unsigned char)wi->iCaliber, args->bparam2 + (b == 0 ? 0 : 0x21));
 		}
-		TS_BulletWhizz(idx, vecSrc, fwd);
 	}
 
 	// ONE bang for both barrels. The alt-sample branch keys on the SILENCER bit (iparam2&1),

@@ -1186,6 +1186,64 @@ void TSP_Puff(const Vector& point, const Vector& dir, const char* spr, short ren
 	TSP_Commit(p, NULL, NULL);
 }
 
+// FUN_10047130: the gun smoke of a shot. Unless forced, at most once per 0.1 s of slowed time (kind 1);
+// nothing while cl_fx is 0 or when the point is out of view or out of sight. Five sprites/gun_smoke_add
+// puffs, additive, brightness 0.3, falling at 0.01, growing 0.1, drag 3.3: the first `size` big at
+// origin + dir x size / 2, each next one 0.8 the size of the last, the second at the origin and the
+// rest dir x their size x 1, 2, 3 out. Each takes frameRate +- half of it frames a second and moves at
+// vel + dir x speed / n (n = 5 down to 1, so the last is the fastest) with up to a fifth of its size
+// of random sideways drift.
+void TSP_MuzzleSmoke(int size, int frameRate, const Vector& origin, const Vector& vel, const Vector& dir, float speed, bool force)
+{
+	if (!force)
+	{
+		if (!TSP_Due(1))
+			return;
+		TSP_Hold(1, TSP_SlowScaled(0.1f));
+	}
+	cvar_t* fx = TSP_ClFx();
+	if (fx == nullptr || fx->value == 0.0f)
+		return;
+	if (!TSP_InView(origin) || !TSP_LineClear(origin))
+		return;
+	const int idx = TSP_RegisterSprite("sprites/gun_smoke_add.spr", kRenderTransAdd);
+	if (idx == -1)
+		return;
+	TSParticle* p = TSP_Scratch();
+	p->frameRate = (float)frameRate;
+	p->gravity = 0.01f;
+	p->attachment = 0;
+	p->imode = 0;
+	p->orient = 0;
+	p->size = (float)size;
+	p->active = true;
+	p->fadeRate = 0.0f;
+	p->bright = 0.3f;
+	p->spriteIdx = (short)idx;
+	p->life = 0.0f;
+	p->frame = 0.0f;
+	p->collide = 0;
+	p->drag = 3.3f;
+	p->pos = origin + dir * ((float)size * 0.5f);
+	const int hi = (int)((float)frameRate * 0.5f);
+	const int lo = (int)((float)-frameRate * 0.5f);
+	int k = 0;
+	for (int n = 5; n > 0; n--)
+	{
+		p->frameRate = (float)(gEngfuncs.pfnRandomLong(lo, hi) + frameRate);
+		p->vel = vel + dir * (speed / (float)n);
+		const float drift = p->size * 0.2f;
+		p->vel.x = gEngfuncs.pfnRandomFloat(-drift, drift) + p->vel.x;
+		p->vel.y = gEngfuncs.pfnRandomFloat(-drift, drift) + p->vel.y;
+		p->accelRate = 0.1f;
+		if (TSP_Commit(p, NULL, NULL) == -1)
+			return;
+		p->size = p->size * 0.8f;
+		p->pos = origin + dir * (p->size * (float)k);
+		k++;
+	}
+}
+
 // FUN_10048710: a blood drop that hits the world leaves {blood1..8} on a brush (solid BSP or
 // MOVETYPE_PUSHSTEP) while r_decals is not 0, one in ten (RandomLong(0, 100) above 90) plays
 // player/splat.wav there (volume 1, attenuation 0.99, pitch 25 + 75 x slow +-5), and the drop is gone.
@@ -1417,7 +1475,7 @@ void TSP_GlassShatter(const Vector& origin, const Vector& size, const Vector& di
 // is pushed away from the point by power x (radius - distance) / radius; a landed one lifts off (a
 // falling speed is turned upward and scaled by half that fraction, then 10 x the fraction added up),
 // and a rolled one (orient 1) takes -90..90 x the fraction more roll.
-static void TSP_BlastPush(const Vector& at, float radius, float power)
+void TSP_BlastPush(const Vector& at, float radius, float power)
 {
 	if (!g_tsFx.interact)
 		return;
@@ -1443,6 +1501,58 @@ static void TSP_BlastPush(const Vector& at, float radius, float power)
 		}
 		if (p->orient == 1)
 			p->avel.z = gEngfuncs.pfnRandomFloat(-90.0f, 90.0f) * f + p->avel.z;
+	}
+}
+
+// FUN_10052720: a round's wake. With cl_fx's interaction on, every particle inside the sphere about the
+// middle of start..end whose radius is half that length less 100 is measured from the line by the
+// triangle-area test (the same Heron's formula as the fire core's whizz, with its (s - c) squared in
+// place of (s - b)); one nearer than `power` is pushed along the round's direction by (power - that
+// distance) x its react, and with `swirl` as much again across it (direction x the way out from
+// start). A landed one lifts off at its vertical speed made positive plus 2, and a rolled one (orient 1)
+// takes -90..90 more roll.
+void TSP_BulletPush(const Vector& start, const Vector& end, float power, bool swirl)
+{
+	if (!g_tsFx.interact)
+		return;
+	const Vector mid = (end + start) * 0.5f;
+	Vector dir = end - start;
+	const float len = dir.Length();
+	dir = (len == 0.0f) ? Vector(0, 0, 1) : dir * (1.0f / len);
+	const float reach = (mid - end).Length() - 100.0f;
+	const float c = (start - end).Length();
+	if (!(reach > 0.0f))
+		return;
+	for (int i = 0; i <= g_tsPool.highWater && i < g_tsPool.max; i++)
+	{
+		TSParticle* p = &g_tsPool.particles[i];
+		if (!p->active)
+			continue;
+		if (!((mid - p->pos).Length() < reach))
+			continue;
+		const float a = (p->pos - start).Length();
+		const float b = (p->pos - end).Length();
+		const float s = (b + a + c) * 0.5f;
+		const float area = sqrtf((s - a) * (s - c) * (s - c) * s);
+		const float h = (area + area) / c;
+		if (!(h < power))
+			continue;
+		const float f = power - h;
+		p->vel = p->vel + dir * f * p->react;
+		if (swirl)
+		{
+			Vector out = p->pos - start;
+			const float outLen = out.Length();
+			out = (outLen == 0.0f) ? Vector(0, 0, 1) : out * (1.0f / outLen);
+			p->vel = p->vel + CrossProduct(dir, out) * f * p->react;
+		}
+		if (p->settled)
+		{
+			p->vel.z = fabsf(p->vel.z) + 2.0f;
+			p->settled = false;
+		}
+		if (p->orient == 1)
+			p->avel.z = gEngfuncs.pfnRandomFloat(-90.0f, 90.0f) + p->avel.z;
 	}
 }
 
