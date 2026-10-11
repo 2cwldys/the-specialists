@@ -18,15 +18,13 @@
 #include "ts_weapons.h" // TSDeployArsenal (team-mode arsenal on team switch)
 #include "ts_weapon_info.h" // Set_ammo_count (the SrvSett id-2 pair)
 #include "UserMessages.h"
+#include "ts_powerup.h"       // CTSPowerUp::Fall (RespawnEntities)
 #include "teamplay_gamerules.h" // CHalfLifeTeamplay::RecountTeams (RestartRound)
 #include "ts_gun.h"             // CTSGun (RestartRound's loadout refund)
 #include "game.h"          // g_flWeaponCheat (sv_cheats as the map started)
 
-extern cvar_t dmcashbased; // ts_cvars.cpp, registered as "usecash" (Think's SrvSett)
-extern cvar_t realbullet, cv_ammocount; // ts_cvars.cpp (Think's SrvSett reads the cvar_t values, @0x675b3)
 
 // Defined in ts_objectives.cpp — fire the objective manager's targetontimeleft on round timeout.
-void TSFireTimeLeftTarget();
 
 // Round-time HUD message (remaining seconds); registered lazily on first send.
 int gmsgTSRoundTime = 0;
@@ -124,10 +122,9 @@ void CTSGameRules::InitObjectives()
 {
 	// @0x68602 ENTRY GATE (§4.6): the objective subsystem is the team modes 2/3, which the shipped
 	// game NEVER reaches — DecideGamePlay caps at 1 and this only re-flips 2<->3 when the mode is
-	// ALREADY 2/3. It does NOT promote plain teamplay (mode 1). Our old `if (g_teamplay) mode=2/3`
-	// was INVENTED and turned regular TDM into the dead round-based objective mode -> "wait til next
-	// round" on a free-respawn team map. So for mode 0/1 this is a no-op (objectives stay dead;
-	// teamplay stays mode 1 = free respawn). CTF/CTB works at mode 1 via the briefcase/flag entities.
+	// ALREADY 2/3. It does not promote plain teamplay (mode 1), so for mode 0/1 this is a no-op
+	// (objectives stay dead; teamplay stays mode 1 = free respawn). CTF/CTB works at mode 1 via the
+	// briefcase/flag entities.
 	if ((unsigned char)(m_iGameMode - 2) > 1)
 		return;
 
@@ -179,17 +176,21 @@ void CTSGameRules::SetObjective()
 // (SendRoundTime DELETED, fold-plan G3: the original has no such method — the joiner
 // round-clock catch-up is INLINE in CTSGameRules::InitHUD @0x69134, where it now lives.)
 
-// @ RoundTimeLeft — the round ran out of time: fire the objective manager's targetontimeleft, then
-// declare a draw (the .so's TeamWin(2)). The draw schedules the round restart.
+// @0x69024 RoundTimeLeft — the round ran out of time (a round running, the round timer on): the
+// active objective manager's targetontimeleft fires, or without one a draw (TeamWin 2), which
+// schedules the round restart.
 void CTSGameRules::RoundTimeLeft()
 {
-	TSFireTimeLeftTarget();
-	TeamWin(2); // 2 = draw (nobody)
+	if (m_flRoundEnd == 0.0f || !m_bRoundTimerEnabled)
+		return;
+	if (!m_pActiveManager || FStringNull(m_pActiveManager->end_round_target))
+		TeamWin(2, 0, true, false); // 2 = draw (nobody)
+	else
+		FireTargets(STRING(m_pActiveManager->end_round_target), m_pActiveManager, m_pActiveManager, USE_TOGGLE, 0);
 }
 // Defined in ts_corpse.cpp / ts_gun.cpp — the TS death effects.
 CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime);
 void TSDropWeaponsOnDeath(CBasePlayer *pPlayer);
-void TSDropAmmoOnDeath(CBasePlayer *pPlayer);
 
 // (CTSGameRules::PlayerKilled DELETED — R1/Y8: the original CTSGameRules is a STANDALONE class
 // with NO PlayerKilled; the virtual is the TS-patched CHalfLifeMultiplay::PlayerKilled @0x795e4
@@ -199,28 +200,96 @@ void TSDropAmmoOnDeath(CBasePlayer *pPlayer);
 // transition (@0x8975f), which our StartObserver already does; a killed carrier's flag now drops
 // ~3 s later than before — original-faithful timing. The corpse spawns in PlayerDeathThink.)
 
-// @ TeamWin — record the win + announce it, then schedule a round restart 3s out (the .so
-// uses param_1+0xc = time+3). // SLICE: faithful TeamWin also awards victory/defeat cash to
-// each team + drives the round-time HUD; here it's the score + restart.
-void CTSGameRules::TeamWin(int team)
+// @0x68a08 TeamWin(team, cash, bRestart, bScore) — a team won the round (team 2 is a draw). With the
+// round timer on and not a score, the clock goes out with state 2; bRestart restarts the round in
+// 3 s. Alone in the game, every team's score and cash are reset ("Waiting for other players.").
+// Otherwise every player gets cash, the winners `cash` (cashforwin's default string, 10000, when it
+// is 0), the others cashforlose's (1200), and a TSHVoice (0 won, 1 lost); a winning team's score goes
+// up, "<team> Win!" or "<team> Score!", and the log names the team with the installed rules' team
+// score and player count. In the objective modes every named team's score goes out (TeamScore).
+extern int team_scores[]; // teamplay_gamerules.cpp
+void CTSGameRules::TeamWin(int team, int cash, bool bRestart, bool bScore)
 {
-	if (m_flRoundRestart != 0.0f) // a win is already locked in for this round
-		return;
+	if (m_bRoundTimerEnabled && !bScore)
+	{
+		MESSAGE_BEGIN(MSG_ALL, gmsgTSRoundTime);
+		WRITE_BYTE((int)(m_flRoundEnd - gpGlobals->time));
+		WRITE_BYTE(2);
+		MESSAGE_END();
+	}
+	if (bRestart)
+	{
+		m_flRoundRestart = gpGlobals->time + 3.0f;
+		m_flRoundEnd = 0;
+	}
 
-	// team 0/1 are the real TS teams; anything else (e.g. CheckDeads' "nobody alive") is a draw.
-	bool draw = team < 0 || team > 1;
-	if (!draw)
-		m_teamScore[team]++;
-
-	const char *who = draw ? nullptr : GetIndexedTeamName(team);
-	if (draw || who == nullptr || who[0] == '\0')
-		TSHudMessageAll(0, 0xff, 0, 8, 50,
-			UTIL_VarArgs("Round draw!  (%d - %d)", m_teamScore[0], m_teamScore[1]));
+	if (CountPlayers() < 2)
+	{
+		for (int i = 0; i < TS_MAX_TEAMS; i++)
+		{
+			m_teamScore[i] = 0;
+			m_teamCash[i] = (int)initial_cash.value;
+		}
+		TSHudMessageAll(0, 0, 0, 8, 30, "Waiting for other players.");
+	}
 	else
-		TSHudMessageAll(0, 0xff, 0, 8, 50,
-			UTIL_VarArgs("%s win the round!  (%d - %d)", who, m_teamScore[0], m_teamScore[1]));
+	{
+		for (int i = 1; i <= gpGlobals->maxClients; i++)
+		{
+			CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
+			if (!p || !p->IsPlayer())
+				continue;
+			int win = cash, lose = 0;
+			if (cash == 0)
+				sscanf(cashforwin.string, "%i", &win);
+			sscanf(cashforlose.string, "%i", &lose);
+			const int lost = (team != GetTeamIndex(p->TeamID())) ? 1 : 0;
+			p->GiveCash(lost ? lose : win);
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSVoiceMessage, NULL, p->edict());
+			WRITE_BYTE(lost);
+			MESSAGE_END();
+		}
 
-	ResetRestartRound(1); // arm the 1s restart (depth 1 = restart only; the score was bumped above)
+		if (team == 2)
+		{
+			TSHudMessageAll(0, 0, 0, 8, 30, "Game Draw");
+			UTIL_LogPrintf("Round draw\n");
+		}
+		else
+		{
+			m_teamScore[team]++;
+			char buf[40];
+			sprintf(buf, bScore ? "%s Score!" : "%s Win!", m_teamNames[team]);
+			TSHudMessageAll(0, 0, 0, 8, 30, buf);
+
+			// the installed rules' index of the team and its players; a deathmatch rules object
+			// answers -1 for every name (the original then reads team_scores[-1]; here 0)
+			const int idx = g_pGameRules->GetTeamIndex(m_teamNames[team]);
+			int players = 0;
+			for (int i = 1; i <= gpGlobals->maxClients; i++)
+			{
+				CBaseEntity *p = UTIL_PlayerByIndex(i);
+				if (p && p->IsPlayer() && g_pGameRules->GetTeamIndex(p->TeamID()) == idx)
+					players++;
+			}
+			UTIL_LogPrintf("Team \"%s\" scored \"%d\" with \"%d\" players\n", m_teamNames[team],
+				(idx >= 0 && idx < MAX_TEAMS) ? team_scores[idx] : 0, players);
+		}
+	}
+
+	if ((unsigned char)(m_iGameMode - 2) < 2)
+	{
+		for (int i = 0; i < TS_MAX_TEAMS; i++)
+		{
+			if (m_teamNames[i][0] == '\0')
+				continue;
+			MESSAGE_BEGIN(MSG_ALL, gmsgTeamScore);
+			WRITE_STRING(m_teamNames[i]);
+			WRITE_SHORT(m_teamScore[i]);
+			WRITE_SHORT(0);
+			MESSAGE_END();
+		}
+	}
 }
 
 // @0x69bc0 CallCheckDeads — schedule a deads-check 1s out unless a round restart is already
@@ -347,7 +416,7 @@ void CTSGameRules::CheckDeads()
 		winner = 1;
 	else
 		return;
-	TeamWin(winner);
+	TeamWin(winner, 0, true, false);
 }
 
 // Re-spawn everyone + re-arm the objective entities for a fresh round.
@@ -368,6 +437,21 @@ void CTSGameRules::Init()
 	InitTeams();
 	InitTeamScore(m_teamScore); // (no-op in the original)
 	m_flRoundEnd = 0;
+	// @0x67d9d: the global slow motion is off, and the three SrvSett caches are -1, so the first
+	// Think sends realbullet, usecash and ammocount again
+	m_flNextGlobalSlow = 0;
+	m_flGlobalSlowActive = 0;
+	m_flGlobalSlowScale = 0;
+	m_flGlobalSlowEnd = 0;
+	m_iSrvRealBullet = -1;
+	m_iSrvAmmoCount = -1;
+	m_iSrvUseCash = -1;
+	// @0x67ec8..0x67ef9: no deads check pending, no One, the One count at 0, IsCTB to look again
+	m_flCheckDeads = 0;
+	m_bTheOneActive = false;
+	m_iTheOneOthers = 0;
+	m_bHasBriefcase = false;
+	m_bCTBChecked = false;
 	memset(m_votes, 0, sizeof(m_votes)); // @0x67e4f — a new map starts with no votes
 	m_flRoundRestart = gpGlobals->time + 5.0f; // first round fires 5s into the map
 	m_bRoundTimerEnabled = true;
@@ -403,7 +487,8 @@ int CTSGameRules::CountPlayers()
 }
 
 // @0x67764 RespawnEntities — re-spawn the map's resettable entities by classname: breakables + flags
-// always; ground weapons in team/last-man mode; powerups in last-man mode.
+// always; ground weapons in the objective modes (2/3) or last man standing; powerups (their Fall) in
+// last man standing.
 void CTSGameRules::RespawnEntities(bool bFirst)
 {
 	const bool lms = g_lastManStanding != 0; // DecideGamePlay's flag (the old "lms" cvar read was dead — never registered)
@@ -412,13 +497,13 @@ void CTSGameRules::RespawnEntities(bool bFirst)
 	for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "info_breakable")) != nullptr;)
 		((CInfoBreakable *)e)->RespawnThink();
 
-	if (g_teamplay || lms)
+	if ((unsigned char)(m_iGameMode - 2) < 2 || lms) // @0x677db
 		for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "ts_groundweapon")) != nullptr;)
 			((CTSGroundWeapon *)e)->Fall();
 
 	if (lms)
 		for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "ts_powerup")) != nullptr;)
-			e->Spawn(); // VERIFY: the original calls CTSPowerUp::Fall() (ts_powerup.cpp-local)
+			((CTSPowerUp *)e)->Fall(); // @0x67889
 
 	for (e = nullptr; (e = UTIL_FindEntityByClassname(e, "ts_flag")) != nullptr;)
 		((CTSFlag *)e)->RespawnFlag(); // loose flags go home (the briefcase re-seeds via FlagFall)
@@ -545,12 +630,22 @@ void CTSGameRules::ResetRestartRound(int depth)
 		WRITE_BYTE(0);
 		MESSAGE_END();
 	}
+	// depth > 1 (the restartround command): every team's score and cash go back to the start, and
+	// each named team's score of 0 goes out (TeamScore, @0x688a0). The cash is initial_cash's value
+	// field, which stays 0 because the cvar is never registered.
 	if (depth > 1)
 		for (int i = 0; i < TS_MAX_TEAMS; i++)
 		{
 			m_teamScore[i] = 0;
-			m_teamCash[i] = (int)CVAR_GET_FLOAT("initial_cash"); // SLICE: original also broadcasts TeamScore
-			UpdateTeamScores(i, m_teamScore[i]); // (no-op in the original)
+			m_teamCash[i] = (int)initial_cash.value;
+			if (m_teamNames[i][0] != '\0')
+			{
+				MESSAGE_BEGIN(MSG_ALL, gmsgTeamScore);
+				WRITE_STRING(m_teamNames[i]);
+				WRITE_SHORT(m_teamScore[i]);
+				WRITE_SHORT(0);
+				MESSAGE_END();
+			}
 		}
 	TSHudMessageAll(0, 0, 0, 8, 30, "Restarting Round"); // black, @0x689f7
 }
@@ -559,10 +654,12 @@ void CTSGameRules::ResetRestartRound(int depth)
 // "The One" juggernaut mode — one player is buffed into The One; killing them inherits the role.
 //============================================================================
 
-// @0x67f08 IsCTB — capture-the-briefcase mode: a ts_briefcase exists (cached). VERIFY: the original
-// also gates on the game-mode byte == 1.
+// @0x67f08 IsCTB — capture-the-briefcase mode: in mode 1 only, a ts_briefcase exists (looked up once
+// per map; Init clears the cache).
 bool CTSGameRules::IsCTB()
 {
+	if (m_iGameMode != 1)
+		return false;
 	if (!m_bCTBChecked)
 	{
 		m_bHasBriefcase = UTIL_FindEntityByClassname(nullptr, "ts_briefcase") != nullptr;
@@ -942,7 +1039,7 @@ void CTSGameRules::Think()
 		if (gpGlobals->time >= m_flRoundEnd && m_flRoundRestart == 0 && m_bRoundTimerEnabled)
 		{
 			if (m_iGameMode == 2)
-				TeamWin(2);
+				TeamWin(2, 0, true, false);
 			else
 				RoundTimeLeft();
 		}
@@ -1043,10 +1140,9 @@ void CTSGameRules::SetGlobalSlowMotion(float scale, float duration)
 }
 
 
-// (IsTeamMode + IsTeamplay DELETED — R1 item-9 convergence: invented CTSGameRules stand-ins.
 // The original's team gate at each site is the global `g_teamplay != 0` (== m_iGameMode>=1, since
-// m_iGameMode = (byte)g_teamplay and modes 2/3 are dead §4.6); callers now read g_teamplay directly.
-// The team-play VIRTUAL is stock CHalfLifeTeamplay::IsTeamplay (g_pGameRules->IsTeamplay()).)
+// m_iGameMode = (byte)g_teamplay and modes 2/3 are dead §4.6). The team-play virtual is stock
+// CHalfLifeTeamplay::IsTeamplay (g_pGameRules->IsTeamplay()).
 
 // GetGameDescription is inherited from CHalfLifeMultiplay (theOne->LMS->DM, no teamplay branch) —
 // the original defines no CTSGameRules override. See multiplay_gamerules.cpp.
@@ -1057,7 +1153,8 @@ void CTSGameRules::SetGlobalSlowMotion(float scale, float duration)
 // it is set, the teammodels cvar's models over them. The objective modes (2/3) get "Specialists;
 // Mercenaries" in seal/merc and team 1's fallback "info_player_start", but Init sets the mode
 // (0/1) just before calling this, so that branch never runs. Each team starts with no score and
-// initial_cash in its cash pool (@0x67fba), which only GetTeamCash reads, in those dead modes.
+// initial_cash's value field in its cash pool (@0x67fba): 0, as the cvar is never registered. Only
+// GetTeamCash reads it, in those dead modes.
 static const char *const defTeamModels[TS_MAX_TEAMS] = {"seal;merc", "gordon;laurence", "agent", "hitman;castor"};
 
 void CTSGameRules::InitTeams()
@@ -1069,7 +1166,7 @@ void CTSGameRules::InitTeams()
 	for (int i = 0; i < TS_MAX_TEAMS; i++)
 	{
 		m_teamScore[i] = 0;                                    // +0x24 (and +0x20, no reTS member)
-		m_teamCash[i] = (int)CVAR_GET_FLOAT("initial_cash");   // +0x1c
+		m_teamCash[i] = (int)initial_cash.value;              // +0x1c
 		snprintf(m_teamNames[i], sizeof(m_teamNames[i]), "Team%i", i + 1);
 		snprintf(m_teamSpot[i], sizeof(m_teamSpot[i]), "info_player_team%i", i + 1);
 		strcpy(m_teamSpotFallback[i], "info_player_deathmatch");
@@ -1090,9 +1187,8 @@ void CTSGameRules::InitTeams()
 // @0x681ec copies each one without a lookup), an ALERT per team, and cap = g_theOneMode ? 2 : 4.
 // In The One mode the list's first name is not used: "The ONE" takes slot 0 in its place (@0x681ae)
 // and the next name goes to slot 1, so "Specialists;Mercenaries" gives "The ONE" and "Mercenaries".
-// The ONE is set only when the list has a first name. No m_szTeamList / no RecountTeams — those
-// were invented. (m_numTeams is reTS's count of the slots filled, which is what the original's
-// GetTeamsNum @0x685a8 counts from the names.)
+// The ONE is set only when the list has a first name. (m_numTeams is reTS's count of the slots
+// filled, which is what the original's GetTeamsNum @0x685a8 counts from the names.)
 void CTSGameRules::SetTeamList(const char *pList)
 {
 	for (int i = 0; i < TS_MAX_TEAMS; i++)
@@ -1206,10 +1302,8 @@ void CTSGameRules::TogglePlayerFromSlow(CBasePlayer *pPlayer)
 		pPlayer->GoSlow(1.0f, 0);
 }
 
-// (RecountTeams DELETED — R1 item-9: invented CTSGameRules helper. Its ";"-tokenize now lives
-// inline in SetTeamList (§4.5); the team roster is stable after SetTeamList, so RestartRound no
-// longer re-tokenizes. The stock team recount is CHalfLifeTeamplay::RecountTeams on the installed
-// Teamplay object.)
+// The team roster is stable after SetTeamList; the team recount is CHalfLifeTeamplay::RecountTeams
+// on the installed Teamplay object.
 
 // @ GetTeamIndex — 0-based index of `pTeamName` in the roster, or -1. Case-insensitive,
 // matching the .so's strcasecmp over the team-name fields.
@@ -1231,10 +1325,9 @@ const char *CTSGameRules::GetIndexedTeamName(int teamIndex)
 	return m_teamNames[teamIndex];
 }
 
-// (GetTeamID + TeamWithFewestPlayers DELETED — R1 item-9 convergence: invented CTSGameRules
-// stand-ins with no callers. Team assignment / auto-balance lives on the installed TS-patched
-// CHalfLifeTeamplay (SetDefaultPlayerTeam/ChangePlayerTeam/TeamWithFewestPlayers); an entity's
-// team string is read via its own TeamID().)
+// Team assignment / auto-balance lives on the installed TS-patched CHalfLifeTeamplay
+// (SetDefaultPlayerTeam/ChangePlayerTeam/TeamWithFewestPlayers); an entity's team string is read via
+// its own TeamID().
 
 // (AssignToTeam DELETED — R1 phase 3: the original assigns teams in the TS-patched
 // CHalfLifeTeamplay::SetDefaultPlayerTeam @0xd44ac / ChangePlayerTeam @0xd488c

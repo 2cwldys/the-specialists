@@ -26,11 +26,10 @@
 #include "UserMessages.h"
 #include "ts_gamerules.h" // R1: the standalone TSGameRules object (the TS-patched Teamplay reads it)
 #include "ts_utils.h"
-extern cvar_t teammodels; // ts_cvars.cpp — "mp_teammodels" (the team model table source)
 
 //TODO: these should be members of CHalfLifeTeamplay
 static char team_names[MAX_TEAMS][MAX_TEAMNAME_LENGTH];
-static int team_scores[MAX_TEAMS];
+int team_scores[MAX_TEAMS]; // a global in the original (TeamWin logs from it)
 static int num_teams = 0;
 
 // R1 phase 3 — the TS-patched ctor @0xd3e48 (heavily TS; decompile

@@ -140,11 +140,9 @@ void CTSStunt::Play()
 	{
 		// GET UP (RE Play @0x8a014 disasm @0x8a2e0-0x8a3d0) — ✅ VERIFIED CORRECT, cont.86 user playtest:
 		// "now it exactly matches the original". DO NOT TOUCH this block (condition, clear set, or the
-		// m_fSequenceFinished OR-term). We got it wrong TWICE before the live trace: (1) invented a
-		// consumed "stand-up latch" member, (2) re-read it as a sticky slide flag — both because the
-		// static store-scan dismissed StudioFrameAdvance/ResetSequenceInfo/DispatchAnimEvents writes to
-		// this+0x78 as "a different class's member", when CBasePlayer IS-A CBaseAnimating and player+0x78
-		// (.so) / +0x68 (mp.dll) is stock m_fSequenceFinished (gcc2 vs MSVC base offsets differ).
+		// m_fSequenceFinished OR-term). player+0x78 (.so) / +0x68 (mp.dll) is the stock
+		// m_fSequenceFinished (CBasePlayer is a CBaseAnimating; gcc2 and MSVC base offsets differ), which
+		// StudioFrameAdvance/ResetSequenceInfo/DispatchAnimEvents write.
 		// A single STATE-cleanup block — NOT an animation. Fires when a roll timer is LIVE and it either
 		// expired (m_flRollTime < 0.01; the decrement floors at 0.001) OR the current player ANIMATION
 		// SEQUENCE FINISHED:
@@ -161,8 +159,7 @@ void CTSStunt::Play()
 		// the view in ONE write (FL_DUCKING ? 16 : 28 @0x8a37b); PM_Duck re-ducks if DUCK is held.
 		// The getup ANIMATION (0x2e) is played at LANDING time (Landing() roll branch / HandleSlide's
 		// deliberate-prone branch), NEVER here — dispatching 0x2e here while PRONE is still set is
-		// exactly what Region B of CTSAnimation::Animate swallows (the old invented two-stage getup =
-		// the stuck-prone bug).
+		// exactly what Region B of CTSAnimation::Animate swallows.
 		if (m_flRollTime != 0.0f && (m_flRollTime < 0.01f || m_pPlayer->m_fSequenceFinished))
 		{
 			pev->iuser4 &= ~(TSSTUNT_ROLL | 0x80000 | TSSTUNT_PRONE | TSSTUNT_STOP | 0x2);
@@ -209,12 +206,12 @@ void CTSStunt::HandleStunt()
 {
 	entvars_t *pev = m_pPlayer->pev;
 
-	// only when no stunt is mid-flight
-	if (m_flStuntTime > 0.0f || m_flRollTime > 0.001f || (pev->iuser4 & 0xc30))
+	// only when no stunt is mid-flight: no stunt or roll time left, none of the 0xc30 bits (@0x8b015)
+	if (m_flStuntTime > 0.0f || m_flRollTime > 0.0f || (pev->iuser4 & 0xc30))
 		return;
 
-	// @0x8b04b — a stunt input cancels the armed run-through window (the whiff triple).
-	// VERIFY exact gate placement (the original clears ~0x4b in, behind one jne).
+	// @0x8b04b — past that gate, before any input is read, the armed run-through window (the whiff
+	// triple) is cancelled.
 	m_pPlayer->m_flWhiffLungeTime = 0.0f;
 	m_pPlayer->m_flWhiffLungeForce = 0.0f;
 	m_pPlayer->m_iWhiffLungeType = 0;
@@ -934,7 +931,7 @@ void CTSStunt::CheckForBreakables()
 				else
 					bApply = false;
 			}
-			// the original's PunchScreen(dmg*0.5, …) branch is dead code (empty stub) — omitted
+			// the original's PunchScreen(dmg*0.5, …) call does nothing (PunchScreen is empty, @0x85f70)
 		}
 	}
 

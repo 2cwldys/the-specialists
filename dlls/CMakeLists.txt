@@ -69,7 +69,6 @@ target_sources(hl PRIVATE
 	TS_util.cpp
 	TS_gamerules.cpp
 	TS_gamerulesclass.cpp
-	ts_cvars.cpp
 	ts_buy.cpp
 	ts_flag.cpp
 	ts_player.cpp

@@ -60,10 +60,9 @@ public:
 	void OnGround();                                     // @0xa1610
 	void EXPORT WaitTouch(CBaseEntity *pOther);          // @0xa16c0
 
-	// @0xa1334 CreateAmmoPack — spawn a pack carrying `counts[16]` rounds + `armor` armour from
-	// `pevOwner`, tossed from `origin` along `velocity`. Returns NULL if there was nothing to drop.
-	static CTSAmmoPack *CreateAmmoPack(entvars_t *pevOwner, const int *counts, int armor,
-		const Vector &origin, const Vector &velocity);
+	// @0x91334 CreateAmmoPack — spawn a pack carrying `counts[16]` rounds (none for NULL), owned by
+	// pOwner. `armor` is not used: a pack carries no armor. The caller places and tosses it.
+	static CTSAmmoPack *CreateAmmoPack(CBaseEntity *pOwner, const int *counts, int armor);
 
 	int   m_ammo[TS_NUM_CALIBERS] = {}; // +0x64 — per-caliber rounds carried (consumed on pickup)
 	float m_flExpire = 0;               // +0xa4 — lifetime deadline

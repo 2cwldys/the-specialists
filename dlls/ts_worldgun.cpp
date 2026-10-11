@@ -123,15 +123,19 @@ void CTSWorldGun::BounceTouch(CBaseEntity *pOther)
 
 	if (!(pev->flags & FL_ONGROUND))
 	{
-		// In the air: on a fast enough impact, play the drop sound once (debounced by m_bDropSnd).
-		// VERIFY: the original also gates on the contact plane being roughly flat (trace.plane.z > 0.98),
-		// which a touch handler doesn't expose cheaply — omitted; behaviour is the drop sound on impact.
+		// In the air: faster than 18 x the gun's slow factor against a flat surface (the touch's
+		// trace plane normal z > 0.98) plays the drop sound, as often as that happens: m_bDropSnd is
+		// set by Spawn and set again here, never cleared (@0x90cdb-0x90d6e).
 		float speed = pev->velocity.Length();
-		if (m_bDropSnd && speed > 18.0f)
+		if (speed > GiveSlowMul() * 18.0f)
 		{
-			EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM,
-				0, 80 + RANDOM_LONG(0, 10) + 20); // pitch ~0.8 (+random), per @0xa0b0c
-			m_bDropSnd = false;
+			TraceResult tr = UTIL_GetGlobalTrace();
+			if (m_bDropSnd && tr.vecPlaneNormal.z > 0.98)
+			{
+				m_bDropSnd = true;
+				const int pitch = 100 + RANDOM_LONG(0, 10);
+				EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "items/weapondrop1.wav", VOL_NORM, 0.8f, 0, pitch);
+			}
 		}
 	}
 	else
@@ -142,11 +146,10 @@ void CTSWorldGun::BounceTouch(CBaseEntity *pOther)
 		// avelocity = velocity, so a real throw (speed 60-180) hit the un-damped path and NEVER shed
 		// horizontal speed -> slid forever (endless friction) and skated off floor edges into the void
 		// (the steep-drop sink / near-edge disappear were downstream of this). Constants verified in
-		// .rodata: 40.0@0xf6d9c, 0.7@0xf7f50, 0.9@0xf7f44. cont.91.
-		// VERIFY (slow-mo only, LOW): the original threshold is 40 * GiveSlowMul(); plain 40 is exact
-		// at normal time scale.
+		// .rodata: 40.0@0xf6d9c, 0.7@0xf7f50, 0.9@0xf7f44. The threshold is 40 x the gun's slow
+		// factor (@0x90b96), so a slowed gun damps at a lower speed.
 		float horiz = Vector(pev->velocity.x, pev->velocity.y, 0).Length();
-		const float k = (horiz <= 40.0f) ? 0.7f : 0.9f;
+		const float k = (horiz <= GiveSlowMul() * 40.0f) ? 0.7f : 0.9f;
 		pev->velocity = pev->velocity * k;
 		pev->avelocity = pev->avelocity * k;
 		pev->angles.z = 0;
@@ -175,23 +178,23 @@ void CTSWorldGun::Fall()
 	{
 		// Swept impact: trace from here to where we'll be next frame; a fast enough hit damages.
 		// @0x90f2b-0x90f3d: a player is never hit (the IsPlayer test, vtable 0xc8) and there is no
-		// takedamage test: anything else the trace hits gets the attack, and its TakeDamage decides.
-		// VERIFY: the original gates on (speed * weapon_damage_byte@0xd0 >= victim->health) and deals
-		// speed * damage_byte * 0.001; we use flDamage as that byte (exact byte/constants unconfirmed).
+		// takedamage test: anything else the trace hits (the world when nothing) gets the attack, and
+		// its TakeDamage decides. The weight is the weapon's slot cost (s_weapon_info +0xd0): the hit
+		// needs speed x cost >= its health and deals speed x cost x 0.001 along the velocity
+		// (unnormalized), DMG_CLUB | DMG_NEVERGIB (@0x90f53-0x9101e).
 		Vector dir = pev->velocity * 0.1f;
 		TraceResult tr;
 		UTIL_TraceLine(pev->origin, pev->origin + dir, dont_ignore_monsters, ENT(pev), &tr);
-		if (tr.flFraction < 1.0f && tr.pHit)
+		if (tr.flFraction < 1.0f)
 		{
 			CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
-			const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
-			float speed = pev->velocity.Length();
-			if (pHit && !pHit->IsPlayer() && speed * wi->flDamage >= pHit->pev->health)
+			const float cost = (float)(unsigned char)get_weapon_info((tsweapon_t)m_weaponType)->slotCost;
+			const float speed = pev->velocity.Length();
+			if (pHit && !pHit->IsPlayer() && pHit->pev->health <= speed * cost)
 			{
 				ClearMultiDamage();
-				Vector vdir = dir.Normalize();
-				pHit->TraceAttack(pev, speed * wi->flDamage * 0.001f, vdir, &tr,
-					DMG_CLUB | DMG_NEVERGIB); // VERIFY: orig damage-type bits 0x1080
+				Vector vdir = pev->velocity;
+				pHit->TraceAttack(pev, speed * cost * 0.001f, vdir, &tr, DMG_CLUB | DMG_NEVERGIB);
 				ApplyMultiDamage(pev, pev);
 			}
 		}
@@ -286,31 +289,22 @@ bool CTSWorldGun::ShouldCollide(CBaseEntity *pOther)
 //============================================================================
 LINK_ENTITY_TO_CLASS(TSAmmoPack, CTSAmmoPack);
 
-// @0xa1334 CreateAmmoPack — spawn a pack carrying `counts[16]` rounds + `armor` armour from
-// `pevOwner`, tossed from `origin` along `velocity`. classname = "AmmoPack". NULL if nothing to drop.
-CTSAmmoPack *CTSAmmoPack::CreateAmmoPack(entvars_t *pevOwner, const int *counts, int armor,
-	const Vector &origin, const Vector &velocity)
+// @0x91334 CreateAmmoPack — classname "AmmoPack", the rounds (or none), Spawn, the owner. The armor
+// argument is read nowhere, so a pack never carries armor (Spawn zeroes armorvalue).
+CTSAmmoPack *CTSAmmoPack::CreateAmmoPack(CBaseEntity *pOwner, const int *counts, int armor)
 {
-	bool any = (armor > 0);
-	for (int c = 0; c < TS_NUM_CALIBERS && !any; c++)
-		if (counts && counts[c] > 0) any = true;
-	if (!any)
-		return NULL;
-
 	CTSAmmoPack *pPack = GetClassPtr((CTSAmmoPack *)NULL);
 	if (!pPack)
 	{
-		UTIL_ClientPrintAll(HUD_PRINTCONSOLE, "WARNING:cannot create ammopack!\n");
+		UTIL_ClientPrintAll(HUD_PRINTTALK, "WARNING:cannot create ammopack!\n");
 		return NULL;
 	}
 	pPack->pev->classname = MAKE_STRING("AmmoPack");
 	for (int c = 0; c < TS_NUM_CALIBERS; c++)
 		pPack->m_ammo[c] = counts ? counts[c] : 0;
-	UTIL_SetOrigin(pPack->pev, origin);
 	pPack->Spawn();
-	pPack->pev->velocity = velocity;
-	pPack->pev->armorvalue = (float)armor;        // carried armor
-	pPack->pev->owner = ENT(pevOwner);
+	if (pOwner)
+		pPack->pev->owner = pOwner->edict();
 	return pPack;
 }
 
@@ -321,16 +315,19 @@ void CTSAmmoPack::Spawn()
 	SET_MODEL(ENT(pev), "models/ammopack.mdl");
 	pev->movetype = MOVETYPE_TOSS;
 	pev->solid = SOLID_BBOX;
-	UTIL_SetSize(pev, g_vecZero, g_vecZero);      // point bbox while falling
 	UTIL_SetOrigin(pev, pev->origin);
+	UTIL_SetSize(pev, g_vecZero, g_vecZero);      // point bbox while falling
 
 	float stay = CVAR_GET_FLOAT("weaponstay");
-	if (stay < 5.0f)  stay = 5.0f;
 	if (stay > 60.0f) stay = 60.0f;
+	if (stay < 5.0f)  stay = 5.0f;
 	m_flExpire = gpGlobals->time + stay;
 
+	SetTouch(NULL);
 	SetThink(&CTSAmmoPack::Fall);
 	pev->nextthink = gpGlobals->time + 0.1f;
+	pev->iuser4 = 0; // @0xa14d8: the slow-motion physics bit (2), as every thrown object carries
+	pev->iuser4 |= 2;
 	pev->armorvalue = 0;
 	pev->owner = NULL;
 }
@@ -377,9 +374,10 @@ void CTSAmmoPack::WaitTouch(CBaseEntity *pOther)
 	if (!pOther || !pOther->IsPlayer() || !pOther->IsAlive())
 		return;
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	CTSGun *pGun = GetPlayerTSGun(pPlayer); // the toucher must hold a CTSGun (orig: m_pActiveItem type@0x88==0x10)
-	if (!pGun)
+	// @0xa16f5: the TS arsenal must be the active item
+	if (!pPlayer->m_pActiveItem || pPlayer->m_pActiveItem->m_iId != TSGUN_WEAPON_ID)
 		return;
+	CTSGun *pGun = (CTSGun *)(CBasePlayerItem *)pPlayer->m_pActiveItem;
 
 	bool gaveAny = false;
 	for (int c = 0; c < TS_NUM_CALIBERS; c++)

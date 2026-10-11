@@ -33,7 +33,7 @@ bool CTSEmitter::KeyValue(KeyValueData *pkvd)
 {
 	if (s_Emitter.EmitterKeyValue(&m_data, pkvd->szKeyName, pkvd->szValue))
 		return true;
-	return CBaseEntity::KeyValue(pkvd); // unknown (e.g. FGD "master")
+	return CBaseEntity::KeyValue(pkvd); // false, as the original's fHandled = the emitter's answer
 }
 
 void CTSEmitter::CheckValues()

@@ -215,8 +215,8 @@ struct s_weapon_info
 	// The ALT SOUND (wi+0x306, disasm-adjudicated per Write_): a triple-duty sample —
 	// the -sil FIRE for silencer-capable guns, the PUMP RACK for the pump shotguns
 	// (benelli AND mossberg both use m3-pump.wav; spas12 its own), and the akimbo LINKED
-	// both-barrel bang (the -sil sample reused; gold/skorpion_akimbo carry NONE — VERIFY
-	// what the original client does with an empty sample there). NULL = none.
+	// both-barrel bang (the -sil sample reused; Write_gold and Write_skorpion_akimbo store
+	// none). NULL = none.
 	const char *pszAltSound;   // +0x306
 	// The ejected SHELL model (wi+0xe8) + the eject-port setback along fwd (wi+0x34c, int
 	// units) — pump.sc / the fire core eject from attachment − fwd*setback.
@@ -232,13 +232,13 @@ struct s_weapon_info
 // provenance). Built by compile_ammo_info (chained from compile_weapons_info).
 struct s_ammo_info
 {
-	float flFactor;      // +0x00 — per-caliber factor (VERIFY consumer)
+	float flFactor;      // +0x00 — per-caliber factor; nothing in ts_i386.so reads it
 	int   iPrice;        // +0x04 — cash per magazine (BuyAmmo)
 	int   iKind;         // +0x08 — 1 pistol / 2 rifle-shotgun (falloff form selector)
 	int   iMaxCarry;     // +0x0c — reserve cap; the ONLY Set_ammo_count-scaled column
 	int   iRoundsPerMag; // +0x10 — the buy/refill unit
-	int   iMaxTravel;    // +0x14 — 8192 for all calibers (VERIFY consumer)
-	float flFactor2;     // +0x18 (VERIFY consumer)
+	int   iMaxTravel;    // +0x14 — 8192 for all calibers: ShootBulletsPlayer's trace length (@0x5fc2c)
+	float flFactor2;     // +0x18 — the pierce decay (ShootBulletsPlayer)
 	float flMult;        // +0x1c — 1.0 for all entries
 	int   iRangeUnit;    // +0x20 — full-damage range unit (falloff form B)
 	int   iSpeedUnit;    // +0x24 — slow-mo bullet flight speed unit (x40)

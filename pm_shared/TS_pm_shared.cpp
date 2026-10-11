@@ -2,11 +2,8 @@
 *  TS_pm_shared.cpp — RECONSTRUCTED original TS_pm_shared.c: the TS stunt/movement
 *  prediction hooks, exported non-static like the original (T symbols in ts_i386.so).
 *
-*  Original free functions still to land here (RE'd, dossier-freefuncs.md analysis_ff_pmshared.md):
-*    PseudoClimb (the one real gap — wall-climb head-call in TSHandle),
-*    FixVelocity (verified 4-byte empty ret in the binary),
-*    CanJumpHigh (dead code in the binary — superjump-gate hint REFUTED).
-*  NO guessed bodies here — scaffold only until their reconcile lands.
+*  Among them PseudoClimb (the wall-climb TSHandle calls), FixVelocity (an empty ret in the binary)
+*  and CanJumpHigh (nothing in the binary calls it).
 ***/
 #include "Platform.h"
 #include "mathlib.h"

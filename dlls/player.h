@@ -423,9 +423,9 @@ public:
 	float m_flKnifeBlock = 0;         // 0x7ac — knife block window: VALUE 0.5 set by CCombatBlock, PreThink-decayed, floor 0
 	float m_flKatanaBlock = 0;        // 0x7b0 — katana block window (also deflects a knife); same decay law
 	float m_flBlockTime = 0;          // 0x4dc — BlockPlayer() self-root timer (pairs w/ iuser4 STOP bit); PreThink-decayed
-	float m_flLastMeleeRate = 0;      // 0x4f8 — last melee refire interval (written by every melee fire; consumer VERIFY)
-	// 0x71c — the SPAWN-PROTECTION deadline (name invented, VERIFY: transient/unnamed in the
-	// binary). Written ONLY by TSInit (= time + 1.0). Four RE'd consumers: TraceAttack's
+	float m_flLastMeleeRate = 0;      // 0x4f8 — last melee refire interval (written by every melee fire, read nowhere)
+	// 0x71c — the SPAWN-PROTECTION deadline (unsaved, so unnamed in the binary; the name is ours).
+	// Written ONLY by TSInit (= time + 1.0). Four RE'd consumers: TraceAttack's
 	// no-damage early-out (@0x801eb), the PreThink shimmer clear (@0x81460), the melee twins'
 	// disarm-immunity gate (@0x8622c/@0x86806), and DefaultDeploy's next-attack push-out (@0x902f0).
 	float m_flSpawnProtectTime = 0;
@@ -449,9 +449,8 @@ public:
 
 	// TS 3rd-person body/gait animation (ts_animation.cpp). The original embeds
 	// this object on the player (player+0x28c) and drives ALL body animation
-	// through it; the stock SetAnimation is a no-op stub in the .so. SetAnimation
-	// (below) routes the PLAYER_ANIM call sites into m_TSAnim.Animate; CTSGun
-	// drives reload/draw/grenade directly. See ts_animation.h.
+	// through it; the stock SetAnimation is empty in the .so, and the weapon and movement
+	// code call m_TSAnim.Animate directly. See ts_animation.h.
 	CTSAnimation m_TSAnim;
 
 	// TS stunt/acrobatics system (ts_stunt.cpp). The original embeds a CTSStunt on
@@ -526,7 +525,7 @@ public:
 	                                                      // 1 out-of-round, 2/3/4 kill tiers, 10 The One, 11 respawning
 	byte m_iClientAward = 0;                              // 0x74d — last TSPAward value broadcast
 	byte m_iClientActiveItems = 0;                        // 0x720 — last ActItems mask broadcast (GetActiveItems)
-	float m_flNextPTakeDamTime = 0;                       // 0x750 (invented name) — PTakeDam send throttle (+0.3 s)
+	float m_flNextPTakeDamTime = 0;                       // 0x750 (unsaved; the name is ours) — PTakeDam send throttle (+0.3 s)
 	byte m_iWires[3] = {};                                // 0x78c-0x78e — the nearby armed bomb's wire ROLE codes
 	                                                      // (0 cut / 1 defuse / 2 boobytrap / 3 intact)
 	byte m_iClientWires[3] = {};                          // 0x78f-0x791 — the last-sent Wires triple
@@ -575,8 +574,8 @@ public:
 	char m_iRespawnsUsed = 0;       // 0x7ba — deaths this round (Killed++); LMS gates respawns
 	                                // against the respawnnumber cvar; reset by InitHUD/RestartRound
 	float m_flRespawnHoldTime = 0;  // 0x7bc — the LMS re-entry HOLD deadline (min(roundLeft,10));
-	                                // PreThink expiry -> locked out (gate -1, award 1). V11: the
-	                                // countdown HUD message in PreThink's else-branch not yet transcribed
+	                                // PreThink expiry -> locked out (gate -1, award 1); while it runs
+	                                // PreThink paints its countdown line (@0x80fb3)
 	float m_flTeamKillTime = 0;     // 0x7c4 — 30 s after his last team kill (PlayerKilled @0x7ac7e)
 	char m_iTeamKills = 0;          // 0x7c8 — team kills 30 s or less apart; a third kicks or bans him.
 	                                // CTSGameRules::InitHUD clears both (@0x694f3)
@@ -593,8 +592,8 @@ public:
 	// scoreboard status rides the award byte. Fold-plan G6/G7/Y6.)
 	float m_flSpecMsgTime = 0;      // +0x754 — the 1 Hz spectate HUD-line throttle clock (countdown + wait line)
 	float m_flDeathCamTime = 0;     // +0x768 — the death-cam hold deadline (Killed: time+3.0; any button skips)
-	Vector m_vecDeathBodyAngles;    // the body yaw frozen at death (the original's body doesn't mouse-rotate
-	                                // during the death cam — VERIFY its mechanism, likely a dead gate in pm)
+	Vector m_vecDeathBodyAngles;    // the body's angles at death, held while the body lingers (not in the
+	                                // original; see PlayerDeathThink)
 	// Fields only TSInit touches (it zeroes them, @0x82c1a, @0x82e21, @0x82e66-0x82e7a, @0x82d65);
 	// nothing else in ts_i386.so reads or writes them, so their meaning is unknown. Kept last so no
 	// other member moves.

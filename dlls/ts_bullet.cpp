@@ -14,18 +14,16 @@
 *  GetBulletVelocityMult(slow, pauseFlag) * speed * that interval, trace, damage on hit (same pierce model),
 *  else fly on. GetBulletVelocityMult (@0x89160, below) is the speed fraction.
 *
-*  SLICEs (first pass): (1) the visible bullet is the engine TE_TRACER streak drawn each step (no custom
-*  client bullet-renderer / model); (3) the full bullet speed is approximated (the original's per-ammo
-*  40*ammo_info[+0x24] base isn't pinned) — TUNE; (4) range-falloff damage uses the raw pellet damage.
-*  On a hit the bullet pierces on as ShootBulletsPlayer's shots do (UpdateBullet @0x5f384); the server
-*  plays no ricochet and lays no decal, and a bullet that hits nothing never ends for range.
+*  The server draws nothing for a flying bullet (no beam, sprite or temporary entity: FireBullet and
+*  UpdateBullet send no message); the client draws it. On a hit the bullet pierces on as
+*  ShootBulletsPlayer's shots do (UpdateBullet @0x5f384); the server plays no ricochet and lays no
+*  decal, and a bullet that hits nothing never ends for range.
 ***/
 #include "extdll.h"
 #include "util.h"
 #include "cbase.h"
 #include "player.h"
 #include "weapons.h"
-#include "effects.h" // CBeam — the extending bullet-trail
 #include "ts_player.h"
 #include "ts_weapons.h"
 #include "ts_weapon_info.h" // get_ammo_info (the caliber speed unit) // TSSlowPitch (slow-world sound pitch)
@@ -44,30 +42,19 @@ int glast_weaponid = -1; // @0x10100c (this TU, static-init -1 — V21 resolved 
 
 // TSSlowBullet + CBulletManager are declared in ts_bullet.h; the 256-slot ring is m_bullets.
 
-// Per-caliber bullet flight speed unit, RE'd from compile_ammo_info (ammo_info[+0x24]). Full speed is
-// the literal original 40 * this (≈13k–40k u/s) — the muzzle→bullet growing trail keeps the path
-// visible even at these speeds. Index = caliber (1..13; 0/14/15 = none). Calibers: 1 9x19, 2 .45,
-// 3 SHELLS, 4 5.56, 5 .50AE, 6 7.62, 7 5.7, 8 50BMG, 9 10mm, 10 .22, 11 .454, 12 .32, 13 .45LC.
+// Per-caliber bullet flight speed unit, compile_ammo_info's ammo_info[+0x24]. Full speed is 40 x this
+// (UpdateBullet @0x5f016; about 13k to 40k u/s). Index = caliber (1..13; 0/14/15 have none, so 0
+// speed, and no weapon that fires bullets uses them). Calibers: 1 9x19, 2 .45, 3 SHELLS, 4 5.56,
+// 5 .50AE, 6 7.62, 7 5.7, 8 50BMG, 9 10mm, 10 .22, 11 .454, 12 .32, 13 .45LC.
 static float BulletFullSpeed(int caliber)
 {
-	int unit = get_ammo_info(caliber)->iSpeedUnit; // +0x24, caliber-ordered (the old local table was in compile-WRITE order)
-	if (unit == 0)
-		unit = 350; // fallback (~10mm) for melee/grenade/unknown
-	return 40.0f * (float)unit; // RE-faithful 40 * ammo_info[+0x24]
+	return 40.0f * (float)get_ammo_info(caliber)->iSpeedUnit;
 }
 
-// @ DestroyBullet — free one slot's trail/head sprites (called when a bullet ends).
+// @0x5ef40 DestroyBullet — the slot goes back to empty (all sixteen words zeroed).
 void CBulletManager::DestroyBullet(int slot)
 {
-	TSSlowBullet &b = m_bullets[slot];
-	CBaseEntity *e = b.beam;
-	if (e)
-		UTIL_Remove(e);
-	b.beam = NULL;
-	CBaseEntity *f = b.flash;
-	if (f)
-		UTIL_Remove(f);
-	b.flash = NULL;
+	m_bullets[slot] = TSSlowBullet();
 }
 
 // @0x5f4f4 UTIL_TraceLine_Expanded — inflate every live player's absbox by +/-32u so the
@@ -100,8 +87,8 @@ void UTIL_TraceLine_Expanded(const Vector &vecStart, const Vector &vecEnd,
 	}
 }
 
-// @ FireBullet__14CBulletManager — register a shot as a flying bullet (called from the fire path when
-// the shooter is slowed). Spawns the trail beam anchored at the muzzle; UpdateBullet extends its end.
+// @0x5eda4 FireBullet — register a shot as a flying bullet in the first free slot (called from
+// ShootBulletsPlayer when the shooter is slowed or realbullet is on).
 void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage, int caliber, int mode)
 {
 	for (int i = 0; i < 256; i++)
@@ -113,7 +100,7 @@ void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vec
 			b.owner = owner;
 			b.pos = src;
 			b.start = src;
-			b.dir = dir.Normalize();
+			b.dir = dir;
 			// rec+0x34 (@0x5eec2): the shooter's slow factor; rec+0x38: no step taken yet
 			b.slow = owner->m_flSlowMotionRamp != 0.0f ? owner->m_flSlowMotionRamp : owner->GiveSlowMul();
 			b.nextUpdate = 0.0f;
@@ -125,32 +112,6 @@ void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vec
 				CTSGun *pGun = GetPlayerTSGun(owner);
 				b.weaponId = pGun ? pGun->m_weaponType : -1; // rec+0x30 — captured at fire time
 			}
-
-			// The visible flying bullet, RE-matched to the client renderer (FUN_10035010): a SHORT
-			// trail dash (bullet_trail.spr, ~5..25u, speed-scaled) that RIDES the bullet head — NOT a
-			// long muzzle→current beam (which reads as a static line). UpdateBullet drags both ends each
-			// frame so the dash flies with the bullet.
-			// RE bullet visual (client FUN_10035010): a short bullet_trail.spr dash + a shotgun_pellets.spr
-			// head sprite, both at NATIVE color (the warm amber comes from the sprite textures themselves —
-			// render white + additive so they look like the original, not a tint).
-			CBeam *beam = CBeam::BeamCreate("sprites/bullet_trail.spr", 10);
-			if (beam)
-			{
-				beam->PointsInit(src, src);
-				beam->SetColor(255, 255, 255); // native sprite color (warm amber tracer)
-				beam->SetBrightness(255);
-				beam->SetNoise(0);
-				b.beam = beam;
-			}
-			// The bullet head: shotgun_pellets.spr (what the original client draws at the round's position).
-			CSprite *flash = CSprite::SpriteCreate("sprites/shotgun_pellets.spr", src, 0);
-			if (flash)
-			{
-				flash->SetTransparency(kRenderGlow, 255, 255, 255, 255, kRenderFxNoDissipation); // native, full bright
-				flash->SetScale(0.25f);
-				UTIL_SetOrigin(flash->pev, src);
-				b.flash = flash;
-			}
 			m_iActive++; // @0x5ef32
 			return;
 		}
@@ -160,10 +121,8 @@ void CBulletManager::FireBullet(CBasePlayer *owner, const Vector &src, const Vec
 }
 
 // @ Reset__14CBulletManager (@0x5ec50) — clear every slot. The original zeroes the whole ring and
-// the two words after it (+0x4000, the active count m_iActive; +0x4004, which reTS does not keep) and
-// frees nothing; CTSGameRules::Init calls it as
-// each map starts (@0x67e83). By then the old map's trail and head sprites are gone with their
-// edicts, and their handles could name the new map's entities, so they must not be removed here.
+// the two words after it (+0x4000, the active count m_iActive; +0x4004, which reTS does not keep);
+// CTSGameRules::Init calls it as each map starts (@0x67e83).
 void CBulletManager::Reset()
 {
 	for (int i = 0; i < 256; i++)
@@ -178,6 +137,7 @@ void CBulletManager::Reset()
 void CBulletManager::Think()
 {
 	CTSGameRules *rules = TSGameRules;
+	TraceResult tr;
 	m_iActive = 0; // @0x5ec96: recounted here, each active bullet whether or not it moves this frame
 	for (int i = 0; i < 256; i++)
 	{
@@ -189,37 +149,28 @@ void CBulletManager::Think()
 			b.nextUpdate = gpGlobals->time;
 			if (rules && (unsigned int)rules->m_iSrvRealBullet < 2)
 				b.nextUpdate += 0.1f / (float)(rules->m_iSrvRealBullet + 1);
-			UpdateBullet(i);
+			UpdateBullet(i, &tr);
 		}
 		m_iActive++; // @0x5ed0c
 	}
 }
 
-// @ UpdateBullet__14CBulletManager (@0x5ef5c) — validate one bullet's owner, then advance it one
-// time slice. The original never drops a bullet for its shooter's slow state: a slowed shooter's
-// bullets fly on after his slow-motion ends, and realbullet's bullets (shooter not slowed) fly at
-// GetBulletVelocityMult's full speed until they hit.
-void CBulletManager::UpdateBullet(int slot)
+// @ UpdateBullet__14CBulletManager (@0x5ef5c) — advance one bullet one time slice: trace, damage on
+// a hit, then it pierces on or ends. The original never drops a bullet for its shooter's slow state:
+// a slowed shooter's bullets fly on after his slow-motion ends, and realbullet's bullets (shooter not
+// slowed) fly at GetBulletVelocityMult's full speed until they hit.
+void CBulletManager::UpdateBullet(int slot, TraceResult *ptr)
 {
 	TSSlowBullet &b = m_bullets[slot];
 	if (!b.active)
 		return;
 	CBasePlayer *owner = (CBasePlayer *)(CBaseEntity *)b.owner;
+	// Kept: a shooter who left drops his bullets. The original keeps the raw pointer and steps on.
 	if (!owner || !owner->IsPlayer())
 	{
 		DestroyBullet(slot);
-		b.active = 0;
 		return;
 	}
-	UpdateBulletTimeSlice(slot);
-}
-
-// @ UpdateBulletTimeSlice — fly one bullet across this frame's slice: trace, draw the trail, and
-// damage on hit (SLICE: a single step per frame; no pierce re-seed).
-void CBulletManager::UpdateBulletTimeSlice(int slot)
-{
-	TSSlowBullet &b = m_bullets[slot];
-	CBasePlayer *owner = (CBasePlayer *)(CBaseEntity *)b.owner;
 	// @0x5ef9b: the shooter's slow factor now — m_flSlowMotionRamp (+0x180) when set, else his
 	// GiveSlowMul (vtable 0x10) — and the slow-pause byte (+0x175) choose the speed fraction.
 	b.slow = owner->m_flSlowMotionRamp != 0.0f ? owner->m_flSlowMotionRamp : owner->GiveSlowMul();
@@ -232,29 +183,19 @@ void CBulletManager::UpdateBulletTimeSlice(int slot)
 	float speed = b.fullSpeed * velMult;
 	Vector newpos = b.pos + b.dir * (speed * dt);
 
-	TraceResult tr;
+	TraceResult &tr = *ptr;
 	// the TS bullet trace: player absboxes inflated so a fast bullet can't thread a hull
 	// (glass still hit — the plain 4-arg trace never ignores glass).
 	UTIL_TraceLine_Expanded(b.pos, newpos, dont_ignore_monsters, owner->edict(), &tr);
 
 	if (tr.flFraction >= 1.0f)
 	{
-		b.pos = newpos; // flew on — drag the trail end + head sprite to the new position.
-		CBaseEntity *beam = b.beam;
-		if (beam)
-			((CBeam *)beam)->SetEndPos(b.pos);
-		CBaseEntity *flash = b.flash;
-		if (flash)
-			UTIL_SetOrigin(flash->pev, b.pos);
+		b.pos = newpos;
 		return; // @0x5f4b4: a bullet that hits nothing flies on, however far it has gone
 	}
 
-	// Hit something — extend the trail to the impact and apply the pellet's damage; then it
-	// pierces on, or stops.
+	// Hit something — apply the pellet's damage; then it pierces on, or stops.
 	b.pos = tr.vecEndPos;
-	CBaseEntity *beam = b.beam;
-	if (beam)
-		((CBeam *)beam)->SetEndPos(b.pos);
 
 	CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
 	bool pierced = false;
@@ -317,8 +258,10 @@ void CBulletManager::UpdateBulletTimeSlice(int slot)
 	// The server plays no ricochet and lays no decal for a bullet (the client does both from the
 	// shot's event); a bullet that does not pierce ends here.
 	if (!pierced)
-	{
 		DestroyBullet(slot);
-		b.active = 0;
-	}
+}
+
+// @0x5f4f0 UpdateBulletTimeSlice — a lone ret in the original; nothing calls it.
+void CBulletManager::UpdateBulletTimeSlice(float flTime, CBasePlayer *pPlayer)
+{
 }

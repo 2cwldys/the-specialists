@@ -46,7 +46,8 @@ struct TSItem
 	int  pumpToggle = 0;
 	// item+0x30 — the recorded OWNER (an EHANDLE): CBasePlayer::PickUpWeapon writes the picker
 	// into it (and into the akimbo pair's slot) ONLY on the bRecordOwner path — the BUY path
-	// (@0x846ca is the sole true caller). Consumer VERIFY (likely the sell-zone's yours-check).
+	// (@0x846ca is the sole true caller). PlayerKilled reads it: a kill with the victim's own
+	// bought weapon (@0x79716).
 	EHANDLE hOwner;
 };
 
@@ -183,7 +184,7 @@ public:
 	int m_kickCombo = 0;        // kung-fu KICK combo counter (this+0xa00 in the .so): 3 kicks → spin finisher, reset on finisher/dive
 	int m_lastMeleeAnim = 0;    // last kung-fu attack id (this+0xa04): drives the no-repeat anim cycling per move
 	float m_lastCCTime = 0.0f;  // last close-combat attack time (combo only continues if rapid/held)
-	float m_flGrenadeCook = 0;  // gun+0xa0c — set to time+5 at pin-pull (consumer VERIFY: reads @0xbfe54/0xcb09d)
+	float m_flGrenadeCook = 0;  // gun+0xa0c — set to time+5 at pin-pull, read nowhere (the other +0xa0c reads are a player's)
 	unsigned short m_usFire = 0; // events/fire.sc handle (predicted fire: sound/flash/anim)
 	unsigned short m_usDraw = 0; // events/draw.sc handle (deploy: seed the client param cache)
 	unsigned short m_usMelee = 0; // events/knife.sc handle (gun+0x972): every knife slash, iparam1=weaponType, iparam2=bloody

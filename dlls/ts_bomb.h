@@ -28,8 +28,8 @@ public:
 
 	// m_bActive (armed/ticking, +0x64) + attacker_team (+0x68) are inherited from CTSObjective.
 	float  m_flTimer = 0;          // +0x6c — countdown remaining (seconds)
-	int    defusesec = 10;    // +0x80 — keyvalue "defusetime": USE-hold seconds to defuse
-	int    cancutwire = 1;        // keyvalue "cutwires": wire-cut defuse enabled
+	int    defusesec = 0;     // +0x80 — keyvalue "defusetime": USE-hold seconds to defuse
+	int    cancutwire = 0;        // +0x84 keyvalue "cutwires": wire-cut defuse enabled
 
 	int    m_wires[3] = {};        // +0x7c..0x7e
 	bool   m_bFast = false;        // +0x7f — boobytrap sped the countdown up

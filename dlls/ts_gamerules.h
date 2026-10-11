@@ -73,14 +73,14 @@ public:
 	int m_bWeaponParamsCustom = 0;   // 0x5884 — set once a customweapons file loads; InitHUD gates on it
 	float m_flHealthAbsorb = 0.1f;   // 0x5888 — the customweapons health_absorb value (Init: 0.1; nothing reads it)
 
-	// --- Team subsystem (cont.35) ---
-	// (IsTeamMode/IsTeamplay DELETED — R1 item-9: invented; the original's team gate is the global
-	// `g_teamplay != 0` at each site; the team-play virtual is stock CHalfLifeTeamplay::IsTeamplay.)
+	// --- Team subsystem ---
+	// The original's team gate is the global `g_teamplay != 0` at each site; the team-play virtual is
+	// stock CHalfLifeTeamplay::IsTeamplay.
 	// GetGameDescription is NOT overridden here — the original defines it on CHalfLifeMultiplay
 	// (theOne->LMS->DM, no teamplay branch); CTSGameRules inherits it.
 
 	// Team roster (the original's 4-slot name table). InitTeams seeds defaults; SetTeamList
-	// tokenizes the ";"-list directly into the slots (RecountTeams was invented — R1 item-9).
+	// tokenizes the ";"-list directly into the slots.
 	void  InitTeams();
 	int   GetTeamIndex(const char *pTeamName);              // @0x685xx non-virtual (original has it)
 	// Thin slot accessor (name by index, "" if out of range). The original has no
@@ -124,7 +124,7 @@ public:
 
 	// @ TeamWin — declare `team` the round winner: bump its score, announce, and schedule a
 	// round restart (respawn everyone + re-arm objectives). Called by CTSWinGiver.
-	void TeamWin(int team);
+	void TeamWin(int team, int cash, bool bRestart, bool bScore); // @0x68a08
 
 	int   m_teamScore[4] = {};    // per-team round wins
 	float m_flRoundRestart = 0;   // >0 = a restart is pending at this time (the .so's +0xc)

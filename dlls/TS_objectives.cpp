@@ -1,17 +1,16 @@
 /***
-*  ts_objectives.cpp — RECONSTRUCTED TS objective subsystem (team-mode maps).
-*  Functional/source-faithful (see CLAUDE.md). Recovered from ts_i386.so:
-*  CTSObjective (base @0x8c2b0), CTSObjectiveManager (@0x8b7bc), CTSObjectivePointer
-*  (@0x8bb44), CTSHack (@0x8cccc), CTSWinGiver (@0x8bf10).
+*  ts_objectives.cpp — RECONSTRUCTED TS objective subsystem (team-mode maps) from ts_i386.so:
+*  CTSObjective (base @0x7c2b0), CTSObjectiveManager (@0x7b7bc), CTSObjectivePointer (@0x7bb44),
+*  CTSHack (@0x7cccc), CTSWinGiver/CTSScoreGiver (@0x7bf10/0x7c0b8), CTSBomb (@0x7c470),
+*  CTSTeamEscape (@0x7d390), CVipEscape, CTSBriefcase.
 *
 *  These are the entities the `tm_` (team-mode) maps place (tm_avana: ts_hack,
-*  ts_objective_manager, ts_objective_ptr, ts_wingiver). The FAITHFUL engine drives
-*  objective interaction + scoring through CTSGameRules (TeamWin / ShowObjectiveOnHud /
-*  AddObjectiveInList — the team round/score system, not yet built). This is a
-*  FUNCTIONAL reconstruction: each entity spawns, parses its keyvalues, and runs its own
-*  standalone behaviour (hack countdown, win trigger, target firing, HUD). // SLICE: the
-*  CTSGameRules team-win scoring + the gamerules-driven "who is interacting" loop + the
-*  client objective HUD pointer are deferred to the team subsystem / cl_dll.
+*  ts_objective_manager, ts_objective_ptr, ts_wingiver). CTSGameRules drives them: SetObjective
+*  picks a manager whose Reset fires its pointers, each pointer enables its objectives and lists
+*  them on the HUD (AddObjectiveInList, ShowObjectiveOnHud), and the givers call TeamWin. The hack,
+*  bomb and escape spawn inactive and nothing but a pointer enables them, which happens only in
+*  the objective modes (2/3) that the shipped game never reaches; the givers and the briefcase work
+*  in any mode.
 ***/
 #include "extdll.h"
 #include "util.h"
@@ -30,14 +29,12 @@
 #include "ts_briefcase.h"
 #include "UserMessages.h"  // gmsgScoreInfo, gmsgTeamScore (CTSBriefcase/CTSDMHill scoring)
 
-#define SF_TS_REMOVE_ON_FIRE 1
-
 TYPEDESCRIPTION CTSObjective::m_SaveData[] = {
 	DEFINE_FIELD(CTSObjective, attacker_team, FIELD_INTEGER),
 };
 IMPLEMENT_SAVERESTORE(CTSObjective, CBaseEntity);
 
-// @KeyValue__12CTSObjective — "attackerteam".
+// @0x7c2b0 KeyValue — "attackerteam" only; it does not chain to CBaseEntity::KeyValue.
 bool CTSObjective::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "attackerteam"))
@@ -45,10 +42,10 @@ bool CTSObjective::KeyValue(KeyValueData *pkvd)
 		attacker_team = atoi(pkvd->szValue);
 		return true;
 	}
-	return CBaseEntity::KeyValue(pkvd);
+	return false;
 }
 
-// @0x8c38c CanInteract — only the attacker team (or anyone if -1) may act on this objective.
+// @0x7c38c CanInteract — only the attacker team (or anyone if -1) may act on this objective.
 bool CTSObjective::CanInteract(int team)
 {
 	if (attacker_team == TS_TEAM_ANY)
@@ -56,23 +53,22 @@ bool CTSObjective::CanInteract(int team)
 	return attacker_team == team;
 }
 
-// @0x8c344 CanInteract — resolve a player's team index, then gate.
+// @0x7c344 CanInteract — resolve a player's team index, then gate.
 bool CTSObjective::CanInteract(CBasePlayer *pPlayer)
 {
 	return CanInteract(TSGameRules->GetTeamIndex(pPlayer->TeamID()));
 }
 
-// @0x8c310 Freeze — enable/disable the objective + re-render it on the HUD.
+// @0x7c310 Freeze — enable/disable the objective + re-render it on the HUD.
 void CTSObjective::Freeze(bool bFreeze)
 {
 	m_bActive = !bFreeze;
-	if (TSGameRules)
-		TSGameRules->ShowObjectiveOnHud(this, !bFreeze);
+	TSGameRules->ShowObjectiveOnHud(this, !bFreeze);
 }
 
 //============================================================================
 // CTSObjectiveManager — point entity that holds the map's objective-pointer targets +
-// the per-slot objective messages; fires them on Reset(). @0x8b7bc.
+// the per-slot objective messages; fires them on Reset(). @0x7b7bc.
 //============================================================================
 
 // CTSObjectiveManager is declared in ts_objectives.h (shared with ts_gamerules.cpp's SetObjective).
@@ -86,27 +82,31 @@ TYPEDESCRIPTION CTSObjectiveManager::m_SaveData[] = {
 };
 IMPLEMENT_SAVERESTORE(CTSObjectiveManager, CBaseEntity);
 
+// @0x7b7bc Spawn: a hidden point entity, nextthink 10 s out with no think set.
 void CTSObjectiveManager::Spawn()
 {
-	pev->movetype = MOVETYPE_NONE;
+	pev->classname = MAKE_STRING("ts_objective_manager");
+	pev->effects = EF_NODRAW;
 	pev->solid = SOLID_NOT;
-	pev->effects |= EF_NODRAW;
+	pev->flags = 0;
+	pev->movetype = MOVETYPE_NONE;
+	SetTouch(NULL);
+	SetThink(NULL);
+	pev->nextthink = gpGlobals->time + 10.0f;
 }
 
+// @0x7b46c KeyValue — the eight objptarget<a..h>, the four message<a..d>, targetontimeleft,
+// targetonspecdead and targetonmercdead; nothing else, and no chain to CBaseEntity::KeyValue.
 bool CTSObjectiveManager::KeyValue(KeyValueData *pkvd)
 {
 	// objptargeta..h -> targets[0..7]
-	if (!strncmp(pkvd->szKeyName, "objptarget", 10))
+	if (!strncmp(pkvd->szKeyName, "objptarget", 10) && pkvd->szKeyName[10] >= 'a' && pkvd->szKeyName[10] <= 'h' && !pkvd->szKeyName[11])
 	{
-		int idx = pkvd->szKeyName[10] - 'a';
-		if (idx >= 0 && idx < TS_OBJ_TARGETS)
-		{
-			targets[idx] = ALLOC_STRING(pkvd->szValue);
-			return true;
-		}
+		targets[pkvd->szKeyName[10] - 'a'] = ALLOC_STRING(pkvd->szValue);
+		return true;
 	}
 	// messagea..d -> messages[0..3]
-	if (!strncmp(pkvd->szKeyName, "message", 7) && pkvd->szKeyName[7] >= 'a' && pkvd->szKeyName[7] <= 'd')
+	if (!strncmp(pkvd->szKeyName, "message", 7) && pkvd->szKeyName[7] >= 'a' && pkvd->szKeyName[7] <= 'd' && !pkvd->szKeyName[8])
 	{
 		messages[pkvd->szKeyName[7] - 'a'] = ALLOC_STRING(pkvd->szValue);
 		return true;
@@ -114,10 +114,10 @@ bool CTSObjectiveManager::KeyValue(KeyValueData *pkvd)
 	if (FStrEq(pkvd->szKeyName, "targetontimeleft")) { end_round_target = ALLOC_STRING(pkvd->szValue); return true; }
 	if (FStrEq(pkvd->szKeyName, "targetonspecdead")) { m_targetSpecDead = ALLOC_STRING(pkvd->szValue); return true; }
 	if (FStrEq(pkvd->szKeyName, "targetonmercdead")) { m_targetMercDead = ALLOC_STRING(pkvd->szValue); return true; }
-	return CBaseEntity::KeyValue(pkvd);
+	return false;
 }
 
-// @Reset — announce each non-empty message + fire each objective-pointer target.
+// @0x7b850 Reset — announce each non-empty message + fire each objective-pointer target.
 void CTSObjectiveManager::Reset()
 {
 	for (int i = 0; i < TS_OBJ_MESSAGES; i++)
@@ -129,57 +129,50 @@ void CTSObjectiveManager::Reset()
 			FireTargets(STRING(targets[i]), this, this, USE_TOGGLE, 0);
 }
 
-// Fire the objective manager's `targetontimeleft` when the round timer expires (called from
-// CTSGameRules::RoundTimeLeft). No-op if there's no manager / target.
-void TSFireTimeLeftTarget()
-{
-	CBaseEntity *pEnt = UTIL_FindEntityByClassname(nullptr, "ts_objective_manager");
-	if (!pEnt)
-		return;
-	CTSObjectiveManager *mgr = (CTSObjectiveManager *)pEnt;
-	if (!FStringNull(mgr->end_round_target))
-		FireTargets(STRING(mgr->end_round_target), mgr, mgr, USE_TOGGLE, 0);
-}
-
 //============================================================================
 // CTSObjectivePointer — a per-team HUD pointer to an objective. The visible arrow is
-// client-side; server-side this just spawns + stores the per-team messages. @0x8bb44.
+// client-side; server-side this just spawns + stores the per-team messages. @0x7bb44.
 //============================================================================
 class CTSObjectivePointer : public CBaseEntity
 {
 public:
 	void Spawn() override;
 	bool KeyValue(KeyValueData *pkvd) override;
-	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override; // @0x8bbd8
+	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override; // @0x7bbd8
 
 	string_t m_objMsg[5] = {}; // objmsgspec/merc/team3/team4/all (per-team pointer label)
 };
 
 LINK_ENTITY_TO_CLASS(ts_objective_ptr, CTSObjectivePointer);
 
+// @0x7bb44 Spawn: a hidden point entity, nextthink 10 s out with no think set.
 void CTSObjectivePointer::Spawn()
 {
-	pev->movetype = MOVETYPE_NONE;
+	pev->classname = MAKE_STRING("ts_objective_ptr");
+	pev->effects = EF_NODRAW;
 	pev->solid = SOLID_NOT;
-	pev->effects |= EF_NODRAW;
+	pev->flags = 0;
+	pev->movetype = MOVETYPE_NONE;
+	SetTouch(NULL);
+	SetThink(NULL);
+	pev->nextthink = gpGlobals->time + 10.0f;
 }
 
-// @Use__19CTSObjectivePointer — activate the objective(s) this pointer targets: enable each, add it
+// @0x7bbd8 Use — activate the objective(s) this pointer targets: enable each, add it
 // to the HUD objective list carrying this pointer's per-team labels, and send it to every client.
 void CTSObjectivePointer::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
 {
-	if (FStringNull(pev->target) || !TSGameRules)
+	if (FStringNull(pev->target))
 		return;
 	CBaseEntity *pEnt = nullptr;
 	while ((pEnt = UTIL_FindEntityByTargetname(pEnt, STRING(pev->target))) != nullptr)
 	{
 		if (!pEnt->IsObjective())
 			continue;
-		CTSObjective *pObj = (CTSObjective *)pEnt;
-		pObj->EnableObjective(true);
+		pEnt->EnableObjective(true);
 		// the 4 per-team labels (spec/merc/team3/team4) — the 5th (objmsgall) isn't part of the list entry.
 		int labels[4] = { (int)m_objMsg[0], (int)m_objMsg[1], (int)m_objMsg[2], (int)m_objMsg[3] };
-		int idx = TSGameRules->AddObjectiveInList(pObj, labels);
+		int idx = TSGameRules->AddObjectiveInList((CTSObjective *)pEnt, labels);
 		if (idx == -1)
 			continue;
 		for (int i = 1; i <= gpGlobals->maxClients; i++)
@@ -191,19 +184,19 @@ void CTSObjectivePointer::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE
 	}
 }
 
+// @0x7ba1c KeyValue — the five objmsg* keys; nothing else, and no chain to CBaseEntity::KeyValue.
 bool CTSObjectivePointer::KeyValue(KeyValueData *pkvd)
 {
 	static const char *const keys[5] = { "objmsgspec", "objmsgmerc", "objmsgteam3", "objmsgteam4", "objmsgall" };
 	for (int i = 0; i < 5; i++)
 		if (FStrEq(pkvd->szKeyName, keys[i])) { m_objMsg[i] = ALLOC_STRING(pkvd->szValue); return true; }
-	return CBaseEntity::KeyValue(pkvd);
+	return false;
 }
 
 //============================================================================
-// CTSHack — a hackable brush objective: a player of the attacker team standing in it
-// counts down `hackingtime`; on completion it fires its target + announces. @0x8cccc.
-// SLICE: the faithful "is a player hacking" decision is gamerules-driven; here a touch
-// from a valid player drives the countdown.
+// CTSHack — a hackable brush objective: an attacker-team player holding USE on it counts
+// `hackingtime` down; on completion it fires its target + announces. @0x7cccc. It spawns inactive;
+// an objective pointer enables it (EnableObjective), which only happens in the objective modes.
 //============================================================================
 // CTSHack is declared in ts_hack.h (extracted so the audit sees its FGD member `hacksec`).
 
@@ -214,29 +207,31 @@ TYPEDESCRIPTION CTSHack::m_SaveData[] = {
 };
 IMPLEMENT_SAVERESTORE(CTSHack, CTSObjective);
 
-// The original Precache is empty (the hack sounds are precached globally); we precache them here for
-// runtime safety (the model is precached by SET_MODEL).
+// @0x7cdb4: empty (the hack sounds are in TSPrecache's list)
 void CTSHack::Precache()
 {
-	PRECACHE_SOUND("misc/hacking.wav");
-	PRECACHE_SOUND("misc/hacked.wav");
 }
 
-// @Spawn__7CTSHack — the original spawns it INACTIVE (NODRAW, non-solid) + just thinks; the gamerules
-// InitObjectives arms it via EnableObjective. That isn't built, so we arm it here (SLICE) to keep the
-// hack functional.
+// @0x7cccc Spawn — hidden, not solid, inactive, thinking every second.
 void CTSHack::Spawn()
 {
-	Precache();
 	pev->classname = MAKE_STRING("ts_hack");
-	if (!FStringNull(pev->model))
-		SET_MODEL(ENT(pev), STRING(pev->model));
+	SET_MODEL(ENT(pev), STRING(pev->model));
 	UTIL_SetOrigin(pev, pev->origin);
+	pev->effects = EF_NODRAW;
+	pev->solid = SOLID_NOT;
+	pev->flags = 0;
+	pev->movetype = MOVETYPE_NONE;
+	m_bActive = false;
+	SetTouch(NULL);
 	SetThink(&CTSHack::WaitThink);
 	pev->nextthink = pev->ltime + 1.0f;
-	EnableObjective(true); // SLICE: the original defers arming to CTSGameRules::InitObjectives
+	m_flObjTimer = 0;
+	m_flLastUse = 0;
+	m_flHackProgress = 0;
 }
 
+// @0x7d1c8 KeyValue — "hackingtime", else the objective's.
 bool CTSHack::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "hackingtime"))
@@ -247,24 +242,20 @@ bool CTSHack::KeyValue(KeyValueData *pkvd)
 	return CTSObjective::KeyValue(pkvd);
 }
 
-// @EnableObjective — arm/disarm. Arming makes it a USE-able brush + seeds the objective deadline from
-// the round timer; the hack progress (m_flHackProgress) only starts on the first USE.
+// @0x7cdb8 EnableObjective — arm/disarm. Arming shows it as a USE-able brush and seeds the objective
+// deadline with the round's time left (negative if no round runs); the hack progress only starts on
+// the first USE.
 void CTSHack::EnableObjective(bool enable)
 {
 	m_bActive = enable;
 	if (enable)
 	{
 		pev->effects &= ~EF_NODRAW;
-		pev->solid = SOLID_BBOX;       // RE solid=4; a USE-able solid
-		pev->movetype = MOVETYPE_PUSH; // RE movetype=7
-		pev->flags |= FL_WORLDBRUSH;   // RE flags |= 0x2000000
-		if (!FStringNull(pev->model))
-			SET_MODEL(ENT(pev), STRING(pev->model));
-		CTSGameRules *gr = TSGameRules;
-		m_flObjTimer = (gr && gr->m_flRoundEnd > 0) ? (gr->m_flRoundEnd - gpGlobals->time) : 0; // round seconds left
-		m_flHackProgress = 0;
-		m_flLastUse = 0;
-		m_flNextSound = 0;
+		pev->solid = SOLID_BSP;
+		pev->movetype = MOVETYPE_PUSH;
+		pev->flags |= FL_WORLDBRUSH;
+		SET_MODEL(ENT(pev), STRING(pev->model));
+		m_flObjTimer = TSGameRules->m_flRoundEnd - gpGlobals->time;
 	}
 	else
 	{
@@ -273,13 +264,14 @@ void CTSHack::EnableObjective(bool enable)
 		pev->flags = 0;
 		pev->movetype = MOVETYPE_NONE;
 		m_flObjTimer = 0;
-		m_flHackProgress = 0;
-		m_flLastUse = 0;
 	}
+	m_flLastUse = 0;
+	m_flHackProgress = 0;
+	m_flNextSound = 0;
 }
 
-// @WaitThink__7CTSHack — the OBJECTIVE deadline: while armed, count the round-relative timer down and
-// freeze when it runs out (the attackers failed to finish the hack in time).
+// @0x7ceb0 WaitThink — the objective deadline: while armed, count it down a second at a time and
+// freeze the objective when it runs out.
 void CTSHack::WaitThink()
 {
 	pev->nextthink = pev->ltime + 1.0f;
@@ -291,13 +283,13 @@ void CTSHack::WaitThink()
 	}
 }
 
-// @Use__7CTSHack — a player HOLDS USE on the panel: progress the hack (from `hacksec`), beeping each
+// @0x7cf14 Use — a player HOLDS USE on the panel: progress the hack (from `hacksec`), beeping each
 // second; when the progress runs out the objective completes (fire target + HUD + "hacked" sound + freeze).
 void CTSHack::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
 {
-	if (!m_bActive || !pCaller || !pCaller->IsPlayer())
+	if (!m_bActive || !pActivator || !pActivator->IsPlayer())
 		return;
-	CBasePlayer *pPlayer = (CBasePlayer *)pCaller;
+	CBasePlayer *pPlayer = (CBasePlayer *)pActivator;
 	if (!CanInteract(pPlayer))
 		return;
 
@@ -307,7 +299,7 @@ void CTSHack::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useTyp
 	// held continuously (gap < 0.5s)? progress the hack.
 	if (gpGlobals->time - m_flLastUse < 0.5f)
 	{
-		if (m_flHackProgress == 0.0f) // init the progress timer (RE: hacksec, capped 30, floored 1)
+		if (m_flHackProgress == 0.0f) // init the progress timer: hacksec, capped 30, floored 1
 			m_flHackProgress = (hacksec < 30) ? (float)(hacksec < 1 ? 1 : hacksec) : 30.0f;
 		else
 			m_flHackProgress -= (gpGlobals->time - m_flLastUse); // count down by the elapsed time
@@ -316,8 +308,9 @@ void CTSHack::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useTyp
 	if (m_flNextSound < gpGlobals->time) // the "hacking" sound, once a second
 	{
 		m_flNextSound = gpGlobals->time + 1.0f;
-		EMIT_SOUND_DYN(edict(), CHAN_BODY, "misc/hacking.wav", RANDOM_FLOAT(0.92f, 1.0f), ATTN_NORM, 0,
-			98 + RANDOM_LONG(0, 3)); // VERIFY exact channel/attn
+		// @0x7d052: static channel, attenuation 1.25; the pitch is drawn before the volume
+		const int pitch = 98 + RANDOM_LONG(0, 3);
+		EMIT_SOUND_DYN(edict(), CHAN_STATIC, "misc/hacking.wav", RANDOM_FLOAT(0.92f, 1.0f), 1.25f, 0, pitch);
 	}
 
 	ClientPrint(pPlayer->pev, HUD_PRINTCENTER, UTIL_VarArgs("%i seconds left", (int)m_flHackProgress));
@@ -331,15 +324,15 @@ void CTSHack::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useTyp
 			TSHudMessageAll(0, 0xff, 0, 8, 30, STRING(pev->message));
 		m_flObjTimer = 0;
 		Freeze(true);
-		EMIT_SOUND_DYN(edict(), CHAN_BODY, "misc/hacked.wav", RANDOM_FLOAT(0.92f, 1.0f), ATTN_NORM, 0,
-			98 + RANDOM_LONG(0, 3));
+		const int pitch = 98 + RANDOM_LONG(0, 3);
+		EMIT_SOUND_DYN(edict(), CHAN_STATIC, "misc/hacked.wav", RANDOM_FLOAT(0.92f, 1.0f), 1.25f, 0, pitch);
 	}
 }
 
 //============================================================================
-// CTSWinGiver — when Use'd `callsnumber` times, declares a team the winner. @0x8bf10.
-// FAITHFUL: Use -> the gamerules TeamWin (team, cash, …) + HUD. // SLICE (team subsystem
-// not built): announce the win + fire the message-as-target; no cash/round restart.
+// CTSWinGiver — when Use'd `callsnumber` times, declares a team the winner, once: TeamWin(team, the
+// use value as the winners' cash, restart the round) and the message. @0x7bf10. Its base is
+// CBaseEntity, not CTSObjective (the original's typeinfo).
 //============================================================================
 // CTSWinGiver is declared in ts_wingiver.h (extracted so the audit sees its FGD members
 // winnerteam/victorycash/defeatcash/callsnumber).
@@ -353,36 +346,42 @@ TYPEDESCRIPTION CTSWinGiver::m_SaveData[] = {
 	DEFINE_FIELD(CTSWinGiver, cash_for_loser, FIELD_INTEGER),
 	DEFINE_FIELD(CTSWinGiver, numberofcall, FIELD_INTEGER),
 };
-IMPLEMENT_SAVERESTORE(CTSWinGiver, CTSObjective);
+IMPLEMENT_SAVERESTORE(CTSWinGiver, CBaseEntity);
 
-// @EnableObjective — the original ignores the arg and just RESETs (clears the active flag + the call
-// state), regardless of enable. VERIFY: it zeroes field_0x64 (m_bActive) + a byte at field_0x68.
+// @0x7bf00 EnableObjective — whatever the argument: the call count (+0x64) and the done byte (+0x68)
+// go back to 0, so the giver can fire again.
 void CTSWinGiver::EnableObjective(bool enable)
 {
-	m_bActive = false;
 	m_calls = 0;
 	m_bDone = false;
 }
 
+// @0x7bf10: a hidden point entity, nextthink 10 s out with no think set, then Activate (CBaseEntity's).
 void CTSWinGiver::Spawn()
 {
-	pev->movetype = MOVETYPE_NONE;
+	pev->classname = MAKE_STRING("ts_wingiver");
+	pev->effects = EF_NODRAW;
 	pev->solid = SOLID_NOT;
-	pev->effects |= EF_NODRAW;
-	m_calls = 0;
-	m_bDone = false;
+	pev->flags = 0;
+	pev->movetype = MOVETYPE_NONE;
+	SetTouch(NULL);
+	SetThink(NULL);
+	pev->nextthink = gpGlobals->time + 10.0f;
+	Activate();
 }
 
 bool CTSWinGiver::KeyValue(KeyValueData *pkvd)
 {
-	if (FStrEq(pkvd->szKeyName, "winnerteam"))  { winnerteam = atoi(pkvd->szValue); return true; }
+	// @0x7bdfc: these four only; no chain to a base KeyValue.
+	// victorycash/defeatcash are kept and saved, and nothing reads them.
 	if (FStrEq(pkvd->szKeyName, "victorycash")) { cash_for_winner = atoi(pkvd->szValue); return true; }
 	if (FStrEq(pkvd->szKeyName, "defeatcash"))  { cash_for_loser = atoi(pkvd->szValue); return true; }
+	if (FStrEq(pkvd->szKeyName, "winnerteam"))  { winnerteam = atoi(pkvd->szValue); return true; }
 	if (FStrEq(pkvd->szKeyName, "callsnumber")) { numberofcall = atoi(pkvd->szValue); return true; }
-	return CTSObjective::KeyValue(pkvd);
+	return false;
 }
 
-// @Use__11CTSWinGiver — count the calls; on the last, declare the winner.
+// @0x7bfb0 Use — count the calls; on the last, declare the winner, then the message, once.
 void CTSWinGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
 {
 	if (m_bDone)
@@ -390,21 +389,17 @@ void CTSWinGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE us
 	if (++m_calls < numberofcall)
 		return;
 
-	m_bDone = true;
+	TSGameRules->TeamWin(winnerteam, (int)value, true, false);
 	if (!FStringNull(pev->message))
-		TSHudMessageAll(0, 0xff, 0, 8, 50, STRING(pev->message));
-
-	// Declare the win through the game rules: scores the team + announces + restarts the round.
-	if (TSGameRules)
-		TSGameRules->TeamWin(winnerteam);
-	// SLICE: faithful TeamWin also awards victory/defeat cash (cash_for_winner/cash_for_loser).
+		TSHudMessageAll(0, 0xff, 0, 8, 30, STRING(pev->message));
+	m_calls = 0;
+	m_bDone = true;
 }
 
 //============================================================================
 // CTSScoreGiver — like CTSWinGiver, but REPEATABLE: each time it's Use'd `callsnumber`
 // times it scores the team again (resets the call count instead of latching done). @Spawn
-// 0x8c0b8 / Use 0x8c158. A "Respawn Players" spawnflag respawns everyone on score (here that
-// is subsumed by TeamWin's round restart — SLICE).
+// 0x7c0b8 / Use 0x7c158. Its spawnflag 1 ("Respawn Players") makes the score restart the round.
 //============================================================================
 #define SF_SCOREGIVER_RESPAWN 1
 
@@ -422,52 +417,47 @@ bool CTSScoreGiver::KeyValue(KeyValueData *pkvd)
 void CTSScoreGiver::Spawn()
 {
 	pev->classname = MAKE_STRING("ts_scoregiver");
-	pev->effects |= EF_NODRAW;
+	pev->effects = EF_NODRAW;
 	pev->solid = SOLID_NOT;
+	pev->flags = 0;
 	pev->movetype = MOVETYPE_NONE;
+	SetTouch(NULL);
+	SetThink(NULL);
 	pev->nextthink = gpGlobals->time + 10.0f;
+	Activate();
 }
 
-// @Use__13CTSScoreGiver — count the calls; on the last, score the team and re-arm (repeatable).
+// @0x7c158 Use — count the calls; on the last, TeamWin as a score (the use value as the winners'
+// cash, a round restart only with spawnflag 1), the message, and count again.
 void CTSScoreGiver::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
 {
 	if (++m_calls < numberofcall)
 		return;
-	m_calls = 0; // repeatable (CTSWinGiver latches m_bDone; the score giver re-arms)
 
-	// Score the team directly (no round restart — a score giver gives points without ending the
-	// round, unlike the win giver's TeamWin). // SLICE: the .so routes through TeamWin with the
-	// team-subsystem cash; the "Respawn Players" spawnflag isn't applied.
-	CTSGameRules *gr = TSGameRules;
-	if (gr && winnerteam >= 0 && winnerteam < 4)
-		gr->m_teamScore[winnerteam]++;
+	TSGameRules->TeamWin(winnerteam, (int)value, (pev->spawnflags & SF_SCOREGIVER_RESPAWN) != 0, true);
 	if (!FStringNull(pev->message))
-		TSHudMessageAll(0, 0xff, 0, 8, 50, STRING(pev->message));
+		TSHudMessageAll(0, 0xff, 0, 8, 30, STRING(pev->message));
+	m_calls = 0;
 }
 
 //============================================================================
-// CVipEscape — the VIP safety zone (`func_vip_safetyzone`, brush). In the .so this is a passive
-// marker the (unbuilt) VIP-escort logic checks against; it has no touch/use of its own. @Spawn
-// 0x8d23c. Build it so a map placing it doesn't Can't-init. // SLICE: the VIP-escape win
-// detection (who is the VIP, did they reach the zone) lives in the team subsystem, not built.
+// CVipEscape — the VIP safety zone class (`func_vip_safetyzone`, brush): a passive marker with no
+// touch or use of its own. @Spawn 0x7d23c. Nothing in the original reads it.
 //============================================================================
 class CVipEscape : public CBaseEntity
 {
 public:
-	void Spawn() override;                          // @0x8d23c
-	void Precache() override;                       // @0x8d238 — empty
-	bool KeyValue(KeyValueData *pkvd) override;     // @0x8d22c — handles no keys
+	void Spawn() override;                          // @0x7d23c
+	void Precache() override;                       // @0x7d238 — empty
+	bool KeyValue(KeyValueData *pkvd) override;     // @0x7d22c — handles no keys
 };
 
-// NB: func_vip_safetyzone is NOT registered in the original — RE-confirmed CVipEscape has no
-// GetClassPtr / no LINK factory and is never constructed (dead-but-present class, leftover of an
-// unbuilt VIP feature; its Spawn sets classname="func_vip_safetyzone" but never runs). The real,
-// FGD-listed team-escape entity is ts_teamescape -> CTSTeamEscape (registered below). Registering
-// func_vip_safetyzone here was invented drift. Keep the class (matches the original's dead-code
-// retention) but do NOT LINK it as a spawnable entity.
+// func_vip_safetyzone is not registered in the original: CVipEscape has no GetClassPtr and no
+// LINK factory, so it is never constructed (its Spawn, which sets the classname, never runs). The
+// FGD's team-escape entity is ts_teamescape -> CTSTeamEscape. The class is kept, unlinked.
 // LINK_ENTITY_TO_CLASS(func_vip_safetyzone, CVipEscape);
 
-// @0x8d22c — CVipEscape ignores all keyvalues (the original just clears fHandled and returns;
+// @0x7d22c — CVipEscape ignores all keyvalues (the original just clears fHandled and returns;
 // it does NOT chain to CBaseEntity::KeyValue).
 bool CVipEscape::KeyValue(KeyValueData *pkvd)
 {
@@ -475,12 +465,12 @@ bool CVipEscape::KeyValue(KeyValueData *pkvd)
 	return false;
 }
 
-// @0x8d238 — empty.
+// @0x7d238 — empty.
 void CVipEscape::Precache()
 {
 }
 
-// @0x8d23c — passive non-solid brush marker (EF_NODRAW, SOLID_NOT, MOVETYPE_NONE).
+// @0x7d23c — passive non-solid brush marker (EF_NODRAW, SOLID_NOT, MOVETYPE_NONE).
 void CVipEscape::Spawn()
 {
 	pev->effects = EF_NODRAW;
@@ -494,8 +484,10 @@ void CVipEscape::Spawn()
 
 
 // ===================== CTSBomb (merged from ts_bomb.cpp) =====================
-#define BOMB_TEAM_ANY (-1)
-#define BOMB_COUNTDOWN 45.0f   // VERIFY: the .so reads a bomb-time global (DAT_001781a8)
+// A bomb objective: it spawns inactive and hidden; an objective pointer arms it (EnableObjective),
+// which only happens in the objective modes. Armed, it counts the round's time left down a second at
+// a time (a tenth after the booby-trap wire), beeping, and explodes at zero; holding USE for
+// `defusetime` or cutting the defuse wire defuses it.
 
 // wire states (the .so's +0x7c..0x7e): 1 defuse, 2 boobytrap, 3 neutral, 0 already cut
 enum tsbomb_wire_t { WIRE_CUT = 0, WIRE_DEFUSE = 1, WIRE_BOOBYTRAP = 2, WIRE_NEUTRAL = 3 };
@@ -508,32 +500,43 @@ TYPEDESCRIPTION CTSBomb::m_SaveData[] = {
 };
 IMPLEMENT_SAVERESTORE(CTSBomb, CTSObjective);
 
+// @0x7c570
 void CTSBomb::Precache()
 {
 	PRECACHE_SOUND("misc/beep2.wav");
 }
 
-// @ KeyValue — defusetime / cutwires (+ attackerteam from the CTSObjective base).
+// @0x7cb68 KeyValue — defusetime / cutwires, else the objective's (attackerteam).
 bool CTSBomb::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "defusetime")) { defusesec = atoi(pkvd->szValue); return true; }
 	if (FStrEq(pkvd->szKeyName, "cutwires"))   { cancutwire = atoi(pkvd->szValue); return true; }
-	return CTSObjective::KeyValue(pkvd); // handles "attackerteam"
+	return CTSObjective::KeyValue(pkvd);
 }
 
-// @ Spawn — set up the brush and arm the bomb. (Faithful enable is gamerules-driven; a
-// map-placed bomb arms itself here — SLICE.)
+// @0x7c470 Spawn — hidden, not solid, inactive, thinking every second; no wires yet.
 void CTSBomb::Spawn()
 {
-	// misc/beep2.wav is precached at map load (PrecacheAllTSWeapons) — the bomb can be armed at
-	// runtime (gamerules / synthetic), where a PRECACHE_SOUND would Host_Error.
-	if (!FStringNull(pev->model))
-		SET_MODEL(edict(), STRING(pev->model)); // brush model
+	pev->classname = MAKE_STRING("ts_bomb");
+	SET_MODEL(edict(), STRING(pev->model));
 	UTIL_SetOrigin(pev, pev->origin);
-	EnableObjective(true);
+	pev->effects = EF_NODRAW;
+	pev->solid = SOLID_NOT;
+	pev->flags = 0;
+	pev->movetype = MOVETYPE_NONE;
+	m_bActive = false;
+	SetTouch(NULL);
+	SetThink(&CTSBomb::WaitThink);
+	pev->nextthink = pev->ltime + 1.0f;
+	m_flTimer = 0;
+	m_flNextBeep = 0;
+	m_flLastUse = 0;
+	m_flUseProgress = 0;
+	m_wires[0] = m_wires[1] = m_wires[2] = WIRE_CUT;
+	m_bFast = false;
 }
 
-// @ SetRandomWires — 3 wires: one defuse (1), one boobytrap (2), the rest neutral (3).
+// @0x7c598 SetRandomWires — 3 wires: one defuse (1), one boobytrap (2), the rest neutral (3).
 void CTSBomb::SetRandomWires()
 {
 	m_wires[0] = m_wires[1] = m_wires[2] = WIRE_NEUTRAL;
@@ -544,85 +547,96 @@ void CTSBomb::SetRandomWires()
 	m_wires[trap] = WIRE_BOOBYTRAP;
 }
 
-// @ EnableObjective — arm (true) or safe (false) the bomb.
+// @0x7c608 EnableObjective — arm: shown as a USE-able brush, the countdown the round's time left
+// (negative if no round runs), new wires; disarm: hidden and stopped.
 void CTSBomb::EnableObjective(bool enable)
 {
 	m_bActive = enable;
 	m_bFast = false;
-
-	if (!enable)
+	if (enable)
 	{
-		pev->solid = SOLID_NOT;
-		m_flTimer = 0;
-		m_flUseProgress = 0;
+		pev->effects &= ~EF_NODRAW;
+		pev->solid = SOLID_BSP;
+		pev->movetype = MOVETYPE_PUSH;
+		pev->flags |= FL_WORLDBRUSH;
+		SET_MODEL(edict(), STRING(pev->model));
+		m_flTimer = TSGameRules->m_flRoundEnd - gpGlobals->time;
 		m_flNextBeep = 0;
-		SetThink(NULL);
-		pev->nextthink = 0;
-		return;
+		m_flLastUse = 0;
+		m_flUseProgress = 0;
+		SetRandomWires();
 	}
-
-	pev->solid = SOLID_BSP;
-	m_flTimer = BOMB_COUNTDOWN;
-	m_flUseProgress = 0;
-	m_flLastUse = 0;
-	m_flNextBeep = 0;
-	SetRandomWires();
-	SetThink(&CTSBomb::WaitThink);
-	pev->nextthink = gpGlobals->time + 1.0f;
+	else
+	{
+		pev->effects = EF_NODRAW;
+		pev->solid = SOLID_NOT;
+		pev->flags = 0;
+		pev->movetype = MOVETYPE_NONE;
+		m_flTimer = 0;
+		m_flNextBeep = 0;
+		m_flLastUse = 0;
+		m_flUseProgress = 0;
+	}
 }
 
-// @ CutWire — cut wire `wire` (0..2): defuse / boobytrap (fast) / neutral (instant detonate).
+// @0x7c70c CutWire — with wire cutting on and time left: a neutral wire ends the countdown (it
+// explodes on the next tick), the booby-trap speeds it up tenfold and hands the cutter the wire
+// states, the defuse wire fires the target, announces and freezes the bomb.
 void CTSBomb::CutWire(int wire, CBasePlayer *pPlayer)
 {
-	if (!m_bActive || !cancutwire || m_flTimer <= 0.0f || wire < 0 || wire > 2)
+	if (!m_bActive || !cancutwire || m_flTimer <= 0.0f || (unsigned int)wire >= 3)
 		return;
 	if (m_wires[wire] == WIRE_CUT || pPlayer == nullptr)
 		return;
 
 	if (m_wires[wire] == WIRE_NEUTRAL)
 	{
-		// cut a dead wire → the timer runs out now
 		m_wires[wire] = WIRE_CUT;
-		m_flTimer = 0.01f;
+		m_flTimer = 0;
 	}
 	else if (m_wires[wire] == WIRE_BOOBYTRAP)
 	{
-		// boobytrap → the countdown speeds up
 		m_bFast = true;
 		m_wires[wire] = WIRE_CUT;
+		pPlayer->m_iWires[0] = (byte)m_wires[0];
+		pPlayer->m_iWires[1] = (byte)m_wires[1];
+		pPlayer->m_iWires[2] = (byte)m_wires[2];
 	}
 	else if (m_wires[wire] == WIRE_DEFUSE)
 	{
-		// the right wire → defused
 		m_wires[wire] = WIRE_CUT;
 		if (!FStringNull(pev->target))
 			FireTargets(STRING(pev->target), this, this, USE_TOGGLE, 0);
 		if (!FStringNull(pev->message))
 			TSHudMessageAll(0, 0xff, 0, 8, 30, (char *)STRING(pev->message));
-		EnableObjective(false);
+		m_flTimer = 0;
+		m_flNextBeep = 0;
+		Freeze(true);
 	}
 }
 
-// @ Use — hold USE to defuse: accumulate continuous-use time; when it reaches defusetime, the
-// bomb is defused (fire target + message). The engine calls this each frame while +USE is held
-// (FCAP_CONTINUOUS_USE).
-void CTSBomb::Use(CBaseEntity *pActivator, CBaseEntity *, USE_TYPE, float)
+// @0x7c9a4 Use — an attacker-team player HOLDS USE on it: the defuse counts `defusetime` down; when
+// it runs out the bomb is defused (target, message, frozen).
+void CTSBomb::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
 {
-	if (!m_bActive || !pActivator || !pActivator->IsPlayer() || !pActivator->IsAlive())
+	if (!m_bActive || !pActivator || !pActivator->IsPlayer())
 		return;
 	CBasePlayer *pPlayer = (CBasePlayer *)pActivator;
-	if (!CanInteract(pPlayer)) // @0x7c9e5: the player overload (team from TeamID())
+	if (!CanInteract(pPlayer))
 		return;
 
-	// continuity: if USE lapsed >0.5s the hold restarts
-	if (m_flLastUse == 0.0f || gpGlobals->time - m_flLastUse >= 0.5f)
-		m_flUseProgress = defusesec;
-	else
-		m_flUseProgress -= (gpGlobals->time - m_flLastUse);
-	m_flLastUse = gpGlobals->time;
+	if (m_flLastUse == 0.0f)
+		m_flLastUse = gpGlobals->time;
+	if (gpGlobals->time - m_flLastUse < 0.5f)
+	{
+		if (m_flUseProgress == 0.0f)
+			m_flUseProgress = (float)defusesec;
+		else
+			m_flUseProgress -= (gpGlobals->time - m_flLastUse);
+	}
 
-	float left = m_flUseProgress < 0 ? 0 : m_flUseProgress;
-	ClientPrint(pPlayer->pev, HUD_PRINTCENTER, UTIL_VarArgs("%i seconds left", (int)(left + 0.5f)));
+	ClientPrint(pPlayer->pev, HUD_PRINTCENTER, UTIL_VarArgs("%i seconds left", (int)m_flUseProgress));
+	m_flLastUse = gpGlobals->time;
 
 	if (m_flUseProgress < 0.0f)
 	{
@@ -630,39 +644,47 @@ void CTSBomb::Use(CBaseEntity *pActivator, CBaseEntity *, USE_TYPE, float)
 			FireTargets(STRING(pev->target), this, this, USE_TOGGLE, 0);
 		if (!FStringNull(pev->message))
 			TSHudMessageAll(0, 0xff, 0, 8, 30, (char *)STRING(pev->message));
-		EnableObjective(false);
+		m_flTimer = 0;
+		m_flNextBeep = 0;
+		Freeze(true);
 	}
 }
 
-// @ WaitThink — the bomb tick. Counts down (fast = 0.1s ticks after a boobytrap), beeps with a
-// rising pitch, and detonates at zero.
+// @0x7c860 WaitThink — the bomb tick. Armed: count down one each tick; with time left, the beep
+// (each second, each tenth after the booby-trap); at zero the round's time is up (RoundTimeLeft),
+// the bomb freezes and explodes: TSExplosion from its centre, 300 damage, full out to 2048 units,
+// nothing past 4096.
 void CTSBomb::WaitThink()
 {
-	float interval = m_bFast ? 0.1f : 1.0f;
-	pev->nextthink = gpGlobals->time + interval;
-
+	pev->nextthink = pev->ltime + (m_bFast ? 0.1f : 1.0f);
 	if (!m_bActive)
 		return;
 
 	m_flTimer -= 1.0f;
-	if (m_flTimer <= 0.0f)
+	if (m_flTimer > 0.0f)
 	{
-		// detonate inline (the original has no separate Explode method): a big radius blast, then spent.
-		ExplosionCreate(Center(), pev->angles, edict(), 300, true);
-		EnableObjective(false);
-		return;
+		if (m_flNextBeep < gpGlobals->time)
+		{
+			m_flNextBeep = gpGlobals->time + (m_bFast ? 0.1f : 1.0f);
+			const int pitch = 98 + RANDOM_LONG(0, 3);
+			EMIT_SOUND_DYN(edict(), CHAN_STATIC, "misc/beep2.wav", RANDOM_FLOAT(0.92f, 1.0f), 1.25f, 0, pitch);
+		}
 	}
-
-	if (gpGlobals->time >= m_flNextBeep)
+	else
 	{
-		m_flNextBeep = gpGlobals->time + interval;
-		EMIT_SOUND_DYN(edict(), CHAN_VOICE, "misc/beep2.wav", 1.0, ATTN_NORM, 0, 98 + RANDOM_LONG(0, 3));
+		TSGameRules->RoundTimeLeft();
+		Freeze(true);
+		Vector vecCenter = Center();
+		TSExplosion(vecCenter, pev, pev, 300.0f, DMG_BLAST | DMG_NEVERGIB, 2048.0f, 4096.0f);
 	}
 }
 
 
 
 // ===================== CTSTeamEscape (merged from ts_escape.cpp) =====================
+// An escape zone objective: a hidden trigger, inactive until an objective pointer enables it (the
+// objective modes only). Once the share of the attacker team set by escapepercentage has stood in it
+// within the same second, it fires its target, announces and freezes.
 
 LINK_ENTITY_TO_CLASS(ts_teamescape, CTSTeamEscape)
 
@@ -671,81 +693,74 @@ TYPEDESCRIPTION CTSTeamEscape::m_SaveData[] = {
 };
 IMPLEMENT_SAVERESTORE(CTSTeamEscape, CTSObjective);
 
+// @0x7d700 KeyValue — escapepercentage, else the objective's (attackerteam).
 bool CTSTeamEscape::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "escapepercentage")) { escape_percentage = atoi(pkvd->szValue); return true; }
-	return CTSObjective::KeyValue(pkvd); // handles "attackerteam"
+	return CTSObjective::KeyValue(pkvd);
 }
 
-// @ Spawn — brush trigger; arm it and start the 1s reset tick.
+// @0x7d390 Spawn — a hidden trigger brush (solid even while inactive), touching and thinking every
+// second, nobody counted.
 void CTSTeamEscape::Spawn()
 {
-	if (!FStringNull(pev->model))
-		SET_MODEL(edict(), STRING(pev->model)); // brush model
+	pev->classname = MAKE_STRING("ts_teamescape");
+	SET_MODEL(edict(), STRING(pev->model));
+	UTIL_SetSize(pev, pev->mins, pev->maxs);
 	UTIL_SetOrigin(pev, pev->origin);
-	EnableObjective(true);
+	pev->effects = EF_NODRAW;
+	pev->solid = SOLID_TRIGGER;
+	pev->flags = 0;
+	pev->movetype = MOVETYPE_FLY;
+	m_bActive = false;
+	SetTouch(&CTSTeamEscape::WaitTouch);
+	SetThink(&CTSTeamEscape::WaitThink);
+	pev->nextthink = gpGlobals->time + 1.0f;
+	for (int i = 0; i < 33; i++)
+		m_present[i] = NULL;
+	m_count = 0;
 }
 
-// @ EnableObjective — arm/disarm: (re)set the per-window tracking and the trigger solidity.
+// @0x7d4a0 EnableObjective — the active flag, the count cleared, a trigger or not solid.
 void CTSTeamEscape::EnableObjective(bool enable)
 {
 	m_bActive = enable;
 	for (int i = 0; i < 33; i++)
 		m_present[i] = NULL;
 	m_count = 0;
-
-	if (!enable)
-	{
-		pev->solid = SOLID_NOT;
-		SetTouch(NULL);
-		SetThink(NULL);
-		pev->nextthink = 0;
-		return;
-	}
-
-	pev->solid = SOLID_TRIGGER;
-	SetTouch(&CTSTeamEscape::WaitTouch);
-	SetThink(&CTSTeamEscape::WaitThink);
-	pev->nextthink = gpGlobals->time + 1.0f;
+	pev->solid = enable ? SOLID_TRIGGER : SOLID_NOT;
 }
 
-// @ WaitTouch — an attacker-team player is inside: track them this window; complete when the
-// distinct count meets the escapepercentage threshold (then freeze the objective).
+// @0x7d4ec WaitTouch — an attacker-team player inside, counted once a second; the threshold is one
+// player, a third, two thirds or all of the attacker team's players in the round (alive or about to
+// respawn, TSCountPlayers), and 0 for any other escapepercentage.
 void CTSTeamEscape::WaitTouch(CBaseEntity *pOther)
 {
 	if (!m_bActive || !pOther || !pOther->IsPlayer())
 		return;
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	if (!CanInteract(pPlayer)) // inherited CTSObjective gate (resolves the player's team index)
+	if (!CanInteract(pPlayer))
 		return;
 
-	// live players on the attacker team (the escape target population) — the original inlines this
-	// (TSCountPlayers on the attacker-team roster) rather than a separate helper.
 	int teamSize = 0;
 	if (attacker_team >= 0)
-		for (int i = 1; i <= gpGlobals->maxClients; i++)
-		{
-			CBaseEntity *p = UTIL_PlayerByIndex(i);
-			if (p && p->IsAlive() && TSGameRules->GetTeamIndex(p->TeamID()) == attacker_team)
-				teamSize++;
-		}
+		teamSize = TSCountPlayers(TSGameRules->m_teamNames[attacker_team], true);
 
-	int idx = pPlayer->entindex();
-	if (idx >= 0 && idx < 33)
+	const int idx = pPlayer->entindex();
+	if ((unsigned int)idx < 33)
 	{
 		if ((CBaseEntity *)m_present[idx] == NULL)
-			m_count++;          // newly seen this window
+			m_count++;
 		m_present[idx] = pPlayer;
 	}
 
-	int threshold;
+	int threshold = 0;
 	switch (escape_percentage)
 	{
-	case 0:  threshold = 1; break;                 // one member
-	case 1:  threshold = teamSize / 3; break;      // a third
-	case 2:  threshold = (teamSize / 3) * 2; break;// two thirds
-	case 3:  threshold = teamSize; break;          // all
-	default: threshold = 1; break;
+	case 0: threshold = 1; break;
+	case 1: threshold = teamSize / 3; break;
+	case 2: threshold = (teamSize / 3) * 2; break;
+	case 3: threshold = teamSize; break;
 	}
 
 	if (m_count >= threshold)
@@ -754,17 +769,17 @@ void CTSTeamEscape::WaitTouch(CBaseEntity *pOther)
 			FireTargets(STRING(pev->target), this, this, USE_TOGGLE, 0);
 		if (!FStringNull(pev->message))
 			TSHudMessageAll(0, 0xff, 0, 8, 30, (char *)STRING(pev->message));
-		Freeze(true); // the original freezes the objective on completion (m_bActive=false)
+		Freeze(true);
 	}
 }
 
-// @ WaitThink — every second, forget who was inside (so the count reflects simultaneous presence).
+// @0x7d6b0 WaitThink — every second, forget who was inside (so the count reflects simultaneous presence).
 void CTSTeamEscape::WaitThink()
 {
+	pev->nextthink = gpGlobals->time + 1.0f;
 	for (int i = 0; i < 33; i++)
 		m_present[i] = NULL;
 	m_count = 0;
-	pev->nextthink = gpGlobals->time + 1.0f;
 }
 
 

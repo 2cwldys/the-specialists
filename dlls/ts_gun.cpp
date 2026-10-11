@@ -24,6 +24,7 @@
 #include "ts_player.h" // DoubleFireRate (powerup accessor)
 #ifndef CLIENT_DLL
 #include "ts_gamerules.h" // VictimKatanaHold/VictimKnifeHold (the melee block gates)
+#include "ts_powerup.h"   // CTSPowerUp::CreatePowerUp (a dead player's grenades)
 #endif
 #include "ts_worldgun.h" // CTSWorldGun::CreateWeapon / CTSAmmoPack::CreateAmmoPack (drop side)
 #include "ts_shared.h"   // FixedSlowMul (DropKickback)
@@ -156,8 +157,9 @@ bool IsOnlyAkimbo(int type)
 }
 
 // @ CalcSpread__FRfP11CBasePlayerf @0x7020c — velocity-scaled spread multiplier:
-// spread *= clamp(|vel| / (100/f), 1, 3f). DEAD server-side in the original (ScaleSpread
-// superseded it); kept compiled-and-uncalled for source parity (VERIFY the client copy).
+// spread *= clamp(|vel| / (100/f), 1, 3f). Nothing in ts_i386.so calls it (ScaleSpread is the
+// live one); kept compiled-and-uncalled for source parity. Whether client.dll calls its copy is
+// the client's question.
 void CalcSpread(float &spread, CBasePlayer *pPlayer, float f)
 {
 	float mul = pPlayer->pev->velocity.Length() / (100.0f / f);
@@ -418,8 +420,7 @@ bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iAttach)
 	// bought silencer/laser/flash/scope bits; the ground weapon its spawnflag attachments) —
 	// and TakeWeapon grants NO reserve ammo AT ALL. The reserve comes ONLY from BuyAmmo (the
 	// loadout, fill-to-cap in free mode), ammo packs, ground ammo, and the ground weapon's
-	// empty-reserve top-up. Our old iClip*3 grant here was an invention (the "18/58 vs the
-	// original 18/120" mismatch).
+	// empty-reserve top-up.
 
 	// The active item's live clip lives in m_iClip; park it so the combine/merge reads the
 	// current rounds when the affected slot is the one we're holding.
@@ -765,12 +766,10 @@ bool CTSGun::GetItemInfo(ItemInfo *p)
 	return true;
 }
 
-// cont.89: CTSGun::GetWeaponData/SetWeaponData (the invented weapon_data override) were REMOVED. They
-// packed TS active state (type/reserve/fireMode/holdpos/barrel-clips/attach) into the STOCK weapon_data
-// slots (iuser1..4 / fuser2..4 / m_iWeaponState) — which the ORIGINAL client reads as its stock fire-state
-// (m_chargeReady/m_fInAttack/m_fireState/m_flStartThrow/m_flReleaseThrow), corrupting its fire prediction
-// (misfire every frame → clip flicker + absurd spread). The original ships this state on the clientdata
-// vuser block instead (dlls/client.cpp UpdateClientData); our client reads it in HUD_WeaponsPostThink.
+// No GetWeaponData/SetWeaponData override: the original client reads the stock weapon_data slots as its
+// stock fire state (m_chargeReady/m_fInAttack/m_fireState/m_flStartThrow/m_flReleaseThrow). The TS
+// active state travels on the clientdata vuser block (dlls/client.cpp UpdateClientData), which the
+// client reads in HUD_WeaponsPostThink.
 
 // Per-tsweapon_t viewmodel DRAW (unholster) sequence index — recovered by parsing each viewmodel's
 // sequence names (the "draw"/"drawb" sequence). The original looks this up at init into the weapon
@@ -803,8 +802,8 @@ bool CTSGun::Deploy()
 		pmodel = wi->pszPlayerModelSil;
 	const int drawSeq = (m_weaponType >= 0 && m_weaponType < TSW_COUNT) ? s_drawSeq[m_weaponType] : 0;
 	// Kung-fu (TSW_MELEE) uses an EMPTY anim-ext (grip) — the original keys the bare-hands
-	// combat_idle stance + the close-combat attack set off m_szAnimExtention being empty
-	// (no invented m_bKungFu bool). Real weapons carry onehanded/twohanded/akimbo.
+	// combat_idle stance + the close-combat attack set off m_szAnimExtention being empty.
+	// Real weapons carry onehanded/twohanded/akimbo.
 	const char *animExt = (m_weaponType == TSW_MELEE) ? "" : (wi->pszAnimExt ? wi->pszAnimExt : "onehanded");
 	// @0x710c4: the draw anim CARRIES the attachment body — DefaultDeploy's 5th arg reaches the
 	// viewmodel via the weaponanim message (pev->body alone never does; the missing-silencer/
@@ -1065,7 +1064,7 @@ void CTSGun::Fire()
 		shootanim = TSA_FIRE;
 	}
 	if (shootanim >= 0)
-		m_pPlayer->m_TSAnim.Animate(m_pPlayer, shootanim); // direct Animate (SetAnimation is a TS stub)
+		m_pPlayer->m_TSAnim.Animate(m_pPlayer, shootanim); // direct Animate (TS's SetAnimation is empty)
 }
 
 // @ StandardFire/ShotgunFire — a single bullet (or a pump-shotgun pellet spread), with the
@@ -1103,7 +1102,7 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	}
 	m_pPlayer->pev->effects |= EF_MUZZLEFLASH; // 3rd-person muzzleflash on the player model
 	// (the 3rd-person shoot_ body pose is set by CTSGun::Fire's direct Animate call — RE Fire@0x71c78 — not
-	// here; TS's SetAnimation is an empty stub, so we don't route through it.)
+	// here; TS's SetAnimation is empty.)
 
 	// Viewmodel "shoot" animation — now CLIENT-PREDICTED (CTSGun is a UseDecrement weapon, cont.69s
 	// 3d): SendWeaponAnim runs in the client's predicted ItemPostFrame, so the anim plays instantly.
@@ -1212,7 +1211,7 @@ void CTSGun::ShotgunFire(const s_weapon_info *wi)
 	// RACK half of the cycle: pump mode (3) with the toggle set. No bullet, no shell consumed.
 	// The WHOLE presentation rides events/pump.sc (EV_TSPump: the block[13/14] anim, the ejected
 	// shell, and the rack sound — wi+0x306, played at ent -1 so it never channel-cuts the still-
-	// playing gunshot; that's the original's trick our CHAN_ITEM hack approximated). RE: all 3
+	// playing gunshot). RE: all 3
 	// pump shotguns DEFAULT to PUMP mode (TakeWeapon: AUTO>PUMP>BURST>SEMI) — held = auto
 	// fire/rack alternation, a tap = one step.
 	if (m_fireMode == TSFM_PUMP && m_fInSpecialReload != 0)
@@ -1270,8 +1269,8 @@ void CTSGun::ScaleSpread(float &spread, float increment, bool silenced)
 // renders onto the view and decays back over time — so the aim jolts up like a mouse nudge and the player
 // pulls down to compensate (spraying walks the aim). Vertical = 0.85*magnitude (magnitude = wi->flViewKick,
 // s_weapon_info+0x30); the horizontal sign/size is per fire-type. Ducking and bullet-time (DoubleFireRate)
-// damp it. (The original gates the SERVER apply on FL_FAKECLIENT — real players predict it client-side; we
-// apply it directly so the kick shows on the listenserver. Client-prediction of the punch is a TODO.)
+// damp it. The server applies it to bots only (FL_FAKECLIENT, @0x70414); a real player's kick is the
+// client's (client.dll's twin, FUN_10008230).
 void CTSGun::VKickback(float magnitude, int firetype)
 {
 	float vert = 0.85f * magnitude;
@@ -1391,7 +1390,7 @@ void CTSGun::KnifeFire()
 			dont_ignore_monsters, ENT(ppev), &tr);
 
 		CBaseEntity *pKnife = TSThrowKnife(m_pPlayer, tr.vecEndPos, gpGlobals->v_forward * 1900.0f,
-			wi->iKnifeType); // server-only (client stub returns NULL)
+			wi->iKnifeType); // server-only (the client build's copy returns NULL)
 		if (pKnife)
 		{
 			Vector dir = pKnife->pev->velocity;
@@ -1413,9 +1412,9 @@ void CTSGun::KnifeFire()
 	{
 		if (!InfiniteClips(m_pPlayer))
 		{
-			// the thrown knife frees its carry slots + the move speed recomputes. (Original:
-			// player+0x548 += slotCost by hand; our slots derive from the owned items, so the
-			// recompute only shifts on the LAST knife's DropWeapon below — VERIFY per-knife cost.)
+			// the thrown knife frees its carry slot and the move speed recomputes (the original adds
+			// slotCost to player+0x548 by hand; reTS derives the slots, counting a stackable per unit of
+			// its clip, so the m_iClip-- here frees exactly one knife's cost).
 			m_iClip--;
 			m_pPlayer->SetPlayerSpeed(GetSpeedBySlots(m_pPlayer));
 		}
@@ -1453,9 +1452,8 @@ void CTSGun::KnifeFire()
 // original id is remapped to the nearest v_melee seq + the player-model 3rd-person kung-fu seq. The
 // DISPATCH / DAMAGE / TIMING are byte-faithful; the anim is a remap (see the ledger note on the 11-seq model).
 //
-// SLICE (documented, not yet ported): the forward WHIFF-LUNGE (orig local_110 → player+0x79c, a decaying
-// PreThink velocity push applied on a miss, scaled by GetMeleeMultiplier + doubled by the KungFu powerup)
-// is a separate PreThink subsystem; the per-move magnitude is kept as a comment. The iuser4 lock-state
+// On a miss the swing arms the run-through window (player+0x79c/+0x7a0, below), which PreThink counts
+// down and CTSStunt::CheckForBreakables consumes; there is no attacker velocity push. The iuser4 lock-state
 // (0x50c30 → forced light attack) and the player+0x814/0x815 state bits (special-punch 0x17 / forced kick
 // finisher) default to "clear" — the common path. v_melee anims: 2 punch_left, 3 punch_right, 4 block_low,
 // 5 kick, 6 sidekick, 7 uppercut, 8 spinkick, 9 backkick, 10 punch_right2.
@@ -1671,7 +1669,7 @@ void CTSGun::CCombatAttack()
 			// katana 0.25 / wheel 0.3 windows), NOT the scaled 10-30 value (that reading made the
 			// run-through a latent landmine). Force stays the FLAT ±reach (the >30 knockback gate).
 			m_pPlayer->m_flWhiffLungeTime = whiffT;
-			m_pPlayer->m_flWhiffLungeForce = (bVar9 == 3) ? -reach : reach; // VERIFY flat-vs-scaled: 3 reads agree flat (Ghidra dataflow, cont.93 slot note above, >30 gate semantics)
+			m_pPlayer->m_flWhiffLungeForce = (bVar9 == 3) ? -reach : reach; // @0x76d2c: the same local CloseCombatAttack got as its damage (@0x76cd0), negated for move 3
 			m_pPlayer->m_iWhiffLungeType = 0;
 		}
 
@@ -1787,7 +1785,7 @@ void CTSGun::CCombatBlock()
 // @ AlternateAttack__6CTSGun (@0x71ba8, decompile-exact) — the +alt2 (IN_CANCEL) input:
 // `if (m_pActiveItem && iColdCockDamage > 0) ColdCock();`. NO timer gate here — the base
 // ItemPostFrame dispatches it through CanAttack(m_flNextAlternateAttack) (gun+0xa4), which
-// ColdCock re-arms (+0.725). (The old kept-VERIFY primary-timer gate is resolved: L9 closed.)
+// ColdCock re-arms (+0.725).
 void CTSGun::AlternateAttack()
 {
 	if (!m_pActiveItem)
@@ -1799,16 +1797,11 @@ void CTSGun::AlternateAttack()
 }
 
 // @ ColdCock__6CTSGun @0x71dd0 — a quick melee bash with the held weapon (CBasePlayer::
-// ColdCockAttack@0x86610 in the original). Short hull-trace in front; on hit deals club
-// damage. Reuses the knife melee sounds (no dedicated coldcock sound ships). SLICE: the
-// faithful coldcock viewmodel anim rides events/coldcock.sc (not yet reconstructed); we
-// drive the 3rd-person attack anim + sound server-side.
-// @0x81dd0 ColdCock — the pistol-whip/rifle-butt wrapper: per-weapon damage from the table
-// (iColdCockDamage, x2/3 while stunting), range 35, hull 3, routed through the
-// ColdCockAttack twin with all four behavior bools FALSE. Cadence 0.725 (x1.5 stunting).
-// Interrupts zoom/reload/grenade-idle. Attacker confirm on a player hit = kevlarhit.wav
-// pitch 60-91. coldcock.sc fires even on a miss in the original — the event swap lands
-// with the S7b protocol step (presentation kept server-side meanwhile).
+// ColdCockAttack@0x86610 in the original). Short hull-trace in front; on hit deals club damage.
+// The pistol-whip/rifle-butt: per-weapon damage from the table (iColdCockDamage, x2/3 while
+// stunting), range 35, hull 3, routed through the ColdCockAttack twin with all four behavior bools
+// FALSE. Cadence 0.725 (x1.5 stunting). Interrupts zoom/reload/grenade-idle. Attacker confirm on a
+// player hit = kevlarhit.wav pitch 60-91. events/coldcock.sc carries the rest, hit or miss.
 void CTSGun::ColdCock()
 {
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)m_weaponType);
@@ -1889,7 +1882,7 @@ void CTSGun::ColdCock()
 // @ GrenadeFire__6CTSGun @0x732f0 — PULL THE PIN (decompile-exact): gated on an idle phase
 // (item+0x8 == 0) + a loaded grenade; plays the pin-pull viewmodel anim (anim block [19]) +
 // grenade.sc iparam1=19, arms the COOK phase (item+0x8 = 1), re-arms both attacks + idle at
-// +0.7, and stamps the cook member (gun+0xa0c = time+5; consumer VERIFY). NO fuse starts here
+// +0.7, and stamps the cook member (gun+0xa0c = time+5; nothing reads it). NO fuse starts here
 // — the grenade is thrown (fuse 3.0 FROM THE THROW) by GrenadeIdle when the button releases.
 void CTSGun::GrenadeFire()
 {
@@ -1905,7 +1898,7 @@ void CTSGun::GrenadeFire()
 	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.7f;
 	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 0.7f;
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.7f;
-	m_flGrenadeCook = gpGlobals->time + 5.0f; // gun+0xa0c (consumer VERIFY)
+	m_flGrenadeCook = gpGlobals->time + 5.0f; // gun+0xa0c, written here only and read nowhere
 }
 
 // @ GrenadeIdle__6CTSGuni @0x74f18 — the cook machine (decompile-exact). Phase 1 (cooked):
@@ -2178,7 +2171,7 @@ void CTSGun::KatanaThrow()
 		dont_ignore_monsters, ENT(m_pPlayer->pev), &tr);
 
 	CBaseEntity *pKnife = TSThrowKnife(m_pPlayer, tr.vecEndPos, gpGlobals->v_forward * 1000.0f,
-		wi->iKnifeType); // server-only (client stub returns NULL)
+		wi->iKnifeType); // server-only (the client build's copy returns NULL)
 	if (pKnife)
 	{
 		// the thrower orients the projectile (the original does this here, not in CTSKnife::Spawn).
@@ -2278,12 +2271,12 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 	UTIL_MakeVectors(m_pPlayer->pev->v_angle);
 	Vector vecAiming = gpGlobals->v_forward;
 	float flSpread = wi->flSpread > 0 ? wi->flSpread : 0.02f;
-	// @0x82bf8 (round-6 verify RE): the akimbos run the dynamic-accuracy growth too — recoil
-	// DOUBLED on a linked both-barrels shot; the (non-integral) silencer flag tightens.
+	// @0x72c69: the akimbos run the dynamic-accuracy growth too — recoil DOUBLED on a linked
+	// both-barrels shot; the (non-integral) silencer flag tightens.
 	const bool akSilenced = (it.attach & 1) != 0 && (wi->attachBuiltin & 1) == 0;
 	if (wi->bUsesSpread)
 		ScaleSpread(flSpread, (nSides == 2) ? wi->flRecoil * 2.0f : wi->flRecoil, akSilenced);
-	// @0x82c65: the silencer damage penalty (x0.775)
+	// @0x72c9c: the silencer damage penalty (x0.775)
 	const float akDamage = akSilenced ? wi->flDamage * 0.775f : wi->flDamage;
 
 	for (int s = 0; s < nSides; s++)
@@ -2492,7 +2485,7 @@ bool CTSGun::UpdateClientData(CBasePlayer *pPlayer)
 	for (int t = 0; t < TSW_COUNT; t++)
 	{
 		const int owned = m_items[t].owned ? 1 : 0;
-		// the live active clip is in m_iClip, not yet synced into its item.
+		// the held weapon's live clip is m_iClip (its item's clip is parked only on a switch).
 		// TSW_MELEE (kung-fu / bare hands) has NO clip: send -1 (WEAPON_NOCLIP) always — neither
 		// m_iClip (0 while wielded) nor it.clip (0) is -1, so without this the kung-fu bar cell
 		// went RED against the original client (it reds any cell with clip < 1). Interop fix.
@@ -2726,8 +2719,7 @@ void CTSGun::ShotgunReload()
 			// NO 3rd-person reload anim for the pump shell-by-shell reload — RE-confirmed the original
 			// ShotgunReload @0x74aac plays only the view-model event, never Animate. Shell-for-shell
 			// shotguns (Mossberg/Benelli/...) show no world reload; only CLIP shotguns (USAS/Sawed-off,
-			// via the standard Reload above) animate the whole-mag swap. (Our Animate(TSA_RELOAD) here
-			// was an invented stand-in.)
+			// via the standard Reload above) animate the whole-mag swap.
 			m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.3f; // dc_0_3
 			m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.3f;
 			m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.3f;
@@ -2894,7 +2886,9 @@ void TSDeployArsenal(CBasePlayer *pPlayer)
 	// deployed last (the last-queued buy). The original spawns on the best weapon — e.g. M4 (priority
 	// index 3) over a sawed-off (10) or akimbo MK23 (19). GetBetterWeapon walks the priority table and
 	// SelectWeapon-deploys; kung-fu is priority-last, so a bare/kung-fu-only loadout still deploys (and
-	// forces the viewmodel — the old plain Deploy()'s job). VERIFY the exact original select fn.
+	// forces the viewmodel). The original server has no such step: each bought weapon is selected and
+	// deployed in turn (PickUpWeapon @0x8314c), so the last one bought is held; Steven verified the
+	// original spawns on the best one, so the order the client sends its buys likely does that. Kept.
 	pGun->GetBetterWeapon(-1);
 }
 
@@ -3099,7 +3093,7 @@ static void TSMarkDropKeyGun(CTSWorldGun *pGun, CBasePlayer *pPlayer)
 // Akimbo branches (reference/WEAPON_SELECT.md): a combinable AKIMBO throws TWO base singles (clip
 // split, ±4) and removes both items; a SINGLE whose akimbo we also own throws one + keeps the other
 // barrel; else throw one and remove. The CTF flag drops ONLY in the out-of-range (bare-handed) branch
-// — NOT unconditionally on every weapon drop (dossier §control-flow; VERIFY the bare-handed trigger).
+// — NOT unconditionally on every weapon drop (@0x84a87: a type outside 1..37, the flag carried).
 bool CBasePlayer::DropWeapon(int type, float flDamage)
 {
 	CBasePlayer *pPlayer = this;
@@ -3159,6 +3153,53 @@ bool CBasePlayer::DropWeapon(int type, float flDamage)
 	const bool wasActive = (a0 == pGun->m_weaponType);
 	CTSWorldGun *pThrown = NULL; // the last gun thrown (the original's edi)
 
+	// The M61 (@0x84aaf). A cooking grenade (item phase 1, only the held one) is thrown as it is.
+	if (a0 == TSW_M61)
+	{
+		const bool cooking = wasActive && pGun->m_burstOrPhase == 1;
+		// A player who died in deathmatch or teamplay leaves each grenade as a grenade powerup,
+		// 5 units apart along x, and keeps the item (@0x84ac1-0x84b82).
+		if ((unsigned char)TSGameRules->m_iGameMode <= 1 && !IsAlive())
+		{
+			if (cooking)
+				pGun->GrenadeIdle(1);
+			for (int i = 0; i < pGun->m_items[a0].clip; i++)
+			{
+				CTSPowerUp *pPowerup = CTSPowerUp::CreatePowerUp(TS_PWUP_GRENADE, -1);
+				if (pPowerup)
+				{
+					pPowerup->pev->origin = pev->origin;
+					pPowerup->pev->origin.x += (float)(i * 5);
+				}
+			}
+			return true;
+		}
+		// Otherwise one grenade at a time (@0x84b88-0x84c84).
+		if (cooking)
+		{
+			pGun->GrenadeIdle(1);
+		}
+		else if (pGun->m_items[a0].clip > 0)
+		{
+			pThrown = TSThrowWorldGun(pPlayer, pGun, a0, 1, 0.0f);
+			if (pGun->m_items[a0].clip <= 1)
+				pGun->DropWeapon(a0, fThrow);
+			else
+			{
+				pGun->m_items[a0].clip--;
+				if (wasActive)
+					pGun->m_iClip = pGun->m_items[a0].clip;
+				if (!fThrow)
+					pGun->HolsterWeapon();
+			}
+			EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
+		}
+		if (type < 0 && pThrown)
+			TSMarkDropKeyGun(pThrown, this);
+		SetPlayerSpeed(GetSpeedBySlots(pPlayer));
+		return true;
+	}
+
 	// 1) combinable akimbo -> throw two base singles, remove both items.
 	if (wi->iFireType == TSFT_AKIMBO && wi->iSingleType >= 1 && wi->iSingleType < TSW_COUNT)
 	{
@@ -3196,6 +3237,8 @@ bool CBasePlayer::DropWeapon(int type, float flDamage)
 			pGun->m_items[a0].clip -= throwN; // units remain
 			if (wasActive)
 				pGun->m_iClip = pGun->m_items[a0].clip;
+			if (!fThrow)
+				pGun->HolsterWeapon(); // @0x84d74: a disarm puts the rest away
 		}
 		else
 			pGun->DropWeapon(a0, fThrow);
@@ -3213,7 +3256,6 @@ bool CBasePlayer::DropWeapon(int type, float flDamage)
 	if (type < 0 && a0 != TSW_FLAG && pThrown)
 		TSMarkDropKeyGun(pThrown, this);
 
-	// The grenade cooked-throw (GrenadeIdle) is deferred — M61 drops via the stackable path above. TODO.
 	EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
 	SetPlayerSpeed(GetSpeedBySlots(pPlayer));
 	return true;
@@ -3242,18 +3284,6 @@ void TSDropWeaponsOnDeath(CBasePlayer *pPlayer)
 	}
 }
 
-// On death, drop the player's per-caliber ammo reserve as a single CTSAmmoPack.
-void TSDropAmmoOnDeath(CBasePlayer *pPlayer)
-{
-	CTSGun *pGun = GetPlayerTSGun(pPlayer);
-	if (!pGun)
-		return;
-	Vector vecVel(RANDOM_FLOAT(-40, 40), RANDOM_FLOAT(-40, 40), RANDOM_FLOAT(80, 120));
-	// Drop the per-caliber reserve AND the player's armor (VERIFY: orig carries pev->armorvalue).
-	int armor = (int)pPlayer->pev->armorvalue;
-	CTSAmmoPack::CreateAmmoPack(pPlayer->pev, pGun->m_ammoReserve, armor,
-		pPlayer->pev->origin + Vector(0, 0, 20), vecVel);
-}
 #endif // !CLIENT_DLL (drop-into-world helpers)
 
 // Pick up a dropped weapon of `type` carrying `clip` loaded rounds (CTSWorldGun pickup):

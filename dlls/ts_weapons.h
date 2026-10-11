@@ -74,7 +74,6 @@ bool TSAddAmmo(CBasePlayer *pPlayer, int caliber, int count);
 // (TSDropWeapon is now the method CBasePlayer::DropWeapon — see player.h / ts_gun.cpp.)
 // (TSPickUpWeapon is now the method CBasePlayer::PickUpWeapon — see player.h / ts_player.cpp.)
 void TSDropWeaponsOnDeath(CBasePlayer *pPlayer); // scatter the arsenal on death
-void TSDropAmmoOnDeath(CBasePlayer *pPlayer);    // drop the per-caliber reserve as a pack
 // The drop-into-world factories are the static methods CTSWorldGun::CreateWeapon /
 // CTSAmmoPack::CreateAmmoPack (dlls/ts_worldgun.h), matching the original's TS_worldgun.cpp.
 

@@ -15,6 +15,7 @@
 #include "ts_flag.h" // HaveFlag prototype + s_flag_status
 #include "ts_gamerules.h" // Victim*Hold prototypes
 #include "ts_weapons.h"   // TSPlayerFreeSlots (GetAccelBySlots)
+#include "game.h"         // the cvars
 #include <string.h>
 
 // @0x67148 HaveFlag — is this player carrying a CTF flag? (free fn). The carry
@@ -158,8 +159,8 @@ edict_t *TSSelectSpawnSpot(const char *szClass, CBaseEntity *pPlayer, const char
 // @0x65ff4 SetPlayerRespawnTime(player, seconds, bool) — EVERY respawn-wait path funnels here
 // (InitHUD join / Killed death / ChangePlayerTeam(5s)). The bool arg is dead in the original.
 // Plain modes: the gate (+0x770) = now + seconds. LAST-MAN-STANDING (mode 0 + lms): respawns
-// are BUDGETED — past the respawnnumber cvar (floor 1) the gate goes NEGATIVE (-1.0 = out for
-// the round); otherwise the wait clamps to the round's remaining time and the re-entry HOLD
+// are BUDGETED — past max(respawnnumber's value, 1) the gate goes NEGATIVE (-1.0 = out for the
+// round); respawnnumber is never registered, so its value field stays 0 and the budget is 1; otherwise the wait clamps to the round's remaining time and the re-entry HOLD
 // (+0x7bc) arms at min(roundLeft, 10)s. Always stamps the broadcast award byte: 1 out-of-round
 // / 11 respawning (the TSPAward producers).
 void SetPlayerRespawnTime(CBasePlayer *pPlayer, int sec, bool bUnused)
@@ -173,7 +174,7 @@ void SetPlayerRespawnTime(CBasePlayer *pPlayer, int sec, bool bUnused)
 	}
 	else
 	{
-		float maxRespawns = CVAR_GET_FLOAT("respawnnumber");
+		float maxRespawns = respawnnumber.value;
 		if (maxRespawns < 1.0f)
 			maxRespawns = 1.0f;
 		if (maxRespawns <= (float)pPlayer->m_iRespawnsUsed)
@@ -222,17 +223,17 @@ int DecideGamePlay(char *mapname, int def)
 		buf[0] = 0;
 		strncpy(buf, mapname, 3);
 		buf[3] = 0;
-		if (CVAR_GET_FLOAT("mp_theonemode") != 0.0f)
+		if (mp_theonemode.value != 0.0f)
 		{
 			g_theOneMode = 1;
 			ret = 1;
 		}
-		else if (CVAR_GET_FLOAT("lastmanstanding") != 0.0f)
+		else if (lastmanstanding.value != 0.0f)
 		{
 			g_lastManStanding = 1;
 			ret = 0;
 		}
-		else if (CVAR_GET_FLOAT("teamplay") != 0.0f)
+		else if (teamplay.value != 0.0f) // mp_teamplay (@0x668a4)
 			ret = 1;
 		// else: keep the caller's default
 	}
@@ -257,8 +258,7 @@ int WeaponRestrictionByID(int id)
 // drains the ATTACKER 33 stamina (UpdateMeleeBar handles depletion + the KFuPower send) and
 // stamps asymmetric next-attack locks. The block windows are the PreThink-decayed VALUES on
 // CBasePlayer (+0x7a8 kungfu / +0x7ac knife / +0x7b0 katana).
-// NB: the original emits these sounds via TS's 8-arg EMIT_SOUND_DYN (trailing 0.5f slow-mo
-// pitch weight) — VERIFY that arg's formula once, globally; flat pitch 100 kept meanwhile.
+// The block sounds pass EMIT_SOUND_DYN's default slow-motion weight, 0.5 (@0x66d7d, @0x66ee8).
 
 // @0x66c8c VictimKatanaHold — a katana swing vs a blocking victim: needs the victim's KATANA
 // window open AND melee bar > 0.1 (a knife window does NOT stop a katana). Locks 0.75/0.35.

@@ -155,9 +155,13 @@ public:
 LINK_ENTITY_TO_CLASS(weapon_handgrenade, CTSGrenadeWeapon);
 
 // ---- ammo spawners (derive CTSGroundAmmo; Spawn seeds the per-caliber array) ----
-// Each seeds a starting amount in its category's caliber(s) then runs the base ammo-station
-// spawn. orig: m_ammo[cal] = get_ammo_info(cal)->default/2; we use TSRoundsPerMag (a magazine) as
-// the proxy — VERIFY the exact half-default (the +0xc ammo-info field isn't in our table yet).
+// Each runs the base ammo-station spawn, then holds half the max carry (s_ammo_info +0xc, at the
+// map's ammocount) of each of its calibers, in the original's order (Spawn__13CTSPistolAmmo
+// @0xb9a2c and its siblings).
+static inline int TSHalfMaxCarry(int cal)
+{
+	return get_ammo_info(cal)->iMaxCarry / 2;
+}
 
 class CTSPistolAmmo : public CTSGroundAmmo
 {
@@ -165,67 +169,69 @@ public:
 	void Spawn() override
 	{
 		CTSGroundAmmo::Spawn();
-		int c[5] = { 1, 2, 7, 9, 10 };
-		for (int i = 0; i < 5; i++) m_ammo[c[i]] = TSRoundsPerMag(c[i]);
+		const int c[5] = {2, 10, 9, 1, 7};
+		for (int i = 0; i < 5; i++)
+			m_ammo[c[i]] = TSHalfMaxCarry(c[i]);
 	}
 };
 // (UNLINKED in the original — ammo_9mmclip/ammo_357 are string-table only)
 
-class CTSBigPistolAmmo : public CTSGroundAmmo
+class CTSBigPistolAmmo : public CTSGroundAmmo // @0xb9c38
 {
 public:
 	void Spawn() override
 	{
 		CTSGroundAmmo::Spawn();
-		m_ammo[5] = TSRoundsPerMag(5);
-		m_ammo[11] = TSRoundsPerMag(11);
+		m_ammo[5] = TSHalfMaxCarry(5);
+		m_ammo[11] = TSHalfMaxCarry(11);
 	}
 };
 LINK_ENTITY_TO_CLASS(ammo_9mmAR, CTSBigPistolAmmo);
 
-class CTSRifleAmmo : public CTSGroundAmmo
+class CTSRifleAmmo : public CTSGroundAmmo // @0xb96b4
 {
 public:
 	void Spawn() override
 	{
 		CTSGroundAmmo::Spawn();
-		m_ammo[4] = TSRoundsPerMag(4);
-		m_ammo[6] = TSRoundsPerMag(6);
+		m_ammo[6] = TSHalfMaxCarry(6);
+		m_ammo[4] = TSHalfMaxCarry(4);
 	}
 };
 LINK_ENTITY_TO_CLASS(ammo_gaussclip, CTSRifleAmmo);
 
-class CTSSMGAmmo : public CTSGroundAmmo
+class CTSSMGAmmo : public CTSGroundAmmo // @0xb9848
 {
 public:
 	void Spawn() override
 	{
 		CTSGroundAmmo::Spawn();
-		int c[4] = { 1, 2, 7, 12 };
-		for (int i = 0; i < 4; i++) m_ammo[c[i]] = TSRoundsPerMag(c[i]);
+		const int c[4] = {2, 1, 7, 12};
+		for (int i = 0; i < 4; i++)
+			m_ammo[c[i]] = TSHalfMaxCarry(c[i]);
 	}
 };
 LINK_ENTITY_TO_CLASS(ammo_rpgclip, CTSSMGAmmo);
 
-class CTSShotgunAmmo : public CTSGroundAmmo
+class CTSShotgunAmmo : public CTSGroundAmmo // @0xb9534
 {
 public:
 	void Spawn() override
 	{
 		CTSGroundAmmo::Spawn();
-		m_ammo[3] = TSRoundsPerMag(3);
+		m_ammo[3] = TSHalfMaxCarry(3);
 	}
 };
 LINK_ENTITY_TO_CLASS(ammo_buckshot, CTSShotgunAmmo);
 
-class CTSSniperAmmo : public CTSGroundAmmo
+class CTSSniperAmmo : public CTSGroundAmmo // @0xb94a8
 {
 public:
 	void Spawn() override
 	{
 		CTSGroundAmmo::Spawn();
-		m_ammo[8] = TSRoundsPerMag(8);
-		m_ammo[13] = TSRoundsPerMag(13);
+		m_ammo[8] = TSHalfMaxCarry(8);
+		m_ammo[13] = TSHalfMaxCarry(13);
 	}
 };
 LINK_ENTITY_TO_CLASS(ammo_crossbow, CTSSniperAmmo);
@@ -248,8 +254,6 @@ public:
 
 // @0xb9484 — the original registers CTSSuperJump under the stock HL entity name `item_longjump`
 // (TS remaps the longjump item to its super-jump powerup, same pattern as the weapon remaps above).
-// Our earlier `ts_superjump` name was invented drift — a map-placed `item_longjump` powerup spawned
-// nothing in our build, and it broke drop-in with the original client/maps.
 LINK_ENTITY_TO_CLASS(item_longjump, CTSSuperJump);
 
 // Keep the two UNLINKED pistol classes in the binary (compiled-but-unlinked in the original;

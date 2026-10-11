@@ -148,22 +148,23 @@ void CBasePlayer::AddAmmoToArmament(int caliber, int rounds)
 		m_armamentAmmo[caliber] = rounds;
 }
 
-// @ BuyWeapon — give the player a weapon. Free (CashBased off). Gated on the weapon
-// restriction (// SLICE: the category-by-bitmask IsRestrictedWeapon@0x770c8 over the
-// CTSMapGlobals restriction isn't wired — the default restriction 0x1f allows every
-// category, so an allow-all stub is faithful for stock maps) and the M61 special rule:
-// grenades are team-mode only and capped at 2 per life. Returns true if given.
+// @0x845bc BuyWeapon — give the player a weapon. Free (CashBased off). Not a weapon the server's
+// weaponrestriction mask (IsRestrictedWeapon) leaves out, and the M61 only in the objective modes
+// (2/3, which the shipped game never reaches), at most 2 per life. Returns true if given.
+// The original also requires weapon_tsgun to be the active item (@0x845d8). Its give leaves the
+// arsenal active before BuyArmament; reTS makes it active after the buys (TSDeployArsenal), so that
+// test is left out here.
 bool CBasePlayer::BuyWeapon(int type, int iAttach)
 {
 	// the restriction gate (@0x84606): the category-bitmask filter over the server's
-	// weaponrestriction mask (default 0x1f allows everything — stock behavior unchanged).
+	// weaponrestriction mask (default 0x1f allows everything).
 	extern bool IsRestrictedWeapon(tsweapon_t w, int mask);
-	if (TSGameRules && IsRestrictedWeapon((tsweapon_t)type, TSGameRules->m_iWeaponRestriction))
+	if (IsRestrictedWeapon((tsweapon_t)type, TSGameRules->m_iWeaponRestriction))
 		return false;
 
 	if (type == TSW_M61)
 	{
-		if (!g_teamplay) // grenades are team-mode only
+		if ((unsigned char)TSGameRules->m_iGameMode <= 1) // @0x84616: the rules' mode byte > 1
 			return false;
 		if (m_iGrenadeBuys >= 2) // cap 2 per life
 			return false;

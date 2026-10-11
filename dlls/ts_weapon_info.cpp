@@ -156,12 +156,12 @@ static void set_ammo(int cal, float f0, int price, int kind, int mag,
 	float f18, int range, int speed, const char *name)
 {
 	s_ammo_info &a = global_ammo_info[cal];
-	a.flFactor = f0;        // +0x00 (VERIFY consumer)
+	a.flFactor = f0;        // +0x00 — no reader in ts_i386.so (none of get_ammo_info's callers reads +0x00)
 	a.iPrice = price;       // +0x04 — cash per magazine (BuyAmmo)
 	a.iKind = kind;         // +0x08 — 1 pistol / 2 rifle-shotgun (falloff form selector)
 	a.iRoundsPerMag = mag;  // +0x10 — the buy/refill unit
 	a.iMaxTravel = 8192;    // +0x14 — max bullet travel (all calibers)
-	a.flFactor2 = f18;      // +0x18 (VERIFY consumer)
+	a.flFactor2 = f18;      // +0x18 — the pierce decay (ShootBulletsPlayer @0x5ff60)
 	a.iRangeUnit = range;   // +0x20 — full-damage range unit (falloff form B: idx = dist/this)
 	a.iSpeedUnit = speed;   // +0x24 — slow-mo bullet speed unit (bullets fly at 40x this)
 	strncpy(a.szName, name, sizeof(a.szName) - 1); // +0x28
@@ -823,7 +823,8 @@ static void compile_weapons_info()
   // ALT SOUND (+0x306), SHELL model (+0xe8), eject setback (+0x34c) — disasm-adjudicated per
   // Write_ (the loose lea-pairing bleeds; every row below was verified strict or by hand).
   // pszAltSound is triple-duty: -sil fire / pump RACK (mossberg reuses m3-pump.wav!) / akimbo
-  // LINKED bang (the -sil sample reused; gold + skorpion_akimbo ship none — VERIFY).
+  // LINKED bang (the -sil sample reused). Write_gold (@0x6b814) and Write_skorpion_akimbo
+  // (@0x8d614) store no +0x306 string, so theirs is empty.
   {
     struct AltRow { int idx; const char *alt; const char *shell; int setback; };
     static const AltRow kAlt[] = {

@@ -127,24 +127,29 @@ bool CTSSlowMotion::KeyValue(KeyValueData *pkvd)
 	return CBaseEntity::KeyValue(pkvd);
 }
 
+// @0x60e14: a hidden brush trigger (movetype 5) polling every 0.5 s, nobody slowed yet. The drop range
+// is half the diagonal of its absolute box (the size plus the engine's 1 unit each way), truncated.
 void CTSSlowMotion::Spawn()
 {
 	pev->classname = MAKE_STRING("ts_slowmotion");
 	SET_MODEL(ENT(pev), STRING(pev->model)); // brush model
 	UTIL_SetSize(pev, pev->mins, pev->maxs);
-
-	// The original's Spawn is minimal (classname/model/size); a brush trigger needs
-	// the following to detect touches + poll. // VERIFY against engine defaults.
-	pev->solid = SOLID_TRIGGER;
-	pev->movetype = MOVETYPE_NONE;
+	UTIL_SetOrigin(pev, pev->origin);
 	pev->effects |= EF_NODRAW;
+	pev->solid = SOLID_TRIGGER;
+	pev->movetype = MOVETYPE_FLY;
 
+	SetTouch(NULL);
+	SetThink(&CTSSlowMotion::WaitThink);
+	m_flStopTime = 0;
+	m_iToggledOn = 0;
+	pev->nextthink = gpGlobals->time + 0.5f;
+	for (int i = 0; i < TS_SLOMO_MAX_PLAYERS; i++)
+		m_hPlayers[i] = NULL;
+
+	m_iRadius = (int)((pev->absmax - pev->absmin).Length() * 0.5f);
 	m_iAllMap = (pev->spawnflags & SF_SLOMO_ALL_MAP) ? 1 : 0;
 	m_bSlowBullets = (pev->spawnflags & SF_SLOMO_SLOW_BULLETS) ? 1 : 0;
-	m_flRadius = pev->size.Length() * 0.5f; // VERIFY: drop-range from the brush bounds
-
-	SetThink(&CTSSlowMotion::WaitThink);
-	pev->nextthink = gpGlobals->time + 0.5f;
 
 	if (pev->spawnflags & SF_SLOMO_START_ON)
 		ActivateSlow();
@@ -244,9 +249,8 @@ void CTSSlowMotion::WaitThink()
 	}
 }
 
-// @ CheckPlayersDistance__13CTSSlowMotion — drop tracked players who left the zone
-// (restore them to normal speed). Reconstructed from intent (the decompile is heavy
-// stack arithmetic): distance from the zone centre, beyond m_flRadius -> released.
+// @0x6118c CheckPlayersDistance — every tracked player still slowed who is farther than the drop
+// range from the zone's centre goes back to normal speed and leaves the list.
 void CTSSlowMotion::CheckPlayersDistance()
 {
 	Vector center = Center();
@@ -261,7 +265,7 @@ void CTSSlowMotion::CheckPlayersDistance()
 			continue;
 
 		float dist = (pPlayer->pev->origin - center).Length();
-		if (dist > m_flRadius)
+		if (dist > m_iRadius)
 		{
 			pPlayer->GoSlow(1.0f, 0);
 			m_hPlayers[i] = NULL;
@@ -288,27 +292,38 @@ void CTSSlowMotion::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE 
 
 LINK_ENTITY_TO_CLASS(ts_slowmotionpoint, CTSSlowMotionPoint);
 
+// @0x61564: a hidden point, thinking every 0.5 s from 0.1 s on, nobody slowed yet
 void CTSSlowMotionPoint::Spawn()
 {
-	pev->movetype = MOVETYPE_NONE;
-	pev->solid = SOLID_NOT;
-	pev->effects |= EF_NODRAW;
+	pev->classname = MAKE_STRING("ts_slowmotionpoint");
 	UTIL_SetSize(pev, g_vecZero, g_vecZero);
 	UTIL_SetOrigin(pev, pev->origin);
-}
-
-// @ActivateSlow — arm the bubble: slow factor + lifetime, then start polling.
-void CTSSlowMotionPoint::ActivateSlow(float scale, float duration, int slowBullets)
-{
-	m_flScale = scale;
-	m_flEndTime = gpGlobals->time + duration;
-	m_iSlowBullets = slowBullets;
+	pev->effects = EF_NODRAW;
+	pev->movetype = MOVETYPE_NONE;
+	pev->solid = SOLID_NOT;
+	SetTouch(NULL);
 	SetThink(&CTSSlowMotionPoint::WaitThink);
 	pev->nextthink = gpGlobals->time + 0.1f;
+	m_flEndTime = 0;
+	m_flScale = 0;
+	m_flValue = 0;
+	m_bSlowBullets = false;
+	for (int i = 0; i < 33; i++)
+		m_hPlayers[i] = NULL;
 }
 
-// @WaitThink — every 0.5s, GoSlow each living player (not yet slowed) that has line of sight
-// to the point; when the lifetime ends, restore them all and remove.
+// @0x618ac ActivateSlow — the slow factor and the lifetime
+void CTSSlowMotionPoint::ActivateSlow(float scale, float duration, float value, bool slowBullets)
+{
+	m_flEndTime = gpGlobals->time + duration;
+	m_flScale = scale;
+	m_flValue = value;
+	m_bSlowBullets = slowBullets;
+}
+
+// @0x61728 WaitThink — until the lifetime ends, every player not yet slowed whom the point sees (a
+// trace to his eyes, ignoring monsters and glass, that ends clear) is slowed to the bubble's factor,
+// dead or alive; then everyone it slowed goes back to normal and the point is removed.
 void CTSSlowMotionPoint::WaitThink()
 {
 	pev->nextthink = gpGlobals->time + 0.5f;
@@ -323,54 +338,47 @@ void CTSSlowMotionPoint::WaitThink()
 	for (int i = 1; i <= gpGlobals->maxClients; i++)
 	{
 		CBasePlayer *p = (CBasePlayer *)UTIL_PlayerByIndex(i);
-		if (!p || !p->IsAlive() || p->edict() == pev->owner)
-			continue;
-		if (p->InSlow()) // already in slow-motion (by us or another source)
+		if (!p || !p->IsPlayer() || p->InSlow())
 			continue;
 
 		TraceResult tr;
-		UTIL_TraceLine(pev->origin, p->pev->origin + p->pev->view_ofs,
-			ignore_monsters, ignore_glass, ENT(pev), &tr);
+		UTIL_TraceLine(pev->origin, p->pev->origin + p->pev->view_ofs, ignore_monsters, ignore_glass, NULL, &tr);
 		if (tr.flFraction < 1.0f)
-			continue; // no line of sight
+			continue;
 
-		p->GoSlow(m_flScale, m_iSlowBullets);
-		if (m_nSlowed < MAX_SLOWED)
-			m_hSlowed[m_nSlowed++] = p;
+		p->GoSlow(m_flScale, 0);
+		p->m_bSlowBullets = m_bSlowBullets;
+		const int idx = ENTINDEX(p->edict());
+		if (idx < 33)
+			m_hPlayers[idx] = p;
 	}
 }
 
-// @DeactivateSlow — restore everyone this bubble slowed to normal speed.
+// @0x6166c DeactivateSlow — everyone this bubble slowed goes back to normal speed.
 void CTSSlowMotionPoint::DeactivateSlow()
 {
-	for (int i = 0; i < m_nSlowed; i++)
+	for (int i = 0; i < 33; i++)
 	{
-		CBasePlayer *p = (CBasePlayer *)(CBaseEntity *)m_hSlowed[i];
+		CBaseEntity *p = m_hPlayers[i];
 		if (p)
 			p->GoSlow(1.0f, 0);
+		m_hPlayers[i] = NULL;
 	}
-	m_nSlowed = 0;
 }
 
-// @CreateSlowMotionPoint — spawn a slow-motion bubble at `origin`.
 CTSSlowMotionPoint *CTSSlowMotionPoint::CreateSlowMotionPoint(const Vector &origin, float scale, float duration,
-	int slowBullets, CBaseEntity *pOwner)
+	float value, bool slowBullets)
 {
 	CTSSlowMotionPoint *pPoint = GetClassPtr((CTSSlowMotionPoint *)NULL);
-	pPoint->pev->classname = MAKE_STRING("ts_slowmotionpoint");
-	UTIL_SetOrigin(pPoint->pev, origin);
+	if (!pPoint)
+	{
+		UTIL_ClientPrintAll(HUD_PRINTTALK, "WARNING:cannot create slowmotion point!\n");
+		return NULL;
+	}
+	pPoint->pev->origin = origin;
 	pPoint->Spawn();
-	if (pOwner)
-		pPoint->pev->owner = pOwner->edict();
-	pPoint->ActivateSlow(scale, duration, slowBullets);
+	pPoint->ActivateSlow(scale, duration, value, slowBullets);
 	return pPoint;
-}
-
-// Spawn a slow-motion bubble (used by the slow-motion powerup activation).
-CBaseEntity *TSCreateSlowMotionPoint(const Vector &origin, float scale, float duration,
-	int slowBullets, CBaseEntity *pOwner)
-{
-	return CTSSlowMotionPoint::CreateSlowMotionPoint(origin, scale, duration, slowBullets, pOwner);
 }
 
 // ===================== ts_dmhill.cpp (merged) =====================
@@ -808,7 +816,7 @@ public:
 	void EXPORT WaitThink(void);
 	void ToggleTimer(void);
 
-	float m_flDuration;   // this+0x64 — "duration" keyvalue (seconds)
+	int   m_iDuration;   // this+0x64 — "duration" keyvalue, whole seconds (atoi, @0x62d50)
 	int   m_iActive;      // this+0x68 — running toggle state
 };
 
@@ -818,7 +826,7 @@ bool CTSTimer::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "duration"))
 	{
-		m_flDuration = atof(pkvd->szValue);
+		m_iDuration = atoi(pkvd->szValue);
 		return true;
 	}
 	return CBaseEntity::KeyValue(pkvd);
@@ -828,10 +836,8 @@ void CTSTimer::Spawn(void)
 {
 	pev->classname = MAKE_STRING("ts_timer");
 	pev->effects |= EF_NODRAW;
-	// Original writes two pev fields (0x108=5, 0x10c=0); a timer neither moves
-	// nor collides, so the behaviourally-equivalent point-entity setup: (VERIFY)
-	pev->solid = SOLID_NOT;
-	pev->movetype = MOVETYPE_NONE;
+	pev->solid = SOLID_NOT;     // @0x62deb
+	pev->movetype = MOVETYPE_FLY;
 
 	m_iActive = 0;
 	SetThink(NULL);
@@ -845,7 +851,7 @@ void CTSTimer::Spawn(void)
 // @ ToggleTimer__8CTSTimer
 void CTSTimer::ToggleTimer(void)
 {
-	if (m_flDuration < 1.0f)
+	if (m_iDuration < 1)
 	{
 		SetThink(NULL);
 		m_iActive = 0;
@@ -860,7 +866,7 @@ void CTSTimer::ToggleTimer(void)
 	else
 	{
 		SetThink(&CTSTimer::WaitThink);
-		pev->nextthink = gpGlobals->time + m_flDuration;
+		pev->nextthink = gpGlobals->time + m_iDuration;
 	}
 }
 
@@ -873,12 +879,12 @@ void CTSTimer::WaitThink(void)
 	if (pev->message)
 		TSHudMessageAll(0, 255, 0, 1, 30, STRING(pev->message));
 
-	// Original: if (pev->spawnflags & 1) clear think, then reschedule.
-	// (FGD bit 1 = "Start OFF"; reproduced faithfully — VERIFY vs "Loop".)
+	// @0x62f3a: spawnflag 1 (the FGD's "Start OFF") also makes it fire once; the FGD's "Loop" (2) is
+	// not read.
 	if (pev->spawnflags & SF_TIMER_START_OFF)
 		SetThink(NULL);
 
-	pev->nextthink = gpGlobals->time + m_flDuration;
+	pev->nextthink = gpGlobals->time + m_iDuration;
 }
 
 void CTSTimer::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
@@ -969,10 +975,8 @@ void CTSCustomTarget::Spawn(void)
 {
 	pev->classname = MAKE_STRING("ts_customtarget");
 	pev->effects |= EF_NODRAW;
-	// Original writes pev 0x108=5, 0x10c=0; like ts_timer this point relay neither
-	// moves nor collides, so the behaviourally-equivalent setup: (VERIFY)
-	pev->solid = SOLID_NOT;
-	pev->movetype = MOVETYPE_NONE;
+	pev->solid = SOLID_NOT;     // @0x630b8
+	pev->movetype = MOVETYPE_FLY;
 
 	m_iCurCount = 0;
 	m_iSeqIndex = 0;

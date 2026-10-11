@@ -154,12 +154,16 @@ LINK_ENTITY_TO_CLASS(player, CBasePlayer);
 
 void CBasePlayer::Pain()
 {
-	// DEAD CODE in the original (@0xc847c has ZERO call sites and is not
-	// vtable-dispatched) — kept for symbol parity only. The live TS pain voice is
-	// the throttled pain2/3/4 block inside TraceAttack. Body VERIFY (unread).
-	char snd[20];
-	sprintf(snd, "player/pain%d.wav", RANDOM_LONG(1, 4));
-	EMIT_SOUND(ENT(pev), CHAN_VOICE, snd, 1, ATTN_NORM);
+	// The stock SDK body (@0xc847c); nothing calls it in the original (no call site, not
+	// vtable-dispatched). The live TS pain voice is the throttled pain2/3/4 block inside TraceAttack.
+	float flRndSound = RANDOM_FLOAT(0, 1);
+
+	if (flRndSound <= 0.33)
+		EMIT_SOUND(ENT(pev), CHAN_VOICE, "player/pl_pain5.wav", 1, ATTN_NORM);
+	else if (flRndSound <= 0.66)
+		EMIT_SOUND(ENT(pev), CHAN_VOICE, "player/pl_pain6.wav", 1, ATTN_NORM);
+	else
+		EMIT_SOUND(ENT(pev), CHAN_VOICE, "player/pl_pain7.wav", 1, ATTN_NORM);
 }
 
 /* 
@@ -440,12 +444,7 @@ void CBasePlayer::TraceAttack(entvars_t* pevAttacker, float flDamage, Vector vec
 	}
 #endif
 
-	// INVENTED vs the original (stock-SDK leftovers): the original TraceAttack has no
-	// SpawnBlood/TraceBleed — hit blood is the CLIENT's TSTakeDamage handler, which our
-	// cl_dll doesn't implement yet. TODO: remove both once that handler exists (ripping
-	// them out now would leave players with zero blood).
-	SpawnBlood(ptr->vecEndPos, BloodColor(), flDamage); // a little surface blood.
-	TraceBleed(flDamage, vecDir, ptr, bitsDamageType);
+	// No SpawnBlood or TraceBleed (the stock SDK's): the hit blood is the client's, from PTakeDam.
 
 	AddMultiDamage(pevAttacker, this, flDamage, bitsDamageType);
 
@@ -551,9 +550,8 @@ bool CBasePlayer::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, fl
 	fmajor = (m_lastDamageAmount > 25);
 	fcritical = (pev->health < 30);
 
-	// NOTE: no Pain() call here — the original's CBasePlayer::Pain (@0xc847c) has ZERO
-	// call sites (not vtable-dispatched either); the real TS pain voice is the throttled
-	// pain2/3/4 block inside TraceAttack. (An invented Pain() call used to live here.)
+	// No Pain() call: CBasePlayer::Pain (@0xc847c) has no call site; the TS pain voice is the
+	// throttled pain2/3/4 block inside TraceAttack.
 
 	// handle all bits set in this damage message,
 	// let the suit give player the diagnosis
@@ -947,16 +945,16 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 
 	m_TSAnim.Animate(this, TSA_DIE);
 
-	// @0x7ef8c (Killed): the respawn gate is set AT DEATH — round(clamp(respawntime,5,30)) —
+	// @0x7ef8c (Killed): the respawn gate is set AT DEATH — (int)clamp(respawntime,5,30) —
 	// so the ~2 s of death-cam before StartObserver EAT INTO it: the first number the player
 	// sees is N-2 (observed floor 3 with the default 3 -> clamp 5 -> shows 3; set 10 -> shows
 	// 8). Round 8, user-verified vs the live original; ours anchored at spectate ENTRY and
 	// showed the full N.
 	{
-		float rt = CVAR_GET_FLOAT("respawntime");
+		float rt = respawntime.value;
 		if (rt < 5) rt = 5;
 		if (rt > 30) rt = 30;
-		SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
+		SetPlayerRespawnTime(this, (int)rt, false); // @0x7efd5: truncated (the control word set to chop)
 	}
 	// @0x7eea7 (Killed): the death-cam hold — watch the body for 3.0 s (any button skips).
 	m_flDeathCamTime = gpGlobals->time + 3.0f;
@@ -983,8 +981,10 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	// call sites are inside CBasePlayer::Killed @0x7ed5c (0x7f085-0x7f185), NOT in any
 	// PlayerKilled (caller census, cont.94 fold plan). Moved from the deleted
 	// CTSGameRules::PlayerKilled override.
+	// @0x7f079: the ammo pack first, then the flag, then every weapon
+	DropAmmo();
+	DropFlag(false);
 	TSDropWeaponsOnDeath(this);
-	TSDropAmmoOnDeath(this);
 
 	// clear out the suit message cache so we don't keep chattering
 	SetSuitUpdate(NULL, false, 0);
@@ -1046,14 +1046,7 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 
 // Set the activity based on an event or current state.
 //
-// TS REWORK: the stock body-animation code below looked up "ref_aim_<ext>" /
-// ACT_* sequences that the TS player.mdl does not define (it ships idle_/aim_/
-// shoot_<grip>, run2/walk2, ...), so the model rendered permanently idle. In the
-// original .so this function is a no-op stub (@0xd8f50) and TS drives the body
-// through CTSAnimation::Animate instead. We route the existing PLAYER_ANIM call
-// sites into m_TSAnim.Animate so the gait subsystem owns all body animation.
-// See ts_animation.{h,cpp}.
-// TS makes CBasePlayer::SetAnimation an EMPTY no-op (RE @0xd8f50). The original drives the player
+// TS makes CBasePlayer::SetAnimation an EMPTY no-op (@0xc8f50). The original drives the player
 // animation by calling CTSAnimation::Animate(this, <activity>) DIRECTLY from the weapon (CTSGun::Fire/
 // KnifeFire/Reload/Deploy) and the movement code (PostThink locomotion 1/6, PM_Jump 4, death 7) — there is
 // no SetAnimation indirection. Our callers now do the same (m_TSAnim.Animate directly), so this stays empty.
@@ -1310,8 +1303,10 @@ void CBasePlayer::PlayerDeathThink()
 			pev->nextthink = -1; // hand off to PlayerPreThink (the death think is done)
 			return;
 		}
-		// the body must NOT mouse-rotate while lingering (round 8, user vs the original) —
-		// the view keeps flowing into v_angle/angles via the movement code; re-pin the yaw.
+		// The body keeps its angles at death while it lingers. The original server has no such pin: a
+		// puppet turning its view on TS 3.0 turns the dead body with it, from the death frame until it
+		// spectates. A real player on the original does not see his body turn (round 8), so the turn
+		// is not sent then; the pin keeps that look whatever the client sends.
 		pev->angles = m_vecDeathBodyAngles;
 		pev->nextthink = gpGlobals->time + 0.1f; // keep lingering
 	}
@@ -1505,12 +1500,10 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 // entry. Called from CTSGameRules::InitHUD for a joiner, from PlayerDeathThink after a
 // death, and at the end of CBasePlayer::Spawn when m_fInSpectateWait is set.
 //=========================================================
-// (TSSendScoreInfo + the TS_SCORE_WAITING ScoreInfo-playerclass mechanism DELETED, fold-plan
-// Y6: the original has NO ScoreInfo helper — its ScoreInfo senders are all inline and write a
-// CONSTANT 0 for playerclass (AddPoints @0xc9e18); the scoreboard's WAITING (client case 0xb)
-// travels on the AWARD byte (player+0x74c = m_iAward, stamped 1/11 by SetPlayerRespawnTime
-// @0x65ff4 and broadcast via TSPAward from UpdateClientData). Ours already runs that faithful
-// pipeline; the ScoreInfo-playerclass WAITING was an invented parallel wire.)
+// The original's ScoreInfo senders are all inline and write 0 for playerclass (AddPoints
+// @0xc9e18); the scoreboard's WAITING (client case 0xb) travels on the award byte (player+0x74c =
+// m_iAward, stamped 1/11 by SetPlayerRespawnTime @0x65ff4 and sent by TSPAward from
+// UpdateClientData).
 
 void CBasePlayer::TSEnterSpectate(bool bResetArmament)
 {
@@ -1531,12 +1524,12 @@ void CBasePlayer::TSEnterSpectate(bool bResetArmament)
 	// (the death-cam seconds eat into it — the original's observed N-2 first number).
 	if (m_flTSRespawnTime <= 0.0f || m_flTSRespawnTime <= gpGlobals->time)
 	{
-		float rt = CVAR_GET_FLOAT("respawntime");
+		float rt = respawntime.value;
 		if (rt < 5)
 			rt = 5;
 		if (rt > 30)
 			rt = 30;
-		SetPlayerRespawnTime(this, (int)(rt + 0.5f), false);
+		SetPlayerRespawnTime(this, (int)rt, false); // @0x6955a (InitHUD): truncated
 	}
 
 	// fold-plan G7: the original has no entry-time paint. The PreThink spectate block paints the
@@ -1544,15 +1537,13 @@ void CBasePlayer::TSEnterSpectate(bool bResetArmament)
 	// in the same frame.
 }
 
-// (TSSendBuyMenu/TSCloseMenu/TSMenuSelect DELETED, dossier-invented B3: the original has NO
-// server-side buy menu — the buy/config menu is entirely client-side (cl_dll/ts_buymenu.cpp);
-// purchases arrive as tkw/tki/tka console commands and the server's "menuselect" is a dead
-// swallow in the gamerules ClientCommand. Fire-to-play is the client's "respawn" command.)
+// The original has no server-side buy menu: the buy/config menu is the client's
+// (cl_dll/ts_buymenu.cpp); purchases arrive as tkw/tki/tka console commands and the server's
+// "menuselect" is a dead swallow in the gamerules ClientCommand. Fire-to-play is the client's
+// "respawn" command.
 
-// (TSSpectateThink DELETED, fold-plan G7: the original has no such method — the spectate
-// countdown/prompt block IS the pev->iuser1 != 0 block of CBasePlayer::PreThink @0x808cc,
-// region ~0x81458, and now lives inline in PlayerPreThink. Its 1 Hz ScoreInfo WAITING
-// reassert was the invented Y6 wire and is gone with it.)
+// The spectate countdown/prompt is the pev->iuser1 != 0 block of CBasePlayer::PreThink @0x808cc
+// (region ~0x81458), inline in PreThink.
 
 // Press-fire: leave spectate and enter play with the chosen loadout.
 void CBasePlayer::StopObserver()
@@ -1988,8 +1979,7 @@ void CBasePlayer::PreThink()
 	// disarm pressure (+0x7b4): decays at 5x the delta (RE PreThink +0x237)
 	m_flDisarmPressure = V_max(m_flDisarmPressure - flDecay * 5.0f, 0.0f);
 
-	// TS STUNT/ACROBATICS (RECONSTRUCTED CTSStunt — dlls/ts_stunt.cpp, RE reference/STUNT.md).
-	// Replaces the old ad-hoc dive/roll/wall-climb/prone approximations. Play() runs the real
+	// TS STUNT/ACROBATICS (CTSStunt — dlls/ts_stunt.cpp, RE reference/STUNT.md). Play() runs the
 	// CTSStunt state machine; it writes the networked pev->iuser4 stunt flags, and pm_shared's
 	// TSHandle() (in BOTH the server and the client predictor) reads them to PREDICT the small
 	// dive/prone hull + low view + dive/wall launch velocity — which the DLL alone could never
@@ -2099,11 +2089,9 @@ void CBasePlayer::PreThink()
 
 	// TS (cont.65): while held in spectate, run the countdown + fire-to-play
 	// check and skip the normal in-play think (no items/water/weapons yet).
-	// @ the pev->iuser1 != 0 block of CBasePlayer::PreThink @0x808cc, region ~0x81458
-	// (fold-plan G7 — was the invented helper TSSpectateThink; the original has no such
-	// method, this IS the PreThink spectate block: the 1 Hz HUD-line throttles off +0x754,
-	// then the observer upkeep). The original sends NO ScoreInfo here (the WAITING status
-	// rides the award byte — fold-plan Y6).
+	// @ the pev->iuser1 != 0 block of CBasePlayer::PreThink @0x808cc, region ~0x81458: the 1 Hz
+	// HUD-line throttles off +0x754, then the observer upkeep. No ScoreInfo here (the WAITING
+	// status rides the award byte).
 	if (m_fInSpectateWait) // original gate: pev->iuser1 != 0 (converge with Y7's iuser1/iuser2 pass)
 	{
 		// Fire-to-play is the CLIENT's "respawn" console command (the original mechanism —
@@ -3013,7 +3001,7 @@ void CBasePlayer::PostThink()
 		// morfy_jump(_guns) flight pose + airwheel and sets WHEEL_DONE. When that flight touches down, screen-
 		// shake + either a GoRoll (DUCK held on landing) or the superjump_land plant (view low + PRONE|STOP +
 		// roll 0.75 + the superjump_land pose). No sustained lift, no fuel — the arc is pure jump physics, so
-		// hitting a ceiling just drops you. (Replaces the invented m_bLowGravity thrust model.)
+		// hitting a ceiling just drops you.
 		if ((pev->iuser4 & TSSTUNT_WHEEL_DONE) != 0)
 		{
 			pev->iuser4 &= ~TSSTUNT_WHEEL_DONE;
@@ -4313,11 +4301,10 @@ void CBasePlayer::UpdateClientData()
 			MESSAGE_BEGIN(MSG_ONE, gmsgInitHUD, NULL, pev);
 			MESSAGE_END();
 
-			// R1 phase 3 FIX: set the guard BEFORE the InitHUD calls — the TS-patched
-			// Teamplay::InitHUD assigns the team via ChangePlayerTeam, whose no-kill path
-			// calls StartObserver, which re-arms m_fInitHUD/UpdateClientData; with the
-			// guard set after (stock order) that recursed to stack overflow (live-gdb'd).
-			// VERIFY the original UCD @0x81d00 flag ordering.
+			// The original sets this guard after both InitHUD calls (@0x81dff). reTS sets it first:
+			// here the TS-patched Teamplay::InitHUD assigns the team via ChangePlayerTeam, whose
+			// no-kill path calls StartObserver, which runs UpdateClientData again, and with the guard
+			// set after that recursed to a stack overflow (seen in gdb).
 			m_fGameHUDInitialized = true;
 			g_pGameRules->InitHUD(this);
 			// R1 phase 2: the TS InitHUD content is the standalone object's NON-VIRTUAL
@@ -4388,9 +4375,8 @@ void CBasePlayer::UpdateClientData()
 	// (no Health or Battery message: the original registers both and sends neither; its only GOT uses
 	// of gmsgHealth and gmsgBattery are in LinkUserMessages. The HUD and TSX read TSHealth/TSArmor below.)
 
-	// (no Weapons message — the HLU 64-bit weapon-bits sync was an invented registration the
-	// original TS lacks; removed for registration-set parity (dossier-gmsg U0, PLAYTEST-GATED:
-	// the TS weapon HUD rides WeaponInfo/WStatus, and the single weapon_tsgun is auto-known.)
+	// (no Weapons message: the original registers none; the TS weapon HUD rides WeaponInfo/WStatus,
+	// and the single weapon_tsgun is known to the client without it.)
 
 	// (no damage block — the original's UpdateClientData @0x81d00 sends no Damage message and never
 	// clears dmg_take/dmg_save or the damage bits: no write to entvars+0x1d8/0x1dc or player+0x9b0 in
@@ -4495,9 +4481,8 @@ void CBasePlayer::UpdateClientData()
 		// value per active powerup bit — slowpause (0.225) OR slowmo (0.35) — else the player's own slow
 		// TARGET (m_flSlowMotionTarget @0x170). slowpause is tested FIRST, so it wins when both bits are
 		// set. m_flClientSlowAmt caches the FACTOR (not the ×100 wire value), change-detected. NB the
-		// original keys off the networked TARGET here — NOT pev->fuser1 (the eased CURRENT) and NOT the
-		// invented m_flSlowMotionRamp (the others-scale); those were a cont.94-era divergence, fixed to
-		// match the original exactly (cont.98).
+		// original keys off the networked TARGET here, not pev->fuser1 (the eased CURRENT) and not
+		// m_flSlowMotionRamp (the others-scale).
 		float slowFactor = 0.225f; // TS_PWUP_SLOWPAUSE
 		if (!(m_iPowerups & TS_PWUP_SLOWPAUSE))
 		{

@@ -44,8 +44,8 @@ class CBasePlayer;
 class CTSStunt
 {
 	// The original writes stunt state (esp. m_flRollTime = stunt+0x4) directly from the melee/katana
-	// code (kick/katana duck-slash "land low, get up"); grant that direct access rather than invent
-	// a setter. See CTSGun::CCombatAttack / KatanaFire.
+	// code (kick/katana duck-slash "land low, get up"), so those classes get direct access. See
+	// CTSGun::CCombatAttack / KatanaFire.
 	friend class CTSGun;
 	friend class CBasePlayer; // PreThink stamps m_flLastStunt (@0x809ab); PostThink's superjump landing writes m_flRollTime (@0x81a15)
 public:
@@ -109,8 +109,7 @@ private:
 	float m_flLastStunt = 0;        // player+0xb88 — time of last stunt (HandleStunt window)
 	float m_flGetupTime = 0;        // getup transition end (0 = not getting up); two-stage view raise
 	float m_flNextBreakCheck = 0;   // +0x18 — CheckForBreakables throttle (next-check time)
-	// (the CheckForBreakables dedupe lives on the PLAYER: m_hRunThroughLast @0x798 — the
-	// former CTSStunt::m_pLastBreakVictim here was invented; removed cont.96)
+	// (the CheckForBreakables dedupe lives on the PLAYER: m_hRunThroughLast @0x798)
 
 	// NB: the original's TimeScale/SendNextStunt/MotionBlur/ResetStuntState are INLINED (not
 	// methods) and GetDirection is a FREE function — see the file-local statics in ts_stunt.cpp.

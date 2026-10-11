@@ -23,6 +23,7 @@
 #include "ts_slowmotionpoint.h" // the spectacular-explosion slow bubble
 #include "ts_gamerules.h"       // DoSpectacularNess
 #include "game.h"               // g_flWeaponCheat (sv_cheats as the map started)
+#include "ts_worldgun.h"         // CTSWorldGun (a blast throws dropped guns)
 
 //============================================================================
 // CTSPhysicObject (@0x7ba54) — slow-motion-aware physics base for CTSGrenade + CTSWorldGun.
@@ -210,66 +211,129 @@ CTSShrapnel *CTSShrapnel::Create(entvars_t *pevOwner, const Vector &vecOrigin, c
 }
 
 //============================================================================
-// TSExplosion (@0x6d01c) — the grenade detonation logic. It's a FUNCTION, not a spawned entity:
-// screen-shake + the TS client explosion visual (gmsgTSCreateDebris material 1) + linear-falloff
-// radius damage with a white screen-flash on players caught in the blast. (SLICE: the original also
-// drops a brief CTSSlowMotionPoint on a "spectacular" kill via DoSpectacularNess — deferred.)
+// @0x6d01c TSExplosion(origin, inflictor, attacker, damage, bits, inner, outer) — an explosion. It's a
+// FUNCTION, not a spawned entity. The caller's origin is raised 1 unit. A screen shake (amplitude
+// `damage`, radius 2 x outer) and the TS client explosion (TSCreateDebris material 1, its size the
+// damage truncated). Everything in the outer sphere but the inflictor that takes damage and is not
+// dead: a living player gets a pale flash; full damage out to `inner`, then down to 0 at `outer`; a
+// clear trace from the blast to its centre deals it; a blocked one deals what is left after the
+// distance from the blocker to where a trace back from the target leaves the wall, so a wall's
+// thickness absorbs damage. A dropped gun ("WorldGun") in the sphere is thrown away from a point 50
+// units above the blast, harder the closer and the lighter it is. Last the spectacular roll's
+// one-second slow-motion bubble.
 //============================================================================
 extern int gmsgTSCreateDebris; // func_break.cpp (registered "TSCreateDebris")
 
-#define M61_SHAKE_MAG    110.0f  // screen-shake amplitude + debris size (RE @0x42dc0000 = 110)
-#define M61_BLAST_DAMAGE 300.0f  // VERIFY: recovered TSExplosion literal (was a dynamic per-throw value)
-#define M61_BLAST_RADIUS 1024.0f // VERIFY: recovered TSExplosion literal @0x44800000 (was a tuned 400 guess)
-
-void TSExplosion(const Vector &origin, entvars_t *pevInflictor, entvars_t *pevAttacker,
-	float magnitude, float baseDamage, float radius)
+void TSExplosion(Vector &origin, entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage,
+	int bitsDamageType, float flInner, float flOuter)
 {
-	Vector pos = origin;
-	pos.z += 1.0f; // RE: nudge the blast centre 1u off the surface
+	origin.z += 1.0f; // @0x6d037: the caller's vector
+	Vector high = origin;
+	high.z += 50.0f;
 
-	UTIL_ScreenShake(pos, magnitude, 80.0f, 1.0f, radius * 2.0f);
+	UTIL_ScreenShake(origin, flDamage, 80.0f, 1.0f, flOuter * 2.0f);
 
-	// The faithful explosion wire (@0x7d0xx decompile): gmsgTSCreateDebris MATERIAL 1 —
-	// origin coords + (round(magnitude), 0, 0) + byte 1. The CLIENT owns the fireball +
-	// the explo/explode*.wav boom (material-1 branch, cl_dll/ts_debris.cpp).
 	MESSAGE_BEGIN(MSG_ALL, gmsgTSCreateDebris);
-	WRITE_COORD(pos.x);
-	WRITE_COORD(pos.y);
-	WRITE_COORD(pos.z);
-	WRITE_COORD((float)(int)(magnitude + 0.5f));
+	WRITE_COORD(origin.x);
+	WRITE_COORD(origin.y);
+	WRITE_COORD(origin.z);
+	WRITE_COORD((float)(int)flDamage); // @0x6d11d: truncated
 	WRITE_COORD(0);
 	WRITE_COORD(0);
 	WRITE_BYTE(1);
 	MESSAGE_END();
 
-	// Radius damage: full baseDamage at the centre, falling off linearly to 0 at `radius`. A wall in the
-	// way spares the target; players caught in the blast get a brief white screen-flash (RE UTIL_ScreenFade).
-	const float falloff = (radius > 0.0f) ? baseDamage / radius : baseDamage;
-	CBaseEntity *pEnt = NULL;
-	while ((pEnt = UTIL_FindEntityInSphere(pEnt, pos, radius)) != NULL)
+	const float falloff = flDamage / (flOuter - flInner);
+	if (!pevAttacker)
+		pevAttacker = pevInflictor;
+
+	CBaseEntity *pEntity = NULL;
+	while ((pEntity = UTIL_FindEntityInSphere(pEntity, origin, flOuter)) != NULL)
 	{
-		if (pEnt->pev->takedamage == DAMAGE_NO)
+		if (pEntity->pev == pevInflictor)
 			continue;
-		Vector vecTgt = pEnt->BodyTarget(pos);
-		float dmg = baseDamage - (vecTgt - pos).Length() * falloff;
-		if (dmg <= 0.0f)
-			continue;
-		TraceResult tr;
-		UTIL_TraceLine(pos, vecTgt, dont_ignore_monsters, pevInflictor ? ENT(pevInflictor) : NULL, &tr);
-		if (tr.flFraction < 1.0f && tr.pHit != pEnt->edict())
-			continue; // a wall is in the way
-		if (pEnt->IsPlayer())
-			UTIL_ScreenFade(pEnt, Vector(255, 255, 255), 0.1f, 0.05f, 75, 0);
-		ClearMultiDamage();
-		pEnt->TraceAttack(pevAttacker, dmg, (vecTgt - pos).Normalize(), &tr, DMG_BLAST);
-		ApplyMultiDamage(pevInflictor, pevAttacker);
+
+		if (pEntity->pev->takedamage != DAMAGE_NO && pEntity->pev->deadflag != DEAD_DEAD)
+		{
+			if (pEntity->IsAlive() && pEntity->IsPlayer())
+				UTIL_ScreenFade(pEntity, Vector(222, 227, 189), 0.1f, 0.05f, 75, 0); // @0x6d25c
+
+			Vector target = pEntity->Center();
+			target.z += 1.0f;
+			TraceResult tr;
+			UTIL_TraceLine(origin, target, dont_ignore_monsters, ENT(pevInflictor), &tr);
+
+			const float dist = (origin - target).Length();
+			float dmg = flDamage;
+			if (dist > flInner)
+			{
+				dmg = flDamage - (dist - flInner) * falloff;
+				if (dmg < 0.0f)
+					dmg = 0.0f;
+			}
+
+			if (tr.flFraction == 1.0f || tr.pHit == pEntity->edict())
+			{
+				ClearMultiDamage();
+				Vector dir = target - origin;
+				const float len = dir.Length();
+				dir = (len == 0.0f) ? Vector(0, 0, 1) : dir * (1.0f / len);
+				pEntity->TraceAttack(pevAttacker, dmg, dir, &tr, bitsDamageType);
+				ApplyMultiDamage(pevInflictor, pevAttacker);
+			}
+			else
+			{
+				// @0x6d47c: the wall's thickness, from the trace back out of the target
+				const Vector wallIn = tr.fStartSolid ? origin : tr.vecEndPos;
+				UTIL_TraceLine(target, origin, dont_ignore_monsters, pEntity->edict(), &tr);
+				if (tr.flFraction != 1.0f)
+				{
+					const float thickness = (tr.vecEndPos - wallIn).Length();
+					if (thickness < dmg)
+					{
+						ClearMultiDamage();
+						Vector dir = target - origin;
+						const float len = dir.Length();
+						dir = (len == 0.0f) ? Vector(0, 0, 1) : dir * (1.0f / len);
+						pEntity->TraceAttack(pevAttacker, dmg - thickness, dir, &tr, bitsDamageType);
+						ApplyMultiDamage(pevInflictor, pevAttacker);
+					}
+				}
+			}
+		}
+
+		// @0x6d651: a dropped gun flies
+		if (!strcmp(STRING(pEntity->pev->classname), "WorldGun"))
+		{
+			CTSWorldGun *pGun = (CTSWorldGun *)pEntity;
+			UTIL_SetOrigin(pGun->pev, pGun->pev->origin);
+			UTIL_SetSize(pGun->pev, g_vecZero, g_vecZero);
+			pGun->SetTouch(&CTSWorldGun::BounceTouch);
+			pGun->SetThink(&CTSWorldGun::Fall);
+			pGun->pev->nextthink = gpGlobals->time + 0.1f;
+			pGun->pev->movetype = MOVETYPE_BOUNCE;
+			pGun->pev->solid = SOLID_BBOX;
+			pGun->pev->gravity = 0.7f;
+			pGun->pev->friction = 0.8f;
+			Vector away = pGun->pev->origin - high;
+			const float d = away.Length();
+			const Vector dir = (d == 0.0f) ? Vector(0, 0, 1) : away * (1.0f / d);
+			const float cost = (float)(unsigned char)get_weapon_info((tsweapon_t)pGun->m_weaponType)->slotCost;
+			pGun->pev->velocity = (dir * (flOuter - d)) / cost * 10.0f;
+			if (pGun->pev->flags & FL_ONGROUND)
+			{
+				pGun->pev->flags &= ~FL_ONGROUND;
+				pGun->pev->velocity.z = fabs(pGun->pev->velocity.z) + 50.0f;
+			}
+			pGun->pev->avelocity.y = RANDOM_LONG(-300, 300);
+			pGun->pev->avelocity.z = RANDOM_LONG(-300, 300);
+		}
 	}
 
-	// @0x7d957 (the sphere-loop exhaustion tail): the "spectacular" roll — DoSpectacularNess
-	// (RANDOM_LONG(0,100) <= round(`spectacularness` cvar), default 1 -> ~2%) drops a ONE-SECOND
-	// slow-motion bubble at the blast (scale 0.25): CreateSlowMotionPoint(pos, 0.25, 1.0, 0, false).
+	// @0x6d964: the "spectacular" roll — DoSpectacularNess (RANDOM_LONG(0,100) <= round(`spectacularness`
+	// cvar), default 1 -> ~2%) drops a one-second slow-motion bubble (scale 0.25) at the blast.
 	if (DoSpectacularNess())
-		CTSSlowMotionPoint::CreateSlowMotionPoint(pos, 0.25f, 1.0f, 0, nullptr);
+		CTSSlowMotionPoint::CreateSlowMotionPoint(origin, 0.25f, 1.0f, 0.0f, false);
 }
 
 //============================================================================
@@ -386,8 +450,13 @@ void CM61Grenade::WaitThink()
 	else
 	{
 		if (IsInWorld())
-			TSExplosion(pev->origin, pev, pev->owner ? VARS(pev->owner) : pev,
-				M61_SHAKE_MAG, M61_BLAST_DAMAGE, M61_BLAST_RADIUS);
+		{
+			// @0x6cb5d: a copy of the origin; 110 damage (and shake), DMG_BLAST | DMG_NEVERGIB, full
+			// out to 300 units, nothing past 1024
+			Vector vecOrigin = pev->origin;
+			TSExplosion(vecOrigin, pev, pev->owner ? VARS(pev->owner) : NULL, 110.0f, DMG_BLAST | DMG_NEVERGIB,
+				300.0f, 1024.0f);
+		}
 		RemoveEntityFromSlowedArray(this); // WaitThink__11CM61Grenade @0x6cb9f — scrub the packed slowed array before removal
 		UTIL_Remove(this);
 	}
@@ -452,7 +521,8 @@ public:
 	virtual bool ShouldCollide(CBaseEntity *pOther) { return true; } // @0x6ed54 -> 1 (TS virtual)
 	// @0x6d9e4 CreateKnife(CBasePlayer*, Vector pos, Vector vel, int knifeType) — knifeType is the
 	// s_weapon_info+0x20 code (knife 6 / sealknife 7 / katana 8; stored at knife+0xa0 in the original).
-	// NO damage parameter — the stab damage lives inside the class (StabDamage; internals VERIFY L8).
+	// NO damage parameter — the stab damage lives inside the class (StabDamage: BounceTouch @0x6dfcd
+	// gives code 8 150, code 6 100, anything else 50).
 	static CTSKnife *CreateKnife(CBasePlayer *pOwner, const Vector &vecStart, const Vector &vecVel, int knifeType);
 
 	float StabDamage() const // RE BounceTouch: per-type player-stab damage (katana 150 / knife 100 / seal 50)
@@ -561,11 +631,9 @@ void CTSKnife::WaitThink()
 	CTSPhysicObject::WaitThink(); // @0x6ed41 — slow-motion physics upkeep (GoSlow sets fuser1)
 }
 
-// (KnifeHitPitch removed — an ad-hoc thrower-slow emulation invented before the TS 8-arg
-// EMIT_SOUND_DYN overload was RE'd. The original keys the deepening off the KNIFE ENTITY's
-// own pev->fuser1 (init 1.0 at Spawn @0x6dca4, slowed via CBaseEntity::GoSlow), applied
-// inside EMIT_SOUND_DYN with the default 0.5 weight — NOT a play-time thrower read.
-// cont94 emit_sound_dyn_overload.md §4.3.)
+// The knife's hit sounds deepen with the KNIFE ENTITY's own pev->fuser1 (init 1.0 at Spawn
+// @0x6dca4, slowed via CBaseEntity::GoSlow), applied inside EMIT_SOUND_DYN with the default 0.5
+// weight.
 
 // @ CTSKnife::BounceTouch (@0x6decc, decompile-exact) — the contact handler. It NEVER breaks anything
 // (the swept WaitThink is the sole breaker). Branches: stab PLAYERS (per-type damage, -0.25 bounce-off),

@@ -267,9 +267,6 @@ public:
 
 	bool FShouldSwitchWeapon(CBasePlayer* pPlayer, CBasePlayerItem* pWeapon) override;
 
-	// @0x7b140 — TS rejects the reserved HL model names as team names (blacklist).
-	bool IsValidTeam(const char* pTeamName) override;
-
 	// @0xc0c68 — the browser game description per mode: theOne -> LMS -> DM (NO teamplay branch;
 	// teams are an orthogonal axis). CTSGameRules inherits this (the original has no override).
 	const char* GetGameDescription() override;
@@ -358,14 +355,17 @@ public:
 	// Immediately end a multiplayer game
 	void EndMultiplayerGame() override { GoToIntermission(); }
 
+	// @0x7b140 — a virtual of its own (slot 0xf4), not CGameRules::IsValidTeam(const char*): false for
+	// the stock Half-Life model names. ClientUserInfoChanged reverts a model change to one of them.
+	virtual bool IsValidTeam(char* pTeamName);
+
 protected:
 	virtual void ChangeLevel();
 	virtual void GoToIntermission();
 	float m_flIntermissionStartTime = 0;
 	float m_flIntermissionEndTime = 0;
 	bool m_iEndIntermissionButtonHit;
-	// R1 interim: public — the `motd` ClientCommand re-sends it via g_pGameRules (was a
-	// CTSGameRules passthrough when the classes were merged). VERIFY the original's motd path.
+	// public: the `motd` client command calls it on g_pGameRules when IsMultiplayer() (@0x9e559)
 public:
 	void SendMOTDToClient(edict_t* client);
 

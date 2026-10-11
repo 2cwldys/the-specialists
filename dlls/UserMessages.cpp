@@ -107,7 +107,7 @@ void LinkUserMessages()
 	gmsgTSVoiceMessage = REG_USER_MSG("TSHVoice", 1);                           // 54 (the wire name IS "TSHVoice")
 	gmsgTSHaveFlag = REG_USER_MSG("TSFlag", 4);                                 // 55
 	gmsgTSCustomWeaponParams = REG_USER_MSG("CustomWP", -1);                    // 56
-	gmsgSpectator = REG_USER_MSG("Spectator", 2);                               // 57 BYTE state, BYTE secondsLeft (VERIFY: original = stock (idx,flag))
+	gmsgSpectator = REG_USER_MSG("Spectator", 2);                               // 57 BYTE index, BYTE spectating (the stock wire)
 	gmsgTSMotionBlur = REG_USER_MSG("TSMBlur", 2);                              // 58
 	gmsgTSMessage = REG_USER_MSG("TSMessage", -1);                              // 59
 	gmsgTSSlowAmt = REG_USER_MSG("TSSlowMo", 2);                                // 60

@@ -4,8 +4,8 @@
 *
 *  TS embeds a CTSAnimation object on CBasePlayer (original: player+0x28c) and
 *  drives ALL player body animation through CTSAnimation::Animate(player,activity)
-*  — the stock CBasePlayer::SetAnimation(PLAYER_ANIM) is a no-op stub in the .so
-*  (@0xd8f50, 21 bytes). The stock SDK SetAnimation looks up "ref_aim_<ext>" /
+*  — the stock CBasePlayer::SetAnimation(PLAYER_ANIM) is empty in the .so
+*  (@0xc8f50, 21 bytes). The stock SDK SetAnimation looks up "ref_aim_<ext>" /
 *  ACT_* sequences that the TS player.mdl does NOT define, so the model rendered
 *  permanently idle. This reconstruction selects the real TS model sequences
 *  (idle_/aim_/shoot_/relo_/draw_ + grip, crouch_/duck_ variants, run2/walk2/crawl

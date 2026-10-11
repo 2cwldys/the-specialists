@@ -28,6 +28,7 @@
 #include "ts_func_break.h" // CInfoBreakable (the respawn helper)
 #include "decals.h"
 #include "explode.h"
+#include "ts_utils.h" // TSExplosion
 
 // The attacker recorded by CBreakable::Killed so Die's explosion can attribute the blast (the TS
 // original's PTR_BreakableLastpevAttacker global). NULL outside a Killed->Die.
@@ -765,8 +766,7 @@ void CBreakable::Die()
 		// @0x752e0: velMag = local_474 * (CBreakable+0x110). For GLASS (material case 0) local_474 stays
 		// 1.0 (only metal/wood/flesh scale it), and +0x110 = the killing hit's damage (m_flShatterVel,
 		// stored in TraceAttack — ×8 for the dive/melee bit). So glass velMag = the shot's damage (~16-21
-		// for a ranged bullet), verified by a live trace of the ORIGINAL server's Die. Our old 150·dmg
-		// guess was ~10× too fast.
+		// for a ranged bullet), verified by a live trace of the ORIGINAL server's Die.
 		float velMag = m_flShatterVel;
 		// shatter direction = the bullet TRAVEL direction (away from the shooter). g_vecAttackDir
 		// points FROM the breakable TOWARD the attacker (that's why the gib code below uses
@@ -873,9 +873,15 @@ break_done:
 		CBaseEntity::Create((char*)STRING(m_iszSpawnObject), VecBModelOrigin(pev), pev->angles, edict());
 
 
+	// @0x65c3d: an explosive breakable (impulse > 0) explodes the TS way: TSExplosion from its
+	// centre, the damage and the full-damage radius its magnitude, nothing past 2.5 x that, the
+	// attacker the one whose blow broke it (else itself).
 	if (Explodable())
 	{
-		ExplosionCreate(Center(), pev->angles, edict(), ExplosionMagnitude(), true);
+		Vector vecCenter = Center();
+		const float flMagnitude = (float)ExplosionMagnitude();
+		TSExplosion(vecCenter, pev, g_BreakableLastpevAttacker ? g_BreakableLastpevAttacker : pev, flMagnitude,
+			DMG_BLAST | DMG_NEVERGIB, flMagnitude, (float)(2.5 * ExplosionMagnitude()));
 	}
 
 	// TS respawn disposition (additive — the glass/debris path above is untouched). A respawn-flagged

@@ -226,7 +226,7 @@ CGameRules* InstallGameRules()
 		// @0xb6100: g_teamplay = DecideGamePlay(mapname, default) — the teamplay decision +
 		// the LMS/TheOne mode flags; rules+0 is seeded from it (Init @0x67d83) and
 		// InitObjectives later promotes team maps to 2 (plain) / 3 (objectives).
-		g_teamplay = DecideGamePlay((char *)STRING(gpGlobals->mapname), teamplay.value > 0 ? 1 : 0) != 0;
+		g_teamplay = DecideGamePlay((char *)STRING(gpGlobals->mapname), (int)teamplay.value) != 0;
 		// R1 phase 2 — the original two-object architecture (@0xb6050): g_pGameRules is a stock
 		// (TS-patched) CHalfLifeMultiplay/CHalfLifeTeamplay; the STANDALONE CTSGameRules lives
 		// alongside as the static object @0x1681a0 (ctor at static-init; Init() here per map;

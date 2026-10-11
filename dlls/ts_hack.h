@@ -18,12 +18,12 @@ public:
 	bool Restore(CRestore &restore) override;
 	int  ObjectCaps() override { return FCAP_CONTINUOUS_USE; } // @0x8e788 -> 0x10
 	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override; // @0x8cf14
-	void EnableObjective(bool enable) override; // @0x8cd6? arm/disarm + seed the objective deadline
-	void EXPORT WaitThink();                    // @0x8ceb0 — objective deadline countdown -> Freeze
+	void EnableObjective(bool enable) override; // @0x7cdb8 arm/disarm + seed the objective deadline
+	void EXPORT WaitThink();                    // @0x7ceb0 — objective deadline countdown -> Freeze
 
 	static TYPEDESCRIPTION m_SaveData[];
 
-	int   hacksec = 10;         // +0x7c — keyvalue "hackingtime": seconds of HELD USE to complete
+	int   hacksec = 0;          // +0x7c — keyvalue "hackingtime": seconds of HELD USE to complete
 	float m_flObjTimer = 0;     // +0x6c — objective deadline countdown (round seconds left)
 	float m_flHackProgress = 0; // +0x70 — hack progress remaining (held USE counts it down; <0 = done)
 	float m_flLastUse = 0;      // +0x74 — last USE time (held-USE continuity)

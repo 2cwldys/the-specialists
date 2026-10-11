@@ -34,10 +34,17 @@ extern cvar_t forcerespawn;
 extern cvar_t aimcrosshair;
 extern cvar_t decalfrequency;
 extern cvar_t teamlist;
+extern cvar_t teammodels;
 extern cvar_t teamoverride;
 extern cvar_t defaultteam;
 extern cvar_t allowmonsters;
 extern cvar_t mp_chattime;
+
+// The Specialists
+extern cvar_t initial_cash, cashforwin, cashforlose, roundtime, respawntime, damagemult, slowmatch,
+	nopowerup, botlearn, realbullet, dmcashbased, cv_ammocount, bottalk, weaponstay_time, mp_theonemode,
+	mp_theone, mp_theothers, lastmanstanding, spectacularness, respawnnumber, customweapons, banfortk,
+	dmgreport, botarmor;
 
 
 

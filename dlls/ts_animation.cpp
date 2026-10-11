@@ -646,13 +646,6 @@ void CTSAnimation::Animate(CBasePlayer *pPlayer, int activity)
 		m_iLastActivity = activity;
 		return;
 	}
-	// case 0x29: the settled prone LYING pose, indexed by the FROZEN m_iDirection. IMPORTANT: the ctor
-	// pose table this+0xdc = slide_<dir>_end, but those are the dive-RECOVERY (getup) animations — in the
-	// original, Animate(0x29)=slide_<dir>_end is dispatched ONCE for the deliberate standup, while the
-	// every-frame auto-slide uses the slide_<dir>_<grip> LYING pose. Our HandleSlide dispatches 0x29 every
-	// frame with FORCE, so slide_<dir>_end restarted the getup continuously ("constantly getting up"); the
-	// static lying pose here restarts invisibly. (Backward-feet: dir 3 -> slide_b_<grip> lying-back for now;
-	// the on-feet backward landing needs the auto-slide-vs-deliberate split — VERIFY / follow-up.)
 	// RE case 0x29 (VERBATIM): the prone pose = pronetable[m_iDirection] — the ctor table
 	// @this+0xdc = {slide_l/r/f/b_end}, indexed by the LATCHED direction (m_iDirection*0x10+0xdc,
 	// then the shared SetAnim(...,0x94,0) tail). NO grip suffix — the cont.80 slide_<dir>_<grip>

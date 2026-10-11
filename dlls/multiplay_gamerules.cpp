@@ -37,7 +37,6 @@
 #include "ts_gamerules.h" // g_theOneMode
 #include "ts_slowmotionpoint.h" // a spectacular kill's slow-motion bubble
 
-extern cvar_t slowmatch, banfortk; // ts_cvars.cpp
 char GetWeaponType(tsweapon_t w);   // ts_gun.cpp
 
 #define ITEM_RESPAWN_TIME 30
@@ -145,9 +144,33 @@ bool CHalfLifeMultiplay::ClientCommand(CBasePlayer* pPlayer, const char* pcmd)
 	return CGameRules::ClientCommand(pPlayer, pcmd);
 }
 
+// @0x7b244: a player whose cl_lw is not 1 gets it set back to 1. Otherwise a model change is
+// reverted to his team name, with two lines to him, unless mp_defaultteam is 0 and the model is not
+// a stock Half-Life one (IsValidTeam(char *)).
 void CHalfLifeMultiplay::ClientUserInfoChanged(CBasePlayer* pPlayer, char* infobuffer)
 {
+	// Kept from halflife-updated (cl_autowepswitch); the original has no such preference.
 	pPlayer->SetPrefsFromUserinfo(infobuffer);
+
+	const int index = ENTINDEX(pPlayer->edict());
+	if (PlayerIsCheating(pPlayer, infobuffer))
+	{
+		g_engfuncs.pfnSetClientKeyValue(index, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "cl_lw", "1");
+		return;
+	}
+
+	char* mdls = g_engfuncs.pfnInfoKeyValue(infobuffer, "model");
+	if (!stricmp(mdls, pPlayer->m_szTeamName))
+		return;
+	if (defaultteam.value == 0 && IsValidTeam(mdls))
+		return;
+
+	g_engfuncs.pfnSetClientKeyValue(index, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "model", pPlayer->m_szTeamName);
+	char text[1024];
+	sprintf(text, "* Can't change team to \'%s\'\n", mdls);
+	UTIL_SayText(text, pPlayer);
+	sprintf(text, "* HLDM models not allowed.\n");
+	UTIL_SayText(text, pPlayer);
 }
 
 //=========================================================
@@ -314,7 +337,7 @@ bool CHalfLifeMultiplay::IsMultiplayer()
 
 // @0x7b140 — TS blacklists the reserved Half-Life model names as team names (a player can't
 // name their team after a stock HL model). Any other name is valid.
-bool CHalfLifeMultiplay::IsValidTeam(const char* pTeamName)
+bool CHalfLifeMultiplay::IsValidTeam(char* pTeamName)
 {
 	static const char* const reserved[] = {
 		"barney", "gina", "gman", "helmet", "hgrunt", "recon", "robo", "scientist", "zombie"};
@@ -888,7 +911,7 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 		if ((pKiller->iuser4 & 0x10c10) != 0 || glast_closecombat || pts > 2)
 		{
 			if (DoSpectacularNess())
-				CTSSlowMotionPoint::CreateSlowMotionPoint(pVictim->pev->origin, 0.25f, 1.0f, 0, nullptr);
+				CTSSlowMotionPoint::CreateSlowMotionPoint(pVictim->pev->origin, 0.25f, 1.0f, 0.0f, false);
 		}
 
 		// @0x7a429: the streak bonuses, only for a kill that scores. The order is the original's:
@@ -1172,7 +1195,7 @@ static const char* TSKillWeaponName(CBasePlayer* pVictim, entvars_t* pKiller, en
 	}
 	else
 	{
-		// non-client killer: targetname first, else classname (@0x79xxx pre-strcpy)
+		// non-client killer: the inflictor's targetname first, else its classname (@0x79a47)
 		if (!FStringNull(pevInflictor->targetname))
 			strncpy(killer_weapon_buf, STRING(pevInflictor->targetname), sizeof(killer_weapon_buf) - 1);
 		else

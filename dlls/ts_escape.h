@@ -24,7 +24,7 @@ public:
 	static TYPEDESCRIPTION m_SaveData[];
 
 	// m_bActive (armed, +0x64) + attacker_team (+0x68) are inherited from CTSObjective.
-	int     escape_percentage = 1;  // +0xf4 — keyvalue "escapepercentage": 0 one / 1 third / 2 two-thirds / 3 all
+	int     escape_percentage = 0;  // +0xf4 — keyvalue "escapepercentage": 0 one / 1 third / 2 two-thirds / 3 all
 	EHANDLE m_present[33];           // +0x6c.. — players counted this window (by entindex)
 	int     m_count = 0;             // +0xf0 — distinct attacker-team players inside
 };

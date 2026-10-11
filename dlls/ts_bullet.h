@@ -13,9 +13,7 @@ struct TSSlowBullet
 {
 	int active;
 	EHANDLE owner;
-	EHANDLE beam;    // short speed-scaled trail dash riding the bullet head
-	EHANDLE flash;   // a head sprite so a flying bullet reads at a glance
-	Vector pos, start, dir;
+	Vector pos, start, dir; // dir as the shot gave it (not normalized: the spread is added to it)
 	float damage;
 	float fullSpeed; // per-caliber base flight speed, fixed at fire time
 	int caliber;     // rec caliber slot — get_ammo_info arg (falloff form B unit)
@@ -36,9 +34,9 @@ public:
 	void Reset();                                                       // @0x5ec50 — drop all in-flight bullets
 	void Think();                                                       // @0x5ec7c — per-frame: fly every active bullet
 	void FireBullet(CBasePlayer *owner, const Vector &src, const Vector &dir, float damage, int caliber, int mode); // @0x5eda4
-	void DestroyBullet(int slot);                                       // kill one bullet's slot/trail
-	void UpdateBullet(int slot);                                        // @0x6ef5c — step one bullet this frame
-	void UpdateBulletTimeSlice(int slot);                              // advance one bullet over a time slice
+	void DestroyBullet(int slot);                                       // @0x5ef40 — clear one slot
+	void UpdateBullet(int slot, TraceResult *ptr);                      // @0x5ef5c — step one bullet
+	void UpdateBulletTimeSlice(float flTime, CBasePlayer *pPlayer);     // @0x5f4f0 — empty in the original
 
 	TSSlowBullet m_bullets[256];
 	int m_iActive = 0; // +0x4000 (rules+0x5864): the bullets active as Think last ran, plus those fired

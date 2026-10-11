@@ -6,25 +6,24 @@
 #ifndef TS_SLOWMOTIONPOINT_H
 #define TS_SLOWMOTIONPOINT_H
 
-#define MAX_SLOWED 32
-
 class CTSSlowMotionPoint : public CBaseEntity
 {
 public:
-	void Spawn() override;
-	void EXPORT WaitThink();
-	void ActivateSlow(float scale, float duration, int slowBullets); // @ActivateSlow
-	void DeactivateSlow();                                           // restore everyone we slowed
+	void Spawn() override;                                                  // @0x61564
+	void EXPORT WaitThink();                                                // @0x61728
+	void ActivateSlow(float scale, float duration, float value, bool slowBullets); // @0x618ac
+	void DeactivateSlow();                                                  // @0x6166c — restore everyone slowed
 	// (no ObjectCaps override — the original uses base CBaseEntity::ObjectCaps; runtime-created, not map-placed.)
 
+	// @0x614d8 — a bubble at `origin`: Spawn, then ActivateSlow with the rest of the arguments
 	static CTSSlowMotionPoint *CreateSlowMotionPoint(const Vector &origin, float scale, float duration,
-		int slowBullets, CBaseEntity *pOwner);
+		float value, bool slowBullets);
 
+	EHANDLE m_hPlayers[33];  // +0x64 — the players this bubble slowed, by ENTINDEX
 	float m_flEndTime = 0;   // +0xe8 — when the bubble expires
-	float m_flScale = 1.0f;  // +0xec — the slow factor applied
-	int   m_iSlowBullets = 0;// +0xf4
-	EHANDLE m_hSlowed[MAX_SLOWED]; // players we put into slow-motion (to restore)
-	int   m_nSlowed = 0;
+	float m_flScale = 0;     // +0xec — the slow factor applied
+	float m_flValue = 0;     // +0xf0 — ActivateSlow's third value (written, never read)
+	bool  m_bSlowBullets = false; // +0xf4 — the slowed players' bullets slow down too
 };
 
 #endif // TS_SLOWMOTIONPOINT_H

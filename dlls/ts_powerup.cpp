@@ -36,6 +36,7 @@
 
 #define POWERUP_MODEL "models/powerup.mdl"
 
+#include "game.h" // nopowerup
 #include "ts_powerup.h"
 
 // @0x87894 GetRandomPowerup__12CTSGameRulesi — collect the permitted powerup bits from
@@ -180,11 +181,11 @@ void CTSPowerUp::SetupPowerUp(int type, int duration, float fallDelay, bool resp
 	m_bRespawns = respawns;
 }
 
-// @ Fall — think while the powerup is settling. Hides itself when powerups are
-// disabled (nopowerup) or in the objective team modes; otherwise lands -> OnGround.
+// @0x883cc Fall — think while the powerup is settling. Hides itself when powerups are
+// disabled (nopowerup 1) or in the objective team modes (2/3); otherwise lands -> OnGround.
 void CTSPowerUp::Fall()
 {
-	if (CVAR_GET_FLOAT("nopowerup") == 1.0f /* SLICE: || objective team mode */)
+	if (nopowerup.value == 1.0f || (unsigned char)(TSGameRules->m_iGameMode - 2) < 2)
 	{
 		// powerups suppressed: hide and idle
 		pev->nextthink = gpGlobals->time + 5.0f;
@@ -208,8 +209,7 @@ void CTSPowerUp::OnGround()
 {
 	pev->solid = SOLID_TRIGGER;
 	pev->effects &= ~EF_NODRAW;
-	pev->effects |= EF_MUZZLEFLASH; // @OnGround disasm: orl $2 — NOT a dynamic light (the old
-	                                // EF_DIMLIGHT was invented; the original has no light glow)
+	pev->effects |= EF_MUZZLEFLASH; // @OnGround disasm: orl $2 — not a dynamic light
 	UTIL_SetOrigin(pev, pev->origin);
 	// bbox BOTTOM at the origin (z 0..64) — the model sits ON the floor (the old -16..16 hull
 	// floated the origin 16u up, drawing the powerup twice as high as the original).

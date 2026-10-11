@@ -60,9 +60,9 @@ CBaseEntity *TSFoundRandomEntity(char *pszClassname)
 // @0x8f320 TSPrecache — the map-window precache of the whole TS asset set (called from
 // CWorld::Precache; the original's exact list + order, analysis_ff_util §9). Fixes every
 // "late precache" console warning (grenbounce via PrecacheOther("m61_grenade"), the
-// explo/explode* boom, splat/die/misc sets). Our weapon-table loop covers the fields our
-// struct carries (v/p/w models + fire sound; the original also walks two more model slots
-// +0xe8/+0x1b2 our table doesn't have yet — VERIFY/extract later).
+// explo/explode* boom, splat/die/misc sets). The weapon-table loop precaches each weapon's
+// shell, v_, p_, silenced p_ and w_ models and its fire and alt sounds, in the order of their
+// slots (+0xe8, +0x132, +0x172, +0x1b2, +0x1f2; +0x2c6, +0x306), skipping empty names.
 void TSPrecache(void)
 {
 	// 1. the fixed sound block (order preserved)
@@ -83,10 +83,12 @@ void TSPrecache(void)
 	for (unsigned i = 0; i < sizeof(fixed1) / sizeof(fixed1[0]); i++)
 		PRECACHE_SOUND((char *)fixed1[i]);
 
-	// 2. the weapon-table loop (models + fire sound per weapon)
+	// 2. the weapon-table loop (models + sounds per weapon, @0x8f59b)
 	for (int i = 0; i < 0x26; i++)
 	{
 		const s_weapon_info *wi = get_weapon_info((tsweapon_t)i);
+		if (wi->pszShellModel && wi->pszShellModel[0])
+			PRECACHE_MODEL((char *)wi->pszShellModel);
 		if (wi->pszViewModel && wi->pszViewModel[0])
 			PRECACHE_MODEL((char *)wi->pszViewModel);
 		if (wi->pszPlayerModel && wi->pszPlayerModel[0])
@@ -97,6 +99,8 @@ void TSPrecache(void)
 			PRECACHE_MODEL((char *)wi->pszWorldModel);
 		if (wi->pszFireSound && wi->pszFireSound[0])
 			PRECACHE_SOUND((char *)wi->pszFireSound);
+		if (wi->pszAltSound && wi->pszAltSound[0])
+			PRECACHE_SOUND((char *)wi->pszAltSound);
 	}
 
 	// 3. the post-loop fixed set
@@ -249,8 +253,8 @@ void InformClientsOnWeaponsParams(CBaseEntity *pOnly)
 // CustomWP RUNTIME THIRD STAGE — it overwrites Sparta(), which itself overwrote the Write_
 // init ([[sparta-overrides-write-weapon]]). Stage order: Write_ (dead for these four) ->
 // Sparta() (the shipped live values) -> adjust_weapon_value/AdjustSpecificWeapon (server
-// customization, broadcast via CustomWP so clients re-sync). When "verifying" a combat value,
-// know WHICH stage you're reading: a Write_ disasm read is two stages stale.
+// customization, broadcast via CustomWP so clients re-sync). A combat value read from a Write_
+// disassembly is two stages stale.
 // @0x8ea3c AdjustSpecificWeapon — set one weapon's tunable quintet (no clamps), broadcast it,
 // announce, and flag the rules custom. DEAD in the shipped Linux .so (the console path was
 // compiled out) — kept callable for parity.

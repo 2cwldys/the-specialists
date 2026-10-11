@@ -38,11 +38,45 @@ cvar_t forcerespawn = {"mp_forcerespawn", "1", FCVAR_SERVER};
 cvar_t aimcrosshair = {"mp_autocrosshair", "1", FCVAR_SERVER};
 cvar_t decalfrequency = {"decalfrequency", "30", FCVAR_SERVER};
 cvar_t teamlist = {"mp_teamlist", "hitman;gordon", FCVAR_SERVER}; // TS default (ts_i386.so @0x108dd0; stock is "hgrunt;scientist")
+cvar_t teammodels = {"mp_teammodels", "", FCVAR_SERVER}; // the team model lists (CHalfLifeTeamplay's constructor)
 cvar_t teamoverride = {"mp_teamoverride", "1"};
 cvar_t defaultteam = {"mp_defaultteam", "0"};
 cvar_t allowmonsters = {"mp_allowmonsters", "0", FCVAR_SERVER};
 
 cvar_t mp_chattime = {"mp_chattime", "10", FCVAR_SERVER};
+
+// The Specialists' cvars, in the original's .data order (ts_i386.so @0x108e48..0x109014), names,
+// defaults and flags as its cvar_t structs. Some globals are not named after their cvar: dmcashbased
+// is "usecash", cv_ammocount "ammocount", weaponstay_time "weaponstay" (the dropped gun lifetime,
+// not mp_weaponstay).
+// initial_cash, cashforwin, cashforlose and respawnnumber are never registered (TS 3.0's changelog:
+// "Removed initial_cash. Initial cash set at 1200.", the same for the other two), so a server config
+// cannot set them. Their readers use the struct as compiled: the default string where they sscanf it
+// (ClientPutInServer, TeamWin), the value field, which stays 0, where they read the float.
+cvar_t initial_cash = {"initial_cash", "1200", FCVAR_SERVER};
+cvar_t cashforwin = {"cashforwin", "10000", FCVAR_SERVER};
+cvar_t cashforlose = {"cashforlose", "1200", FCVAR_SERVER};
+cvar_t roundtime = {"roundtime", "150", FCVAR_SERVER};
+cvar_t respawntime = {"respawntime", "3", FCVAR_SERVER};
+cvar_t damagemult = {"damagemult", "0.0", FCVAR_SERVER};
+cvar_t slowmatch = {"slowmatch", "1.0", FCVAR_SERVER};
+cvar_t nopowerup = {"nopowerup", "0.0", FCVAR_SERVER};
+cvar_t botlearn = {"botlearn", "0.0", FCVAR_SERVER};
+cvar_t realbullet = {"realbullet", "0.0", FCVAR_SERVER};
+cvar_t dmcashbased = {"usecash", "0.0", FCVAR_SERVER};
+cvar_t cv_ammocount = {"ammocount", "0", FCVAR_SERVER};
+cvar_t bottalk = {"bottalk", "1", FCVAR_SERVER};
+cvar_t weaponstay_time = {"weaponstay", "15", FCVAR_SERVER};
+cvar_t mp_theonemode = {"mp_theonemode", "0", FCVAR_SERVER};
+cvar_t mp_theone = {"mp_theone", "gordon", FCVAR_SERVER};
+cvar_t mp_theothers = {"mp_theothers", "seal", FCVAR_SERVER};
+cvar_t lastmanstanding = {"lastmanstanding", "0", FCVAR_SERVER};
+cvar_t spectacularness = {"spectacularness", "1", FCVAR_SERVER};
+cvar_t respawnnumber = {"respawnnumber", "1", FCVAR_SERVER};
+cvar_t customweapons = {"customweapons", "", FCVAR_SERVER};
+cvar_t banfortk = {"banfortk", "0", FCVAR_SERVER};
+cvar_t dmgreport = {"dmgreport", "0", FCVAR_SERVER};
+cvar_t botarmor = {"botarmor", "0", FCVAR_SERVER};
 
 static bool SV_InitServer()
 {
@@ -128,10 +162,7 @@ static void cmd_restartround()
 
 // @0xb5580 cmd_globalslow — the "Permanent Slow-motion?" server setting (a COMMAND, not a cvar; the
 // settings.scr entry sends `globalslow <percent>`). Parses percent -> a 0..2.0 scale (100% = normal =
-// OFF), then drives CTSGameRules::SetGlobalSlowMotion (duration 0 = permanent). This was UNREGISTERED,
-// so a server that set globalslow got "Unknown command" and the permanent slow-mo never engaged
-// (cvar_settings_audit.md fix 1). The apply machinery (SetGlobalSlowMotion/GlobalSlowMotion2) already
-// existed — only the command binding was missing.
+// OFF), then drives CTSGameRules::SetGlobalSlowMotion (duration 0 = permanent).
 static void cmd_globalslow()
 {
 	CTSGameRules *rules = TSGameRules;
@@ -182,11 +213,14 @@ static void cmd_saveweapons()
 
 void GameDLLInit()
 {
-	// @0xb5ac7/@0xb5add: the first thing GameDLLInit does
+	// @0xb5aa0: the server commands first, then the engine cvar pointers, then the cvars
 	g_engfuncs.pfnAddServerCommand("addbot", cmd_addbot);
 	g_engfuncs.pfnAddServerCommand("addcustombot", cmd_addcustombot);
-
-	// Register cvars here:
+	g_engfuncs.pfnAddServerCommand("globalslow", cmd_globalslow);
+	g_engfuncs.pfnAddServerCommand("restartround", cmd_restartround);
+	g_engfuncs.pfnAddServerCommand("weaponrestriction", cmd_weaponrestriction);
+	g_engfuncs.pfnAddServerCommand("loadweapons", cmd_loadweapons);
+	g_engfuncs.pfnAddServerCommand("saveweapons", cmd_saveweapons);
 
 	g_psv_gravity = CVAR_GET_POINTER("sv_gravity");
 	g_psv_aim = CVAR_GET_POINTER("sv_aim");
@@ -218,22 +252,33 @@ void GameDLLInit()
 	CVAR_REGISTER(&aimcrosshair);
 	CVAR_REGISTER(&decalfrequency);
 	CVAR_REGISTER(&teamlist);
+	CVAR_REGISTER(&teammodels);
 	CVAR_REGISTER(&teamoverride);
 	CVAR_REGISTER(&defaultteam);
 	CVAR_REGISTER(&allowmonsters);
 
 	CVAR_REGISTER(&mp_chattime);
 
-
-	// The Specialists game cvars (mp_teammodels, roundtime, slowmatch, cash economy, …)
-	extern void TSRegisterCvars();
-	TSRegisterCvars();
-
-	g_engfuncs.pfnAddServerCommand("weaponrestriction", cmd_weaponrestriction); // swap-contract command name
-	g_engfuncs.pfnAddServerCommand("globalslow", cmd_globalslow); // "Permanent Slow-motion?" setting (RE @0xb5580)
-	g_engfuncs.pfnAddServerCommand("restartround", cmd_restartround); // @0xb5afc, after globalslow as in the original
-	g_engfuncs.pfnAddServerCommand("loadweapons", cmd_loadweapons); // swap-contract command names
-	g_engfuncs.pfnAddServerCommand("saveweapons", cmd_saveweapons);
+	CVAR_REGISTER(&roundtime);
+	CVAR_REGISTER(&respawntime);
+	CVAR_REGISTER(&damagemult);
+	CVAR_REGISTER(&slowmatch);
+	CVAR_REGISTER(&botlearn);
+	CVAR_REGISTER(&nopowerup);
+	CVAR_REGISTER(&realbullet);
+	CVAR_REGISTER(&dmcashbased);
+	CVAR_REGISTER(&cv_ammocount);
+	CVAR_REGISTER(&bottalk);
+	CVAR_REGISTER(&weaponstay_time);
+	CVAR_REGISTER(&mp_theonemode);
+	CVAR_REGISTER(&mp_theone);
+	CVAR_REGISTER(&mp_theothers);
+	CVAR_REGISTER(&lastmanstanding);
+	CVAR_REGISTER(&spectacularness);
+	CVAR_REGISTER(&customweapons);
+	CVAR_REGISTER(&banfortk);
+	CVAR_REGISTER(&dmgreport); // USER-APPROVED IMPROVEMENT: the original never registers it, so its cheat-gated prints are unreachable there
+	CVAR_REGISTER(&botarmor);
 
 	SERVER_COMMAND("exec skill.cfg\n");
 }

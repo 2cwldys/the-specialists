@@ -133,9 +133,8 @@ int KungFu(CBasePlayer *pPlayer)
 // @ GoSlow__11CBasePlayerfc — apply a time-scale to this player (1 = normal speed).
 void CBasePlayer::GoSlow(float scale, int slowBullets)
 {
-	// SLICE: the original zeroes the applied factor when the player is frozen
-	// (a pev state flag); here it always takes.
-	m_flSlowMotionGo = scale;
+	// @0x829d0: an observer (iuser1 set) keeps his own rate at 1; the target is set either way
+	m_flSlowMotionGo = (pev->iuser1 == 0) ? scale : 1.0f;
 	m_flSlowMotionTarget = scale;
 	m_bSlowBullets = slowBullets != 0;
 }
@@ -387,18 +386,15 @@ bool CBasePlayer::TakeFlag(s_flag_status *src)
 	WRITE_BYTE(ENTINDEX(edict()));
 	MESSAGE_END();
 
-	// Announce a NEW carrier only (anti-respam: skip if this player already last carried it).
-	int idx = ENTINDEX(edict());
+	// @0x838f8: everyone is told only when the carrier is new; the log line comes every time
+	const int idx = ENTINDEX(edict());
 	if (m_flagStatus.lastCarrier != idx)
-	{
-		const char *contents = !FStringNull(m_flagStatus.contents) ? STRING(m_flagStatus.contents) : "a flag";
-		const char *name = pev->netname ? STRING(pev->netname) : "Someone";
-		TSHudMessageAll(0, 0xff, 0, 4, 20,
-			UTIL_VarArgs("%s picked up a briefcase containing %s!", name, contents));
-		m_flagStatus.lastCarrier = idx;
-		UTIL_LogPrintf("\"%s<%i>\" triggered \"aquired_briefcase\" (contents \"%s\")\n",
-			name, GETPLAYERUSERID(edict()), contents);
-	}
+		TSHudMessageAll(0, 0xff, 0, 4, 30,
+			UTIL_VarArgs("%s picked up a briefcase containing %s!", STRING(pev->netname), STRING(m_flagStatus.contents)));
+	m_flagStatus.lastCarrier = idx;
+	UTIL_LogPrintf("\"%s<%i><%s><%i>\" triggered \"aquired_briefcase\" (contents \"%s\")\n",
+		STRING(pev->netname), GETPLAYERUSERID(edict()), GETPLAYERAUTHID(edict()), GETPLAYERUSERID(edict()),
+		STRING(m_flagStatus.contents));
 	return true;
 }
 
@@ -411,30 +407,35 @@ void CBasePlayer::DropFlag(bool bSilent)
 
 	if (!bSilent)
 	{
+		// @0x833a9: tossed from the eyes 16 units ahead: a dead carrier's in a random direction
+		// (whole degrees) at 60..160, a living one's along his view at twice (90 - pitch), lifted by a
+		// third of that, plus 0.9 of his own velocity; unturned, spinning
 		CTSFlag *pFlag = CTSFlag::CreateFlag(this, &m_flagStatus);
+		Vector angles;
+		float push;
+		if (!IsAlive())
+		{
+			angles = Vector(RANDOM_LONG(-60, 60), RANDOM_LONG(-180, 180), 0);
+			push = RANDOM_LONG(60, 160);
+		}
+		else
+		{
+			angles = pev->v_angle;
+			push = (90.0f - angles.x) + (90.0f - angles.x);
+		}
+		UTIL_MakeVectors(angles);
 		if (pFlag)
 		{
-			Vector forward, dir;
-			float dirSpeed;
-			if (!IsAlive())
-			{
-				// dead → fling in a random direction
-				Vector ang(0, RANDOM_FLOAT(0, 360), 0);
-				UTIL_MakeVectors(ang);
-				forward = gpGlobals->v_forward;
-				dirSpeed = RANDOM_FLOAT(60, 160);
-			}
-			else
-			{
-				UTIL_MakeVectors(pev->v_angle);
-				forward = gpGlobals->v_forward;
-				dirSpeed = 200.0f; // VERIFY: alive-drop toss speed (dead uses 60..160)
-			}
-			UTIL_SetOrigin(pFlag->pev, pev->origin + pev->view_ofs + forward * 16.0f);
-			pFlag->pev->velocity = pev->velocity * 0.9f + forward * dirSpeed;
-			pFlag->pev->avelocity = Vector(RANDOM_FLOAT(-300, 300), RANDOM_FLOAT(-300, 300),
-				RANDOM_FLOAT(-300, 300));
+			pFlag->pev->origin = pev->origin + pev->view_ofs + gpGlobals->v_forward * 16.0f;
+			pFlag->pev->angles = g_vecZero;
+			pFlag->pev->avelocity.y = RANDOM_LONG(-300, 300);
+			pFlag->pev->avelocity.z = RANDOM_LONG(-300, 300);
+			pFlag->pev->velocity = pev->velocity * 0.9f + gpGlobals->v_forward * push + Vector(0, 0, push * 0.33f);
 		}
+
+		UTIL_LogPrintf("\"%s<%i><%s><%i>\" triggered \"dropped_briefcase\" (contents \"%s\")\n",
+			STRING(pev->netname), GETPLAYERUSERID(edict()), GETPLAYERAUTHID(edict()), GETPLAYERUSERID(edict()),
+			STRING(m_flagStatus.contents));
 
 		MESSAGE_BEGIN(MSG_ALL, gmsgTSHaveFlag);
 		WRITE_BYTE(2); // type 2 = drop
@@ -442,9 +443,6 @@ void CBasePlayer::DropFlag(bool bSilent)
 		WRITE_BYTE(m_flagStatus.team + 1);
 		WRITE_BYTE(ENTINDEX(edict()));
 		MESSAGE_END();
-
-		const char *name = pev->netname ? STRING(pev->netname) : "Someone";
-		UTIL_LogPrintf("\"%s<%i>\" triggered \"dropped_briefcase\"\n", name, GETPLAYERUSERID(edict()));
 	}
 
 	m_flagStatus = s_flag_status(); // clear the carried state (active = 0)
@@ -543,7 +541,7 @@ bool CBasePlayer::PickUpWeapon(int type, TSItem *pStatus, int iAttach, bool bSel
 	if (bRecordOwner)
 	{
 		// item+0x30 (@0x83234): the buyer is recorded on the item — and on its akimbo pair
-		// when that is owned (consumer VERIFY — likely the sell-zone's yours-check)
+		// when that is owned; PlayerKilled's own-weapon kill reads it (@0x79716)
 		pGun->m_items[type].hOwner = this;
 		if (wi->iAkimboType != -1 && pGun->IsOwned(wi->iAkimboType))
 			pGun->m_items[wi->iAkimboType].hOwner = this;
@@ -759,16 +757,17 @@ void FindHullIntersectionplayer(const Vector &vecSrc, TraceResult &tr,
 
 // @0x85e28 CheckHull — the shared melee trace: a line trace first; on a miss, a hull trace
 // (iHull: 3 = head_hull for most melee, 1 vs the small attack class) refined through
-// FindHullIntersectionplayer. tr.flFraction >= 1 after this = a miss. (The original tail
-// has an unread vtable-slot-46 read — dead; VERIFY if it ever matters. Hull mins/maxs
-// mapping VERIFY: head hull uses the duck hull extents, like the crowbar.)
+// FindHullIntersectionplayer, as the crowbar's: only when the hull hit the world or a brush
+// entity (IsBSPModel, vtable 0xb8), with the duck hull's extents for the head hull (3) and the
+// standing hull's otherwise (@0x85e28). tr.flFraction >= 1 after this = a miss.
 void CBasePlayer::CheckHull(Vector vecSrc, Vector vecEnd, TraceResult &tr, int iHull)
 {
 	UTIL_TraceLine(vecSrc, vecEnd, dont_ignore_monsters, edict(), &tr);
 	if (tr.flFraction >= 1.0f)
 	{
 		UTIL_TraceHull(vecSrc, vecEnd, dont_ignore_monsters, iHull, edict(), &tr);
-		if (tr.flFraction < 1.0f)
+		CBaseEntity *pHit = CBaseEntity::Instance(tr.pHit);
+		if (tr.flFraction < 1.0f && (!pHit || pHit->IsBSPModel()))
 		{
 			if (iHull == head_hull)
 				FindHullIntersectionplayer(vecSrc, tr, VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX, edict());
@@ -833,7 +832,7 @@ CBaseEntity *CBasePlayer::CloseCombatAttack(Vector vecSrc, Vector vecEnd, Vector
 
 		CBasePlayer *pPlayerVictim = (CBasePlayer *)pVictim;
 		if (bDisarm && pPlayerVictim->m_flSpawnProtectTime < gpGlobals->time)
-			pPlayerVictim->DropWeapon(-2, flDamage); // -2 = active weapon (roll VERIFY-gated)
+			pPlayerVictim->DropWeapon(-2, flDamage); // -2: the active weapon, once the disarm pressure is reached
 
 		if (bKnockback && flDamage > 30.0f)
 		{
@@ -847,7 +846,7 @@ CBaseEntity *CBasePlayer::CloseCombatAttack(Vector vecSrc, Vector vecEnd, Vector
 		EMIT_SOUND_DYN(ENT(pVictim->pev), CHAN_BODY, "player/kungfuhit.wav", VOL_NORM, 0.8f, 0,
 			95 + RANDOM_LONG(0, 31));
 
-		// dead code in the shipped .so (PunchScreen is an empty stub) — shape kept faithful
+		// PunchScreen is empty in the original (@0x85f70), so this does nothing; kept as the original calls it
 		if (m_pActiveItem && flDamage > 20.0f)
 			PunchScreen(flDamage * 0.5f, pev->origin - pVictim->pev->origin);
 	}
@@ -865,8 +864,7 @@ CBaseEntity *CBasePlayer::CloseCombatAttack(Vector vecSrc, Vector vecEnd, Vector
 
 // @0x86610 ColdCockAttack — the pistol-whip sibling twin: identical skeleton, sets
 // glast_coldcock, and its knockback path is never exercised (the ColdCock caller passes
-// bKnockback=false). Damage bits VERIFY (L5): DMG_CLUB|DMG_NEVERGIB kept pending the raw
-// disasm read at 0x86610's TraceAttack push.
+// bKnockback=false). The damage bits are CloseCombatAttack's, 0x4001080 (@0x86a56).
 CBaseEntity *CBasePlayer::ColdCockAttack(Vector vecSrc, Vector vecEnd, Vector vecDir,
 	int iHull, float flDamage, int iAnim, bool bDisarm, bool bPlayersOnly, bool bKnockback,
 	bool bForceTeamSafe)
@@ -937,57 +935,74 @@ CBaseEntity *CBasePlayer::ColdCockAttack(Vector vecSrc, Vector vecEnd, Vector ve
 
 	glast_coldcock = true;
 	ClearMultiDamage();
-	pVictim->TraceAttack(pev, flDamage, vecDir, &tr, DMG_CLUB | DMG_NEVERGIB); // bits VERIFY (L5)
+	pVictim->TraceAttack(pev, flDamage, vecDir, &tr, DMG_CLUB | DMG_NEVERGIB | DMG_TSCLOSECOMBAT); // @0x86a56
 	ApplyMultiDamage(pev, pev);
 	glast_coldcock = false;
 
 	return pVictim;
 }
 
-// @0x83a3c DropArmor — drop the player's armor as a CTSAmmoPack (armor-only) tossed in front of them,
-// then take the kevlar off through TakeArmor(-1), which gives its 10 slots back and sets the speed.
-// (Dead drop randomizes the toss direction.) Nothing in the original calls it.
+// @0x83a3c DropArmor — toss the kevlar as a CTSAmmoPack in front of the player (a dead one's in a
+// random direction), then take it off through TakeArmor(-1), which gives its 10 slots back and sets
+// the speed. The pack carries no armor (CreateAmmoPack ignores it), so the kevlar is lost. Nothing in
+// the original calls it.
 void CBasePlayer::DropArmor()
 {
 	if (pev->armorvalue <= 0.0f)
 		return;
 
-	Vector angles = IsAlive() ? pev->v_angle
-							   : Vector(RANDOM_FLOAT(-60, 60), RANDOM_FLOAT(-180, 180), 0);
+	Vector angles;
+	float push;
+	if (!IsAlive())
+	{
+		angles = Vector(RANDOM_LONG(-60, 60), RANDOM_LONG(-180, 180), 0);
+		push = RANDOM_LONG(60, 160);
+	}
+	else
+	{
+		angles = pev->v_angle;
+		push = (90.0f - angles.x) + (90.0f - angles.x);
+	}
 	UTIL_MakeVectors(angles);
-	Vector origin = pev->origin + gpGlobals->v_forward * 8.0f + gpGlobals->v_right * 8.0f;
-
-	int armor = (int)(pev->armorvalue + 0.5f);
-	CTSAmmoPack::CreateAmmoPack(pev, nullptr, armor, origin, g_vecZero);
+	CTSAmmoPack *pPack = CTSAmmoPack::CreateAmmoPack(this, nullptr, (int)pev->armorvalue);
+	if (pPack)
+	{
+		pPack->pev->origin = pev->origin + gpGlobals->v_forward * 8.0f + gpGlobals->v_right * 8.0f;
+		pPack->pev->angles = g_vecZero;
+		pPack->pev->avelocity.y = RANDOM_LONG(-300, 300);
+		pPack->pev->avelocity.z = RANDOM_LONG(-300, 300);
+		pPack->pev->velocity = pev->velocity * 0.9f + gpGlobals->v_forward * push + Vector(0, 0, push * 0.33f);
+	}
 	EMIT_SOUND(ENT(pev), CHAN_ITEM, "weapons/weapondrop.wav", VOL_NORM, ATTN_NORM);
 	TakeArmor(-1); // @0x83d8f
 }
 
-// @0x846f0 DropAmmo — drop the active gun's per-caliber reserve as a CTSAmmoPack (no-op if empty),
-// tossed in a random nearby direction, then clear the reserve.
+// @0x846f0 DropAmmo — with the TS arsenal active and any reserve, drop the reserve as a CTSAmmoPack
+// near the player, unturned, spinning; the reserve itself is left as it is (the player is dying).
+// Killed calls it first, before the flag and the weapons.
 void CBasePlayer::DropAmmo()
 {
-	CTSGun *pGun = GetPlayerTSGun(this);
-	if (!pGun)
+	if (!m_pActiveItem || m_pActiveItem->m_iId != TSGUN_WEAPON_ID)
 		return;
+	CTSGun *pGun = (CTSGun *)(CBasePlayerItem *)m_pActiveItem;
 
 	bool any = false;
-	for (int c = 0; c < TS_NUM_CALIBERS; c++)
+	for (int c = 0; c < TS_NUM_CALIBERS && !any; c++)
 		if (pGun->m_ammoReserve[c] > 0)
-		{
 			any = true;
-			break;
-		}
 	if (!any)
 		return;
 
-	Vector angles(RANDOM_FLOAT(-100, 100), RANDOM_FLOAT(-100, 100), 0);
+	Vector angles(RANDOM_LONG(-100, 100), RANDOM_LONG(-100, 100), 0);
 	UTIL_MakeVectors(angles);
-	Vector origin = pev->origin + gpGlobals->v_forward * 8.0f + gpGlobals->v_right * 8.0f;
-
-	CTSAmmoPack::CreateAmmoPack(pev, pGun->m_ammoReserve, 0, origin, g_vecZero);
-	for (int c = 0; c < TS_NUM_CALIBERS; c++)
-		pGun->m_ammoReserve[c] = 0;
+	CTSAmmoPack *pPack = CTSAmmoPack::CreateAmmoPack(this, pGun->m_ammoReserve, (int)pev->armorvalue);
+	if (pPack)
+	{
+		pPack->pev->origin = pev->origin + gpGlobals->v_forward * 8.0f + gpGlobals->v_right * 8.0f;
+		pPack->pev->angles = g_vecZero;
+		pPack->pev->avelocity.y = RANDOM_LONG(-300, 300);
+		pPack->pev->avelocity.z = RANDOM_LONG(-300, 300);
+	}
 }
 
 // Free helper for the wire-cut console command (the cl_dll wire UI isn't built).

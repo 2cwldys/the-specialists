@@ -8,9 +8,9 @@
 // Registered user message "TSMessage" — a centred HUD text shown to all players.
 extern int gmsgTSMessage;
 
-// @ TSHudMessageAll__FUcUcUciiPc — broadcast a coloured HUD message to everyone.
-// params (r,g,b) = colour; effect/holdtime are written as bytes (VERIFY exact
-// client-side semantics); text is capped to 127 chars by the original.
+// @ TSHudMessageAll__FUcUcUciiPc — broadcast a coloured HUD message to everyone (@0x669d4):
+// TSMessage = r, g, b, effect, holdtime as five bytes, then the text cut to 127 chars; nothing
+// for an empty text. What effect and holdtime do is the client's TSMessage handler.
 void TSHudMessageAll(byte r, byte g, byte b, int effect, int holdtime, const char *text);
 
 // @ TSHudMessageOne__FUcUcUciiPcP9entvars_s — same payload as TSHudMessageAll but
@@ -28,8 +28,17 @@ int UTIL_EntInArray(CBaseEntity **pArray, int n, CBaseEntity *pEnt);
 // @0x8fb4c — scrub a dying entity out of every player's packed slowed array (+0x208/+0x288).
 // Call before UTIL_Remove on any slowable projectile (flag/worldgun/knife/grenade/shrapnel).
 void RemoveEntityFromSlowedArray(CBaseEntity *pEnt);
+// @0x8f238 TSCountPlayers — players on `team` (empty = everyone); onlyActive counts the living and
+// those waiting to respawn (TS_util.cpp).
+int TSCountPlayers(const char *team, bool onlyActive);
 // @0x8f94c — the leaver teardown (vote-block clear + edict park + CallCheckDeads); the sole
 // caller is ClientDisconnected (TS_util.cpp).
 void TSPlayerDisconnect(CBasePlayer *pPlayer);
+
+// @0x6d01c TSExplosion — an explosion: damage full out to flInner, down to 0 at flOuter
+// (ts_grenades.cpp). Raises origin.z by 1 (the caller's vector).
+class Vector;
+void TSExplosion(Vector &origin, entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage,
+	int bitsDamageType, float flInner, float flOuter);
 
 #endif // TS_UTILS_H

@@ -223,9 +223,11 @@ void ClientPutInServer(edict_t* pEntity)
 	// R1/Y9-2: initial_cash is given HERE in the original (ClientPutInServer @0x9cf44, GiveCash)
 	// — NOT in PlayerSpawn. Once per connect; the old PlayerSpawn placement also re-seeded any
 	// player whose cash hit 0 mid-map (ours-only behavior, now gone). The cash is not zeroed
-	// first: the engine frees a real client's private data when he connects. (The original reads
-	// the cvar's string with sscanf "%i".)
-	pPlayer->GiveCash((int)CVAR_GET_FLOAT("initial_cash"));
+	// first: the engine frees a real client's private data when he connects. The amount is the
+	// unregistered initial_cash's default string, read with sscanf "%i" (@0x9cf87): always 1200.
+	int cash = 0;
+	sscanf(initial_cash.string, "%i", &cash);
+	pPlayer->GiveCash(cash);
 
 	// @0x9cf44: a plain Spawn — the joiner is a live player until his first UpdateClientData, where
 	// CTSGameRules::InitHUD sends him to spectate (StartObserver @0x694c8). No spectate flag here,
@@ -365,7 +367,8 @@ void Host_Say(edict_t* pEntity, bool teamonly)
 	CBasePlayer* client;
 	int j;
 	char* p;
-	char text[128];
+	char* pc;
+	char text[140];
 	char szTemp[256];
 	const char* cpSay = "say";
 	const char* cpSayTeam = "say_team";
@@ -415,88 +418,139 @@ void Host_Say(edict_t* pEntity, bool teamonly)
 		p[strlen(p) - 1] = 0;
 	}
 
-	// make sure the text has content
-
-	if (!p || '\0' == p[0] || !Q_UnicodeValidate(p))
+	// make sure the text has content: a printable character that is not a space (@0x9d17f)
+	for (pc = p; pc != NULL && *pc != 0; pc++)
+	{
+		if (isprint((unsigned char)*pc) && !isspace((unsigned char)*pc))
+		{
+			pc = NULL; // we've found an alphanumeric character,  so text is valid
+			break;
+		}
+	}
+	if (pc != NULL)
 		return; // no character found, so say nothing
 
-	// TS voting rides on CHAT text, not a console command (RE Host_Say @0x9d46c): text
-	// beginning "vote" is lowercased past the prefix and handed to the gamerules when the sender
-	// is a client (vtable 0xcc IsNetClient, @0x9d4b2: any player, a spectator too); a HANDLED
-	// vote (nonzero return) suppresses the chat broadcast. An unhandled one chats normally.
-	if (!strncmp(p, "vote", 4) && player->IsNetClient())
-	{
-		for (char* pc = p + 4; '\0' != *pc; pc++) // in-place strlwr(p+4), as the original
-		{
-			if (*pc >= 'A' && *pc <= 'Z')
-				*pc += 'a' - 'A';
-		}
-		if (0 != TSGameRules->PlayerVote(pEntity, p + 4))
-			return;
-	}
+	// Kept from halflife-updated: invalid UTF-8 is not passed on (the original has no such test).
+	if (!Q_UnicodeValidate(p))
+		return;
 
 	// turn on color set 2  (color on,  no sound)
-	// turn on color set 2  (color on,  no sound)
-	if (player->IsObserver() && (teamonly))
-		sprintf(text, "%c(SPEC) %s: ", 2, STRING(pEntity->v.netname));
-	else if (teamonly)
+	if (teamonly)
 		sprintf(text, "%c(TEAM) %s: ", 2, STRING(pEntity->v.netname));
 	else
 		sprintf(text, "%c%s: ", 2, STRING(pEntity->v.netname));
 
-	j = sizeof(text) - 2 - strlen(text); // -2 for /n and null terminator
+	j = 126 - (int)strlen(text); // @0x9d210
 	if ((int)strlen(p) > j)
 		p[j] = 0;
 
-	strcat(text, p);
+	// %a says whether the sender wears kevlar, %h his health (truncated); any other % is kept
+	// (@0x9d25c). The original appends with strcat into its 140-byte buffer and can overrun it; here
+	// an append stops at the end of the buffer, leaving room for the newline.
+	auto append = [&text](const char* add, size_t n) {
+		size_t len = strlen(text);
+		size_t room = sizeof(text) - 2 - len;
+		if (n > room)
+			n = room;
+		memcpy(text + len, add, n);
+		text[len + n] = 0;
+	};
+	for (pc = p; *pc != 0; pc++)
+	{
+		if (*pc != '%')
+		{
+			append(pc, 1);
+			continue;
+		}
+		if (pc[1] == 'a')
+		{
+			const char* kevlar = (player->pev->armorvalue == 0.0f) ? "no kevlar" : "with kevlar";
+			append(kevlar, strlen(kevlar));
+			pc++;
+		}
+		else if (pc[1] == 'h')
+		{
+			char num[32];
+			sprintf(num, "%d", (int)player->pev->health);
+			append(num, strlen(num));
+			pc++;
+		}
+		else
+			append("%", 1);
+	}
 	strcat(text, "\n");
 
-
-	player->m_flNextChatTime = gpGlobals->time + CHAT_INTERVAL;
-
-	// loop through all players
-	// Start with the first player.
-	// This may return the world in single player if the client types something between levels or during spawn
-	// so check it, or it will infinite loop
-
-	client = NULL;
-	while (((client = (CBasePlayer*)UTIL_FindEntityByClassname(client, "player")) != NULL) && (!FNullEnt(client->edict())))
+	// "timeleft" answers the sender alone with the map's time left; a "vote" the game rules handle
+	// is not shown either (@0x9d3a1). Both still go to the log and set the chat clock.
+	bool bShow = true;
+	if (!strncmp(p, "timeleft", 8))
 	{
-		if (!client->pev)
-			continue;
+		int left = (int)CVAR_GET_FLOAT("mp_timeleft");
+		if (player->IsNetClient())
+			ClientPrint(pev, HUD_PRINTTALK, UTIL_VarArgs("Time left: %i:%02i\n", left / 60, left % 60));
+		bShow = false;
+	}
+	else if (!strncmp(p, "vote", 4))
+	{
+		// TS voting rides on chat text: the text past "vote" is lowercased in place and handed to the
+		// game rules when the sender is a client (a spectator too); a handled vote is not shown.
+		char vote[264];
+		for (pc = p + 4; '\0' != *pc; pc++)
+		{
+			if (*pc >= 'A' && *pc <= 'Z')
+				*pc += 'a' - 'A';
+		}
+		strncpy(vote, p + 4, sizeof(vote) - 1);
+		vote[sizeof(vote) - 1] = 0;
+		if (player->IsNetClient() && 0 != TSGameRules->PlayerVote(pEntity, vote))
+			bShow = false;
+	}
 
-		if (client->edict() == pEntity)
-			continue;
+	if (bShow)
+	{
+		// In the round modes (the objective modes, last man standing) a player out of the round talks
+		// only to the others out of it (@0x9d5be).
+		const bool roundMode = (TSGameRules && (unsigned char)(TSGameRules->m_iGameMode - 2) < 2) || g_lastManStanding != 0;
+		const bool senderIn = player->IsAlive() || player->m_flTSRespawnTime >= 0.0f;
 
-		if (!(client->IsNetClient())) // Not a client ? (should never be true)
-			continue;
+		// loop through all players
+		// Start with the first player.
+		// This may return the world in single player if the client types something between levels or during spawn
+		// so check it, or it will infinite loop
 
-		// can the receiver hear the sender? or has he muted him?
-		if (g_VoiceGameMgr.PlayerHasBlockedPlayer(client, player))
-			continue;
-
-		if (!player->IsObserver() && teamonly && g_pGameRules->PlayerRelationship(client, CBaseEntity::Instance(pEntity)) != GR_TEAMMATE)
-			continue;
-
-		// Spectators can only talk to other specs
-		if (player->IsObserver() && teamonly)
-			if (!client->IsObserver())
+		client = NULL;
+		while (((client = (CBasePlayer*)UTIL_FindEntityByClassname(client, "player")) != NULL) && (!FNullEnt(client->edict())))
+		{
+			if (!client->pev)
 				continue;
 
-		MESSAGE_BEGIN(MSG_ONE, gmsgSayText, NULL, client->pev);
+			if (client->edict() == pEntity)
+				continue;
+
+			if (!(client->IsNetClient())) // Not a client ? (should never be true)
+				continue;
+
+			if (teamonly && g_pGameRules->PlayerRelationship(client, CBaseEntity::Instance(pEntity)) != GR_TEAMMATE)
+				continue;
+
+			if (roundMode && !senderIn && (client->IsAlive() || client->m_flTSRespawnTime >= 0.0f))
+				continue;
+
+			MESSAGE_BEGIN(MSG_ONE, gmsgSayText, NULL, client->pev);
+			WRITE_BYTE(ENTINDEX(pEntity));
+			WRITE_STRING(text);
+			MESSAGE_END();
+		}
+
+		// print to the sending client
+		MESSAGE_BEGIN(MSG_ONE, gmsgSayText, NULL, &pEntity->v);
 		WRITE_BYTE(ENTINDEX(pEntity));
 		WRITE_STRING(text);
 		MESSAGE_END();
+
+		// echo to server console
+		g_engfuncs.pfnServerPrint(text);
 	}
-
-	// print to the sending client
-	MESSAGE_BEGIN(MSG_ONE, gmsgSayText, NULL, &pEntity->v);
-	WRITE_BYTE(ENTINDEX(pEntity));
-	WRITE_STRING(text);
-	MESSAGE_END();
-
-	// echo to server console
-	g_engfuncs.pfnServerPrint(text);
 
 	const char* temp;
 	if (teamonly)
@@ -525,6 +579,8 @@ void Host_Say(edict_t* pEntity, bool teamonly)
 			temp,
 			p);
 	}
+
+	player->m_flNextChatTime = gpGlobals->time + 0.5f; // @0x9d826 (the SDK's CHAT_INTERVAL is 1 s)
 }
 
 
@@ -594,9 +650,7 @@ void ClientCommand(edict_t* pEntity)
 	}
 	else if (FStrEq(pcmd, "respawn")) // TS: request a respawn from spectate-wait (gate-checked)
 	{
-		// @ the "respawn" branch of ClientCommand @0x9d9fc (fold-plan G6, decompile-exact gates,
-		// dossier-invented B2 — was the invented helper TSTryRespawn; the original's home IS this
-		// branch): the wait line shows ONLY when the gate is NEGATIVE (the -4.0 wait-next-round
+		// @ the "respawn" branch of ClientCommand @0x9d9fc: the wait line shows ONLY when the gate is NEGATIVE (the -4.0 wait-next-round
 		// sentinel — LMS lockout / round logic; NEVER set in plain DM). Firing during a normal
 		// countdown is SILENT (neither branch). The wait line is 1 Hz-throttled off the same
 		// +0x754 clock as the countdown.
@@ -620,8 +674,7 @@ void ClientCommand(edict_t* pEntity)
 	}
 	else if (FStrEq(pcmd, "motd")) // TS: re-send the MOTD to this client
 	{
-		// R1: SendMOTDToClient lives on the stock rules object now (the merged-class
-		// ResendMOTD passthrough is gone).
+		// @0x9e54e: on the installed rules object, when it is multiplayer
 		if (g_pGameRules && g_pGameRules->IsMultiplayer())
 			((CHalfLifeMultiplay*)g_pGameRules)->SendMOTDToClient(player->edict());
 	}
@@ -658,8 +711,7 @@ void ClientCommand(edict_t* pEntity)
 		// two singles; a single dropped while its akimbo is owned leaves the other barrel).
 		player->DropWeapon(-1, 0.0f);
 	}
-	// ("tsbuy"/"tsbuyammo"/"tsbuyarmament" removed: invented dev stand-ins, not in the original
-	// dispatch @0x9d838. The original has NO direct-buy command — BuyWeapon @0x845bc / BuyAmmo
+	// (The original dispatch @0x9d838 has no direct-buy command — BuyWeapon @0x845bc / BuyAmmo
 	// @0x841e8 are called only from BuyArmament @0x83f10, whose only caller is
 	// CHalfLifeMultiplay::PlayerSpawn @0x79122: the queued loadout (tkw/tki/tka/rst_cfg)
 	// applies on spawn, which CTSGameRules::PlayerSpawn already does. RE dossier cont94 §2.)
@@ -960,7 +1012,7 @@ void StartFrame()
 	if (g_fGameOver)
 		return;
 
-	gpGlobals->teamplay = teamplay.value;
+	gpGlobals->teamplay = g_teamplay; // @0x9eadc: the rules' decision (DecideGamePlay), not mp_teamplay
 	g_ulFrameCount++;
 }
 
@@ -1845,13 +1897,10 @@ int GetWeaponData(struct edict_s* player, struct weapon_data_s* info)
 						item->iuser2 = gun->m_fInAttack;
 						item->iuser3 = gun->m_fireState;
 
-						// cont.89: the invented CTSGun::GetWeaponData override is GONE — it packed TS state
-						// (m_weaponType/reserve/fireMode/clips/attach) into these stock weapon_data slots, which
-						// the ORIGINAL client reads as m_chargeReady/m_fInAttack/m_fireState/m_flStartThrow/
-						// m_flReleaseThrow → a corrupt fire state (m_fInAttack≈reserve ⇒ "always attacking" ⇒
-						// misfire every frame ⇒ clip flicker + absurd spread). The generic loop above now packs
-						// the real stock fire-state fields; the TS weapon state travels on the clientdata vuser
-						// block instead (see UpdateClientData). Our own client reads that block in HUD_WeaponsPostThink.
+						// The original client reads these stock weapon_data slots as m_chargeReady/m_fInAttack/
+						// m_fireState/m_flStartThrow/m_flReleaseThrow, so they carry exactly those fields; the TS
+						// weapon state travels on the clientdata vuser block (UpdateClientData), which both
+						// clients read in HUD_WeaponsPostThink.
 
 						//						item->m_flPumpTime				= V_max( gun->m_flPumpTime, -0.001f );
 					}
@@ -1972,22 +2021,16 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 			// trigger logic reads DoubleFireRate() (semi weapons full-auto while the
 			// double-fire powerup runs); without the sync the client-side gate always saw 0
 			// (round 8: 'weapons should fullauto ... IF double fire rate has been triggered').
-			// cont.89: send the STUNT FLAGS (pev->iuser4), matching the original UpdateClientData
-			// (cd->iuser4 = pev->iuser4). TS_pm_shared reads pmove->iuser4 for every stunt (PRONE/SLIDE/
-			// DIVE/WALLJUMP/STOP/STANDUP), so the client can only PREDICT stunts if it receives them here.
-			// We previously overwrote this with m_iPowerups (the invented DoubleFire predicted gate), which
-			// starved the client of the stunt state → no prone/stunt prediction (view_ofs didn't survive,
-			// "still moving while prone"). The powerup-predicted gate is neutralized on the client (see
-			// hl_weapons.cpp) — powerup effects are server-authoritative, matching the original. [[useitems-is-attachment-toggle]]
+			// The stunt flags (pev->iuser4), as the original UpdateClientData (cd->iuser4 = pev->iuser4).
+			// TS_pm_shared reads pmove->iuser4 for every stunt (PRONE/SLIDE/DIVE/WALLJUMP/STOP/STANDUP),
+			// so the client predicts the stunts from it. Powerup effects are not predicted.
 			cd->iuser4 = pev->iuser4;
 			cd->ammo_nails = pl->ammo_bolts;
 			cd->ammo_shells = pl->ammo_buckshot;
 			cd->ammo_rockets = pl->ammo_rockets;
 			cd->ammo_cells = pl->ammo_uranium;
-			// TS weapon-state channel (cont.89): the ORIGINAL client reads the active weapon's predicted
-			// state from a vuser block, NOT from weapon_data. The invented ammo/powerup writes that used to
-			// occupy vuser1/vuser2.x/vuser3/vuser4 are REMOVED — the original client mis-read them as weapon
-			// state (phantom silencer/flash/laser/scope, clip 0). The melee stamina bar (player-level) rides
+			// TS weapon-state channel: the original client reads the active weapon's predicted state
+			// from a vuser block, not from weapon_data. The melee stamina bar (player-level) rides
 			// vuser1.y (cd+0x1b0); the per-weapon fields are set in the active-item block below.
 			cd->vuser1.y = pl->m_flMeleeBar;
 
@@ -2006,11 +2049,8 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 					// TS drop-in weapon-state channel (cont.89, verified by live gdb + client.dll disasm).
 					// The ORIGINAL client's HUD_WeaponsPostThink reads the active weapon's predicted state
 					// from these vuser slots (client reads `flds 0x30c/0x318/0x31c/0x320/0x324/0x328/0x32c(%esi)`
-					// = cd+0x1b8/0x1c4/0x1c8/0x1cc/0x1d0/0x1d4/0x1d8). The cont.89 dossier's field NAMES were
-					// off by one 4-byte slot (it read cd+0x1c4 as "vuser2.z"; with iuser1@0x18c standard layout
-					// it is vuser3.x) — the OFFSETS below are ground-truth. These REPLACE the invented
-					// ammo/powerup writes the original client mis-read (phantom silencer/flash/laser/scope,
-					// clip 0, absurd spread). m_weaponType 0 = kung-fu (melee).
+					// = cd+0x1b8/0x1c4/0x1c8/0x1cc/0x1d0/0x1d4/0x1d8, cd+0x1c4 being vuser3.x).
+					// m_weaponType 0 = kung-fu (melee).
 					if (II.iId == TSGUN_WEAPON_ID)
 					{
 						CTSGun* tsgun = (CTSGun*)gun;

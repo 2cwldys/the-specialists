@@ -27,7 +27,7 @@ public:
 	int m_iToggledOn = 0;     // 0x64 — toggle state (duration<=0 mode)
 	float m_flStopTime = 0;   // 0x68 — time the zone shuts off (0 = inactive)
 	EHANDLE m_hPlayers[TS_SLOMO_MAX_PLAYERS]; // 0x70 — players currently slowed
-	float m_flRadius = 0;     // 0xf4 — drop-range for CheckPlayersDistance
+	int m_iRadius = 0;       // 0xf4 — drop range for CheckPlayersDistance, whole units (Spawn @0x60f85)
 	float duration = 5;   // 0xf8 — "duration"
 	float slow_ammount = 0.5f; // 0xfc — "slowamt" (GoSlow scale)
 	int m_iAllMap = 0;        // 0x100 — SF_ALL_MAP: global slow-motion
