@@ -677,12 +677,15 @@ static void TSP_Move(TSParticle* p, float* quad, float dt)
 
 // Drop all cached sprite handles + active particles. MUST be called on a map change (HUD VidInit):
 // SPR_Load handles are indices into the per-map client sprite list, so a handle cached on the old map
-// is stale after a load. Keeps the pool's size (client.dll allocates it once).
+// is stale after a load. The team menu's Initialize (client.dll 0x10065ff0, every HUD_VidInit) clears
+// the FX root's flag (0x1018d16a) too, so the next frame configures cl_fx again and allocates the pool
+// at the size that configuration gives (FUN_10056bc0).
 void TSParticles_Reset()
 {
 	const int max = g_tsPool.max;
 	memset(&g_tsPool, 0, sizeof(g_tsPool));
 	g_tsPool.max = max;
+	g_fxConfigured = false;
 }
 
 void TSParticles_Update()

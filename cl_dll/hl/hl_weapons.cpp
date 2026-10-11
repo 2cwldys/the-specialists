@@ -364,6 +364,9 @@ void CBasePlayer::Spawn()
 	if (m_pActiveItem)
 		m_pActiveItem->Deploy();
 
+	// client.dll 0x100036d0 ends in 0x1000b9d0: the spread accumulator, punch and crosshair spread go to 0
+	HUD_TSResetRecoil();
+
 	g_irunninggausspred = false;
 }
 
@@ -454,6 +457,20 @@ void UTIL_ParticleLine(CBasePlayer* player, float* start, float* end, float life
 	gEngfuncs.pEfxAPI->R_ParticleLine(start, end, r, g, b, life);
 }
 
+// client.dll 0x1009ff08: cleared on every HUD_VidInit (the team menu's Initialize, 0x10065ff0), so the
+// first prediction on each map rebuilds the weapon tables and respawns the predicted gun.
+bool g_bTSClientWeaponsSpawned = false;
+
+// client.dll 0x100083f0, the predicted gun's Spawn (Reset, classname, Precache, the world model, the id),
+// then its player.
+static void HUD_SpawnClientGun()
+{
+	extern void TS_ResetLastKickTime(); // cl_dll/view.cpp: the gun's last kick time (+0x8c0)
+	g_TSGun.Spawn();
+	TS_ResetLastKickTime();
+	g_TSGun.m_pPlayer = &player;
+}
+
 /*
 =====================
 HUD_InitClientWeapons
@@ -464,6 +481,19 @@ Set up weapons, player and functions needed to run weapons code client-side.
 void HUD_InitClientWeapons()
 {
 	static bool initialized = false;
+
+	// client.dll 0x100036f0: once set up, the first call after a map change reruns compile_weapons_info
+	// (0x10007de0) and the gun's Spawn (0x100083f0), whose Precache asks the engine for the event
+	// indices again. They are indices into the current server's precache list, which a different
+	// server fills in a different order (TS 3.0's CTSGun::Precache @0x70660 vs reTS's world precache),
+	// so indices kept from the first server's map played another event on the next server's.
+	if (!g_bTSClientWeaponsSpawned && initialized)
+	{
+		compile_weapons_info();
+		g_bTSClientWeaponsSpawned = true;
+		HUD_SpawnClientGun();
+	}
+
 	if (initialized)
 		return;
 
@@ -597,7 +627,9 @@ void HUD_WeaponsPostThink(local_state_s* from, local_state_s* to, usercmd_t* cmd
 		}
 		else if (to->client.health > 0 && lasthealth <= 0)
 		{
+			// client.dll 0x100038be: the player's Spawn, then the gun's (0x100083f0) with the player
 			player.Spawn();
+			HUD_SpawnClientGun();
 		}
 
 		lasthealth = to->client.health;

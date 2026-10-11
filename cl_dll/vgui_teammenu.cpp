@@ -164,6 +164,11 @@ void CTeamMenuPanel::Initialize()
 	m_bUpdatedMapName = false;
 	m_iCurrentInfo = 0;
 	m_pScrollPanel->setScrollValue(0, 0);
+
+	// client.dll 0x10065ff0 also clears the client weapons' spawned flag (0x1009ff08), so the next
+	// prediction rebuilds them for the new map (HUD_InitClientWeapons)
+	extern bool g_bTSClientWeaponsSpawned;
+	g_bTSClientWeaponsSpawned = false;
 }
 
 //-----------------------------------------------------------------------------

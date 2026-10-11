@@ -299,8 +299,12 @@ int TSDefaultFireMode(int modeMask)
 // kept byte-faithful to the original init order — Sparta() OVERWRITES them for every firearm
 // before the table is ever read. The LIVE combat feel lives in Sparta(); everything else in
 // these rows (clips, models, rates, fire types) is the live truth.
-static void compile_weapons_info()
+void compile_weapons_info()
 {
+  // The client runs this again on every map (client.dll 0x10007de0 zeroes the table first, then the
+  // Write_ rows, Sparta, the ammo table and the falloff LUT), so nothing a server set on the last
+  // map (the ammo count mode's max carry) carries into the next.
+  memset(g_weaponInfo, 0, sizeof(g_weaponInfo));
   Write(&g_weaponInfo[0], "Kung-fu", "models/v_melee.mdl", nullptr, nullptr, nullptr, nullptr, 0, 36.0f, 3, 0.1f, 0.02f, 0.0f); // melee/kung-fu — fists (v_melee.mdl, no p_/w_ model, no clip)
   Write(&g_weaponInfo[1], "Glock-18", "models/v_glock18.mdl", "models/p_glock18.mdl", "models/w_glock18.mdl", "onehanded", "weapons/glock/glock-fire.wav", 17, 24.0f, 8, 0.054f, 0.024f, 0.008f); // glock18
   Write(&g_weaponInfo[2], "Beretta 92F", "models/v_beretta.mdl", "models/p_beretta.mdl", "models/w_berettas.mdl", "onehanded", "weapons/beretta/fire.wav", 15, 29.0f, 8, 0.1f, 0.015f, 0.0f); // beretta

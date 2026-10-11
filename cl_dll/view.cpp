@@ -660,6 +660,14 @@ void TS_ApplyMeleeShake(struct ref_params_s* pparams)
 // time (gun +0x8c0) is set either way. The time is the prediction's gpGlobals->time.
 static float g_flLastKickTime; // client.dll gun +0x8c0, zeroed when the gun is made
 
+// The gun's Reset (client.dll 0x10008470) zeroes +0x8c0 each time the predicted gun is spawned (each map
+// and each respawn). A time kept from the last server's clock is far ahead of the next one's, and every
+// shot there shook the view as if fired within 0.15 s of the last.
+void TS_ResetLastKickTime()
+{
+	g_flLastKickTime = 0;
+}
+
 void TS_AddViewRecoil(float flViewKick, int iFireType, bool bSilenced, bool bDoubleFireRate, float time)
 {
 	float vert = flViewKick * 0.85f;

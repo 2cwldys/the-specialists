@@ -292,6 +292,7 @@ enum tsfiretype_t
 
 // @ get_weapon_info__F10tsweapon_t — stats for a weapon (table[0] if out of range).
 // Shared: built into both hl.so (server) and client.so (client).
+void compile_weapons_info(); // @0x6fe28: (re)build the table; the client reruns it per map
 const s_weapon_info *get_weapon_info(tsweapon_t w);
 
 // The base SINGLE weapon for an akimbo variant (the reverse of iAkimboType / weapon_info+0xcc),
