@@ -7602,3 +7602,19 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
   find The One mode, so the suffix turned its The One scoring off (tsx_one: "kill of the one scores
   nothing", "kill by the new one"). The description is part of what server plugins read; the live server
   is told apart by its hostname ("goldsrc.net The Specialists", infra deploy-gameserver step 2c).
+
+## 2026-10-10: client state across a server change, and the shoot animation
+- c23fa288: the client weapons are set up again on every map as client.dll does (team menu Initialize
+  0x10065ff0 clears 0x1009ff08; HUD_InitClientWeapons 0x100036f0 reruns compile_weapons_info and the gun's
+  Spawn, whose Precache refetches the event indices). TS 3.0 and reTS precache the 11 events in different
+  orders (measured on ts_lobby: TS 3.0 fire, coldcock, firelinked, empty, pump, closecombat, reload, knife,
+  katana, draw, grenade; reTS fire, reload, draw, knife, katana, grenade, coldcock, closecombat, empty, pump,
+  firelinked), so a client that came from another server played the wrong events (reload -> coldcock,
+  kung fu -> grenade, knife -> closecombat). Also: the gun respawns with the player, the player's Spawn
+  resets recoil (0x1000b9d0), the last kick time and the FX root's cl_fx configuration reset per map.
+- 5500fd80: StandardFire calls no SendWeaponAnim (neither original does); EV_TSFire plays block[3+RL(0,2)]/
+  block[6] and the pump's block[11]/[12]. The predicted shoot against TS 3.0's server (weaponanim stays at the
+  draw) made the anim check replay the draw after every shot. Puppet test tsx-ts3 ts_fire_weaponanim.
+- Found, not changed: reTS's world precache puts reload/draw/knife ahead of CTSGun::Precache's order, unlike
+  TS 3.0; reTS's server idles 1 s after a give where TS 3.0 keeps the draw until the next idle (>3 s); the
+  client skips HUD_WeaponsPostThink with cl_lw 0, client.dll's HUD_PostRunCmd (0x100045b0) always runs it.
