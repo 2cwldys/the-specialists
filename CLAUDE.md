@@ -331,7 +331,8 @@ confirm the gap closed.
 - **`scripts/coverage/setup-ghidra.sh`** builds persistent projects under `recovered/ghidra/{server,client}`
   (gitignored, reboot-safe) with the noreturn truncation disabled + the gcc2 signatures/entvars_t/MSVC
   return types applied (`scripts/ghidra/{DisableNoReturn,FixNoReturn,ApplyTypes,DecompAt,DecompRefs}.java`),
-  so decompiles read with typed `this`/args/returns + `pev->fields`. The huge `ClientCommand` still
+  so decompiles read with typed `this`/args/returns + `pev->fields`; the client project then gets
+  `ApplyWinTypes` through `dc.sh setup client` (§4a.2). The huge `ClientCommand` still
   truncates in Ghidra — use objdump + GOT (`_GLOBAL_OFFSET_TABLE_`=0x165E10) for its dispatch; `readelf -W -r`
   resolves the .data pointers (vtables, cvar_t, message names) that read as zero in the file.
 
@@ -392,6 +393,39 @@ and cleans the output with the same multi-line filter as re.sh. Feed it the **RV
 prefer `re.sh <Class>` (it resolves Class→methods + applies the full inventory); `dc.sh server` is the quick
 by-address path. The mp.dll has 159 typed MSVC exports → readable `Class::Method` signatures (use it to name a
 live-trace RVA, then find the SAME function in `ts_i386.so` and decompile it with the typed `re.sh` flow).
+
+**Project setup: `dc.sh setup <client|mp>`** imports `reference/client.dll` / `mp.dll` into
+`recovered/ghidra/{client,mpdll}` when the project is missing (noreturn discovery off) and applies
+`scripts/ghidra/ApplyWinTypes.java`. A decompile with no project runs it first; it is idempotent, so `setup`
+also re-applies it to an existing project. `DC_GHIDRA_DIR=<dir>` puts the projects elsewhere (a throwaway
+fresh import). Why: both DLLs link the 2007 MSVC CRT statically and Ghidra's Function ID databases only know
+VS2012-2019, so sprintf & co. were FUN_ with a two-argument guess and every argument after a format was
+dropped (0x10001000 read `RandomLong(0,4); sprintf(buf, fmt)` for `sprintf(buf, "{shot%i", RandomLong(0, 4) + 1)`,
+and a port took {shot0..4}). ApplyWinTypes applies:
+- variadic signatures found from the callers: a function handed a printf-format literal that takes the address
+  of the argument after it (va_start) gets `f(..., const char *format, ...)`. The CRT ones are named from their
+  bodies (sprintf, _snprintf, sscanf, vsprintf, _vsnprintf, _output); mp.dll's three by role (UTIL_VarArgs,
+  UTIL_LogPrintf, VoiceServerDebug, the server's only variadics). Other callees keep FUN_ with the type.
+- `__chkstk` named, with the cspec's `alloca_probe` call-fixup, so functions with over a page of locals keep
+  their frame.
+- the engine tables typed from this repo's SDK headers (engine/, common/, pm_shared/), each cut to the size
+  the binary copies: the client's `gEngfuncs` (cl_enginefunc_t, 98 entries, Initialize's copy, with its
+  pTriAPI/pEfxAPI/pEventAPI/pDemoAPI/pNetAPI/pVoiceTweak sub-tables), `IEngineStudio` (43) and `pmove`;
+  mp.dll's `g_engfuncs` (enginefuncs_t, 155), `gpGlobals`, `gFunctionTable` (DLL_FUNCTIONS) and `pmove`.
+  Addresses come from the PE export directory, not symbols (ApplyClientThis's binmap renamed client.dll's
+  HUD_GetStudioModelInterface export to `CHudGeiger::Init`). The by-value structs match an i386 gcc build
+  member for member (playermove_t, globalvars_t, physent_t, usercmd_t, pmtrace_t).
+- a call-site prototype for each call to a variadic function or table member whose format is a literal, with
+  exactly the arguments the format asks for, so a call whose pushes straddle branches still shows them all
+  (mp.dll's kill log line showed 6 of its 17 without it). A call with fewer pushes than its format, or with
+  pushes reached through a jump, keeps the decompiler's guess.
+
+`dc.sh scan <client|mp> out.tsv` (`ScanVarargs.java`) lists every variadic call with its format, the decompiled
+call and the raw instruction behind each variadic argument; `scripts/ghidra/varargs-ports.py --client c.tsv
+--mp m.tsv` joins it with the addresses cited in cl_dll/ and dlls/. The server project (`re.sh`) still has the
+blind spot: ApplyTypes/ApplyInventory drop the "..." of the gcc2 signatures and type g_engfuncs entries as an
+argumentless `engine_fn`, so `re.sh 0x9e330` shows `UTIL_VarArgs("%s returned the briefcase! %i #TS_Frg")`
+with no arguments. Read such calls in objdump, or in mp.dll (same source) through dc.sh.
 
 The whole client/server RE + live-debug toolchain, at a glance: `re.sh` (server decompile, typed) · `dc.sh`
 (client/mp/server decompile by addr) · **`scripts/live.py`** (drive the running original — `pid`/`base`/

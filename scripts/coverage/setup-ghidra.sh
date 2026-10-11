@@ -10,7 +10,8 @@
 #   recovered/ghidra/client  <- reference/client.dll   (project name: clientdll)
 #
 # Both import with the "Non-Returning Functions - Discovered" analyzer OFF
-# (scripts/ghidra/DisableNoReturn.java) so decompiles don't truncate.
+# (scripts/ghidra/DisableNoReturn.java) so decompiles don't truncate. The client then gets
+# ApplyWinTypes (through `scripts/ghidra/dc.sh setup client`, which also builds mp.dll's project).
 #
 # Usage:  scripts/coverage/setup-ghidra.sh [-f]      (-f = force rebuild)
 # Then:   analyzeHeadless recovered/ghidra/server serverso -process ts_i386.so \
@@ -36,6 +37,8 @@ build() {  # <projdir> <projname> <binary>
 
 build "$ROOT/recovered/ghidra/server" serverso reference/ts_i386.so
 build "$ROOT/recovered/ghidra/client" clientdll reference/client.dll
+# varargs signatures, CRT names and the typed engine tables (scripts/ghidra/ApplyWinTypes.java)
+"$SP/dc.sh" setup client || echo "    (ApplyWinTypes on the client failed)"
 
 # Apply the recovered inventory to the server program: real per-class member STRUCTS (from the save
 # tables) + typed prototypes + entvars_t, so decompiles read `this->poweruptype` / `this->pev->origin`
