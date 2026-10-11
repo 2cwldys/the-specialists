@@ -130,10 +130,6 @@ void PrecacheAllTSWeapons()
 	PRECACHE_SOUND("player/headshot2.wav"); // only headshot.wav + headshot2.wav exist (no headshot1.wav)
 	PRECACHE_SOUND("player/kevlarhit.wav");
 
-	// weapon event scripts (CTSGun::Precache @0x80660) — must be precached at map
-	// load so a runtime weapon give doesn't precache an event mid-game.
-	PRECACHE_EVENT(1, "events/fire.sc");
-	PRECACHE_EVENT(1, "events/reload.sc");
-	PRECACHE_EVENT(1, "events/draw.sc");
-	PRECACHE_EVENT(1, "events/knife.sc"); // melee impact spark
+	// No events here: CTSGun::Precache registers them, at map load through W_Precache's weapon_tsgun,
+	// in the original's order (the client caches the indices per map, so both servers must agree).
 }

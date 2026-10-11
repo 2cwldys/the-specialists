@@ -721,17 +721,19 @@ void CTSGun::Precache()
 	// roster models/sounds/events are precached at map load (CWorld::Precache);
 	// this re-call just resolves the cached indices for a runtime give.
 	PrecacheAllTSWeapons();
+	// @0x70660: the eleven events in the original's order, which fixes their indices in the server's
+	// precache list (fire 1, coldcock 2 ... grenade 11 on a map with no other event before them)
 	m_usFire = PRECACHE_EVENT(1, "events/fire.sc"); // predicted fire (sound/flash/anim + shell)
-	m_usDraw = PRECACHE_EVENT(1, "events/draw.sc"); // deploy: seed the client active-weapon param cache
-	m_usMelee = PRECACHE_EVENT(1, "events/knife.sc"); // melee impact spark/decal on a hard surface
-	m_usKatana = PRECACHE_EVENT(1, "events/katana.sc"); // katana swing presentation (gun+0x974)
-	m_usGrenade = PRECACHE_EVENT(1, "events/grenade.sc"); // pin/throw presentation (gun+0x978)
 	m_usColdCock = PRECACHE_EVENT(1, "events/coldcock.sc"); // the bash presentation (gun+0x966)
-	m_usCloseCombat = PRECACHE_EVENT(1, "events/closecombat.sc"); // kung-fu/block presentation (gun+0x96c)
+	m_usFireLinked = PRECACHE_EVENT(1, "events/firelinked.sc"); // akimbo both-barrels (gun+0x96e)
 	m_usEmpty = PRECACHE_EVENT(1, "events/empty.sc");   // dry-fire click (gun+0x968)
 	m_usPump = PRECACHE_EVENT(1, "events/pump.sc");     // the rack half (gun+0x96a)
-	m_usFireLinked = PRECACHE_EVENT(1, "events/firelinked.sc"); // akimbo both-barrels (gun+0x96e)
+	m_usCloseCombat = PRECACHE_EVENT(1, "events/closecombat.sc"); // kung-fu/block presentation (gun+0x96c)
 	m_usReload = PRECACHE_EVENT(1, "events/reload.sc"); // reload presentation (gun+0x970)
+	m_usMelee = PRECACHE_EVENT(1, "events/knife.sc"); // melee impact spark/decal on a hard surface (gun+0x972)
+	m_usKatana = PRECACHE_EVENT(1, "events/katana.sc"); // katana swing presentation (gun+0x974)
+	m_usDraw = PRECACHE_EVENT(1, "events/draw.sc"); // deploy: seed the client active-weapon param cache (gun+0x976)
+	m_usGrenade = PRECACHE_EVENT(1, "events/grenade.sc"); // pin/throw presentation (gun+0x978)
 	PRECACHE_SOUND("player/kungfuhit.wav");   // kung-fu flesh hit (also the coldcock bash)
 	PRECACHE_SOUND("player/closecombat.wav"); // kung-fu swing whoosh (miss / surface)
 	PRECACHE_SOUND("player/block.wav");       // kung-fu block "hooah" (reload)
