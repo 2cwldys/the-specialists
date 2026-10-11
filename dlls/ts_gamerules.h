@@ -254,10 +254,10 @@ extern int g_theOneMode;      // The One mode flag
 extern int g_lastManStanding; // last-man-standing mode flag
 // @.data — the mode-dependent server-browser game-name strings (GetGameDescription). g_szDMDescription
 // @0x10d004 / g_szTDMDescription @0x10d019 / g_szTOMDescription @0x10d034 / g_szLMSDescription @0x10d04e.
-extern char g_szDMDescription[];  // "The Specialists (DM) [reTS]" — Multiplay default
-extern char g_szTDMDescription[]; // "The Specialists (Teamplay) [reTS]" — Teamplay default
-extern char g_szTOMDescription[]; // "The Specialists (The One) [reTS]"
-extern char g_szLMSDescription[]; // "The Specialists (LMS) [reTS]"
+extern char g_szDMDescription[];  // "The Specialists (DM)"       — Multiplay default
+extern char g_szTDMDescription[]; // "The Specialists (Teamplay)" — Teamplay default
+extern char g_szTOMDescription[]; // "The Specialists (The One)"
+extern char g_szLMSDescription[]; // "The Specialists (LMS)"
 // @0x65ff4 — every respawn-wait funnels here (TS_gamerules.cpp); the bool is dead in the original.
 void SetPlayerRespawnTime(CBasePlayer *pPlayer, int sec, bool bUnused);
 // @0x66244 — TS's spawn scorer (teammate-cover band / unseen band / nearest-distance;

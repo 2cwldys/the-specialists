@@ -351,13 +351,11 @@ bool CHalfLifeMultiplay::IsValidTeam(char* pTeamName)
 // LMS -> DM with NO teamplay branch (team mode is orthogonal; it still reports its DM/LMS/theOne
 // sub-mode). CTSGameRules inherits this verbatim (the original defines no CTSGameRules override).
 // @.data — the mode-dependent server-browser game-name strings (defined once here; the Teamplay
-// override reads g_szTDMDescription instead of g_szDMDescription). The original's .data globals, with
-// " [reTS]" appended: USER-APPROVED IMPROVEMENT, so server browsers show a reTS server as one; the name
-// still starts with the original string, and clients and the master servers go by the gamedir, not this.
-char g_szDMDescription[]  = "The Specialists (DM) [reTS]";
-char g_szTDMDescription[] = "The Specialists (Teamplay) [reTS]";
-char g_szTOMDescription[] = "The Specialists (The One) [reTS]";
-char g_szLMSDescription[] = "The Specialists (LMS) [reTS]";
+// override reads g_szTDMDescription instead of g_szDMDescription). Match the original .data globals.
+char g_szDMDescription[]  = "The Specialists (DM)";
+char g_szTDMDescription[] = "The Specialists (Teamplay)";
+char g_szTOMDescription[] = "The Specialists (The One)";
+char g_szLMSDescription[] = "The Specialists (LMS)";
 
 // @0xc0c68 (decompile-exact): TheOne -> (The One); else LMS -> (LMS); else (DM). Keyed off the runtime
 // mode GLOBALS (g_theOneMode/g_lastManStanding set by DecideGamePlay), NOT the cvars.

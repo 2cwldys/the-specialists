@@ -7596,3 +7596,9 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
   doubles the shown points for a streak over 8 and a kill within 2 s (0x7956e). Puppet-tested on reTS and
   TS 3.0 (tsx-ts3 ts_flag_return, ts_kills).
 - Found, not changed: the server project (re.sh) still drops varargs (ApplyTypes skips "...", engine_fn).
+
+## 2026-10-10: game description back to TS 3.0's (e9c12bc6 reverted)
+- The " [reTS]" suffix is gone: TSX tests the description against "The Specialists (The One)" exactly to
+  find The One mode, so the suffix turned its The One scoring off (tsx_one: "kill of the one scores
+  nothing", "kill by the new one"). The description is part of what server plugins read; the live server
+  is told apart by its hostname ("goldsrc.net The Specialists", infra deploy-gameserver step 2c).
