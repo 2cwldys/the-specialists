@@ -30,6 +30,7 @@
 #include "decals.h"
 #include "gamerules.h"
 #include "UserMessages.h"
+#include "ts_gun.h"
 
 #define NOT_USED 255
 
@@ -807,8 +808,18 @@ bool CBasePlayerWeapon::DefaultDeploy(const char* szViewModel, const char* szWea
 		m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + (m_pPlayer->m_flSpawnProtectTime - gpGlobals->time);
 	else
 		m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.5;
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 1.0;
+	// @0x9033d: the idle comes 3 s after a draw (0.75 s for the Contender), so the draw animation stays
+	// the weaponanim until then; then the draw sound on CHAN_VOICE, attenuation 1.25, pitch 98..101
+	// (@0x903be). The original's kung fu deploy is HolsterWeapon, which has neither (reTS's Deploy
+	// takes kung fu through here), so no sound for it.
+	const int tsType = (m_iId == TSGUN_WEAPON_ID) ? static_cast<CTSGun*>(this)->m_weaponType : -1;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + (tsType == TSW_CONTENDER ? 0.75 : 3.0);
 	m_flLastFireTime = 0.0;
+	if (tsType != TSW_MELEE)
+	{
+		const int drawPitch = 98 + RANDOM_LONG(0, 3);
+		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_VOICE, "weapons/draw.wav", RANDOM_FLOAT(0.92f, 1.0f), 1.25f, 0, drawPitch);
+	}
 
 	return true;
 }
