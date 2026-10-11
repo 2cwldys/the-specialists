@@ -7526,3 +7526,23 @@ StartFrame copies g_teamplay into gpGlobals->teamplay (0x9eadc); DecideGamePlay 
   a generic-damage death.
 - Bench: fakemeta's EngFunc_GetInfoKeyBuffer and create_kvd/set_kvd handles crash an amd64 server
   (pointers truncated to cells); use get_user_info and engine's DispatchKeyValue.
+
+## 2026-10-10 — client gaps round 2: recoil, muzzle debris, decals, spectator view, buy menu text
+
+- Recoil from the prediction (client.dll 0x10008230, called by its StandardFire/ShotgunFire/
+  AkimboFire): pitch 0.85 x kick, the type's yaw scale, x0.775 silenced, x2/3 double fire rate, only
+  on runfuncs, a 0.1 s 35 Hz shake for kicks within 0.15 s. The fire events carry the spread in
+  fparam1 and fparam2 as ts_i386.so (0x728cd, 0x72405, 0x7321e); the fire core spreads up by fparam2.
+  Test ts_fire_event (both copies).
+- Shotgun muzzle debris (0x10046bd0 forced from the fire events), and the spawner's view/sight and
+  throttle gates for its unforced impact callers. Bullet decals only on SOLID_BSP physents.
+- Spectator: TS's PM_SpectatorMove (0xeef3c / client 0x1002c790) with GetChaseOrigin (90 back from
+  35 up) moves the spectator; the client copy hands the view origin/angles and smoothing bits;
+  V_CalcSpectatorRefdef is 0x10068f70 (client.dll's chase-position call there is dead, overwritten
+  at its end). Test ts_spectator_view. The Spectator table is cleared with the scoreboard data only.
+- Buy menu: labels and notices from titles.txt tokens as client.dll (entry draw localises), rows keyed
+  '1'..'9','A', save/load/remove Go Back to the config column, Remove Item whole and compacted.
+- default_fov on Windows: no platform path in reTS touches it; checks for a Windows client listed in
+  amxxbench docs/fixes/gaps2-client-report.md and things-to-test 131.
+- Found, not changed: pump fire.sc bparam1 (TS sends pump-mode, reTS clip==0), server VKickback's
+  six-argument form, 0x10044bf0's impact classification, tsbuylist.tsa persistence.
