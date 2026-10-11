@@ -367,7 +367,13 @@ Return 1 to allow engine to process the key, otherwise, act on it as needed
 // attack buttons below, cleared at the end of HUD_Frame. Their + commands press only while it is set,
 // so a + command that does not come straight from a key bound to it (an alias, a script, the console)
 // does nothing.
+// The wasm build skips the gate: the browser's touch controls send these commands with no key bound,
+// so there the flag starts set and HUD_Frame leaves it set.
+#ifdef __EMSCRIPTEN__
+bool g_bTSKeyBound = true;
+#else
 bool g_bTSKeyBound = false;
+#endif
 
 int DLLEXPORT HUD_Key_Event(int down, int keynum, const char* pszCurrentBinding)
 {
