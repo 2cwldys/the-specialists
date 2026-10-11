@@ -761,7 +761,19 @@ int TSGetPointsForFrag(CBasePlayer *pUnused, entvars_t *pevKiller, entvars_t *pe
 	}
 
 	if (pts > 1)
-		TSHudMessageAll(0, 0xff, 0, 1, 30, UTIL_VarArgs("%i #TS_Frg #TS_FrgFr %s, %s", pts, szName, szDesc));
+	{
+		// @0x7956e-0x7959c: the line doubles the points it announces for a killer on a run of more
+		// than 8 and again for a kill within 2 s of his last; the points returned stay as they are.
+		int shown = pts & 0xff;
+		if (pKiller)
+		{
+			if (pKiller->m_iKillStreak > 8)
+				shown <<= 1;
+			if ((double)gpGlobals->time - (double)pKiller->m_flLastKillTime < 2.0)
+				shown <<= 1;
+		}
+		TSHudMessageAll(0, 0xff, 0, 1, 30, UTIL_VarArgs("%i #TS_Frg #TS_FrgFr %s, %s", shown, szName, szDesc));
+	}
 	return pts & 0xff;
 }
 

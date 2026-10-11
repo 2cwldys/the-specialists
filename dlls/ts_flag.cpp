@@ -156,12 +156,11 @@ void CTSFlag::RespawnFlag()
 	{
 		pBriefcase->SetThink(&CTSBriefcase::FlagFall);
 		pBriefcase->pev->nextthink = gpGlobals->time + 1.0f;
-		if (m_flagStatus.team < 4)
-		{
-			const char *who = TSGameRules->GetIndexedTeamName(m_flagStatus.team);
-			TSHudMessageAll(0, 0xff, 0, 4, 20,
-				UTIL_VarArgs("%s briefcase returned.", (who && who[0]) ? who : "The"));
-		}
+		// @0x9deb2: an unsigned test (cmp 3; ja), so a neutral flag (team -1) goes home without a
+		// word; a team's flag names the team, held 30 (@0x9deea).
+		if ((unsigned)m_flagStatus.team <= 3)
+			TSHudMessageAll(0, 0xff, 0, 4, 30,
+				UTIL_VarArgs("%s briefcase returned", TSGameRules->GetIndexedTeamName(m_flagStatus.team)));
 	}
 	Destroy();
 }
@@ -279,10 +278,11 @@ void CTSFlag::PlayerTakeFlag(CBaseEntity *pOther)
 
 		if (TSGameRules->CountPlayers() > 1)
 		{
+			// @0x9e49e: the line announces the 5 points the return gives, not the returner's frags
+			// (push 5), held 30 (@0x9e4c5).
 			pPlayer->pev->frags += 5;
-			const char *who = (pPlayer->pev->netname) ? STRING(pPlayer->pev->netname) : "Someone";
-			TSHudMessageAll(0, 0xff, 0, 4, 20,
-				UTIL_VarArgs("%s returned the briefcase! %i #TS_Frg", who, (int)pPlayer->pev->frags));
+			TSHudMessageAll(0, 0xff, 0, 4, 30,
+				UTIL_VarArgs("%s returned the briefcase! %i #TS_Frg", STRING(pPlayer->pev->netname), 5));
 
 			if (gmsgScoreInfo)
 			{
