@@ -96,7 +96,7 @@ void CBasePlayer::Observer_Idle()
 }
 
 // @0x89d34 Observer_HandleButtons — read off the held buttons every 0.2 s: jump cycles the mode
-// (roaming -> chase -> locked chase -> map -> roaming), forward and back step to the next and the
+// (roaming -> chase -> locked chase -> first person -> roaming), forward and back step to the next and the
 // previous player when not roaming.
 void CBasePlayer::Observer_HandleButtons()
 {
@@ -110,7 +110,7 @@ void CBasePlayer::Observer_HandleButtons()
 		else if (pev->iuser1 == OBS_CHASE_FREE)
 			Observer_SetMode(OBS_CHASE_LOCKED);
 		else if (pev->iuser1 == OBS_CHASE_LOCKED)
-			Observer_SetMode(OBS_MAP_FREE);
+			Observer_SetMode(OBS_IN_EYE);
 		else
 			Observer_SetMode(OBS_ROAMING);
 
@@ -133,7 +133,7 @@ void CBasePlayer::Observer_HandleButtons()
 }
 
 // @0x89e44 Observer_SetMode — roaming clears the target and sets the client's max speed to 420; the
-// chase, locked chase and map modes need a target (found if there is none) and fall back to roaming
+// chase, locked chase and first person modes need a target (found if there is none) and fall back to roaming
 // without one. Other modes change nothing past the view reset. Nothing is printed and the last mode
 // is not stored here (StopObserver keeps it).
 void CBasePlayer::Observer_SetMode(int iMode)
@@ -153,7 +153,7 @@ void CBasePlayer::Observer_SetMode(int iMode)
 		return;
 	}
 
-	if (iMode != OBS_MAP_FREE && iMode != OBS_CHASE_LOCKED && iMode != OBS_CHASE_FREE)
+	if (iMode != OBS_IN_EYE && iMode != OBS_CHASE_LOCKED && iMode != OBS_CHASE_FREE)
 		return;
 
 	if (m_hObserverTarget == NULL)

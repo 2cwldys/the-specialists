@@ -18,13 +18,14 @@
 #include "ts_dmhill.h"
 #include "ts_mapglobals.h"
 #include "ts_playeramount.h"
+#include "ts_flag.h"          // HaveFlag (ts_trigger spawnflag 8)
 
 // CTSTrigger — first in the original address order (extracted from ts_objectives.cpp).
 //============================================================================
-// CTSTrigger — a TS brush trigger: fires its target when a valid player (right attacker
-// team, optionally the flag carrier) touches it, on a recheck delay, with a HUD message.
-// @0x709b8 Spawn / @0x70ad8 WaitTouch / @0x70c68 WaitThink. Derives the team gate from
-// CTSObjective (the FGD `tsobjective` base).
+// CTSTrigger — a TS brush trigger: a live player touching it fires its target when he is on the
+// allowed team, and its message is shown whoever touched it, then it waits `nextcheck` seconds.
+// @0x609b8 Spawn / @0x60ad8 WaitTouch / @0x60c68 WaitThink. The original's base is CBaseTrigger;
+// reTS keeps CTSObjective for the team member (attacker_team, the original's +0x108).
 //============================================================================
 #define SF_TS_TRIGGER_FLAGCARRIER 8
 
@@ -34,37 +35,40 @@ public:
 	void Spawn() override;
 	bool KeyValue(KeyValueData *pkvd) override;
 	void EXPORT WaitTouch(CBaseEntity *pOther);
-	void EXPORT WaitThink();                  // @0x70c68 — keep the trigger alive (reschedule)
-	int ObjectCaps() override { return 0; }   // @0x73ad0 — no caps (not save/use-able as an objective)
+	void EXPORT WaitThink();                  // @0x60c68 — reschedules; nothing sets it as the think
+	int ObjectCaps() override { return 0; }   // @0x63ad0
 
-	float m_flNextCheck = 0;   // nextcheck (recheck delay)
-	float m_flNextAllowed = 0; // earliest time it can fire again
+	float m_flNextCheck = 0;   // +0x10c nextcheck (the wait, at least 0.5 s)
+	float m_flNextAllowed = 0; // +0x104 earliest time it can be touched again
 };
 
 LINK_ENTITY_TO_CLASS(ts_trigger, CTSTrigger);
 
+// @0x609b8: a hidden brush trigger (movetype 5) with no think, touchable after the wait.
 void CTSTrigger::Spawn()
 {
-	if (!FStringNull(pev->model))
-		SET_MODEL(ENT(pev), STRING(pev->model)); // the brush
-	pev->movetype = MOVETYPE_NONE;
-	pev->solid = SOLID_TRIGGER;
+	pev->classname = MAKE_STRING("ts_trigger");
+	SET_MODEL(ENT(pev), STRING(pev->model));
+	UTIL_SetSize(pev, pev->mins, pev->maxs);
 	UTIL_SetOrigin(pev, pev->origin);
+	pev->effects |= EF_NODRAW;
+	pev->solid = SOLID_TRIGGER;
+	pev->movetype = MOVETYPE_FLY;
 	SetTouch(&CTSTrigger::WaitTouch);
-	// keep the trigger alive (the original arms a recheck nextthink + the first-allowed time)
-	float wait = (m_flNextCheck < 0.5f) ? 0.5f : m_flNextCheck;
-	SetThink(&CTSTrigger::WaitThink);
+	SetThink(NULL);
+	const float wait = (m_flNextCheck < 0.5f) ? 0.5f : m_flNextCheck;
 	pev->nextthink = gpGlobals->time + wait;
 	m_flNextAllowed = gpGlobals->time + wait;
 }
 
-// @WaitThink__10CTSTrigger — reschedule so the trigger keeps ticking (recheck delay >= 0.5s).
 void CTSTrigger::WaitThink()
 {
 	float wait = (m_flNextCheck < 0.5f) ? 0.5f : m_flNextCheck;
 	pev->nextthink = gpGlobals->time + wait;
 }
 
+// @0x60890: nextcheck, attackerteam and allowedteam (the same member; allowedteam 2 means any team,
+// -1). No other key, and no base KeyValue.
 bool CTSTrigger::KeyValue(KeyValueData *pkvd)
 {
 	if (FStrEq(pkvd->szKeyName, "nextcheck"))
@@ -72,27 +76,45 @@ bool CTSTrigger::KeyValue(KeyValueData *pkvd)
 		m_flNextCheck = atof(pkvd->szValue);
 		return true;
 	}
-	return CTSObjective::KeyValue(pkvd); // attackerteam
+	if (FStrEq(pkvd->szKeyName, "attackerteam"))
+	{
+		attacker_team = (int)lrint(atof(pkvd->szValue));
+		return true;
+	}
+	if (FStrEq(pkvd->szKeyName, "allowedteam"))
+	{
+		attacker_team = (int)lrint(atof(pkvd->szValue));
+		if (attacker_team == 2)
+			attacker_team = -1;
+		return true;
+	}
+	return false;
 }
 
-// @WaitTouch — fire on a valid touch, then re-arm after `nextcheck` seconds.
+// @0x60ad8: a live player past the wait. With spawnflag 8 only the flag carrier counts. The team
+// decides only whether the target fires; the message (a format string, %s the toucher's name) shows
+// and the wait starts again either way.
 void CTSTrigger::WaitTouch(CBaseEntity *pOther)
 {
 	if (gpGlobals->time < m_flNextAllowed)
 		return;
 	if (!pOther->IsPlayer() || !pOther->IsAlive())
 		return;
-	// attacker-team gate (-1 = any), inline in the original (@0x60b4c): the toucher's team index
-	// from TeamID()
-	if (!CanInteract(TSGameRules->GetTeamIndex(pOther->TeamID())))
+	bool allowed = true;
+	if (attacker_team != -1 && attacker_team != TSGameRules->GetTeamIndex(pOther->TeamID()))
+		allowed = false;
+	if ((pev->spawnflags & SF_TS_TRIGGER_FLAGCARRIER) != 0 && !HaveFlag((CBasePlayer *)pOther))
 		return;
-	// SLICE: the "Flag Carrier Only" spawnflag (8) needs the CTF flag system (not built);
-	// here it's ignored (the trigger fires for anyone on the right team).
 
-	if (!FStringNull(pev->target))
+	if (allowed && !FStringNull(pev->target))
 		FireTargets((char *)STRING(pev->target), this, this, USE_TOGGLE, 0);
 	if (!FStringNull(pev->message))
-		TSHudMessageAll(0, 0xff, 0, 8, 30, STRING(pev->message));
+	{
+		// The original sprintf's into 124 bytes unchecked; here the text stops at the buffer's end.
+		char text[124];
+		snprintf(text, sizeof(text), STRING(pev->message), STRING(pOther->pev->netname));
+		TSHudMessageAll(0, 0xff, 0, 8, 30, text);
+	}
 
 	float delay = m_flNextCheck < 0.5f ? 0.5f : m_flNextCheck;
 	m_flNextAllowed = gpGlobals->time + delay;
@@ -559,7 +581,8 @@ void CTSDMHill::WaitTouch(CBaseEntity *pOther)
 
 // ===================== ts_model.cpp (merged) =====================
 
-class CTSModel : public CBaseAnimating
+class CTSModel : public CBaseToggle // the original's base (its typeinfo): wait, master, lip, distance,
+                                  // delay and killtarget reach CBaseToggle::KeyValue
 {
 public:
 	void Spawn(void) override;
@@ -763,7 +786,9 @@ bool CTSPlayerAmount::KeyValue(KeyValueData *pkvd)
 	if (FStrEq(pkvd->szKeyName, "clients"))          { m_iClients = atoi(pkvd->szValue); return true; }
 	if (FStrEq(pkvd->szKeyName, "connecttarget"))    { m_iszConnectTarget = ALLOC_STRING(pkvd->szValue); return true; }
 	if (FStrEq(pkvd->szKeyName, "disconnecttarget")) { m_iszDisconnectTarget = ALLOC_STRING(pkvd->szValue); return true; }
-	return CBaseDelay::KeyValue(pkvd); // "delay" (m_flDelay) etc. handled by the base
+	// @0x629c0: these three only, no CBaseDelay chain, so a map's delay or killtarget is ignored
+	// (m_flDelay stays 0 and the original's DelayedUse branch never runs).
+	return false;
 }
 
 void CTSPlayerAmount::Spawn()
@@ -771,7 +796,9 @@ void CTSPlayerAmount::Spawn()
 	pev->classname = MAKE_STRING("ts_playeramount");
 	pev->effects |= EF_NODRAW;
 	pev->solid = SOLID_NOT;
-	pev->movetype = MOVETYPE_FLY; // (original sets movetype 5; a non-colliding point relay)
+	pev->movetype = MOVETYPE_FLY; // @0x62a78: movetype 5, no touch, no think
+	SetTouch(NULL);
+	SetThink(NULL);
 	m_iCount = 0;
 }
 
@@ -782,8 +809,8 @@ void CTSPlayerAmount::ClientConnect()
 		return;
 	if (!FStringNull(m_iszConnectTarget))
 	{
-		// delay==0 fires now; the original schedules a DelayedUse for m_flDelay>0 (deferred refinement).
-		FireTargets(STRING(m_iszConnectTarget), this, this, USE_TOGGLE, 0);
+		// No activator (@0x62bd8); spawnflag 1 removes the relay once it has fired.
+		FireTargets(STRING(m_iszConnectTarget), NULL, this, USE_TOGGLE, 0);
 		if (pev->spawnflags & 1) // bit 1 = remove the relay after it fires
 			UTIL_Remove(this);
 	}
@@ -796,7 +823,7 @@ void CTSPlayerAmount::ClientDisconnect()
 		return;
 	if (!FStringNull(m_iszDisconnectTarget))
 	{
-		FireTargets(STRING(m_iszDisconnectTarget), this, this, USE_TOGGLE, 0);
+		FireTargets(STRING(m_iszDisconnectTarget), NULL, this, USE_TOGGLE, 0);
 		if (pev->spawnflags & 1)
 			UTIL_Remove(this);
 	}

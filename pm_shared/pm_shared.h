@@ -32,14 +32,17 @@ char PM_FindTextureType(const char* name);
 */
 bool PM_GetHullBounds(int hullnumber, float* mins, float* maxs);
 
-// Spectator Movement modes (stored in pev->iuser1, so the physics code can get at them)
+// Spectator Movement modes (stored in pev->iuser1, so the physics code can get at them).
+// The Specialists numbers them 1, 2, 3 and 5: its server's Observer_SetMode (0x89e44) takes 1, 2, 3
+// and 5, and client.dll draws 5 as the first person view. No TS mode is 4, and TS has no overview map
+// modes; the two below keep the SDK client's map code compiling with numbers TS never sends.
 #define OBS_NONE 0
 #define OBS_CHASE_LOCKED 1
 #define OBS_CHASE_FREE 2
 #define OBS_ROAMING 3
-#define OBS_IN_EYE 4
-#define OBS_MAP_FREE 5
-#define OBS_MAP_CHASE 6
+#define OBS_IN_EYE 5
+#define OBS_MAP_FREE 6
+#define OBS_MAP_CHASE 7
 
 extern playermove_s* pmove;
 

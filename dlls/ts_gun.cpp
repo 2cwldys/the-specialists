@@ -2311,9 +2311,12 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 	// SINGLE akimbo shot rides fire.sc with bparam1 = the barrel (0 right / 1 left) and
 	// bparam2 = the FireBullets SEED (our old bparam2=side extension collided with the seed;
 	// fixed). fparam2 = the recoil magnitude (EV_TSFire/Linked's TS_AddViewRecoil reads it).
+	// bparam1 is item+0x24 on both events (@0x731e2): 1 when the left barrel fired, 0 the right; the
+	// linked shot sends the toggle as it was flipped. fparam2: the original sends the spread in both
+	// fparams; reTS keeps the view kick in fparam2, which its client's event recoil reads.
 	if (nSides == 2)
 		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFireLinked, 0.0, g_vecZero,
-			g_vecZero, flSpread, wi->flViewKick, m_weaponType, it.attach, 0,
+			g_vecZero, flSpread, wi->flViewKick, m_weaponType, it.attach, it.altMode,
 			m_pPlayer->random_seed);
 	else
 		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,

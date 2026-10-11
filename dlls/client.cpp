@@ -1927,18 +1927,9 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 		return;
 	entvars_t* pev = (entvars_t*)&ent->v;
 	CBasePlayer* pl = dynamic_cast<CBasePlayer*>(CBasePlayer::Instance(pev));
-	entvars_t* pevOrg = NULL;
 
-	// if user is spectating different player in First person, override some vars
-	if (pl && pl->pev->iuser1 == OBS_IN_EYE)
-	{
-		if (pl->m_hObserverTarget)
-		{
-			pevOrg = pev;
-			pev = pl->m_hObserverTarget->pev;
-			pl = dynamic_cast<CBasePlayer*>(CBasePlayer::Instance(pev));
-		}
-	}
+	// The original (0xa0294) sends the player's own fields whatever he spectates: no first person
+	// spectator swap to the target's.
 
 	cd->flags = pev->flags;
 	cd->health = pev->health;
@@ -1974,7 +1965,7 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 	cd->flTimeStepSound = pev->flTimeStepSound;
 	cd->flDuckTime = pev->flDuckTime;
 	cd->flSwimTime = pev->flSwimTime;
-	cd->waterjumptime = pev->teleport_time;
+	cd->waterjumptime = (int)lrintf(pev->teleport_time); // rounded (0xa0396 fistp), not truncated
 
 	strcpy(cd->physinfo, ENGINE_GETPHYSINFO(ent));
 
@@ -1994,18 +1985,11 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 	// With pev->fuser1=1.0 normal, the client now predicts the same frametime; also fixes slow-mo prediction.
 	cd->fuser1 = pev->fuser1;
 
-	//Spectator mode
-	if (pevOrg != NULL)
-	{
-		// don't use spec vars from chased player
-		cd->iuser1 = pevOrg->iuser1;
-		cd->iuser2 = pevOrg->iuser2;
-	}
-	else
-	{
-		cd->iuser1 = pev->iuser1;
-		cd->iuser2 = pev->iuser2;
-	}
+	cd->iuser1 = pev->iuser1;
+	cd->iuser2 = pev->iuser2;
+	// The stunt flags, sent whether or not the client predicts weapons (0xa0406). TS_pm_shared reads
+	// pmove->iuser4 for every stunt (prone, slide, dive, wall jump, stop, stand up).
+	cd->iuser4 = pev->iuser4;
 
 
 
@@ -2015,25 +1999,14 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 		if (pl)
 		{
 			cd->m_flNextAttack = pl->m_flNextAttack;
-			cd->fuser2 = pl->m_flNextAmmoBurn;
-			cd->fuser3 = pl->m_flAmmoStartCharge;
-			// TS: the ACTIVE powerup bits ride the spare clientdata iuser4 — the PREDICTED
-			// trigger logic reads DoubleFireRate() (semi weapons full-auto while the
-			// double-fire powerup runs); without the sync the client-side gate always saw 0
-			// (round 8: 'weapons should fullauto ... IF double fire rate has been triggered').
-			// The stunt flags (pev->iuser4), as the original UpdateClientData (cd->iuser4 = pev->iuser4).
-			// TS_pm_shared reads pmove->iuser4 for every stunt (PRONE/SLIDE/DIVE/WALLJUMP/STOP/STANDUP),
-			// so the client predicts the stunts from it. Powerup effects are not predicted.
-			cd->iuser4 = pev->iuser4;
-			cd->ammo_nails = pl->ammo_bolts;
-			cd->ammo_shells = pl->ammo_buckshot;
+			// 0xa047b-0xa0491: the paired clip slot starts at 0, rockets and cells are the player's,
+			// vuser1.y carries the active powerup bits (the client predicts the double fire rate and
+			// the infinite clips from them; the melee bar goes by its own message). Nothing else of the
+			// player's: no fuser2/fuser3, no shells or nails.
+			cd->ammo_shells = 0;
 			cd->ammo_rockets = pl->ammo_rockets;
 			cd->ammo_cells = pl->ammo_uranium;
-			// TS weapon-state channel: the original client reads the active weapon's predicted state
-			// from a vuser block, not from weapon_data. The melee stamina bar (player-level) rides
-			// vuser1.y (cd+0x1b0); the per-weapon fields are set in the active-item block below.
-			cd->vuser1.y = pl->m_flMeleeBar;
-
+			cd->vuser1.y = (float)pl->m_iPowerups;
 
 			if (pl->m_pActiveItem)
 			{
@@ -2055,6 +2028,15 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 					{
 						CTSGun* tsgun = (CTSGun*)gun;
 						const int wt = tsgun->m_weaponType;
+						cd->vuser3.x = (float)wt; // cd+0x1c4 — active weapon type (g_ActiveTSWeapon)
+						// Kung fu has no active item (gun+0xcc NULL): the kick and punch combo counters go in
+						// vuser3.y and vuser3.z and nothing else of the weapon (0xa065c-0xa0674).
+						if (!tsgun->m_pActiveItem)
+						{
+							cd->vuser3.y = (float)tsgun->m_kickCombo;
+							cd->vuser3.z = (float)tsgun->m_comboStep;
+							return;
+						}
 						const TSItem& it = tsgun->m_items[wt];
 						const s_weapon_info* awi = get_weapon_info((tsweapon_t)wt);
 						// cont.89 reload: the CLIENT needs the active caliber's RESERVE to PREDICT Reload()
@@ -2074,7 +2056,6 @@ void UpdateClientData(const edict_t* ent, int sendweapons, struct clientdata_s* 
 						// reload phase → the one-shell-at-a-time reload never predicted. cont.90.
 						const bool awBlade = (awi->iFireType == TSFT_KNIFE || awi->iFireType == TSFT_KATANA);
 						cd->vuser2.x = (float)(awBlade ? it.bloody : tsgun->m_burstOrPhase);
-						cd->vuser3.x = (float)wt;                // cd+0x1c4 — active weapon type (g_ActiveTSWeapon)
 						cd->vuser3.y = (float)tsgun->m_fireMode; // cd+0x1c8 — fire-mode (LIVE, not the parked it.mode
 						                                         //   — stale it.mode defaults SEMI, so full-auto fired like semi)
 						cd->vuser3.z = (float)it.attach;         // cd+0x1cc — EQUIPPED attach mask (sil/laser/flash/scope)

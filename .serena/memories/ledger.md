@@ -7497,3 +7497,32 @@ needs a real-client check.
   (float)m_iPowerups there (0xa0475), reTS's server sends m_flMeleeBar (server side to fix).
 - Open questions for the server/shared side: observer modes (TS 1,2,3,5 with 5 in-eye; pm_shared.h
   OBS_IN_EYE 4); the akimbo bparam1 side is inverted vs client.dll (client.dll: nonzero = right gun).
+
+## 2026-10-10 — server gaps: the cvars, the dlls/pm_shared markers, client data, observer modes
+
+Every cvar ts_i386.so registers was listed from GameDLLInit (name, default, flags, order) with every
+read (tools in ~/stignored/gaps-server: sregs.py, allreads.txt, retsreads.py; the table is in
+amxxbench docs/fixes/gaps-server-report.md). The TS cvar_t live in game.cpp in .data order and
+ts_cvars.cpp is gone. initial_cash, cashforwin, cashforlose and respawnnumber are defined but never
+registered: ClientPutInServer and TeamWin sscanf their default strings (1200, 10000, 1200), the team
+pools and SetPlayerRespawnTime read the value field (0). dmgreport stays registered (user approved).
+StartFrame copies g_teamplay into gpGlobals->teamplay (0x9eadc); DecideGamePlay reads mp_teamplay
+(reTS looked up "teamplay", which does not exist).
+- Host_Say (0x9d17f), the multiplay ClientUserInfoChanged (0x7b244, HLDM model names refused),
+  TeamWin (0x68a08), RoundTimeLeft (0x69024), the objectives, TSExplosion, the death drops (ammo
+  pack without armor, M61s as grenade powerups outside the round modes), the flag toss, the dropped
+  gun bounce, ts_trigger (0x60ad8), ts_playeramount, CBaseMonster's stub KeyValue and ts_model's base
+  as the original. Bullets make no server sprites.
+- UpdateClientData (0xa0294): vuser1.y = (float)m_iPowerups (the melee bar goes by its own message),
+  iuser4 always, kung fu sends only the combo counters, no in-eye swap, no fuser2/fuser3.
+- pm_shared.h: OBS_IN_EYE is 5, TS's number (Observer_SetMode 0x89e44 takes 1, 2, 3, 5); the map
+  modes are 6 and 7, never sent. The akimbo events send item+0x24 (1 = left barrel) as bparam1
+  (0x731e2), the linked shot too. fparam2 stays the view kick for reTS's client recoil; the original
+  sends the spread.
+- Kept: m_fGameHUDInitialized before InitHUD (recursion), GetBetterWeapon at spawn (5244abf), the
+  dead body's angles held while it lingers (TS 3.0's server lets them follow the view; a puppet
+  probe turned it 10 -> 120; the original client does not send the turn).
+- Found, not changed: the death animation, DEAD_DYING about 1.5 s on TS 3.0 and 1.0 s on reTS after
+  a generic-damage death.
+- Bench: fakemeta's EngFunc_GetInfoKeyBuffer and create_kvd/set_kvd handles crash an amd64 server
+  (pointers truncated to cells); use get_user_info and engine's DispatchKeyValue.

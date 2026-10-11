@@ -2971,21 +2971,8 @@ void CBaseMonster::ReportAIState()
 //=========================================================
 bool CBaseMonster::KeyValue(KeyValueData* pkvd)
 {
-	if (FStrEq(pkvd->szKeyName, "TriggerTarget"))
-	{
-		m_iszTriggerTarget = ALLOC_STRING(pkvd->szValue);
-		return true;
-	}
-	else if (FStrEq(pkvd->szKeyName, "TriggerCondition"))
-	{
-		m_iTriggerCondition = atoi(pkvd->szValue);
-		return true;
-	}
-	else if (FStrEq(pkvd->szKeyName, "allow_item_dropping"))
-	{
-		m_AllowItemDropping = atoi(pkvd->szValue) != 0;
-	}
-
+	// The Specialists builds CBaseMonster from the SDK's multiplayer stub (mpstubb.cpp, 0xbe80c): no
+	// TriggerTarget, TriggerCondition or allow_item_dropping key, only CBaseToggle's.
 	return CBaseToggle::KeyValue(pkvd);
 }
 
