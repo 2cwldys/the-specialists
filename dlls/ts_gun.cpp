@@ -966,46 +966,36 @@ void CTSGun::PrimaryAttack()
 		return;
 	}
 
-	// Bullet/akimbo/pellet weapons: the current FIRE-MODE gates the trigger (the fire
-	// *function* is still chosen by fire-type inside Fire()). m_pActiveItem+2 in the .so.
+	// Bullet/akimbo/pellet weapons: the current FIRE-MODE gates the trigger (@0x71b0d..0x71b95, client.dll
+	// 0x100089a0 the same); the fire *function* is still chosen by fire-type inside Fire():
+	//  - semi (1) and free semi (4): a fresh press, or held with the double fire rate powerup;
+	//  - auto (0) and free full (5): every call (ItemPostFrame calls with the trigger held);
+	//  - burst (2): a fresh press with no burst queued arms it (3 rounds, 2 for the MAC-10) and fires
+	//    nothing; WeaponIdle fires the queued rounds;
+	//  - pump (3): while the trigger is held;
+	//  - anything else: nothing.
 	const bool held = (m_pPlayer->pev->button & IN_ATTACK) != 0;
 	const bool pressed = (m_pPlayer->m_afButtonPressed & IN_ATTACK) != 0;
 	bool fire = false;
-
-	// DOUBLE-FIRE powerup: EVERY weapon goes full-auto — fire while the trigger is held, regardless of
-	// the weapon's fire-mode (so a semi pistol or a burst SMG hoses while held). Overrides the per-mode
-	// trigger logic below entirely.
-	if (DoubleFireRate(m_pPlayer))
-	{
-		fire = held;
-	}
-	else
 	switch (m_fireMode)
 	{
-	case TSFM_AUTO:        // full-auto (an akimbo in plain AUTO fires BOTH barrels at once — the uzis)
-	case TSFM_PUMP:        // pump shotgun: fire while HELD (orig PrimaryAttack mode 3 = `button & 1`) — but
-	                       // ShotgunFire ALTERNATES shot/rack per held frame, so you don't full-auto bullets.
-	case TSFM_AKIMBO_BOTH: // "Free Full" — primary = the LEFT barrel, full-auto while held
-		fire = held;
-		break;
 	case TSFM_SEMI:
-		// one round per pull (semi; an akimbo in plain SEMI ALTERNATES barrels per pull).
-		fire = pressed;
+	case TSFM_AKIMBO_ALT:
+		fire = pressed || DoubleFireRate(m_pPlayer);
 		break;
-	case TSFM_AKIMBO_ALT: // "Free Semi" — primary = the LEFT barrel, one round per pull
-		fire = pressed;
+	case TSFM_AUTO:
+	case TSFM_AKIMBO_BOTH:
+		fire = true;
 		break;
 	case TSFM_BURST:
-		// 3-round burst (2 for the MAC-10): start on a fresh pull, then run the queue
-		// down (here + in WeaponIdle) so a tap fires the whole burst.
-		if (m_burstOrPhase > 0)
-			fire = true;
-		else if (pressed)
-		{
-			m_burstOrPhase = (m_weaponType == TSW_MAC10) ? 2 : 3;
-			fire = true;
-		}
+		if (pressed && m_burstOrPhase == 0)
+			m_burstOrPhase = (m_weaponType != TSW_MAC10) + 2;
+		return;
+	case TSFM_PUMP:
+		fire = held;
 		break;
+	default:
+		return;
 	}
 
 	if (fire)
@@ -1163,10 +1153,9 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	float flRate;
 	if (m_fireMode == TSFM_BURST)
 	{
-		// one burst round consumed; fast cadence between rounds, slow after the last.
-		if (m_burstOrPhase > 0)
-			m_burstOrPhase--;
-		flRate = (m_burstOrPhase <= 0) ? 0.2f : 0.03f;
+		// @0x72902: 0.03 between a burst's rounds, 0.2 after its last (the round WeaponIdle fires with
+		// the count at 1; WeaponIdle takes the count down after the shot, not this).
+		flRate = (m_burstOrPhase == 1) ? 0.2f : 0.03f;
 	}
 	else if (m_fireMode == TSFM_SEMI && (wi->iFireModes & (1 << TSFM_AUTO)))
 	{
@@ -1185,9 +1174,9 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 		// fire-WHILE-held effect is handled separately at the full-auto gate above.
 	}
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
-	// Short idle during a burst so WeaponIdle drives the remaining rounds; else normal.
+	// @0x72972: the idle 2 s on, 0.5 s for an emptied Contender without infinite clips.
 	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() +
-		((m_fireMode == TSFM_BURST && m_burstOrPhase > 0) ? flRate : 5.0f);
+		((m_weaponType == TSW_CONTENDER && m_iClip < 1 && !InfiniteClips(m_pPlayer)) ? 0.5f : 2.0f);
 }
 
 // @ ShotgunFire__6CTSGun (@0x72108) — the pump shotgun's primary attack. Unlike StandardFire (one shot per
@@ -1230,8 +1219,13 @@ void CTSGun::ShotgunFire(const s_weapon_info *wi)
 		return;
 	}
 
-	// FIRE half of the cycle: a normal shotgun shot (pellets/muzzle/event/recoil/clip + the rate gate).
+	// FIRE half of the cycle: a normal shotgun shot (pellets/muzzle/event/recoil/clip). ShotgunFire's
+	// own timers (@0x72192, client.dll 0x10008e50): 0.15 s in semi, else the weapon's rate; the idle
+	// 2 s on.
 	StandardFire(wi);
+	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() +
+		((m_fireMode == TSFM_SEMI) ? 0.15f : (wi->flFireRate > 0 ? wi->flFireRate : 0.15f));
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
 	// Arm the rack for the next trigger-frame — but only in PUMP mode (in SEMI mode a benelli just fires per
 	// pull, no auto-rack). Matches the original toggling item+0x24 each ShotgunFire.
 	m_fInSpecialReload = (m_fireMode == TSFM_PUMP) ? 1 : 0;
@@ -2332,12 +2326,19 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 		DoubleFireRate(m_pPlayer), gpGlobals->time);
 #endif
 
-	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
-	// DoubleFireRate 1.5x comes from the PostThink timer decrement only (see StandardFire note) — no
-	// flRate scaling here (this was *0.5 = 2x, compounding to 3x on this barrel).
+	// @0x73259 (client.dll 0x100096f0 the same): 0.03 between a burst's rounds and 0.2 after its last,
+	// 0.1 in semi and free semi, else the weapon's rate, for both triggers; the idle 2 s on.
+	// DoubleFireRate's 1.5x comes from the PostThink timer decrement only (see StandardFire note).
+	float flRate;
+	if (m_fireMode == TSFM_BURST)
+		flRate = (m_burstOrPhase == 1) ? 0.2f : 0.03f;
+	else if (m_fireMode == TSFM_SEMI || m_fireMode == TSFM_AKIMBO_ALT)
+		flRate = 0.1f;
+	else
+		flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
 	m_flNextPrimaryAttack = (UTIL_WeaponTimeBase() + flRate);
 	m_flNextSecondaryAttack = m_flNextPrimaryAttack; // the right-barrel trigger shares the cadence
-	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 5.0f;
+	m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 2.0f;
 	return true;
 }
 
