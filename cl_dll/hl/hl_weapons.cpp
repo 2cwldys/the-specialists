@@ -1087,16 +1087,9 @@ void DLLEXPORT HUD_PostRunCmd(struct local_state_s* from, struct local_state_s* 
 	//Event code depends on this stuff, so always initialize it.
 	HUD_InitClientWeapons();
 
-#if defined(CLIENT_WEAPONS)
-	if (cl_lw && 0 != cl_lw->value)
-	{
-		HUD_WeaponsPostThink(from, to, cmd, time, random_seed);
-	}
-	else
-#endif
-	{
-		to->client.fov = g_lastFOV;
-	}
+	// client.dll's HUD_PostRunCmd (0x100045b0) runs the weapons whatever cl_lw is: with cl_lw 0 the
+	// server's events come to the shooter too, and the prediction still keeps the client's weapon state.
+	HUD_WeaponsPostThink(from, to, cmd, time, random_seed);
 
 	if (g_irunninggausspred)
 	{
