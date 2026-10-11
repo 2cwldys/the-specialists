@@ -204,6 +204,11 @@ Two engines run the mod:
 - **ReHLDS (dedicated server + rcbot, for server behaviour).** The rig at
   `~/Containers/hlds/hlds-linux64-test` — see `reference/RECONSTRUCTION.md` "In-engine test rig".
 
+To try a build in the real Steam client, `scripts/steam-pair.sh <commit>` builds the i386 server and client
+at that commit in its own worktree and installs them into the Steam `ts/` as a matching pair (native
+`hl_linux` only; set aside the files you want back first). Bisecting a real-client regression with it
+takes one restart per step.
+
 gdb both `hl.so` (server) and `client.so` (client) the same way — see §4. The full pickup
 state + the current reconstruction roadmap live in `HANDOFF.md`.
 
@@ -285,7 +290,7 @@ confirm the gap closed.
   to source parity. `coverage.py` audits the EXTERNAL contract; the two together make the whole json checkable.
   It matches methods by NAME: it cannot see that a method is non-virtual where the original's is
   virtual, or that slots are out of order. The vtable audit covers that (below).
-- **Vtable audit** (`~/stignored/rets-audit/vtable_audit.py`, not yet in the repo): compares every
+- **Vtable audit** (`/media/Data3/Projects/amxxbench/rounds/rets-audit/vtable_audit.py`, not yet in the repo): compares every
   original vtable with an i386 build of ours, class by class, slot by slot: missing/extra classes,
   missing/extra virtuals (tagged Valve SDK / halflife-updated / reTS), order, and which class supplies
   each override, each reported at the class that introduces it. Run against a `BUILDTYPE=Debug` i386
