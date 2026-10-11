@@ -806,22 +806,22 @@ CTSBriefcase::CTSBriefcase()
 	m_iFlagID = s_nextFlagID;
 }
 
-// @0x7d7f4 KeyValue — ownerteam (1-based in the FGD; stored 0-based), contents (a char[32] label).
-// message/target flow through the base CBaseEntity::KeyValue / pev.
+// @0x7d7f4 KeyValue — contents (a char[32] label) and ownerteam (1-based in the FGD; stored 0-based);
+// any other key is left unhandled (message and target are entvars the engine fills).
 bool CTSBriefcase::KeyValue(KeyValueData *pkvd)
 {
-	if (FStrEq(pkvd->szKeyName, "ownerteam"))
-	{
-		m_iOwnerTeam = atoi(pkvd->szValue) - 1;
-		return true;
-	}
 	if (FStrEq(pkvd->szKeyName, "contents"))
 	{
 		strncpy(m_szContents, pkvd->szValue, sizeof(m_szContents) - 1);
 		m_szContents[sizeof(m_szContents) - 1] = '\0';
 		return true;
 	}
-	return CBaseEntity::KeyValue(pkvd);
+	if (FStrEq(pkvd->szKeyName, "ownerteam"))
+	{
+		m_iOwnerTeam = atoi(pkvd->szValue) - 1;
+		return true;
+	}
+	return false;
 }
 
 // @0x7d88c Spawn — the (invisible) brush capture trigger; stamp the template status (with the
@@ -830,10 +830,13 @@ void CTSBriefcase::Spawn()
 {
 	pev->classname = MAKE_STRING("ts_briefcase");
 	SET_MODEL(ENT(pev), STRING(pev->model)); // brush model
+	UTIL_SetSize(pev, pev->mins, pev->maxs);
 	UTIL_SetOrigin(pev, pev->origin);
-	pev->effects |= EF_NODRAW;
-	pev->solid = SOLID_BBOX;
-	pev->movetype = MOVETYPE_PUSH;
+	// @0x7d8f4: an invisible trigger (the flags cleared, hanging)
+	pev->effects = EF_NODRAW;
+	pev->solid = SOLID_TRIGGER;
+	pev->flags = 0;
+	pev->movetype = MOVETYPE_FLY;
 
 	if (m_szContents[0] == '\0')
 		strcpy(m_szContents, "a flag");
@@ -860,7 +863,7 @@ void CTSBriefcase::FlagFall()
 	if (pFlag)
 	{
 		pFlag->m_flExpireTime = 0; // a base flag never auto-returns
-		UTIL_SetOrigin(pFlag->pev, Center());
+		pFlag->pev->origin = (pev->mins + pev->maxs) * 0.5f; // @0x7da2c: the middle of the bounds, no relink
 	}
 	m_bFlagOut = true;
 
@@ -889,9 +892,13 @@ bool CTSBriefcase::CanInteract(CBasePlayer *pPlayer)
 	return m_iOwnerTeam == TSGameRules->GetTeamIndex(pPlayer->TeamID());
 }
 
-// @0x7db9c CaptureTouch — a living player carrying the enemy flag who reaches their OWN briefcase
-// captures it: the carried flag respawns at its own home base, the capturer scores +10, and the
-// scoreboard / team score / taunt are broadcast.
+// @0x7db9c CaptureTouch — a living player carrying a flag who reaches a briefcase he may use (his
+// team's, or a neutral one) captures it: the log line, the carried flag's own briefcase seeds it again
+// in 0.25 s, the carrier lets go of it, the target fires and the briefcase's message shows. With fewer
+// than two players in play every team's score and cash go back to 0 and "Waiting for other players."
+// shows; otherwise he scores 10 ("<name> captured the briefcase! 10 #TS_Frg"), the scoreboard and his
+// team's score take it and every player hears the taunt (1 for the other teams). Every named team's
+// score goes out either way.
 void CTSBriefcase::CaptureTouch(CBaseEntity *pOther)
 {
 	if (!m_bFlagOut || !pOther || !pOther->IsPlayer() || !pOther->IsAlive())
@@ -900,6 +907,11 @@ void CTSBriefcase::CaptureTouch(CBaseEntity *pOther)
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
 	if (!HaveFlag(pPlayer) || !CanInteract(pPlayer))
 		return;
+
+	// @0x7dca1: the fourth field repeats the userid, as the original passes it (where a team would go)
+	UTIL_LogPrintf("\"%s<%i><%s><%i>\" triggered \"captured_briefcase\" (contents \"%s\")\n",
+		STRING(pPlayer->pev->netname), GETPLAYERUSERID(pPlayer->edict()), GETPLAYERAUTHID(pPlayer->edict()),
+		GETPLAYERUSERID(pPlayer->edict()), STRING(pPlayer->m_flagStatus.contents));
 
 	// Respawn the captured flag at ITS home base (via the carried status' briefcase handle).
 	CTSBriefcase *pSource = (CTSBriefcase *)(CBaseEntity *)pPlayer->m_flagStatus.hBriefcase;
@@ -912,60 +924,60 @@ void CTSBriefcase::CaptureTouch(CBaseEntity *pOther)
 	pPlayer->DropFlag(true); // silent: clear the carrier's state, no loose flag
 
 	if (!FStringNull(pev->target))
-		FireTargets(STRING(pev->target), pPlayer, this, USE_TOGGLE, 0);
+		FireTargets(STRING(pev->target), this, this, USE_TOGGLE, 0);
 
-	int team = TSGameRules->GetTeamIndex(pPlayer->TeamID());
+	if (!FStringNull(pev->message))
+		TSHudMessageAll(0, 0xff, 0, 8, 30, (char *)STRING(pev->message));
 
 	if (TSGameRules->CountPlayers() < 2)
 	{
-		TSHudMessageAll(0xff, 0x80, 0, 4, 20, "Waiting for other players.");
-		return; // no scoring solo
+		for (int t = 0; t < TS_MAX_TEAMS; t++)
+		{
+			TSGameRules->m_teamScore[t] = 0;
+			TSGameRules->m_teamCash[t] = 0;
+		}
+		TSHudMessageAll(0, 0, 0, 8, 30, "Waiting for other players.");
 	}
-
-	pPlayer->pev->frags += 10;
-
-	const char *who = (pPlayer->pev->netname) ? STRING(pPlayer->pev->netname) : "Someone";
-	if (!FStringNull(pev->message))
-		TSHudMessageAll(0, 0xff, 0, 4, 30, (char *)STRING(pev->message));
 	else
-		TSHudMessageAll(0, 0xff, 0, 4, 30,
-			UTIL_VarArgs("%s captured the briefcase! %i #TS_Frg", who, (int)pPlayer->pev->frags));
-
-	if (gmsgScoreInfo)
 	{
+		pPlayer->pev->frags += 10;
+		TSHudMessageAll(0, 0xff, 0, 4, 30,
+			UTIL_VarArgs("%s captured the briefcase! %i #TS_Frg", STRING(pPlayer->pev->netname), 10));
+
 		MESSAGE_BEGIN(MSG_ALL, gmsgScoreInfo);
 		WRITE_BYTE(ENTINDEX(pPlayer->edict()));
 		WRITE_SHORT((int)pPlayer->pev->frags);
 		WRITE_SHORT(pPlayer->m_iDeaths);
 		WRITE_SHORT(0);
-		WRITE_SHORT(team + 1);
+		WRITE_SHORT(g_pGameRules->GetTeamIndex(pPlayer->m_szTeamName) + 1);
 		MESSAGE_END();
-	}
 
-	// Team score +1 and broadcast the team scoreboard.
-	if (team >= 0 && team < 4)
-		TSGameRules->m_teamScore[team]++;
-	if (gmsgTeamScore)
-	{
-		for (int t = 0; t < TSGameRules->GetTeamsNum(); t++)
+		const int team = TSGameRules->GetTeamIndex(pPlayer->TeamID());
+		if (team > -1 && team < TS_MAX_TEAMS)
+			TSGameRules->m_teamScore[team]++;
+
+		// @0x7dec1: the taunt to every player, alive or not (1 = another team captured)
+		for (int i = 1; i <= gpGlobals->maxClients; i++)
 		{
-			MESSAGE_BEGIN(MSG_ALL, gmsgTeamScore);
-			WRITE_STRING(TSGameRules->GetIndexedTeamName(t));
-			WRITE_SHORT(TSGameRules->m_teamScore[t]);
-			WRITE_SHORT(0);
+			CBaseEntity *p = UTIL_PlayerByIndex(i);
+			if (!p || !p->IsPlayer())
+				continue;
+			const int pteam = TSGameRules->GetTeamIndex(p->TeamID());
+			MESSAGE_BEGIN(MSG_ONE, gmsgTSVoiceMessage, NULL, p->edict());
+			WRITE_BYTE((team != pteam) ? 1 : 0);
 			MESSAGE_END();
 		}
 	}
 
-	// Per-player capture taunt (1 = an enemy team captured, 0 = your team).
-	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	// @0x7e01d: each named team slot's score
+	for (int t = 0; t < TS_MAX_TEAMS; t++)
 	{
-		CBaseEntity *p = UTIL_PlayerByIndex(i);
-		if (!p || !p->IsPlayer() || !p->IsAlive())
+		if (TSGameRules->m_teamNames[t][0] == '\0')
 			continue;
-		int pteam = TSGameRules->GetTeamIndex(((CBasePlayer *)p)->TeamID());
-		MESSAGE_BEGIN(MSG_ONE, gmsgTSVoiceMessage, NULL, p->edict());
-		WRITE_BYTE((pteam != team) ? 1 : 0);
+		MESSAGE_BEGIN(MSG_ALL, gmsgTeamScore);
+		WRITE_STRING(TSGameRules->m_teamNames[t]);
+		WRITE_SHORT(TSGameRules->m_teamScore[t]);
+		WRITE_SHORT(0);
 		MESSAGE_END();
 	}
 }

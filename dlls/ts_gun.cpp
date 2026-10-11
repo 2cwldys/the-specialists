@@ -1,18 +1,11 @@
 /***
-*  ts_gun.cpp — RECONSTRUCTED CTSGun (functional-minimal, all weapon types).
-*  Functional/source-faithful goal (see CLAUDE.md). recovered/server/CTSGun.c.
+*  ts_gun.cpp — RECONSTRUCTED CTSGun (recovered/server/CTSGun.c).
+*  Functional/source-faithful goal (see CLAUDE.md).
 *
-*  CTSGun is the original's single unified weapon (entity `weapon_tsgun`, id 16)
-*  that morphs by tsweapon_t. The FAITHFUL engine is a dual-wield "active items"
-*  array (m_pActiveItem@0xcc / m_pActiveInfo@0xd0 / items[]@0x45), client-side
-*  weapon-param networking, CTSAnimation, akimbo/fire-mode/zoom, dispatching by
-*  the fire-type byte (s_weapon_info+0x348).
-*
-*  THIS SLICE is a functional-minimal stand-in: one CTSGun per weapon (shared id
-*  16, so a player holds one TS weapon at a time), driven by m_weaponType against
-*  the recovered s_weapon_info table — deploys the right view/world model and
-*  semi-auto-fires with the weapon's real damage/clip. The faithful items-array /
-*  akimbo / fire-mode engine replaces the // SLICE bodies incrementally.
+*  CTSGun is the original's single unified weapon (entity `weapon_tsgun`, id 16): the player's whole
+*  arsenal, one item per tsweapon_t (m_items, the original's items[]), with the held one in
+*  m_weaponType and its item and table row in m_pActiveItem / m_pActiveInfo (gun+0xcc / +0xd0). Fire
+*  dispatches on the row's fire-type byte (s_weapon_info+0x348); the client predicts the same code.
 ***/
 #include "extdll.h"
 #include "util.h"
@@ -925,8 +918,8 @@ void CTSGun::SecondaryAttack()
 // @ PrimaryAttack__6CTSGun -> Fire -> {Standard,Shotgun,Knife,Katana,Grenade,Akimbo}Fire.
 // Faithful dispatch by the weapon's fire-type, using the recovered per-weapon
 // rate/spread (StandardFire reads s_weapon_info+0x18 rate / +0x28 spread / +0x348
-// fire-type). SLICE: the faithful path dispatches on the dual-wield items-array
-// (m_pActiveItem/m_pActiveInfo) — here we dispatch on the single held m_weaponType.
+// fire-type). The original tests for kung fu by having no active item (gun+0xcc) and reads the
+// fire-type from the active row (gun+0xd0); the held m_weaponType picks the same row here.
 // Melee/grenade/akimbo split out to MeleeAttack/GrenadeFire/AkimboFire.
 void CTSGun::PrimaryAttack()
 {
@@ -2353,9 +2346,7 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 // (s_weapon_info+0xe0) and a conflicting/silenced-base mask (+0xe4), refuses a duplicate, OR's the bits
 // into the active item's attach (item+0x10) — and into the per-slot save array — then re-selects/deploys
 // to refresh the attachment'd model. In our arsenal the active item IS m_items[m_weaponType], so one
-// store covers both. SLICE: we don't carry the +0xe0/+0xe4 masks yet, so we accept any not-already-held
-// bit — the client buy menu's AttachAvailable already gates which weapons can be sold a silencer, and
-// EV_TSFire only swaps the SOUND for weapons that have a `-sil` variant, so an unsupported attach is inert.
+// store covers both; the two masks are attachSupported and attachBuiltin below.
 // The attach mask travels to the client in the fire event (iparam2 — see StandardFire/AkimboFire).
 // (CTSGun::SendWeaponAnim(int) shadow DELETED, fold-plan Y4: the original has no such method —
 // slot 0x174 = CBasePlayerWeapon::SendWeaponAnim(int,int,int) @0x900d0. Callers pass the body

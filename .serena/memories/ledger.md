@@ -7546,3 +7546,32 @@ StartFrame copies g_teamplay into gpGlobals->teamplay (0x9eadc); DecideGamePlay 
   amxxbench docs/fixes/gaps2-client-report.md and things-to-test 131.
 - Found, not changed: pump fire.sc bparam1 (TS sends pump-mode, reTS clip==0), server VKickback's
   six-argument form, 0x10044bf0's impact classification, tsbuylist.tsa persistence.
+
+## 2026-10-10 — server gaps round 2: the death, the SLICE markers, ground pickups, the briefcase
+
+The dying state (TS 3.0 ~1.5 s, reTS ~1.0 s after a generic hit): TakeDamage turns the bullet dance on
+for a hit not in the legs, under 80 speed, of 80 or less (@0x7fb11), so Killed's Animate case 7 plays
+normal_die* (1.5 s) instead of die_spin (1.0 s); reTS never called Enable/DisableBulletDance. BulletDance's
+gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). PlayerDeathThink has no
+4 s cap and no body-queue copy.
+- Killed (@0x7ed5c) rebuilt in the original's order: the TSMBlur rolls, deathcam, ResetArmament,
+  SetView, EnableControl, respawns++, iuser2 and the observer target = a player inflictor, respawn gate,
+  award 1/11, GoSlow(0.33) on a head shot (rules+0x18 is cleared by Init and never set), iuser4 = 2,
+  Holster, the drops, then PlayerKilled; the damage-force push (max 500) and the 180/half-gravity throw
+  for a fast or >50 non-dancing death; no SOLID_NOT and no DeathSound (it has no caller).
+- TakeDamage: returns on 0 damage; the red TSFade (150,10,10) 75, 0.3/0.15 for a hit of 1 or more
+  (@0x7fff8) replaces the SDK's punchangle.x = -2.
+- The spectate flag m_fInSpectateWait is gone: PreThink's block tests iuser1 (@0x80e73) and returns,
+  PlayerSpawn always equips (@0x790ac), Spawn has no spectate tail; a plugin's Spawn puts a spectator in play.
+- SlowMotionFlow/DeactivateSlowMotionFlow/GlobalSlowMotion2 slow and restore grenades, knives and
+  dropped guns (@0x86ea4, @0x86b55, @0x69720).
+- AddItem bit 0x20 is the stealth shoes (objective modes, iuser4 0x200), not an M61.
+- CTSGroundAmmo rebuilt (@0xa27e4..0xa2f40): one-shot pickup with the respawn schedule, not a station;
+  PutOnWall for both ground pickups as the original (world or undamageable drawn walls, normal-facing);
+  their drop sound on CHAN_STATIC; wduration and tsweaponid default 0.
+- CTSBriefcase (@0x7d88c, @0x7db9c): trigger/fly spawn, the captured_briefcase log line (userid twice, as
+  the original), "10" in the capture message, the solo branch resets team scores, the taunt to every
+  player, the team scores always sent.
+- Found, not changed: CTSGun's burst/double-fire/idle timing (PrimaryAttack @0x71a20 only arms a burst,
+  WeaponIdle fires it; StandardFire does not decrement and idles 2.0 s); PrecacheAllTSWeapons precaches
+  assets the original server never does, which the reTS client still relies on.

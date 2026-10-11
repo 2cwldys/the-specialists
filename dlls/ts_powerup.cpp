@@ -32,7 +32,7 @@
 #include "ts_gamerules.h" // TS_PWUP_* + TSGameRules
 #include "ts_player.h"
 #include "ts_utils.h"     // TSHudMessageOne
-#include "ts_weapons.h"   // GiveTSWeapon (SLICE grenade/inf-clip hooks)
+#include "ts_weapons.h"   // GiveTSWeapon
 
 #define POWERUP_MODEL "models/powerup.mdl"
 

@@ -753,7 +753,7 @@ void ClientCommand(edict_t* pEntity)
 	else if (!strncmp(pcmd, "cutwire_", 8) && pcmd[8] >= '0' && pcmd[8] <= '9')
 	{
 		// TS bomb: cut a wire — the original is the prefix command `cutwire_<n>` (ClientCommand
-		// strstr "cutwire_" + sscanf "%i"), not a stand-in. cl_dll wire UI still a SLICE.
+		// strstr "cutwire_" + sscanf "%i"); the client's wire panel sends it.
 		player->CutWire(atoi(pcmd + 8));
 	}
 	else if (!strncmp(pcmd, "lasclr_", 7))

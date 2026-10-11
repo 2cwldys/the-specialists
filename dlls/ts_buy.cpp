@@ -13,8 +13,8 @@
 *  the cash member + GiveCash (tracked for the cash-for-win/lose cvars + a future sell
 *  zone) but, faithfully, never charge for weapons.
 *
-*  The faithful UI is the cl_dll buy menu (menuselect); not built. The server entry
-*  points are exposed here and driven by console commands in client.cpp (// SLICE: menu).
+*  The menu is the client's (cl_dll/ts_buymenu.cpp): it sends rst_cfg, tkw, tki and tka, which
+*  ClientCommand (client.cpp) turns into the calls here.
 ***/
 #include "extdll.h"
 #include "util.h"
@@ -74,8 +74,8 @@ void CBasePlayer::AddItemToArmament(int type, int count, bool isItem)
 
 // Item bitmask for AddItem / the loadout (the original packs these in one int; bits
 // recovered from AddItem @0x8440c). Attachments (silencer/laser/...) are 1/2/4/8.
-#define TS_ITEM_KEVLAR  0x10
-#define TS_ITEM_GRENADE 0x20
+#define TS_ITEM_KEVLAR       0x10
+#define TS_ITEM_STEALTHSHOES 0x20
 
 // @ TakeArmor — grant (amount>=0) or remove (amount<0) kevlar. Kevlar is a BINARY flag
 // (m_bHasKevlar); the armorvalue it sets is only a "have armor" marker (TakeDamage applies a
@@ -112,10 +112,11 @@ bool CBasePlayer::TakeArmor(int amount)
 	return true;
 }
 
-// @ AddItem — grant a loadout item from its bitmask (kevlar 0x10, grenade 0x20, gun
-// attachments 1/2/4/8). Recovered from AddItem @0x8440c. CashBased() is off so the cost
-// branches (kevlar 1900 / grenade 700 / attachments) are dead. Kevlar gives 100 armor via
-// TakeArmor (refused, with nothing given, when fewer than 10 slots are free); grenade is the team-mode M61; attachments route to the active CTSGun (SLICE).
+// @0x8440c AddItem — grant a loadout item from its bitmask (kevlar 0x10, stealth shoes 0x20, gun
+// attachments 1/2/4/8). CashBased() is off, so the cost branches (kevlar 1900, shoes 700, the
+// attachments) are dead. Kevlar gives 100 armor through TakeArmor (refused, with nothing given,
+// when fewer than 10 slots are free) unless he has 100 already; the stealth shoes only in the
+// objective modes (rules mode 2 and up); attachments go to the active CTSGun.
 void CBasePlayer::AddItem(int itemBits)
 {
 	if ((itemBits & TS_ITEM_KEVLAR) != 0)
@@ -123,19 +124,26 @@ void CBasePlayer::AddItem(int itemBits)
 		if (pev->armorvalue < 100.0f) // not already maxed (orig: armorvalue < cap)
 			TakeArmor(100);
 	}
-	else if ((itemBits & TS_ITEM_GRENADE) != 0)
+	else if ((itemBits & TS_ITEM_STEALTHSHOES) != 0)
 	{
-		if (g_teamplay) // grenades are team-mode only
-			BuyWeapon(TSW_M61);
+		// @0x844a4: the shoes set iuser4 bit 0x200 (once: an owner gets nothing) and the item bit
+		// 0x20 at player+0x718, which nothing in the server reads, with the items sound. TSInit
+		// clears iuser4 at the next spawn.
+		if (!TSGameRules || TSGameRules->m_iGameMode < 2)
+			return;
+		if (pev->iuser4 & 0x200)
+			return;
+		pev->iuser4 |= 0x200;
+		EMIT_SOUND_DYN(ENT(pev), CHAN_ITEM, "weapons/items.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
 	}
 	else
 	{
 		// gun attachments (bits 1/2/4/8: silencer/laser/flashlight/scope) -> the active CTSGun
 		// (RE AddItem@0x8440c: requires m_pActiveItem with m_iId == TSGUN_WEAPON_ID(0x10), then
 		// CTSGun::AddItem ORs the bits onto the active weapon). The silencer (bit 1) drives the
-		// fire-sil sound + muzzle suppression via the fire event (iparam2). NB: applies to the
-		// WIELDED weapon — buy a silencer while holding the gun you want it on (the spawn-time
-		// loadout-apply order is a SLICE; see ts_buymenu.cpp Apply()).
+		// fire-sil sound + muzzle suppression via the fire event (iparam2). It applies to the
+		// wielded weapon; the spawn loadout carries a gun's attachments inside its tkw token
+		// (TakeWeapon), so this path only serves an attachment bought on its own.
 		if (m_pActiveItem && m_pActiveItem->m_iId == TSGUN_WEAPON_ID)
 			((CTSGun *)m_pActiveItem)->AddItem(itemBits);
 	}

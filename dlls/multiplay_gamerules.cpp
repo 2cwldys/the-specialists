@@ -593,7 +593,7 @@ void CHalfLifeMultiplay::PlayerThink(CBasePlayer* pPlayer)
 // stock crowbar+9mmhandgun loadout. Shape: weapons flag → game_player_equip loop → if none:
 // GiveNamedItem("weapon_tsgun") + BuyArmament (its ONLY caller, @0x79122) → spawn-cash snapshot.
 // Tagged local shims kept from the dissolved override: SetHasSuit (stock-derived HUD needs the
-// suit bit), the spectate-wait no-equip gate (coupled to Y7), TSDeployArsenal (engine auto-deploy
+// suit bit) and TSDeployArsenal (engine auto-deploy
 // skips kung-fu).
 void CHalfLifeMultiplay::PlayerSpawn(CBasePlayer* pPlayer)
 {
@@ -616,10 +616,9 @@ void CHalfLifeMultiplay::PlayerSpawn(CBasePlayer* pPlayer)
 		addDefault = false;
 	}
 
-	// TS (cont.65): a player entering free-look spectate-wait gets NO weapons — they equip
-	// on fire-to-play (the next Spawn runs with m_fInSpectateWait clear). A joiner spawns without
-	// the flag and is equipped, as in the original; InitHUD's ResetArmament takes it back.
-	if (addDefault && !pPlayer->m_fInSpectateWait)
+	// @0x790ac: every spawn equips, the original has no spectate test here. A joiner is equipped by
+	// ClientPutInServer's Spawn, and InitHUD's StartObserver and ResetArmament take it back.
+	if (addDefault)
 	{
 		// No strip first: the original's PlayerSpawn (@0x790ac) strips nothing. A round restart
 		// sends every player in play to spectate (RestartRound @0x67a4d), which strips him, so

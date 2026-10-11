@@ -33,8 +33,8 @@ public:
 	int ObjectCaps() override { return FCAP_CONTINUOUS_USE; } // @orig: bare 0x10 (USE-to-pick-up)
 	virtual int CanUsedTroughWalls() { return 0; }            // TS virtual (slot 0xc): false here
 
-	int respawntime = 60; // +0xa0 wduration                 (SAVED)
-	int tsweaponid = TSW_GLOCK18; // +0xa4 weapon type        (SAVED)
+	int respawntime = 0;  // +0xa0 wduration                 (SAVED; 0 unless the map sets it)
+	int tsweaponid = 0;   // +0xa4 weapon type                (SAVED; 0 unless the map sets it)
 	int extraclip = 0;    // +0xa8 wextraclip                 (SAVED)
 	int attackerteam = -1;// +0xac (team that may buy; -1 any)
 	bool buyable = false; // +0xb0

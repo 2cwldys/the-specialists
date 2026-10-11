@@ -1094,10 +1094,24 @@ void CTSGameRules::Think()
 	}
 }
 
-// @ GlobalSlowMotion2__12CTSGameRulesfb — apply (or clear, scale 0) a global slow-
-// motion to every player. Throttled to ~0.5s except when turning off.
-// SLICE: the original also slows live "grenade"/"WorldGun" projectiles; deferred
-// (the per-entity GoSlow virtual on CBaseEntity isn't built — only CBasePlayer has it).
+// @0x69720 GlobalSlowMotion2 — apply (or clear, scale 0) a global slow motion to every player and to
+// every grenade, knife and dropped gun. Throttled to 0.5 s except when turning off. Whatever is not
+// slowed already takes the scale; turning off puts everything back to 1. The search of each
+// classname stops at an entity with no edict or the world's.
+static void TSGlobalSlowClass(const char *pszClassname, float scale)
+{
+	CBaseEntity *pEnt = NULL;
+	while ((pEnt = UTIL_FindEntityByClassname(pEnt, pszClassname)) != NULL)
+	{
+		if (!pEnt->pev->pContainingEntity || ENTINDEX(pEnt->pev->pContainingEntity) == 0)
+			return;
+		if (!pEnt->InSlow())
+			pEnt->GoSlow(scale, 0);
+		if (scale == 0.0f)
+			pEnt->GoSlow(1.0f, 0);
+	}
+}
+
 void CTSGameRules::GlobalSlowMotion2(float scale, int slowBullets)
 {
 	if (m_flNextGlobalSlow > gpGlobals->time && scale != 0.0f)
@@ -1118,6 +1132,10 @@ void CTSGameRules::GlobalSlowMotion2(float scale, int slowBullets)
 		if (scale == 0.0f)
 			pPlayer->GoSlow(1.0f, 0); // restore
 	}
+
+	TSGlobalSlowClass("grenade", scale);
+	TSGlobalSlowClass("knife", scale);
+	TSGlobalSlowClass("WorldGun", scale);
 }
 
 // @ SetGlobalSlowMotion__12CTSGameRulesff — start/stop a timed global slow-motion.

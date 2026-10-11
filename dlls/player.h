@@ -558,17 +558,15 @@ public:
 	void DeactivateSlowMotionFlow(); // restore normal speed when slow-motion ends
 
 	// TS slow-motion state (GoSlow__11CBasePlayer / InSlow__11CBasePlayer). GoSlow
-	// applies a time-scale to this player; InSlow reports whether it's slowed.
-	// (SLICE: the actual movement time-dilation reads these client-side.)
+	// applies a time-scale to this player; InSlow reports whether it's slowed. Movement takes the
+	// rate from pev->fuser1, which UpdatePowerUpState eases toward it; pm_shared scales the
+	// player's frametime by it on the server and the client alike.
 	void GoSlow(float scale, int slowBullets);
 	int InSlow();
 
-	// TS join/spectate spawn-gate (cont.65, ts_player.cpp). A joining (or just-
-	// respawned) player is held in spectate (StartObserver: his last mode, or chase at first)
-	// until the gate elapses and they press fire — only then do they enter play with
-	// their chosen loadout. Mirrors the original StartObserver/SetPlayerRespawnTime/
-	// "Press Fire To Play!" path. The buy/config menu (VGUIMenu) opens on entry.
-	bool m_fInSpectateWait = false; // held in free-look, waiting to press fire
+	// TS join/spectate spawn-gate (ts_player.cpp). A joining or dead player spectates
+	// (StartObserver: his last mode, or chase at first; iuser1 set) until the gate elapses and he
+	// presses fire. The original keeps no flag for it: PreThink tests iuser1.
 	// (m_flSpawnGateTime merged into m_flTSRespawnTime — one 0x770 carrier, set ONLY via
 	// SetPlayerRespawnTime; negative = locked out until the round restarts)
 	char m_iRespawnsUsed = 0;       // 0x7ba — deaths this round (Killed++); LMS gates respawns

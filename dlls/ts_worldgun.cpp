@@ -457,7 +457,7 @@ void CTSGroundWeapon::Spawn()
 	Precache();
 
 	const s_weapon_info *wi = get_weapon_info((tsweapon_t)tsweaponid);
-	if (!wi || !wi->pszName)
+	if (!wi || !wi->pszName || wi->pszName[0] == '\0') // @0xa1b55: a type with no name (kung fu, a gap)
 	{
 		// unfilled weapon row -> self-delete (orig: SetThink(SUB_Remove) + nextthink 0.1).
 		SetThink(&CTSGroundWeapon::SUB_Remove);
@@ -485,58 +485,71 @@ void CTSGroundWeapon::Spawn()
 	m_bPlaced = false;
 }
 
-// 8-ray 45° circle out of the origin; pin to the nearest wall and lie flat (spawnflag 0x10).
-void CTSGroundWeapon::PutOnWall()
+// @0xa1cd8 PutOnWall (CTSGroundWeapon's and CTSGroundAmmo's are the same code): eight level traces of
+// 1024 units, 45 degrees apart from yaw 0, out of the origin. A hit on the world or on an entity that
+// takes no damage and is drawn counts; the nearest one by whole units (truncated) wins, the first of
+// equals. The pickup goes 2 units off that wall, turned by the wall's normal and pitched 90 to lie
+// on it. With no wall in reach it lies on its side (roll 90).
+static void TSPutOnWall(CBaseEntity *pEnt)
 {
-	TraceResult best;
-	best.flFraction = 1.0f;
-	Vector bestDir = g_vecZero;
-	bool found = false;
-	for (int i = 0; i < 8; i++)
+	entvars_t *pev = pEnt->pev;
+	int best = 9999;
+	Vector bestNormal = g_vecZero;
+	Vector bestEnd = g_vecZero;
+	for (int i = 0, ang = 0; i < 8; i++, ang += 45)
 	{
-		float ang = (360.0f / 8.0f) * i;
-		Vector dir(cos(ang * M_PI / 180.0f), sin(ang * M_PI / 180.0f), 0);
+		const Vector dir(cos(ang * (M_PI / 180.0)), sin(ang * (M_PI / 180.0)), 0);
 		TraceResult tr;
-		UTIL_TraceLine(pev->origin, pev->origin + dir * 1024.0f, ignore_monsters, ENT(pev), &tr);
-		if (tr.flFraction < 1.0f && tr.flFraction < best.flFraction)
+		UTIL_TraceLine(pev->origin, pev->origin + dir * 1024.0f, ignore_monsters, pEnt->edict(), &tr);
+		if (tr.flFraction >= 1.0f)
+			continue;
+		edict_t *pHitEdict = tr.pHit ? tr.pHit : INDEXENT(0);
+		CBaseEntity *pHit = pHitEdict ? CBaseEntity::Instance(pHitEdict) : NULL;
+		if (pHit && (pHit->pev->takedamage == DAMAGE_YES || (pHit->pev->effects & EF_NODRAW) != 0))
+			continue;
+		const float dist = (pev->origin - tr.vecEndPos).Length();
+		if (dist < (float)best)
 		{
-			best = tr;
-			bestDir = dir;
-			found = true;
+			best = (int)dist;
+			bestNormal = tr.vecPlaneNormal;
+			bestEnd = tr.vecEndPos;
 		}
 	}
-	if (found)
+	if (best < 9999)
 	{
-		UTIL_SetOrigin(pev, best.vecEndPos + best.vecPlaneNormal * 2.0f);
-		pev->angles = UTIL_VecToAngles(bestDir);
-		pev->angles.x += 90.0f; // lay flat against the wall
+		pev->origin = bestEnd + bestNormal * 2.0f;
+		pev->angles = UTIL_VecToAngles(bestNormal * 2.0f);
+		pev->angles.x += 90.0f;
 	}
 	else
-	{
-		pev->angles.z = 90.0f; // no wall -> on its side
-	}
+		pev->angles.z = 90.0f;
 }
 
-// think (+0.5s): wait for the floor (or the wall), play the drop sound, flatten, settle.
+void CTSGroundWeapon::PutOnWall()
+{
+	TSPutOnWall(this);
+}
+
+// @0xa2150 Fall — every 0.5 s until it is down: on the floor (or put back after a pickup) it is
+// laid flat, or with spawnflag 16 put on the nearest wall once; the drop sound, then OnGround.
 void CTSGroundWeapon::Fall()
 {
 	pev->nextthink = gpGlobals->time + 0.5f;
 
 	if (pev->spawnflags & SF_GW_ON_WALL)
 	{
-		if (m_bPlaced)
-			return;
-		PutOnWall();
+		if (!m_bPlaced)
+			PutOnWall();
+		EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "items/weapondrop1.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
 	}
 	else
 	{
 		if (!(pev->flags & FL_ONGROUND) && !m_bPlaced)
 			return; // keep falling
+		EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "items/weapondrop1.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
 		pev->angles.x = 0;
 		pev->angles.z = 0;
 	}
-
-	EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "items/weapondrop1.wav", VOL_NORM, 0.8f, 0, 100);
 	OnGround();
 	m_bPlaced = true;
 }
@@ -689,25 +702,28 @@ void CTSGroundAmmo::Precache()
 	PRECACHE_SOUND("items/weapondrop1.wav");
 }
 
+// @0xa27e4 Spawn — the ammo pack model (TSPrecache has it), falling (on a wall with spawnflag 16,
+// hanging), solid with a point box, the slow-motion physics bit, Fall in 0.1 s.
 void CTSGroundAmmo::Spawn()
 {
 	Precache();
-	pev->classname = MAKE_STRING("ts_groundammo");
 	SET_MODEL(ENT(pev), AMMOPACK_MODEL);
 
-	// Wall-mounted packs hang in place (FLY); floor packs fall (TOSS).
 	pev->movetype = (pev->spawnflags & SF_AMMO_ON_WALL) ? MOVETYPE_FLY : MOVETYPE_TOSS;
 	pev->solid = SOLID_BBOX;
-
 	UTIL_SetOrigin(pev, pev->origin);
-	UTIL_SetSize(pev, Vector(-8, -8, -8), Vector(8, 8, 8));
+	UTIL_SetSize(pev, g_vecZero, g_vecZero);
 
 	SetTouch(NULL);
 	SetThink(&CTSGroundAmmo::Fall);
 	pev->nextthink = gpGlobals->time + 0.1f;
+	pev->iuser4 = 0;
+	pev->iuser4 |= 2;
+	m_bPlaced = false;
 }
 
-// @ Fall — settle to the floor (or pin to the wall), then become a touch-pickup.
+// @0xa2d6c Fall — every 0.5 s until it is down: on the floor (or put back after a pickup) it is
+// laid flat, or with spawnflag 16 put on the nearest wall once; the drop sound, then OnGround.
 void CTSGroundAmmo::Fall()
 {
 	pev->nextthink = gpGlobals->time + 0.5f;
@@ -715,72 +731,84 @@ void CTSGroundAmmo::Fall()
 	if (pev->spawnflags & SF_AMMO_ON_WALL)
 	{
 		if (!m_bPlaced)
-		{
 			PutOnWall();
-			EMIT_SOUND(ENT(pev), CHAN_BODY, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
-		}
-		return;
+		EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "items/weapondrop1.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
 	}
-
-	if (pev->flags & FL_ONGROUND)
+	else
 	{
-		OnGround();
-		EMIT_SOUND(ENT(pev), CHAN_BODY, "items/weapondrop1.wav", VOL_NORM, ATTN_NORM);
+		if (!(pev->flags & FL_ONGROUND) && !m_bPlaced)
+			return;
+		EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "items/weapondrop1.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
+		pev->angles.x = 0;
+		pev->angles.z = 0;
 	}
+	OnGround();
+	m_bPlaced = true;
 }
 
-// @ OnGround — landed: become a SOLID_TRIGGER refill station (real tail via objdump:
-// SetTouch(WaitTouch) + SetThink(WaitThink)).
+// @0xa2e88 OnGround — a pickup: hanging, a trigger with an 8-unit box, shown, effects bit 2, touched
+// for the ammo, no think.
 void CTSGroundAmmo::OnGround()
 {
-	pev->movetype = MOVETYPE_FLY; // stop falling
+	pev->movetype = MOVETYPE_FLY;
 	pev->solid = SOLID_TRIGGER;
 	pev->effects &= ~EF_NODRAW;
-	pev->effects |= EF_DIMLIGHT;
-	m_bPlaced = true;
-
+	pev->effects |= EF_MUZZLEFLASH; // the bit the original sets (2)
 	UTIL_SetOrigin(pev, pev->origin);
-	UTIL_SetSize(pev, Vector(-16, -16, -16), Vector(16, 16, 16));
+	UTIL_SetSize(pev, Vector(-4, -4, -4), Vector(4, 4, 4));
 
 	SetTouch(&CTSGroundAmmo::WaitTouch);
-	SetThink(&CTSGroundAmmo::WaitThink);
-	pev->nextthink = gpGlobals->time + 1.0f;
+	SetThink(NULL);
 }
 
-// @ PutOnWall — SLICE: the wall-mounted variant just settles in place.
+// @0xa28f4 PutOnWall — the same as CTSGroundWeapon's.
 void CTSGroundAmmo::PutOnWall()
 {
-	OnGround();
+	TSPutOnWall(this);
 }
 
-// @ WaitThink — idle (keeps the entity ticking).
+// @0xa2e54 WaitThink — idle (keeps the entity ticking).
 void CTSGroundAmmo::WaitThink()
 {
 	pev->nextthink = gpGlobals->time + 1.0f;
 }
 
-// @ WaitTouch — refill a touching player who holds a TS gun.
+// @0xa2f40 WaitTouch — a living player with the TS gun in hand takes the pack's rounds, each caliber
+// into his reserve up to its cap. If any went in: the clip sound on him, and the pack is gone until
+// it falls again: in 60 s without a wduration, 1 s for 1, else wduration up to 180; in the objective
+// modes a pack without a wduration does not come back.
 void CTSGroundAmmo::WaitTouch(CBaseEntity *pOther)
 {
 	if (pev->effects & EF_NODRAW)
-		return; // hidden
-
+		return;
 	if (!pOther->IsPlayer() || !pOther->IsAlive())
 		return;
 
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
-	if (!pPlayer->HasNamedPlayerItem("weapon_tsgun"))
-		return; // must be holding a TS weapon (faithful: m_pActiveItem id == 16)
+	if (!pPlayer->m_pActiveItem || pPlayer->m_pActiveItem->m_iId != TSGUN_WEAPON_ID)
+		return;
+	CTSGun *pGun = (CTSGun *)pPlayer->m_pActiveItem;
 
-	// Faithful (@WaitTouch): add each caliber's ROUNDS (m_ammo[caliber], the @0x68 array) to the
-	// TS gun's per-caliber reserve via TSAddAmmo. Persistent station: tops players up on every touch.
 	bool added = false;
 	for (int cal = 0; cal < TS_AMMO_CALIBERS; cal++)
 	{
-		if (m_ammo[cal] > 0 && TSAddAmmo(pPlayer, cal, m_ammo[cal]))
+		if (m_ammo[cal] != 0 && pGun->AddAmmo(cal, m_ammo[cal]))
 			added = true;
 	}
+	if (!added)
+		return;
 
-	if (added)
-		EMIT_SOUND(ENT(pPlayer->pev), CHAN_ITEM, "items/9mmclip1.wav", VOL_NORM, ATTN_NORM);
+	EMIT_SOUND_DYN(ENT(pPlayer->pev), CHAN_ITEM, "items/9mmclip1.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
+	SetTouch(NULL);
+	pev->effects |= EF_NODRAW;
+	if (respawntime < 1 && TSGameRules && (unsigned char)(TSGameRules->m_iGameMode - 2) < 2)
+	{
+		SetThink(NULL);
+	}
+	else
+	{
+		SetThink(&CTSGroundAmmo::Fall);
+		pev->nextthink = gpGlobals->time + ((respawntime < 1) ? 60.0f : (respawntime < 2) ? 1.0f
+			: (float)(respawntime < 180 ? respawntime : 180));
+	}
 }

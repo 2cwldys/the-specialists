@@ -2,13 +2,10 @@
 *  ts_grenade.cpp — RECONSTRUCTED CM61Grenade (the thrown M61 grenade).
 *  Functional/source-faithful goal (see CLAUDE.md). recovered/server/CM61Grenade.c.
 *
-*  The faithful CM61Grenade is `CM61Grenade : CTSGrenade : CTSPhysicObject` — TS's own
-*  bouncing-physics + grenade base classes (not reconstructed) with a custom WaitThink
-*  (traces 64u ahead to detonate on a near-impact) and event-driven creation. This is a
-*  FUNCTIONAL reconstruction onto the stock SDK `CGrenade` (which already does the
-*  arc/bounce/timed-detonate the original's bases provide): a thrown grenade that flies,
-*  bounces, and explodes after a fuse with area damage — using the TS w_m61.mdl model.
-*  SLICE: no CTSPhysicObject physics, no impact-trace early detonation, no throw event.
+*  CM61Grenade derives CTSGrenade, which derives CTSPhysicObject (the slow-motion physics base, at
+*  the top of this file), as in the original. Its WaitThink runs the fuse in slowed time and traces
+*  64 units ahead to go off on a near impact; the throw's presentation is the grenade event
+*  (events/grenade.sc, CTSGun::GrenadeFire).
 ***/
 #include "extdll.h"
 #include "util.h"

@@ -487,10 +487,18 @@ bool CBasePlayer::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, fl
 		flBonus *= 2;
 	}
 
-	// Already dead
-	if (!IsAlive())
+	// Already dead, or no damage (@0x7faeb)
+	if (!IsAlive() || flDamage == 0)
 		return false;
-	// go take the damage first
+
+	// @0x7fb11: the bullet dance. A hit that is not in the legs, on a player moving under 80 units a
+	// second, for 80 or less, turns it on (the 3 s window that makes the death sequence normal_die*
+	// and lets shots re-pose a dying body); anything else turns it off.
+	if ((unsigned int)(m_LastHitGroup - HITGROUP_LEFTLEG) < 2 || pev->velocity.Length2D() >= 80.0f ||
+		flDamage > 80.0f)
+		m_TSAnim.DisableBulletDance(this);
+	else
+		m_TSAnim.EnableBulletDance(this);
 
 
 	CBaseEntity* pAttacker = CBaseEntity::Instance(pevAttacker);
@@ -654,7 +662,10 @@ bool CBasePlayer::TakeDamage(entvars_t* pevInflictor, entvars_t* pevAttacker, fl
 		}
 	}
 
-	pev->punchangle.x = -2;
+	// @0x7fff8: a red flash for any hit of a point or more (the armour-reduced damage); the original
+	// does not kick the view (the SDK's punchangle.x = -2).
+	if (flDamage >= 1.0f)
+		UTIL_ScreenFade(this, Vector(150, 10, 10), 0.3f, 0.15f, 75, 0);
 
 	if (fTookDamage && !ftrivial && fmajor && flHealthPrev >= 75)
 	{
@@ -918,15 +929,88 @@ void CBasePlayer::RemoveAllItems(bool removeSuit)
 
 void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 {
-	CSound* pSound;
+	extern int gmsgTSMotionBlur; // ts_player.cpp
 
-	// Holster weapon immediately, to allow it to cleanup
+	// @0x7ed73: the killer's screen blurs on a roll (80% after a close-combat blow, else 50%; a
+	// close-combat blow that misses its roll gets the 50% one), the victim's on a 50% roll
+	// (TSMBlur {index, 1} and {index, 0}, MSG_PVS at each one's origin).
+	if ((glast_closecombat && RANDOM_LONG(0, 100) <= 79) || RANDOM_LONG(0, 100) <= 49)
+	{
+		MESSAGE_BEGIN(MSG_PVS, gmsgTSMotionBlur, pevAttacker->origin);
+		WRITE_BYTE(ENTINDEX(pevAttacker->pContainingEntity));
+		WRITE_BYTE(1);
+		MESSAGE_END();
+	}
+	if (RANDOM_LONG(0, 100) <= 49)
+	{
+		MESSAGE_BEGIN(MSG_PVS, gmsgTSMotionBlur, pev->origin);
+		WRITE_BYTE(ENTINDEX(edict()));
+		WRITE_BYTE(0);
+		MESSAGE_END();
+	}
+
+	// @0x7ee97: the body lingers 3 s before he spectates (any button cuts it short), the TSCash cache
+	// is cleared so it goes again, and the loadout is cleared: the next spawn has what the client
+	// sends again (the buy menu reopens at spectate).
+	m_flDeathCamTime = gpGlobals->time + 3.0f;
+	m_vecDeathBodyAngles = pev->angles; // reTS holds the body at its death pose (PlayerDeathThink)
+	m_iClientTSCash = -1;
+	ResetArmament();
+	SET_VIEW(edict(), edict());
+	EnableControl(true);
+	m_iRespawnsUsed++; // @0x7eee5: deaths this round; last man standing budgets respawns against it
+
+	// @0x7eeeb: killed by a player's own shot (the inflictor is a player), he watches that player:
+	// iuser2 and the observer target are set now, so the spectate that follows chases the killer.
+	// Anything else (the world, a grenade, a thrown knife) clears iuser2.
+	if (g_pevLastInflictor)
+	{
+		edict_t *pInflictor = g_pevLastInflictor->pContainingEntity;
+		if (!pInflictor)
+			pInflictor = INDEXENT(0);
+		CBaseEntity *pEntity = pInflictor ? CBaseEntity::Instance(pInflictor) : NULL;
+		if (pEntity && pEntity->IsPlayer())
+		{
+			pev->iuser2 = ENTINDEX(pInflictor);
+			m_hObserverTarget = UTIL_PlayerByIndex(pev->iuser2);
+		}
+		else
+			pev->iuser2 = 0;
+	}
+
+	// @0x7ef8c: the respawn gate is set at death, (int)clamp(respawntime, 5, 30), so the 3 s the
+	// body lingers eat into it: the first number he sees is N-2 (round 8, checked against the live
+	// original).
+	{
+		float rt = respawntime.value;
+		if (rt < 5)
+			rt = 5;
+		if (rt > 30)
+			rt = 30;
+		SetPlayerRespawnTime(this, (int)rt, false); // @0x7efd5: truncated (the control word set to chop)
+	}
+	// @0x7efeb: TSPAward 1 (out of the round) when the gate is below 0, else 11 (will respawn), as
+	// SetPlayerRespawnTime just stamped it.
+	m_iAward = (m_flTSRespawnTime < 0.0f) ? 1 : 11;
+
+	// @0x7f00f: a head shot slows his body to a third. The original also tests a rules flag here
+	// (rules+0x18) that Init clears and nothing sets, so it always slows.
+	if (m_LastHitGroup == HITGROUP_HEAD)
+		GoSlow(0.33f, 0);
+
+	pev->iuser4 = 0; // @0x7f038: the stunt bits go, the slow-motion physics bit (2) stays on
+	pev->iuser4 |= 2;
+
 	if (m_pActiveItem)
 		m_pActiveItem->Holster();
 
-	g_pGameRules->PlayerKilled(this, pevAttacker, g_pevLastInflictor);
+	// @0x7f079: the ammo pack first, then the flag, then every weapon (all eleven ThrowWeapon call sites
+	// are here, 0x7f085-0x7f185), and only then the rules' PlayerKilled.
+	DropAmmo();
+	DropFlag(false);
+	TSDropWeaponsOnDeath(this);
 
-	m_iRespawnsUsed++; // @0x7eee5 — deaths this round; LMS budgets respawns against it
+	g_pGameRules->PlayerKilled(this, pevAttacker, g_pevLastInflictor);
 
 	if (m_pTank != NULL)
 	{
@@ -935,56 +1019,32 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	}
 
 	// this client isn't going to be thinking for a while, so reset the sound until they respawn
-	pSound = CSoundEnt::SoundPointerForIndex(CSoundEnt::ClientSoundIndex(edict()));
-	{
-		if (pSound)
-		{
-			pSound->Reset();
-		}
-	}
+	CSound *pSound = CSoundEnt::SoundPointerForIndex(CSoundEnt::ClientSoundIndex(edict()));
+	if (pSound)
+		pSound->Reset();
 
+	// @0x7f221: the death sequence (normal_die* when TakeDamage left the bullet dance on, else a
+	// directional one, CTSAnimation::Animate case 7)
 	m_TSAnim.Animate(this, TSA_DIE);
 
-	// @0x7ef8c (Killed): the respawn gate is set AT DEATH — (int)clamp(respawntime,5,30) —
-	// so the ~2 s of death-cam before StartObserver EAT INTO it: the first number the player
-	// sees is N-2 (observed floor 3 with the default 3 -> clamp 5 -> shows 3; set 10 -> shows
-	// 8). Round 8, user-verified vs the live original; ours anchored at spectate ENTRY and
-	// showed the full N.
-	{
-		float rt = respawntime.value;
-		if (rt < 5) rt = 5;
-		if (rt > 30) rt = 30;
-		SetPlayerRespawnTime(this, (int)rt, false); // @0x7efd5: truncated (the control word set to chop)
-	}
-	// @0x7eea7 (Killed): the death-cam hold — watch the body for 3.0 s (any button skips).
-	m_flDeathCamTime = gpGlobals->time + 3.0f;
-	m_vecDeathBodyAngles = pev->angles; // freeze the body yaw at the death pose
-	m_iClientTSCash = -1; // @0x7eead: TSCash goes again at the next update
-
-	// TSPAward: the original's Killed re-runs SetPlayerRespawnTime's +0x770<0 test and writes
-	// 1 (out of round) or 11 (will respawn). Our respawn gate is round-driven; default to 11 —
-	// the out-of-round (1) + kill-tier (2/3/4) producers land with SetPlayerRespawnTime /
-	// the PlayerKilled tier pass (F-gamerules).
-	m_iAward = 11;
-
-	m_flRespawnTimer = 0.0f;
-
 	pev->modelindex = g_ulModelIndexPlayer; // don't use eyes
-
 	pev->deadflag = DEAD_DYING;
 	pev->movetype = MOVETYPE_TOSS;
 	ClearBits(pev->flags, FL_ONGROUND);
-	if (pev->velocity.z < 10)
-		pev->velocity.z += RANDOM_FLOAT(0, 300);
 
-	// R1/Y8-2: the death weapon/ammo scatter lives HERE in the original — all 11 ThrowWeapon
-	// call sites are inside CBasePlayer::Killed @0x7ed5c (0x7f085-0x7f185), NOT in any
-	// PlayerKilled (caller census, cont.94 fold plan). Moved from the deleted
-	// CTSGameRules::PlayerKilled override.
-	// @0x7f079: the ammo pack first, then the flag, then every weapon
-	DropAmmo();
-	DropFlag(false);
-	TSDropWeaponsOnDeath(this);
+	// @0x7f275: the body is pushed away from the attack by its damage force, at most 500; a fast
+	// runner or a hit over 50 that does not bullet-dance is thrown up at 180 with half gravity. (The
+	// SDK's random upward kick is not in the original.)
+	{
+		const float force = DamageForce((float)m_lastDamageAmount);
+		const float push = (force >= 500.0f) ? -500.0f : -force;
+		pev->velocity = pev->velocity + g_vecAttackDir.Normalize() * push;
+		if ((pev->velocity.Length2D() > 80.0f || m_lastDamageAmount > 50) && !m_TSAnim.BulletDancing())
+		{
+			pev->velocity.z = 180.0f;
+			pev->gravity = 0.5f;
+		}
+	}
 
 	// clear out the suit message cache so we don't keep chattering
 	SetSuitUpdate(NULL, false, 0);
@@ -1017,15 +1077,8 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 	WRITE_BYTE(0);
 	MESSAGE_END();
 
-	// Adrian: always make the players non-solid in multiplayer when they die
-	if (g_pGameRules->IsMultiplayer())
-	{
-		pev->solid = SOLID_NOT;
-	}
-
-	// UNDONE: Put this in, but add FFADE_PERMANENT and make fade time 8.8 instead of 4.12
-	// UTIL_ScreenFade( edict(), Vector(128,0,0), 6, 15, 255, FFADE_OUT | FFADE_MODULATE );
-
+	// The body stays solid while it lingers (shots still hit it and make it dance), and the original
+	// plays no death sound (DeathSound has no caller).
 	if ((pev->health < -40 && iGib != GIB_NEVER) || iGib == GIB_ALWAYS)
 	{
 		pev->solid = SOLID_NOT;
@@ -1033,8 +1086,6 @@ void CBasePlayer::Killed(entvars_t* pevAttacker, int iGib)
 		pev->effects |= EF_NODRAW;
 		return;
 	}
-
-	DeathSound();
 
 	pev->angles.x = 0;
 	pev->angles.z = 0;
@@ -1244,26 +1295,16 @@ void CBasePlayer::PlayerDeathThink()
 	if (HasWeapons())
 		RemoveAllItems(true);
 
+	// @0x7ec1a: the body is dying until its death sequence ends, however long that is (the original
+	// has no frame cap and makes no body-queue copy).
 	if (0 != pev->modelindex && (!m_fSequenceFinished) && (pev->deadflag == DEAD_DYING))
 	{
 		StudioFrameAdvance();
-
-		m_flRespawnTimer += gpGlobals->frametime;
-		if (m_flRespawnTimer < 4.0f) // 120 frames at 30 fps -- animations should be no longer than this
-			return;
+		return;
 	}
 
 	if (pev->deadflag == DEAD_DYING)
-	{
-		// Once we finish animating, if we're in multiplayer just make a copy of our body right away.
-		if (m_fSequenceFinished && g_pGameRules->IsMultiplayer() && pev->movetype == MOVETYPE_NONE)
-		{
-			CopyToBodyQue(pev);
-			pev->modelindex = 0;
-		}
-
 		pev->deadflag = DEAD_DEAD;
-	}
 
 	// once we're done animating our death and we're on the ground, we want to set movetype to None so our dead body won't do collisions and stuff anymore
 	// this prevents a bug where the dead body would go to a player's head if he walked over it while the dead player was clicking their button to respawn
@@ -1298,7 +1339,6 @@ void CBasePlayer::PlayerDeathThink()
 				extern CBaseEntity *TSCreateDeadCorpse(CBasePlayer *pPlayer, float lifetime);
 				TSCreateDeadCorpse(this, 10.0f);
 			}
-			m_fInSpectateWait = true;
 			TSEnterSpectate();   // observer + buy menu; fire-to-respawn via the respawn cmd
 			pev->nextthink = -1; // hand off to PlayerPreThink (the death think is done)
 			return;
@@ -1498,7 +1538,7 @@ void CBasePlayer::StartObserver(Vector vecPosition, Vector vecViewAngle)
 // respawn gate elapses and they press fire — mirrors the original StartObserver +
 // SetPlayerRespawnTime + "Press Fire To Play!" path. The buy/config menu opens on
 // entry. Called from CTSGameRules::InitHUD for a joiner, from PlayerDeathThink after a
-// death, and at the end of CBasePlayer::Spawn when m_fInSpectateWait is set.
+// death, and from a round restart.
 //=========================================================
 // The original's ScoreInfo senders are all inline and write 0 for playerclass (AddPoints
 // @0xc9e18); the scoreboard's WAITING (client case 0xb) travels on the award byte (player+0x74c =
@@ -1513,7 +1553,6 @@ void CBasePlayer::TSEnterSpectate(bool bResetArmament)
 
 	if (bResetArmament)
 		ResetArmament(); // no weapons until they pick a loadout + press fire
-	m_fInSpectateWait = true;
 	m_iClientSpecSecs = -1;
 
 	// (fold-plan Y6: the WAITING scoreboard status travels on the award byte via
@@ -1552,7 +1591,6 @@ void CBasePlayer::StopObserver()
 	if (m_flTSRespawnTime > 0.0f && m_flTSRespawnTime > gpGlobals->time)
 		return;
 
-	m_fInSpectateWait = false;
 	m_iClientSpecSecs = -1;
 
 	// (fold-plan Y6: no ScoreInfo/playerclass here — the original StopObserver @0x89a14 sends
@@ -2087,12 +2125,11 @@ void CBasePlayer::PreThink()
 		m_flKungFuBlock = 0.0f;
 	}
 
-	// TS (cont.65): while held in spectate, run the countdown + fire-to-play
-	// check and skip the normal in-play think (no items/water/weapons yet).
-	// @ the pev->iuser1 != 0 block of CBasePlayer::PreThink @0x808cc, region ~0x81458: the 1 Hz
-	// HUD-line throttles off +0x754, then the observer upkeep. No ScoreInfo here (the WAITING
-	// status rides the award byte).
-	if (m_fInSpectateWait) // original gate: pev->iuser1 != 0 (converge with Y7's iuser1/iuser2 pass)
+	// @0x80e73: an observer (iuser1 set: the spectate wait after a death or a join, or a team change
+	// while alive) runs the countdown lines and the observer controls and nothing of the in-play
+	// think. The 1 Hz HUD-line throttles run off +0x754. No ScoreInfo here (the WAITING status rides
+	// the award byte).
+	if (pev->iuser1 != 0)
 	{
 		// Fire-to-play is the CLIENT's "respawn" console command (the original mechanism —
 		// the ClientCommand "respawn" branch gates it); the server watches no buttons here.
@@ -2157,17 +2194,6 @@ void CBasePlayer::PreThink()
 	// close-combat package to PLAYERS — disarm + >30 knockback (cont.96; dossier melee_knockback_disarm.md). The former duplicate
 	// TSCheckRunThrough (ts_gun.cpp) is deleted — the original has ONE function.
 	m_TSStunt.CheckForBreakables();
-
-	// Observer Button Handling: an observer outside the spectate wait (a jointeam while alive) runs
-	// the same two calls as the block above (@0x810c3, @0x810cb). The original has no
-	// Observer_CheckTarget or Observer_CheckProperties.
-	if (IsObserver())
-	{
-		Observer_HandleButtons();
-		Observer_Idle();
-		pev->impulse = 0;
-		return;
-	}
 
 	if (pev->deadflag >= DEAD_DYING)
 	{
@@ -3293,13 +3319,9 @@ void CBasePlayer::Spawn()
 
 	// (no m_flNextChatTime = time here: the original's Spawn leaves 0x7c0 to TSInit, which zeroes it)
 
+	// A spawn puts him in play, whatever he was doing: TSInit ended any observer mode at the top, and
+	// PlayerSpawn equips him. A joiner goes to spectate from CTSGameRules::InitHUD (@0x694c8).
 	g_pGameRules->PlayerSpawn(this);
-
-	// TS (cont.65): a Spawn while the player waits in spectate (a plugin's, say) keeps him
-	// there. StopObserver clears the flag before re-spawning into play; a joiner spawns
-	// without it and goes to spectate from CTSGameRules::InitHUD (@0x694c8).
-	if (m_fInSpectateWait)
-		TSEnterSpectate();
 }
 
 

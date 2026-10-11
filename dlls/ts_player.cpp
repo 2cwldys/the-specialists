@@ -122,12 +122,10 @@ int KungFu(CBasePlayer *pPlayer)
 // (@0x86a9c). The held powerup (set by PlayerAddPowerUp on pickup) becomes
 // *active* on the `usepowerup` command, runs for its duration, then expires.
 //
-// SLICE: this is the SERVER-SIDE state machine + the player's own slow-motion
-// fields (m_flSlowMotionScale / m_flSlowMotionRamp / m_bSlowBullets). The actual
-// time-dilation MOVEMENT, the SlowMotionFlow propagation to nearby players /
-// projectiles (@0x86bb0, 1758 bytes — populates the affected-entity arrays this
-// deactivate would otherwise walk), the per-entity SetSlowMotion virtual, and the
-// client-side motion-blur are the deeper layer (deferred).
+// The rates reach movement through pev->fuser1, which UpdatePowerUpState eases toward
+// m_flSlowMotionGo and pm_shared scales the player's frametime by (PM_PlayerMove @0xf08d8); a slowed
+// grenade, knife or dropped gun keeps its rate in its own fuser1 (CBaseEntity::GoSlow) and its
+// physics reads it there (CTSPhysicObject).
 // ---------------------------------------------------------------------------
 
 // @ GoSlow__11CBasePlayerfc — apply a time-scale to this player (1 = normal speed).
@@ -177,17 +175,51 @@ void CBasePlayer::DeactivateSlowMotionFlow()
 		}
 		m_hSlowPlayers[i] = NULL;
 	}
-	// SLICE: the original also restores cached slowed projectiles (grenade/knife/WorldGun, 0x208[]);
-	// we don't slow projectiles yet (needs a CBaseEntity::GoSlow virtual), so there's nothing to restore.
+	// @0x86b55: then every grenade, knife and dropped gun the bubble slowed goes back to 1 and the list
+	// is emptied.
+	for (int i = 0; i < m_iSlowedEntCount; i++)
+	{
+		if (m_pSlowedEnts[i])
+		{
+			m_pSlowedEnts[i]->GoSlow(1.0f, 0);
+			m_pSlowedEnts[i] = NULL;
+		}
+	}
+	m_iSlowedEntCount = 0;
+}
+
+// @0x86ea4: the projectile pass of SlowMotionFlow, for one classname. A grenade is slowed whether it
+// moves or not, a knife or a dropped gun only while it moves. Each one the player's eye sees that is
+// not on his list yet is slowed to the rate he slows others to and added, while the list has room.
+// The search stops at an entity with no edict or the world's.
+static void TSSlowProjectiles(CBasePlayer *pPlayer, const char *pszClassname, bool bMovingOnly)
+{
+	CBaseEntity *pEnt = NULL;
+	while ((pEnt = UTIL_FindEntityByClassname(pEnt, pszClassname)) != NULL)
+	{
+		if (!pEnt->pev->pContainingEntity || ENTINDEX(pEnt->pev->pContainingEntity) == 0)
+			break;
+		if (bMovingOnly && pEnt->pev->velocity == g_vecZero)
+			continue;
+		if (UTIL_EntInArray(pPlayer->m_pSlowedEnts, 32, pEnt) != -1)
+			continue;
+		TraceResult tr;
+		UTIL_TraceLine(pPlayer->pev->origin + pPlayer->pev->view_ofs, pEnt->pev->origin, ignore_monsters,
+			ignore_glass, pPlayer->edict(), &tr);
+		if (tr.flFraction < 1.0f)
+			continue;
+		pEnt->GoSlow(pPlayer->m_flSlowMotionRamp, 0);
+		if (pPlayer->m_iSlowedEntCount < 32)
+			pPlayer->m_pSlowedEnts[pPlayer->m_iSlowedEntCount++] = pEnt;
+	}
 }
 
 // @ SlowMotionFlow__11CBasePlayer (@0x86bb0) — runs every frame from PreThink; self-gated to fire
 // every 0.5s while this player has an active slow powerup (m_flSlowMotionScale != 0). It slows THIS
 // player to the self-scale (0.6 slowmo / 0.8 slowpause) and every LOS-visible OTHER player to the
 // others-scale (0.35 / 0.225) — so the activator outruns the slowed world. A stronger slow wins ties.
-// The slowed players are cached so DeactivateSlowMotionFlow can restore them.
-// SLICE: the original also slows moving grenade/knife/WorldGun entities in LOS (deferred — needs a
-// CBaseEntity::GoSlow virtual); here only players are slowed (the bullet-time-vs-enemies core).
+// The slowed players are cached so DeactivateSlowMotionFlow can restore them. Then the grenades,
+// knives and dropped guns in sight are slowed to the others-scale too (TSSlowProjectiles).
 void CBasePlayer::SlowMotionFlow()
 {
 	if (m_flSlowMotionScale == 0.0f || m_flNextSlowFlow > gpGlobals->time)
@@ -244,6 +276,14 @@ void CBasePlayer::SlowMotionFlow()
 		else
 			m_hSlowPlayers[i] = NULL;
 	}
+
+	// @0x86ea4: the projectiles, while the list has room
+	if (m_iSlowedEntCount < 32)
+	{
+		TSSlowProjectiles(this, "grenade", false);
+		TSSlowProjectiles(this, "knife", true);
+		TSSlowProjectiles(this, "WorldGun", true);
+	}
 }
 
 // @ UsePowerUp__11CBasePlayer (@0x85980) — the `usepowerup` command: ACTIVATE the held powerup.
@@ -258,9 +298,9 @@ bool CBasePlayer::UsePowerUp()
 	if (m_iHeldPowerup == 0 || m_iPowerups != 0)
 		return false; // nothing held, or one is already active
 
-	// SLICE: the objective game modes can forbid activating slow-motion (gamerules[0x18] flag) →
-	// the original refuses with TSHudMessage "You can't use Slow-Motion now!" (color c3,2d,2d). We
-	// don't model that mode flag yet, so slow-motion is always permitted here.
+	// @0x859df: the original refuses a slow powerup with "You can't use Slow-Motion now!" while a rules
+	// flag (rules+0x18) is set, but CTSGameRules::Init clears it (@0x67e22) and nothing sets it, so a
+	// slow powerup is never refused; reTS keeps no such flag.
 
 	m_iPowerups = m_iHeldPowerup;
 	m_flPowerupExpireTime = (float)m_iPowerupTime + gpGlobals->time;

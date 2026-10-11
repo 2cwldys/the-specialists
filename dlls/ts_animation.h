@@ -104,6 +104,7 @@ public:
 	// normal_die* flinch (@0x5d2f0/0x5d314/0x5d338). Enabled/disabled by the slow-mo path.
 	void EnableBulletDance(CBasePlayer *pPlayer);
 	void DisableBulletDance(CBasePlayer *pPlayer);
+	bool BulletDancing() const { return m_bBulletDance != 0; } // Killed reads it (player+0x470)
 	void BulletDance(CBasePlayer *pPlayer);
 
 	// True for the close-combat activity codes (0xa..0x27, 0x3a) (@0x5dcf4).

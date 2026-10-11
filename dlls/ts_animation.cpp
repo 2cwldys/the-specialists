@@ -125,7 +125,10 @@ void CTSAnimation::EnableBulletDance(CBasePlayer *pPlayer)
 	m_flBulletDanceWindow = 3.0f;
 }
 
-// Getting shot while in bullet-time plays a brief normal_die* flinch.
+// @0x5d338: a shot that hits a dying body while the dance is on (TakeDamage turned it on, its 3 s
+// window is open and 0.15 s have passed since the last) starts a normal_die* sequence over, so the
+// body twitches under fire until its death sequence runs out (the test is the sequence NOT being
+// finished, @0x5d386).
 void CTSAnimation::BulletDance(CBasePlayer *pPlayer)
 {
 	if (!m_bBulletDance)
@@ -134,7 +137,7 @@ void CTSAnimation::BulletDance(CBasePlayer *pPlayer)
 		return;
 	if (m_flBulletDanceRetrig > 0)
 		return;
-	if (pPlayer->m_fSequenceFinished)
+	if (!pPlayer->m_fSequenceFinished)
 	{
 		m_flBulletDanceRetrig = 0.15f;
 		static const char *const dies[3] = { "normal_die1", "normal_die2", "normal_die3" };
