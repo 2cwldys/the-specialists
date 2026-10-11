@@ -1088,12 +1088,10 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	// (the 3rd-person shoot_ body pose is set by CTSGun::Fire's direct Animate call — RE Fire@0x71c78 — not
 	// here; TS's SetAnimation is empty.)
 
-	// Viewmodel "shoot" animation — now CLIENT-PREDICTED (CTSGun is a UseDecrement weapon, cont.69s
-	// 3d): SendWeaponAnim runs in the client's predicted ItemPostFrame, so the anim plays instantly.
-	// In the hold-position stance the fire anim comes from the held shoot seq (the "b"/"c"/"2" set).
-	const int fireAnim = (m_bHoldPosition && wi->iHoldFireAnim >= 0) ? wi->iHoldFireAnim : wi->iFireAnim;
-	if (fireAnim >= 0)
-		SendWeaponAnim(fireAnim, pev->body);
+	// No SendWeaponAnim: the shoot animation is the fire.sc handler's (EV_TSFire), as in both originals
+	// (neither StandardFire @0x724a4 nor client.dll's 0x100091e0 calls it). A predicted SendWeaponAnim
+	// here left the client's current anim at the shoot while TS 3.0's server kept pev->weaponanim at
+	// the draw, and the prediction's anim check then played the draw again after every shot.
 
 	// events/fire.sc → EV_TSFire: predicted fire sound + brass shell + viewmodel muzzleflash. Played
 	// with FEV_NOTHOST so the predicting host plays its OWN predicted copy (and isn't sent the server

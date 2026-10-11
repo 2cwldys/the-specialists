@@ -1046,14 +1046,25 @@ void EV_TSFire(event_args_t* args)
 		TS_EvWeaponAnim(
 			TS_BlockAnim(wiClass, (barrelSide ? 24 : 22) + gEngfuncs.pfnRandomLong(0, 1)),
 			GetBodyByItems(weaponType, attachMask));
+	// The other classes' shoot anim comes from the event too, for the shooter and an in-eye spectator:
+	// a pump shotgun block[11], block[12] for the last round (0x10040f65), the rest block[3 + RandomLong(0, 2)],
+	// block[6] for the last round (0x1003e329); bparam1 = (clip == 0).
+	else if (!akimboClass && (EV_IsLocal(idx) || TS_InEyeSpectating(idx)))
+	{
+		int blk;
+		if (wiClass->iFireType == TSFT_PUMP)
+			blk = args->bparam1 ? 12 : 11;
+		else
+			blk = args->bparam1 ? 6 : 3 + gEngfuncs.pfnRandomLong(0, 2);
+		TS_EvWeaponAnim(TS_BlockAnim(wiClass, blk), GetBodyByItems(weaponType, attachMask));
+	}
 
 	if (EV_IsLocal(idx))
 	{
 		if (!silenced)
 			EV_MuzzleFlash(); // the dynamic light / model flash on top of the sprite
-		// NOTE: the viewmodel "shoot" anim is CLIENT-PREDICTED in CTSGun::StandardFire's SendWeaponAnim, and
-		// the aim kick is the prediction's too (TS_AddViewRecoil from CTSGun's fire, as client.dll's fire
-		// calls 0x10008230): this event handles the muzzle flash, sound and shell.
+		// The aim kick is the prediction's (TS_AddViewRecoil from CTSGun's fire, as client.dll's fire
+		// calls 0x10008230).
 	}
 
 	// Eject a brass shell from the viewmodel/player.
