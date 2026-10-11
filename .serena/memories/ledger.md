@@ -7615,6 +7615,8 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
 - 5500fd80: StandardFire calls no SendWeaponAnim (neither original does); EV_TSFire plays block[3+RL(0,2)]/
   block[6] and the pump's block[11]/[12]. The predicted shoot against TS 3.0's server (weaponanim stays at the
   draw) made the anim check replay the draw after every shot. Puppet test tsx-ts3 ts_fire_weaponanim.
-- Found, not changed: reTS's world precache puts reload/draw/knife ahead of CTSGun::Precache's order, unlike
-  TS 3.0; reTS's server idles 1 s after a give where TS 3.0 keeps the draw until the next idle (>3 s); the
-  client skips HUD_WeaponsPostThink with cl_lw 0, client.dll's HUD_PostRunCmd (0x100045b0) always runs it.
+- dac1e31f, e3b4911b, 3525461c (same day, Steven: fix them): the events are registered in CTSGun::Precache's
+  order only (PrecacheAllTSWeapons no longer registers four first), so reTS's indices equal TS 3.0's and
+  released clients survive a server change; DefaultDeploy idles 3 s on (0.75 s Contender) and plays
+  weapons/draw.wav (CHAN_VOICE, attn 1.25, pitch 98..101), not for kung fu; HUD_PostRunCmd runs
+  HUD_WeaponsPostThink whatever cl_lw is. Tests tsx-ts3 ts_event_order, ts_draw.
