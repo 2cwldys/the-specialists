@@ -7479,3 +7479,21 @@ Not done: gl_fog* (ts_fog lump parser + fog pass), cl_wavedetail (no client bull
 particle config. default_fov: both servers send fov 0 unzoomed (puppets) and the native reTS client
 applies it live (Steven's hl_linux: default_fov 90 -> HUD FOV 90, engine FOV 90); the Windows report
 needs a real-client check.
+
+## 2026-10-10 — client gaps: the cvar round's leftovers, the cl_dll markers, cached handles
+- Fixed every leftover of the client cvar round: gl_fog*/ts_fog and the ts_particle/ts_emitter
+  entities (0x1003a5d0, 0x10056c20; map rain and snow), cl_fx's two particle levels (0x10057d50),
+  the client bullet simulation and cl_wavedetail (0x10035010), the fire core (0x100450c0: seeded
+  pellets, PM_STUDIO_BOX, pierce, whizz, particle pushes) and gun smoke (0x10047130), the credits
+  box and "%ix" readout, the view model's FOV offset and punch-follow (0x100674a0), weapon_N for the
+  held weapon, the bound-key gate on nine + commands (0x10025a80), the usepowerup held gate, decal
+  ranges, m_side/+strafe/+mlook removed, scr_ofs* no longer read.
+- Kept: slow-motion tint (0,60,160) (client.dll has (0,100,125), b8080fb's playtest tune holds);
+  Steven's centred ammo numbers; the screen-space scope; the 64-bit string pool; togglebrowser no-op.
+- HUD: number draw 0x1004c290, status panel 0x1004a3e0 (GameMode byte raw), weapon box 0x1004d7e0,
+  weapon bar 0x1004e030, round timer 0x1004bb20, TSMessage queue 0x1004b520, crosshair 0x1004e9f0,
+  laser/flashlight passes 0x1003de00/0x1003bad0, camera 0x10067fb0.., HUD_AddEntity tag culling.
+- The client reads the powerup bits from clientdata vuser1.y, as client.dll; TS 3.0's server sends
+  (float)m_iPowerups there (0xa0475), reTS's server sends m_flMeleeBar (server side to fix).
+- Open questions for the server/shared side: observer modes (TS 1,2,3,5 with 5 in-eye; pm_shared.h
+  OBS_IN_EYE 4); the akimbo bparam1 side is inverted vs client.dll (client.dll: nonzero = right gun).
