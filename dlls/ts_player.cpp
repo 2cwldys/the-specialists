@@ -22,10 +22,11 @@
 
 extern int gmsgTSHaveFlag; // wire name "TSFlag" (4) — defined in ts_flag.cpp
 
-// The global TS rules pointer (set in InstallGameRules). INTERIM: the original is a static
-// OBJECT `TSGameRules` @0x1681a0 in TS_player.cpp (see fold-plan R1 — the rules split turns
-// this back into the real standalone object).
-CTSGameRules *TSGameRules = nullptr;
+// The TS rules object (the original's `TSGameRules` @0x1681a0, a bss object constructed at
+// static init by _GLOBAL_.I.SlowMotion @0x671b4, the unit that holds SlowMotion). It exists in
+// every game mode: InstallGameRules never clears it, so single-player rules read it too.
+static CTSGameRules s_TSGameRules;
+CTSGameRules *TSGameRules = &s_TSGameRules;
 
 // Kill-flavor globals (@0x104480/81/82 in the original .data) — set around TraceAttack/
 // ApplyMultiDamage on a melee/coldcock/headshot kill blow; read by TSGetPointsForFrag +

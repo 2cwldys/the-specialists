@@ -216,8 +216,9 @@ CGameRules* InstallGameRules()
 	if (0 == gpGlobals->deathmatch)
 	{
 		// generic half-life
+		// TSGameRules keeps its object (@0xb6098 stores 0 to g_teamplay only): single-player
+		// rules never call its Init or Think, but the map's entities and the player read it.
 		g_teamplay = false;
-		TSGameRules = nullptr;
 		return new CHalfLifeRules;
 	}
 	else
@@ -229,10 +230,7 @@ CGameRules* InstallGameRules()
 		g_teamplay = DecideGamePlay((char *)STRING(gpGlobals->mapname), (int)teamplay.value) != 0;
 		// R1 phase 2 — the original two-object architecture (@0xb6050): g_pGameRules is a stock
 		// (TS-patched) CHalfLifeMultiplay/CHalfLifeTeamplay; the STANDALONE CTSGameRules lives
-		// alongside as the static object @0x1681a0 (ctor at static-init; Init() here per map;
-		// reached via the GOT pointer PTR_TSGameRules = our `TSGameRules`).
-		static CTSGameRules s_TSGameRules;
-		TSGameRules = &s_TSGameRules;
+		// alongside as the static object @0x1681a0 (`TSGameRules`, ts_player.cpp).
 		// Init() (which seeds m_iGameMode from g_teamplay) runs from the rules-object ctor below —
 		// the MP ctor @0xbee05, and again from the Teamplay ctor on team maps (§4.4/§4.7).
 		if (g_teamplay)

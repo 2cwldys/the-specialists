@@ -60,7 +60,7 @@ public:
 
 	// rules+1 — the dynamic powerups: -1 undecided (Init), 0 off (a map's own powerup spawned first,
 	// CTSPowerUp::Spawn; item_longjump puts it back to -1), 1 on (the first Think in mode 0/1).
-	signed char m_iRandomPowerups = -1;
+	signed char m_iRandomPowerups;
 
 	// --- SrvSett server-settings sync (star_SrvSett.md; dossier-gmsg U3) ---
 	int m_iSrvRealBullet = 0;        // 0x578 — cached realbullet.value, chopped
@@ -68,10 +68,10 @@ public:
 	                                 // TSInit gives every spawn low-gravity + the "mj" physinfo key
 	int m_iSrvUseCash = 0;           // 0x558 — cached usecash.value, chopped (orig var dmcashbased)
 	int m_iSrvAmmoCount = 0;         // 0x55c — cached ammocount.value, chopped
-	int m_iWeaponRestriction = 0x1f; // 0x5870 — ALLOWED-categories bitmask (knife 1/pistol 2/smg 4/rifle 8/shotgun 0x10)
-	int m_iAllowedCategories = 0x1f; // 0x586c — the map's allowed mask (cmd args are AND-masked by it)
+	int m_iWeaponRestriction;        // 0x5870 — ALLOWED-categories bitmask (knife 1/pistol 2/smg 4/rifle 8/shotgun 0x10)
+	int m_iAllowedCategories;        // 0x586c — the map's allowed mask (cmd args are AND-masked by it)
 	int m_bWeaponParamsCustom = 0;   // 0x5884 — set once a customweapons file loads; InitHUD gates on it
-	float m_flHealthAbsorb = 0.1f;   // 0x5888 — the customweapons health_absorb value (Init: 0.1; nothing reads it)
+	float m_flHealthAbsorb;          // 0x5888 — the customweapons health_absorb value (Init: 0.1; nothing reads it)
 
 	// --- Team subsystem ---
 	// The original's team gate is the global `g_teamplay != 0` at each site; the team-play virtual is
@@ -143,7 +143,7 @@ public:
 	// original counterparts; fold-plan G3/G4.)
 	void  RoundTimeLeft();
 	float m_flRoundEnd = 0;       // >0 = the round ends at this time (the .so's +0x8); 0 = not armed
-	bool  m_bRoundTimerEnabled = true; // the .so's field_0x10 — gates the RoundTime HUD message
+	bool  m_bRoundTimerEnabled;        // the .so's field_0x10 — gates the RoundTime HUD message
 
 	// --- Round lifecycle (the .so's Init / RestartRound / ResetRestartRound / RespawnEntities). ---
 	CTSGameRules();                    // @0x67d6c Init-equivalent: one-time setup (calls Init())
@@ -235,14 +235,16 @@ public:
 	// gamerules member @+0x588c read in CBasePlayer::TakeDamage). A flat reduction applied while
 	// the player has armor — kevlar does NOT deplete. Init sets it to 0.2125 on every map
 	// (@0x67ee8), as it sets health_absorb to 0.1.
-	float m_flArmorAbsorb = 0.2125f;
+	float m_flArmorAbsorb;
 };
 
-// The global TS rules pointer (set in InstallGameRules; defined in ts_player.cpp — the
-// original's home file). INTERIM: the original `TSGameRules` is a static OBJECT @0x1681a0
-// (22,676 bytes, standalone class — no vtable, base null) that COEXISTS with g_pGameRules;
-// the object-ness lands with the rules split (fold-plan R1). Null outside the CTSGameRules
-// branch (deathmatch 0).
+// The TS rules object. The original `TSGameRules` is a static OBJECT @0x1681a0 (22,676 bytes,
+// standalone class, no vtable) that COEXISTS with g_pGameRules; reTS reaches its object through
+// this pointer (defined in ts_player.cpp), which is never NULL. Constructed at static init and
+// zero apart from the bullet manager, as the original's bss object; Init() runs only from the
+// multiplayer rules (MP ctor, MP::ChangeLevel, Teamplay ctor), so under single-player rules
+// (deathmatch 0) nothing seeds it and its Think never runs, yet entities and players still read
+// it (CTSPowerUp::Spawn @0x88281, CBasePlayer::TakeDamage @0x7fc25, ...).
 extern CTSGameRules *TSGameRules;
 
 // ---- melee deflect gates (free functions, TS_gamerules.cpp; RE dossier-melee §1.3) ----

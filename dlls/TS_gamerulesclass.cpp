@@ -424,9 +424,10 @@ void CTSGameRules::CheckDeads()
 // InitObjectives/SetObjective when the map entities exist) and seeds the objective subsystem.
 CTSGameRules::CTSGameRules()
 {
-	// R1 phase 2: the object is STATIC (@0x1681a0 — ctor runs at static-init, before
-	// gpGlobals is valid). Per-map setup happens in Init(), called from InstallGameRules —
-	// the original's ctor/Init split (__12CTSGameRules + Init__12CTSGameRules @0x67d6c).
+	// The object is STATIC (@0x1681a0): this runs at static init (@0x67181), before gpGlobals is
+	// valid, and the original's (__12CTSGameRules @0x671dc) only constructs the bullet manager at
+	// +0x1864; every other field stays zero until Init (@0x67d6c), which only the multiplayer
+	// rules call.
 }
 
 void CTSGameRules::Init()
