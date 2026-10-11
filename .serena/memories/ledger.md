@@ -7575,3 +7575,9 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
 - Found, not changed: CTSGun's burst/double-fire/idle timing (PrimaryAttack @0x71a20 only arms a burst,
   WeaponIdle fires it; StandardFire does not decrement and idles 2.0 s); PrecacheAllTSWeapons precaches
   assets the original server never does, which the reTS client still relies on.
+
+## 2026-10-10: game description tagged [reTS] (user-approved improvement)
+- GetGameDescription's four strings (@0x10d004..) end in " [reTS]": "The Specialists (DM) [reTS]", (Teamplay),
+  (The One), (LMS). Steven's choice (option D of four), so server browsers mark a reTS server; the name still
+  starts with the original string. Clients and the master servers go by the gamedir, so the swap is unaffected.
+  tsx_one.test.sma's reTS copy expects the tagged strings; the ts30 copy keeps the original ones.
