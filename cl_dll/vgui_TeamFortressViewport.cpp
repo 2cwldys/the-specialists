@@ -1213,38 +1213,34 @@ void TeamFortressViewport::UpdateSpectatorPanel()
 			gHUD.m_TextMessage.MsgFunc_TextMsg(NULL, strlen(tempString) + 1, tempString);
 		}
 
-		// TS-patched stock (original client.dll strings "#Spec_TSHelp%d" + ts/titles.txt):
-		// the bottom bar's HELP line is the per-mode TS hint ("JUMP - Change Camera modes,
-		// FORWARD - Next Player, ..."), the mode label stays stock.
-		sprintf(bottomText, "#Spec_Mode%d", g_iUser1);
-		sprintf(helpString2, "#Spec_TSHelp%d", g_iUser1);
-
+		// The bar's two lines as client.dll's UpdateSpectatorPanel (0x10063870) builds them. The help
+		// line is "#Spec_TSHelp<mode>" (the per-mode TS hint in ts/titles.txt), or "#Spec_Only_Help"
+		// for a spectate-only (HLTV) client. The mode line is "#Spec_Mode<mode> : <name>" while
+		// g_iUser2 is a player slot with a name, else "#Spec_Mode<mode>" (sprintf at 0x10063969 and
+		// 0x1006398b), localised whole, so it reads "Locked Chase-Camera : <name>". Mode 4 would
+		// prefix "#Directed " (0x100639ae); TS has no mode 4, so that never shows.
 		if (0 != gEngfuncs.IsSpectateOnly())
-			strcat(helpString2, " - HLTV");
+			strcpy(helpString2, "#Spec_Only_Help");
+		else
+			sprintf(helpString2, "#Spec_TSHelp%d", g_iUser1);
 
-		// check if we're locked onto a target, show the player's name
+		name = NULL;
+		if ((g_iUser2 > 0) && (g_iUser2 <= gEngfuncs.GetMaxClients()))
+			name = g_PlayerInfoList[g_iUser2].name;
+		if (name)
+			snprintf(bottomText, sizeof(bottomText), "#Spec_Mode%d : %s", g_iUser1, name);
+		else
+			sprintf(bottomText, "#Spec_Mode%d", g_iUser1);
+		if (g_iUser1 == 4)
+		{
+			snprintf(tempString, sizeof(tempString), "#Directed %s", bottomText);
+			strcpy(bottomText, tempString);
+		}
+		pBottomText = CHudTextMessage::BufferedLocaliseTextString(bottomText);
+
+		// the player whose team colour the first person view takes
 		if ((g_iUser2 > 0) && (g_iUser2 <= gEngfuncs.GetMaxClients()) && (g_iUser1 != OBS_ROAMING))
-		{
 			player = g_iUser2;
-		}
-
-		// special case in free map and inset off, don't show names
-		if ((g_iUser1 == OBS_MAP_FREE) && 0 == gHUD.m_Spectator.m_pip->value)
-			name = NULL;
-		else
-			name = g_PlayerInfoList[player].name;
-
-		// create player & health string
-		if (0 != player && name)
-		{
-			strncpy(bottomText, name, sizeof(bottomText));
-			bottomText[sizeof(bottomText) - 1] = 0;
-			pBottomText = bottomText;
-		}
-		else
-		{
-			pBottomText = CHudTextMessage::BufferedLocaliseTextString(bottomText);
-		}
 
 		// in first person mode colorize player names
 		if ((g_iUser1 == OBS_IN_EYE) && 0 != player)
@@ -1266,15 +1262,8 @@ void TeamFortressViewport::UpdateSpectatorPanel()
 			m_pSpectatorPanel->m_BottomHelpLabel->setFgColor(255, 160, 0, 0);
 		}
 
-		// add sting auto if we are in auto directed mode — HLTV ONLY (the original's bar shows
-		// no "Auto" prefix in normal play; user-verified vs the live hl.exe, round 7e)
-		if (0 != gHUD.m_Spectator.m_autoDirector->value && 0 != gEngfuncs.IsSpectateOnly())
-		{
-			char tempString[128];
-			sprintf(tempString, "#Spec_Auto %s", helpString2);
-			strcpy(helpString2, tempString);
-		}
-
+		// No "#Spec_Auto" prefix: client.dll has no such string (the stock panel's HLTV
+		// auto-director label is gone from TS).
 		m_pSpectatorPanel->m_BottomMainLabel->setText("%s", pBottomText);
 		m_pSpectatorPanel->m_BottomMainButton->setText(pBottomText);
 		// TS: render the per-mode help line under the mode label (the original draws the

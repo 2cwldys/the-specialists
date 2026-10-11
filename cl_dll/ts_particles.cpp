@@ -222,7 +222,7 @@ int TSP_RegisterSprite(const char* name, short rendermode)
 	if (h == 0)
 	{
 		char msg[120];
-		snprintf(msg, sizeof(msg), "WARNING: cannot found %s", name);
+		snprintf(msg, sizeof(msg), "WARNING! cannot found %s\n", name); // client.dll 0x10050a53
 		gHUD.m_SayText.SayTextPrint(msg, strlen(msg) + 1);
 		return -1;
 	}
