@@ -329,7 +329,7 @@ bool CBasePlayer::UsePowerUp()
 // objective modes) or it is a slow motion of 2 s or less (m_iPowerupTime, the int at player+0x730).
 static void TSRedropPowerup(CBasePlayer *pPlayer, int type)
 {
-	if (TSGameRules && TSGameRules->m_iGameMode > 1)
+	if (TSGameRules->m_iGameMode > 1)
 		return;
 	if ((type & TS_PWUP_SLOWMO) && pPlayer->m_iPowerupTime <= 2)
 		return;
@@ -654,7 +654,7 @@ void CBasePlayer::TSInit()
 	// the map-global superjump mode (rules+0x5885, ts_mapglobals SF & 0x40): everyone spawns
 	// with the low-gravity/superjump physinfo ("mj")
 	CTSGameRules *pRules = TSGameRules; // @0x82c53: TSGameRules+0x5885
-	if (pRules && pRules->m_bSrvSuperJump)
+	if (pRules->m_bSrvSuperJump)
 	{
 		m_bLowGravity = 1;
 		g_engfuncs.pfnSetPhysicsKeyValue(edict(), "mj", "1");

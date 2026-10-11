@@ -604,7 +604,7 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 	if (CashBased() && buyable)
 	{
 		CTSGameRules *gr = TSGameRules;
-		if (gr && (unsigned char)(gr->m_iGameMode - 2) < 2 && attackerteam != -1 &&
+		if ((unsigned char)(gr->m_iGameMode - 2) < 2 && attackerteam != -1 &&
 			attackerteam != gr->GetTeamIndex(pPlayer->TeamID()))
 		{
 			TSHudMessageOne(0, 0, 0, 16, 30, "Your team cannot buy this weapon.", pPlayer->pev);
@@ -638,7 +638,7 @@ void CTSGroundWeapon::GetWeapon(CBaseEntity *pOther)
 	pev->effects |= EF_NODRAW;
 	pev->solid = SOLID_NOT;
 	m_bPlaced = false;
-	if (respawntime < 1 && TSGameRules && (unsigned char)(TSGameRules->m_iGameMode - 2) < 2)
+	if (respawntime < 1 && (unsigned char)(TSGameRules->m_iGameMode - 2) < 2)
 	{
 		SetThink(NULL);
 	}
@@ -801,7 +801,7 @@ void CTSGroundAmmo::WaitTouch(CBaseEntity *pOther)
 	EMIT_SOUND_DYN(ENT(pPlayer->pev), CHAN_ITEM, "items/9mmclip1.wav", VOL_NORM, 0.8f, 0, PITCH_NORM);
 	SetTouch(NULL);
 	pev->effects |= EF_NODRAW;
-	if (respawntime < 1 && TSGameRules && (unsigned char)(TSGameRules->m_iGameMode - 2) < 2)
+	if (respawntime < 1 && (unsigned char)(TSGameRules->m_iGameMode - 2) < 2)
 	{
 		SetThink(NULL);
 	}

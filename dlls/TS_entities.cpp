@@ -679,12 +679,9 @@ void CTSMapGlobals::Spawn(void)
 	// back for the next map. The original also zeroes +0x5875 and +0x5874 here; nothing reads the
 	// first, and the second (read in RestartRound) is never set, so reTS keeps neither.
 	CTSGameRules *pRules = TSGameRules; // @0x625e5: TSGameRules
-	if (pRules)
-	{
-		pRules->m_bRoundTimerEnabled = (pev->spawnflags & 0x20) == 0;
-		pRules->m_bSrvSuperJump = (pev->spawnflags & 0x40) ? 1 : 0;
-		pRules->m_iAllowedCategories = pRules->m_iWeaponRestriction = get_weapon_restriction();
-	}
+	pRules->m_bRoundTimerEnabled = (pev->spawnflags & 0x20) == 0;
+	pRules->m_bSrvSuperJump = (pev->spawnflags & 0x40) ? 1 : 0;
+	pRules->m_iAllowedCategories = pRules->m_iWeaponRestriction = get_weapon_restriction();
 }
 
 

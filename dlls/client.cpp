@@ -510,7 +510,7 @@ void Host_Say(edict_t* pEntity, bool teamonly)
 	{
 		// In the round modes (the objective modes, last man standing) a player out of the round talks
 		// only to the others out of it (@0x9d5be).
-		const bool roundMode = (TSGameRules && (unsigned char)(TSGameRules->m_iGameMode - 2) < 2) || g_lastManStanding != 0;
+		const bool roundMode = ((unsigned char)(TSGameRules->m_iGameMode - 2) < 2) || g_lastManStanding != 0;
 		const bool senderIn = player->IsAlive() || player->m_flTSRespawnTime >= 0.0f;
 
 		// loop through all players

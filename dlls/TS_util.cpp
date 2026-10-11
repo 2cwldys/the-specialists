@@ -163,7 +163,7 @@ void TSPlayerDisconnect(CBasePlayer *pPlayer)
 	CTSGameRules *pRules = TSGameRules; // @0x8f98c: TSGameRules+0x684
 	// the leaver's vote block, at his ENTINDEX (none past 31); the owner is cleared too
 	const int idx = ENTINDEX(pPlayer->edict());
-	if (pRules && idx >= 0 && idx <= 31)
+	if (idx >= 0 && idx <= 31)
 		memset(&pRules->m_votes[idx], 0, sizeof(pRules->m_votes[idx]));
 	pPlayer->pev->solid = SOLID_NOT;
 	pPlayer->pev->deadflag = DEAD_DEAD;
@@ -178,8 +178,7 @@ void TSPlayerDisconnect(CBasePlayer *pPlayer)
 	pPlayer->pev->effects = EF_NODRAW;
 	pPlayer->pev->health = 0;
 	pPlayer->m_bTheOne = 0; // 0x7b9
-	if (pRules)
-		pRules->CallCheckDeads();
+	pRules->CallCheckDeads();
 }
 
 // @0x8fae0 PlayerIsCheating — bots never cheat; a human cheats iff their cl_lw != "1"
@@ -270,8 +269,7 @@ void AdjustSpecificWeapon(tsweapon_t id, float acc, float vkick, float akick, fl
 	wi->iPrice = cost;
 	SendWeaponParams(id, NULL);
 	UTIL_ClientPrintAll(HUD_PRINTTALK, UTIL_VarArgs("%s behaviour changed\n", wi->pszName));
-	if (TSGameRules)
-		TSGameRules->m_bWeaponParamsCustom = 1;
+	TSGameRules->m_bWeaponParamsCustom = 1;
 }
 
 // @0x8eca4 adjust_weapon_value — load + apply a weapons config file from the game dir.
@@ -310,8 +308,7 @@ int adjust_weapon_value(char *pszFile)
 			{
 				if (v < 0)
 					v = 0;
-				if (TSGameRules)
-					TSGameRules->m_flArmorAbsorb = v; // rules+0x588c
+				TSGameRules->m_flArmorAbsorb = v; // rules+0x588c
 			}
 			continue;
 		}
@@ -321,8 +318,7 @@ int adjust_weapon_value(char *pszFile)
 			{
 				if (v < 0)
 					v = 0;
-				if (TSGameRules)
-					TSGameRules->m_flHealthAbsorb = v; // rules+0x5888
+				TSGameRules->m_flHealthAbsorb = v; // rules+0x5888
 			}
 			continue;
 		}
@@ -349,8 +345,7 @@ int adjust_weapon_value(char *pszFile)
 	}
 	fclose(fp);
 	UTIL_ClientPrintAll(HUD_PRINTTALK, UTIL_VarArgs("weapons behaviour changed by %s\n", pszFile));
-	if (TSGameRules)
-		TSGameRules->m_bWeaponParamsCustom = 1;
+	TSGameRules->m_bWeaponParamsCustom = 1;
 	return 1;
 }
 
@@ -387,7 +382,7 @@ int save_weapon_value(char *pszFile)
 	}
 	// footer: armor_absorb ONLY (health_absorb is parseable by the loader but never saved —
 	// the original's asymmetry, kept). .rodata format "armor_absorb %f".
-	fprintf(fp, "armor_absorb %f\n", TSGameRules ? TSGameRules->m_flArmorAbsorb : 0.0f);
+	fprintf(fp, "armor_absorb %f\n", TSGameRules->m_flArmorAbsorb);
 	fclose(fp);
 	return 1;
 }

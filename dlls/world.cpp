@@ -764,9 +764,9 @@ bool CWorld::KeyValue(KeyValueData* pkvd)
 		pev->team = ALLOC_STRING(pkvd->szValue);
 		// @0xe4cd9 — install the map's team list immediately. (The Teamplay ctor re-reads
 		// STRING(world->pev->team) for the DURABLE path, gated on teamoverride; this pre-install
-		// call is wiped by the rules ctor's Init/InitTeams — vestigial but reproduced. TSGameRules
-		// is the static object in the original; our pointer can be null pre-install on map 1.)
-		if (TSGameRules && !FStringNull(pev->team))
+		// call is wiped by the rules ctor's Init/InitTeams — vestigial but reproduced; under
+		// single-player rules nothing wipes it.)
+		if (!FStringNull(pev->team))
 			TSGameRules->SetTeamList(STRING(pev->team));
 		return true;
 	}

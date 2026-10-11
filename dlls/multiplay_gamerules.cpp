@@ -65,8 +65,7 @@ public:
 		// TS DELTA: last-man-standing (and the dead objective modes 2/3 — unreachable in the
 		// shipped game, §4.6) isolate the dead — a dead talker (not alive + past-respawn) is
 		// heard only by dead listeners; the living never hear the dead.
-		if (TSGameRules
-			&& ((unsigned char)(TSGameRules->m_iGameMode - 2) < 2 || g_lastManStanding != 0)
+		if (((unsigned char)(TSGameRules->m_iGameMode - 2) < 2 || g_lastManStanding != 0)
 			&& !pTalker->IsAlive() && pTalker->m_flTSRespawnTime < 0.0f)
 		{
 			if (!pListener->IsAlive() && pListener->m_flTSRespawnTime < 0.0f)
@@ -87,9 +86,8 @@ CHalfLifeMultiplay::CHalfLifeMultiplay()
 {
 	// TS DELTA (@0xbee05): the MP ctor (re)initializes the standalone TS rules object for the map.
 	// On a teamplay map the CHalfLifeTeamplay ctor body then Init()s it a second time (§3.4) —
-	// harmless, and reproduced. Null on the deathmatch-0 path (guarded).
-	if (TSGameRules)
-		TSGameRules->Init(); // @0x67d6c — per-map setup (InitTeams + objectives + arm round 1)
+	// harmless, and reproduced.
+	TSGameRules->Init(); // @0x67d6c — per-map setup (InitTeams + objectives + arm round 1)
 
 	g_VoiceGameMgr.Init(&g_GameMgrHelper, gpGlobals->maxClients);
 
@@ -319,12 +317,9 @@ void CHalfLifeMultiplay::Think()
 	// TS DELTA (@0xbf302): drive the standalone rules object's non-virtual Think AFTER the stock
 	// fragsleft/timeleft update, then end the map if a vote/objective set the forced next map
 	// (@0xbf30a). (Reached only in the !g_fGameOver path — the intermission block returns above.)
-	if (TSGameRules)
-	{
-		TSGameRules->Think();
-		if (TSGameRules->m_szEndMap[0] != '\0')
-			GoToIntermission();
-	}
+	TSGameRules->Think();
+	if (TSGameRules->m_szEndMap[0] != '\0')
+		GoToIntermission();
 }
 
 
@@ -537,8 +532,7 @@ void CHalfLifeMultiplay::ClientDisconnected(edict_t* pClient)
 			// TS deltas (@0xbf960): drop the leaver's flag/votes/edict + re-check the round win
 			// condition, then force a fresh The-One selection (the leaver may have been The One).
 			TSPlayerDisconnect(pPlayer);        // @0x8f94c
-			if (TSGameRules)
-				TSGameRules->m_flNextTheOneSelect = 0; // @0xbfacf (+0x587c)
+			TSGameRules->m_flNextTheOneSelect = 0; // @0xbfacf (+0x587c)
 		}
 	}
 }
@@ -602,11 +596,8 @@ void CHalfLifeMultiplay::PlayerSpawn(CBasePlayer* pPlayer)
 
 	// INTERIM (fold-plan Y9-3): team-cash seed — inert (GetTeamCash returns 0; the cash
 	// economy is compiled out of the shipped game).
-	if (TSGameRules)
-	{
-		if (int teamCash = TSGameRules->GetTeamCash(pPlayer))
-			pPlayer->m_iCash = teamCash;
-	}
+	if (int teamCash = TSGameRules->GetTeamCash(pPlayer))
+		pPlayer->m_iCash = teamCash;
 
 	bool addDefault = true;
 	CBaseEntity* pWeaponEntity = NULL;
@@ -900,8 +891,7 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 	// before any frags change; his streak ends with it.
 	if (pVictim->m_bTheOne)
 	{
-		if (TSGameRules)
-			TSGameRules->TheOneIsDead(pVictim, peKiller);
+		TSGameRules->TheOneIsDead(pVictim, peKiller);
 		pVictim->m_iKillStreak = 0;
 	}
 
@@ -1036,7 +1026,7 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 
 		// @0x7aafe: in the objective modes (the rules' mode byte above 1) every kill pays 1000 more,
 		// a team kill costs the killer 1000, and the victim gets 1000.
-		if (TSGameRules && (unsigned char)TSGameRules->m_iGameMode > 1 && peKiller)
+		if ((unsigned char)TSGameRules->m_iGameMode > 1 && peKiller)
 		{
 			peKiller->GiveCash(pts != -1 ? 1000 : -1000);
 			pVictim->GiveCash(1000);
@@ -1135,8 +1125,7 @@ void CHalfLifeMultiplay::PlayerKilled(CBasePlayer* pVictim, entvars_t* pKiller, 
 
 	// R1/Y8-1: the deads-check schedule is the LAST statement of the original PlayerKilled
 	// (@0x795e4 line ~730) — a death may have eliminated a team; resolve the round.
-	if (TSGameRules)
-		TSGameRules->CallCheckDeads();
+	TSGameRules->CallCheckDeads();
 }
 
 //=========================================================
@@ -2156,16 +2145,13 @@ void CHalfLifeMultiplay::ChangeLevel()
 	// TS DELTA (@0xc097b): a forced next map (a vote winner, or an objective set it) overrides
 	// the mapcycle pick — unless it is the literal "nextmap", which means "end this map, use the
 	// mapcycle". Then clear it and reset the TS rules for the level change (@0xc09ce).
-	if (TSGameRules)
+	if (TSGameRules->m_szEndMap[0] != '\0')
 	{
-		if (TSGameRules->m_szEndMap[0] != '\0')
-		{
-			if (strncmp(TSGameRules->m_szEndMap, "nextmap", 8) != 0)
-				strcpy(szNextMap, TSGameRules->m_szEndMap);
-			TSGameRules->m_szEndMap[0] = '\0';
-		}
-		TSGameRules->Init(); // pre-changelevel state reset (unconditional in the original)
+		if (strncmp(TSGameRules->m_szEndMap, "nextmap", 8) != 0)
+			strcpy(szNextMap, TSGameRules->m_szEndMap);
+		TSGameRules->m_szEndMap[0] = '\0';
 	}
+	TSGameRules->Init(); // pre-changelevel state reset (unconditional in the original)
 
 	if (!IS_MAP_VALID(szNextMap))
 	{

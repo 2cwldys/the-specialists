@@ -2051,7 +2051,7 @@ void CBasePlayer::PreThink()
 		{
 			if (m_flHealthRegen < gpGlobals->time)
 			{
-				const float others = TSGameRules ? (float)TSGameRules->m_iTheOneOthers : 0.0f;
+				const float others = (float)TSGameRules->m_iTheOneOthers;
 				m_flHealthRegen = gpGlobals->time + 1.0f / V_max(others * 0.32f, 1.0f);
 				pev->health = V_min(others * 0.16f + pev->health, 150.0f);
 			}
@@ -2174,8 +2174,7 @@ void CBasePlayer::PreThink()
 				m_flTSRespawnTime = -1.0f; // @0x80fe9
 				m_iAward = 1;
 				TSHudMessageOne(195, 45, 45, 16, 20, "You have to wait until the next round.", pev);
-				if (TSGameRules)
-					TSGameRules->CallCheckDeads();
+				TSGameRules->CallCheckDeads();
 			}
 		}
 		// (UpdateClientData already ran this frame, near the top of PreThink as in the original, so a
@@ -2315,7 +2314,7 @@ void CBasePlayer::PreThink()
 
 	// @0x8141b (right after UpdatePlayerState): on mode-3 (objective team) maps, refresh the
 	// nearby-bomb wire triple every 0.5 s (player+0x794 throttle) — the Wires HUD source.
-	if (TSGameRules && TSGameRules->m_iGameMode == 3 && m_flNextWiresCheck < gpGlobals->time)
+	if (TSGameRules->m_iGameMode == 3 && m_flNextWiresCheck < gpGlobals->time)
 	{
 		m_flNextWiresCheck = gpGlobals->time + 0.5f;
 		CheckForWires();
@@ -3200,7 +3199,7 @@ edict_t* EntSelectSpawnPoint(CBaseEntity* pPlayer)
 	{
 		szFallback[0] = '\0';
 		pFallback = szFallback;
-		const int team = TSGameRules ? TSGameRules->GetTeamIndex(pPlayer->TeamID()) : -1;
+		const int team = TSGameRules->GetTeamIndex(pPlayer->TeamID());
 		if (team >= 0)
 		{
 			strcpy(szSpotClass, TSGameRules->m_teamSpot[team]);
@@ -4332,8 +4331,7 @@ void CBasePlayer::UpdateClientData()
 			// R1 phase 2: the TS InitHUD content is the standalone object's NON-VIRTUAL
 			// InitHUD @0x69134, called from THIS UpdateClientData block in the original
 			// (@0x81d00) — spectator-state catch-up, roster, SrvSett, round clock, MOTD gate.
-			if (TSGameRules)
-				TSGameRules->InitHUD(this);
+			TSGameRules->InitHUD(this);
 
 			// (no m_iObserverLastMode = OBS_ROAMING here, the stock line: the original writes
 			// player+0x76c only in StopObserver @0x89a6f, so the joiner's chase mode holds.)
@@ -4350,7 +4348,7 @@ void CBasePlayer::UpdateClientData()
 		// the round clock, as CTSGameRules::InitHUD does: truncated seconds left, flag 0, when the
 		// clock is armed and the round timer is on. A joiner gets it from InitHUD and here in the
 		// same frame, and once more on the pass his StartObserver arms, 0.1 s later (the throttle).
-		if (TSGameRules && TSGameRules->m_flRoundEnd != 0.0f && TSGameRules->m_bRoundTimerEnabled)
+		if (TSGameRules->m_flRoundEnd != 0.0f && TSGameRules->m_bRoundTimerEnabled)
 		{
 			extern int gmsgTSRoundTime; // TS_gamerulesclass.cpp
 			float left = TSGameRules->m_flRoundEnd - gpGlobals->time;
@@ -4364,7 +4362,7 @@ void CBasePlayer::UpdateClientData()
 
 		// @0x81ef6: on a map whose ts_mapglobals gives everyone superjump, a player who has it is
 		// shown the superjump powerup (0x100) on each HUD reset.
-		if (TSGameRules && TSGameRules->m_bSrvSuperJump && m_bLowGravity)
+		if (TSGameRules->m_bSrvSuperJump && m_bLowGravity)
 		{
 			extern int gmsgTSPowerUp; // ts_player.cpp
 			MESSAGE_BEGIN(MSG_ONE, gmsgTSPowerUp, NULL, pev);

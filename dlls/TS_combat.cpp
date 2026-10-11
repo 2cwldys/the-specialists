@@ -55,7 +55,7 @@ Vector CBasePlayer::ShootBulletsPlayer(unsigned char cShots, Vector vecSrc, Vect
 
 	int rbullet = 0;
 	CTSGameRules *pRules = TSGameRules; // @0x5f741: TSGameRules+0x578
-	if ((pRules && pRules->m_iSrvRealBullet != 0) || GiveSlowMul() < 0.99f)
+	if ((pRules->m_iSrvRealBullet != 0) || GiveSlowMul() < 0.99f)
 		rbullet = 1;
 
 	const s_ammo_info *ai = get_ammo_info(iCaliber);

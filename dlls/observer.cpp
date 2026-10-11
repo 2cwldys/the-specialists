@@ -59,7 +59,7 @@ void CBasePlayer::Observer_FindNextPlayer(bool bReverse)
 			continue;
 		if (!pEnt->IsAlive())
 			continue;
-		if (((TSGameRules && (unsigned char)(TSGameRules->m_iGameMode - 2) < 2) || g_lastManStanding != 0) &&
+		if ((((unsigned char)(TSGameRules->m_iGameMode - 2) < 2) || g_lastManStanding != 0) &&
 			m_flTSRespawnTime >= 0.0f && g_pGameRules->PlayerRelationship(this, pEnt) != GR_TEAMMATE)
 			continue;
 

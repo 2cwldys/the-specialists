@@ -129,7 +129,7 @@ void CBasePlayer::AddItem(int itemBits)
 		// @0x844a4: the shoes set iuser4 bit 0x200 (once: an owner gets nothing) and the item bit
 		// 0x20 at player+0x718, which nothing in the server reads, with the items sound. TSInit
 		// clears iuser4 at the next spawn.
-		if (!TSGameRules || TSGameRules->m_iGameMode < 2)
+		if (TSGameRules->m_iGameMode < 2)
 			return;
 		if (pev->iuser4 & 0x200)
 			return;

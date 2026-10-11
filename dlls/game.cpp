@@ -99,8 +99,6 @@ static const char *const g_szRestrictions[6] = {
 static void display_weaponrestriction()
 {
 	CTSGameRules *rules = TSGameRules;
-	if (!rules)
-		return;
 	if (rules->m_iWeaponRestriction == 0)
 	{
 		ALERT(at_console, "All weapons are restricted.\n");
@@ -117,8 +115,6 @@ static void display_weaponrestriction()
 static void cmd_weaponrestriction()
 {
 	CTSGameRules *rules = TSGameRules;
-	if (!rules)
-		return;
 	if (CMD_ARGC() < 2)
 	{
 		display_weaponrestriction();
@@ -156,8 +152,7 @@ static void cmd_addcustombot()
 // otherwise does nothing.
 static void cmd_restartround()
 {
-	if (TSGameRules)
-		TSGameRules->ResetRestartRound(2);
+	TSGameRules->ResetRestartRound(2);
 }
 
 // @0xb5580 cmd_globalslow — the "Permanent Slow-motion?" server setting (a COMMAND, not a cvar; the
@@ -166,8 +161,6 @@ static void cmd_restartround()
 static void cmd_globalslow()
 {
 	CTSGameRules *rules = TSGameRules;
-	if (!rules)
-		return;
 	if (CMD_ARGC() < 2)
 	{
 		if (rules->m_flGlobalSlowActive != 0.0f)

@@ -147,7 +147,7 @@ void CBulletManager::Think()
 		if (b.nextUpdate < gpGlobals->time)
 		{
 			b.nextUpdate = gpGlobals->time;
-			if (rules && (unsigned int)rules->m_iSrvRealBullet < 2)
+			if ((unsigned int)rules->m_iSrvRealBullet < 2)
 				b.nextUpdate += 0.1f / (float)(rules->m_iSrvRealBullet + 1);
 			UpdateBullet(i, &tr);
 		}

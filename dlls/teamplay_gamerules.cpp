@@ -43,11 +43,8 @@ char g_teamModels[0x800]; // worldspawn "teammodels" conduit (CWorld::KeyValue w
 
 CHalfLifeTeamplay::CHalfLifeTeamplay()
 {
-	if (TSGameRules)
-	{
-		TSGameRules->Init();                        // @0xd3e85
-		TSGameRules->InitTeamScore(team_scores);    // @0xd3e95 — empty in the original @0x69130
-	}
+	TSGameRules->Init();                        // @0xd3e85
+	TSGameRules->InitTeamScore(team_scores);    // @0xd3e95 — empty in the original @0x69130
 	m_DisableDeathMessages = false;
 	m_DisableDeathPenalty = false;
 
@@ -78,27 +75,24 @@ CHalfLifeTeamplay::CHalfLifeTeamplay()
 		savedModels[sizeof(savedModels) - 1] = 0;
 	}
 
-	if (TSGameRules && 0 != strlen(m_szTeamList))
+	if (0 != strlen(m_szTeamList))
 		TSGameRules->SetTeamList(m_szTeamList);     // @0xd403f — tokenizes into the 4 slots
 
 	// REBUILD m_szTeamList from the TSGameRules slots (canonical names + The-ONE insertion)
 	m_szTeamList[0] = 0;
-	if (TSGameRules)
+	for (int i = 0; i < TS_MAX_TEAMS; i++)
 	{
-		for (int i = 0; i < TS_MAX_TEAMS; i++)
+		const char* nm = TSGameRules->GetIndexedTeamName(i);
+		if (nm && nm[0])
 		{
-			const char* nm = TSGameRules->GetIndexedTeamName(i);
-			if (nm && nm[0])
-			{
-				strcat(m_szTeamList, nm);
-				strcat(m_szTeamList, ";");
-			}
+			strcat(m_szTeamList, nm);
+			strcat(m_szTeamList, ";");
 		}
 	}
 
 	m_teamLimit = true; // TS: ALWAYS 1 (@0xd3ffx)
 
-	if (TSGameRules && 0 != strlen(savedModels))
+	if (0 != strlen(savedModels))
 		TSGameRules->SetTeamModelList(savedModels); // @0xd4107
 
 	RecountTeams();
@@ -142,7 +136,7 @@ void CHalfLifeTeamplay::Think()
 
 		// TS DELTA (@0xd4236): capture-the-briefcase reads the TSGameRules 4-team score table
 		// (TeamWin bumps m_teamScore) instead of the stock global team_scores[].
-		if (TSGameRules && TSGameRules->IsCTB())
+		if (TSGameRules->IsCTB())
 		{
 			for (int i = 0; i < 4; i++)
 			{
@@ -197,12 +191,9 @@ void CHalfLifeTeamplay::Think()
 
 	// TS DELTA (@0xd439a): drive the standalone rules object's non-virtual Think, then end the
 	// map if a vote/objective set the forced next map (@0xd43a2).
-	if (TSGameRules)
-	{
-		TSGameRules->Think();
-		if (TSGameRules->m_szEndMap[0] != '\0')
-			GoToIntermission();
-	}
+	TSGameRules->Think();
+	if (TSGameRules->m_szEndMap[0] != '\0')
+		GoToIntermission();
 }
 
 //=========================================================
@@ -258,7 +249,7 @@ const char* CHalfLifeTeamplay::SetDefaultPlayerTeam(CBasePlayer* pPlayer)
 	if (0 == g_theOneMode)
 		src = g_engfuncs.pfnInfoKeyValue(g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "team");
 	else
-		src = TSGameRules ? TSGameRules->GetIndexedTeamName(pPlayer->m_bTheOne ? 0 : 1) : "";
+		src = TSGameRules->GetIndexedTeamName(pPlayer->m_bTheOne ? 0 : 1);
 	strncpy(pPlayer->m_szTeamName, src, TEAM_NAME_LENGTH);
 
 	RecountTeams(true);
@@ -344,7 +335,7 @@ void CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeam
 	}
 
 	if (0 != g_theOneMode) // TS DELTA A: The-One mode forces the slot names
-		pTeamName = TSGameRules ? TSGameRules->GetIndexedTeamName(pPlayer->m_bTheOne ? 0 : 1) : "";
+		pTeamName = TSGameRules->GetIndexedTeamName(pPlayer->m_bTheOne ? 0 : 1);
 	else if (!pTeamName || pTeamName[0] == '\0' || !IsValidTeam(pTeamName))
 		pTeamName = TeamWithFewestPlayers();
 
@@ -353,7 +344,7 @@ void CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeam
 	// TS DELTA B: the model infokey comes from the TEAM MODEL table (m_teamLimit==1 always in
 	// TS — @0xd4ad3 is the live path; the stock model-as-team stamp is dead). A team with no models
 	// gives the empty model GetPlayerModel returns, as the original stamps it.
-	const char* mdl = TSGameRules ? TSGameRules->GetPlayerModel(pPlayer) : pPlayer->m_szTeamName;
+	const char* mdl = TSGameRules->GetPlayerModel(pPlayer);
 	g_engfuncs.pfnSetClientKeyValue(clientIndex, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "model", (char*)mdl);
 	g_engfuncs.pfnSetClientKeyValue(clientIndex, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "team", pPlayer->m_szTeamName);
 	// (no pev->team stamp: the original never writes a player's entvars team. The objectives
@@ -412,7 +403,7 @@ void CHalfLifeTeamplay::ClientUserInfoChanged(CBasePlayer* pPlayer, char* infobu
 	// from the team model table (@0xd4e46). The stock defaultteam/IsValidTeam change flow
 	// below it is unreachable in TS (m_teamLimit never 0) — dropped, dossier §3.3. An empty model
 	// from GetPlayerModel goes in as it is (@0xd4e46).
-	const char* mdl = TSGameRules ? TSGameRules->GetPlayerModel(pPlayer) : pPlayer->m_szTeamName;
+	const char* mdl = TSGameRules->GetPlayerModel(pPlayer);
 	g_engfuncs.pfnSetClientKeyValue(pPlayer->entindex(),
 		g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "model", (char*)mdl);
 }
@@ -684,7 +675,7 @@ void CHalfLifeTeamplay::RecountTeams(bool bResendInfo)
 					// R1 phase 3 — the TS tail @0xd58aa (dossier §3.5): in capture-the-
 					// briefcase mode, follow each TeamInfo with the per-team TeamScore rows
 					// (MSG_ONE to this player) from the TSGameRules score slots.
-					if (TSGameRules && TSGameRules->IsCTB())
+					if (TSGameRules->IsCTB())
 					{
 						for (int ti = 0; ti < TS_MAX_TEAMS; ti++)
 						{

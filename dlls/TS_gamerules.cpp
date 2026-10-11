@@ -167,7 +167,7 @@ void SetPlayerRespawnTime(CBasePlayer *pPlayer, int sec, bool bUnused)
 {
 	(void)bUnused;
 	CTSGameRules *pRules = TSGameRules; // @0x6600a: the rules object (TSGameRules)
-	const int mode = pRules ? pRules->m_iGameMode : 0;
+	const int mode = pRules->m_iGameMode;
 	if (mode != 0 || g_lastManStanding == 0) // @0x66004: modes 2/3, non-LMS, or any non-0 mode
 	{
 		pPlayer->m_flTSRespawnTime = gpGlobals->time + (float)sec;
