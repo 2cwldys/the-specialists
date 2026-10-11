@@ -7620,3 +7620,19 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
   released clients survive a server change; DefaultDeploy idles 3 s on (0.75 s Contender) and plays
   weapons/draw.wav (CHAN_VOICE, attn 1.25, pitch 98..101), not for kung fu; HUD_PostRunCmd runs
   HUD_WeaponsPostThink whatever cl_lw is. Tests tsx-ts3 ts_event_order, ts_draw.
+
+## 2026-10-10: single-player rules no longer crash (TSGameRules always exists)
+- 0a25d422: TSGameRules points at a file-scope static object (ts_player.cpp) in every mode, as the original's
+  bss object 0x1681a0 (static init 0x671b4 -> ctor 0x671dc, bullet manager only). InstallGameRules no longer
+  NULLs it on the CHalfLifeRules path (0xb6050 clears only g_teamplay). Init runs only from the MP ctor,
+  MP::ChangeLevel and the Teamplay ctor, Think only from MP/Teamplay::Think, so under deathmatch 0 the object
+  is zero (or the last MP map's); the six non-zero member initializers are gone for that reason. Crash was
+  CTSPowerUp::Spawn (also reached by item_longjump's CTSSuperJump::Spawn) reading NULL.
+- 6d05ee94: the 51 NULL tests on it are gone; no original site tests the address (each checked, addresses
+  in amxxbench docs/fixes/sp-rules-crash-report.md). 37af66f8: CHalfLifeRules execs no spserver.cfg
+  (0xce6fc; an HL25 addition).
+- Proof: i386 HLDS copy, +maxplayers 1, ts_lobby and crossfire: TS 3.0 and reTS print the same console
+  (incl. "All weapons are restricted."), reTS before crashed (core). Full tsx-ts3 646/646 and ts30 258/258,
+  deathmatch and teamplay.
+- Found, not changed: CHalfLifeMultiplay::PlayerSpawn's GetTeamCash call has no original counterpart (inert
+  INTERIM Y9-3); CHalfLifeRules was checked only for spserver.cfg.
