@@ -202,21 +202,23 @@ void EV_TSBulletHit(int idx, const float* src, const float* end, pmtrace_t& tr, 
 		if (pe && pe->solid == SOLID_BSP)
 		{
 			// The decal pick, client.dll's DamageDecal (0x10001000): a breakable (classnumber 1, glass)
-			// takes "{break%i" with RandomLong(0, 2), a normal-rendermode wall "{shot%i" with
-			// RandomLong(0, 4), anything else "{bproof1". decals.wad holds {break1..3} and {shot1..5}, so
-			// the 0 picks name no decal and the engine gets decal index 0 for them, as from TS 3.0's client.
+			// takes "{break%i" with RandomLong(0, 2) + 1, a normal-rendermode wall "{shot%i" with
+			// RandomLong(0, 4) + 1 (the `inc eax` at 0x1000102c and 0x100010be, which Ghidra's decompile
+			// drops), anything else "{bproof1". decals.wad holds {break1..3} and {shot1..5}; without the
+			// + 1 a fifth of the hits named {shot0, a decal that does not exist, and drew decal index 0.
 			char decalName[16];
 			// r_paintball (client.dll 0x10001000, cvar_t* 0x100987ac): while it is not 0 every hit takes
-			// "{splat%i" with RandomLong(0, 17) instead (decals.wad has {splat0..17 but no {splat11).
+			// "{splat%i" with RandomLong(0, 17) instead, with no + 1 (decals.wad has {splat0..17 but no
+			// {splat11).
 			static cvar_t* s_paintball = nullptr;
 			if (s_paintball == nullptr)
 				s_paintball = gEngfuncs.pfnGetCvarPointer("r_paintball");
 			if (s_paintball != nullptr && s_paintball->value != 0.0f)
 				sprintf(decalName, "{splat%d", gEngfuncs.pfnRandomLong(0, 0x11));
 			else if (pe->classnumber == 1)
-				sprintf(decalName, "{break%d", gEngfuncs.pfnRandomLong(0, 2)); // pe+0x8c == 1
+				sprintf(decalName, "{break%d", gEngfuncs.pfnRandomLong(0, 2) + 1); // pe+0x8c == 1
 			else if (pe->rendermode == kRenderNormal)
-				sprintf(decalName, "{shot%d", gEngfuncs.pfnRandomLong(0, 4)); // pe+0x68 == 0
+				sprintf(decalName, "{shot%d", gEngfuncs.pfnRandomLong(0, 4) + 1); // pe+0x68 == 0
 			else
 				strcpy(decalName, "{bproof1"); // rendermode not 0
 			if (gEngfuncs.pfnGetCvarFloat("r_decals") != 0.0f)
