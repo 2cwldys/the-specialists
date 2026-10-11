@@ -573,14 +573,17 @@ scratchpad/recoil-live-findings.md (constants live-verified against a cl.viewang
 static Vector g_recoilTarget;  // pending recoil climb (deg): [PITCH] negative = up, [YAW] horizontal
 static Vector g_recoilApplied; // how much of the climb has been eased into the aim so far
 
-// --- MELEE screen-SHAKE (the knife/katana "bounce-back") -------------------------------------------------
-// RE: the client melee attack FUN_1000a270 (@0xa345) calls Shake_Setup(amp = flDamage*0.15 [*0.66667 in
-// bullet-time], dur 0.2, freq 10) on each swing (live-verified: knife dmg 30 -> amp 4.5). The shake is a
-// damped oscillation (FUN_10057fa0 setup + FUN_10058000 apply): a random +/-amp offset that sign-flips and
-// halves each 1/freq cycle, smoothed onto the view and settling back to 0 — a transient "shake + reset",
-// NOT an aim move. GUNS use the climb above and do NOT shake (the gun-recoil shake branch in FUN_10008230
-// did not fire in the live trace). Applied to the RENDER angle only (pparams->viewangles), so the aim is
-// untouched and it returns to where it was. See scratchpad/recoil-live-findings.md.
+extern bool g_runfuncs;      // cl_dll/hl/hl_weapons.cpp: this run of the command is its first
+extern float g_flClientSlow; // cl_dll/ts_powerup_hud.cpp: client.dll's slow motion scale 0x100963e8
+
+// --- The view SHAKE (client.dll's shake object 0x1018cac8) ------------------------------------------------
+// Set up by FUN_10057fa0 (amplitude, duration, frequency) from the melee swings (FUN_1000a270 @0xa345:
+// flDamage x 0.15, 0.2 s, 10 Hz; live-verified: knife dmg 30 -> amp 4.5), the kung fu hits (0.2 s, 10 Hz)
+// and a gun kick that follows the last one within 0.15 s (TS_AddViewRecoil: 0.1 s, 35 Hz). Applied by
+// FUN_10058000 from V_CalcRefdef: a random +/-amp offset that sign-flips and halves each 1/freq cycle,
+// smoothed onto the view and settling back to 0, a transient shake, not an aim move. Its clock is the
+// frame time x the slow motion scale. Applied to the RENDER angle only (pparams->viewangles), so the aim
+// is untouched and it returns to where it was.
 static struct
 {
 	Vector offset;    // current random target (sign-flips + halves each cycle)
@@ -590,14 +593,19 @@ static struct
 	float cycleTimer; // counts down 1/frequency
 } g_meleeShake;
 
-void TS_TriggerViewShake(float amplitude)
+void TS_ViewShake(float amplitude, float duration, float frequency)
 {
-	g_meleeShake.duration = 0.2f;   // dur, freq fixed for the melee/kung-fu bounce (RE: both 0.2 / 10)
-	g_meleeShake.frequency = 10.0f;
-	g_meleeShake.cycleTimer = 1.0f / 10.0f;
+	g_meleeShake.duration = duration;
+	g_meleeShake.frequency = frequency;
+	g_meleeShake.cycleTimer = 1.0f / frequency;
 	g_meleeShake.offset[0] = gEngfuncs.pfnRandomFloat(-amplitude, amplitude);
 	g_meleeShake.offset[1] = gEngfuncs.pfnRandomFloat(-amplitude, amplitude);
 	g_meleeShake.offset[2] = 0.0f;
+}
+
+void TS_TriggerViewShake(float amplitude)
+{
+	TS_ViewShake(amplitude, 0.2f, 10.0f); // the melee and kung fu bounce
 }
 
 // Advance the shake one frame and add the current (transient) offset to the RENDER view angles. Called
@@ -608,7 +616,7 @@ void TS_ApplyMeleeShake(struct ref_params_s* pparams)
 	if (g_meleeShake.duration <= 0.0f && g_meleeShake.applied[0] == 0.0f &&
 		g_meleeShake.applied[1] == 0.0f && g_meleeShake.applied[2] == 0.0f)
 		return; // inactive
-	float dt = pparams->frametime;
+	float dt = g_flClientSlow * pparams->frametime; // FUN_10058000: 0x100963e8 x the frame time
 	Vector ofs;
 	float cyc;
 	if (g_meleeShake.duration <= 0.0f)
@@ -641,9 +649,18 @@ void TS_ApplyMeleeShake(struct ref_params_s* pparams)
 	pparams->viewangles[ROLL] += g_meleeShake.applied[2];
 }
 
-void TS_AddViewRecoil(float flViewKick, int iFireType, bool bDuck, bool bBulletTime)
+// client.dll 0x10008230, a CTSGun method its predicted fire calls (StandardFire 0x100091e0 with the
+// silencer flag, ShotgunFire 0x10008e50 unsilenced, AkimboFire 0x100096f0 with the kick doubled on the
+// linked shot): the pitch kick is 0.85 x the kick, the yaw kick that times the fire type's scale; a
+// silencer (attachment bit 1 that is not built in) takes both to 0.775, the double fire rate powerup
+// to 2/3. Only on the prediction's first run of the command (0x100d5cbc, HUD_PostRunCmd's runfuncs) are
+// they added to the target, and a shot within 0.15 s of slowed time of the last one shakes the view
+// for 0.1 s at 35 Hz, by (0.15 - slowed gap) x 15 at most 1 (x 0.775 silenced); the gun's last kick
+// time (gun +0x8c0) is set either way. The time is the prediction's gpGlobals->time.
+static float g_flLastKickTime; // client.dll gun +0x8c0, zeroed when the gun is made
+
+void TS_AddViewRecoil(float flViewKick, int iFireType, bool bSilenced, bool bDoubleFireRate, float time)
 {
-	// FUN_10008230: vert = amount*0.85; horiz = vert*firetypeScale; *0.775 duck; *0.66667 bullet-time.
 	float vert = flViewKick * 0.85f;
 	float scale;
 	switch (iFireType)
@@ -656,18 +673,29 @@ void TS_AddViewRecoil(float flViewKick, int iFireType, bool bDuck, bool bBulletT
 	default:        scale = 0.0f;   break; // semi/grenade/knife/katana: vertical only
 	}
 	float horiz = vert * scale;
-	if (bDuck)
+	if (bSilenced)
 	{
 		vert *= 0.775f;
 		horiz *= 0.775f;
 	}
-	if (bBulletTime)
+	if (bDoubleFireRate)
 	{
-		vert *= 0.66667f;
-		horiz *= 0.66667f;
+		vert *= 2.0f / 3.0f;
+		horiz *= 2.0f / 3.0f;
 	}
+	if (!g_runfuncs)
+		return;
 	g_recoilTarget[PITCH] -= vert; // negative pitch = kick UP
 	g_recoilTarget[YAW] += horiz;
+	const float slow = (g_flClientSlow != 0.0f) ? g_flClientSlow : 1.0f;
+	float amp = (0.15f - (time - g_flLastKickTime) * slow) * 15.0f;
+	if (amp > 0.001f)
+	{
+		if (amp >= 1.0f)
+			amp = 1.0f;
+		TS_ViewShake((bSilenced ? 0.775f : 1.0f) * amp, 0.1f, 35.0f);
+	}
+	g_flLastKickTime = time;
 }
 
 void TS_UpdateViewRecoil(struct ref_params_s* pparams)

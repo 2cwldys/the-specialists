@@ -36,7 +36,7 @@
 #include "eventscripts.h"
 #include "ts_weapon_info.h" // the SHARED s_weapon_info table (now built into the client too)
 #include "ts_weapon_predict.h" // the active-weapon param cache (refreshed by each TS event)
-#include "ts_recoil.h"      // TS_AddViewRecoil — the per-shot aim-recoil kick
+#include "ts_recoil.h"      // TS_TriggerViewShake — the melee bounce
 #include "ts_particles.h"   // TS_ImpactEffect — the byte-ported per-surface impact dispatcher
 #include "ts_bullets.h"     // the client bullet simulation (realbullet / slow motion)
 #include "ts_attachments.h" // TS_AttachPlayerWasAdded — the third-person gun smoke gate
@@ -274,8 +274,8 @@ static Vector s_vecCoreDir;   // 0x1018a1a8: the last pellet's direction
 static int s_iWhizzCount;     // 0x1018a1c4: flips the whizz channel between 503 and 504
 
 // The fire core, client.dll FUN_100450c0, called by every fire event with the shooter, its view basis,
-// the weapon's pellets (wi+0x24), the gun position, the aim, the spread (TS 3.0's server sends it in
-// both fparam1 and fparam2), the weapon's damage (wi+0x1c), shot mode (wi+0x20) and caliber (wi+0x8),
+// the weapon's pellets (wi+0x24), the gun position, the aim, the spread across and up (fparam1 and
+// fparam2, which the server sets alike), the weapon's damage (wi+0x1c), shot mode (wi+0x20) and caliber (wi+0x8),
 // and the event's seed (bparam2). Mode 2 is a pierce leg: one trace 4096 on with its impact, nothing
 // else. Otherwise:
 //  - one trace 4096 along the aim with no prediction set up (where the round lands, for the rest):
@@ -1035,19 +1035,9 @@ void EV_TSFire(event_args_t* args)
 	{
 		if (!silenced)
 			EV_MuzzleFlash(); // the dynamic light / model flash on top of the sprite
-		// NOTE: the viewmodel "shoot" anim is now CLIENT-PREDICTED in CTSGun::StandardFire's
-		// SendWeaponAnim (CTSGun is a UseDecrement weapon, cont.69s 3d) — this event handles the
-		// muzzle-flash sprite + sound + shell + recoil; the anim plays via the predicted ItemPostFrame.
-		// TS AIM-recoil (RE client.dll FUN_10008230): kick the actual aim up + per-firetype horizontal,
-		// eased into cl.viewangles in V_CalcRefdef (TS_UpdateViewRecoil). Persistent — the player pulls
-		// down. Replaces the old -2.0 punchangle placeholder (the original gates server punchangle to
-		// bots; the real recoil moves the aim client-side).
-		const s_weapon_info* wiLocal = get_weapon_info((tsweapon_t)weaponType);
-		// fparam2 = the recoil magnitude computed predicted-side in CTSGun::StandardFire/AkimboFire (= flViewKick,
-		// with the pump-shotgun 0.35x reduction already folded in when in pump mode). NOT wiLocal->flViewKick,
-		// which would be the unreduced value (the pump reduction is mode-dependent and only known on the fire side).
-		extern bool g_bBulletTime; // TSBTime wire flag (cl_dll/ts_powerup_hud.cpp) — recoil x0.66667
-		TS_AddViewRecoil(args->fparam2, wiLocal->iFireType, args->ducking != 0, g_bBulletTime);
+		// NOTE: the viewmodel "shoot" anim is CLIENT-PREDICTED in CTSGun::StandardFire's SendWeaponAnim, and
+		// the aim kick is the prediction's too (TS_AddViewRecoil from CTSGun's fire, as client.dll's fire
+		// calls 0x10008230): this event handles the muzzle flash, sound and shell.
 	}
 
 	// Eject a brass shell from the viewmodel/player.
@@ -1076,7 +1066,7 @@ void EV_TSFire(event_args_t* args)
 	{
 		Vector vecSrc;
 		EV_GetGunPosition(args, vecSrc, origin);
-		TS_FireCore(idx, fwd, right, up, (unsigned char)wi->iPellets, vecSrc, fwd, args->fparam1, args->fparam1,
+		TS_FireCore(idx, fwd, right, up, (unsigned char)wi->iPellets, vecSrc, fwd, args->fparam1, args->fparam2,
 			wi->flDamage, wi->iKnifeType, (unsigned char)wi->iCaliber, args->bparam2);
 	}
 
@@ -1136,8 +1126,6 @@ void EV_TSFireLinked(event_args_t* args)
 		{
 			if (!silenced)
 				EV_MuzzleFlash();
-			extern bool g_bBulletTime;
-			TS_AddViewRecoil(args->fparam2, wi->iFireType, args->ducking != 0, g_bBulletTime);
 		}
 	}
 
@@ -1178,7 +1166,7 @@ void EV_TSFireLinked(event_args_t* args)
 		for (int b = 0; b < 2; b++)
 		{
 			const Vector src2 = vecSrc + right * (b == 0 ? 5.0f : -5.0f);
-			TS_FireCore(idx, fwd, right, up, (unsigned char)wi->iPellets, src2, fwd, args->fparam1, args->fparam1,
+			TS_FireCore(idx, fwd, right, up, (unsigned char)wi->iPellets, src2, fwd, args->fparam1, args->fparam2,
 				wi->flDamage, wi->iKnifeType, (unsigned char)wi->iCaliber, args->bparam2 + (b == 0 ? 0 : 0x21));
 		}
 	}

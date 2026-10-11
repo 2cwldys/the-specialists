@@ -53,7 +53,8 @@
 
 #include "ts_gun.h" // the CTSGun class (extracted so the client prediction harness can instantiate it)
 #ifdef CLIENT_DLL
-#include "../cl_dll/ts_recoil.h" // TS_TriggerMeleeShake — the per-swing melee "bounce-back" (client only)
+#include "../cl_dll/ts_recoil.h" // TS_TriggerViewShake and TS_AddViewRecoil (client only)
+extern bool g_runfuncs;          // cl_dll/hl/hl_weapons.cpp: this run of the command is its first
 #endif
 
 // TS weapon-info HUD message (the ammo readout) — registered centrally in LinkUserMessages
@@ -1119,21 +1120,29 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 	//   bparam1 = (clip == 0).  The silencer bit drives the client's fire-sil sound + muzzle
 	//   suppression (EV_TSFire). Barrel side is always 0 here (non-akimbo); we carry it in bparam2
 	//   for the merged akimbo path (see AkimboFire) — our extension, not read by the original client.
-	// Recoil magnitude — computed HERE (predicted-side, where the fire-mode is known) and carried to the
-	// client aim-recoil via the event's fparam2 (EV_TSFire calls TS_AddViewRecoil with it). The REAL player's
-	// recoil is the client-side aim kick, NOT the server VKickback (which the original gates to bots) — so the
-	// pump-shotgun 0.35x reduction has to ride along to the client. Pump shotguns kick LESS: the original
-	// ShotgunFire@0x82108 scales view-kick to 0.35x when the weapon has an auto/semi mode bit (iFireModes & 3)
-	// AND it's not in semi mode — so the dual-mode benelli/spas (mask 0xa) get 0.35x IN PUMP MODE (full in
-	// semi), while the pump-ONLY mossberg (mask 0x8, no &3 bit) keeps the full kick.
+	// The view kick. Pump shotguns kick less: ShotgunFire@0x72108 scales it to 0.35x when the weapon has an
+	// auto/semi mode bit (iFireModes & 3) and is not in semi mode, so the dual-mode benelli/spas (mask 0xa)
+	// get 0.35x in pump mode (full in semi), while the pump-only mossberg (mask 0x8) keeps the full kick.
+	// The server's VKickback below punches bots only; a player's kick is the client's (CLIENT_DLL below).
 	float flViewKick = wi->flViewKick;
 	if (wi->iFireType == TSFT_PUMP && (wi->iFireModes & 3) != 0 && m_fireMode != TSFM_SEMI)
 		flViewKick *= 0.35f;
+	// fparam1 = fparam2 = the spread (StandardFire @0x728cd and ShotgunFire @0x72405 push the same value
+	// twice; the client's fire core spreads the pellets across by fparam1 and up by fparam2);
 	// bparam1 = (clip==0) for the standard classes (the akimbo classes read it as the barrel);
 	// bparam2 = the FireBullets SEED (the original client's pellet pattern reads it).
 	PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
-		flSpread, flViewKick, m_weaponType, m_items[m_weaponType].attach, (m_iClip == 0) ? 1 : 0,
+		flSpread, flSpread, m_weaponType, m_items[m_weaponType].attach, (m_iClip == 0) ? 1 : 0,
 		m_pPlayer->random_seed);
+#ifdef CLIENT_DLL
+	// The aim kick, from the prediction as client.dll does: its StandardFire 0x100091e0 passes the
+	// weapon's kick with the silencer flag, its ShotgunFire 0x10008e50 the pump-scaled kick unsilenced
+	// (both only for a weapon whose byte +0x38 is set, which every firearm's Write_ sets).
+	if (wi->iFireType == TSFT_PUMP)
+		TS_AddViewRecoil(flViewKick, wi->iFireType, false, DoubleFireRate(m_pPlayer), gpGlobals->time);
+	else
+		TS_AddViewRecoil(wi->flViewKick, wi->iFireType, sfSilenced, DoubleFireRate(m_pPlayer), gpGlobals->time);
+#endif
 
 	Vector vecSrc = m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;
@@ -1155,7 +1164,7 @@ void CTSGun::StandardFire(const s_weapon_info *wi)
 
 	// Server-side view-punch (RE StandardFire: VKickback when weaponinfo+0x38 != 0 — all firearms). Uses the
 	// same flViewKick computed above (pump 0.35x folded in). NB: VKickback's punchangle only affects BOTS; real
-	// players get the client aim-recoil via the event fparam2 above.
+	// players get the client aim-recoil from the prediction above.
 	VKickback(flViewKick, wi->iFireType);
 
 	float flRate;
@@ -1709,7 +1718,9 @@ void CTSGun::CCombatAttack()
 			g_vecZero, 0.0f, 0.0f, evCat, evAnim, 0, 0);
 #ifdef CLIENT_DLL
 		// Kung-fu "bounce-back" screen-shake (client-only presentation; RE client FUN_1000af10 @0xb5e5:
-		// Shake_Setup(amp = min(power,45)*0.35, 0.2, 10)). Live-measured power: punch~20, kick~25.
+		// Shake_Setup(amp = min(power,45)*0.35, 0.2, 10), only on the prediction's first run of the
+		// command, @0x1000b5be). Live-measured power: punch~20, kick~25.
+		if (g_runfuncs)
 		{
 			float kfPower = (evCat >= 2) ? 25.0f : 20.0f;
 			TS_TriggerViewShake(kfPower * 0.35f); // 0.35 -> punch 7.0, kick 8.75
@@ -2310,18 +2321,23 @@ bool CTSGun::AkimboFire(const s_weapon_info *wi)
 	// events/firelinked.sc (one bang = wi+0x306, two flares/shells, two volleys) — while a
 	// SINGLE akimbo shot rides fire.sc with bparam1 = the barrel (0 right / 1 left) and
 	// bparam2 = the FireBullets SEED (our old bparam2=side extension collided with the seed;
-	// fixed). fparam2 = the recoil magnitude (EV_TSFire/Linked's TS_AddViewRecoil reads it).
-	// bparam1 is item+0x24 on both events (@0x731e2): 1 when the left barrel fired, 0 the right; the
-	// linked shot sends the toggle as it was flipped. fparam2: the original sends the spread in both
-	// fparams; reTS keeps the view kick in fparam2, which its client's event recoil reads.
+	// fixed). bparam1 is item+0x24 on both events (@0x731e2): 1 when the left barrel fired, 0 the
+	// right; the linked shot sends the toggle as it was flipped. fparam1 = fparam2 = the spread
+	// (@0x7321e pushes it twice).
 	if (nSides == 2)
 		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFireLinked, 0.0, g_vecZero,
-			g_vecZero, flSpread, wi->flViewKick, m_weaponType, it.attach, it.altMode,
+			g_vecZero, flSpread, flSpread, m_weaponType, it.attach, it.altMode,
 			m_pPlayer->random_seed);
 	else
 		PLAYBACK_EVENT_FULL(FEV_NOTHOST, m_pPlayer->edict(), m_usFire, 0.0, g_vecZero, g_vecZero,
-			flSpread, wi->flViewKick, m_weaponType, it.attach, sides[0],
+			flSpread, flSpread, m_weaponType, it.attach, sides[0],
 			m_pPlayer->random_seed);
+#ifdef CLIENT_DLL
+	// The aim kick, from the prediction as client.dll's AkimboFire 0x100096f0 does: the weapon's kick,
+	// doubled on the linked shot, with the silencer flag.
+	TS_AddViewRecoil((nSides == 2) ? 2.0f * wi->flViewKick : wi->flViewKick, wi->iFireType, akSilenced,
+		DoubleFireRate(m_pPlayer), gpGlobals->time);
+#endif
 
 	float flRate = wi->flFireRate > 0 ? wi->flFireRate : 0.1f;
 	// DoubleFireRate 1.5x comes from the PostThink timer decrement only (see StandardFire note) — no
