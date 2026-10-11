@@ -196,7 +196,10 @@ void EV_TSBulletHit(int idx, const float* src, const float* end, pmtrace_t& tr, 
 		// lays NO bullet decal; the client picks "{shot" via DamageDecal + R_DecalShoot). This is the
 		// drop-in-compatible mechanism: the decal appears whether the server is ours or the original,
 		// and NO server sends a decal temp-entity, so original-client + our-server never double-decals.
-		if (isBrush && pe && gEngfuncs.pfnGetCvarFloat("r_decals") > 0.0f)
+		// client.dll's FUN_10001180 lays it only on a solid BSP physent (pe+0x60 == 4: the world, brush
+		// entities), whatever its move type or texture; then FUN_100010e0 shoots the picked decal while
+		// r_decals is not 0.
+		if (pe && pe->solid == SOLID_BSP)
 		{
 			// The decal pick, client.dll's DamageDecal (0x10001000): a breakable (classnumber 1, glass)
 			// takes "{break%i" with RandomLong(0, 2), a normal-rendermode wall "{shot%i" with
@@ -216,10 +219,13 @@ void EV_TSBulletHit(int idx, const float* src, const float* end, pmtrace_t& tr, 
 				sprintf(decalName, "{shot%d", gEngfuncs.pfnRandomLong(0, 4)); // pe+0x68 == 0
 			else
 				strcpy(decalName, "{bproof1"); // rendermode not 0
-			int decalIdx = gEngfuncs.pEfxAPI->Draw_DecalIndex(
-				gEngfuncs.pEfxAPI->Draw_DecalIndexFromName(decalName));
-			gEngfuncs.pEfxAPI->R_DecalShoot(decalIdx,
-				gEngfuncs.pEventAPI->EV_IndexFromTrace(&tr), 0, tr.endpos, 0);
+			if (gEngfuncs.pfnGetCvarFloat("r_decals") != 0.0f)
+			{
+				int decalIdx = gEngfuncs.pEfxAPI->Draw_DecalIndex(
+					gEngfuncs.pEfxAPI->Draw_DecalIndexFromName(decalName));
+				gEngfuncs.pEfxAPI->R_DecalShoot(decalIdx,
+					gEngfuncs.pEventAPI->EV_IndexFromTrace(&tr), 0, tr.endpos, 0);
+			}
 		}
 
 		// Off the surface a touch so the sprites aren't clipped into the wall.
