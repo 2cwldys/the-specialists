@@ -766,7 +766,7 @@ static bool TS_SmokeOrigin(int idx, int vmAtt, int plAtt, Vector& pos, bool& fir
 // shotgun (0x10040c20) a slow puff, 16 in first person and 24 seen from outside; a silenced shot
 // (attach bit 0) a size 8 wisp along the aim and a forced size 1 trail off the eject port (the
 // attachment less the aim x the shell setback) to the right; else a 16 puff, slow for the sawed-off
-// (0x1003dfa0 only, not the akimbo path 0x1003f090).
+// (0x1003dfa0 only, not the akimbo path 0x1003f090). Then a shotgun's muzzle debris.
 static void TS_FireSmoke(event_args_t* args, const s_weapon_info* wi, int weaponType, int vmAtt, int plAtt,
 	bool silenced)
 {
@@ -779,22 +779,30 @@ static void TS_FireSmoke(event_args_t* args, const s_weapon_info* wi, int weapon
 	AngleVectors(angles, fwd, right, up);
 	for (int i = 0; i < 3; i++)
 		vel[i] = args->velocity[i] / 10.0f;
+	const bool akimbo = (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY);
 	if (wi->iFireType == TSFT_PUMP)
-	{
 		TSP_MuzzleSmoke(firstPerson ? 0x10 : 0x18, gEngfuncs.pfnRandomLong(5, 10), pos, vel, fwd, 24.0f, false);
-		return;
-	}
-	if (silenced)
+	else if (silenced)
 	{
 		TSP_MuzzleSmoke(8, gEngfuncs.pfnRandomLong(0x32, 0x3c), pos, vel, fwd, 24.0f, false);
 		TSP_MuzzleSmoke(1, gEngfuncs.pfnRandomLong(0x32, 0x50), pos - fwd * (float)wi->iShellSetback, vel, right,
 			4.0f, true);
-		return;
 	}
-	const bool akimbo = (wi->iFireType == TSFT_AKIMBO || wi->iFireType == TSFT_AKIMBO_ONLY);
-	const int frameRate = (!akimbo && weaponType == TSW_SAWEDOFF) ? gEngfuncs.pfnRandomLong(5, 10)
-	                                                              : gEngfuncs.pfnRandomLong(0x2d, 0x37);
-	TSP_MuzzleSmoke(0x10, frameRate, pos, vel, fwd, 24.0f, false);
+	else
+	{
+		const int frameRate = (!akimbo && weaponType == TSW_SAWEDOFF) ? gEngfuncs.pfnRandomLong(5, 10)
+		                                                              : gEngfuncs.pfnRandomLong(0x2d, 0x37);
+		TSP_MuzzleSmoke(0x10, frameRate, pos, vel, fwd, 24.0f, false);
+	}
+	// After the smoke, the shotgun muzzle debris: 0x1003dfa0 for a weapon with more than one pellet
+	// (0x1003e57b in first person, 0x1003ece3 seen from outside), the pump fire 0x10040c20 always
+	// (0x1004104e, 0x10041590); the akimbo path 0x1003f090 has none. It comes from the shooter's player
+	// gun anchor 0 in first person and 3 from outside (0x10056be0), not the view model.
+	if (!akimbo && (wi->iFireType == TSFT_PUMP || wi->iPellets > 1))
+	{
+		const float* att = TS_PlayerGunAtt(args->entindex, firstPerson ? 0 : 3);
+		TSP_MuzzleDebris(Vector(att[0], att[1], att[2]), fwd, wi->iPellets);
+	}
 }
 
 // ===================== the gun-tail event handlers (dossier-ev-guntail.md) =====================

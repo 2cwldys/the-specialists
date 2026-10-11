@@ -177,6 +177,9 @@ void TSP_Puff(const Vector& point, const Vector& dir, const char* spr, short ren
 // speed. Unless `force`, at most once per 0.1 s of slowed time. Nothing with cl_fx 0, or out of view or
 // out of sight.
 void TSP_MuzzleSmoke(int size, int frameRate, const Vector& origin, const Vector& vel, const Vector& dir, float speed, bool force);
+// The shotgun muzzle debris (FUN_10046bd0 forced, from the fire events): shotgun_pellets.spr chips along
+// the aim at the shooter's gun attachment.
+void TSP_MuzzleDebris(const Vector& origin, const Vector& fwd, int pellets);
 
 // The fire core's pushes on the pool (client.dll FUN_100524c0 with no direction, and FUN_10052720), both
 // only while cl_fx's interaction is on: every particle within `radius` of `at` pushed away from it, and

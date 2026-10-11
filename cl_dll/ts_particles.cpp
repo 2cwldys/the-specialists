@@ -920,10 +920,24 @@ static void TSP_Smoke(const float* o, const float* n, const char* spr, short ren
 	}
 }
 
-// DEBRIS — FUN_10046bd0. Tumbling fragment chips (woodfrag / debris_concrete3), gravity + bounce.
+// DEBRIS — FUN_10046bd0. Tumbling fragment chips (woodfrag / debris_concrete3), gravity + bounce. Only in
+// view and in sight of the camera (FUN_100570b0, FUN_100572a0); unless forced, only when one of the
+// throttle kinds 2 to 5 is due (the first due one is then held for cl_fx's rate1, slowed); then
+// RandomLong(count/2, count) chips.
 static void TSP_Debris(const float* o, const float* n, const char* spr, short rendermode,
-	int framecnt, float size, int spread, float life, float gravity, int bounce)
+	int framecnt, float size, int spread, float life, float gravity, bool force, int bounce)
 {
+	if (!TSP_Seen(Vector(o[0], o[1], o[2])))
+		return;
+	if (!force)
+	{
+		int kind = 2;
+		while (kind <= 5 && !TSP_Due(kind))
+			kind++;
+		if (kind > 5)
+			return;
+		TSP_Hold(kind, TSP_SlowScaled(g_tsFx.rate1));
+	}
 	int idx = TSP_RegisterSprite(spr, rendermode);
 	if (idx < 0)
 		return;
@@ -955,6 +969,16 @@ static void TSP_Debris(const float* o, const float* n, const char* spr, short re
 		if (TSP_Commit(p, NULL, NULL) == -1)
 			return;
 	}
+}
+
+// The shotgun muzzle debris (the fire events 0x1003e57b/0x1003ece3 for a weapon with more than one
+// pellet, the pump fire 0x1004104e/0x10041590 always): forced, one shotgun_pellets.spr chip per pellet at
+// most, size 0.5, out along the aim at 3 x 16 with a scatter of 7, no gravity, no bounce, life 0 (only
+// the spin's jitter, so a chip lasts at most 0.18 s).
+void TSP_MuzzleDebris(const Vector& origin, const Vector& fwd, int pellets)
+{
+	const Vector dir = fwd * 3.0f;
+	TSP_Debris(origin, dir, "sprites/shotgun_pellets.spr", 5, (short)pellets, 0.5f, 7, 0.0f, 0.0f, true, 0);
 }
 
 // PELLETS — FUN_10046a70. A single shotgun-pellet mark sprite at the impact.
@@ -1012,7 +1036,7 @@ void TS_ImpactEffect(const float* origin, const float* normal, int mode, char te
 		break;
 
 	case 'W': // wood — fragments + smoke (RE FUN_10046bd0: count=RandomLong(5/2,5)=2-5, spread=32)
-		TSP_Debris(origin, normal, "sprites/woodfrag.spr", 5, 5, 5.0f, 32, 1.0f, 0.75f, 1);
+		TSP_Debris(origin, normal, "sprites/woodfrag.spr", 5, 5, 5.0f, 32, 1.0f, 0.75f, false, 1);
 		TSP_Smoke(origin, normal, "sprites/wood_smoke_add.spr", 5, smokeN, 16, 30.0f);
 		break;
 
@@ -1042,7 +1066,7 @@ void TS_ImpactEffect(const float* origin, const float* normal, int mode, char te
 	default: // concrete / tile / snow / etc. (RE: count=RandomLong(5/2,5)=2-5, spread=32)
 		// debris_concrete3 is INDEXALPHA — the original's rendermode 1 (TransColor) renders as an
 		// unmasked square in our TriAPI; kRenderTransAlpha(4) masks it to white chips. (engine deviation)
-		TSP_Debris(origin, normal, "sprites/debris_concrete3.spr", 4, 5, 4.0f, 32, 1.0f, 1.0f, 1);
+		TSP_Debris(origin, normal, "sprites/debris_concrete3.spr", 4, 5, 4.0f, 32, 1.0f, 1.0f, false, 1);
 		TSP_Smoke(origin, normal, "sprites/gun_smoke_add.spr", 5, smokeN, 16, 20.0f);
 		if (roll > 50)
 		{
