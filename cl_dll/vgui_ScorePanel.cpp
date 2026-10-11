@@ -248,6 +248,8 @@ void ScorePanel::Initialize()
 	m_iNumTeams = 0;
 	memset(g_PlayerExtraInfo, 0, sizeof g_PlayerExtraInfo);
 	memset(g_TeamInfo, 0, sizeof g_TeamInfo);
+	extern void TS_ClearSpectatorTable(); // ts_spectate.cpp; client.dll 0x1005d5a0 clears it here
+	TS_ClearSpectatorTable();
 }
 
 bool HACK_GetPlayerUniqueID(int iPlayer, char playerID[16])

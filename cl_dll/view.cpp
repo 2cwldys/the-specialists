@@ -178,8 +178,8 @@ void V_InterpolateAngles( float *start, float *end, float *output, float frac )
 // the gun angle adds to the view model's pitch. cl_bob picks the level, truncated: 0..3 scale the
 // offset by 0.1, 0.3, 0.5, 0.7 and the eye pitch by 0, 0, 0.15, 0.5; anything else (the default 4.0)
 // by 1 and 1. In third person and while spectating it returns 0 and leaves the offset as it was.
-// client.dll also returns 0 while its stunt camera flags (0x101914ec, set by its client-side stunt
-// camera at 0x1002c790) are set without bit 8; reTS has no such camera, so the flags are always 0.
+// client.dll also returns 0 while the spectator move's view bits (0x101914ec, set by its client-side
+// PM_SpectatorMove at 0x1002c790) are set without bit 8 (the eyes set 8).
 static Vector s_bobOffset;	 // 0x10191428
 static float s_bobPitch;	 // 0x10190b78
 static float s_bobAmp;		 // 0x10191d6c
@@ -201,7 +201,8 @@ static void V_SmoothBobHeight(float* offset, struct ref_params_s* pparams)
 
 float V_CalcBob(struct ref_params_s* pparams)
 {
-	if (0 != CL_IsThirdPerson() || 0 != pparams->spectator)
+	extern int iIsSpectator; // pm_shared.cpp: the spectator move's view bits (0x101914ec)
+	if (0 != CL_IsThirdPerson() || 0 != pparams->spectator || (iIsSpectator != 0 && (iIsSpectator & 8) == 0))
 		return 0.0f;
 
 	float grip, pitchScale;
@@ -1817,181 +1818,244 @@ int V_FindViewModelByWeaponModel(int weaponindex)
 ==================
 V_CalcSpectatorRefdef
 
+client.dll 0x10068f70. The spectator move (pm_shared PM_SpectatorMove) puts the spectator where the
+view goes and hands that origin and those angles over (iHasNewViewOrigin/iHasNewViewAngles), so the
+chase and roaming views are the simulated origin and the view angles as they are; client.dll's own
+chase position call in this function writes v_origin/v_angles, which the end of the function then
+overwrites from pparams, so it shows nothing and is left out. The eyes (mode 5) take the target's
+eye and angles (TS_PlayerEye, client.dll 0x10068e20) and draw his gun as the view model. Modes 4, 6
+and 7 draw the world from the simulated origin as well. TS has no inset view (client.dll's inset
+mode, 0x100d000c, is never set), so nextView stays 0. With cl_vsmoothing the angles (iIsSpectator 2)
+and the origin (iIsSpectator 4) are smoothed over the last 64 changes as the SDK 2.2 normal refdef
+does, the angles only between steps under 22.5 degrees, the origin only between steps under 64.
 ==================
 */
+extern int iIsSpectator;		// pm_shared.cpp
+extern int iHasNewViewOrigin;	// pm_shared.cpp
+extern float vecNewViewOrigin[3];
+extern int iHasNewViewAngles;
+extern float vecNewViewAngles[3];
+extern cvar_t* cl_vsmoothing;
+void TS_PlayerEye(int idx, Vector& pos, Vector& ang); // ts_attachments.cpp
+float AngleBetweenVectors(const Vector& v1, const Vector& v2); // pm_shared/pm_math.cpp
+
+
+// client.dll 0x10029cf0: both ends normalised to -180..180 in place, then each angle interpolated
+// the short way.
+static void V_SpecInterpolateAngles(float* a, float* b, float* output, float frac)
+{
+	NormalizeAngles(a);
+	NormalizeAngles(b);
+	for (int i = 0; i < 3; i++)
+	{
+		float d = b[i] - a[i];
+		if (d > 180.0f)
+			d -= 360.0f;
+		else if (d < -180.0f)
+			d += 360.0f;
+		output[i] = a[i] + frac * d;
+	}
+	NormalizeAngles(output);
+}
+
 void V_CalcSpectatorRefdef(struct ref_params_s* pparams)
 {
-	static Vector velocity(0.0f, 0.0f, 0.0f);
+	static Vector velocity(0.0f, 0.0f, 0.0f); // 0x10191418: kept, as client.dll, and read by nothing
 
+	// the angle and origin histories (0x10190f98/0x10191298/0x1019139c and 0x10190b98/0x10190e98/0x10191398)
+	static Vector s_specAngles[64];
+	static float s_specAngleTime[64];
+	static int s_specAngleCount;
+	static Vector s_specLastAngles; // 0x10190b44
+	static Vector s_specOrigins[64];
+	static float s_specOriginTime[64];
+	static int s_specOriginCount;
+	static Vector s_specLastOrigin; // 0x10190b60
+
+	// the in-eye view model's weapon (0x10191db0, 0x10097218)
 	static int lastWeaponModelIndex = 0;
-	static int lastViewModelIndex = 0;
+	static int lastWeaponType = -1;
 
 	cl_entity_t* ent = gEngfuncs.GetEntityByIndex(g_iUser2);
+	cl_entity_t* gunModel = gEngfuncs.GetViewModel();
 
-	pparams->onlyClientDraw = 0;
-
-	// refresh position
 	VectorCopy(pparams->simorg, v_sim_org);
-
-	// get old values
+	VectorCopy(pparams->simorg, pparams->vieworg);
 	VectorCopy(pparams->cl_viewangles, v_cl_angles);
 	VectorCopy(pparams->viewangles, v_angles);
 	VectorCopy(pparams->vieworg, v_origin);
 
-	if ((g_iUser1 == OBS_IN_EYE || gHUD.m_Spectator.m_pip->value == INSET_IN_EYE) && ent)
+	if (0 != iHasNewViewOrigin)
 	{
-		// calculate player velocity
-		float timeDiff = ent->curstate.msg_time - ent->prevstate.msg_time;
+		VectorCopy(vecNewViewOrigin, pparams->vieworg);
+	}
+	else
+	{
+		VectorCopy(pparams->vieworg, vecNewViewOrigin);
+	}
 
-		if (timeDiff > 0)
-		{
-			Vector distance;
-			VectorSubtract(ent->prevstate.origin, ent->curstate.origin, distance);
-			VectorScale(distance, 1 / timeDiff, distance);
-
-			velocity[0] = velocity[0] * 0.9f + distance[0] * 0.1f;
-			velocity[1] = velocity[1] * 0.9f + distance[1] * 0.1f;
-			velocity[2] = velocity[2] * 0.9f + distance[2] * 0.1f;
-
-			VectorCopy(velocity, pparams->simvel);
-		}
-
-		// predict missing client data and set weapon model ( in HLTV mode or inset in eye mode )
-		if (0 != gEngfuncs.IsSpectateOnly())
-		{
-			V_GetInEyePos(g_iUser2, pparams->simorg, pparams->cl_viewangles);
-
-			pparams->health = 1;
-
-			cl_entity_t* gunModel = gEngfuncs.GetViewModel();
-
-			if (lastWeaponModelIndex != ent->curstate.weaponmodel)
-			{
-				// weapon model changed
-
-				lastWeaponModelIndex = ent->curstate.weaponmodel;
-				lastViewModelIndex = V_FindViewModelByWeaponModel(lastWeaponModelIndex);
-				if (0 != lastViewModelIndex)
-				{
-					gEngfuncs.pfnWeaponAnim(0, 0); // reset weapon animation
-				}
-				else
-				{
-					// model not found
-					gunModel->model = NULL; // disable weapon model
-					lastWeaponModelIndex = lastViewModelIndex = 0;
-				}
-			}
-
-			if (0 != lastViewModelIndex)
-			{
-				lastViewModelIndex = V_FindViewModelByWeaponModel(lastWeaponModelIndex);
-				gunModel->model = IEngineStudio.GetModelByIndex(lastViewModelIndex);
-				gunModel->curstate.modelindex = lastViewModelIndex;
-				gunModel->curstate.frame = 0;
-				gunModel->curstate.colormap = 0;
-				gunModel->index = g_iUser2;
-			}
-			else
-			{
-				gunModel->model = NULL; // disable weaopn model
-			}
-		}
-		else
-		{
-			// only get viewangles from entity
-			VectorCopy(ent->angles, pparams->cl_viewangles);
-			pparams->cl_viewangles[PITCH] *= -3.0f; // see CL_ProcessEntityUpdate()
-		}
+	VectorCopy(pparams->cl_viewangles, pparams->viewangles);
+	if (0 != iHasNewViewAngles)
+	{
+		VectorCopy(vecNewViewAngles, pparams->viewangles);
+	}
+	else
+	{
+		VectorCopy(pparams->viewangles, vecNewViewAngles);
 	}
 
 	if (pparams->nextView == 0)
 	{
-		// first renderer cycle, full screen
+		Vector d = Vector(pparams->viewangles) - s_specLastAngles;
+		if (d.Length() != 0.0f)
+		{
+			s_specAngles[s_specAngleCount & 63] = pparams->viewangles;
+			s_specAngleTime[s_specAngleCount & 63] = pparams->time;
+			s_specAngleCount++;
+			s_specLastAngles = pparams->viewangles;
+		}
+		if (cl_vsmoothing && cl_vsmoothing->value != 0.0f && (iIsSpectator & 2) != 0)
+		{
+			float t = pparams->time - cl_vsmoothing->value;
+			int i;
+			unsigned int found = s_specAngleCount - 2;
+			for (i = 1; i < 63; i++, found--)
+			{
+				if (s_specAngleTime[found & 63] <= t)
+					break;
+			}
+			if (i < 63 && s_specAngleTime[found & 63] != 0.0f)
+			{
+				const unsigned int a = found & 63, b = (found + 1) & 63;
+				Vector fa, fb;
+				AngleVectors(s_specAngles[a], fa, nullptr, nullptr);
+				AngleVectors(s_specAngles[b], fb, nullptr, nullptr);
+				const float dt = s_specAngleTime[b] - s_specAngleTime[a];
+				if (dt > 0.0f && AngleBetweenVectors(fa, fb) < 22.5f)
+				{
+					float frac = (t - s_specAngleTime[a]) / dt;
+					if (frac > 1.0f)
+						frac = 1.0f;
+					V_SpecInterpolateAngles(s_specAngles[a], s_specAngles[b], vecNewViewAngles, frac);
+					VectorCopy(vecNewViewAngles, pparams->viewangles);
+				}
+			}
+		}
 
+		d = Vector(pparams->vieworg) - s_specLastOrigin;
+		if (d.Length() != 0.0f)
+		{
+			s_specOrigins[s_specOriginCount & 63] = pparams->vieworg;
+			s_specOriginTime[s_specOriginCount & 63] = pparams->time;
+			s_specOriginCount++;
+		}
+		if (cl_vsmoothing && cl_vsmoothing->value != 0.0f && (iIsSpectator & 4) != 0)
+		{
+			float t = pparams->time - cl_vsmoothing->value;
+			int i;
+			unsigned int found = s_specOriginCount - 2;
+			for (i = 1; i < 63; i++, found--)
+			{
+				if (s_specOriginTime[found & 63] <= t)
+					break;
+			}
+			if (i < 63 && s_specOriginTime[found & 63] != 0.0f)
+			{
+				const unsigned int a = found & 63, b = (found + 1) & 63;
+				const float dt = s_specOriginTime[b] - s_specOriginTime[a];
+				if (dt > 0.0f)
+				{
+					float frac = (t - s_specOriginTime[a]) / dt;
+					if (frac > 1.0f)
+						frac = 1.0f;
+					const Vector delta = s_specOrigins[b] - s_specOrigins[a];
+					const Vector neworg = s_specOrigins[a] + delta * frac;
+					if (delta.Length() < 64.0f)
+					{
+						for (int k = 0; k < 3; k++)
+						{
+							pparams->vieworg[k] += neworg[k] - pparams->simorg[k];
+							vecNewViewOrigin[k] = pparams->vieworg[k];
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (pparams->frametime > 0.0f)
+	{
+		const Vector moved = (Vector(pparams->vieworg) - s_specLastOrigin) * (1.0f / pparams->frametime);
+		velocity = velocity * 0.8f + moved * 0.2f;
+	}
+	s_specLastOrigin = pparams->vieworg;
+
+	if (pparams->nextView == 0)
+	{
 		switch (g_iUser1)
 		{
 		case OBS_CHASE_LOCKED:
-			V_GetChasePos(g_iUser2, NULL, v_origin, v_angles);
-			break;
-
 		case OBS_CHASE_FREE:
-			V_GetChasePos(g_iUser2, v_cl_angles, v_origin, v_angles);
-			break;
-
 		case OBS_ROAMING:
-			VectorCopy(v_cl_angles, v_angles);
-			VectorCopy(v_sim_org, v_origin);
-
-			// override values if director is active
-			gHUD.m_Spectator.GetDirectorCamera(v_origin, v_angles);
 			break;
-
 		case OBS_IN_EYE:
-			V_CalcNormalRefdef(pparams);
-			break;
-
-		case OBS_MAP_FREE:
-			pparams->onlyClientDraw = 1;
-			V_GetMapFreePosition(v_cl_angles, v_origin, v_angles);
-			break;
-
-		case OBS_MAP_CHASE:
-			pparams->onlyClientDraw = 1;
-			V_GetMapChasePosition(g_iUser2, v_cl_angles, v_origin, v_angles);
+		{
+			Vector pos = pparams->vieworg, ang = pparams->viewangles;
+			TS_PlayerEye(g_iUser2, pos, ang);
+			VectorCopy(pos, pparams->vieworg);
+			VectorCopy(ang, pparams->viewangles);
 			break;
 		}
-
-		if (0 != gHUD.m_Spectator.m_pip->value)
-			pparams->nextView = 1; // force a second renderer view
-
+		default:
+			pparams->onlyClientDraw = 0;
+			break;
+		}
 		gHUD.m_Spectator.m_iDrawCycle = 0;
+	}
+
+	// The eyes: the target's gun as the view model (0x10069843..0x10069b0c). Its model is found again
+	// when his weapon model changes; then its v_ model, the frame and colormap cleared, the angles from
+	// the view with the punch (V_CalcGunAngle), the origin the view's, shaken at 0.9, with the bob's
+	// offset, 1 lower. client.dll's bob terms here read a value it never sets (0x10191dac), so they add
+	// nothing and are left out.
+	if (g_iUser1 == OBS_IN_EYE && ent != nullptr && g_iUser2 != 0 && gunModel != nullptr)
+	{
+		if (lastWeaponModelIndex != ent->curstate.weaponmodel)
+		{
+			lastWeaponModelIndex = ent->curstate.weaponmodel;
+			lastWeaponType = V_FindWeaponByWeaponModel(lastWeaponModelIndex);
+			if (lastWeaponType == -1)
+				lastWeaponModelIndex = 0;
+		}
+		const s_weapon_info* wi = (lastWeaponType >= 0) ? get_weapon_info((tsweapon_t)lastWeaponType) : nullptr;
+		if (wi == nullptr || wi->pszViewModel == nullptr)
+			gunModel->model = nullptr;
+		else
+		{
+			const int vmIndex = gEngfuncs.pEventAPI->EV_FindModelIndex(wi->pszViewModel);
+			gunModel->model = IEngineStudio.GetModelByIndex(vmIndex);
+			gunModel->curstate.modelindex = vmIndex;
+			gunModel->curstate.frame = 0;
+			gunModel->curstate.colormap = 0;
+			gunModel->index = g_iUser2;
+			VectorCopy(pparams->cl_viewangles, gunModel->angles);
+			V_CalcGunAngle(pparams, 0.0f);
+			VectorCopy(pparams->vieworg, gunModel->origin);
+			gEngfuncs.V_ApplyShake(gunModel->origin, gunModel->angles, 0.9f);
+			VectorAdd(gunModel->origin, s_bobOffset, gunModel->origin);
+			gunModel->origin[2] -= 1.0f;
+		}
 	}
 	else
 	{
-		// second renderer cycle, inset window
-
-		// set inset parameters
-		pparams->viewport[0] = XRES_HD(gHUD.m_Spectator.m_OverviewData.insetWindowX); // change viewport to inset window
-		pparams->viewport[1] = YRES_HD(gHUD.m_Spectator.m_OverviewData.insetWindowY);
-		pparams->viewport[2] = XRES_HD(gHUD.m_Spectator.m_OverviewData.insetWindowWidth);
-		pparams->viewport[3] = YRES_HD(gHUD.m_Spectator.m_OverviewData.insetWindowHeight);
-		pparams->nextView = 0; // on further view
-
-		// override some settings in certain modes
-		switch ((int)gHUD.m_Spectator.m_pip->value)
-		{
-		case INSET_CHASE_FREE:
-			V_GetChasePos(g_iUser2, v_cl_angles, v_origin, v_angles);
-			break;
-
-		case INSET_IN_EYE:
-			V_CalcNormalRefdef(pparams);
-			break;
-
-		case INSET_MAP_FREE:
-			pparams->onlyClientDraw = 1;
-			V_GetMapFreePosition(v_cl_angles, v_origin, v_angles);
-			break;
-
-		case INSET_MAP_CHASE:
-			pparams->onlyClientDraw = 1;
-
-			if (g_iUser1 == OBS_ROAMING)
-				V_GetMapChasePosition(0, v_cl_angles, v_origin, v_angles);
-			else
-				V_GetMapChasePosition(g_iUser2, v_cl_angles, v_origin, v_angles);
-
-			break;
-		}
-
-		gHUD.m_Spectator.m_iDrawCycle = 1;
+		if (gunModel != nullptr && 0 != g_iUser1)
+			gunModel->model = nullptr;
+		lastWeaponModelIndex = 0;
+		lastWeaponType = -1;
 	}
 
-	// write back new values into pparams
-	VectorCopy(v_cl_angles, pparams->cl_viewangles);
-	VectorCopy(v_angles, pparams->viewangles)
-		VectorCopy(v_origin, pparams->vieworg);
+	VectorCopy(pparams->viewangles, v_angles);
+	VectorCopy(pparams->vieworg, v_origin);
 }
 
 

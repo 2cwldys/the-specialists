@@ -184,7 +184,7 @@ static void PlayerTrace(int shooter, const Vector& start, const Vector& end, pmt
 // Another player's eye and view angles (FUN_10068e20): his origin, his angles with the pitch x -pi;
 // not solid (dead), the roll set to 80 and 8 lower; else, unless stunt flag 0x400000 is set, 16 up
 // when ducked (usehull 1) and 28 up otherwise. Without a player name it leaves both as they were.
-static void PlayerEye(int idx, Vector& pos, Vector& ang)
+void TS_PlayerEye(int idx, Vector& pos, Vector& ang)
 {
 	cl_entity_t* ent = gEngfuncs.GetEntityByIndex(idx);
 	if (ent == nullptr || 0 == ent->player || g_PlayerInfoList[idx].name == nullptr)
@@ -344,7 +344,7 @@ static void DrawOtherLasers(int local)
 			continue;
 		if (!BindPoolSprite(dotSpr, 0))
 			continue;
-		PlayerEye(i, s_pos, s_ang);
+		TS_PlayerEye(i, s_pos, s_ang);
 		s_ang[0] += jx * 0.05f;
 		s_ang[1] += jy * 0.05f;
 		gEngfuncs.pfnAngleVectors(s_ang, s_fwd, nullptr, nullptr);
@@ -445,7 +445,7 @@ static void DrawOtherFlashlights(int local)
 		cl_entity_t* ent = gEngfuncs.GetEntityByIndex(i);
 		if (ent == nullptr || 0 == ent->player || !s_bAdded[i])
 			continue;
-		PlayerEye(i, s_pos, s_ang);
+		TS_PlayerEye(i, s_pos, s_ang);
 		Vector fwd;
 		gEngfuncs.pfnAngleVectors(s_ang, fwd, nullptr, nullptr);
 		pmtrace_t tr;

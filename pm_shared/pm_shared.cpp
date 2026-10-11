@@ -36,6 +36,15 @@
 bool iJumpSpectator;
 float vJumpOrigin[3];
 float vJumpAngles[3];
+// What the spectator move leaves the client's view (client.dll's PM_SpectatorMove 0x1002c790): the
+// view smoothing bits (0x101914ec), and the origin and angles the view takes (0x101913e4, 0x10190b6c)
+// with their flags (0x101914f0, 0x1019149c). PM_PlayerMove clears the three flags on a command's first
+// run; cl_dll/view.cpp reads them.
+int iIsSpectator;
+int iHasNewViewOrigin;
+float vecNewViewOrigin[3];
+int iHasNewViewAngles;
+float vecNewViewAngles[3];
 #endif
 
 static bool pm_shared_initialized = false;
@@ -1870,6 +1879,38 @@ bool PM_CheckStuck()
 PM_SpectatorMove
 ===============
 */
+// GetChaseOrigin (ts_i386.so 0xeee5c, client.dll 0x1002c6c0): from 35 above the target's origin back
+// 90 along the angles' forward (less `offset`), traced as a point ignoring the target, and 4 off the
+// surface it reaches.
+static void GetChaseOrigin(const Vector& angles, int target, const Vector& offset, Vector& out)
+{
+	Vector forward;
+	AngleVectors(angles, &forward, nullptr, nullptr);
+	const physent_t* pe = &pmove->physents[target];
+	Vector start = pe->origin;
+	start[2] += 35.0f;
+	Vector end;
+	VectorMA(offset, 90.0f, forward, end);
+	end = start - end;
+	pmtrace_t* tr = pmove->PM_TraceLine(start, end, PM_NORMAL, 2, target);
+	VectorMA(tr->endpos, 4.0f, tr->plane.normal, out);
+}
+
+/*
+===============
+PM_SpectatorMove
+
+TS's (ts_i386.so 0xeef3c; the client's copy is client.dll 0x1002c790). Roaming (mode 3) or with no
+target the spectator flies as the SDK's. Otherwise the move puts him where the view will be: locked
+chase (1) behind the target by the target's angles with the pitch 10 less the target's, the eyes (5)
+at the target's origin and angles, any other mode behind the target by his own angles
+(GetChaseOrigin), and stops him. The client's copy also hands the view that origin and those angles
+(iHasNewViewOrigin, iHasNewViewAngles) and asks for its smoothing (iIsSpectator: 4 for the locked
+chase, 2|4|8 for the eyes), and with the target out of its physents keeps the last ones. Mode 4
+(TS's server never sets it; client.dll's copy follows an iuser3 director target there) takes his
+own angles here.
+===============
+*/
 void PM_SpectatorMove()
 {
 	float speed, drop, friction, control, newspeed;
@@ -1880,100 +1921,10 @@ void PM_SpectatorMove()
 	float fmove, smove;
 	Vector wishdir;
 	float wishspeed;
-	// this routine keeps track of the spectators psoition
-	// there a two different main move types : track player or moce freely (OBS_ROAMING)
-	// doesn't need excate track position, only to generate PVS, so just copy
-	// targets position and real view position is calculated on client (saves server CPU)
 
-	if (pmove->iuser1 == OBS_ROAMING)
+	if (pmove->iuser1 != OBS_ROAMING && 0 != pmove->iuser2)
 	{
-
-#ifdef CLIENT_DLL
-		// jump only in roaming mode
-		if (iJumpSpectator)
-		{
-			VectorCopy(vJumpOrigin, pmove->origin);
-			VectorCopy(vJumpAngles, pmove->angles);
-			VectorCopy(vec3_origin, pmove->velocity);
-			iJumpSpectator = false;
-			return;
-		}
-#endif
-		// Move around in normal spectator method
-
-		speed = Length(pmove->velocity);
-		if (speed < 1)
-		{
-			VectorCopy(vec3_origin, pmove->velocity)
-		}
-		else
-		{
-			drop = 0;
-
-			friction = pmove->movevars->friction * 1.5; // extra friction
-			control = speed < pmove->movevars->stopspeed ? pmove->movevars->stopspeed : speed;
-			drop += control * friction * pmove->frametime;
-
-			// scale the velocity
-			newspeed = speed - drop;
-			if (newspeed < 0)
-				newspeed = 0;
-			newspeed /= speed;
-
-			VectorScale(pmove->velocity, newspeed, pmove->velocity);
-		}
-
-		// accelerate
-		fmove = pmove->cmd.forwardmove;
-		smove = pmove->cmd.sidemove;
-
-		VectorNormalize(pmove->forward);
-		VectorNormalize(pmove->right);
-
-		for (i = 0; i < 3; i++)
-		{
-			wishvel[i] = pmove->forward[i] * fmove + pmove->right[i] * smove;
-		}
-		wishvel[2] += pmove->cmd.upmove;
-
-		VectorCopy(wishvel, wishdir);
-		wishspeed = VectorNormalize(wishdir);
-
-		//
-		// clamp to server defined max speed
-		//
-		if (wishspeed > pmove->movevars->spectatormaxspeed)
-		{
-			VectorScale(wishvel, pmove->movevars->spectatormaxspeed / wishspeed, wishvel);
-			wishspeed = pmove->movevars->spectatormaxspeed;
-		}
-
-		currentspeed = DotProduct(pmove->velocity, wishdir);
-		addspeed = wishspeed - currentspeed;
-		if (addspeed <= 0)
-			return;
-
-		accelspeed = pmove->movevars->accelerate * pmove->frametime * wishspeed;
-		if (accelspeed > addspeed)
-			accelspeed = addspeed;
-
-		for (i = 0; i < 3; i++)
-			pmove->velocity[i] += accelspeed * wishdir[i];
-
-		// move
-		VectorMA(pmove->origin, pmove->frametime, pmove->velocity, pmove->origin);
-	}
-	else
-	{
-		// all other modes just track some kind of target, so spectator PVS = target PVS
-
 		int target;
-
-		// no valid target ?
-		if (pmove->iuser2 <= 0)
-			return;
-
-		// Find the client this player's targeting
 		for (target = 0; target < pmove->numphysent; target++)
 		{
 			if (pmove->physents[target].info == pmove->iuser2)
@@ -1981,15 +1932,137 @@ void PM_SpectatorMove()
 		}
 
 		if (target == pmove->numphysent)
+		{
+#ifdef CLIENT_DLL
+			if (0 != pmove->runfuncs)
+			{
+				VectorCopy(vecNewViewOrigin, pmove->origin);
+				VectorCopy(vecNewViewAngles, pmove->angles);
+				VectorCopy(vec3_origin, pmove->velocity);
+				iHasNewViewAngles = 1;
+				iHasNewViewOrigin = 1;
+			}
+#endif
 			return;
+		}
 
-		// use targets position as own origin for PVS
-		VectorCopy(pmove->physents[target].angles, pmove->angles);
-		VectorCopy(pmove->physents[target].origin, pmove->origin);
+		const physent_t* pe = &pmove->physents[target];
+		Vector angles;
+		if (pmove->iuser1 == OBS_CHASE_LOCKED)
+		{
+			angles = Vector(10.0f - pe->angles[0], pe->angles[1], pe->angles[2]);
+#ifdef CLIENT_DLL
+			if (0 != pmove->runfuncs)
+				iIsSpectator |= 4;
+#endif
+		}
+		else if (pmove->iuser1 == OBS_IN_EYE)
+		{
+			angles = pe->angles;
+#ifdef CLIENT_DLL
+			if (0 != pmove->runfuncs)
+				iIsSpectator |= 0xe;
+#endif
+		}
+		else
+			angles = pmove->angles;
 
-		// no velocity
+		Vector origin;
+		if (pmove->iuser1 == OBS_IN_EYE)
+			origin = pe->origin;
+		else
+			GetChaseOrigin(angles, target, Vector(0, 0, 0), origin);
+
+		VectorCopy(origin, pmove->origin);
+		VectorCopy(angles, pmove->angles);
 		VectorCopy(vec3_origin, pmove->velocity);
+#ifdef CLIENT_DLL
+		if (0 != pmove->runfuncs)
+		{
+			VectorCopy(pmove->angles, vecNewViewAngles);
+			iHasNewViewAngles = 1;
+			VectorCopy(pmove->origin, vecNewViewOrigin);
+			iHasNewViewOrigin = 1;
+		}
+#endif
+		return;
 	}
+
+	// roaming, or no target: fly
+#ifdef CLIENT_DLL
+	// jump only in roaming mode
+	if (iJumpSpectator)
+	{
+		VectorCopy(vJumpOrigin, pmove->origin);
+		VectorCopy(vJumpAngles, pmove->angles);
+		VectorCopy(vec3_origin, pmove->velocity);
+		iJumpSpectator = false;
+		return;
+	}
+#endif
+	// Move around in normal spectator method
+
+	speed = Length(pmove->velocity);
+	if (speed < 1)
+	{
+		VectorCopy(vec3_origin, pmove->velocity)
+	}
+	else
+	{
+		drop = 0;
+
+		friction = pmove->movevars->friction * 1.5; // extra friction
+		control = speed < pmove->movevars->stopspeed ? pmove->movevars->stopspeed : speed;
+		drop += control * friction * pmove->frametime;
+
+		// scale the velocity
+		newspeed = speed - drop;
+		if (newspeed < 0)
+			newspeed = 0;
+		newspeed /= speed;
+
+		VectorScale(pmove->velocity, newspeed, pmove->velocity);
+	}
+
+	// accelerate
+	fmove = pmove->cmd.forwardmove;
+	smove = pmove->cmd.sidemove;
+
+	VectorNormalize(pmove->forward);
+	VectorNormalize(pmove->right);
+
+	for (i = 0; i < 3; i++)
+	{
+		wishvel[i] = pmove->forward[i] * fmove + pmove->right[i] * smove;
+	}
+	wishvel[2] += pmove->cmd.upmove;
+
+	VectorCopy(wishvel, wishdir);
+	wishspeed = VectorNormalize(wishdir);
+
+	//
+	// clamp to server defined max speed
+	//
+	if (wishspeed > pmove->movevars->spectatormaxspeed)
+	{
+		VectorScale(wishvel, pmove->movevars->spectatormaxspeed / wishspeed, wishvel);
+		wishspeed = pmove->movevars->spectatormaxspeed;
+	}
+
+	currentspeed = DotProduct(pmove->velocity, wishdir);
+	addspeed = wishspeed - currentspeed;
+	if (addspeed <= 0)
+		return;
+
+	accelspeed = pmove->movevars->accelerate * pmove->frametime * wishspeed;
+	if (accelspeed > addspeed)
+		accelspeed = addspeed;
+
+	for (i = 0; i < 3; i++)
+		pmove->velocity[i] += accelspeed * wishdir[i];
+
+	// move
+	VectorMA(pmove->origin, pmove->frametime, pmove->velocity, pmove->origin);
 }
 
 /*
@@ -3110,6 +3183,16 @@ void PM_PlayerMove(qboolean server)
 
 	// Convert view angles to vectors
 	AngleVectors(pmove->angles, &pmove->forward, &pmove->right, &pmove->up);
+
+#ifdef CLIENT_DLL
+	// client.dll 0x1002e3c6: a command's first run starts with no spectator view state.
+	if (0 != pmove->runfuncs)
+	{
+		iIsSpectator = 0;
+		iHasNewViewAngles = 0;
+		iHasNewViewOrigin = 0;
+	}
+#endif
 
 	// PM_ShowClipBox();
 

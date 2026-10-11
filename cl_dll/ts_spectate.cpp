@@ -39,6 +39,12 @@ void CHudSpectate::Reset()
 {
 	m_iState = 0;
 	m_iSeconds = 0;
+}
+
+// The Spectator table (client.dll 0x101900ec) is cleared only with the scoreboard's data (0x1005d5a0,
+// ScorePanel::Initialize), not on each HUD reset: a local respawn leaves the other players' marks.
+void TS_ClearSpectatorTable()
+{
 	memset(s_bPlayerSpectating, 0, sizeof(s_bPlayerSpectating));
 }
 
