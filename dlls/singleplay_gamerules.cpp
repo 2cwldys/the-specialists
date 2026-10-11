@@ -27,10 +27,10 @@
 
 //=========================================================
 //=========================================================
+// @0xce6fc: only RefreshSkillData. The original execs no spserver.cfg (the string is not in
+// ts_i386.so); game.cfg, which InstallGameRules execs first, is the only config.
 CHalfLifeRules::CHalfLifeRules()
 {
-	SERVER_COMMAND( "exec spserver.cfg\n" );
-
 	RefreshSkillData();
 }
 
