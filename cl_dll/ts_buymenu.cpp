@@ -27,7 +27,9 @@ static const int TS_BUDGET = 30000; // FUN_10036640 (CashBased off)
 static const int TS_SLOTCAP = 0x51; // FUN_10036660 = 81
 
 static const int s_attachCost[4] = {900, 800, 500, 1800};
-static const char* const s_attachName[4] = {"Silencer", "Lasersight", "Flashlight", "Scope"};
+// The detail column's attachment lines (0x10037cf3..0x10037d62): key, the titles.txt name, price.
+static const char* const s_attachLine[4] = {"%i #HUD_Silencer  %i", "%i #HUD_Lasersight  %i",
+	"%i #HUD_Flashlight  %i", "%i #HUD_Scope  %i"};
 
 #define TS_ACC_KEVLAR 0x10
 #define TS_ACC_STEALTH 0x20
@@ -132,7 +134,19 @@ static const int s_roster[TS_CATS][TS_ROWS] = {
 	{4, 11, 20, 26, 33, -1, -1, -1, -1, -1, -1, -1}, // 3 Shotguns
 	{24, 25, 32, 34, 35, -1, -1, -1, -1, -1, -1, -1}, // 4 Special Purpose
 };
-static const char* const s_catName[TS_CATS] = {"Handguns", "SMGs", "Rifles", "Shotguns", "Special Purpose"};
+// The category names, titles.txt tokens (FUN_10036200 copies them to obj+0x2e5c).
+static const char* const s_catName[TS_CATS] = {"#Buy_Handguns", "#Buy_SMGs", "#Buy_Rifles", "#Buy_Shotguns",
+	"#Buy_SpecialPurpose"};
+
+// A row's key character (0x10037a95): '1'..'9' for rows 0..8, then 'A' on.
+static char RowKey(int row) { return (char)(row < 9 ? row + '1' : row + '8'); }
+
+// The name the menus show for a weapon: the weapon table's (wi+0x44).
+static const char* TableName(int id)
+{
+	const s_weapon_info* wi = get_weapon_info((tsweapon_t)id);
+	return (wi && wi->pszName) ? wi->pszName : "";
+}
 
 #define TS_X_CONFIG 8
 #define TS_X_CATEGORY 0x88
@@ -493,6 +507,30 @@ void CHudTSBuyMenu::RemoveSlot(int i)
 		return;
 	}
 	m_slots[i] = Slot{};
+	CompactSlots();
+	Recount();
+	m_useNewConfig = true;
+}
+
+// The used slots close up in order, as client.dll's 0x10038e40 keeps them (no gaps).
+void CHudTSBuyMenu::CompactSlots()
+{
+	int n = 0;
+	for (int k = 0; k < MAX_SLOTS; k++)
+		if (m_slots[k].used)
+			m_slots[n++] = m_slots[k];
+	for (; n < MAX_SLOTS; n++)
+		m_slots[n] = Slot{};
+}
+
+// Remove Item (client.dll 0x10038e40, then the recount 0x100392b0): the whole slot goes, an akimbo pair
+// with it, and the used slots close up so they stay in order with no gaps.
+void CHudTSBuyMenu::RemoveItem(int i)
+{
+	if (i < 0 || i >= MAX_SLOTS || !m_slots[i].used)
+		return;
+	m_slots[i] = Slot{};
+	CompactSlots();
 	Recount();
 	m_useNewConfig = true;
 }
@@ -534,10 +572,10 @@ void CHudTSBuyMenu::Apply()
 	// still closes and the player gets a spawn with nothing bought; over the budget it says so and
 	// stays open; over the slot cap it stays open silently.
 	if (m_spent < 1)
-		gHUD.m_TSMessage.Add("Your config is empty!", 195, 45, 45, 20, 0);
+		gHUD.m_TSMessage.Add("#Buy_ConfigEmpty", 195, 45, 45, 20, 0);
 	if (TS_BUDGET < m_spent)
 	{
-		gHUD.m_TSMessage.Add("No cash left!", 195, 45, 45, 20, 0);
+		gHUD.m_TSMessage.Add("#Buy_NoCash", 195, 45, 45, 20, 0);
 		return;
 	}
 	if (TS_SLOTCAP < m_slotsUsed)
@@ -613,7 +651,7 @@ void CHudTSBuyMenu::Apply()
 
 	// the centred notice (FUN_10039400's "Using new/last config." via the TSMessage queue) + save
 	// this loadout as the "last config" (obj+0x14 -> obj+0x41c) so the next open reuses it.
-	gHUD.m_TSMessage.Add(m_useNewConfig ? "Using new config." : "Using last config.", 0, 0, 0, 20, 0);
+	gHUD.m_TSMessage.Add(m_useNewConfig ? "#Buy_UsingNewConfig" : "#Buy_UsingLastConfig", 0, 0, 0, 20, 0);
 	memcpy(m_lastConfig, m_slots, sizeof(m_lastConfig));
 	m_lastConfigValid = true;
 
@@ -622,6 +660,15 @@ void CHudTSBuyMenu::Apply()
 }
 
 //----------------------------------- input -----------------------------------
+
+// 0x10038b80: back to the config column, the category, weapon and attachments cleared.
+void CHudTSBuyMenu::BackToConfig()
+{
+	m_level = LVL_CONFIG;
+	m_cat = 0;
+	m_weapon = -1;
+	m_attachMask = 0;
+}
 
 void CHudTSBuyMenu::HandleSlot(int slot)
 {
@@ -642,7 +689,11 @@ void CHudTSBuyMenu::Dispatch(int level, int key)
 		if (key == 1) Apply();
 		else if (key == 2) m_level = LVL_CATEGORY;
 		else if (key == 3) m_level = LVL_REMOVE;
-		else if (key == 4) ResetConfig();
+		else if (key == 4)
+		{
+			ResetConfig();
+			gHUD.m_TSMessage.Add("#Buy_ConfigReset", 0, 0, 0, 20, 0);
+		}
 		else if (key == 5) m_level = LVL_SAVE;
 		else if (key == 6) m_level = LVL_LOAD;
 		else if (key == 7) BuyRandom();
@@ -704,39 +755,49 @@ void CHudTSBuyMenu::Dispatch(int level, int key)
 
 	case LVL_REMOVE:
 	{
-		if (key == 10) { Close(); break; }
-		int seen = 0;
-		for (int i = 0; i < MAX_SLOTS; i++)
-		{
-			if (!m_slots[i].used)
-				continue;
-			if (++seen == key)
-			{
-				RemoveSlot(i);
-				break;
-			}
-		}
+		// 0x10038a5d: the key is the slot's place among all sixteen (as the column numbers them); the
+		// notice names it ("%s Removed") before it goes. Go Back returns to the config column.
+		if (key == 10) { BackToConfig(); break; }
+		const int i = key - 1;
+		if (i < 0 || i >= MAX_SLOTS || !m_slots[i].used)
+			break;
+		const char* nm = m_slots[i].accessory
+			? ((m_slots[i].weaponId & TS_ACC_KEVLAR) ? "Kevlar" : "Stealth Shoes")
+			: TableName(m_slots[i].weaponId);
+		char msg[64];
+		snprintf(msg, sizeof(msg), CHudTextMessage::BufferedLocaliseTextString("#Buy_Removed"), nm);
+		gHUD.m_TSMessage.Add(msg, 0, 0, 0, 20, 0);
+		RemoveItem(i);
 		break;
 	}
 
 	case LVL_SAVE:
-		if (key == 10) { Close(); break; }
+		// 0x10038b2a: store, back to the config column, "Saved Config on slot #N".
+		if (key == 10) { BackToConfig(); break; }
 		if (key >= 1 && key <= SAVE_SLOTS)
 		{
 			memcpy(m_saved[key - 1], m_slots, sizeof(m_slots));
+			m_savedSpent[key - 1] = m_spent;
 			m_savedFull[key - 1] = (m_spent > 0);
-			m_level = LVL_CONFIG;
+			BackToConfig();
+			char msg[64];
+			snprintf(msg, sizeof(msg), CHudTextMessage::BufferedLocaliseTextString("#Buy_SavedConfig"), key);
+			gHUD.m_TSMessage.Add(msg, 0, 0, 0, 20, 0);
 		}
 		break;
 
 	case LVL_LOAD:
-		if (key == 10) { Close(); break; }
+		// 0x10038bab: only a slot that cost something; "Config #N Loaded".
+		if (key == 10) { BackToConfig(); break; }
 		if (key >= 1 && key <= SAVE_SLOTS && m_savedFull[key - 1])
 		{
 			memcpy(m_slots, m_saved[key - 1], sizeof(m_slots));
 			Recount();
+			char msg[64];
+			snprintf(msg, sizeof(msg), CHudTextMessage::BufferedLocaliseTextString("#Buy_ConfigLoaded"), key);
+			gHUD.m_TSMessage.Add(msg, 0, 0, 0, 20, 0);
 			m_useNewConfig = true;
-			m_level = LVL_CONFIG;
+			BackToConfig();
 		}
 		break;
 
@@ -788,10 +849,21 @@ void CHudTSBuyMenu::MouseToEntry(int mx, int my, int& level, int& key)
 	}
 	if (col == 1) // category column (or accessory/save/load share this geometry per level)
 	{
-		if (m_level == LVL_ACCESSORY || m_level == LVL_SAVE || m_level == LVL_LOAD || m_level == LVL_REMOVE)
+		// FUN_10038410 for the sub-columns that own column 1: Save and Load put their title on row 0, so a
+		// row is its own key (rows 1..9, row 10 Go Back); Remove numbers the used slots from row 0, the row
+		// after them Go Back.
+		if (m_level == LVL_SAVE || m_level == LVL_LOAD)
 		{
-			level = m_level;
-			key = row + 1; // the active sub-column owns column 1; keys are 1.. then 0 Go Back as last
+			if (row < 0xb) { level = m_level; key = row; }
+			return;
+		}
+		if (m_level == LVL_REMOVE)
+		{
+			int used = 0;
+			while (used < MAX_SLOTS && m_slots[used].used)
+				used++;
+			if (row < used) { level = LVL_REMOVE; key = row + 1; }
+			else if (row == used) { level = LVL_REMOVE; key = 10; }
 			return;
 		}
 		int cats = 0;
@@ -801,6 +873,19 @@ void CHudTSBuyMenu::MouseToEntry(int mx, int my, int& level, int& key)
 		if (row < cats) { level = LVL_CATEGORY; key = row + 1; }
 		else if (row == cats) { level = LVL_CATEGORY; key = 6; }      // Player Accessory
 		else if (row == cats + 1) { level = LVL_CATEGORY; key = 10; } // Go Back
+		return;
+	}
+	if (col == 2 && m_level == LVL_ACCESSORY) // the accessory column sits at the weapons x
+	{
+		// FUN_10038410: rows 0 and 1 are Kevlar and Stealth Shoes, a restricted Kevlar moving the row
+		// down one; the row after them is Go Back.
+		if (row >= 3)
+			return;
+		int r2 = row;
+		if (r2 < 2 && Restricted(r2 == 0 ? TS_ACC_KEVLAR : TS_ACC_STEALTH, true))
+			r2++;
+		level = LVL_ACCESSORY;
+		key = (r2 == 2) ? 10 : r2 + 1;
 		return;
 	}
 	if (col == 2 && (m_level == LVL_WEAPONS || m_level == LVL_DETAIL)) // weapons column
@@ -854,7 +939,8 @@ void CHudTSBuyMenu::SetCursor(Cursor& c, int x, int y, int rowH, int width)
 void CHudTSBuyMenu::DrawEntry(Cursor& c, const char* text, int r, int g, int b)
 {
 	FillRGBA(c.x, c.y, c.width - 1, c.rowH - 1, r, g, b, 0x32);
-	TSHud_DrawString(c.x, c.y, ScreenWidth, text, r, g, b);
+	// 0x1004ff10 localises the entry (titles.txt tokens, 0x100349a0) before it draws it
+	TSHud_DrawString(c.x, c.y, ScreenWidth, CHudTextMessage::BufferedLocaliseTextString(text), r, g, b);
 	c.y += c.rowH;
 }
 
@@ -867,14 +953,14 @@ void CHudTSBuyMenu::DrawHeader()
 
 	char buf[64];
 	int r, g, b;
-	sprintf(buf, "(Total: %d)", m_spent);
+	sprintf(buf, CHudTextMessage::BufferedLocaliseTextString("#Buy_Total"), m_spent);
 	if (m_spent > TS_BUDGET) { COL_RED; } else { r = dr; g = dg; b = db; }
 	TSHud_DrawString(8, 8, ScreenWidth, buf, r, g, b);
 
 	// "Free Slots" shows the REMAINING slots (cap - used), red when overspent — confirmed by the
 	// reference images (Glock slot 10 -> 81-10 = 71; FUN_10036af0).
 	int freeSlots = TS_SLOTCAP - m_slotsUsed;
-	sprintf(buf, "Free Slots : %d", freeSlots);
+	sprintf(buf, CHudTextMessage::BufferedLocaliseTextString("#Buy_FreeSlots"), freeSlots);
 	if (freeSlots < 0) { COL_RED; } else { r = dr; g = dg; b = db; }
 	TSHud_DrawString(0x108, 8, ScreenWidth, buf, r, g, b);
 
@@ -884,7 +970,7 @@ void CHudTSBuyMenu::DrawHeader()
 // FUN_10036af0's preview: the bought items drawn as icons in 5 columns (by HUD column 1..5), in the
 // ORDER they were queued (confirmed by the reference images — Kevlar interleaves with the col-1
 // melee items in add-order). Each item shows its count to the LEFT of the icon (Seal Knife 10 /
-// Combat Knife 5 = full-load counts) and its attachments below as "(Sil ,Las ,Fla ,Sco )".
+// Combat Knife 5 = full-load counts) and its attachments below as "(Sil,Las,Fla,Sco)" from titles.txt.
 // NOTE: for ammo weapons the original shows the auto-bought AMMO count here (e.g. Glock 210); the
 // per-caliber max that caps it resisted static RE (see reference/MENUS.md), so guns show no number
 // yet — the auto-ammo (and its share of Total/the tka command) is the one remaining slice.
@@ -892,7 +978,7 @@ void CHudTSBuyMenu::DrawLoadoutPreview()
 {
 	int hr, hg, hb;
 	TSHud_Color(hr, hg, hb);
-	static const char* const ab[4] = {"Sil ", "Las ", "Fla ", "Sco "};
+	static const char* const ab[4] = {"#Buy_Sil", "#Buy_Las", "#Buy_Fla", "#Buy_Sco"};
 
 	for (int col = 1; col <= 5; col++)
 	{
@@ -960,13 +1046,21 @@ void CHudTSBuyMenu::DrawLoadoutPreview()
 			{
 				TSHud_DrawString(iconX, y, ScreenWidth, w->name, hr, hg, hb);
 			}
-			// attachments under the icon, as "(Sil ,Las ,Fla ,Sco )".
+			// attachments under the icon (0x100368f0): "(" then each one's localised abbreviation with a
+			// "," between them, then ")"
 			if (s.attachMask)
 			{
-				char at[40] = "(";
+				char at[64] = "(";
+				bool any = false;
 				for (int bit = 0; bit < 4; bit++)
-					if (s.attachMask & (1 << bit))
-						strncat(at, ab[bit], sizeof(at) - strlen(at) - 1);
+				{
+					if ((s.attachMask & (1 << bit)) == 0)
+						continue;
+					if (any)
+						strncat(at, ",", sizeof(at) - strlen(at) - 1);
+					strncat(at, CHudTextMessage::BufferedLocaliseTextString(ab[bit]), sizeof(at) - strlen(at) - 1);
+					any = true;
+				}
 				strncat(at, ")", sizeof(at) - strlen(at) - 1);
 				TSHud_DrawString(x, y + 0x14, ScreenWidth, at, hr / 2, hg / 2, hb / 2);
 			}
@@ -985,25 +1079,25 @@ void CHudTSBuyMenu::DrawColumnConfig()
 	if (m_spent < 1)
 	{
 		COL_RED;
-		DrawEntry(c, "1 Empty Config", r, g, b);
+		DrawEntry(c, "1 #Buy_EmptyConfig", r, g, b);
 	}
 	else
 	{
-		const char* lbl = m_useNewConfig ? "1 Use New Config" : "1 Use Last Config";
+		const char* lbl = m_useNewConfig ? "1 #Buy_UseNewConfig" : "1 #Buy_UseLastConfig";
 		if (m_spent > TS_BUDGET) { COL_RED; } else { r = dr; g = dg; b = db; }
 		DrawEntry(c, lbl, r, g, b);
 	}
-	DrawEntry(c, "2 Buy", dr, dg, db);
-	DrawEntry(c, "3 Remove Item", dr, dg, db);
-	DrawEntry(c, "4 Reset Config", dr, dg, db);
-	DrawEntry(c, "5 Save Config", dr, dg, db);
-	DrawEntry(c, "6 Load Config", dr, dg, db);
+	DrawEntry(c, "2 #Buy_Buy", dr, dg, db);
+	DrawEntry(c, "3 #Buy_RemoveItem", dr, dg, db);
+	DrawEntry(c, "4 #Buy_ResetConfig", dr, dg, db);
+	DrawEntry(c, "5 #Buy_SaveConfig", dr, dg, db);
+	DrawEntry(c, "6 #Buy_LoadConfig", dr, dg, db);
 	COL_GREEN;
-	DrawEntry(c, "7 Random", r, g, b);
+	DrawEntry(c, "7 #Buy_Random", r, g, b);
 	if (m_level == LVL_CONFIG)
 	{
 		COL_BLUE;
-		DrawEntry(c, "0 Cancel", r, g, b);
+		DrawEntry(c, "0 #Buy_Cancel", r, g, b);
 	}
 }
 
@@ -1019,14 +1113,14 @@ void CHudTSBuyMenu::DrawColumnCategory()
 	{
 		if (s_roster[cat][0] == -1)
 			break;
-		sprintf(buf, "%d %s", cat + 1, s_catName[cat]);
+		sprintf(buf, "%c %s", RowKey(cat), s_catName[cat]); // 0x10037871
 		DrawEntry(c, buf, dr, dg, db);
 	}
-	DrawEntry(c, "6 Player Accessory", dr, dg, db);
+	DrawEntry(c, "6 #Buy_PlayerAccessory", dr, dg, db);
 	if (m_level == LVL_CATEGORY)
 	{
 		COL_BLUE;
-		DrawEntry(c, "0 Go Back", r, g, b);
+		DrawEntry(c, "0 #Buy_GoBack", r, g, b);
 	}
 	DrawColumnConfig();
 }
@@ -1038,29 +1132,29 @@ void CHudTSBuyMenu::DrawColumnWeapons()
 	ColDim(dr, dg, db);
 	SetCursor(c, TS_X_WEAPONS, ScreenMidY(), TS_ROWH, TS_COLW);
 
+	// 0x100379c7: rows 0..11 of the category, an empty or restricted one skipped (not drawn, its key
+	// unused), each labelled with its own row's key character.
 	char buf[48];
-	int shown = 0;
-	for (int row = 0; row < TS_ROWS && shown < 0xc; row++)
+	for (int row = 0; row < TS_ROWS; row++)
 	{
 		int id = s_roster[m_cat][row];
 		if (id < 0)
-			break;
+			continue;
 		if (Restricted(id))
 			continue;
 		const TSWeapon* w = WeaponInfo(id);
 		bool afford = w && (m_spent + WeaponCost(id, 0, false) <= TS_BUDGET) &&
 					  (m_slotsUsed + WeaponSlotCost(id, false) <= TS_SLOTCAP);
 		if (afford) { r = dr; g = dg; b = db; } else { COL_RED; }
-		sprintf(buf, "%d %s", shown + 1, w ? w->name : "?");
+		sprintf(buf, "%c %s", RowKey(row), TableName(id)); // 0x10037abf
 		DrawEntry(c, buf, r, g, b);
 		if (id == m_weapon)
 			DrawWeaponPreview(id);
-		shown++;
 	}
 	if (m_level == LVL_WEAPONS)
 	{
 		COL_BLUE;
-		DrawEntry(c, "0 Go Back", r, g, b);
+		DrawEntry(c, "0 #Buy_GoBack", r, g, b);
 	}
 	DrawColumnCategory();
 }
@@ -1076,12 +1170,12 @@ void CHudTSBuyMenu::DrawColumnDetail()
 	int baseCost = WeaponCost(m_weapon, m_attachMask, false);
 	bool afford = m_spent + baseCost <= TS_BUDGET;
 	if (afford) { COL_GREEN; } else { COL_RED; } // a confirm action — green like "7 Random"
-	DrawEntry(c, "1 Buy", r, g, b);
+	DrawEntry(c, "1 #Buy_Buy", r, g, b);
 
 	char buf[48];
 	// Attachments use FIXED keys 2..5 (silencer/laser/flashlight/scope = bits 1/2/4/8), matching the
 	// key handler (`bit = 1 << (key-2)`). AttachAvailable takes the bit VALUE (1<<bit), not the index —
-	// the s_attachName/s_attachCost arrays are indexed by `bit`. Only supported, not-yet-bought ones show
+	// the s_attachLine/s_attachCost arrays are indexed by `bit`. Only supported, not-yet-bought ones show
 	// (so the numbering can have gaps, e.g. the SOCOM has no Scope), but each attachment keeps its own key.
 	for (int bit = 0; bit < 4; bit++)
 	{
@@ -1089,25 +1183,25 @@ void CHudTSBuyMenu::DrawColumnDetail()
 			continue;
 		int cost = m_spent + baseCost + s_attachCost[bit];
 		if (cost <= TS_BUDGET) { r = dr; g = dg; b = db; } else { COL_RED; }
-		sprintf(buf, "%d %s  %d", bit + 2, s_attachName[bit], s_attachCost[bit]);
+		sprintf(buf, s_attachLine[bit], bit + 2, s_attachCost[bit]);
 		DrawEntry(c, buf, r, g, b);
 	}
 	if (w && w->akimbo >= 0)
 	{
 		bool ak = m_spent + WeaponCost(m_weapon, m_attachMask, true) <= TS_BUDGET;
 		if (ak) { COL_GREEN; } else { COL_RED; } // a confirm action — green like "7 Random"
-		DrawEntry(c, "6 Buy Akimbo", r, g, b);
+		DrawEntry(c, "6 #Buy_Akimbo", r, g, b);
 	}
 	else if (w && w->full)
 	{
 		bool fl = m_spent + WeaponCost(m_weapon, m_attachMask, true) <= TS_BUDGET;
 		if (fl) { COL_GREEN; } else { COL_RED; } // a confirm action — green like "7 Random"
-		DrawEntry(c, "6 Full Load", r, g, b);
+		DrawEntry(c, "6 #Buy_FullLoad", r, g, b);
 	}
 	if (m_level == LVL_DETAIL)
 	{
 		COL_BLUE;
-		DrawEntry(c, "0 Go Back", r, g, b);
+		DrawEntry(c, "0 #Buy_GoBack", r, g, b);
 	}
 	DrawColumnWeapons();
 }
@@ -1132,7 +1226,7 @@ void CHudTSBuyMenu::DrawColumnAccessory()
 		DrawEntry(c, "2 Stealth Shoes  700", r, g, b);
 	}
 	COL_BLUE;
-	DrawEntry(c, "0 Go Back", r, g, b);
+	DrawEntry(c, "0 #Buy_GoBack", r, g, b);
 	DrawColumnCategory();
 }
 
@@ -1143,18 +1237,20 @@ void CHudTSBuyMenu::DrawColumnSaveLoad(bool save)
 	int dr, dg, db, r, g, b;
 	ColDim(dr, dg, db);
 	SetCursor(c, TS_X_CATEGORY, ScreenMidY(), TS_ROWH, TS_COLW);
+	// FUN_10037260: the title, then "Slot #N (Available)" for a slot that cost something, else
+	// "Slot #N (Empty)", red when loading one that would pass the budget, else dim.
 	COL_GREEN;
-	DrawEntry(c, save ? "Save Equipment" : "Load Equipment", r, g, b);
+	DrawEntry(c, save ? "#Buy_SaveEquipment" : "#Buy_LoadEquipment", r, g, b);
 	char buf[48];
 	for (int i = 0; i < SAVE_SLOTS; i++)
 	{
-		bool full = m_savedFull[i];
-		sprintf(buf, "%d Slot #%d (%s)", i + 1, i + 1, full ? "Available" : "Empty");
-		if (!save && !full) { COL_RED; } else { r = dr; g = dg; b = db; }
+		sprintf(buf, CHudTextMessage::BufferedLocaliseTextString(
+			m_savedSpent[i] > 0 ? "#Buy_SlotAvailable" : "#Buy_SlotEmpty"), i + 1);
+		if (!save && TS_BUDGET < m_savedSpent[i]) { COL_RED; } else { r = dr; g = dg; b = db; }
 		DrawEntry(c, buf, r, g, b);
 	}
 	COL_BLUE;
-	DrawEntry(c, "0 Go Back", r, g, b);
+	DrawEntry(c, "0 #Buy_GoBack", r, g, b);
 	DrawColumnConfig();
 }
 
@@ -1165,24 +1261,22 @@ void CHudTSBuyMenu::DrawColumnRemove()
 	int dr, dg, db, r, g, b;
 	ColDim(dr, dg, db);
 	SetCursor(c, TS_X_CATEGORY, ScreenMidY(), TS_ROWH, TS_COLW);
+	// FUN_100373c0: each used slot under its place among all sixteen, "%i %s" with the weapon table's
+	// name, an accessory "%i " and Kevlar or Stealth Shoes.
 	char buf[48];
-	int key = 1;
-	for (const auto& s : m_slots)
+	for (int i = 0; i < MAX_SLOTS; i++)
 	{
+		const Slot& s = m_slots[i];
 		if (!s.used)
 			continue;
 		if (s.accessory)
-			sprintf(buf, "%d %s", key, s.weaponId == TS_ACC_KEVLAR ? "Kevlar" : "Stealth Shoes");
+			sprintf(buf, "%i %s", i + 1, (s.weaponId & TS_ACC_KEVLAR) ? "Kevlar" : "Stealth Shoes");
 		else
-		{
-			const TSWeapon* w = WeaponInfo(s.weaponId);
-			sprintf(buf, "%d %s", key, w ? w->name : "?");
-		}
+			sprintf(buf, "%i %s", i + 1, TableName(s.weaponId));
 		DrawEntry(c, buf, dr, dg, db);
-		key++;
 	}
 	COL_BLUE;
-	DrawEntry(c, "0 Go Back", r, g, b);
+	DrawEntry(c, "0 #Buy_GoBack", r, g, b);
 	DrawColumnConfig();
 }
 
@@ -1197,9 +1291,9 @@ void CHudTSBuyMenu::DrawWeaponPreview(int id)
 	FillRGBA(0x108, y, 0xff, 0x2f, r, g, b, 0x19);
 
 	char buf[32];
-	sprintf(buf, "%d Credits", LivePrice(w));
+	sprintf(buf, CHudTextMessage::BufferedLocaliseTextString("#Buy_Credits"), LivePrice(w));
 	TSHud_DrawString(0x108 + 0x80, y, ScreenWidth, buf, r / 2, g / 2, b / 2);
-	sprintf(buf, "%d Slots", w->slot);
+	sprintf(buf, CHudTextMessage::BufferedLocaliseTextString("#Buy_Slots"), w->slot);
 	TSHud_DrawString(0x108 + 0x80, y + 0x14, ScreenWidth, buf, r / 2, g / 2, b / 2);
 }
 
@@ -1210,11 +1304,11 @@ void CHudTSBuyMenu::DrawColumnChangeTeam()
 	ColDim(dr, dg, db);
 	SetCursor(c, TS_X_CONFIG, ScreenMidY(), TS_ROWH, TS_COLW);
 	COL_GREEN;
-	DrawEntry(c, "Change Team:", r, g, b);
-	DrawEntry(c, "1 Join Specialists", dr, dg, db);
-	DrawEntry(c, "2 Join Mercenaries", dr, dg, db);
+	DrawEntry(c, "#Chg_ChangeTeam", r, g, b); // 0x1003684c..0x100368df, titles.txt tokens
+	DrawEntry(c, "1 #Chg_Join Specialists", dr, dg, db);
+	DrawEntry(c, "2 #Chg_Join Mercenaries", dr, dg, db);
 	COL_BLUE;
-	DrawEntry(c, "0 Cancel", r, g, b);
+	DrawEntry(c, "0 #Chg_Cancel", r, g, b);
 }
 
 // FUN_10036750 — orchestrator: header/preview + the active cascade (builders draw their parents).

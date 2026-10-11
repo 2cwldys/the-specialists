@@ -73,6 +73,7 @@ private:
 	int m_ammoUnits[16] = {};  // obj+0x18 : units bought per caliber (emitted as `tka cal_units`)
 	Slot m_saved[SAVE_SLOTS][MAX_SLOTS]; // obj+0x41c.. : the 9 save/load config slots
 	bool m_savedFull[SAVE_SLOTS] = {};
+	int m_savedSpent[SAVE_SLOTS] = {};   // each saved config's Total (client.dll's +0x400 of each 0x408 block)
 	Slot m_lastConfig[MAX_SLOTS] = {};   // obj+0x41c slot 0 : the auto "last config" (open loads it; apply saves it)
 	bool m_lastConfigValid = false;
 	bool m_firstOpen = true;             // obj+0x2f10 : first open per map -> randomize ("Use New Config")
@@ -92,10 +93,13 @@ private:
 	int  WeaponSlotCost(int id, bool akimboOrFull) const;
 	bool QueueWeapon(int id, int attachMask, bool akimboOrFull, bool accessory);
 	void RemoveSlot(int i);
+	void RemoveItem(int i);
+	void CompactSlots();
 	void ResetConfig();
 	void BuyRandom();
 	void Apply();
 	void Recount();
+	void BackToConfig();
 
 	// the unified input handler (FUN_10038840) — dispatch `key` at `level`. Keyboard passes the
 	// current level; the mouse passes the clicked column's level.
