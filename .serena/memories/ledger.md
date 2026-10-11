@@ -7581,3 +7581,18 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
   (The One), (LMS). Steven's choice (option D of four), so server browsers mark a reTS server; the name still
   starts with the original string. Clients and the master servers go by the gamedir, so the swap is unaffected.
   tsx_one.test.sma's reTS copy expects the tagged strings; the ts30 copy keeps the original ones.
+
+## 2026-10-10: Ghidra varargs and engine-table types for client.dll/mp.dll, and the ports it exposed
+- scripts/ghidra/ApplyWinTypes.java (run by `dc.sh setup client|mp`, and on a missing project): variadic
+  signatures from the callers (format literal + va_start), the 2007 CRT named (sprintf, _snprintf, sscanf,
+  vsprintf, _vsnprintf, _output), mp.dll's UTIL_VarArgs/UTIL_LogPrintf/VoiceServerDebug, __chkstk with the
+  alloca_probe fixup, gEngfuncs/IEngineStudio/pmove and g_engfuncs/gpGlobals/gFunctionTable/pmove typed from the
+  SDK headers, and a call-site prototype for every literal-format variadic call. 0x10001000 now reads
+  sprintf(buf, "{shot%i", RandomLong(0, 4) + 1). ScanVarargs.java + varargs-ports.py list the ports to check.
+- Mismatches found and fixed: TS's UpdateSpectatorPanel (0x10063870) mode line "#Spec_Mode%d : %s" with the
+  target's name, "#Spec_Only_Help" for HLTV, no "#Spec_Auto"; the missing-sprite line "WARNING! cannot found
+  %s\n" (0x10050a53); RespawnFlag (@0x9de58) unsigned team test (a neutral flag goes home silently), no full
+  stop and no "The", held 30; the return line announces 5 (@0x9e49e), held 30; TSGetPointsForFrag's feed line
+  doubles the shown points for a streak over 8 and a kill within 2 s (0x7956e). Puppet-tested on reTS and
+  TS 3.0 (tsx-ts3 ts_flag_return, ts_kills).
+- Found, not changed: the server project (re.sh) still drops varargs (ApplyTypes skips "...", engine_fn).
