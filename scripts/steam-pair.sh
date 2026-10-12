@@ -13,8 +13,9 @@
 #
 # Remove the worktree when done: git worktree remove --force build-steam-pair/wt
 set -euo pipefail
-C=${1:?usage: steam-pair.sh <commit>}
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Resolve the commit in this checkout: inside the worktree HEAD would be the last pair built.
+C=$(git -C "$ROOT" rev-parse --verify "${1:?usage: steam-pair.sh <commit>}^{commit}")
 T="${STEAM_TS:-$HOME/.steam/steam/steamapps/common/Half-Life/ts}"
 WT="$ROOT/build-steam-pair/wt"
 [ -d "$T/dlls" ] && [ -d "$T/cl_dlls" ] || { echo "no dlls/ and cl_dlls/ in $T" >&2; exit 1; }
