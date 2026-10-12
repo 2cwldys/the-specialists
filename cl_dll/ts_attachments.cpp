@@ -497,6 +497,12 @@ void TS_Shadows_Draw()
 		const bool isLocal = (local != nullptr && local->index == i);
 		if (isLocal && !drawLocal)
 			continue;
+		// client.dll's loop (0x10055760) draws a player's blob only when HUD_AddEntity let that player
+		// through this frame (FUN_100579a0, the 0x1018bd44 flags), so a player who has left, whose
+		// cl_entity keeps its last model and origin, gets none. The local player's first-person blob is
+		// the original's separate block before the loop, which this loop stands in for.
+		if (!isLocal && !TS_AttachPlayerWasAdded(i))
+			continue;
 
 		Vector origin(p->origin[0], p->origin[1], p->origin[2]);
 		Vector end(origin.x, origin.y, origin.z - 8192.0f);
