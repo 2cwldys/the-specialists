@@ -147,7 +147,7 @@ BUILDTYPE=Debug scripts/build.sh i386   # -O0 + DWARF; use for vtable/layout com
 ```
 
 **Win32 (`hl.dll`, installed as `dlls/mp.dll`, and `client.dll`)**: CI builds them with MSVC on
-`windows-latest`, but Actions is off on this private repo. Locally, `scripts/build-win.sh` cross-builds
+`windows-latest` (Actions is on for this repo since 2026-10-10). Locally, `scripts/build-win.sh` cross-builds
 them with clang-cl + lld-link (MSVC ABI, so Valve's win32 `vgui.lib` links) against an xwin splat of the
 x86 MSVC CRT and Windows SDK (`~/.cache/xwin/splat-x86`; the script prints the xwin command if it is
 missing). Output: `build-win32-clangcl/`. lld-link rejects `hl.def`'s `SECTIONS` block, so that build
@@ -209,8 +209,8 @@ at that commit in its own worktree and installs them into the Steam `ts/` as a m
 `hl_linux` only; set aside the files you want back first). Bisecting a real-client regression with it
 takes one restart per step.
 
-gdb both `hl.so` (server) and `client.so` (client) the same way — see §4. The full pickup
-state + the current reconstruction roadmap live in `HANDOFF.md`.
+gdb both `hl.so` (server) and `client.so` (client) the same way — see §4. The current state and next
+steps are in `~/Projects/amxxbench/HANDOFF.md` (§7).
 
 ---
 
@@ -603,6 +603,7 @@ Keep the ledger factual: what was reconstructed, how it was verified, what's nex
 ## 7. Picking this up
 
 `CLAUDE.md` is **tracked in this repo** (it was force-added past the user's global
-`~/.gitignore`, which matches it), so edits here are commits. The running pickup doc is
-**`HANDOFF.md`** (repo root) — read it first. Current progress lives in the
-Serena ledger (`.serena/memories/ledger.md`) and `reference/RECONSTRUCTION.md`.
+`~/.gitignore`, which matches it), so edits here are commits. The current pickup doc for reTS is
+**`~/Projects/amxxbench/HANDOFF.md`** (repo state, releases, the live server, next steps); this repo's own
+`HANDOFF.md` is the record of the reconstruction sessions up to July 2026, for history. Progress per change
+lives in the Serena ledger (`.serena/memories/ledger.md`) and `reference/RECONSTRUCTION.md`.
