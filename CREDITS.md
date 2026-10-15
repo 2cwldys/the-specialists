@@ -123,7 +123,8 @@ IENG/IART/ICOP chunks). These name a source, not necessarily a TS contributor:
 
 ## reTS
 
-- Steven Linn: reconstruction.
+- Steven "StevenlAFl" Linn: reconstruction. Also a TS beta tester, though the archived team page does not
+  list him.
 - Built on Half-Life Updated (twhl-community/halflife-updated, Sam Vanheer and contributors) and the
   Half-Life SDK by Valve. Half-Life is a trademark of Valve Corporation.
 
