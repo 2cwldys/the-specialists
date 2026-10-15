@@ -46,6 +46,20 @@ for e in "$TS_CONTENT"/*; do
   [ "$(basename "$e")" = dlls ] || ln -s "$e" "$GAME/$(basename "$e")"
 done
 cp "$DLL" "$GAME/dlls/mp.dll"
+# STANDIN_MODELS="name ...": player models a server's plugin expects but this rig does not have. Each gets
+# models/player/<name>/<name>.mdl as a link to STANDIN_FROM's model (default seal), so the plugin takes
+# its "model is installed" path; only the look differs. ts/models becomes a real folder of links so
+# nothing is written into TS_CONTENT.
+if [ -n "${STANDIN_MODELS:-}" ]; then
+  rm "$GAME/models"; mkdir -p "$GAME/models/player"
+  for e in "$TS_CONTENT/models"/*; do [ "$(basename "$e")" = player ] || ln -s "$e" "$GAME/models/$(basename "$e")"; done
+  for e in "$TS_CONTENT/models/player"/*; do ln -s "$e" "$GAME/models/player/$(basename "$e")"; done
+  from="$TS_CONTENT/models/player/${STANDIN_FROM:-seal}/${STANDIN_FROM:-seal}.mdl"
+  for n in $STANDIN_MODELS; do
+    [ -e "$GAME/models/player/$n" ] && continue
+    mkdir -p "$GAME/models/player/$n" && ln -s "$from" "$GAME/models/player/$n/$n.mdl"
+  done
+fi
 # GAMECFG: lines for game.cfg, which the game runs before it picks its rules (e.g. "mp_teamplay 1").
 if [ -n "${GAMECFG:-}" ]; then rm -f "$GAME/game.cfg"; printf '%s\n' "$GAMECFG" > "$GAME/game.cfg"; fi
 
@@ -53,8 +67,8 @@ if [ -n "${GAMECFG:-}" ]; then rm -f "$GAME/game.cfg"; printf '%s\n' "$GAMECFG" 
 # tsfun), running scripts/winrig/rets_probe.sma, which drives TSX's setters on a fake client every second.
 # The releases are fetched once into $HLDS_WIN/addons-src.
 #
-# ADDONS=<suite zip> (scripts/winrig/package-win-suite.sh): unpack the suite over ts/ (its mp.dll replaces
-# the one given), wire liblist.gam to its Metamod-R and add PROBE, compiled with the suite's own compiler,
+# ADDONS=<suite zip> (scripts/winrig/package-win-suite.sh): unpack the suite over ts/ (the mp.dll given
+# is put back over the suite's), wire liblist.gam to its Metamod-R and add PROBE, compiled with the suite's own compiler,
 # to the shipped plugins.ini.
 #
 # UPGRADE=1 with ADDONS=<suite zip>: install stock Metamod 1.21.1-am and AMX Mod X 1.8.2 first, with their
@@ -67,6 +81,7 @@ if [ "${ADDONS:-0}" != 0 ] && [ "${ADDONS:-0}" != 1 ]; then
         && unzip -qo "$SRC/zips/amxmodx-1.8.2-ts-windows.zip" && unzip -qo "$SRC/zips/metamod-1.21.1-am.zip" )
   fi
   unzip -qo "$(realpath "$ADDONS")" 'ts/*' -d "$(dirname "$GAME")"
+  cp "$DLL" "$GAME/dlls/mp.dll"
   rm "$GAME/liblist.gam"
   sed 's|^gamedll .*|gamedll "addons\\metamod\\dlls\\metamod.dll"|' "$TS_CONTENT/liblist.gam" > "$GAME/liblist.gam"
   printf 'win32 addons\\amxmodx\\dlls\\amxmodx_mm.dll\n' > "$GAME/addons/metamod/plugins.ini"
