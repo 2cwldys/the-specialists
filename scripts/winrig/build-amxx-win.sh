@@ -17,7 +17,7 @@
 #   DEBUGINFO=1 also writes .pdb files. The code is the same (/Z7 adds no code, and /OPT:REF,ICF keep the
 #            linker doing what it does without /DEBUG), so a crash offset in a shipped DLL maps onto it.
 #
-# Output: <out dir>/amxmodx_mm.dll and tsx_amxx.dll (default build-amxx-win/ in this repo).
+# Output: <out dir>/amxmodx_mm.dll, fakemeta_amxx.dll and tsx_amxx.dll (default build-amxx-win/ in this repo).
 set -euo pipefail
 MODTS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 AMXX="$(realpath "${1:?usage: build-amxx-win.sh <amxmodx checkout> [out dir]}")"
@@ -94,10 +94,18 @@ cc core /DJIT /DASM32 /DAMXX_USE_VERSIONLIB /I"$A" "${HL[@]}" -- "${srcs[@]}" \
 link "$OUT/amxmodx_mm.dll" "$OUT/obj/core"/*.obj "$OUT/obj/core"/*-asm.o \
   "$OUT/zlib.lib" "$OUT/hashing.lib" "$OUT/utf8rewind.lib" "$OUT/versionlib.lib"
 
+# fakemeta: the fork's 64-bit port changed how it passes native pointers (handle tables), and fixes to
+# that (a73c83fa, info buffers) reach a Windows server sooner built here than through a drop-in release
+F="$AMXX/modules/fakemeta"
+cc fakemeta /I"$F" /I"$F/sdk" "${HL[@]}" -- "$AMXX/public/sdk/amxxmodule.cpp" \
+  "$AMXX/public/memtools/MemoryUtils.cpp" "$AMXX/public/resdk/mod_regamedll_api.cpp" \
+  "$F"/{dllfunc,engfunc,fakemeta_amxx,pdata,pdata_entities,pdata_gamerules,forward,fm_tr,pev,glb,fm_tr2,misc}.cpp
+link "$OUT/fakemeta_amxx.dll" "$OUT/obj/fakemeta"/*.obj
+
 # reTSX
 T="$AMXX/modules/ts/tsx"
 cc tsx /I"$T" /I"$T/sdk" "${HL[@]}" -- "$AMXX/public/sdk/amxxmodule.cpp" \
   "$T"/{CMisc,CRank,NBase,NRank,Utils,moduleconfig,usermsg}.cpp
 link "$OUT/tsx_amxx.dll" "$OUT/obj/tsx"/*.obj
 
-echo ">>> $OUT/amxmodx_mm.dll, tsx_amxx.dll ($(git -C "$AMXX" rev-parse --short HEAD))"
+echo ">>> $OUT/amxmodx_mm.dll, fakemeta_amxx.dll, tsx_amxx.dll ($(git -C "$AMXX" rev-parse --short HEAD))"

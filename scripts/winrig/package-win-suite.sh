@@ -58,6 +58,7 @@ rm -rf "$T/addons/amxmodx/logs" "$T/addons/amxmodx/scripting/testsuite"
 "$MODTS/scripts/winrig/build-amxx-win.sh" "$AMXX" "$WORK/amxx" > /dev/null
 cp "$WORK/amxx/amxmodx_mm.dll" "$T/addons/amxmodx/dlls/amxmodx_mm.dll"
 cp "$WORK/amxx/tsx_amxx.dll" "$T/addons/amxmodx/modules/tsx_amxx.dll"
+cp "$WORK/amxx/fakemeta_amxx.dll" "$T/addons/amxmodx/modules/fakemeta_amxx.dll"
 cp -r "$AMXX/gamedata/." "$T/addons/amxmodx/data/gamedata/"
 grep -q '"windows"' "$T/addons/amxmodx/data/gamedata/common.games/virtual.games/ts/offsets-rets.txt" \
   || { echo "offsets-rets.txt has no windows slots" >&2; exit 2; }
