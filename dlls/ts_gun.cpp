@@ -699,18 +699,16 @@ void CTSGun::SelectWeapon(int type)
 }
 
 // @ GetBetterWeapon__6CTSGun (@0x80f40) — after a drop, auto-select the highest-priority
-// OWNED weapon (g_iWeaponPriority order), skipping `exclude` (the just-dropped type). Kung-fu
-// (priority-last, always owned) is the fallback. Holster->deploy via SelectWeapon.
+// OWNED weapon (g_iWeaponPriority order), skipping `exclude` (the just-dropped type). Holster->deploy
+// via SelectWeapon. When nothing qualifies the walk ends on the list's last entry, kung-fu, which is
+// selected whether or not it is owned. A bought loadout leaves the kung-fu item unowned, so this is
+// what puts the hands up when the last gun is dropped.
 void CTSGun::GetBetterWeapon(int exclude)
 {
-	for (int i = 0; i < TSW_COUNT; i++)
-	{
-		int t = g_iWeaponPriority[i];
-		if (t == exclude || !IsOwned(t))
-			continue;
-		SelectWeapon(t);
-		return;
-	}
+	int t = g_iWeaponPriority[0];
+	for (int i = 1; (!IsOwned(t) || t == exclude) && i < TSW_COUNT; i++)
+		t = g_iWeaponPriority[i];
+	SelectWeapon(t);
 }
 
 // @ Precache__6CTSGun — faithful precaches 11 event scripts. Models for the whole
