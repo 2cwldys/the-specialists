@@ -1,4 +1,4 @@
-# reTS
+# The Specialists 3.0 (RE)
 
 reTS is a fan-made reconstruction of The Specialists 3.0, the Half-Life action mod, as C++ source on the
 Half-Life SDK. It rebuilds both game libraries, the server and the client, from TS 3.0's shipped binaries,
