@@ -43,12 +43,11 @@ TS 3.0's own `CHANGELOG.txt` (which logs 2.0.3 beta to 2.1.21 beta), 2.0.9 beta,
 Not enough time to make it look good." The original's `TS_spas15.cpp` holds
 only `Write_contender`: the Contender G2 took the slot. No SPAS 15 model, sound or string ships.
 
-## Found along the way: a TMP model on the silenced Skorpion
+## Found along the way: a TMP model on the silenced Skorpion (fixed)
 
-reTS's silenced third-person model table (`dlls/ts_weapon_info.cpp`, `kSil`) maps slot 17 to
-`models/p_tmp_sil.mdl`, and its comment says every entry is a literal in the original's `Write_`
-functions. That one is not: the original has sixteen `p_*_sil.mdl` strings and no `p_tmp_sil`, and
-`Write_skorpion` (0x8d3f0) references only the Skorpion's v/p/w models, its sprite, `22_shell.mdl` and the
-two TMP sounds. A silenced Skorpion in reTS shows the TMP's silenced model to other players; TS 3.0 does
-not. Not yet fixed: the fix is dropping the row, after checking what Deploy shows in the original when
-the silenced model is unset.
+reTS's silenced third-person model table (`dlls/ts_weapon_info.cpp`, `kSil`) mapped slot 17 to
+`models/p_tmp_sil.mdl`, added in 84d4cbd2. The original has sixteen `p_*_sil.mdl` strings and no
+`p_tmp_sil`; `Write_skorpion` (0x8d3f0) never writes the silenced model field (+0x1b2), which stays empty
+in the zeroed table, and dossier-attachments §1 already listed the Skorpion among the weapons without one.
+The Skorpion takes no attachments, so Deploy never chose that model; the visible difference was only
+that reTS precached `p_tmp_sil.mdl` and TS 3.0 does not. The row is removed.

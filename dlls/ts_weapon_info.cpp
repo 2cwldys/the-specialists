@@ -470,8 +470,9 @@ void compile_weapons_info()
   }
 
   // The SILENCED p_ model column (wi+0x1b2, dossier-attachments §1): chosen by Deploy iff
-  // attach&1; mp5sd/ruger duplicate their normal p_ (integral silencer); skorpion uses the
-  // tmp asset name; mac10/ump shares p_ump_sil. All literals in the original's Write_ fns.
+  // attach&1; mp5sd/ruger duplicate their normal p_ (integral silencer); mac10/ump shares
+  // p_ump_sil. All literals in the original's Write_ fns; every other weapon, the skorpion
+  // included, leaves +0x1b2 empty (Write_skorpion @0x8d3f0 never writes it).
   {
     struct SilRow { int idx; const char *mdl; };
     static const SilRow kSil[] = {
@@ -481,7 +482,7 @@ void compile_weapons_info()
       { 8, "models/p_berettas_sil.mdl" },{ 9, "models/p_mk23_sil.mdl" },
       {10, "models/p_mk23_akimbo_sil.mdl" }, {12, "models/p_desert_sil.mdl" },
       {14, "models/p_fnh_sil.mdl" },     {15, "models/p_aug_sil.mdl" },
-      {16, "models/p_uzi_akimbo_sil.mdl" }, {17, "models/p_tmp_sil.mdl" },
+      {16, "models/p_uzi_akimbo_sil.mdl" },
       {19, "models/p_pdw_sil.mdl" }, // cont.91: was missing -> silenced PDW showed the bare barrel
       {22, "models/p_glock22_sil.mdl" }, {23, "models/p_ump_sil.mdl" },
       {28, "models/p_ruger.mdl" },       {30, "models/p_fnh_akimbo_sil.mdl" },

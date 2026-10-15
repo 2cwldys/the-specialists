@@ -7645,3 +7645,9 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
   their own team's set (the first version left any model alone; Steven ruled that out). Recorded in reference/DEVIATIONS.md (new; lists ReTS_GetInterface too).
 - Proof: amd64, i386, win32 build; ReHLDS rig registers it as "1" and takes "0". The model behaviour itself
   is not playtested.
+
+## 2026-10-15: the skorpion has no silenced p_ model, as TS 3.0
+- 84d4cbd2 had given slot 17 `models/p_tmp_sil.mdl`; Write_skorpion (0x8d3f0) never writes +0x1b2 and the
+  original has no such string (dossier-attachments §1 agreed). Effect was an extra precache only (the
+  skorpion takes no attachments). Row removed. Proof: amd64 hl.so and client.so build, neither holds the
+  string. Cut-content survey (armor powerup, TMP, SPAS 15) in reference/CUT_CONTENT.md.
