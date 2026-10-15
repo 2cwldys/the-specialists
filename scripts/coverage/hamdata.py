@@ -16,8 +16,17 @@ carries the halflife-updated extra virtuals, so its slots differ. This tool:
 Every given hl.so must yield the same slots (Itanium slot numbering does not depend on the arch);
 the tool fails otherwise, and fails if a stock key has no reTS counterpart.
 
+Windows: --msvc takes clang-cl's dump of the MSVC vtable layouts (-Xclang -fdump-vtable-layouts) for a
+reTS source that defines all five classes, and adds a "windows" slot to each key. The MSVC layout is not
+the Itanium one less a slot: a virtual destructor takes one slot, not two, and overloads of one name
+are grouped and reversed (FVisible). clang-cl lays vtables out as MSVC does; that is its ABI contract.
+
   python3 scripts/coverage/hamdata.py --so i386=build-i386/dlls/hl.so --so amd64=build-amd64/dlls/hl.so \\
-      [--stock <amxmodx>/gamedata/common.games/virtual.games/ts/offsets-common.txt] [-o out.txt]
+      [--msvc vtables.txt] [--stock <amxmodx>/gamedata/common.games/virtual.games/ts/offsets-common.txt] \\
+      [-o out.txt]
+
+Making the --msvc dump: take dlls/player.cpp's command from the Win32 build (ninja -C build-win32-clangcl
+-t commands) and run it with "-Xclang -fdump-vtable-layouts" right after clang-cl; it prints to stdout.
 """
 import argparse, json, os, re, struct, subprocess, sys
 
@@ -131,6 +140,31 @@ def rets_vtables(path, classes):
     return out
 
 
+def msvc_vtables(path, classes):
+    """{class: [(name, args), ...]} slot order, from clang-cl's MSVC layout dump: the full vftable listed
+    for the class (entry 0 is RTTI when the dump has it)."""
+    text = open(path).read()
+    out = {}
+    for c in classes:
+        m = re.search(r"^VFTable for (?:'CBaseEntity'(?: in '\w+')* in )?'%s' \(\d+ entries\)\.\n((?:\s+\d+ \|.*\n)+)" % c,
+                      text, re.M)
+        if not m:
+            sys.exit(f"{path}: no MSVC vftable for {c}")
+        slots = []
+        for line in m.group(1).splitlines():
+            e = line.split("|", 1)[1].strip()
+            if e.endswith(" RTTI"):
+                continue
+            if "[pure]" in e:
+                slots.append([("<pure>", "")])
+                continue
+            d = re.sub(r"\s*\[scalar deleting\]", "", e)
+            mm = re.match(r"^(?:.*?\s\*?)?\w+::(~?\w+)\((.*)\)( const)?$", d)
+            slots.append([(mm.group(1), norm(mm.group(2)))] if mm else [(d, "")])
+        out[c] = slots
+    return out
+
+
 def norm(args):
     a = re.sub(r"\b(struct|class|const)\b", "", args)
     a = a.replace("entvars_t", "entvars_s").replace("edict_t", "edict_s").replace("KeyValueData", "KeyValueData_s")
@@ -162,6 +196,7 @@ NAME_DIFFS = {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--so", action="append", required=True, help="arch=path to a reTS hl.so")
+    ap.add_argument("--msvc", help="clang-cl -fdump-vtable-layouts output: adds the windows slots")
     ap.add_argument("--stock", default=STOCK, help="stock TS virtual.games offsets-common.txt")
     ap.add_argument("-o", "--out", help="write the gamedata file here (default: stdout)")
     a = ap.parse_args()
@@ -171,6 +206,7 @@ def main():
     classes = ["CBaseEntity", "CBaseMonster", "CBasePlayer", "CBasePlayerItem", "CBasePlayerWeapon"]
     sos = dict(x.split("=", 1) for x in a.so)
     tables = {arch: rets_vtables(p, classes) for arch, p in sos.items()}
+    mtab = msvc_vtables(a.msvc, classes) if a.msvc else None
 
     rows, errors = [], []
     for key, win, lin in keys:
@@ -207,21 +243,32 @@ def main():
         if len(set(found.values())) > 1:
             errors.append(f"{key}: slot differs by arch {found}")
             continue
+        wslot = None
+        if mtab is not None:
+            c = [i for i, s in enumerate(mtab[cls]) if any(n == name for n, _ in s)]
+            if len(c) > 1:
+                c = [i for i in c if (name, args) in mtab[cls][i]]
+            if len(c) != 1:
+                errors.append(f"{key}: {sig} -> {len(c)} matches in reTS {cls} (msvc)")
+                continue
+            wslot = c[0]
         if found:
-            rows.append((key, cls, sig, slot, next(iter(found.values()))))
+            rows.append((key, cls, sig, slot, next(iter(found.values())), wslot))
 
     if errors:
         sys.exit("\n".join(errors))
 
     out = [HEADER]
-    for key, cls, sig, oslot, rslot in rows:
-        out.append('            "%s"  // %s, stock linux %d\n            {\n                "linux"  "%d"\n            }\n\n' % (key, sig, oslot, rslot))
+    for key, cls, sig, oslot, rslot, wslot in rows:
+        w = '                "windows"  "%d"\n' % wslot if wslot is not None else ""
+        out.append('            "%s"  // %s, stock linux %d\n            {\n%s                "linux"  "%d"\n            }\n\n' % (key, sig, oslot, w, rslot))
     text = "".join(out).rstrip("\n") + "\n" + FOOTER
     if a.out:
         open(a.out, "w").write(text)
     else:
         sys.stdout.write(text)
-    print(f"{len(rows)} keys, slots identical on {', '.join(sorted(sos))}", file=sys.stderr)
+    print(f"{len(rows)} keys, slots identical on {', '.join(sorted(sos))}"
+          + (", windows from the MSVC layout" if mtab is not None else ""), file=sys.stderr)
 
 
 HEADER = '''/**
@@ -238,7 +285,8 @@ HEADER = '''/**
 /**
  * reTS, the source rebuild of The Specialists 3.0. It shares the "ts" game directory with the original,
  * so this file is selected by the export only reTS's game library has. Generated by reTS's
- * scripts/coverage/hamdata.py from the reTS vtables; same slots on i386, amd64 and aarch64.
+ * scripts/coverage/hamdata.py from the reTS vtables; same slots on i386, amd64 and aarch64. The windows
+ * slots are reTS's MSVC layout (clang-cl's dump; MSVC lays the vtables out the same way).
  */
 
 "Games"
@@ -260,11 +308,13 @@ HEADER = '''/**
         {
             "pev"  // 8 on 64-bit; Ham only prints it
             {
+                "windows"  "4"
                 "linux"  "4"
             }
 
             "base"
             {
+                "windows"  "0x0"
                 "linux"  "0x0"
             }
 

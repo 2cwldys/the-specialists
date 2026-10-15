@@ -42,11 +42,31 @@ for e in "$TS_CONTENT"/*; do
   [ "$(basename "$e")" = dlls ] || ln -s "$e" "$GAME/$(basename "$e")"
 done
 cp "$DLL" "$GAME/dlls/mp.dll"
+# GAMECFG: lines for game.cfg, which the game runs before it picks its rules (e.g. "mp_teamplay 1").
+if [ -n "${GAMECFG:-}" ]; then rm -f "$GAME/game.cfg"; printf '%s\n' "$GAMECFG" > "$GAME/game.cfg"; fi
 
 # ADDONS=1: load the library through Metamod 1.21.1-am and stock AMX Mod X 1.8.2 with its TS modules (tsx,
 # tsfun), running scripts/winrig/rets_probe.sma, which drives TSX's setters on a fake client every second.
 # The releases are fetched once into $HLDS_WIN/addons-src.
-if [ "${ADDONS:-0}" = 1 ]; then
+#
+# ADDONS=<suite zip> (scripts/winrig/package-win-suite.sh): unpack the suite over ts/ (its mp.dll replaces
+# the one given), wire liblist.gam to its Metamod-R, take AMX Mod X's stock configs, enable the modules
+# and load only PROBE, compiled with the suite's own compiler.
+if [ "${ADDONS:-0}" != 0 ] && [ "${ADDONS:-0}" != 1 ]; then
+  unzip -qo "$(realpath "$ADDONS")" 'ts/*' -d "$(dirname "$GAME")"
+  rm "$GAME/liblist.gam"
+  sed 's|^gamedll .*|gamedll "addons\\metamod\\dlls\\metamod.dll"|' "$TS_CONTENT/liblist.gam" > "$GAME/liblist.gam"
+  printf 'win32 addons\\amxmodx\\dlls\\amxmodx_mm.dll\n' > "$GAME/addons/metamod/plugins.ini"
+  cp -r "$GAME/addons/amxmodx/configs.default" "$GAME/addons/amxmodx/configs"
+  printf 'fakemeta\nhamsandwich\ntsx\ntsfun\nfun\nengine\n' > "$GAME/addons/amxmodx/configs/modules.ini"
+  PROBE="${PROBE:-rets_probe}"
+  printf '%s.amxx\n' "$PROBE" > "$GAME/addons/amxmodx/configs/plugins.ini"
+  SCR="$GAME/addons/amxmodx/scripting"
+  cp "$MODTS/scripts/winrig/$PROBE.sma" "$SCR/"
+  ( cd "$SCR" && wine amxxpc.exe "$PROBE.sma" "-o../plugins/$PROBE.amxx" ) > /dev/null 2>&1
+  [ -f "$GAME/addons/amxmodx/plugins/$PROBE.amxx" ] || { echo "$PROBE did not compile" >&2; exit 3; }
+  echo ">>> suite $(basename "$ADDONS"); mp.dll $(sha256sum "$GAME/dlls/mp.dll" | cut -c1-12)"
+elif [ "${ADDONS:-0}" = 1 ]; then
   SRC="$HLDS_WIN/addons-src"; mkdir -p "$SRC/zips"
   for z in amxmodx-1.8.2-base-windows.zip amxmodx-1.8.2-ts-windows.zip metamod-1.21.1-am.zip; do
     [ -f "$SRC/zips/$z" ] || curl -sfL -o "$SRC/zips/$z" "https://www.amxmodx.org/release/$z"
@@ -57,11 +77,12 @@ if [ "${ADDONS:-0}" = 1 ]; then
   sed 's|^gamedll .*|gamedll "addons\\metamod\\dlls\\metamod.dll"|' "$TS_CONTENT/liblist.gam" > "$GAME/liblist.gam"
   printf 'win32 addons\\amxmodx\\dlls\\amxmodx_mm.dll\n' > "$GAME/addons/metamod/plugins.ini"
   printf 'fakemeta\ntsx\ntsfun\n' > "$GAME/addons/amxmodx/configs/modules.ini"
-  printf 'rets_probe.amxx\n' > "$GAME/addons/amxmodx/configs/plugins.ini"
+  PROBE="${PROBE:-rets_probe}"   # a plugin in scripts/winrig/
+  printf '%s.amxx\n' "$PROBE" > "$GAME/addons/amxmodx/configs/plugins.ini"
   SCR="$GAME/addons/amxmodx/scripting"
-  cp "$MODTS/scripts/winrig/rets_probe.sma" "$SCR/"
-  ( cd "$SCR" && wine amxxpc.exe rets_probe.sma -o../plugins/rets_probe.amxx ) > /dev/null 2>&1
-  [ -f "$GAME/addons/amxmodx/plugins/rets_probe.amxx" ] || { echo "probe did not compile" >&2; exit 3; }
+  cp "$MODTS/scripts/winrig/$PROBE.sma" "$SCR/"
+  ( cd "$SCR" && wine amxxpc.exe "$PROBE.sma" "-o../plugins/$PROBE.amxx" ) > /dev/null 2>&1
+  [ -f "$GAME/addons/amxmodx/plugins/$PROBE.amxx" ] || { echo "$PROBE did not compile" >&2; exit 3; }
 fi
 
 LOGDIR="$HLDS_WIN/ts-test"; mkdir -p "$LOGDIR"
@@ -95,6 +116,6 @@ set -e
 echo ">>> A2S_INFO: ${answered:-no answer}"
 cat "$HLDS_WIN/qconsole.log" "$GAME/qconsole.log" 2>/dev/null > "$LOG" || true
 echo ">>> exit $rc (124 = still running when the time ran out); console: $LOG"
-grep -E "\[probe\]|Connection to Steam servers|Could not load|LoadLibrary|failed|crash|exception|Error" \
+grep -E "\[probe\]|\[model\]|\[ham\]|Connection to Steam servers|Could not load|LoadLibrary|failed|crash|exception|Error" \
   "$LOG" "$LOG.stdout" | tail -25 || true
 [ -n "$answered" ]
