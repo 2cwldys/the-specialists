@@ -4,7 +4,17 @@ on:
   # Branch pushes only: a vX.Y.Z tag runs release.yml, which calls this workflow.
   push:
     branches: ['**']
+    paths-ignore:
+      - '**.md'
+      - 'reference/**'
+      - '.serena/**'
+      - 'LICENSE'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'reference/**'
+      - '.serena/**'
+      - 'LICENSE'
   # Run by hand (Actions -> CI/CD -> Run workflow) to also build and package the Debug profile.
   workflow_dispatch:
     inputs:
@@ -21,6 +31,12 @@ on:
 
 # The version every build stamps (cmake/Version.cmake): the pushed tag on a tag build, else empty and
 # CMake uses git describe or the commit.
+# A newer push to the same branch cancels the run still building the older one. Tag builds (release.yml)
+# never cancel.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type == 'branch' }}
+
 env:
   RETS_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
@@ -85,12 +101,14 @@ jobs:
         with:
           name: Linux-i386-debug
           path: staged-i386-debug/**
+          retention-days: 7
 
       - name: Deploy
         uses: actions/upload-artifact@v7
         with:
           name: Linux-i386
           path: staged-i386/**
+          retention-days: 7
 
   # Linux amd64 — CMake. 64-bit static-links openvgui (submodule) + the vgui_support
   # shim, so the client has no vgui/SDL2 DT_NEEDED and exports InitVGUISupportAPI.
@@ -129,6 +147,7 @@ jobs:
         with:
           name: Linux-amd64
           path: staged-amd64/**
+          retention-days: 7
 
   # Linux aarch64 — CMake cross-compiled via the in-tree toolchain file.
   linux-aarch64:
@@ -174,6 +193,7 @@ jobs:
         with:
           name: Linux-aarch64
           path: staged-aarch64/**
+          retention-days: 7
 
   # Win32 — CMake/MSVC. 32-bit keeps dynamic Valve vgui (utils/vgui/lib/win32_vc16/vgui.lib).
   win32:
@@ -208,6 +228,7 @@ jobs:
         with:
           name: Win32
           path: staged-win32/**
+          retention-days: 7
 
       - name: Build the Debug profile (workflow_dispatch with debug only)
         if: ${{ inputs.debug }}
@@ -224,6 +245,7 @@ jobs:
         with:
           name: Win32-debug
           path: staged-win32-debug/**
+          retention-days: 7
 
   # Win64 — CMake/MSVC. 64-bit static-links openvgui (submodule, built as part of the
   # client via VGUI_STATIC) + the vgui_support shim: no vgui.dll companion to ship, and
@@ -263,6 +285,7 @@ jobs:
         with:
           name: Win64
           path: staged-win64/**
+          retention-days: 7
 
   # Package — fan in every build job. Two artifacts, both under TS's own file names (TS's liblist.gam
   # names dlls/mp.dll and dlls/ts_i386.so; the client is always cl_dlls/client.*):
@@ -330,6 +353,7 @@ jobs:
         with:
           name: reTS-${{ env.REV }}
           path: dropin/reTS-${{ env.REV }}/**
+          retention-days: 30
 
       - name: Assemble the Debug package
         if: ${{ inputs.debug }}
@@ -347,9 +371,11 @@ jobs:
         with:
           name: reTS-${{ env.REV }}-debug
           path: dropin/reTS-${{ env.REV }}-debug/**
+          retention-days: 30
 
       - name: Upload the Xash libraries
         uses: actions/upload-artifact@v7
         with:
           name: ts-gamelibs-all
           path: dist/**
+          retention-days: 7
