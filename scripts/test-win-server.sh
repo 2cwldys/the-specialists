@@ -52,17 +52,26 @@ if [ -n "${GAMECFG:-}" ]; then rm -f "$GAME/game.cfg"; printf '%s\n' "$GAMECFG" 
 # The releases are fetched once into $HLDS_WIN/addons-src.
 #
 # ADDONS=<suite zip> (scripts/winrig/package-win-suite.sh): unpack the suite over ts/ (its mp.dll replaces
-# the one given), wire liblist.gam to its Metamod-R, take AMX Mod X's stock configs, enable the modules
-# and load only PROBE, compiled with the suite's own compiler.
+# the one given), wire liblist.gam to its Metamod-R and add PROBE, compiled with the suite's own compiler,
+# to the shipped plugins.ini.
+#
+# UPGRADE=1 with ADDONS=<suite zip>: install stock Metamod 1.21.1-am and AMX Mod X 1.8.2 first, with their
+# own configs and plugins, then extract the suite over them, as an existing server would. The 1.8.2
+# configs stay; only modules.ini and plugins.ini are set for the probe.
 if [ "${ADDONS:-0}" != 0 ] && [ "${ADDONS:-0}" != 1 ]; then
+  if [ "${UPGRADE:-0}" = 1 ]; then
+    SRC="$HLDS_WIN/addons-src"
+    ( cd "$GAME" && unzip -qo "$SRC/zips/amxmodx-1.8.2-base-windows.zip" \
+        && unzip -qo "$SRC/zips/amxmodx-1.8.2-ts-windows.zip" && unzip -qo "$SRC/zips/metamod-1.21.1-am.zip" )
+  fi
   unzip -qo "$(realpath "$ADDONS")" 'ts/*' -d "$(dirname "$GAME")"
   rm "$GAME/liblist.gam"
   sed 's|^gamedll .*|gamedll "addons\\metamod\\dlls\\metamod.dll"|' "$TS_CONTENT/liblist.gam" > "$GAME/liblist.gam"
   printf 'win32 addons\\amxmodx\\dlls\\amxmodx_mm.dll\n' > "$GAME/addons/metamod/plugins.ini"
-  cp -r "$GAME/addons/amxmodx/configs.default" "$GAME/addons/amxmodx/configs"
-  printf 'fakemeta\nhamsandwich\ntsx\ntsfun\nfun\nengine\n' > "$GAME/addons/amxmodx/configs/modules.ini"
+  # the shipped modules.ini and plugins.ini stay (AMX Mod X loads the modules a plugin needs); the probe
+  # is added after the stock plugins
   PROBE="${PROBE:-rets_probe}"
-  printf '%s.amxx\n' "$PROBE" > "$GAME/addons/amxmodx/configs/plugins.ini"
+  printf '\n%s.amxx\n' "$PROBE" >> "$GAME/addons/amxmodx/configs/plugins.ini"
   SCR="$GAME/addons/amxmodx/scripting"
   cp "$MODTS/scripts/winrig/$PROBE.sma" "$SCR/"
   ( cd "$SCR" && wine amxxpc.exe "$PROBE.sma" "-o../plugins/$PROBE.amxx" ) > /dev/null 2>&1

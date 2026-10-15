@@ -13,8 +13,10 @@
 #                       with gh into $HLDS_WIN/addons-src/zips). Metamod-R and every AMX Mod X file
 #                       other than the core and the TS module come from it, as CI built them with MSVC.
 #
-# A server's own configuration is left alone: AMX Mod X's stock configs go to
-# addons/amxmodx/configs.default/, and Metamod's plugins.ini/config.ini are not shipped. Metamod-R goes
+# It is a complete addons tree (AMX Mod X's stock configs and plugins, a Metamod plugins.ini that loads AMX
+# Mod X) meant for a clean install: set the old addons folder aside, extract, then bring back the server's
+# own settings and plugin sources and recompile them with the 1.10 compiler. Extracted over an old install
+# it merges: it replaces files of the same name and deletes nothing. Metamod-R goes
 # where TS 3.0-era installs point liblist.gam: addons/metamod/dlls/metamod.dll.
 set -euo pipefail
 MODTS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -49,8 +51,8 @@ mkdir -p "$T/addons/metamod/dlls"
 cp "$WORK/dropin/valve/addons/metamod/dlls/metamod_i386.dll" "$T/addons/metamod/dlls/metamod.dll"
 cp -r "$WORK/dropin/valve/addons/amxmodx" "$T/addons/"
 cp -r "$WORK/dropin/ts/addons/amxmodx/." "$T/addons/amxmodx/"
-mv "$T/addons/amxmodx/configs" "$T/addons/amxmodx/configs.default"
-rm -rf "$T/addons/amxmodx/logs"
+printf 'win32 addons\\amxmodx\\dlls\\amxmodx_mm.dll\n' > "$T/addons/metamod/plugins.ini"
+rm -rf "$T/addons/amxmodx/logs" "$T/addons/amxmodx/scripting/testsuite"
 
 # the core, reTSX and the reTS gamedata from the checkout
 "$MODTS/scripts/winrig/build-amxx-win.sh" "$AMXX" "$WORK/amxx" > /dev/null
@@ -64,17 +66,23 @@ AMXX_REV="$(git -C "$AMXX" rev-parse --short HEAD)"
 cat > "$PKG/README.txt" <<EOF
 reTS $REV with Metamod-R and AMX Mod X (reTSX), for a Windows TS 3.0 server
 
-Copy the ts folder over Half-Life/ts. Set aside the files it replaces first if you want to go back.
-
   ts/dlls/mp.dll, ts/cl_dlls/client.dll, ts/delta.lst, ts/resource/trackerscheme.res   reTS $REV
-  ts/addons/metamod/dlls/metamod.dll   Metamod-R (buildchain drop-in, $(basename "$DROPIN"))
+  ts/addons/metamod/dlls/metamod.dll   Metamod-R (buildchain drop-in, $(basename "$DROPIN")), and a
+                                       plugins.ini that loads AMX Mod X
   ts/addons/amxmodx/                   AMX Mod X 1.10 (same drop-in), with the core (amxmodx_mm.dll),
                                        reTSX (tsx_amxx.dll) and the reTS gamedata from the AMX Mod X
                                        fork's tsx-ts3 ($AMXX_REV)
 
-Your configuration is kept: addons/amxmodx/configs is not in this zip (AMX Mod X 1.10's stock files are
-in configs.default to compare), nor are addons/metamod/plugins.ini and config.ini. Plugins compiled
-for AMX Mod X 1.8.2 load in 1.10; addons/amxmodx/scripting has the 1.10 compiler and includes.
+Installing:
+1. Move Half-Life/ts/addons somewhere else, and back up ts/dlls and ts/cl_dlls.
+2. Copy this zip's ts folder over Half-Life/ts.
+3. From your old addons, bring back what is yours:
+   - addons/metamod/plugins.ini: your other Metamod plugins (RCBot, ...), next to the amxmodx line
+   - addons/amxmodx/configs: users.ini, and your lines in plugins.ini, modules.ini, amxx.cfg
+   - third-party modules (addons/amxmodx/modules) and your plugins' data files
+   - your plugin sources (.sma): put them in addons/amxmodx/scripting and recompile them with
+     compile.exe there, then copy the .amxx files to addons/amxmodx/plugins
+4. Start the server.
 
 Why the whole set: stock AMX Mod X's TS module and Ham Sandwich use TS 3.0's memory offsets and
 function slots, which reTS does not have. reTSX asks reTS for player data instead, and the reTS
