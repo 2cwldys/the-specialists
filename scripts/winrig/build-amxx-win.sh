@@ -14,6 +14,8 @@
 #   METAMOD  metamod-hl1 headers (default ../hlds64-buildchain/metamod-hl1; AMX Mod X wants these, not
 #            Metamod-R's)
 #   XWIN_DIR xwin splat (default ~/.cache/xwin/splat-x86); LLVM_BIN (default /usr/lib/llvm-21/bin)
+#   DEBUGINFO=1 also writes .pdb files. The code is the same (/Z7 adds no code, and /OPT:REF,ICF keep the
+#            linker doing what it does without /DEBUG), so a crash offset in a shipped DLL maps onto it.
 #
 # Output: <out dir>/amxmodx_mm.dll and tsx_amxx.dll (default build-amxx-win/ in this repo).
 set -euo pipefail
@@ -35,6 +37,8 @@ BASE=(--target=i686-pc-windows-msvc /nologo /c /O2 /MT /W0 -fms-compatibility-ve
   /I"$AMXX/public" /I"$AMXX/public/sdk" /I"$AMXX/public/amtl" /I"$AMXX/public/amtl/amtl"
   /I"$AMXX/public/memtools" /I"$AMXX/third_party" /I"$AMXX/third_party/hashing" /I"$AMXX/third_party/zlib"
   /I"$AMXX/third_party/utf8rewind" /I"$AMXX/support/versionlib")
+LDBG=()
+if [ "${DEBUGINFO:-0}" = 1 ]; then BASE+=(/Z7); LDBG=(/DEBUG /OPT:REF /OPT:ICF); fi
 HL=(/I"$METAMOD/metamod" /I"$HLSDK/common" /I"$HLSDK/dlls" /I"$HLSDK/engine" /I"$HLSDK/game_shared"
   /I"$HLSDK/public" /I"$HLSDK/pm_shared")
 
@@ -54,7 +58,7 @@ cc() {
 lib() { "$LLVM_BIN/llvm-lib" /nologo /OUT:"$OUT/$1.lib" "$OUT/obj/$1"/*.obj; }
 link() {  # link <out dll> <objs/libs...>
   local dll="$1"; shift
-  "$LLVM_BIN/lld-link" /nologo /DLL /MACHINE:X86 /SUBSYSTEM:WINDOWS /SECTION:.data,RW \
+  "$LLVM_BIN/lld-link" /nologo /DLL /MACHINE:X86 /SUBSYSTEM:WINDOWS /SECTION:.data,RW "${LDBG[@]}" \
     '/EXPORT:GiveFnptrsToDll=_GiveFnptrsToDll@8,@1' \
     /libpath:"$XWIN_DIR/crt/lib/x86" /libpath:"$XWIN_DIR/sdk/lib/um/x86" /libpath:"$XWIN_DIR/sdk/lib/ucrt/x86" \
     /OUT:"$dll" "$@" kernel32.lib user32.lib

@@ -7,7 +7,8 @@
 #   HLDS_WIN   the Windows HLDS install (default /media/Data3/Projects/goldsrc.net/hlds-win). Fetched with
 #              steamcmd (app 90, anonymous) when hlds.exe is missing.
 #   TS_CONTENT TS 3.0's content (default recovered/ts3-linux/ts in this repo). Linked, not copied.
-#   MAP        the map (default ts_hammertime)
+#   MAP        the map (default ts_hammertime); MAXPLAYERS (default 8); EXTRA_ARGS more command line
+#              (e.g. "+rcbot config min_bots 6"; the engine splits commas, so no commas)
 #
 # Output: $HLDS_WIN/ts-test/<dll name>-<time>.log (the engine's console, from -condebug), and an exit code:
 # 0 when the running server answered an A2S_INFO query (it is running frames on the map), else 1.
@@ -70,12 +71,31 @@ if [ "${ADDONS:-0}" != 0 ] && [ "${ADDONS:-0}" != 1 ]; then
   printf 'win32 addons\\amxmodx\\dlls\\amxmodx_mm.dll\n' > "$GAME/addons/metamod/plugins.ini"
   # the shipped modules.ini and plugins.ini stay (AMX Mod X loads the modules a plugin needs); the probe
   # is added after the stock plugins
-  PROBE="${PROBE:-rets_probe}"
-  printf '\n%s.amxx\n' "$PROBE" >> "$GAME/addons/amxmodx/configs/plugins.ini"
+  PROBE="${PROBE:-rets_probe}"   # PROBE=none adds no probe
   SCR="$GAME/addons/amxmodx/scripting"
-  cp "$MODTS/scripts/winrig/$PROBE.sma" "$SCR/"
-  ( cd "$SCR" && wine amxxpc.exe "$PROBE.sma" "-o../plugins/$PROBE.amxx" ) > /dev/null 2>&1
-  [ -f "$GAME/addons/amxmodx/plugins/$PROBE.amxx" ] || { echo "$PROBE did not compile" >&2; exit 3; }
+  printf '\n' >> "$GAME/addons/amxmodx/configs/plugins.ini"
+  if [ "$PROBE" != none ]; then
+    printf '%s.amxx\n' "$PROBE" >> "$GAME/addons/amxmodx/configs/plugins.ini"
+    cp "$MODTS/scripts/winrig/$PROBE.sma" "$SCR/"
+    ( cd "$SCR" && wine amxxpc.exe "$PROBE.sma" "-o../plugins/$PROBE.amxx" ) > /dev/null 2>&1
+    [ -f "$GAME/addons/amxmodx/plugins/$PROBE.amxx" ] || { echo "$PROBE did not compile" >&2; exit 3; }
+  fi
+  # EXTRA_SMA: plugin sources from outside this repo (a server's own plugins), compiled with the suite's
+  # compiler and added to plugins.ini; EXTRA_CFG: files copied into addons/amxmodx/configs.
+  for sma in ${EXTRA_SMA:-}; do
+    cp "$sma" "$SCR/"; n="$(basename "$sma" .sma)"
+    ( cd "$SCR" && wine amxxpc.exe "$n.sma" "-o../plugins/$n.amxx" ) > "$GAME/addons/amxmodx/$n.compile.txt" 2>&1
+    [ -f "$GAME/addons/amxmodx/plugins/$n.amxx" ] || { echo "$n did not compile" >&2; tail -20 "$GAME/addons/amxmodx/$n.compile.txt" >&2; exit 3; }
+    printf '%s.amxx\n' "$n" >> "$GAME/addons/amxmodx/configs/plugins.ini"
+  done
+  for c in ${EXTRA_CFG:-}; do cp "$c" "$GAME/addons/amxmodx/configs/"; done
+  # RCBOT=1: the drop-in's RCBot (rcbot_mm_i386.dll under Metamod, its data tree at the install root)
+  if [ "${RCBOT:-0}" = 1 ]; then
+    DZ="$HLDS_WIN/addons-src/zips/hlds-dropin-windows-i386-v1.0.9.zip"
+    unzip -qo "$DZ" 'rcbot/*' -d "$HLDS_WIN"
+    unzip -qjo "$DZ" 'valve/addons/metamod/dlls/rcbot_mm_i386.dll' -d "$GAME/addons/metamod/dlls"
+    printf 'win32 addons\\metamod\\dlls\\rcbot_mm_i386.dll\n' >> "$GAME/addons/metamod/plugins.ini"
+  fi
   echo ">>> suite $(basename "$ADDONS"); mp.dll $(sha256sum "$GAME/dlls/mp.dll" | cut -c1-12)"
 elif [ "${ADDONS:-0}" = 1 ]; then
   SRC="$HLDS_WIN/addons-src"; mkdir -p "$SRC/zips"
@@ -104,7 +124,8 @@ rm -f "$GAME/qconsole.log" "$HLDS_WIN/qconsole.log"
 echo ">>> $DLL ($(sha256sum "$DLL" | cut -c1-12)) for ${SECS}s"
 set +e
 ( cd "$HLDS_WIN" && timeout "$SECS" wine hlds.exe -console -condebug -game ts -port 27099 \
-    +sv_lan 1 +maxplayers 8 +deathmatch 1 +localinfo hamhooks "${HAMHOOKS:-}" +map "$MAP" ) > "$LOG.stdout" 2>&1 &
+    +sv_lan 1 +maxplayers "${MAXPLAYERS:-8}" +deathmatch 1 +localinfo hamhooks "${HAMHOOKS:-}" ${EXTRA_ARGS:-} \
+    +map "$MAP" ) > "$LOG.stdout" 2>&1 &
 pid=$!
 # A server that is running frames answers A2S_INFO with its map; a hung or dead one does not.
 answered=""
@@ -129,6 +150,6 @@ set -e
 echo ">>> A2S_INFO: ${answered:-no answer}"
 cat "$HLDS_WIN/qconsole.log" "$GAME/qconsole.log" 2>/dev/null > "$LOG" || true
 echo ">>> exit $rc (124 = still running when the time ran out); console: $LOG"
-grep -E "\[probe\]|\[model\]|\[ham\]|Connection to Steam servers|Could not load|LoadLibrary|failed|crash|exception|Error" \
+grep -E "\[probe\]|\[model\]|\[ham\]|\[cl\]|Connection to Steam servers|Could not load|LoadLibrary|failed|crash|exception|Error" \
   "$LOG" "$LOG.stdout" | tail -25 || true
 [ -n "$answered" ]
