@@ -384,6 +384,18 @@ void CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeam
 }
 
 
+// reTS addition for mp_teammodels_force 0: pModel's slot in the player's own team model list, or -1.
+static int OwnTeamModelIndex(CBasePlayer* pPlayer, const char* pModel)
+{
+	const int team = TSGameRules->GetTeamIndex(pPlayer->TeamID());
+	if (team < 0 || team >= TS_MAX_TEAMS)
+		return -1;
+	for (int i = 0; i < TS_TEAMMODELS; i++)
+		if (TSGameRules->m_teamModels[team][i][0] != '\0' && !stricmp(pModel, TSGameRules->m_teamModels[team][i]))
+			return i;
+	return -1;
+}
+
 //=========================================================
 // ClientUserInfoChanged
 //=========================================================
@@ -399,10 +411,26 @@ void CHalfLifeTeamplay::ClientUserInfoChanged(CBasePlayer* pPlayer, char* infobu
 	if (!stricmp(mdls, pPlayer->m_szTeamName))
 		return;
 
-	// reTS addition (reference/DEVIATIONS.md): with mp_teammodels_force 0 the model is left as the
-	// client or a plugin set it. ChangePlayerTeam still stamps one from the team list on a team change.
+	// reTS addition (reference/DEVIATIONS.md): with mp_teammodels_force 0 a model from the player's
+	// own team list is kept, and any other one is put back to the team model the player already had
+	// (m_iPlayerModel, the last GetPlayerModel pick) instead of a new random pick.
 	if (teammodels_force.value == 0)
-		return;
+	{
+		const int picked = OwnTeamModelIndex(pPlayer, mdls);
+		if (picked >= 0)
+		{
+			pPlayer->m_iPlayerModel = picked;
+			return;
+		}
+		const int team = TSGameRules->GetTeamIndex(pPlayer->TeamID());
+		if (team >= 0 && team < TS_MAX_TEAMS && pPlayer->m_iPlayerModel >= 0 && pPlayer->m_iPlayerModel < TS_TEAMMODELS
+			&& TSGameRules->m_teamModels[team][pPlayer->m_iPlayerModel][0] != '\0')
+		{
+			g_engfuncs.pfnSetClientKeyValue(pPlayer->entindex(), g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()),
+				"model", TSGameRules->m_teamModels[team][pPlayer->m_iPlayerModel]);
+			return;
+		}
+	}
 
 	// live path (m_teamLimit == 1 always in TS): the model is server-owned — re-stamp it
 	// from the team model table (@0xd4e46). The stock defaultteam/IsValidTeam change flow

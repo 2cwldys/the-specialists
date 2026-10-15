@@ -14,11 +14,16 @@ name change, a rate change) re-rolls the player's model, and a plugin that sets 
 it again after each one. Every write goes out to every client.
 
 - `1`: the original behaviour.
-- `0`: `ClientUserInfoChanged` leaves the model as the client or a plugin set it. A team change
-  (`ChangePlayerTeam`) still stamps one from the team list, as the original does.
+- `0`: a model from the player's own team list is kept, and the pick remembered
+  (`CBasePlayer::m_iPlayerModel`). Any other model, the other teams' included, is put back to the team
+  model the player already had instead of a new random one. A team change (`ChangePlayerTeam`) still
+  stamps a random one from the new team's list, as the original does.
 
-With `0` a player can pick any model, the other team's included; keeping models to a team is then the
-plugin's job. Code: `dlls/game.cpp` (the cvar), `dlls/teamplay_gamerules.cpp` (the gate).
+Players stay restricted to their own team's set either way. The set keeps the original's limits:
+three models per team, fifteen characters each, read when the map loads. A plugin can set a model
+outside the set, but the next userinfo change from that player puts it back.
+
+Code: `dlls/game.cpp` (the cvar), `dlls/teamplay_gamerules.cpp` (the gate).
 Requested by a server operator running model plugins under teamplay, 2026-10-15.
 
 ## ReTS_GetInterface (server export)
