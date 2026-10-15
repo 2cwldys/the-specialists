@@ -374,7 +374,7 @@ protected:
 
 // Exported by name, as TS 3.0's ts_i386.so exports it: AMX Mod X's fakemeta finds the rules object through
 // "@g_pGameRules" (gamedata globalvars.engine.txt) for its get/set_gamerules_* natives, and reTS builds with
-// hidden visibility. On Windows hl.def / hl-lld.def export it (TS 3.0's mp.dll does not;
+// hidden visibility. On Windows gamerules.cpp exports it (TS 3.0's mp.dll does not;
 // reference/DEVIATIONS.md).
 #if defined(_WIN32)
 inline DLL_GLOBAL CGameRules* g_pGameRules = nullptr;

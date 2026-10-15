@@ -1,6 +1,5 @@
 LIBRARY hl
 EXPORTS
 	GiveFnptrsToDll			@1
-	g_pGameRules=?g_pGameRules@@3PAVCGameRules@@A DATA
 SECTIONS
 	.data READ WRITE

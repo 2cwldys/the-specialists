@@ -44,9 +44,10 @@ because of the layout differences below. Detail: CLAUDE.md §4a, `dlls/rets_api.
 AMX Mod X's fakemeta finds the game rules object for its get/set_gamerules_* natives by the name
 `@g_pGameRules` on Linux, and on Windows by a byte signature of Counter-Strike's `CWorld::Precache`,
 which matches neither TS 3.0's VC6 build nor reTS's. reTS's `mp.dll` exports `g_pGameRules` by name
-(`dlls/hl.def`, `dlls/hl-lld.def`), and the AMX Mod X fork's tsx-ts3 gamedata
-(`common.games/globalvars-rets.txt`, selected by `ReTS_GetInterface`) looks it up that way on Windows.
-TS 3.0's `mp.dll` exports no such name, so on TS 3.0 Windows servers the natives stay off.
+(`dlls/gamerules.cpp`, a linker export per arch, since the decorated name differs), and the AMX Mod X
+fork's tsx-ts3 gamedata (`common.games/globalvars-rets.txt`, selected by `ReTS_GetInterface`) looks it up
+that way on Windows. TS 3.0's `mp.dll` exports no such name; the public fork finds it there by a signature
+of TS 3.0's own code (`common.games/globalvars-ts.txt`).
 
 On Linux this is no deviation: TS 3.0's `ts_i386.so` exports every symbol, `g_pGameRules` included;
 reTS builds with hidden visibility, so in the stripped Linux libraries the packages ship it could not be

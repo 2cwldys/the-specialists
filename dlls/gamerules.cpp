@@ -28,6 +28,14 @@
 #include "UserMessages.h"
 #include "ts_gamerules.h"
 
+// g_pGameRules exported by its plain name for AMX Mod X (gamerules.h). The decorated name differs by arch,
+// so the export is made here rather than in hl.def.
+#if defined(_WIN64)
+#pragma comment(linker, "/EXPORT:g_pGameRules=?g_pGameRules@@3PEAVCGameRules@@EA,DATA")
+#elif defined(_WIN32)
+#pragma comment(linker, "/EXPORT:g_pGameRules=?g_pGameRules@@3PAVCGameRules@@A,DATA")
+#endif
+
 extern edict_t* EntSelectSpawnPoint(CBaseEntity* pPlayer);
 
 CBasePlayerItem* CGameRules::FindNextBestWeapon(CBasePlayer* pPlayer, CBasePlayerItem* pCurrentWeapon)
