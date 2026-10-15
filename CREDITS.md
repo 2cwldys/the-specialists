@@ -4,19 +4,48 @@ reTS is a fan-made reconstruction of The Specialists 3.0. It is not affiliated w
 original team. Everything below comes from the files TS 3.0 itself ships (`recovered/ts3-linux/ts/`);
 each entry names its source. Where a file names nobody, the entry says so instead of guessing.
 
-## The Specialists
+## The Specialists team
 
-- **Morfeo**: creator of The Specialists, lead developer (CHANGELOG.txt sections; player models below;
-  original ts_lobby, ts_lobbyduel textures).
-- **Vino** (Jorge Rodriguez): developer, TS 3.0 code (CHANGELOG.txt sections; liblist.gam).
-- **Omega**: player model skins (agent, gordon, hitman, laurence, merc, seal readmes).
-- **Supernovae**: head skins for agent and hitman.
-- **John_Matrix**: the coat on gordon and laurence.
-- **Sjet vs Kerrigan**: many custom pistol animations and a fixed Gordon model (CHANGELOG.txt, special
-  thanks).
-- **Podunkian**: the MP5SD stock attack animation (CHANGELOG.txt, special thanks).
+As the team page listed it after 3.0's release (specialistsmod.net/team/team.htm, Wayback Machine capture
+20070824055425; the 20051125 capture is the same less the three names marked 2007).
 
-The weapon models, weapon sounds, sprites and HUD art ship without a readme naming their authors.
+- **Project leads:** Filippo "Morfeo" De Luca, Lorenzo "John_Matrix" Pasini
+- **Lead assistants:** Jorge "Vino" Rodriguez, Matthew "Schmung" Carter
+- **Coding:** Filippo "Morfeo" De Luca, Jorge "Vino" Rodriguez
+- **Mapping:** Matthew "Schmung" Carter, Doeke "Clan-Killer" Wartena, WillSchnevel, Andreas "EviLTaxi"
+  Braunagel, Mazy, Brady "Crackerjack" Keehn, Casimir "Stratesiz" Tuomi, Brian "Lois_Must_Die" Petty,
+  3D Mike, Bram "Pericolos0" Eulaers, Jan "Squad" Huygelen, Cayle George, X-Tender, Scott "Dredd"
+  Winchester, Manah, Sm0lders, Kruxus, Filippo "Morfeo" De Luca
+- **Sound artist:** Menso "Atomic Shiva" von Ehrenstein
+- **Modeling:** Lorenzo "John_Matrix" Pasini, Filippo "Morfeo" De Luca
+- **Additional models:** Matthew "Schmung" Carter, Doeke "Clan-Killer" Wartena, Flakk, Cliff "Sjet vs.
+  Kerrigan" Nordman
+- **Animations:** Filippo "Morfeo" De Luca
+- **Additional animations:** Tempyst, Tom "Rifter" Leaman, Cliff "Sjet vs. Kerrigan" Nordman, Flakk
+- **Skins/textures:** Filippo "Morfeo" De Luca, Marco "Omega" Capone, Michele "Supernovae" De Luca (2007)
+- **Additional skins/textures:** Xanthi, Creeping Jesus, X-Convict, Kissle, Cliff "Sjet vs. Kerrigan"
+  Nordman
+- **Web design:** Graham "Cheshire Cat" Conzett, Matthew "Schmung" Carter, Marco "Omega" Capone
+- **Linux porting:** Jorge "Vino" Rodriguez
+- **Advertising and PR:** Chris "BaronFelX" McMahon (2007)
+- **3.0 official trailer:** Greg "Oreo" Barboza (2007)
+- **Weapon config:** Tom "That One Guy" Loughead, Johan "Antagonist" Allgulander
+- **TS manual:** Ben "Nashwan" Whitingham
+- **Various model fixes:** Weine
+- **Beta testing:** Petter "Al-Akbar" Helmin, Johan "Antagonist" Allgulander, Jimi "Dire" Reittu, Bram
+  "Pericolos0" Eulaers, Jan "Squad" Huygelen, Brady "Crackerjack" Keehn, Dr_b_, Robert "Feixeno"
+  Costello, Tom "That One Guy" Loughead, Flakk, Fullauto, Andrew "icu" Carvalho, Ben "Nashwan"
+  Whitingham, orgun, Joe "Ownij" Tynan, Casimir "Stratesiz" Tuomi, Tom "Rifter" Leaman, Sjet vs.
+  Kerrigan, Tempyst, Graham "Cheshire Cat" Conzett, Andreas "EviLTaxi" Braunagel, Brian "Lois_Must_Die"
+  Petty, Tom "exobot" Right
+- **Past contributors:** Fabrizio "WarFox" Bernardi (public relations), Pierpaolo "Quakeman" Greco
+  (public relations), Giulio "Maik" Redina (weapon consultant), Francesco "Guybrush T." Degrassi (Linux
+  porting), Graograman (technical consultant and community); beta testers Holy Knight, Paddy, Sp@wn,
+  U-Boat, Vokial, Komodo, Chan Kong-sang, Doctor Shaft, Mew, Necro, Brian "Veridian" Torres
+
+Named in the shipped files but not on the team page: Podunkian, the MP5SD stock attack animation
+(CHANGELOG.txt, special thanks). The weapon models, weapon sounds, sprites and HUD art ship without a
+readme; the team page's modeling, animation, skin and sound credits are the attribution for them.
 
 ## Player models
 
@@ -78,6 +107,19 @@ Schmung's maps also use models by 3D_Mike, CayleGeorge and Morfeo, and textures 
 | LMCity1 | John Staats | schmung_readme.txt |
 | g_night | JoNaS | schmung_readme.txt |
 | flfsky9 (ts_heresy) | not named in the shipped files | |
+
+## Sound file metadata
+
+Some of the 339 shipped sounds carry the engineer or copyright tag of where they came from (RIFF INFO
+IENG/IART/ICOP chunks). These name a source, not necessarily a TS contributor:
+
+- Engineer tags: Deepz0ne (sound/misc, e.g. doublekill.wav), Zak / Zack Belica / Paul Zack Belica
+  (weapons/hammer.wav, explo/), Chia Chin Lee (weapons/sshell.wav), Garret Polk (weapons/switch.wav),
+  Peter Immarco (weapons/sfire-inslow.wav), Zachary Quarles (weapons/m60/), Jason Ramirez
+  (weapons/mk23/clipout.wav), Jay (weapons/deagle/clipin.wav), xatrix (weapons/m4/m4-fire.wav), Gearbox
+  (ambience/lv6.wav), Chris Rippy (teahouse/birds9.wav)
+- Copyright: "Sounds Copyrighted by Sound Dogs." (player/kevlarhit.wav)
+- Music: Miles Davis, "Dr. Jekyll" (teahouse/MD-DrJekyll.wav, ts_wyndham)
 
 ## reTS
 
