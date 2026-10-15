@@ -1,344 +1,48 @@
-# Installing Half-Life Updated
+# Installing reTS
 
-## Prerequisites
+reTS is a patch for The Specialists 3.0, not a standalone game. It replaces TS 3.0's game libraries,
+`delta.lst` and one resource file, and leaves its maps, models, sounds and configs alone. You need
+Half-Life and TS 3.0 installed first.
 
-Half-Life Updated is currently available only on Windows.
+## Players
 
-System requirements:
-* Windows 7 or newer
+1. Download `reTS-<version>.zip`.
+2. Copy its `ts` folder over your `Half-Life/ts` folder, replacing the files it asks about.
+3. Restart Half-Life.
 
-You will need to install the following dependencies before you can install the mods themselves:
+The zip's `README.txt` lists every file it replaces. Copy those files somewhere first if you want to go
+back to TS 3.0; putting them back undoes the patch.
 
-1. Install the Visual Studio 2019 re-distributable. You can find it [here](https://docs.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist?view=msvc-170). Make sure to install the x86 version. The re-distributable for 2019 is also used for several other versions, this should be noted on the download page.
+A reTS client plays on TS 3.0 servers and a TS 3.0 client plays on reTS servers, so nobody has to switch
+at the same time.
 
-2. Set up dotnet script. You can find out how to do that here: [Setting up and using dotnet script](/docs/tutorials/setting-up-and-using-dotnet-script.md)
+## Servers
 
-## Installing one of the Half-Life Updated projects
+Install the same way into the server's `ts` folder and restart it. TS 3.0's `server.cfg`, `mapcycle.txt`
+and cvars work unchanged.
 
-1. Install the game you are downloading the updated mod of and run it once. Make sure to start a new game to ensure that all of the game assets have been downloaded and installed. The original game assets are required by the mods, and the singleplayer maps will be copied, converted and updated on installation.
+The server library is in the zip three times because engines pick different names:
 
-2. Download the latest version from the Releases page:
-* [Half-Life Updated](https://github.com/twhl-community/halflife-updated/releases)
-* [Half-Life: Opposing Force Updated](https://github.com/twhl-community/halflife-op4-updated/releases)
-* [Half-Life: Blue Shift Updated](https://github.com/twhl-community/halflife-bs-updated/releases)
+| File | Loaded by |
+|---|---|
+| `dlls/ts.so` | Steam's current Linux engine |
+| `dlls/ts_i386.so` | older Linux engines (liblist.gam's `gamedll_linux`) |
+| `dlls/ts_i686.so` | Metamod-R |
+| `dlls/mp.dll` | Windows |
 
-For the instructions below, replace `mod_name` and `original_game_name` with the following mod directory name and game name depending on which mod you are installing:
-| Mod | Mod directory name | Original game name |
-| --- | --- | --- |
-| Half-Life Updated | halflife_updated | valve |
-| Half-Life: Opposing Force Updated | halflife_op4_updated | gearbox |
-| Half-Life: Blue Shift Updated | halflife_bs_updated | bshift |
+Metamod loads reTS the same way it loads TS 3.0. Metamod-R, AMX Mod X and RCBot run on it. reTSX, the TS
+module in goldsrc-net's AMX Mod X fork, uses reTS's `ReTS_GetInterface` export instead of member offsets
+when it finds it.
 
-3. Extract the archive to your Half-Life directory. It should place a directory called `mod_name` and another called `mod_name_hd` in the `Half-Life` directory.
+reTS-only server settings are listed in [reference/DEVIATIONS.md](reference/DEVIATIONS.md). Each defaults
+to TS 3.0's behaviour. Set them in `server.cfg`.
 
-4. Run the script `mod_name/scripts/installer/Install.csx` with the parameter `--game original_game_name`. See this page for more information on how to run scripts: [Setting up and using dotnet script](/docs/tutorials/setting-up-and-using-dotnet-script.md#using-dotnet-script)
+## 64-bit engines
 
-<details>
-<summary>
-Possible output (for Half-Life Updated)
-</summary>
+A zip that includes `*_amd64` and `*_arm64` files carries 64-bit builds for Xash3D and 64-bit ReHLDS,
+named the way those engines build the file name from TS's liblist.gam. Steam's Half-Life is 32-bit and never loads them.
 
-```
-path\to\Steam\steamapps\common\Half-Life>dotnet script halflife_updated/scripts/installer/Install.csx --game valve
-Installing content to mod directory "path\to\Steam\steamapps\common\Half-Life\halflife_updated".
-Installing Half-Life content...
-Copying maps from "path\to\Steam\steamapps\common\Half-Life\valve\maps" to "path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps"
-Copying map "c0a0.bsp"...
-Copying map "c0a0a.bsp"...
-Copying map "c0a0b.bsp"...
-Copying map "c0a0c.bsp"...
-Copying map "c0a0d.bsp"...
-Copying map "c0a0e.bsp"...
-Copying map "c1a0.bsp"...
-Copying map "c1a0a.bsp"...
-Copying map "c1a0b.bsp"...
-Copying map "c1a0c.bsp"...
-Copying map "c1a0d.bsp"...
-Copying map "c1a0e.bsp"...
-Copying map "c1a1.bsp"...
-Copying map "c1a1a.bsp"...
-Copying map "c1a1b.bsp"...
-Copying map "c1a1c.bsp"...
-Copying map "c1a1d.bsp"...
-Copying map "c1a1f.bsp"...
-Copying map "c1a2.bsp"...
-Copying map "c1a2a.bsp"...
-Copying map "c1a2b.bsp"...
-Copying map "c1a2c.bsp"...
-Copying map "c1a2d.bsp"...
-Copying map "c1a3.bsp"...
-Copying map "c1a3a.bsp"...
-Copying map "c1a3b.bsp"...
-Copying map "c1a3c.bsp"...
-Copying map "c1a3d.bsp"...
-Copying map "c1a4.bsp"...
-Copying map "c1a4b.bsp"...
-Copying map "c1a4d.bsp"...
-Copying map "c1a4e.bsp"...
-Copying map "c1a4f.bsp"...
-Copying map "c1a4g.bsp"...
-Copying map "c1a4i.bsp"...
-Copying map "c1a4j.bsp"...
-Copying map "c1a4k.bsp"...
-Copying map "c2a1.bsp"...
-Copying map "c2a1a.bsp"...
-Copying map "c2a1b.bsp"...
-Copying map "c2a2.bsp"...
-Copying map "c2a2a.bsp"...
-Copying map "c2a2b1.bsp"...
-Copying map "c2a2b2.bsp"...
-Copying map "c2a2c.bsp"...
-Copying map "c2a2d.bsp"...
-Copying map "c2a2e.bsp"...
-Copying map "c2a2f.bsp"...
-Copying map "c2a2g.bsp"...
-Copying map "c2a2h.bsp"...
-Copying map "c2a3.bsp"...
-Copying map "c2a3a.bsp"...
-Copying map "c2a3b.bsp"...
-Copying map "c2a3c.bsp"...
-Copying map "c2a3d.bsp"...
-Copying map "c2a3e.bsp"...
-Copying map "c2a4.bsp"...
-Copying map "c2a4a.bsp"...
-Copying map "c2a4b.bsp"...
-Copying map "c2a4c.bsp"...
-Copying map "c2a4d.bsp"...
-Copying map "c2a4e.bsp"...
-Copying map "c2a4f.bsp"...
-Copying map "c2a4g.bsp"...
-Copying map "c2a5.bsp"...
-Copying map "c2a5a.bsp"...
-Copying map "c2a5b.bsp"...
-Copying map "c2a5c.bsp"...
-Copying map "c2a5d.bsp"...
-Copying map "c2a5e.bsp"...
-Copying map "c2a5f.bsp"...
-Copying map "c2a5g.bsp"...
-Copying map "c2a5w.bsp"...
-Copying map "c2a5x.bsp"...
-Copying map "c3a1.bsp"...
-Copying map "c3a1a.bsp"...
-Copying map "c3a1b.bsp"...
-Copying map "c3a2.bsp"...
-Copying map "c3a2a.bsp"...
-Copying map "c3a2b.bsp"...
-Copying map "c3a2c.bsp"...
-Copying map "c3a2d.bsp"...
-Copying map "c3a2e.bsp"...
-Copying map "c3a2f.bsp"...
-Copying map "c4a1.bsp"...
-Copying map "c4a1a.bsp"...
-Copying map "c4a1b.bsp"...
-Copying map "c4a1c.bsp"...
-Copying map "c4a1d.bsp"...
-Copying map "c4a1e.bsp"...
-Copying map "c4a1f.bsp"...
-Copying map "c4a2.bsp"...
-Copying map "c4a2a.bsp"...
-Copying map "c4a2b.bsp"...
-Copying map "c4a3.bsp"...
-Copying map "c5a1.bsp"...
-Copying map "t0a0.bsp"...
-Copying map "t0a0a.bsp"...
-Copying map "t0a0b.bsp"...
-Copying map "t0a0b1.bsp"...
-Copying map "t0a0b2.bsp"...
-Copying map "t0a0c.bsp"...
-Copying map "t0a0d.bsp"...
-Copied 103 maps.
-Finished installing Half-Life content.
-Updating last modified time for node graphs
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c0a0.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c0a0.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c0a0d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c0a0d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c0a0e.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c0a0e.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0c.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0c.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0e.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a0e.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1c.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1c.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1f.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a1f.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a2.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a2.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a2a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a2a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a2b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a2b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a2c.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a2c.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a2d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a2d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a3.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a3.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a3a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a3a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a3b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a3b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a3c.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a3c.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a3d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a3d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4e.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4e.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4f.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4f.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4i.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4i.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4j.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4j.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4k.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c1a4k.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a1.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a1.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a1a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a1a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a1b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a1b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2b1.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2b1.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2b2.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2b2.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2c.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2c.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2e.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2e.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2f.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2f.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2g.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2g.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2h.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a2h.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a3.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a3.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a3a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a3a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a3b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a3b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a3c.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a3c.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a3d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a3d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4c.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4c.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4e.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4e.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4f.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4f.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4g.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a4g.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5c.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5c.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5e.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5e.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5f.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5f.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5g.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5g.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5w.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c2a5w.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a1.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a1.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a1a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a1a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a1b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a1b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2c.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2c.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2e.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2e.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2f.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c3a2f.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1c.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1c.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1d.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1e.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a1e.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a2.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a2.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a2a.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a2a.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a2b.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a2b.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a3.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\c4a3.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\datacore.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\datacore.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\lambda_bunker.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\lambda_bunker.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\subtransit.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\subtransit.nrp
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\t0a0d.nod
-Updating path\to\Steam\steamapps\common\Half-Life\halflife_updated\maps\graphs\t0a0d.nrp
-Finishing updating node graphs
-```
-</details>
+## Going back
 
-5. Restart Steam so the game is added to the list of games.
-
-## Running the game
-
-You can run the game by either running it through Steam or by launching Half-Life with the command-line parameter `-game mod_name`.
+Put the files you set aside back over the patch, or reinstall TS 3.0's libraries. reTS changes nothing
+outside the files listed in the zip's `README.txt`.

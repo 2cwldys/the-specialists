@@ -125,8 +125,20 @@ IENG/IART/ICOP chunks). These name a source, not necessarily a TS contributor:
 
 - Steven "StevenlAFl" Linn: reconstruction. Also a tester in the closed TS release candidate test, which the
   archived team page's beta tester list does not cover.
-- Built on Half-Life Updated (twhl-community/halflife-updated, Sam Vanheer and contributors) and the
-  Half-Life SDK by Valve. Half-Life is a trademark of Valve Corporation.
+- Built on the Half-Life SDK by Valve. Half-Life is a trademark of Valve Corporation.
+
+### Half-Life Updated
+
+reTS is built on [Half-Life Updated](https://github.com/twhl-community/halflife-updated). Its contributors,
+as its README listed them at the fork point: Sam Vanheer, JoelTroch, malortie, dtugend, Revenant100,
+fel1x-developer, LogicAndTrick, FreeSlave, zpl-zak, edgarbarney, Toodles2You, Jengerer, thefoofighter,
+Maxxiii, johndrinkwater, anchurcn, DanielOaks, MegaBrutal, suXinjke, IntriguingTiles, Oxofemple, YaLTeR,
+Ronin4862, the man, vasiavasiavasia95, NongBenz, Hezus, Anton, ArroganceJustified, a1batross, zaklaus,
+Uncle Mike, Bacontsu, L453rh4wk, P38TaKjYzY, hammermaps, LuckNukeHunter99, Veinhelm, jay!, BryanHaley,
+λλλλλλ, Streit, rbar1um43, LambdaLuke87, almix, sabian.
+
+Its special thanks: Valve Software, Gearbox Software, Alfred Reynolds, mikela-valve, the TWHL Community,
+Knockout, Gamebanana, ModDB.
 
 ## Terms stated in the shipped readmes
 
