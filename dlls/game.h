@@ -35,6 +35,7 @@ extern cvar_t aimcrosshair;
 extern cvar_t decalfrequency;
 extern cvar_t teamlist;
 extern cvar_t teammodels;
+extern cvar_t teammodels_force;
 extern cvar_t teamoverride;
 extern cvar_t defaultteam;
 extern cvar_t allowmonsters;

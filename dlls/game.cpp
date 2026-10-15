@@ -39,6 +39,9 @@ cvar_t aimcrosshair = {"mp_autocrosshair", "1", FCVAR_SERVER};
 cvar_t decalfrequency = {"decalfrequency", "30", FCVAR_SERVER};
 cvar_t teamlist = {"mp_teamlist", "hitman;gordon", FCVAR_SERVER}; // TS default (ts_i386.so @0x108dd0; stock is "hgrunt;scientist")
 cvar_t teammodels = {"mp_teammodels", "", FCVAR_SERVER}; // the team model lists (CHalfLifeTeamplay's constructor)
+// reTS addition, not in TS 3.0 (reference/DEVIATIONS.md): 0 stops teamplay re-stamping the model on
+// every userinfo change, so a plugin can set models without fighting the game.
+cvar_t teammodels_force = {"mp_teammodels_force", "1", FCVAR_SERVER};
 cvar_t teamoverride = {"mp_teamoverride", "1"};
 cvar_t defaultteam = {"mp_defaultteam", "0"};
 cvar_t allowmonsters = {"mp_allowmonsters", "0", FCVAR_SERVER};
@@ -246,6 +249,7 @@ void GameDLLInit()
 	CVAR_REGISTER(&decalfrequency);
 	CVAR_REGISTER(&teamlist);
 	CVAR_REGISTER(&teammodels);
+	CVAR_REGISTER(&teammodels_force);
 	CVAR_REGISTER(&teamoverride);
 	CVAR_REGISTER(&defaultteam);
 	CVAR_REGISTER(&allowmonsters);

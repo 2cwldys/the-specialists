@@ -399,6 +399,11 @@ void CHalfLifeTeamplay::ClientUserInfoChanged(CBasePlayer* pPlayer, char* infobu
 	if (!stricmp(mdls, pPlayer->m_szTeamName))
 		return;
 
+	// reTS addition (reference/DEVIATIONS.md): with mp_teammodels_force 0 the model is left as the
+	// client or a plugin set it. ChangePlayerTeam still stamps one from the team list on a team change.
+	if (teammodels_force.value == 0)
+		return;
+
 	// live path (m_teamLimit == 1 always in TS): the model is server-owned — re-stamp it
 	// from the team model table (@0xd4e46). The stock defaultteam/IsValidTeam change flow
 	// below it is unreachable in TS (m_teamLimit never 0) — dropped, dossier §3.3. An empty model

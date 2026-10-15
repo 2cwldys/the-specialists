@@ -7636,3 +7636,11 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
   deathmatch and teamplay.
 - Found, not changed: CHalfLifeMultiplay::PlayerSpawn's GetTeamCash call has no original counterpart (inert
   INTERIM Y9-3); CHalfLifeRules was checked only for spserver.cfg.
+
+## 2026-10-15: mp_teammodels_force (first deliberate cvar deviation)
+- TS 3.0's teamplay ClientUserInfoChanged (0xd4d18) re-rolls a random team model on any userinfo change
+  (it compares the model to the team name); reTS matched it. A server operator's model plugins fought it.
+- New server cvar mp_teammodels_force, default 1 = original. 0 = the userinfo path leaves the model alone;
+  ChangePlayerTeam still stamps one. Recorded in reference/DEVIATIONS.md (new; lists ReTS_GetInterface too).
+- Proof: amd64, i386, win32 build; ReHLDS rig registers it as "1" and takes "0". The model behaviour itself
+  is not playtested.
