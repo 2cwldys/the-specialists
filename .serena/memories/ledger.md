@@ -7651,3 +7651,16 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
   original has no such string (dossier-attachments §1 agreed). Effect was an extra precache only (the
   skorpion takes no attachments). Row removed. Proof: amd64 hl.so and client.so build, neither holds the
   string. Cut-content survey (armor powerup, TMP, SPAS 15) in reference/CUT_CONTENT.md.
+
+## 2026-10-15: the Windows server suite, and why a server operator's Windows box crashed
+- Reproduced on Windows HLDS under Wine (scripts/test-win-server.sh): with stock AMX Mod X 1.8.2, a Ham
+  Killed hook makes reTS crash at map start (CBaseTrigger::HurtTouch, this clobbered): stock TS windows slot
+  22 is reTS's TakeDamage, so the two-argument trampoline unbalances the stack. TS 3.0's mp.dll is fine.
+- Fixes: hamdata.py --msvc writes reTS's windows slots from clang-cl's MSVC vtable dump (four overloads are
+  not linux-1); amxmodx tsx-ts3 d5d0171d carries them. The core must be tsx-ts3's too: gamedll_export
+  (5a5e5e8b), which selects the reTS gamedata, is not on public 64bit, so the drop-in's core never selected
+  it. scripts/winrig/build-amxx-win.sh builds core + reTSX with clang-cl/xwin; package-win-suite.sh packs
+  reTS + Metamod-R + AMX Mod X for Half-Life/ts.
+- Proof: rets_ham_probe (hooks fire only on the game's own calls) all five fired on reTS with the suite, as
+  on TS 3.0; TSX and model probes pass. Odd: reTSX read free slots 0 once after ts_giveweapon on a fake
+  client that never spawned (40 on a later tick); not checked yet.

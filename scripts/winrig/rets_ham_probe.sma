@@ -1,6 +1,6 @@
 // rets_ham_probe: are Ham Sandwich's slots right for the running game library? Hooks Spawn, Use, Touch,
 // TakeDamage and Killed, then makes the GAME call each virtual (DispatchSpawn, DispatchUse, a
-// trigger_hurt, ClientKill), never ExecuteHam: a hook registered at a wrong slot still fires when called
+// trigger_hurt), never ExecuteHam: a hook registered at a wrong slot still fires when called
 // through that same slot, so only the game's own call tells. Prints one "[ham] <name> fired|MISSING" line
 // each. Run by scripts/test-win-server.sh with ADDONS=... PROBE=rets_ham_probe.
 #include <amxmodx>
@@ -14,11 +14,15 @@ new Float:g_dmg
 public plugin_init()
 {
 	register_plugin("rets_ham_probe", "1", "reTS")
-	RegisterHam(Ham_Spawn, "player", "on_spawn", 1)
-	RegisterHam(Ham_TakeDamage, "player", "on_damage")
-	RegisterHam(Ham_Killed, "player", "on_killed")
-	RegisterHam(Ham_Use, "func_button", "on_use")
-	RegisterHam(Ham_Touch, "trigger_hurt", "on_touch")
+	// localinfo "hamhooks" (test-win-server.sh HAMHOOKS=) picks the hooks, e.g. "spawn.use" (the engine splits commas); default all
+	new only[128]
+	get_localinfo("hamhooks", only, charsmax(only))
+	if (!only[0] || containi(only, "spawn") != -1) RegisterHam(Ham_Spawn, "player", "on_spawn", 1)
+	if (!only[0] || containi(only, "takedamage") != -1) RegisterHam(Ham_TakeDamage, "player", "on_damage")
+	if (!only[0] || containi(only, "killed") != -1) RegisterHam(Ham_Killed, "player", "on_killed")
+	if (!only[0] || containi(only, "use") != -1) RegisterHam(Ham_Use, "func_button", "on_use")
+	if (!only[0] || containi(only, "touch") != -1) RegisterHam(Ham_Touch, "trigger_hurt", "on_touch")
+	server_print("[ham] hooks: %s", only[0] ? only : "all")
 	set_task(3.0, "make_bot")
 }
 
@@ -62,11 +66,15 @@ public step1()
 
 public step2()
 {
-	// Killed: the game's ClientKill (the "kill" command) ends in CBasePlayer::Killed.
+	// Killed: a trigger_hurt the player cannot survive; CBasePlayer::TakeDamage calls Killed through
+	// the vtable.
+	new hurt = engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "trigger_hurt"))
+	set_pev(hurt, pev_dmg, 1000.0)
+	dllfunc(DLLFunc_Spawn, hurt)
 	set_pev(g_bot, pev_takedamage, 2.0)
 	set_pev(g_bot, pev_health, 100.0)
 	set_pev(g_bot, pev_deadflag, 0)
-	dllfunc(DLLFunc_ClientKill, g_bot)
+	dllfunc(DLLFunc_Touch, hurt, g_bot)
 	set_task(1.0, "report")
 }
 

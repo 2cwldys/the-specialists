@@ -22,6 +22,8 @@ export WINEPREFIX="${WINEPREFIX:-$HLDS_WIN/wineprefix}" WINEDEBUG="${WINEDEBUG:-
 # Wine's Linux-side helpers can trip a libdbus assertion ("pending != NULL") that aborts the whole process
 # a few seconds into a map, TS 3.0's own mp.dll included. With no bus to reach they skip those calls.
 export DBUS_SYSTEM_BUS_ADDRESS=unix:path=/nonexistent DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent
+# A crash prints Wine's backtrace into the run's stdout log instead of opening the debugger on the desktop
+# (which also keeps the server's port until someone closes it).
 
 if [ ! -f "$HLDS_WIN/hlds.exe" ]; then
   mkdir -p "$HLDS_WIN"
@@ -76,7 +78,7 @@ elif [ "${ADDONS:-0}" = 1 ]; then
   rm "$GAME/liblist.gam"
   sed 's|^gamedll .*|gamedll "addons\\metamod\\dlls\\metamod.dll"|' "$TS_CONTENT/liblist.gam" > "$GAME/liblist.gam"
   printf 'win32 addons\\amxmodx\\dlls\\amxmodx_mm.dll\n' > "$GAME/addons/metamod/plugins.ini"
-  printf 'fakemeta\ntsx\ntsfun\n' > "$GAME/addons/amxmodx/configs/modules.ini"
+  printf 'fakemeta\nhamsandwich\ntsx\ntsfun\n' > "$GAME/addons/amxmodx/configs/modules.ini"
   PROBE="${PROBE:-rets_probe}"   # a plugin in scripts/winrig/
   printf '%s.amxx\n' "$PROBE" > "$GAME/addons/amxmodx/configs/plugins.ini"
   SCR="$GAME/addons/amxmodx/scripting"
@@ -85,13 +87,15 @@ elif [ "${ADDONS:-0}" = 1 ]; then
   [ -f "$GAME/addons/amxmodx/plugins/$PROBE.amxx" ] || { echo "$PROBE did not compile" >&2; exit 3; }
 fi
 
+wineserver -k 2>/dev/null || true   # this prefix only: leftovers of an earlier run
+wine reg add 'HKCU\Software\Wine\WineDbg' /v ShowCrashDialog /t REG_DWORD /d 0 /f > /dev/null 2>&1 || true
 LOGDIR="$HLDS_WIN/ts-test"; mkdir -p "$LOGDIR"
 LOG="$LOGDIR/$(basename "$(dirname "$DLL")")-$(basename "$DLL" .dll)-$(date +%H%M%S).log"
 rm -f "$GAME/qconsole.log" "$HLDS_WIN/qconsole.log"
 echo ">>> $DLL ($(sha256sum "$DLL" | cut -c1-12)) for ${SECS}s"
 set +e
 ( cd "$HLDS_WIN" && timeout "$SECS" wine hlds.exe -console -condebug -game ts -port 27099 \
-    +sv_lan 1 +maxplayers 8 +deathmatch 1 +map "$MAP" ) > "$LOG.stdout" 2>&1 &
+    +sv_lan 1 +maxplayers 8 +deathmatch 1 +localinfo hamhooks "${HAMHOOKS:-}" +map "$MAP" ) > "$LOG.stdout" 2>&1 &
 pid=$!
 # A server that is running frames answers A2S_INFO with its map; a hung or dead one does not.
 answered=""

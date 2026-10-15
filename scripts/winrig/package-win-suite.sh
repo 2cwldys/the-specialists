@@ -4,12 +4,14 @@
 # TS 3.0 install that runs Metamod and AMX Mod X: reTS, Metamod-R and AMX Mod X with reTSX, laid out to
 # extract over Half-Life/ts. Output: <out dir>/reTS-suite-<reTS rev>-win32.zip (default dist/).
 #
-#   <amxmodx checkout>  the fork's tsx-ts3 branch: reTSX is built from it (build-tsx-win.sh) and its
-#                       gamedata/ goes over the drop-in's (reTS's Ham slots, the stock-TS gates)
+#   <amxmodx checkout>  the fork's tsx-ts3 branch: AMX Mod X's core and reTSX are built from it
+#                       (build-amxx-win.sh) and its gamedata/ goes over the drop-in's (reTS's Ham
+#                       slots, the stock-TS gates). The core has to be tsx-ts3's: only it reads the
+#                       "gamedll_export" condition that selects reTS's slots.
 #   <reTS zip>          a reTS package (scripts/package.sh); its Windows files and data are used
 #   DROPIN              the buildchain's hlds-dropin-windows-i386.zip (default: release v1.0.9, fetched
 #                       with gh into $HLDS_WIN/addons-src/zips). Metamod-R and every AMX Mod X file
-#                       other than the TS module come from it, as CI built them with MSVC.
+#                       other than the core and the TS module come from it, as CI built them with MSVC.
 #
 # A server's own configuration is left alone: AMX Mod X's stock configs go to
 # addons/amxmodx/configs.default/, and Metamod's plugins.ini/config.ini are not shipped. Metamod-R goes
@@ -50,9 +52,10 @@ cp -r "$WORK/dropin/ts/addons/amxmodx/." "$T/addons/amxmodx/"
 mv "$T/addons/amxmodx/configs" "$T/addons/amxmodx/configs.default"
 rm -rf "$T/addons/amxmodx/logs"
 
-# reTSX and the reTS gamedata from the checkout
-"$MODTS/scripts/winrig/build-tsx-win.sh" "$AMXX" "$WORK/tsx" > /dev/null
-cp "$WORK/tsx/tsx_amxx.dll" "$T/addons/amxmodx/modules/tsx_amxx.dll"
+# the core, reTSX and the reTS gamedata from the checkout
+"$MODTS/scripts/winrig/build-amxx-win.sh" "$AMXX" "$WORK/amxx" > /dev/null
+cp "$WORK/amxx/amxmodx_mm.dll" "$T/addons/amxmodx/dlls/amxmodx_mm.dll"
+cp "$WORK/amxx/tsx_amxx.dll" "$T/addons/amxmodx/modules/tsx_amxx.dll"
 cp -r "$AMXX/gamedata/." "$T/addons/amxmodx/data/gamedata/"
 grep -q '"windows"' "$T/addons/amxmodx/data/gamedata/common.games/virtual.games/ts/offsets-rets.txt" \
   || { echo "offsets-rets.txt has no windows slots" >&2; exit 2; }
@@ -65,8 +68,9 @@ Copy the ts folder over Half-Life/ts. Set aside the files it replaces first if y
 
   ts/dlls/mp.dll, ts/cl_dlls/client.dll, ts/delta.lst, ts/resource/trackerscheme.res   reTS $REV
   ts/addons/metamod/dlls/metamod.dll   Metamod-R (buildchain drop-in, $(basename "$DROPIN"))
-  ts/addons/amxmodx/                   AMX Mod X 1.10 (same drop-in), with reTSX's tsx_amxx.dll and the
-                                       reTS gamedata from the AMX Mod X fork's tsx-ts3 ($AMXX_REV)
+  ts/addons/amxmodx/                   AMX Mod X 1.10 (same drop-in), with the core (amxmodx_mm.dll),
+                                       reTSX (tsx_amxx.dll) and the reTS gamedata from the AMX Mod X
+                                       fork's tsx-ts3 ($AMXX_REV)
 
 Your configuration is kept: addons/amxmodx/configs is not in this zip (AMX Mod X 1.10's stock files are
 in configs.default to compare), nor are addons/metamod/plugins.ini and config.ini. Plugins compiled
