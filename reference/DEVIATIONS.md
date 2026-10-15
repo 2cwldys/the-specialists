@@ -36,6 +36,20 @@ motion, kevlar, free slots and the rest), so it does not depend on member offset
 goldsrc-net's AMX Mod X fork, uses it whenever the game library exports it. Not in the original; it exists
 because of the layout differences below. Detail: CLAUDE.md §4a, `dlls/rets_api.h`.
 
+### g_pGameRules exported on Windows (server export)
+
+AMX Mod X's fakemeta finds the game rules object for its get/set_gamerules_* natives by the name
+`@g_pGameRules` on Linux, and on Windows by a byte signature of Counter-Strike's `CWorld::Precache`,
+which matches neither TS 3.0's VC6 build nor reTS's. reTS's `mp.dll` exports `g_pGameRules` by name
+(`dlls/hl.def`, `dlls/hl-lld.def`), and the AMX Mod X fork's tsx-ts3 gamedata
+(`common.games/globalvars-rets.txt`, selected by `ReTS_GetInterface`) looks it up that way on Windows.
+TS 3.0's `mp.dll` exports no such name, so on TS 3.0 Windows servers the natives stay off.
+
+On Linux this is no deviation: TS 3.0's `ts_i386.so` exports every symbol, `g_pGameRules` included;
+reTS builds with hidden visibility, so in the stripped Linux libraries the packages ship it could not be
+found (AMX Mod X also reads an unstripped library's full symbol table, which is why dev builds worked).
+`dlls/gamerules.h` gives `g_pGameRules` default visibility to export it the same way.
+
 ## Forced by the build
 
 None of these were chosen. They follow from building TS's code with a modern compiler on Half-Life

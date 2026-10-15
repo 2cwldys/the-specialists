@@ -7,6 +7,7 @@
 #   HLDS_WIN   the Windows HLDS install (default /media/Data3/Projects/goldsrc.net/hlds-win). Fetched with
 #              steamcmd (app 90, anonymous) when hlds.exe is missing.
 #   TS_CONTENT TS 3.0's content (default recovered/ts3-linux/ts in this repo). Linked, not copied.
+#   UNTIL      stop as soon as the console log matches this grep -E pattern; SECS stays the upper limit
 #   MAP        the map (default ts_hammertime); MAXPLAYERS (default 8); EXTRA_ARGS more command line
 #              (e.g. "+rcbot config min_bots 6"; the engine splits commas, so no commas)
 #
@@ -145,11 +146,23 @@ EOF
   kill -0 "$pid" 2>/dev/null || break
   sleep 5
 done
+# UNTIL=<grep -E pattern>: stop the server as soon as its console log matches (or the time runs out),
+# so a run takes as long as what it is checking, not a fixed SECS.
+if [ -n "${UNTIL:-}" ]; then
+  while kill -0 "$pid" 2>/dev/null; do
+    # grep the files directly: "cat | grep -q" fails under pipefail once grep stops reading
+    grep -qsE "$UNTIL" "$HLDS_WIN/qconsole.log" "$GAME/qconsole.log" && { sleep 1; break; }
+    sleep 1
+  done
+  # end the run's own timeout (the subshell's child) so it stops waiting out SECS, then Wine
+  pkill -TERM -P "$pid" 2>/dev/null || true
+  wineserver -k 2>/dev/null || true
+fi
 wait "$pid"; rc=$?
 set -e
 echo ">>> A2S_INFO: ${answered:-no answer}"
 cat "$HLDS_WIN/qconsole.log" "$GAME/qconsole.log" 2>/dev/null > "$LOG" || true
-echo ">>> exit $rc (124 = still running when the time ran out); console: $LOG"
+echo ">>> exit $rc (124 = ran out the time, 143 = stopped by UNTIL); console: $LOG"
 grep -E "\[probe\]|\[model\]|\[ham\]|\[cl\]|Connection to Steam servers|Could not load|LoadLibrary|failed|crash|exception|Error" \
   "$LOG" "$LOG.stdout" | tail -25 || true
 [ -n "$answered" ]
