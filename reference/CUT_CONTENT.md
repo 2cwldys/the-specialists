@@ -9,7 +9,7 @@ source file of each function) and the content in `recovered/ts3-linux/ts/`.
 | Armor powerup (bit 0x80) | All the code except the gate | Yes, server only |
 | Steyr TMP | All its content; its weapon slot went to the Skorpion | Yes, with a protocol change |
 | SPAS 15 | A source file name; its slot went to the Contender G2 | No, nothing to restore |
-| Bullet dodge stunt | Changelog: "Removed bullet dodge stunt until something better can be thought up" | Not checked |
+| Bullet dodge stunt | Changelog, 2.1.2 beta: "Removed bullet dodge stunt until something better can be thought up" | Not checked |
 
 ## Armor powerup (0x80)
 
@@ -39,7 +39,8 @@ The Skorpion took the TMP's slot. Its weapon data function, `Write_skorpion`, is
 
 ## SPAS 15
 
-Changelog 2.x: "Cut SPAS 15. Not enough time to make it look good." The original's `TS_spas15.cpp` holds
+TS 3.0's own `CHANGELOG.txt` (which logs 2.0.3 beta to 2.1.21 beta), 2.0.9 beta, 03/03/04: "Cut SPAS 15.
+Not enough time to make it look good." The original's `TS_spas15.cpp` holds
 only `Write_contender`: the Contender G2 took the slot. No SPAS 15 model, sound or string ships.
 
 ## Found along the way: a TMP model on the silenced Skorpion
