@@ -588,6 +588,8 @@ Keep the ledger factual: what was reconstructed, how it was verified, what's nex
 - **No `Co-Authored-By` trailers in commits** (user preference across all
   goldsrc-net repos).
 - Match the SDK's surrounding code style when writing reconstructed source.
+- Anything reTS does differently from TS 3.0, whether added on purpose (a cvar, an export) or forced by
+  the build (layout, vtable slots), goes in `reference/DEVIATIONS.md`, with its default and what it breaks.
 - `reference/` is read-only source-of-truth — never modify the original
   binaries; regenerate derived data with `dump-signatures.sh` (MSVC signatures, raw gcc2 symbols) and,
   for `signatures-gcc2.{map,txt}`, run `scripts/gnv2demangle.py` over `symbols-gcc2.txt` (map = the
