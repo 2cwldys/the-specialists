@@ -7664,3 +7664,12 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
 - Proof: rets_ham_probe (hooks fire only on the game's own calls) all five fired on reTS with the suite, as
   on TS 3.0; TSX and model probes pass. Odd: reTSX read free slots 0 once after ts_giveweapon on a fake
   client that never spawned (40 on a later tick); not checked yet.
+
+## 2026-10-15: mp_teammodels_force 0 is off; the team-list mode moves to 2
+- 0 now never writes the model key (userinfo changes: both TS 3.0's multiplayer check and the teamplay
+  re-roll; team changes: no stamp). 1 is TS 3.0. 2 is the old 0 (own team's list, pick kept). A match
+  plugin's class models (not listable in mp_teammodels) were overwritten under the old 0.
+- Same day: g_pGameRules exported (Linux visibility, Windows .def) for fakemeta's gamerules natives; the
+  AMX Mod X fork's fakemeta info buffer handles fixed (a03e1ba9) after a listen-server crash reading 0x1.
+- Proof: rets_model_probe on the Wine rig for 0/1/2 (table in the commit), rets_infobuffer_probe,
+  rets_ham_probe, rets_changelevel_probe, rets_probe all pass on the suite.

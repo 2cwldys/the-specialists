@@ -157,6 +157,10 @@ void CHalfLifeMultiplay::ClientUserInfoChanged(CBasePlayer* pPlayer, char* infob
 		return;
 	}
 
+	// reTS addition (reference/DEVIATIONS.md): mp_teammodels_force 0 leaves the model key alone.
+	if (teammodels_force.value == 0)
+		return;
+
 	char* mdls = g_engfuncs.pfnInfoKeyValue(infobuffer, "model");
 	if (!stricmp(mdls, pPlayer->m_szTeamName))
 		return;

@@ -39,8 +39,8 @@ cvar_t aimcrosshair = {"mp_autocrosshair", "1", FCVAR_SERVER};
 cvar_t decalfrequency = {"decalfrequency", "30", FCVAR_SERVER};
 cvar_t teamlist = {"mp_teamlist", "hitman;gordon", FCVAR_SERVER}; // TS default (ts_i386.so @0x108dd0; stock is "hgrunt;scientist")
 cvar_t teammodels = {"mp_teammodels", "", FCVAR_SERVER}; // the team model lists (CHalfLifeTeamplay's constructor)
-// reTS addition, not in TS 3.0 (reference/DEVIATIONS.md): 0 lets a player keep a chosen model from
-// his own team's list instead of teamplay re-rolling a random one on every userinfo change.
+// reTS addition, not in TS 3.0 (reference/DEVIATIONS.md): how much the server forces player models.
+// 0 off (a plugin or the player owns the model key), 1 TS 3.0's own forcing, 2 own team's list only.
 cvar_t teammodels_force = {"mp_teammodels_force", "1", FCVAR_SERVER};
 cvar_t teamoverride = {"mp_teamoverride", "1"};
 cvar_t defaultteam = {"mp_defaultteam", "0"};

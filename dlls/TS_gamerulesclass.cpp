@@ -1295,7 +1295,7 @@ void CTSGameRules::UpdateTeamScores(int a, int b) {}
 
 // @0x69a08 GetPlayerModel — one of the player's team models (up to three), at random; "" without a
 // team or models. The pick is kept at player+0x758 (m_iPlayerModel, @0x69a7c), which nothing in the original reads
-// (reTS's mp_teammodels_force 0 does, reference/DEVIATIONS.md).
+// (reTS's mp_teammodels_force 2 does, reference/DEVIATIONS.md).
 const char *CTSGameRules::GetPlayerModel(CBasePlayer *pPlayer)
 {
 	if (!pPlayer)

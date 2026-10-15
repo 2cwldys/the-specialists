@@ -163,6 +163,6 @@ set -e
 echo ">>> A2S_INFO: ${answered:-no answer}"
 cat "$HLDS_WIN/qconsole.log" "$GAME/qconsole.log" 2>/dev/null > "$LOG" || true
 echo ">>> exit $rc (124 = ran out the time, 143 = stopped by UNTIL); console: $LOG"
-grep -E "\[probe\]|\[model\]|\[ham\]|\[cl\]|\[ib\]|Connection to Steam servers|Could not load|LoadLibrary|failed|crash|exception|Error" \
+grep -E "\[probe\]|\[model\]|\[ham\]|\[cl\]|\[ib\]|\[ms\]|Connection to Steam servers|Could not load|LoadLibrary|failed|crash|exception|Error" \
   "$LOG" "$LOG.stdout" | tail -25 || true
 [ -n "$answered" ]

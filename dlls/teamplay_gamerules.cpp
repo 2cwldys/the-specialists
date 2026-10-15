@@ -344,8 +344,12 @@ void CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeam
 	// TS DELTA B: the model infokey comes from the TEAM MODEL table (m_teamLimit==1 always in
 	// TS — @0xd4ad3 is the live path; the stock model-as-team stamp is dead). A team with no models
 	// gives the empty model GetPlayerModel returns, as the original stamps it.
-	const char* mdl = TSGameRules->GetPlayerModel(pPlayer);
-	g_engfuncs.pfnSetClientKeyValue(clientIndex, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "model", (char*)mdl);
+	// reTS addition (reference/DEVIATIONS.md): mp_teammodels_force 0 leaves the model key alone here too.
+	if (teammodels_force.value != 0)
+	{
+		const char* mdl = TSGameRules->GetPlayerModel(pPlayer);
+		g_engfuncs.pfnSetClientKeyValue(clientIndex, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "model", (char*)mdl);
+	}
 	g_engfuncs.pfnSetClientKeyValue(clientIndex, g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "team", pPlayer->m_szTeamName);
 	// (no pev->team stamp: the original never writes a player's entvars team. The objectives
 	// gates resolve the team from TeamID() through CTSGameRules::GetTeamIndex, as the original
@@ -384,7 +388,7 @@ void CHalfLifeTeamplay::ChangePlayerTeam(CBasePlayer* pPlayer, const char* pTeam
 }
 
 
-// reTS addition for mp_teammodels_force 0: pModel's slot in the player's own team model list, or -1.
+// reTS addition for mp_teammodels_force 2: pModel's slot in the player's own team model list, or -1.
 static int OwnTeamModelIndex(CBasePlayer* pPlayer, const char* pModel)
 {
 	const int team = TSGameRules->GetTeamIndex(pPlayer->TeamID());
@@ -407,14 +411,18 @@ void CHalfLifeTeamplay::ClientUserInfoChanged(CBasePlayer* pPlayer, char* infobu
 {
 	CHalfLifeMultiplay::ClientUserInfoChanged(pPlayer, infobuffer); // @0x7b244 (the known six)
 
+	// reTS addition (reference/DEVIATIONS.md): mp_teammodels_force 0 leaves the model key alone.
+	if (teammodels_force.value == 0)
+		return;
+
 	char* mdls = g_engfuncs.pfnInfoKeyValue(infobuffer, "model");
 	if (!stricmp(mdls, pPlayer->m_szTeamName))
 		return;
 
-	// reTS addition (reference/DEVIATIONS.md): with mp_teammodels_force 0 a model from the player's
+	// reTS addition (reference/DEVIATIONS.md): with mp_teammodels_force 2 a model from the player's
 	// own team list is kept, and any other one is put back to the team model the player already had
 	// (m_iPlayerModel, the last GetPlayerModel pick) instead of a new random pick.
-	if (teammodels_force.value == 0)
+	if (teammodels_force.value == 2)
 	{
 		const int picked = OwnTeamModelIndex(pPlayer, mdls);
 		if (picked >= 0)

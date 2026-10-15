@@ -16,17 +16,20 @@ key to the team name, and on any mismatch writes a random model from the team's 
 name change, a rate change) re-rolls the player's model, and a plugin that sets custom models has to set
 it again after each one. Every write goes out to every client.
 
+The value is how much the server forces the model:
+
+- `0`: off. The server never writes the `model` key: not on a userinfo change (neither TS 3.0's
+  multiplayer check nor its teamplay re-roll) and not on a team change. A plugin, or the player, owns
+  it; keeping players off the other team's models is then the plugin's job. For match plugins that give
+  each class its own models, which `mp_teammodels` (three per team, fifteen characters each) cannot list.
 - `1`: the original behaviour.
-- `0`: a model from the player's own team list is kept, and the pick remembered
+- `2`: a model from the player's own team list is kept, and the pick remembered
   (`CBasePlayer::m_iPlayerModel`). Any other model, the other teams' included, is put back to the team
   model the player already had instead of a new random one. A team change (`ChangePlayerTeam`) still
   stamps a random one from the new team's list, as the original does.
 
-Players stay restricted to their own team's set either way. The set keeps the original's limits:
-three models per team, fifteen characters each, read when the map loads. A plugin can set a model
-outside the set, but the next userinfo change from that player puts it back.
-
-Code: `dlls/game.cpp` (the cvar), `dlls/teamplay_gamerules.cpp` (the gate).
+Code: `dlls/game.cpp` (the cvar), `dlls/teamplay_gamerules.cpp` (the teamplay gates and
+`ChangePlayerTeam`), `dlls/multiplay_gamerules.cpp` (the multiplayer check, for `0`).
 Requested by a server operator running model plugins under teamplay, 2026-10-15.
 
 ### ReTS_GetInterface (server export)

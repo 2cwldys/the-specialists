@@ -26,7 +26,18 @@ public make_bot()
 
 public step()
 {
-	if (g_step >= sizeof g_try) return
+	if (g_step == sizeof g_try)
+	{
+		// a team change, as a match plugin's jointeam at round start: does the server stamp a model?
+		set_user_info(g_bot, "model", "mycustom")
+		engclient_cmd(g_bot, "jointeam", "2")
+		new after[32]
+		get_user_info(g_bot, "model", after, charsmax(after))
+		server_print("[model] force %d after jointeam 2 with 'mycustom': now '%s'", get_cvar_num("mp_teammodels_force"), after)
+		g_step++
+		return
+	}
+	if (g_step > sizeof g_try) return
 	new before[32], after[32], team[32]
 	get_user_info(g_bot, "model", before, charsmax(before))
 	set_user_info(g_bot, "model", g_try[g_step])
