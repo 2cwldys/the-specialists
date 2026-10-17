@@ -1,8 +1,8 @@
-// rets_slots_probe: an M60, a grenade and a Glock (87 slots) on a fake client that has spawned, first
-// with the 81 free slots of a spawn (the Glock is refused: 4 left), then with ts_setuserslots(200)
-// first (all three fit: 113 left). Before reTS dropped its own 81 cap, the second also left the Glock
-// out. Run by scripts/test-win-server.sh with ADDONS=<suite zip> PROBE=rets_slots_probe
-// UNTIL='\[probe\] done'.
+// rets_slots_probe: an M60, a grenade and a Glock (87 slots) on a fake client that has spawned, with
+// the 81 free slots of a spawn: the Glock is refused (4 left). Then ts_setuserslots(200) and the same
+// again: the M60 is owned already, a second grenade and the Glock fit (183 left), carrying 94. Before
+// reTS dropped its own 81 cap, the Glock was refused there too. Run by scripts/test-win-server.sh with
+// ADDONS=<suite zip> PROBE=rets_slots_probe UNTIL='\[probe\] done'.
 #include <amxmodx>
 #include <fakemeta>
 #include <tsx>
@@ -57,16 +57,13 @@ public tick()
 			new before = ts_getuserslots(g_bot)
 			GiveHeavyLoadout()
 			server_print("[probe] 81 slots: had %d, now %d (want 4)", before, ts_getuserslots(g_bot))
-			// a fresh life for the second loadout
-			user_kill(g_bot, 1)
-			g_alive = 0
 		}
 		case 1:
 		{
 			ts_setuserslots(g_bot, 200)
 			new before = ts_getuserslots(g_bot)
 			GiveHeavyLoadout()
-			server_print("[probe] more slots: had %d, now %d (want 113), grenades %d",
+			server_print("[probe] more slots: had %d, now %d (want 183), grenades %d (want 2)",
 				before, ts_getuserslots(g_bot), ts_getuserammo(g_bot, M61))
 			server_print("[probe] done")
 		}
