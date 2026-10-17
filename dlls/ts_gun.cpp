@@ -283,9 +283,9 @@ int TSPlayerFreeSlots(CBasePlayer *pPlayer)
 		remaining -= 20; // carrying the CTF flag costs 20 slot-weight (CBasePlayer::TakeFlag -0x14)
 	if (pPlayer->m_bHasKevlar)
 		remaining -= 10; // kevlar costs 10 (CBasePlayer::TakeArmor -10 / +10 @0x83da4)
-	if (remaining < 0) remaining = 0;
-	if (remaining > 81) remaining = 81;
-	return remaining + pPlayer->m_iFreeSlotsAdjust; // a plugin's setting, as the counter would hold it
+	// A plugin's setting, as the counter would hold it. Not clamped: with more slots set, the
+	// arsenal can weigh over 81, and the counter only ever subtracts what each pickup weighs.
+	return remaining + pPlayer->m_iFreeSlotsAdjust;
 }
 
 // @0x705e0 Reset — wipe the WHOLE TS arsenal + active state back to bare kung-fu. The original is a
@@ -454,10 +454,8 @@ bool CTSGun::TakeWeapon(tsweapon_t type, const TSItem *pStatus, int iAttach)
 		// A fresh single REFUSES while its akimbo is already owned (@0x70a41 — no third copy).
 		if (wi->iAkimboType >= 0 && wi->iAkimboType < TSW_COUNT && m_items[wi->iAkimboType].owned)
 			return false;
-		// The encumbrance gate: refuse it if it won't fit the 81 slots (GetSpeedBySlots
-		// capacity). Akimbo COMBINES above bypass this (you already carry the single).
-		if (TSSlotsUsed(this) + wi->slotCost > 81)
-			return false;
+		// No slot check here, as in the original: the gate is PickUpWeapon's (@0x831bd), on the
+		// free slots, which count kevlar, the flag and a plugin's setting.
 	}
 
 	// --- fill items[fill] ---
@@ -2877,7 +2875,7 @@ CBaseEntity *GiveTSWeapon(CBasePlayer *pPlayer, tsweapon_t type)
 	}
 
 	if (!pHeld->TakeWeapon(type))
-		return NULL; // won't fit the slot capacity (or invalid) — caller leaves it on the floor
+		return NULL; // already owned (or invalid) — caller leaves it on the floor
 	return pHeld;
 }
 

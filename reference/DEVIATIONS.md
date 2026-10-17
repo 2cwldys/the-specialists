@@ -91,6 +91,7 @@ A few values are the same as the original's to a plugin calling the game, but ar
 original stores them, so even a matched offset would not hold them:
 
 - Free slots: reTS derives the count from what the player carries; setting it stores the difference in
-  `CBasePlayer::m_iFreeSlotsAdjust`.
+  `CBasePlayer::m_iFreeSlotsAdjust`. Like the original's counter it is not clamped, so with more slots
+  set a player can carry over 81 slots' worth (an M60, a grenade and a pistol, 87).
 - Slow motion: the original keeps a registry of slowed players in the game rules; reTS re-applies slow
   motion each frame and keeps no such array (`CTSGameRules::TogglePlayerFromSlow`).
