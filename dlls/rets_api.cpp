@@ -11,6 +11,7 @@
 #include "ts_gun.h"
 #include "ts_weapon_info.h"
 #include "ts_weapons.h" // TSKnifeThrower
+#include "ts_powerup.h"
 #include "rets_api.h"
 
 static CBasePlayer *RetsPlayer(edict_t *pEdict)
@@ -100,6 +101,16 @@ static edict_t *GetKnifeThrower(edict_t *pEdict)
 	if (FNullEnt(pEdict))
 		return nullptr;
 	return TSKnifeThrower(CBaseEntity::Instance(pEdict));
+}
+
+static void PowerUpTouch(edict_t *pPowerUpEdict, edict_t *pPlayerEdict)
+{
+	CBasePlayer *pPlayer = RetsPlayer(pPlayerEdict);
+	if (!pPlayer || FNullEnt(pPowerUpEdict) || !FClassnameIs(&pPowerUpEdict->v, "ts_powerup"))
+		return;
+	CTSPowerUp *pPowerUp = static_cast<CTSPowerUp *>(CBaseEntity::Instance(pPowerUpEdict));
+	if (pPowerUp)
+		pPowerUp->WaitTouch(pPlayer);
 }
 
 // orig weapon_tsgun + 0xd4, int[16] per caliber
@@ -226,6 +237,7 @@ static rets_interface_t BuildInterface()
 	i.SetPlayerSpeed = RetsSetPlayerSpeed;
 	i.GetAmmoMaxCarry = GetAmmoMaxCarry;
 	i.GetKnifeThrower = GetKnifeThrower;
+	i.PowerUpTouch = PowerUpTouch;
 	return i;
 }
 

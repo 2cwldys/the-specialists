@@ -305,8 +305,8 @@ confirm the gap closed.
 - **`dlls/rets_api.{h,cpp}`** export `ReTS_GetInterface(int version)`: a versioned struct of get/set
   functions for the player fields AMX Mod X's TSX module (reTSX) touches (cash, free slots, kevlar, slow
   motion, bullet time, powerups, kung fu, superjump, award, melee bar, lunge, gun ammo reserve, each weapon's
-  owned flag and clip), plus the game's GetSpeedBySlots, SetPlayerSpeed, the ammo max carry and a thrown
-  knife's thrower. Not in the
+  owned flag and clip), plus the game's GetSpeedBySlots, SetPlayerSpeed, the ammo max carry, a thrown
+  knife's thrower and a powerup's pickup (`CTSPowerUp::WaitTouch`, for `ts_givepwup`). Not in the
   original; TSX uses it instead of offsets whenever the game library exports it. Setting free slots stores
   the difference to the derived count in `CBasePlayer::m_iFreeSlotsAdjust` (cleared in TSInit, where the
   original resets its counter to 81). AMX Mod X keeps an identical copy of `rets_api.h`
