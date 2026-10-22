@@ -1930,13 +1930,19 @@ LINK_ENTITY_TO_CLASS(env_fade, CFade);
 #define SF_FADE_IN 0x0001		// Fade in, not out
 #define SF_FADE_MODULATE 0x0002 // Modulate, don't blend
 #define SF_FADE_ONLYONE 0x0004
+#define SF_FADE_RESTRICT 0x0008 // TS: fade only the clients inside the entity's brush ("Restrict Area")
 
+// TS's env_fade is a brush entity: its brush, not drawn, is the area SF_FADE_RESTRICT fades
+// (Spawn__5CFade @0xad68c). Half-Life's was a point entity.
 void CFade::Spawn()
 {
+	SET_MODEL(ENT(pev), STRING(pev->model));
+	UTIL_SetSize(pev, pev->mins, pev->maxs);
+	UTIL_SetOrigin(pev, pev->origin);
+	pev->effects |= EF_NODRAW;
+	pev->movetype = MOVETYPE_FLY;
 	pev->solid = SOLID_NOT;
-	pev->movetype = MOVETYPE_NONE;
-	pev->effects = 0;
-	pev->frame = 0;
+	SetTouch(nullptr);
 }
 
 
@@ -1967,7 +1973,18 @@ void CFade::Use(CBaseEntity* pActivator, CBaseEntity* pCaller, USE_TYPE useType,
 	if ((pev->spawnflags & SF_FADE_MODULATE) != 0)
 		fadeFlags |= FFADE_MODULATE;
 
-	if ((pev->spawnflags & SF_FADE_ONLYONE) != 0)
+	// Use__5CFadeP11CBaseEntityT18USE_TYPEf @0xad7d0: SF_FADE_RESTRICT fades each client in the brush's
+	// bounds (UTIL_EntitiesInBox, 32 at most, FL_CLIENT) and comes before SF_FADE_ONLYONE
+	if ((pev->spawnflags & SF_FADE_RESTRICT) != 0)
+	{
+		CBaseEntity* pList[32];
+		int count = UTIL_EntitiesInBox(pList, 32, pev->absmin, pev->absmax, FL_CLIENT);
+		for (int i = 0; i < count; i++)
+		{
+			UTIL_ScreenFade(pList[i], pev->rendercolor, Duration(), HoldTime(), pev->renderamt, fadeFlags);
+		}
+	}
+	else if ((pev->spawnflags & SF_FADE_ONLYONE) != 0)
 	{
 		if (pActivator->IsNetClient())
 		{

@@ -7673,3 +7673,17 @@ gate was inverted (it re-poses while the sequence is NOT finished, @0x5d386). Pl
   AMX Mod X fork's fakemeta info buffer handles fixed (a03e1ba9) after a listen-server crash reading 0x1.
 - Proof: rets_model_probe on the Wine rig for 0/1/2 (table in the commit), rets_infobuffer_probe,
   rets_ham_probe, rets_changelevel_probe, rets_probe all pass on the suite.
+
+## 2026-10-22: env_fade's Restrict Area (spawnflag 8), and a spawnflags audit
+- TS's CFade (Spawn__5CFade @0xad68c, Use @0xad7d0) is a brush entity: SET_MODEL, its size, EF_NODRAW,
+  MOVETYPE_FLY, not solid. Its Use with spawnflag 8 fades only the clients in its bounds
+  (UTIL_EntitiesInBox, 32, FL_CLIENT), ahead of 4 (activator only). reTS had Half-Life's point-entity
+  CFade with no 8. ts_neobaroque uses it on 11 env_fades (spawnflags 9, lightning flashes per area).
+- Found from the GMod port's FGD comparison (ts_fgd.fgd flag 8 "Restrict Area"). coverage.py checks FGD
+  keys against KeyValue handlers but not flags, so this passed every report.
+- New scripts/coverage/spawnflags.py -> reference/coverage/SPAWNFLAGS.md: the FGD's flag bits each
+  entity's class chain tests against pev->spawnflags in ts_i386.so and in reTS's i386 build. Machine-code
+  pattern matching, so 38 rows were misses either way; each was read in the source and listed with its
+  evidence in reference/coverage/spawnflags_checked.tsv. Now 0 missing, 0 extra.
+- Proof: builds (i386, amd64); CFade::Use calls UTIL_EntitiesInBox; spawnflags.py clean. Built, not yet
+  checked in the engine (needs a client inside a neobaroque fade brush).

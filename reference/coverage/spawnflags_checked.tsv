@@ -1,0 +1,39 @@
+entity	bit	verdict	evidence
+ambient_generic	2	handled	sound.cpp AMBIENT_SOUND_SMALLRADIUS (stock HL; the build tests it in a form spawnflags.py misses)
+ambient_generic	4	handled	sound.cpp AMBIENT_SOUND_MEDIUMRADIUS (stock HL)
+ambient_generic	8	handled	sound.cpp AMBIENT_SOUND_LARGERADIUS (stock HL)
+ambient_generic	32	handled	sound.cpp AMBIENT_SOUND_NOT_LOOPING (stock HL)
+env_beam	128	handled	effects.cpp:941 SF_BEAM_SHADEIN (stock HL)
+env_beam	256	handled	effects.cpp:943 SF_BEAM_SHADEOUT (stock HL)
+env_fade	1	handled	effects.cpp SF_FADE_IN
+func_rotating	8	handled	bmodels.cpp:395 SF_BRUSH_ROTATE_X_AXIS (the FGD labels 8 "Y Axis"; the code's 8 is the X axis, stock HL)
+func_rotating	128	handled	bmodels.cpp SF_BRUSH_ROTATE_SMALLRADIUS (stock HL)
+func_rotating	256	handled	bmodels.cpp:378 SF_BRUSH_ROTATE_MEDIUMRADIUS (stock HL)
+func_rotating	512	handled	bmodels.cpp:382 SF_BRUSH_ROTATE_LARGERADIUS (stock HL)
+func_door_rotating	128	handled	doors.cpp SF_DOOR_ROTATE_X (stock HL)
+func_rot_button	128	handled	buttons.cpp SF_ROTBUTTON_ROTATE_X (stock HL)
+momentary_rot_button	128	handled	buttons.cpp SF_DOOR_ROTATE_X (stock HL)
+func_pushable	128	handled	func_break.cpp SF_PUSH_BREAKABLE (stock HL)
+cycler_wreckage	32	handled	h_cycler.cpp (stock HL)
+game_score	1	handled	maprules.cpp SF_SCORE_NEGATIVE (stock HL)
+trigger_counter	4	handled	triggers.cpp:1134 SF_TRIGGER_PUSHABLES in CBaseTrigger (stock HL)
+trigger_gravity	4	handled	triggers.cpp:1134 SF_TRIGGER_PUSHABLES in CBaseTrigger
+trigger_multiple	4	handled	triggers.cpp:1134 SF_TRIGGER_PUSHABLES in CBaseTrigger
+trigger_once	4	handled	triggers.cpp:1134 SF_TRIGGER_PUSHABLES in CBaseTrigger
+trigger_push	4	handled	triggers.cpp:1134 SF_TRIGGER_PUSHABLES in CBaseTrigger
+trigger_teleport	4	handled	triggers.cpp:1134 SF_TRIGGER_PUSHABLES in CBaseTrigger
+ts_trigger	4	handled	CTSTrigger derives CBaseTrigger: triggers.cpp:1134
+ts_slowmotion	2	handled	TS_entities.cpp:173 SF_SLOMO_ALL_MAP
+ts_slowmotion	4	handled	TS_entities.cpp:174 SF_SLOMO_SLOW_BULLETS
+ts_groundweapon	1	handled	ts_worldgun.cpp:615 attachment price (@0x9242c) and PickUpWeapon's attach mask (@0x924ff); the original reads it in a form spawnflags.py misses
+ts_groundweapon	2	handled	ts_worldgun.cpp:616 (@0x9242c, @0x924ff)
+ts_groundweapon	4	handled	ts_worldgun.cpp:617 (@0x9242c, @0x924ff)
+ts_groundweapon	8	handled	ts_worldgun.cpp:618 (@0x9242c, @0x924ff)
+ts_powerup	1	handled	ts_powerup.cpp: the spawnflags are the random powerup mask, which the original reads in a loop
+ts_powerup	2	handled	ts_powerup.cpp: random powerup mask
+ts_powerup	4	handled	ts_powerup.cpp: random powerup mask
+ts_powerup	8	handled	ts_powerup.cpp: random powerup mask
+ts_powerup	16	handled	ts_powerup.cpp: random powerup mask
+ts_powerup	32	handled	ts_powerup.cpp: random powerup mask
+ts_powerup	64	handled	ts_powerup.cpp: random powerup mask
+ts_powerup	256	handled	ts_powerup.cpp: random powerup mask

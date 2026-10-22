@@ -282,6 +282,11 @@ confirm the gap closed.
   The earlier slot-ownership heuristic was wrong for 83 classes (e.g. `CTSKnife`, `CTSShrapnel`,
   `CM61Grenade` derive from `CTSGrenade`; `CTSGun` from `CBasePlayerWeapon`; `CTSTrigger` from
   `CBaseTrigger`), and some of reTS's class declarations still follow the old answers.
+- **`scripts/coverage/spawnflags.py`** (2026-10-22) → `reference/coverage/SPAWNFLAGS.md`: the spawnflag bits the
+  FGD names that each entity's class chain tests against `pev->spawnflags` in the original and not in reTS's i386
+  build (or the reverse). coverage.py's keyvalue check can't see a flag (env_fade's 8, "Restrict Area", passed it).
+  It pattern-matches machine code, so a row is a lead: read it in the source and the decompile, and once found
+  handled list it in `reference/coverage/spawnflags_checked.tsv` with the evidence. Needs `build-i386`.
 - **`scripts/coverage/audit.py`** (cont.72) → `reference/coverage/AUDIT.md`: the INTERNAL-structure audit —
   diffs OUR build vs the original (`ts_inventory.json`) BOTH directions at file/class/method/member/global level.
   **MISSING** (orig has, we don't = work-list) + **INVENTED** (we have, orig doesn't = review for drift) + FILE
